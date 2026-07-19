@@ -60,6 +60,18 @@ type ContextLabelFn = typeof import('../study/mining-context').contextLabel;
 type StudySourceControllerClass = typeof import('../study/sources').StudySourceController;
 
 interface YomuCompanionRegistry {
+    // The Bunpro provider suite (client, SRS adapter, word-state colouring,
+    // token importer, definition section) ships in the Yomu Bunpro companion;
+    // core keeps only the tiny status-attribute helper and type imports.
+    bunpro?: {
+        BunproClient: typeof import('../bunpro/bunpro').BunproClient;
+        BunproWordStateStore: typeof import('../bunpro/word-states').BunproWordStateStore;
+        createBunproSrsAdapter: typeof import('../srs/bunpro').createBunproSrsAdapter;
+        effectiveBunproWordState: typeof import('../bunpro/word-states').effectiveBunproWordState;
+        installBunproFrontendTokenImporter: typeof import('../bunpro/frontend-token-importer').installBunproFrontendTokenImporter;
+        lookupBunproDefinitionResult: typeof import('../bunpro/definition').lookupBunproDefinitionResult;
+        renderBunproDefinitionSource: typeof import('../bunpro/definition').renderBunproDefinitionSource;
+    };
     localDictionaries?: {
         YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
         // Rebuilds this origin's per-origin dictionary store from the
@@ -215,6 +227,10 @@ export function yomuLocalDictionaries(): NonNullable<YomuCompanionRegistry['loca
 
 export function yomuI18nCompanion(): YomuCompanionRegistry['i18n'] | undefined {
     return yomuCompanions().i18n;
+}
+
+export function yomuBunproCompanion(): YomuCompanionRegistry['bunpro'] | undefined {
+    return yomuCompanions().bunpro;
 }
 
 export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['kanjiStudy']> | undefined {

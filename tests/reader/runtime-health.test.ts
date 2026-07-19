@@ -5,6 +5,7 @@ const companions = vi.hoisted(() => ({
     dictionaries: undefined as undefined | Record<string, unknown>,
     study: undefined as undefined | Record<string, unknown>,
     anki: undefined as undefined | Record<string, unknown>,
+    bunpro: undefined as undefined | Record<string, unknown>,
 }));
 
 vi.mock('../../src/reader/companions/registry', () => ({
@@ -12,6 +13,7 @@ vi.mock('../../src/reader/companions/registry', () => ({
     yomuLocalDictionaries: () => companions.dictionaries,
     yomuKanjiStudyCompanion: () => companions.study,
     yomuAnkiCompanion: () => companions.anki,
+    yomuBunproCompanion: () => companions.bunpro,
 }));
 
 import {
@@ -28,6 +30,7 @@ describe('Reader runtime service health', () => {
         companions.dictionaries = undefined;
         companions.study = undefined;
         companions.anki = undefined;
+        companions.bunpro = undefined;
         document.head.replaceChildren();
     });
 
@@ -47,6 +50,7 @@ describe('Reader runtime service health', () => {
             'grammar',
             'mining',
             'anki',
+            'bunpro',
         ]));
         expect(readerRuntimeConforms(readReaderRuntimeHealth())).toBe(false);
     });
@@ -62,6 +66,7 @@ describe('Reader runtime service health', () => {
             StudySourceController: class {},
         };
         companions.anki = { AnkiConnectClient: class {} };
+        companions.bunpro = { BunproClient: class {} };
         const marker = document.createElement('meta');
         marker.id = READER_RUNTIME_MARKER_ID;
         marker.dataset.yomuRuntimeOwner = 'page-2';

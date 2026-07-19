@@ -11,7 +11,8 @@ import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { renderBunproDefinitionSource, type BunproDefinitionInfo } from '../bunpro/definition';
+import type { BunproDefinitionInfo } from '../bunpro/definition';
+import { yomuBunproCompanion } from '../companions/registry';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
@@ -209,6 +210,8 @@ function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContex
 
 function renderBunproDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
     if (!context.includeBunproSource) return '';
+    const renderBunproDefinitionSource = yomuBunproCompanion()?.renderBunproDefinitionSource;
+    if (!renderBunproDefinitionSource) return '';
     return renderBunproDefinitionSource(
         context.card,
         params.sourceAttributes,

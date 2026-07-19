@@ -80,7 +80,7 @@ import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import { JpdbClient } from '../jpdb/jpdb';
-import { yomuKanjiStudyCompanion } from '../companions/registry';
+import { yomuBunproCompanion, yomuKanjiStudyCompanion } from '../companions/registry';
 import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
@@ -340,10 +340,8 @@ import {
     hasJpdbApiCredential,
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
-import { BunproClient } from '../bunpro/bunpro';
-import { BunproWordStateStore, effectiveBunproWordState } from '../bunpro/word-states';
-import { installBunproFrontendTokenImporter } from '../bunpro/frontend-token-importer';
-import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
+
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
@@ -690,13 +688,14 @@ export class ReaderApp {
     private immersionKit = this.kanjiCompanion ? new this.kanjiCompanion.ImmersionKitClient() : null;
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
-    private bunpro = new BunproClient({
+    private bunproCompanion = yomuBunproCompanion();
+    private bunpro = this.bunproCompanion ? new this.bunproCompanion.BunproClient({
         getFrontendToken: () => this.activeBunproFrontendApiToken(),
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
         getProxyUrl: () => this.settings.corsProxyUrl,
-    });
-    private bunproSrs = createBunproSrsAdapter(this.bunpro);
-    private bunproWordStates = new BunproWordStateStore(this.bunpro);
+    }) : null;
+    private bunproSrs = this.bunproCompanion && this.bunpro ? this.bunproCompanion.createBunproSrsAdapter(this.bunpro) : null;
+    private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -708,7 +707,7 @@ export class ReaderApp {
         anki: this.anki,
         jpdb: this.jpdb,
         jiten: this.jiten,
-        bunpro: this.bunpro,
+        bunpro: this.bunpro ?? undefined,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
     });
     private navigation = new PopupNavigationController(() => Boolean(
@@ -762,7 +761,7 @@ export class ReaderApp {
         jpdb: this.jpdb,
         jiten: this.jiten,
         srsAdapters: {
-            bunpro: this.bunproSrs,
+            bunpro: this.bunproSrs ?? undefined,
             'yomu-local': this.yomuLocalSrs,
         },
         anki: this.anki,
@@ -1210,7 +1209,7 @@ export class ReaderApp {
     }
 
     private async installBunproTokenImporter(): Promise<void> {
-        await installBunproFrontendTokenImporter({
+        await this.bunproCompanion?.installBunproFrontendTokenImporter({
             getSettings: () => this.settings,
             setSettings: settings => { this.settings = settings; },
             saveSettings,
@@ -1293,6 +1292,8 @@ export class ReaderApp {
     // Fills provider-untracked rendered words (not-in-deck) with the user's
     // Bunpro SRS state so pages colour like they do for jpdb/jiten users.
     private async applyBunproWordStatesToRoots(roots: ParentNode[]): Promise<void> {
+        const bunproCompanion = this.bunproCompanion;
+        if (!bunproCompanion || !this.bunproWordStates) return;
         const states = await this.bunproWordStates.load();
         if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
         const now = Date.now();
@@ -1301,7 +1302,7 @@ export class ReaderApp {
             uniqueParentNodes(roots).forEach(root => {
                 renderedWordsInRoot(root).forEach(word => {
                     const entry = word.dataset.expression ? states.get(word.dataset.expression) : undefined;
-                    const state = entry ? effectiveBunproWordState(entry, now) : null;
+                    const state = entry ? bunproCompanion.effectiveBunproWordState(entry, now) : null;
                     if (applyBunproStateToRenderedWord(word, state)) changedWords.push(word);
                 });
             });
@@ -1641,7 +1642,7 @@ export class ReaderApp {
         this.cardRenderData.clear();
         // Credential/settings changes must drop the Bunpro SRS index too, or a
         // token swap keeps colouring words from the previous account.
-        this.bunproWordStates.clear();
+        this.bunproWordStates?.clear();
     }
 
     private scheduleDictionaryRescan(): void {

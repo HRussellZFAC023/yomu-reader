@@ -7,7 +7,8 @@ import type { JitenApiClient, JitenVocabularyInfo, JitenVocabularyWordSummary } 
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { lookupBunproDefinitionResult, type BunproDefinitionInfo, type BunproDefinitionStatus } from '../bunpro/definition';
+import type { BunproDefinitionInfo, BunproDefinitionStatus } from '../bunpro/definition';
+import { yomuBunproCompanion } from '../companions/registry';
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
 import { fallbackLookupTermsForCard } from '../lookup/parser';
@@ -474,6 +475,8 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!included) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'load-excluded' } });
         if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
+        const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
+        if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
         if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: 'auth-missing' } });
         if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: 'auth-expired' } });
         const startedAt = performance.now();

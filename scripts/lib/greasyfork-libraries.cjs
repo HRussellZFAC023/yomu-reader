@@ -39,6 +39,13 @@ const GREASY_FORK_LIBRARIES = [
     globalName: 'YomuSettingsSurfaceLibrary',
   },
   {
+    id: 'bunpro',
+    label: 'Yomu Bunpro',
+    entry: 'src/reader/companions/bunpro.ts',
+    fileName: 'yomu-bunpro.user.js',
+    globalName: 'YomuBunproLibrary',
+  },
+  {
     id: 'video',
     label: 'Yomu Video',
     entry: 'src/reader/companions/video.ts',

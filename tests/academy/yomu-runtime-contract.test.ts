@@ -11,6 +11,7 @@ describe('Academy Reader runtime contract', () => {
             'greasyfork/yomu-settings-surface.user.js',
             'greasyfork/yomu-kanji-study.user.js',
             'greasyfork/yomu-anki.user.js',
+            'greasyfork/yomu-bunpro.user.js',
         ]);
         expect(academyReaderCompanionServices()).toEqual([
             'localization',
@@ -19,6 +20,7 @@ describe('Academy Reader runtime contract', () => {
             'grammar',
             'mining',
             'anki',
+            'bunpro',
         ]);
     });
 });

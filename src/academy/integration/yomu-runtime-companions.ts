@@ -25,6 +25,10 @@ export const ACADEMY_READER_COMPANIONS = [
         fileName: 'greasyfork/yomu-anki.user.js',
         services: ['anki'],
     },
+    {
+        fileName: 'greasyfork/yomu-bunpro.user.js',
+        services: ['bunpro'],
+    },
 ] as const satisfies readonly AcademyReaderCompanion[];
 
 export function academyReaderCompanionFiles(): string[] {

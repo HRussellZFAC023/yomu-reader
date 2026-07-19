@@ -1,5 +1,6 @@
 import {
     yomuAnkiCompanion,
+    yomuBunproCompanion,
     yomuI18nCompanion,
     yomuKanjiStudyCompanion,
     yomuLocalDictionaries,
@@ -38,7 +39,6 @@ export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
         'jiten',
         'yomu-srs',
         'jpdb',
-        'bunpro',
         'pitch',
         'audio',
         'nested-lookup',
@@ -51,6 +51,7 @@ export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
     if (typeof study?.detectGrammarHints === 'function' && typeof study?.listLocalGrammarRules === 'function') available.add('grammar');
     if (typeof study?.normalizeMiningSentence === 'function' && typeof study?.StudySourceController === 'function') available.add('mining');
     if (typeof yomuAnkiCompanion()?.AnkiConnectClient === 'function') available.add('anki');
+    if (typeof yomuBunproCompanion()?.BunproClient === 'function') available.add('bunpro');
     const services = READER_RUNTIME_SERVICES.filter(service => available.has(service));
     const missing = READER_RUNTIME_SERVICES.filter(service => !available.has(service));
     return {

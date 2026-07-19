@@ -2602,18 +2602,18 @@
     unparsed: "stateUnparsed"
   };
   function parseUiCopyTable(rows) {
-    const copy = {};
+    const copy2 = {};
     rows.trim().split("\n").forEach((row) => {
       const tab = row.indexOf("	");
       if (tab < 0) {
         const key = row.trim();
-        if (key) copy[key] = "";
+        if (key) copy2[key] = "";
         return;
       }
       if (tab === 0) return;
-      copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+      copy2[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
     });
-    return copy;
+    return copy2;
   }
   const JA_COPY = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
@@ -3793,8 +3793,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function grammarRuleText(language, ruleId) {
     if (resolveUiLanguage(language) !== "ja") return void 0;
-    const copy = await loadJaGrammarRuleCopy();
-    return copy[ruleId];
+    const copy2 = await loadJaGrammarRuleCopy();
+    return copy2[ruleId];
   }
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
@@ -3844,13 +3844,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeGrammarRuleCopy(value) {
     if (!isGrammarRuleCopyRecord(value)) return {};
-    const copy = {};
+    const copy2 = {};
     for (const [ruleId, item] of Object.entries(value)) {
       const ruleCopy = normalizeGrammarRuleCopyItem(item);
       if (!ruleCopy) continue;
-      copy[ruleId] = ruleCopy;
+      copy2[ruleId] = ruleCopy;
     }
-    return copy;
+    return copy2;
   }
   function normalizeGrammarRuleCopyItem(value) {
     if (!isGrammarRuleCopyRecord(value)) return null;
@@ -14985,6 +14985,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -22714,6 +22715,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function yomuNormalizeOcrRenderedText() {
     return yomuCompanions().ocr?.normalizeOcrRenderedText;
   }
+  function yomuBunproCompanion() {
+    return yomuCompanions().bunpro;
+  }
   function yomuKanjiStudyCompanion() {
     return yomuCompanions().kanjiStudy;
   }
@@ -23852,6 +23856,2234 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
+  const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
+  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
+  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
+  const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
+  const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
+  class BunproApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+      this.name = "BunproApiError";
+    }
+  }
+  class BunproClient {
+    getFrontendToken;
+    getLegacyApiKey;
+    frontendBaseUrl;
+    legacyBaseUrl;
+    requestImpl;
+    timeoutMs;
+    getProxyUrl;
+    transportRetryAfter = 0;
+    constructor(options = {}) {
+      this.getFrontendToken = options.getFrontendToken ?? (() => "");
+      this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
+      this.getProxyUrl = options.getProxyUrl ?? (() => "");
+      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
+      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
+      this.requestImpl = options.requestImpl ?? requestHttp;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
+    }
+    hasFrontendCredential() {
+      return Boolean(this.getFrontendToken().trim());
+    }
+    /** Cheap non-reversible fingerprint of the frontend token, so persisted
+     * per-account caches can be validated without storing the token itself. */
+    // fallow-ignore-next-line unused-class-member
+    frontendCredentialFingerprint() {
+      const token = this.getFrontendToken().trim();
+      if (!token) return "";
+      let hash = 5381;
+      for (let index = 0; index < token.length; index += 1) {
+        hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
+      }
+      return `${hash.toString(16)}:${token.length}`;
+    }
+    // fallow-ignore-next-line unused-class-member
+    hasLegacyCredential() {
+      return Boolean(this.getLegacyApiKey().trim());
+    }
+    getUser() {
+      return this.frontend("/user");
+    }
+    getDueCount() {
+      return this.frontend("/user/due");
+    }
+    getQueue() {
+      return this.frontend("/reviews/quiz_index");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getUserFurigana() {
+      return this.frontend("/user/user_furigana");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getReviews(page = 1, perPage = 25) {
+      return this.frontend("/reviews", {
+        query: {
+          page: String(Math.max(1, Math.floor(page))),
+          per_page: String(Math.max(1, Math.floor(perPage)))
+        }
+      });
+    }
+    getBaseStats() {
+      return this.frontend("/user_stats/base_stats");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getJlptProgress() {
+      return this.frontend("/user_stats/jlpt_progress_mixed");
+    }
+    // Called through a structural Pick<> by the word-state store, which the
+    // member-usage analysis cannot see.
+    // fallow-ignore-next-line unused-class-member
+    getSrsOverview() {
+      return this.frontend("/user_stats/srs_level_overview");
+    }
+    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
+    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
+    // through a structural Pick<> by the word-state store.
+    // fallow-ignore-next-line unused-class-member
+    getSrsLevelDetails(level, reviewableType, page = 1) {
+      return this.frontend("/user_stats/srs_level_details", {
+        query: {
+          level,
+          reviewable_type: reviewableType,
+          page: String(Math.max(1, Math.floor(page)))
+        }
+      });
+    }
+    // fallow-ignore-next-line unused-class-member
+    getForecastDaily() {
+      return this.frontend("/user_stats/forecast_daily");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getForecastHourly() {
+      return this.frontend("/user_stats/forecast_hourly");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getReviewActivity() {
+      return this.frontend("/user_stats/review_activity");
+    }
+    getVocab(slugOrId) {
+      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+    }
+    getGrammarPoint(id) {
+      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
+    }
+    async search(query, options = {}) {
+      return this.frontend("/search/reviewables_v1_1", {
+        method: "POST",
+        body: {
+          query,
+          options: {
+            // Definition/mining lookups do not need the learner's
+            // private notes or bookmarks. Review relationships are
+            // opt-in for the rare caller that actually consumes them.
+            include_reviews: options.includeReviews ?? false,
+            include_bookmarks: false,
+            include_notes: false,
+            only_bookmarks: false
+          },
+          is_searching_grammar: options.grammar ?? true,
+          is_searching_vocab: options.vocab ?? true
+        },
+        trimLimit: options.limit
+      });
+    }
+    updateReviewsViaActionType(request) {
+      return this.frontend("/reviews/update_via_action_type", {
+        method: "PATCH",
+        body: {
+          deck_id: request.deckId ?? null,
+          action_type: request.actionType,
+          reviewables: request.reviewables.map((item) => [item.type, item.id])
+        }
+      });
+    }
+    updateReview(reviewId, body, endpoint = "review") {
+      const collection = endpoint === "ghost-review" ? "ghost_reviews" : endpoint === "self-study-review" ? "self_study_reviews" : "reviews";
+      return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
+        method: "POST",
+        body
+      });
+    }
+    getLegacyStudyQueue() {
+      return this.legacy("/study_queue");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getLegacyRecentItems(limit = 10) {
+      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
+    }
+    async frontend(path, options = {}) {
+      const token = this.getFrontendToken().trim();
+      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
+      const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
+      const response = await this.requestJson(url, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+        statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
+      });
+      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
+    }
+    legacy(path) {
+      const apiKey = this.getLegacyApiKey().trim();
+      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
+      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+    }
+    async requestJson(url, options) {
+      if (this.transportRetryAfter > Date.now()) {
+        throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
+      }
+      try {
+        const response = await this.requestImpl(url, {
+          ...options,
+          responseType: "json",
+          timeoutMs: this.timeoutMs,
+          preferFetch: true,
+          allowDirectCrossOrigin: true,
+          // The Bearer token must never transit the SHARED public proxy,
+          // but the user's own configured proxy is their infrastructure —
+          // and on hosted pages with no userscript bridge it is the only
+          // transport that can carry an authenticated Bunpro request.
+          proxyUrl: this.getProxyUrl(),
+          allowPublicProxies: false,
+          allowSensitiveConfiguredProxy: true,
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          failureLabel: "Bunpro request"
+        });
+        this.transportRetryAfter = 0;
+        return response;
+      } catch (error) {
+        if (isBunproTransportFailure(error)) this.transportRetryAfter = Date.now() + TRANSPORT_FAILURE_BACKOFF_MS;
+        throw normalizeBunproError(error);
+      }
+    }
+  }
+  function isBunproTransportFailure(error) {
+    if (errorStatus$1(error) !== void 0) return false;
+    if (error instanceof BunproApiError) return false;
+    return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
+  }
+  function normalizeBunproError(error) {
+    if (error instanceof BunproApiError) return error;
+    const status = errorStatus$1(error);
+    if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
+    if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
+    return error;
+  }
+  function errorStatus$1(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const status = error.status ?? error.statusCode;
+    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
+  }
+  function trimBaseUrl(value) {
+    return value.replace(/\/+$/u, "");
+  }
+  function urlWithQuery(url, query) {
+    if (!query) return url;
+    const next = new URL(url);
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== void 0) next.searchParams.set(key, value);
+    });
+    return next.href;
+  }
+  function trimBunproSearchResponse(raw, limit) {
+    const maxItems = Math.max(1, Math.floor(limit));
+    if (!raw || typeof raw !== "object") return raw;
+    const value = raw;
+    return {
+      ...value,
+      grammar_points: trimBunproSearchSection(value.grammar_points, maxItems),
+      vocabs: trimBunproSearchSection(value.vocabs, maxItems)
+    };
+  }
+  function trimBunproSearchSection(section, limit) {
+    if (!section || typeof section !== "object") return section;
+    const value = section;
+    if (!Array.isArray(value.data)) return section;
+    return { ...value, data: value.data.slice(0, limit) };
+  }
+  const BUNPRO_SRS_TIERS = ["beginner", "adept", "seasoned", "expert", "master", "ghost"];
+  const BUNPRO_WORD_STATES_STORAGE_KEY = "yomu:bunpro-word-states:v1";
+  const BUNPRO_WORD_STATES_TTL_MS = 6 * 60 * 60 * 1e3;
+  const BUNPRO_WORD_STATES_RETRY_BACKOFF_MS = 5 * 60 * 1e3;
+  const BUNPRO_WORD_STATES_MAX_PAGES = 50;
+  class BunproWordStateStore {
+    constructor(client, ttlMs = BUNPRO_WORD_STATES_TTL_MS) {
+      this.client = client;
+      this.ttlMs = ttlMs;
+    }
+    states = null;
+    pending = null;
+    /** Drop the in-memory index (settings may have changed). The persisted
+     * cache stays — it is validated against the credential fingerprint on the
+     * next load, so a token swap can never colour from the previous account
+     * while an unrelated settings change keeps the cheap warm cache. */
+    clear() {
+      this.states = null;
+      this.retryAfter = 0;
+    }
+    async load(now = Date.now()) {
+      if (this.states) return this.states;
+      if (now < this.retryAfter) return null;
+      this.pending ??= this.loadFresh(now).finally(() => {
+        this.pending = null;
+      });
+      return this.pending;
+    }
+    retryAfter = 0;
+    async loadFresh(now) {
+      const credential = this.client.frontendCredentialFingerprint();
+      const stored = await gmStorageGet(BUNPRO_WORD_STATES_STORAGE_KEY, null);
+      const storedForUser = stored && (stored.credential ?? "") === credential ? stored : null;
+      const cached = restoreBunproWordStates(storedForUser);
+      if (cached && storedForUser && now - storedForUser.fetchedAt < this.ttlMs) {
+        this.states = cached;
+        return cached;
+      }
+      if (!this.client.hasFrontendCredential()) return cached;
+      try {
+        const fetched = await fetchBunproWordStates(this.client);
+        await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now, credential));
+        this.states = fetched;
+        return fetched;
+      } catch {
+        this.states = cached;
+        if (!cached) this.retryAfter = now + BUNPRO_WORD_STATES_RETRY_BACKOFF_MS;
+        return cached;
+      }
+    }
+  }
+  function effectiveBunproWordState(entry, now = Date.now()) {
+    const duePromotable = entry.state === "learning" || entry.state === "known";
+    if (duePromotable && entry.dueAt !== null && entry.dueAt <= now) return "due";
+    return entry.state;
+  }
+  async function fetchBunproWordStates(client) {
+    const overview = await client.getSrsOverview();
+    const vocabCounts = tierCounts(overview);
+    const states = /* @__PURE__ */ new Map();
+    let pageBudget = BUNPRO_WORD_STATES_MAX_PAGES;
+    for (const tier of BUNPRO_SRS_TIERS) {
+      if (!vocabCounts[tier]) continue;
+      let page = 1;
+      let pages = 1;
+      while (page <= pages && pageBudget > 0) {
+        pageBudget -= 1;
+        const response = await client.getSrsLevelDetails(tier, "Vocab", page);
+        pages = Math.min(pageCount(response), page + pageBudget);
+        collectBunproWordStates(response, tier, states);
+        page += 1;
+      }
+    }
+    return states;
+  }
+  function collectBunproWordStates(response, tier, states) {
+    const reviews = objectAt$1(response, "reviews") ?? (isNonNullObject(response) ? response : null);
+    if (!reviews) return;
+    const titles = reviewableTitlesById(arrayAt(reviews, "included"));
+    for (const review of arrayAt(reviews, "data")) {
+      addBunproWordState(review, tier, titles, states);
+    }
+  }
+  function addBunproWordState(review, tier, titles, states) {
+    const attributes = objectAt$1(review, "attributes") ?? (isNonNullObject(review) ? review : null);
+    if (!attributes) return;
+    const title = titles.get(String(attributes.reviewable_id ?? ""));
+    if (!title) return;
+    states.set(title, {
+      state: bunproTierCardState(tier, numberAt(attributes, "streak")),
+      dueAt: parseEpoch(attributes.next_review)
+    });
+  }
+  function bunproTierCardState(tier, streak) {
+    if (tier === "ghost") return "failed";
+    if (tier === "master") return "known";
+    if (streak !== null && streak <= 0) return "new";
+    return "learning";
+  }
+  function reviewableTitlesById(included) {
+    const titles = /* @__PURE__ */ new Map();
+    for (const item of included) {
+      const attributes = objectAt$1(item, "attributes");
+      if (!attributes) continue;
+      const id = String(attributes.id ?? "");
+      const title = typeof attributes.title === "string" ? attributes.title.trim() : "";
+      if (id && title) titles.set(id, title);
+    }
+    return titles;
+  }
+  function tierCounts(overview) {
+    const vocab = objectAt$1(overview, "vocab");
+    const counts = {};
+    for (const tier of BUNPRO_SRS_TIERS) {
+      const count = numberAt(vocab, tier);
+      counts[tier] = count ?? (vocab ? 0 : 1);
+    }
+    return counts;
+  }
+  function pageCount(response) {
+    return numberAt(objectAt$1(response, "pagy"), "pages") ?? 1;
+  }
+  function restoreBunproWordStates(stored) {
+    if (!stored || !isNonNullObject(stored.states)) return null;
+    const states = /* @__PURE__ */ new Map();
+    for (const [expression, entry] of Object.entries(stored.states)) {
+      if (!isNonNullObject(entry) || typeof entry.s !== "string") continue;
+      states.set(expression, {
+        state: entry.s,
+        dueAt: typeof entry.d === "number" ? entry.d : null
+      });
+    }
+    return states;
+  }
+  function persistableBunproWordStates(states, fetchedAt, credential) {
+    const stored = {};
+    states.forEach((entry, expression) => {
+      stored[expression] = { s: entry.state, d: entry.dueAt };
+    });
+    return { fetchedAt, credential, states: stored };
+  }
+  function parseEpoch(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function numberAt(value, key) {
+    if (!isNonNullObject(value)) return null;
+    const raw = Number(value[key]);
+    return Number.isFinite(raw) ? raw : null;
+  }
+  function arrayAt(value, key) {
+    if (!isNonNullObject(value)) return [];
+    const raw = value[key];
+    return Array.isArray(raw) ? raw : [];
+  }
+  function objectAt$1(value, key) {
+    const nested = isNonNullObject(value) ? value[key] : null;
+    return isNonNullObject(nested) && !Array.isArray(nested) ? nested : null;
+  }
+  const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
+  function createBunproSrsAdapter(client) {
+    return {
+      id: "bunpro",
+      label: "Bunpro",
+      capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
+      hasCredential: () => client.hasFrontendCredential(),
+      verify: () => client.getUser().then(() => true, () => false),
+      stats: async () => {
+        const [base, due] = await Promise.all([client.getBaseStats(), client.getDueCount().catch(() => null)]);
+        return normalizeBunproStatsResponse(base, due);
+      },
+      queue: async (limit) => normalizeBunproQueueResponse(await client.getQueue(), limit),
+      review: (request) => reviewBunproCard(client, request),
+      mine: (request) => mineBunproCard(client, request)
+    };
+  }
+  function normalizeBunproQueueResponse(raw, limit = 50) {
+    const reviewSessionId = readString(raw, ["review_session_id", "reviewSessionId"]);
+    const cards = collectBunproReviewables(raw).map((card) => normalizeBunproReviewable(card)).filter((card) => card !== null).map((card) => {
+      if (!reviewSessionId) return card;
+      const endpoint = normalizeBunproReviewEndpoint(readString(card.raw, ["review_endpoint_kind", "reviewEndpointKind"]));
+      return {
+        ...card,
+        reviewSession: {
+          id: reviewSessionId,
+          inputMode: endpoint === "review" && readBoolean(card.raw, ["is_fsrs", "isFsrs"]) ? "fsrs" : "regular",
+          endpoint
+        }
+      };
+    }).slice(0, Math.max(0, Math.floor(limit)));
+    return {
+      providerId: "bunpro",
+      fetchedAt: Date.now(),
+      cards,
+      dueCount: readFirstNumber(raw, ["due_count", "dueCount", "reviews_due", "reviewsDue", "total_pending_attempt_count"]) ?? cards.filter((card) => card.state.includes("due")).length,
+      newCount: readFirstNumber(raw, ["new_count", "newCount", "new_cards", "newCards"]) ?? cards.filter((card) => card.state.includes("new")).length,
+      reviewCount: readFirstNumber(raw, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]) ?? cards.length
+    };
+  }
+  function normalizeBunproStatsResponse(raw, due) {
+    const source = isNonNullObject(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
+    return {
+      providerId: "bunpro",
+      fetchedAt: Date.now(),
+      reviewsDue: bunproDueTotal(due) ?? readFirstNumber(source, ["reviews_due", "reviewsDue", "due", "due_count"]),
+      reviewsToday: readFirstNumber(source, ["reviews_today", "reviewsToday", "reviews_done_today"]),
+      newToday: readFirstNumber(source, ["new_today", "newToday", "new_cards_today"]),
+      streakDays: readFirstNumber(source, ["streak", "streak_days", "streakDays"]),
+      levelCounts: normalizeLevelCounts(raw),
+      raw
+    };
+  }
+  function bunproDueTotal(due) {
+    const grammar = readFirstNumber(due, ["total_due_grammar"]);
+    const vocab = readFirstNumber(due, ["total_due_vocab"]);
+    if (grammar === void 0 && vocab === void 0) return void 0;
+    return (grammar ?? 0) + (vocab ?? 0);
+  }
+  function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
+    const record = reviewableRecord(raw);
+    if (!record) return null;
+    const id = readString(record, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+    const reviewableId = readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+    const expression = readString(record, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
+    if (!id || !expression) return null;
+    const kind = normalizeBunproKind(
+      readString(record, ["reviewable_type", "reviewableType", "type", "kind"]),
+      inferBunproKind(record, fallbackKind)
+    );
+    const slug = readString(record, ["slug", "grammar_point_slug", "grammarPointSlug"]);
+    return {
+      providerId: "bunpro",
+      providerCardId: id,
+      providerReviewId: readString(record, ["review_id", "reviewId"]) || id,
+      providerReviewableId: reviewableId || void 0,
+      kind,
+      expression,
+      reading: readString(record, ["reading", "kana", "furigana"]) || expression,
+      meanings: normalizeBunproMeanings(record, kind),
+      state: normalizeBunproCardState(readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel", "status", "state"])),
+      srsLevel: readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel"]) || void 0,
+      dueAt: readFirstDate(record, ["next_review_at", "nextReviewAt", "due_at", "dueAt"]),
+      lastReviewAt: readFirstDate(record, ["last_reviewed_at", "lastReviewedAt", "last_review_at", "lastReviewAt"]),
+      sourceUrl: bunproReviewableUrl(kind, slug || reviewableId || id),
+      raw
+    };
+  }
+  async function reviewBunproCard(client, request) {
+    const reviewId = request.card.providerReviewId || request.card.providerCardId;
+    const session = request.card.reviewSession;
+    if (!positiveIntegerString(reviewId)) {
+      throw new BunproApiError("Bunpro grading needs a valid numeric review id. Reload the Bunpro queue and try again.");
+    }
+    if (!session || !positiveIntegerString(session.id)) {
+      throw new BunproApiError("Bunpro grading needs an active review session. Reload the Bunpro queue and try again.");
+    }
+    if (session.inputMode === "fsrs" && session.endpoint !== "review") {
+      throw new BunproApiError("Bunpro FSRS grading is available only for ordinary review cards. Reload the queue and try again.");
+    }
+    const input2 = bunproReviewInput(session.inputMode, request.grade);
+    const body = {
+      review_session_id: Number(session.id),
+      correct: input2.correct,
+      fsrs_input: input2.fsrsInput,
+      loaded_review_ids: null,
+      loaded_ghost_review_ids: null,
+      loaded_self_study_review_ids: null
+    };
+    if (input2.incorrectAnswer) body.incorrect_answer = input2.incorrectAnswer;
+    const raw = await client.updateReview(reviewId, body, session.endpoint);
+    const normalized = normalizeBunproReviewable(raw);
+    return { card: normalized ? { ...normalized, reviewSession: session } : request.card, raw };
+  }
+  async function mineBunproCard(client, request) {
+    const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 12 });
+    const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
+    const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
+    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+    if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
+      throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
+    }
+    const providerReviewableId = reviewable.providerReviewableId || reviewable.providerCardId;
+    const providerReviewableIdNumber = Number(providerReviewableId);
+    if (!Number.isFinite(providerReviewableIdNumber) || providerReviewableIdNumber <= 0) {
+      throw new BunproApiError(`Bunpro returned no addable reviewable id for "${request.expression}".`);
+    }
+    const type = reviewable.kind === "vocabulary" ? "Vocab" : "GrammarPoint";
+    const raw = await client.updateReviewsViaActionType({
+      actionType: "add",
+      reviewables: [{ type, id: providerReviewableIdNumber }]
+    });
+    return { card: { ...reviewable, providerReviewableId }, raw };
+  }
+  function bunproReviewInput(mode, grade) {
+    if (mode === "regular") {
+      if (grade === "fail") return { correct: false, fsrsInput: null, incorrectAnswer: "__FLASHCARD_REGULAR_HARD" };
+      if (grade === "pass") return { correct: true, fsrsInput: null };
+      throw new BunproApiError("This Bunpro review accepts only Hard or Good.");
+    }
+    if (grade === "nothing" || grade === "again") return { correct: false, fsrsInput: "again", incorrectAnswer: "__FLASHCARD_FSRS_AGAIN" };
+    if (grade === "hard") return { correct: false, fsrsInput: "hard", incorrectAnswer: "__FLASHCARD_FSRS_HARD" };
+    if (grade === "okay" || grade === "good") return { correct: true, fsrsInput: "good" };
+    if (grade === "easy") return { correct: true, fsrsInput: "easy" };
+    throw new BunproApiError("This Bunpro FSRS review accepts Again, Hard, Good, or Easy.");
+  }
+  function collectBunproReviewables(raw) {
+    const quizEntries = collectBunproQuizIndexEntries(raw);
+    if (quizEntries.length) return quizEntries;
+    const arrays = [
+      readArray(raw, ["data"]),
+      readArray(raw, ["reviews"]),
+      readArray(raw, ["reviewables"]),
+      readArray(raw, ["items"]),
+      readArray(raw, ["queue"]),
+      readArray(raw, ["due"])
+    ];
+    return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
+  }
+  function collectBunproQuizIndexEntries(raw) {
+    if (!isNonNullObject(raw)) return [];
+    const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
+    return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
+  }
+  function flattenBunproQuizIndexEntry(entry) {
+    if (!isNonNullObject(entry)) return null;
+    const review = objectAt(entry, "data");
+    if (!review) return null;
+    const attributes = objectAt(review, "attributes") ?? {};
+    const reviewId = readString(review, ["id"]) || readString(attributes, ["id"]);
+    if (!reviewId) return null;
+    const reviewable = bunproQuizIndexReviewable(entry, attributes);
+    return {
+      ...reviewable,
+      ...attributes,
+      // Slugs can be disambiguated ("カレー-dup"); the title is the word.
+      japanese: readString(reviewable, ["title"]) || void 0,
+      id: reviewId,
+      review_id: reviewId,
+      review_endpoint_kind: bunproQuizReviewEndpoint(attributes),
+      // `state` is the last key the shared normalizer's srs_stage/srs_level/
+      // status/state chain reads, so nothing else may reintroduce those keys.
+      state: "due",
+      srs_stage: void 0,
+      srs_level: void 0,
+      status: void 0,
+      next_review_at: readString(attributes, ["next_review"]) || void 0
+    };
+  }
+  function bunproQuizReviewEndpoint(attributes) {
+    if (readString(attributes, ["user_study_question_id", "userStudyQuestionId"])) return "self-study-review";
+    return Object.prototype.hasOwnProperty.call(attributes, "ghost_count") ? "review" : "ghost-review";
+  }
+  function normalizeBunproReviewEndpoint(value) {
+    if (value === "ghost-review" || value === "self-study-review") return value;
+    return "review";
+  }
+  function bunproQuizIndexReviewable(entry, reviewAttributes) {
+    const type = readString(reviewAttributes, ["reviewable_type"]).toLowerCase();
+    const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
+    const included = readArray(entry, ["included"]);
+    for (const item of included) {
+      if (!isNonNullObject(item) || readString(item, ["type"]) !== wantedKind) continue;
+      const attributes = objectAt(item, "attributes");
+      if (attributes) return attributes;
+    }
+    return {};
+  }
+  function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
+    const record = isNonNullObject(raw) ? raw : {};
+    const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
+    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText$2(hit.expression) === normalizedLookupText$2(expression));
+    if (!hits.length) return null;
+    if (reading) {
+      const readingMatches = hits.filter((hit) => normalizedLookupText$2(hit.reading) === normalizedLookupText$2(reading));
+      if (readingMatches.length === 1) return readingMatches[0] ?? null;
+      if (readingMatches.length > 1) return sameBunproReviewableIdentity(readingMatches) ? readingMatches[0] ?? null : null;
+      return null;
+    }
+    return hits.length === 1 || sameBunproReviewableIdentity(hits) ? hits[0] ?? null : null;
+  }
+  function normalizedLookupText$2(value) {
+    return value.normalize("NFKC").trim();
+  }
+  function sameBunproReviewableIdentity(cards) {
+    const first2 = cards[0];
+    return Boolean(first2 && cards.every((card) => card.providerCardId === first2.providerCardId));
+  }
+  function positiveIntegerString(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0;
+  }
+  function reviewableRecord(raw) {
+    const unwrapped = unwrapBunproData(raw);
+    if (!isNonNullObject(unwrapped)) return null;
+    const attributes = objectAt(unwrapped, "attributes");
+    return attributes ? { ...unwrapped, ...attributes } : unwrapped;
+  }
+  function unwrapBunproData(value) {
+    if (!isNonNullObject(value)) return value;
+    const data = value.data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return data;
+    const review = value.review;
+    if (isNonNullObject(review)) return review;
+    const item = value.item;
+    if (isNonNullObject(item)) return item;
+    return value;
+  }
+  function normalizeBunproKind(value, fallback) {
+    const normalized = value.toLowerCase();
+    if (normalized.includes("vocab")) return "vocabulary";
+    if (normalized.includes("grammar")) return "grammar";
+    if (normalized.includes("kanji")) return "kanji";
+    if (normalized.includes("sentence") || normalized.includes("question")) return "sentence";
+    return fallback;
+  }
+  function inferBunproKind(record, fallback) {
+    if (readString(record, ["vocab_id", "vocabId", "vocabulary_id", "vocabularyId", "word"])) return "vocabulary";
+    if (readString(record, ["grammar_id", "grammarId", "grammar_point", "grammarPoint"])) return "grammar";
+    return fallback;
+  }
+  function normalizeBunproCardState(value) {
+    const normalized = value.toLowerCase();
+    if (!normalized) return ["in-deck"];
+    if (normalized.includes("due") || normalized.includes("review")) return ["due"];
+    if (normalized.includes("new") || normalized.includes("beginner")) return ["new"];
+    if (normalized.includes("ghost") || normalized.includes("fail")) return ["failed"];
+    if (normalized.includes("master") || normalized.includes("known")) return ["known"];
+    if (normalized.includes("seasoned") || normalized.includes("expert") || normalized.includes("adept")) return ["learning"];
+    return ["in-deck"];
+  }
+  function normalizeBunproMeanings(record, kind) {
+    const glosses = readStringList(record, ["meaning", "meanings", "english", "translation", "translations", "definition"]).filter(Boolean);
+    return glosses.length ? [{ glosses, partOfSpeech: kind === "grammar" ? ["grammar"] : [] }] : [];
+  }
+  function normalizeLevelCounts(raw) {
+    const record = objectAt(raw, "srs_level_counts") ?? objectAt(raw, "srsLevelCounts") ?? objectAt(raw, "level_counts") ?? objectAt(raw, "levelCounts");
+    if (!record) return void 0;
+    const counts = {};
+    for (const [key, value] of Object.entries(record)) {
+      const number = Number(value);
+      if (Number.isFinite(number)) counts[key] = number;
+    }
+    return Object.keys(counts).length ? counts : void 0;
+  }
+  function bunproReviewableUrl(kind, slugOrId) {
+    const value = slugOrId.trim();
+    if (!value) return BUNPRO_SETTINGS_URL;
+    const encoded = encodeURIComponent(value);
+    if (kind === "vocabulary") return `https://bunpro.jp/vocabs/${encoded}`;
+    if (kind === "sentence") return BUNPRO_SETTINGS_URL;
+    return `https://bunpro.jp/grammar_points/${encoded}`;
+  }
+  function readFirstDate(value, keys) {
+    const raw = readString(value, keys);
+    if (!raw) return null;
+    const parsed = Date.parse(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function readFirstNumber(value, keys) {
+    const record = isNonNullObject(value) ? value : null;
+    if (!record) return void 0;
+    for (const key of keys) {
+      const number = Number(record[key]);
+      if (Number.isFinite(number)) return number;
+    }
+    const data = record.data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
+    const attributes = objectAt(record, "attributes");
+    return attributes ? readFirstNumber(attributes, keys) : void 0;
+  }
+  function readBoolean(value, keys) {
+    const record = isNonNullObject(value) ? value : null;
+    if (!record) return false;
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "boolean") return raw;
+      if (raw === 1 || raw === "1" || raw === "true") return true;
+    }
+    const data = record.data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return readBoolean(data, keys);
+    const attributes = objectAt(record, "attributes");
+    return attributes ? readBoolean(attributes, keys) : false;
+  }
+  function readString(value, keys) {
+    const record = isNonNullObject(value) ? value : null;
+    if (!record) return "";
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "string" && raw.trim()) return raw.trim();
+      if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+    }
+    const data = record.data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return readString(data, keys);
+    return "";
+  }
+  function readStringList(value, keys) {
+    const record = isNonNullObject(value) ? value : null;
+    if (!record) return [];
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+      if (Array.isArray(raw)) return raw.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
+    }
+    return [];
+  }
+  function readArray(value, keys) {
+    const record = isNonNullObject(value) ? value : null;
+    if (!record) return [];
+    for (const key of keys) {
+      const raw = record[key];
+      if (Array.isArray(raw)) return raw;
+    }
+    const data = record.data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return readArray(data, keys);
+    return [];
+  }
+  function objectAt(value, key) {
+    if (!isNonNullObject(value)) return null;
+    const nested = value[key];
+    return isNonNullObject(nested) && !Array.isArray(nested) ? nested : null;
+  }
+  const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
+  const IMPORTER_ID = "jpdb-reader-bunpro-token-importer";
+  const BUNPRO_SETTINGS_PATH = "/settings/api";
+  const INSTALL_FLAG = "__yomuBunproFrontendTokenImporterInstalled";
+  function isBunproApiSettingsPage(href = safeHref()) {
+    try {
+      const url = new URL(href, safeHref());
+      return isBunproHost(url.hostname) && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
+    } catch {
+      return false;
+    }
+  }
+  async function readBunproFrontendToken(options = {}) {
+    const fromCookieStore = await readBunproFrontendTokenFromCookieStore(options.cookieStore ?? globalCookieStore());
+    if (fromCookieStore) return fromCookieStore;
+    return readBunproFrontendTokenFromCookieHeader(options.cookieHeader?.() ?? safeDocumentCookie());
+  }
+  function readBunproFrontendTokenFromCookieHeader(cookieHeader) {
+    const token = cookieValue(cookieHeader, BUNPRO_FRONTEND_API_TOKEN_COOKIE);
+    return token ? { token, expiresAt: "" } : null;
+  }
+  async function installBunproFrontendTokenImporter(options) {
+    if (typeof document === "undefined") return;
+    if (!isBunproHostFromHref(importerHref(options))) return;
+    await waitForBody();
+    if (!document.body) return;
+    installRouteWatcher(options);
+    await renderImporterForCurrentRoute(options);
+  }
+  async function renderImporterForCurrentRoute(options) {
+    if (!document.body) return;
+    if (!isBunproApiSettingsPage(importerHref(options))) {
+      document.getElementById(IMPORTER_ID)?.remove();
+      return;
+    }
+    const existing = document.getElementById(IMPORTER_ID);
+    if (existing) {
+      document.body.append(existing);
+      return;
+    }
+    const language = resolveUiLanguage(options.language?.() ?? options.getSettings().interfaceLanguage);
+    const token = await readBunproFrontendToken(options);
+    const root = document.createElement("section");
+    root.id = IMPORTER_ID;
+    root.className = "jpdb-reader-bunpro-token-importer";
+    root.dataset.jpdbReaderRoot = "true";
+    root.setAttribute("role", "region");
+    root.setAttribute("aria-label", copy(language).title);
+    root.append(renderBunproImporterContent(token, language));
+    document.body.append(root);
+    const button2 = root.querySelector('[data-action="import-bunpro-token"]');
+    button2?.addEventListener("click", () => {
+      void importBunproToken(options, root, language);
+    });
+  }
+  async function importBunproToken(options, root, language) {
+    const ui = copy(language);
+    const status = root.querySelector("[data-bunpro-import-status]");
+    if (status) status.textContent = ui.reading;
+    const latestToken = await readBunproFrontendToken(options);
+    if (!latestToken) {
+      if (status) status.textContent = ui.missing;
+      return;
+    }
+    const nextSettings = {
+      ...options.getSettings(),
+      bunproFrontendApiToken: latestToken.token,
+      bunproFrontendApiTokenExpiresAt: latestToken.expiresAt,
+      bunproMiningEnabled: true
+    };
+    if (status) status.textContent = ui.saving;
+    try {
+      options.setSettings(nextSettings);
+      await options.saveSettings(nextSettings);
+      if (status) status.textContent = ui.saved;
+      options.toast?.(ui.saved);
+    } catch {
+      if (status) status.textContent = ui.failed;
+      options.toast?.(ui.failed);
+    }
+  }
+  function renderBunproImporterContent(token, language) {
+    const ui = copy(language);
+    const content = document.createElement("div");
+    content.className = "jpdb-reader-bunpro-token-importer-card";
+    const title = document.createElement("div");
+    title.className = "jpdb-reader-bunpro-token-importer-title";
+    title.textContent = ui.title;
+    const body = document.createElement("p");
+    body.textContent = token ? ui.ready : ui.missing;
+    const meta = document.createElement("div");
+    meta.className = "jpdb-reader-bunpro-token-importer-meta";
+    meta.textContent = token?.expiresAt ? ui.expires(token.expiresAt) : ui.expiryUnknown;
+    const actions = document.createElement("div");
+    actions.className = "jpdb-reader-bunpro-token-importer-actions";
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "jpdb-reader-bunpro-token-importer-button";
+    button2.dataset.action = "import-bunpro-token";
+    button2.textContent = ui.action;
+    const status = document.createElement("span");
+    status.dataset.bunproImportStatus = "true";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    actions.append(button2, status);
+    content.append(title, body, meta, actions);
+    return content;
+  }
+  async function readBunproFrontendTokenFromCookieStore(cookieStore) {
+    if (!cookieStore?.get) return null;
+    try {
+      const cookie = await cookieStore.get(BUNPRO_FRONTEND_API_TOKEN_COOKIE);
+      const token = normalizeCookieValue(cookie?.value ?? "");
+      if (!token) return null;
+      return { token, expiresAt: normalizeCookieExpires(cookie?.expires) };
+    } catch {
+      return null;
+    }
+  }
+  function cookieValue(cookieHeader, name) {
+    const parts = cookieHeader.split(";");
+    for (const part of parts) {
+      const [rawName, ...rawValue] = part.split("=");
+      if (rawName?.trim() !== name) continue;
+      return normalizeCookieValue(rawValue.join("="));
+    }
+    return "";
+  }
+  function normalizeCookieValue(value) {
+    const trimmed = value.trim().replace(/^"|"$/g, "");
+    if (!trimmed) return "";
+    try {
+      return decodeURIComponent(trimmed).trim();
+    } catch {
+      return trimmed;
+    }
+  }
+  function normalizeCookieExpires(value) {
+    if (value instanceof Date) return finiteDateIso(value);
+    if (typeof value === "number") {
+      if (!Number.isFinite(value) || value <= 0) return "";
+      return finiteDateIso(new Date(value));
+    }
+    if (typeof value === "string") {
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? finiteDateIso(new Date(parsed)) : "";
+    }
+    return "";
+  }
+  function finiteDateIso(date) {
+    return Number.isFinite(date.getTime()) ? date.toISOString() : "";
+  }
+  function normalizePathname(pathname) {
+    return pathname.replace(/\/+$/u, "") || "/";
+  }
+  function isBunproHost(hostname) {
+    const host = hostname.toLowerCase();
+    return host === "bunpro.jp" || host.endsWith(".bunpro.jp");
+  }
+  function isBunproHostFromHref(href = safeHref()) {
+    try {
+      return isBunproHost(new URL(href, safeHref()).hostname);
+    } catch {
+      return false;
+    }
+  }
+  function importerHref(options) {
+    return typeof options.href === "function" ? options.href() : options.href;
+  }
+  function installRouteWatcher(options) {
+    const global = globalThis;
+    if (global[INSTALL_FLAG]) return;
+    global[INSTALL_FLAG] = true;
+    const rerender = () => {
+      void renderImporterForCurrentRoute(options);
+    };
+    window.addEventListener("popstate", rerender);
+    wrapHistoryMethod("pushState", rerender);
+    wrapHistoryMethod("replaceState", rerender);
+    const observer = new MutationObserver(() => {
+      const root = document.getElementById(IMPORTER_ID);
+      if (root && document.body?.lastElementChild !== root) document.body.append(root);
+    });
+    if (document.body) observer.observe(document.body, { childList: true });
+  }
+  function wrapHistoryMethod(method, after) {
+    const original = history[method];
+    if (typeof original !== "function") return;
+    history[method] = function yomuBunproHistoryWrapper(...args) {
+      original.apply(this, args);
+      window.setTimeout(after, 0);
+    };
+  }
+  function globalCookieStore() {
+    return globalThis.cookieStore;
+  }
+  function safeDocumentCookie() {
+    try {
+      return document.cookie ?? "";
+    } catch {
+      return "";
+    }
+  }
+  function safeHref() {
+    try {
+      return location.href;
+    } catch {
+      return "https://bunpro.jp/settings/api";
+    }
+  }
+  function waitForBody() {
+    if (document.body || document.readyState !== "loading") return Promise.resolve();
+    return new Promise((resolve) => {
+      document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+    });
+  }
+  function copy(language) {
+    if (language === "ja") {
+      return {
+        title: "Yomu Bunpro連携",
+        ready: "Bunproのログイン用トークンを見つけました。Yomuに保存してBunpro復習を有効にできます。",
+        missing: "トークンを読めませんでした。ログイン中ならFirefoxのCookie制限で隠れている可能性があります。",
+        expiryUnknown: "有効期限はブラウザから読めませんでした。",
+        expires: (iso) => `期限: ${new Date(iso).toLocaleDateString("ja-JP")}`,
+        action: "Yomuで使う",
+        reading: "確認中...",
+        saving: "保存中...",
+        saved: "BunproトークンをYomuに保存しました。",
+        failed: "保存できませんでした。Yomuの権限を確認してください。"
+      };
+    }
+    return {
+      title: "Yomu Bunpro setup",
+      ready: "Yomu found your Bunpro session token. Save it to enable Bunpro reviews and mining.",
+      missing: "Yomu could not read the token. If you are signed in, Firefox may be hiding this cookie.",
+      expiryUnknown: "Expiry is not visible in this browser.",
+      expires: (iso) => `Expires ${new Date(iso).toLocaleDateString("en-GB")}`,
+      action: "Use in Yomu",
+      reading: "Checking...",
+      saving: "Saving...",
+      saved: "Bunpro token saved to Yomu.",
+      failed: "Could not save. Check your Yomu userscript permissions."
+    };
+  }
+  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
+  function cardHighlightTargets(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = optionalJapaneseCardReading(card);
+    return uniqueCardHighlightValues([spelling, reading]);
+  }
+  function normalizedJapaneseCardReading(spelling, reading) {
+    const cleanSpelling = cleanCardHighlightValue(spelling);
+    const cleanReading = cleanCardHighlightValue(reading);
+    return cleanReading && JAPANESE_TEXT_RE$1.test(cleanReading) ? cleanReading : cleanSpelling;
+  }
+  function cleanCardHighlightValue(value) {
+    return (value ?? "").replace(/\s+/g, " ").trim();
+  }
+  function compactCardHighlightValue(value) {
+    return cleanCardHighlightValue(value).replace(/\s+/g, "");
+  }
+  function optionalJapaneseCardReading(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = normalizedJapaneseCardReading(spelling, card.reading);
+    return reading && reading !== spelling ? reading : "";
+  }
+  function uniqueCardHighlightValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map(cleanCardHighlightValue).filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
+  function renderCardHighlightedTextHtml(text2, card) {
+    return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
+  }
+  function cardHighlightScopeAttributes(card) {
+    if (!card) return "";
+    const spelling = cleanCardHighlightValue(card.spelling);
+    if (!spelling) return "";
+    return [
+      `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
+      `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
+      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
+      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
+    ].filter(Boolean).join(" ");
+  }
+  function highlightCardTargetWords(root, card) {
+    const words = cardHighlightWords(root);
+    for (const word of words) {
+      if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
+    }
+  }
+  function highlightCardTargetScopes(root) {
+    for (const scope of cardHighlightScopes(root)) {
+      const card = cardHighlightTargetFromScope(scope);
+      if (card) highlightCardTargetWords(scope, card);
+    }
+  }
+  function isCardHighlightWord(word, card) {
+    const cardVid = card.vid === void 0 ? "" : String(card.vid);
+    const cardSid = card.sid === void 0 ? "" : String(card.sid);
+    if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
+    const surface = compactCardHighlightValue(readerWordSurfaceText$1(word));
+    if (!surface) return false;
+    return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
+  }
+  function cardHighlightWords(root) {
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+    return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
+  }
+  function cardHighlightScopes(root) {
+    const selector = "[data-card-highlight-spelling]";
+    const scopes = Array.from(root.querySelectorAll(selector));
+    return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
+  }
+  function cardHighlightTargetFromScope(scope) {
+    const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
+    if (!spelling) return null;
+    const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
+    return {
+      spelling,
+      reading,
+      vid: scope.dataset.cardHighlightVid,
+      sid: scope.dataset.cardHighlightSid
+    };
+  }
+  const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
+  const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
+  const LOCAL_TERM_TAG_LABELS = /* @__PURE__ */ new Map([
+    ["n", "noun"],
+    ["pn", "pronoun"],
+    ["r", "rare"],
+    ["uk", "usually kana"],
+    ["adj-i", "i-adjective"],
+    ["adj-na", "na-adjective"],
+    ["adv", "adverb"],
+    ["exp", "expression"],
+    ["int", "interjection"],
+    ["prt", "particle"],
+    ["suf", "suffix"],
+    ["pref", "prefix"],
+    ["vs", "suru verb"],
+    ["vi", "intransitive"],
+    ["vt", "transitive"]
+  ]);
+  const LOCAL_TERM_TAG_LABELS_JA = /* @__PURE__ */ new Map([
+    ["n", "名詞"],
+    ["pn", "代名詞"],
+    ["r", "まれ"],
+    ["uk", "かな表記が多い"],
+    ["adj-i", "い形容詞"],
+    ["adj-na", "な形容詞"],
+    ["adv", "副詞"],
+    ["exp", "表現"],
+    ["int", "感動詞"],
+    ["prt", "助詞"],
+    ["suf", "接尾辞"],
+    ["pref", "接頭辞"],
+    ["vs", "する動詞"],
+    ["vi", "自動詞"],
+    ["vt", "他動詞"]
+  ]);
+  function localTermTags(entries2, language = "en") {
+    const tags = entries2.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map((tag) => localTermTagLabel(tag, language)).filter(Boolean);
+    return [...new Set(tags)].slice(0, 8);
+  }
+  function localTermTagLabel(tag, language) {
+    const normalized = tag.toLowerCase();
+    if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
+    if (language === "ja") return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
+    return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
+  }
+  function hasRichStructuredGlossary(value) {
+    if (!value || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
+    const record = value;
+    return isRichStructuredGlossaryRecord(record) || hasRichStructuredGlossary(record.content);
+  }
+  function isRichStructuredGlossaryRecord(record) {
+    const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
+    return record.type === "image" || "path" in record || tag === "img" || tag === "table";
+  }
+  function pillStyle(key) {
+    const hue = stableHue(key);
+    return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
+  }
+  function lookupPillStyle(id) {
+    const token = LOOKUP_PILL_COLOR_TOKENS[id];
+    return token ? `--chip-bg:${token.bg};--chip-border:${token.border};--chip-text:${token.text};` : pillStyle(`lookup:${id}`);
+  }
+  function bestFrequencyEntries(entries2) {
+    const bestByDictionary = /* @__PURE__ */ new Map();
+    const others = [];
+    for (const entry of entries2) {
+      if (entry.mode !== "freq") {
+        others.push(entry);
+        continue;
+      }
+      const current = bestByDictionary.get(entry.dictionary);
+      if (!current || metaFrequencyRank(entry.data) < metaFrequencyRank(current.data)) bestByDictionary.set(entry.dictionary, entry);
+    }
+    return [...bestByDictionary.values(), ...others];
+  }
+  function metaFrequencyRank(value) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return numericFrequencyRank(value);
+    const nested = nestedMetaFrequencyValue(value);
+    return nested === void 0 ? Number.POSITIVE_INFINITY : metaFrequencyRank(nested);
+  }
+  function nestedMetaFrequencyValue(value) {
+    if (!value || typeof value !== "object") return void 0;
+    const record = value;
+    return record.frequency ?? record.value ?? record.displayValue;
+  }
+  function numericFrequencyRank(value) {
+    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+  }
+  function normalizeFrequencyChipValue(label, value) {
+    const marker = label.match(/[㋕㋐]$/u)?.[0];
+    return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
+  }
+  function stableHue(value) {
+    let hash = 0;
+    for (let index = 0; index < value.length; index++) hash = (hash << 5) - hash + value.charCodeAt(index) | 0;
+    return Math.abs(hash) % 360;
+  }
+  function formatLookupUrl(template, values) {
+    const replacements = {
+      query: values.query,
+      word: values.word,
+      term: values.word,
+      reading: values.reading,
+      vid: values.vid,
+      sid: values.sid
+    };
+    const url = template.replace(/\{([a-z]+)\}/gi, (_, key) => encodeURIComponent(replacements[key.toLowerCase()] ?? values.query));
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
+    } catch {
+      return "";
+    }
+  }
+  const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
+  const JPDB_RELATED_WORD_STATE = "not-in-deck";
+  const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
+  function renderedJpdbRelatedWords(root) {
+    const words = root instanceof HTMLElement && root.matches(JPDB_RELATED_WORD_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR))] : Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR));
+    return words.filter((word) => !word.closest(".jpdb-reader-jpdb-example, .jpdb-reader-jpdb-examples-group")).map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
+  }
+  function renderedJpdbRelatedWord(word) {
+    const card = renderedJpdbRelatedWordCard(word);
+    if (!card) return null;
+    const surface = readerWordSurfaceText$1(word).trim() || card.spelling;
+    return {
+      word,
+      token: {
+        card,
+        start: 0,
+        end: surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: word.dataset.pitchClass ?? "",
+        sentence: word.dataset.sentence || surface
+      }
+    };
+  }
+  function renderedJpdbRelatedWordCard(word) {
+    const vid = Number(word.dataset.vid);
+    const sid = Number(word.dataset.sid);
+    const spelling = (word.dataset.expression ?? readerWordSurfaceText$1(word)).trim();
+    if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
+    return {
+      vid,
+      sid,
+      rid: 0,
+      spelling,
+      reading: word.dataset.reading?.trim() || spelling,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [JPDB_RELATED_WORD_STATE],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: word.dataset.sentence || spelling
+    };
+  }
+  function renderProviderExamples(provider, sourceId, collection, sourceAttributes, language) {
+    const availability = collection.availability;
+    if (availability !== "loaded" || !collection.items.length) return "";
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
+            </div>
+        </details>
+    `;
+  }
+  function definitionSourceStateKey$3(sourceId) {
+    return `definition-source:${sourceId}`;
+  }
+  function renderProviderExample(example) {
+    const hasAudio = Boolean(example.audio);
+    return `
+        <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$1(example.id)}">
+            <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
+                ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
+                <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
+                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
+                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
+                </div>
+            </div>
+        </li>
+    `;
+  }
+  function renderProviderExampleAudio(audio) {
+    const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$1(value)}"`).join("");
+    return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml$1(audio.action)}"${attributes} title="${escapeHtml$1(audio.label)}" aria-label="${escapeHtml$1(audio.label)}">${speakerIcon()}</button>`;
+  }
+  function classes(...values) {
+    return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
+  }
+  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
+    const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
+    if (!meanings && !extras) return "";
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey$2(JPDB_DEFINITION_SOURCE_ID), true)}>
+            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
+            ${extras}
+        </details>
+    `;
+  }
+  function jpdbDefinitionMeanings(card, info) {
+    if (shouldPreferCardMeanings(card)) return cardDefinitionMeanings(card, info);
+    return (info?.meanings ?? []).slice(0, 6);
+  }
+  function shouldPreferCardMeanings(card) {
+    return !card.source || card.source === "jpdb";
+  }
+  function cardDefinitionMeanings(card, info) {
+    const cardMeanings = card.meanings.slice(0, 6).map((meaning) => meaning.glosses.join("; ").trim()).filter(Boolean);
+    return cardMeanings.length ? cardMeanings : (info?.meanings ?? []).slice(0, 6);
+  }
+  function renderJpdbVocabularyExtras(info, sourceAttributes, language, card) {
+    if (!hasJpdbVocabularyExtras(info)) return "";
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info, language)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
+  }
+  function hasJpdbVocabularyExtras(info) {
+    return Boolean(info && (info.compounds.length || (info.usedInVocabulary?.length ?? 0) || info.examples.length));
+  }
+  function renderJpdbCompounds(info, language) {
+    return info.compounds.length ? `
+        <section class="jpdb-reader-jpdb-extra">
+            <ul class="jpdb-reader-jpdb-compounds">
+                ${info.compounds.map((compound) => `
+                    <li class="jpdb-reader-jpdb-compound-row${compound.audioIds?.length ? " has-audio" : ""}">
+                        ${renderJpdbExampleAudioButton(compound.audioIds, compound.term, language)}
+                        <span class="jpdb-reader-jpdb-compound-main">
+                            <a
+                                class="gloss-link jpdb-reader-jpdb-compound"
+                                href="#jpdb-reader-dictionary-lookup"
+                                data-dictionary-lookup="${escapeHtml$1(compound.term)}"
+                                data-dictionary-reading="${escapeHtml$1(compound.reading)}"
+                                data-dictionary="JPDB"
+                                data-external="false"
+                            >
+                                <span class="jpdb-reader-jpdb-compound-head">
+                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
+                                </span>
+                            </a>
+                            ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
+                        </span>
+                    </li>
+                `).join("")}
+            </ul>
+        </section>
+    ` : "";
+  }
+  function renderJpdbUsedInVocabulary(info, sourceAttributes, language) {
+    const entries2 = info.usedInVocabulary ?? [];
+    return entries2.length ? `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$2(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "usedInVocabulary"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries2.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">
+                ${entries2.map((entry) => `
+                    <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? " has-audio" : ""}">
+                        ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
+                        <span class="jpdb-reader-jpdb-used-in-main">
+                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.term)}" data-dictionary-reading="${escapeHtml$1(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
+                            ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+                        </span>
+                    </li>
+                `).join("")}
+                </ul>
+            </div>
+        </details>
+    ` : "";
+  }
+  function renderJpdbExamples(info, sourceAttributes, language, card) {
+    if (!info.examples.length) return "";
+    const items = info.examples.map((example, index) => ({
+      id: String(index),
+      sentenceHtml: renderJpdbExampleSentence(example, card),
+      translation: example.translation,
+      ...example.audioIds?.length ? {
+        audio: {
+          action: "jpdb-example-audio",
+          label: uiText(language, "playJpdbExampleAudio"),
+          attributes: {
+            "data-jpdb-audio": example.audioIds.join(","),
+            "data-jpdb-example-sentence": example.sentence
+          }
+        }
+      } : {}
+    }));
+    return renderProviderExamples("jpdb", JPDB_DEFINITION_SOURCE_ID, { availability: "loaded", items }, sourceAttributes, language);
+  }
+  function renderJpdbExampleAudioButton(audioIds, sentence, language) {
+    const audio = audioIds?.join(",") ?? "";
+    const label = uiText(language, "playJpdbExampleAudio");
+    return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>` : "";
+  }
+  function renderJpdbExampleSentence(example, card) {
+    if (example.sentenceHtml) return example.sentenceHtml;
+    return renderJpdbPlainExampleSentence(example.sentence, card);
+  }
+  function renderJpdbPlainExampleSentence(sentence, card) {
+    const term = card.spelling.trim();
+    const start = term ? sentence.indexOf(term) : -1;
+    if (start < 0) return renderCardHighlightedTextHtml(sentence, card);
+    const before = sentence.slice(0, start);
+    const after = sentence.slice(start + term.length);
+    const url = Number.isFinite(card.vid) && card.vid > 0 ? `/vocabulary/${card.vid}` : "";
+    return `${escapeHtml$1(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? "", url, { sentence })}${escapeHtml$1(after)}`;
+  }
+  function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
+    return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
+  }
+  function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
+    const vid = jpdbVocabularyVidFromUrl(url);
+    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+    const { classes: classes2, content } = passiveJpdbRelatedWordContent(term, reading, options);
+    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  }
+  function passiveJpdbRelatedWordContent(term, reading, options) {
+    const termHtml = options.termHtml?.trim() ?? "";
+    const visibleReading = passiveJpdbRelatedReading(term, reading, options, termHtml);
+    return {
+      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml)), options.className),
+      content: termHtml || passiveJpdbRelatedPlainContent(term, visibleReading)
+    };
+  }
+  function passiveJpdbRelatedReading(term, reading, options, termHtml) {
+    return termHtml || options.showReading === false ? "" : visibleJpdbRelatedReading(term, reading);
+  }
+  function passiveJpdbRelatedClasses(hasFuri, className = "") {
+    const extra = className.trim();
+    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$1(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
+  }
+  function passiveJpdbRelatedPlainContent(term, visibleReading) {
+    return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(term);
+  }
+  function jpdbVocabularyVidFromUrl(value) {
+    try {
+      const parts = new URL(value, "https://jpdb.io").pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return Number.isFinite(vid) && vid > 0 ? vid : null;
+    } catch {
+      return null;
+    }
+  }
+  function visibleJpdbRelatedReading(term, reading) {
+    const normalizedTerm = term.trim();
+    const normalizedReading = reading.trim();
+    return normalizedReading && normalizedReading !== normalizedTerm ? normalizedReading : "";
+  }
+  function definitionSourceStateKey$2(sourceId) {
+    return `definition-source:${sourceId}`;
+  }
+  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
+    const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
+    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
+    return dictionarySections.join("");
+  }
+  function renderKanjiDefinitions(entries2, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
+    if (!entries2.length) return "";
+    const heading = title ?? uiText(language, "kanjiDictionaries");
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(heading)}</summary>
+            ${entries2.map((entry) => `
+                <div class="jpdb-reader-local-entry">
+                    <div class="jpdb-reader-local-head">
+                        <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
+                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
+                    </div>
+                    <div class="jpdb-reader-kanji-readings">
+                        ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
+                        ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
+                    </div>
+                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
+                        ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
+                    </div>
+                </div>
+            `).join("")}
+        </details>
+    `;
+  }
+  function definitionSourceStateKey$1(sourceId) {
+    return `definition-source:${sourceId}`;
+  }
+  function localDictionaryStateKey(dictionary) {
+    return `definition-dictionary:${dictionary}`;
+  }
+  function kanjiSourceStateKey(sourceId) {
+    return `kanji:${sourceId}`;
+  }
+  function kanjiFactProviderTitle(source) {
+    return source === "jiten" ? "Jiten" : "JPDB";
+  }
+  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
+    const entryCount = groups.length;
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore>
+                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
+                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
+            </summary>
+            <div class="jpdb-reader-local-terms">
+                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
+            </div>
+        </details>
+    `;
+  }
+  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, options = {}) {
+    return `
+        <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+            ${renderLocalTermHead(group, reference)}
+            ${renderLocalTermTags(dictionary, group, dictionaryLabel2, options.showDictionaryTag ?? true, language)}
+            ${renderLocalTermMeaning(dictionary, group)}
+        </article>
+    `;
+  }
+  function renderLocalTermHead(group, reference) {
+    if (repeatsLookupHeadword$1(group, reference)) return "";
+    return `<div class="jpdb-reader-local-head">
+        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
+        ${renderLocalTermReading(group)}
+        ${renderLocalTermFrequency(group)}
+    </div>`;
+  }
+  function repeatsLookupHeadword$1(group, reference) {
+    if (!matchesLookupExpression(group, reference)) return false;
+    return matchesLookupReading(group, reference);
+  }
+  function matchesLookupExpression(group, reference) {
+    if (!reference) return false;
+    return group.expression === reference.spelling;
+  }
+  function matchesLookupReading(group, reference) {
+    if (!reference.reading) return true;
+    if (group.reading === reference.reading) return true;
+    return group.reading === group.expression;
+  }
+  function renderLocalTermReading(group) {
+    return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
+  }
+  function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag, language) {
+    const tagItems = [
+      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
+      ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
+    ].filter(Boolean);
+    return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
+  }
+  function renderLocalTermMeaning(dictionary, group) {
+    if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
+    if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
+    return `<div class="jpdb-reader-local-senses">
+        ${group.meanings.slice(0, 8).map((meaning, index) => `
+            <div class="jpdb-reader-local-sense">
+                ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
+                <span>${escapeHtml$1(meaning)}</span>
+            </div>
+        `).join("")}
+    </div>`;
+  }
+  function renderLocalTermFrequency(group) {
+    return group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}</span>` : "";
+  }
+  function renderLocalGlossaryEntries(dictionary, entries2, options = {}) {
+    const showIndex = options.showIndex ?? entries2.length > 1;
+    const entryHtml = entries2.map((entry, index) => {
+      const content = localGlossaryItemsForRender(entry.glossary).map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
+      if (!content) return "";
+      return `
+            <div class="jpdb-reader-local-glossary-entry ${showIndex ? "" : "no-index"}">
+                ${showIndex ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
+                <div>${content}</div>
+            </div>
+        `;
+    }).filter(Boolean).join("");
+    if (!entryHtml) return "";
+    return `
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(dictionary)}">
+            ${entryHtml}
+        </div>
+    `;
+  }
+  function localGlossaryItemsForRender(glossary) {
+    const items = /* @__PURE__ */ new Set();
+    glossary.slice(0, 4).forEach((item) => items.add(item));
+    glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE.test(glossaryToText(item))).forEach((item) => items.add(item));
+    return Array.from(items);
+  }
+  function hasAdditionalLocalDictionaryText(entry) {
+    const summary = summarizeLearnerGlossary(entry);
+    return entry.glossary.some((item) => {
+      if (hasRichStructuredGlossary(item)) return true;
+      const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
+      if (!text2 || text2 === summary) return false;
+      return HAS_JAPANESE.test(text2);
+    });
+  }
+  function renderFrequencyPill(entry, dictionaryLabel2) {
+    const label = dictionaryLabel2(entry.dictionary);
+    const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
+    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(`${label} local frequency`)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
+  }
+  function renderPassiveReference(view) {
+    const reading = visibleReferenceReading(view.text, view.reading);
+    const identity = Object.entries(view.identityAttributes ?? {}).map(([name, value]) => `${name}="${escapeHtml$1(value)}"`).join(" ");
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+    const identityAttributes = identity ? ` ${identity}` : "";
+    const extraClass = view.className?.trim();
+    const classes2 = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
+    const content = reading && view.annotatedReading && /\[[^\]]+\]/.test(view.annotatedReading) ? renderAnnotatedReadingRuby(view.annotatedReading) : renderPassiveReferenceContent(view.text, reading);
+    return `<span class="${classes2}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="${escapeHtml$1(view.dictionary)}" data-pitch-class="" data-sentence="${escapeHtml$1(view.sentence ?? view.text)}" data-expression="${escapeHtml$1(view.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  }
+  function renderAnnotatedReadingRuby(value) {
+    const source = value.trim();
+    if (!source) return "";
+    let html = "";
+    let offset = 0;
+    const regex = /([一-龯々-〇]+)\[([^\]]+)\]/g;
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      html += escapeHtml$1(source.slice(offset, match.index));
+      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
+      offset = match.index + match[0].length;
+    }
+    html += escapeHtml$1(source.slice(offset));
+    return html;
+  }
+  function renderPassiveReferenceContent(text2, reading) {
+    return reading ? renderRuby(text2, referenceRubyToken(text2, reading)) : escapeHtml$1(text2);
+  }
+  function referenceRubyToken(text2, reading) {
+    return {
+      card: {
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: text2,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: null
+      },
+      start: 0,
+      end: text2.length,
+      length: text2.length,
+      rubies: [],
+      pitchClass: "",
+      sentence: text2
+    };
+  }
+  function visibleReferenceReading(text2, reading) {
+    const normalizedText = text2.trim();
+    const normalizedReading = reading.trim();
+    return normalizedReading && normalizedReading !== normalizedText ? normalizedReading : "";
+  }
+  class LruCache {
+    constructor(maxSize) {
+      this.maxSize = maxSize;
+    }
+    map = /* @__PURE__ */ new Map();
+    get(key) {
+      const value = this.map.get(key);
+      if (value !== void 0) {
+        this.map.delete(key);
+        this.map.set(key, value);
+      }
+      return value;
+    }
+    set(key, value) {
+      this.map.delete(key);
+      this.map.set(key, value);
+      if (this.map.size > this.maxSize) {
+        const oldest = this.map.keys().next().value;
+        if (oldest !== void 0) {
+          this.map.delete(oldest);
+        }
+      }
+    }
+    clear() {
+      this.map.clear();
+    }
+  }
+  const BUNPRO_EXAMPLE_LIMIT = 10;
+  async function lookupBunproDefinitionResult(client, card) {
+    const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
+    const result = selectBunproDefinitionSearch(raw, card.spelling, card.reading, {
+      id: card.bunproReviewableId,
+      kind: bunproDefinitionKind(card.bunproReviewableType)
+    });
+    if (!result.info) return result;
+    const info = result.info;
+    try {
+      const detail = await bunproReviewableDetail(client, info);
+      applyBunproReviewableDetail(info, detail);
+      applyBunproExampleCollection(info, normalizeBunproExampleCollection(detail, info.sourceUrl));
+    } catch (error) {
+      applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
+    }
+    await resolveBunproUsedInVocab(client, info);
+    return { state: "success", info };
+  }
+  const BUNPRO_FREQUENCY_LISTS = ["general", "anime", "novels", "netflix", "dictionary"];
+  function applyBunproReviewableDetail(info, raw) {
+    const attributes = objectRecord$2(objectRecord$2(objectRecord$2(raw)?.data)?.attributes);
+    if (!attributes) return;
+    info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
+    info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list) => ({ list, rank: numberValue$2(attributes[`frequency_${list}`]) })).filter((entry) => entry.rank > 0);
+    info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
+    info.caution = stripBunproMarkup(textValue(attributes.caution));
+    info.register = textValue(attributes.register);
+    info.registerTranslation = textValue(attributes.register_translation);
+    info.structures = [["polite", attributes.polite_structure], ["casual", attributes.casual_structure]].map(([label, value]) => ({ label, lines: bunproStructureLines(textValue(value)) })).filter((entry) => entry.lines.length);
+    info.relatedGrammar = uniqueRelatedGrammar([
+      bunproRelatedGrammarPoint(attributes.previous_grammar_point),
+      bunproRelatedGrammarPoint(attributes.next_grammar_point)
+    ]).filter((entry) => entry.id !== info.id);
+    info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
+  }
+  function bunproCoverageVocabIds(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((value) => numberValue$2(value)).filter((id) => id > 0).slice(0, 50);
+  }
+  const BUNPRO_USED_IN_LIMIT = 5;
+  const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
+  const bunproUsedInVocabCache = new LruCache(200);
+  async function resolveBunproUsedInVocab(client, info) {
+    if (info.kind !== "grammar") return;
+    const ids = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
+    if (!ids.length) return;
+    const resolved = await Promise.race([
+      Promise.all(ids.map((id) => bunproUsedInVocabEntry(client, id))),
+      new Promise((resolve) => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS))
+    ]);
+    if (!resolved) return;
+    info.usedInVocab = resolved.filter((entry) => entry !== null);
+  }
+  async function bunproUsedInVocabEntry(client, id) {
+    const cached = bunproUsedInVocabCache.get(id);
+    if (cached) return cached;
+    try {
+      const attributes = objectRecord$2(objectRecord$2(objectRecord$2(await client.getVocab(id))?.data)?.attributes);
+      const kana = textValue(attributes?.kana);
+      const text2 = textValue(attributes?.word) || kana;
+      if (!text2) return null;
+      const entry = {
+        id,
+        text: text2,
+        reading: kana && kana !== text2 ? kana : "",
+        meaning: stripBunproMarkup(textValue(attributes?.meaning))
+      };
+      bunproUsedInVocabCache.set(id, entry);
+      return entry;
+    } catch {
+      return null;
+    }
+  }
+  function bunproJmdictRelatedWords(raw, info) {
+    const senses = objectRecord$2(raw)?.sense;
+    if (!Array.isArray(senses)) return [];
+    const seen = /* @__PURE__ */ new Set([info.expression, info.reading]);
+    const related = [];
+    for (const sense of senses) {
+      const record = objectRecord$2(sense);
+      for (const relation of ["related", "antonym"]) {
+        for (const reference of Array.isArray(record?.[relation]) ? record[relation] : []) {
+          const text2 = textValue(Array.isArray(reference) ? reference[0] : reference);
+          if (!text2 || seen.has(text2)) continue;
+          seen.add(text2);
+          related.push({ text: text2, relation });
+        }
+      }
+    }
+    return related.slice(0, 20);
+  }
+  function bunproStructureLines(value) {
+    return value.split(/<br\s*\/?\s*>|\n/gi).map((line) => stripBunproFurigana(stripBunproMarkup(line)).trim()).filter(Boolean).slice(0, 12);
+  }
+  function bunproRelatedGrammarPoint(raw) {
+    const record = objectRecord$2(raw);
+    const id = numberValue$2(record?.id);
+    const title = textValue(record?.title);
+    if (!id || !title) return null;
+    return { id, title, slug: textValue(record?.slug) || title };
+  }
+  function uniqueRelatedGrammar(entries2) {
+    const seen = /* @__PURE__ */ new Set();
+    return entries2.filter((entry) => {
+      if (!entry || seen.has(entry.id)) return false;
+      seen.add(entry.id);
+      return true;
+    });
+  }
+  function bunproReviewableDetail(client, info) {
+    return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
+  }
+  function normalizeBunproExampleCollection(raw, sourceUrl) {
+    const included = objectRecord$2(raw)?.included;
+    if (!Array.isArray(included)) return { availability: "unavailable", items: [], reason: "schema" };
+    const questions = included.filter((value) => textValue(objectRecord$2(value)?.type) === "study_question");
+    if (!questions.length) return { availability: "empty", items: [] };
+    const examples = questions.map((value) => bunproExampleSentence(value, sourceUrl)).filter((item) => item !== null).sort((a, b) => a.order - b.order);
+    if (!examples.length) return { availability: "unavailable", items: [], reason: "schema" };
+    const deduped = dedupeBunproExamples(examples).slice(0, BUNPRO_EXAMPLE_LIMIT).map(({ order: _order, ...example }) => example);
+    return { availability: "loaded", items: deduped };
+  }
+  function applyBunproExampleCollection(info, collection) {
+    info.examples = collection.items;
+    info.examplesAvailability = collection.availability;
+    info.examplesUnavailableReason = collection.availability === "unavailable" ? collection.reason : "";
+  }
+  function bunproExampleSentence(value, sourceUrl) {
+    const record = objectRecord$2(value);
+    if (textValue(record?.type) !== "study_question") return null;
+    const attributes = objectRecord$2(record?.attributes);
+    if (!attributes) return null;
+    const answer = textValue(attributes.kanji_answer) || textValue(attributes.answer);
+    const content = fillBunproClozeContent(textValue(attributes.content), answer);
+    const parts = bunproSentenceParts(content);
+    const text2 = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
+    if (!text2 || !/[぀-ヿ㐀-鿿]/u.test(text2)) return null;
+    return {
+      id: textValue(record?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
+      parts,
+      text: text2,
+      translation: stripBunproMarkup(textValue(attributes.translation)),
+      audioUrls: uniqueText$1([
+        bunproHttpsUrl(textValue(attributes.female_audio_url)),
+        bunproHttpsUrl(textValue(attributes.male_audio_url))
+      ]),
+      source: { provider: "bunpro", url: sourceUrl },
+      order: Number(attributes.sentence_order) || 0
+    };
+  }
+  function dedupeBunproExamples(examples) {
+    const unique2 = /* @__PURE__ */ new Map();
+    for (const example of examples) {
+      const key = `${normalizedDisplayText(example.text)}\0${normalizedDisplayText(example.translation)}`;
+      const current = unique2.get(key);
+      if (!current) {
+        unique2.set(key, example);
+        continue;
+      }
+      current.audioUrls = uniqueText$1([...current.audioUrls, ...example.audioUrls]);
+    }
+    return Array.from(unique2.values());
+  }
+  function bunproExampleFailureReason(error) {
+    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+    if (status === 401 || status === 403) return "auth";
+    if (status === 404) return "schema";
+    return "network";
+  }
+  function fillBunproClozeContent(content, answer) {
+    if (!answer || !/_{2,}/u.test(content)) return content;
+    return content.replace(/_{2,}/u, `<strong>${answer}</strong>`);
+  }
+  function bunproSentenceParts(content) {
+    const parts = [];
+    content.split(/<strong[^>]*>([\s\S]*?)<\/strong>/gi).forEach((segment, index) => {
+      const text2 = stripBunproMarkup(segment ?? "");
+      if (!text2) return;
+      parts.push({ text: text2, target: index % 2 === 1 });
+    });
+    return parts;
+  }
+  function stripBunproMarkup(value) {
+    return decodeBasicEntities(value.replace(/<[^>]*>/g, ""));
+  }
+  function decodeBasicEntities(value) {
+    return value.replace(/&nbsp;/g, " ").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  }
+  function bunproHttpsUrl(value) {
+    return value.startsWith("https://") ? value : "";
+  }
+  function selectBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
+    const candidates = bunproDefinitionCandidates(raw);
+    if (!candidates.length) return noBunproMatch("no-results");
+    const selectedById = selectBunproDefinitionById(candidates, selection);
+    if (selectedById) return selectedById;
+    const eligible = selection.kind ? candidates.filter((item) => item.kind === selection.kind) : candidates;
+    return selectExactBunproDefinition(eligible, expression, reading);
+  }
+  function bunproDefinitionCandidates(raw) {
+    return [
+      ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
+      ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
+    ].filter((item) => item !== null);
+  }
+  function selectBunproDefinitionById(candidates, selection) {
+    const expectedId = numberValue$2(selection.id);
+    if (!expectedId) return null;
+    const info = candidates.find((item) => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
+    return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
+  }
+  function selectExactBunproDefinition(candidates, expression, reading) {
+    const normalizedExpression = normalizedLookupText$1(expression);
+    const exactExpression = candidates.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
+    if (!exactExpression.length) return noBunproMatch("expression-mismatch");
+    return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
+  }
+  function selectExactBunproReading(candidates, reading) {
+    const normalizedReading = normalizedLookupText$1(reading);
+    const exactReading = candidates.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
+    return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
+  }
+  function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
+    if (candidates.length === 1 || sameDefinitionIdentity(candidates)) return bunproMatch(candidates[0]);
+    return noBunproMatch(ambiguousReason);
+  }
+  function bunproMatch(info) {
+    return { state: "success", info };
+  }
+  function noBunproMatch(reason) {
+    return { state: "no-match", reason, info: null };
+  }
+  function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
+    if (!info) return "";
+    const japanese = resolveUiLanguage(language) === "ja";
+    const registerTag = japanese ? info.register : info.registerTranslation || info.register;
+    const details = [
+      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
+      ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`),
+      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : ""
+    ].filter(Boolean).join("");
+    const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
+    const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
+    const glosses = distinctBunproGlosses(info);
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+                ${renderBunproHeadword(card, info)}
+                ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
+                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
+                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
+                ${renderBunproStructures(info, language)}
+                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$1(info.caution)}</div></div>` : ""}
+            </article>
+            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
+        </details>
+    `;
+  }
+  function renderBunproHeadword(card, info, _language) {
+    if (repeatsLookupHeadword(card, info)) return "";
+    const reference = renderPassiveReference({
+      text: info.expression,
+      reading: info.reading,
+      dictionary: "Bunpro",
+      className: "jpdb-reader-bunpro-headword-target"
+    });
+    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
+  }
+  function renderBunproGlossText(value) {
+    if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
+    return `<div class="jpdb-reader-parseable">${escapeHtml$1(stripBunproFurigana(value))}</div>`;
+  }
+  function renderBunproStructures(info, language) {
+    if (!info.structures.length) return "";
+    const blocks = info.structures.map((structure) => `
+        <div class="jpdb-reader-bunpro-structure" data-structure="${structure.label}">
+            ${structure.lines.map((line) => `<div class="jpdb-reader-parseable">${escapeHtml$1(line)}</div>`).join("")}
+        </div>
+    `).join("");
+    return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
+  }
+  function renderBunproUsedInVocab(info, sourceAttributes, language) {
+    if (!info.usedInVocab.length) return "";
+    const rows = info.usedInVocab.map((entry) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                </a>
+                ${entry.reading ? `<small lang="ja">${escapeHtml$1(entry.reading)}</small>` : ""}
+                ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+            </span>
+        </li>
+    `).join("");
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
+  }
+  function renderBunproRelatedWords(info, sourceAttributes, language) {
+    if (!info.relatedWords.length) return "";
+    const rows = info.relatedWords.map((entry) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                </a>
+                ${entry.relation === "antonym" ? `<small>${escapeHtml$1(uiText(language, "antonymWord"))}</small>` : ""}
+            </span>
+        </li>
+    `).join("");
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-words`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedWords"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedWords.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
+  }
+  function renderBunproRelatedGrammar(info, sourceAttributes, language) {
+    if (!info.relatedGrammar.length) return "";
+    const rows = info.relatedGrammar.map((entry) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.title)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.title)}</span>
+                </a>
+            </span>
+        </li>
+    `).join("");
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-grammar`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedGrammar"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedGrammar.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
+  }
+  function renderBunproExamples(info, sourceAttributes, language) {
+    const collection = info.examplesAvailability === "loaded" ? { availability: "loaded", items: info.examples } : info.examplesAvailability === "unavailable" ? { availability: "unavailable", items: [], reason: info.examplesUnavailableReason || "schema" } : { availability: "empty", items: [] };
+    const view = collection.availability === "loaded" ? { availability: "loaded", items: collection.items.map((example) => bunproExampleView(example, language)) } : collection;
+    return renderProviderExamples("bunpro", BUNPRO_DEFINITION_SOURCE_ID, view, sourceAttributes, language);
+  }
+  function renderBunproExamplePart(part, sentence) {
+    const plain = stripBunproFurigana(part.text);
+    if (!part.target) return escapeHtml$1(plain);
+    return renderPassiveReference({
+      text: plain,
+      reading: bunproAnnotatedKana(part.text),
+      dictionary: "Bunpro",
+      sentence,
+      className: "jpdb-reader-example-target jpdb-reader-bunpro-example-target",
+      annotatedReading: bunproBracketAnnotated(part.text)
+    });
+  }
+  function bunproExampleView(example, language) {
+    const audioUrl = example.audioUrls[0] ?? "";
+    return {
+      id: example.id,
+      sentenceHtml: example.parts.map((part) => renderBunproExamplePart(part, example.text)).join(""),
+      translation: example.translation,
+      audio: {
+        action: "bunpro-audio",
+        label: uiText(language, "playAudio"),
+        attributes: {
+          "data-study-sentence": example.text,
+          ...audioUrl ? { "data-audio-url": audioUrl } : {}
+        }
+      }
+    };
+  }
+  const BUNPRO_FURIGANA_RE = /([一-龯々-〇]+)（([ぁ-ゖァ-ヺー・]+)）/g;
+  function stripBunproFurigana(value) {
+    BUNPRO_FURIGANA_RE.lastIndex = 0;
+    return value.replace(BUNPRO_FURIGANA_RE, "$1");
+  }
+  function bunproBracketAnnotated(value) {
+    BUNPRO_FURIGANA_RE.lastIndex = 0;
+    return value.replace(BUNPRO_FURIGANA_RE, "$1[$2]");
+  }
+  function bunproAnnotatedKana(value) {
+    BUNPRO_FURIGANA_RE.lastIndex = 0;
+    const rendered = value.replace(BUNPRO_FURIGANA_RE, "$2").trim();
+    return rendered === value.trim() ? "" : rendered;
+  }
+  function definitionInfo(value, kind) {
+    const record = objectRecord$2(value);
+    const attributes = objectRecord$2(record?.attributes) ?? record;
+    if (!attributes) return null;
+    const id = numberValue$2(attributes.id ?? record?.id);
+    const expression = textValue(attributes.title ?? attributes.grammar_point ?? attributes.word);
+    if (!id || !expression) return null;
+    const reading = textValue(attributes.kana ?? attributes.furigana ?? attributes.reading) || expression;
+    const slug = textValue(attributes.slug) || expression;
+    return {
+      id,
+      kind,
+      expression,
+      reading,
+      slug,
+      meaning: textValue(attributes.meaning),
+      nuance: stripBunproMarkup(textValue(attributes.nuance)),
+      nuanceTranslation: stripBunproMarkup(textValue(attributes.nuance_translation)),
+      acceptedAnswers: textList(attributes.accepted_answers),
+      partOfSpeech: normalizeBunproPartOfSpeech(attributes.jmdict_pos),
+      jlptLevel: normalizeBunproJlptLevel(attributes.jlpt_level),
+      sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`,
+      examples: [],
+      examplesAvailability: "empty",
+      examplesUnavailableReason: "",
+      pitchAccentStress: "",
+      frequencies: [],
+      relatedWords: [],
+      caution: "",
+      register: "",
+      registerTranslation: "",
+      structures: [],
+      relatedGrammar: [],
+      coverageVocabIds: [],
+      usedInVocab: []
+    };
+  }
+  function searchItems(raw, key) {
+    const section = objectRecord$2(objectRecord$2(raw)?.[key]);
+    return Array.isArray(section?.data) ? section.data : [];
+  }
+  function repeatsLookupHeadword(card, info) {
+    return info.expression === card.spelling && (!card.reading || info.reading === card.reading || info.reading === info.expression);
+  }
+  function bunproDefinitionKind(type) {
+    if (type === "vocabulary" || type === "grammar") return type;
+    return void 0;
+  }
+  function normalizedLookupText$1(value) {
+    return value.normalize("NFKC").trim();
+  }
+  function normalizeBunproJlptLevel(value) {
+    const level = textValue(value).normalize("NFKC").toUpperCase();
+    return /^N[1-5]$/u.test(level) ? level : "";
+  }
+  function normalizeBunproPartOfSpeech(value) {
+    return uniqueText$1(textList(value).filter((tag) => !/^(?:unc|unclassified)$/iu.test(tag)).map((tag) => formatPartOfSpeech([tag]).trim()).filter((label) => label && !/^unclassified$/iu.test(label)));
+  }
+  function distinctBunproGlosses(info) {
+    const meaning = info.meaning.trim();
+    return {
+      meaning,
+      nuance: distinctDisplayText([info.nuance, info.nuanceTranslation], meaning ? [meaning] : [])
+    };
+  }
+  function distinctDisplayText(values, excluded = []) {
+    const seen = new Set(excluded.map(normalizedDisplayText).filter(Boolean));
+    const result = [];
+    for (const value of values) {
+      const text2 = value.trim();
+      const key = normalizedDisplayText(text2);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(text2);
+    }
+    return result;
+  }
+  function normalizedDisplayText(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase();
+  }
+  function uniqueText$1(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
+  function sameDefinitionIdentity(items) {
+    const first2 = items[0];
+    return Boolean(first2 && items.every((item) => item.id === first2.id && item.kind === first2.kind));
+  }
+  function textList(value) {
+    if (Array.isArray(value)) return value.map(textValue).filter(Boolean);
+    const text2 = textValue(value);
+    return text2 ? text2.split(/[;,]\s*/u).map((item) => item.trim()).filter(Boolean) : [];
+  }
+  function textValue(value) {
+    return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
+  }
+  function numberValue$2(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? number : 0;
+  }
+  function errorStatus(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const value = error;
+    const status = value.status ?? value.statusCode;
+    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
+  }
+  function objectRecord$2(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  registerYomuCompanion("bunpro", {
+    BunproClient,
+    BunproWordStateStore,
+    createBunproSrsAdapter,
+    effectiveBunproWordState,
+    installBunproFrontendTokenImporter,
+    lookupBunproDefinitionResult,
+    renderBunproDefinitionSource
+  });
   function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries2, sourceInfo = null, kanjiVGInfo = null) {
     const nodes = /* @__PURE__ */ new Map();
     const edges = [];
@@ -24127,10 +26359,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return stringValue$2(jisho?.meaning) || stringValue$2(kanjiAlive?.meaning);
   }
   function kanjiMapGrade(kanjiAlive, jisho) {
-    return normalizeGrade(stringValue$2(jisho?.taughtIn) || numberValue$2(kanjiAlive?.grade)) ?? "";
+    return normalizeGrade(stringValue$2(jisho?.taughtIn) || numberValue$1(kanjiAlive?.grade)) ?? "";
   }
   function kanjiMapStrokeCount(kanjiAlive, jisho) {
-    return numberValue$2(jisho?.strokeCount) ?? numberValue$2(kanjiAlive?.kstroke);
+    return numberValue$1(jisho?.strokeCount) ?? numberValue$1(kanjiAlive?.kstroke);
   }
   function readKanjiMapReadings(kanjiAlive, jisho) {
     return {
@@ -24475,7 +26707,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
   }
-  function numberValue$2(value) {
+  function numberValue$1(value) {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     const match = String(value ?? "").match(/\d+/);
     return match ? Number(match[0]) : void 0;
@@ -24606,7 +26838,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return patterns;
   }
   function readPitchCandidates(value, normalizedReading) {
-    const record = objectRecord$2(value);
+    const record = objectRecord$1(value);
     if (!record || !pitchMetadataReadingMatches(record, normalizedReading)) return [];
     const candidates = pitchPositionCandidates(record).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
     if (candidates.length) return candidates;
@@ -24649,7 +26881,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function validPitchPosition(value) {
     return Number.isInteger(value) && value >= 0 ? value : null;
   }
-  function objectRecord$2(value) {
+  function objectRecord$1(value) {
     return value && typeof value === "object" ? value : null;
   }
   const MAX_PITCH_VARIANTS = 3;
@@ -28274,91 +30506,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function getPlacementSide(writingMode, position) {
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
-  }
-  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
-  function cardHighlightTargets(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = optionalJapaneseCardReading(card);
-    return uniqueCardHighlightValues([spelling, reading]);
-  }
-  function normalizedJapaneseCardReading(spelling, reading) {
-    const cleanSpelling = cleanCardHighlightValue(spelling);
-    const cleanReading = cleanCardHighlightValue(reading);
-    return cleanReading && JAPANESE_TEXT_RE$1.test(cleanReading) ? cleanReading : cleanSpelling;
-  }
-  function cleanCardHighlightValue(value) {
-    return (value ?? "").replace(/\s+/g, " ").trim();
-  }
-  function compactCardHighlightValue(value) {
-    return cleanCardHighlightValue(value).replace(/\s+/g, "");
-  }
-  function optionalJapaneseCardReading(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = normalizedJapaneseCardReading(spelling, card.reading);
-    return reading && reading !== spelling ? reading : "";
-  }
-  function uniqueCardHighlightValues(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.map(cleanCardHighlightValue).filter((value) => {
-      if (!value || seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
-  function renderCardHighlightedTextHtml(text2, card) {
-    return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
-  }
-  function cardHighlightScopeAttributes(card) {
-    if (!card) return "";
-    const spelling = cleanCardHighlightValue(card.spelling);
-    if (!spelling) return "";
-    return [
-      `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
-      `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
-      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
-      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
-    ].filter(Boolean).join(" ");
-  }
-  function highlightCardTargetWords(root, card) {
-    const words = cardHighlightWords(root);
-    for (const word of words) {
-      if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
-    }
-  }
-  function highlightCardTargetScopes(root) {
-    for (const scope of cardHighlightScopes(root)) {
-      const card = cardHighlightTargetFromScope(scope);
-      if (card) highlightCardTargetWords(scope, card);
-    }
-  }
-  function isCardHighlightWord(word, card) {
-    const cardVid = card.vid === void 0 ? "" : String(card.vid);
-    const cardSid = card.sid === void 0 ? "" : String(card.sid);
-    if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
-    const surface = compactCardHighlightValue(readerWordSurfaceText$1(word));
-    if (!surface) return false;
-    return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
-  }
-  function cardHighlightWords(root) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-    return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
-  }
-  function cardHighlightScopes(root) {
-    const selector = "[data-card-highlight-spelling]";
-    const scopes = Array.from(root.querySelectorAll(selector));
-    return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
-  }
-  function cardHighlightTargetFromScope(scope) {
-    const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
-    if (!spelling) return null;
-    const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
-    return {
-      spelling,
-      reading,
-      vid: scope.dataset.cardHighlightVid,
-      sid: scope.dataset.cardHighlightSid
-    };
   }
   function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
@@ -34224,7 +36371,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return preferencesFromSnapshot(next);
   }
   function normalizeGrammarKnowledge(value) {
-    const record = objectRecord$1(value);
+    const record = objectRecord(value);
     const entries2 = record?.version === 2 ? normalizeEntries(record.entries) : migrateLegacyKnownRules(record?.knownRuleIds);
     return {
       entries: entries2,
@@ -34232,11 +36379,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeEntries(value) {
-    const entries2 = objectRecord$1(value);
+    const entries2 = objectRecord(value);
     if (!entries2) return {};
     const normalized = {};
     for (const [ruleId, candidate] of Object.entries(entries2)) {
-      const entry = objectRecord$1(candidate);
+      const entry = objectRecord(candidate);
       if (!isYomuGrammarRuleId(ruleId) || !KNOWLEDGE_VALUES.has(entry?.knowledge) || !validTimestamp(entry?.at) || typeof entry?.changeId !== "string" || !entry.changeId.trim()) continue;
       normalized[ruleId] = {
         knowledge: entry.knowledge,
@@ -34270,7 +36417,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       showKnown: snapshot.showKnown
     };
   }
-  function objectRecord$1(value) {
+  function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
   function validTimestamp(value) {
@@ -34983,521 +37130,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
-  }
-  const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
-  const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
-  const LOCAL_TERM_TAG_LABELS = /* @__PURE__ */ new Map([
-    ["n", "noun"],
-    ["pn", "pronoun"],
-    ["r", "rare"],
-    ["uk", "usually kana"],
-    ["adj-i", "i-adjective"],
-    ["adj-na", "na-adjective"],
-    ["adv", "adverb"],
-    ["exp", "expression"],
-    ["int", "interjection"],
-    ["prt", "particle"],
-    ["suf", "suffix"],
-    ["pref", "prefix"],
-    ["vs", "suru verb"],
-    ["vi", "intransitive"],
-    ["vt", "transitive"]
-  ]);
-  const LOCAL_TERM_TAG_LABELS_JA = /* @__PURE__ */ new Map([
-    ["n", "名詞"],
-    ["pn", "代名詞"],
-    ["r", "まれ"],
-    ["uk", "かな表記が多い"],
-    ["adj-i", "い形容詞"],
-    ["adj-na", "な形容詞"],
-    ["adv", "副詞"],
-    ["exp", "表現"],
-    ["int", "感動詞"],
-    ["prt", "助詞"],
-    ["suf", "接尾辞"],
-    ["pref", "接頭辞"],
-    ["vs", "する動詞"],
-    ["vi", "自動詞"],
-    ["vt", "他動詞"]
-  ]);
-  function localTermTags(entries2, language = "en") {
-    const tags = entries2.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map((tag) => localTermTagLabel(tag, language)).filter(Boolean);
-    return [...new Set(tags)].slice(0, 8);
-  }
-  function localTermTagLabel(tag, language) {
-    const normalized = tag.toLowerCase();
-    if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
-    if (language === "ja") return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
-    return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
-  }
-  function hasRichStructuredGlossary(value) {
-    if (!value || typeof value !== "object") return false;
-    if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
-    const record = value;
-    return isRichStructuredGlossaryRecord(record) || hasRichStructuredGlossary(record.content);
-  }
-  function isRichStructuredGlossaryRecord(record) {
-    const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
-    return record.type === "image" || "path" in record || tag === "img" || tag === "table";
-  }
-  function pillStyle(key) {
-    const hue = stableHue(key);
-    return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
-  }
-  function lookupPillStyle(id) {
-    const token = LOOKUP_PILL_COLOR_TOKENS[id];
-    return token ? `--chip-bg:${token.bg};--chip-border:${token.border};--chip-text:${token.text};` : pillStyle(`lookup:${id}`);
-  }
-  function bestFrequencyEntries(entries2) {
-    const bestByDictionary = /* @__PURE__ */ new Map();
-    const others = [];
-    for (const entry of entries2) {
-      if (entry.mode !== "freq") {
-        others.push(entry);
-        continue;
-      }
-      const current = bestByDictionary.get(entry.dictionary);
-      if (!current || metaFrequencyRank(entry.data) < metaFrequencyRank(current.data)) bestByDictionary.set(entry.dictionary, entry);
-    }
-    return [...bestByDictionary.values(), ...others];
-  }
-  function metaFrequencyRank(value) {
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return numericFrequencyRank(value);
-    const nested = nestedMetaFrequencyValue(value);
-    return nested === void 0 ? Number.POSITIVE_INFINITY : metaFrequencyRank(nested);
-  }
-  function nestedMetaFrequencyValue(value) {
-    if (!value || typeof value !== "object") return void 0;
-    const record = value;
-    return record.frequency ?? record.value ?? record.displayValue;
-  }
-  function numericFrequencyRank(value) {
-    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
-  }
-  function normalizeFrequencyChipValue(label, value) {
-    const marker = label.match(/[㋕㋐]$/u)?.[0];
-    return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
-  }
-  function stableHue(value) {
-    let hash = 0;
-    for (let index = 0; index < value.length; index++) hash = (hash << 5) - hash + value.charCodeAt(index) | 0;
-    return Math.abs(hash) % 360;
-  }
-  function formatLookupUrl(template, values) {
-    const replacements = {
-      query: values.query,
-      word: values.word,
-      term: values.word,
-      reading: values.reading,
-      vid: values.vid,
-      sid: values.sid
-    };
-    const url = template.replace(/\{([a-z]+)\}/gi, (_, key) => encodeURIComponent(replacements[key.toLowerCase()] ?? values.query));
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
-    } catch {
-      return "";
-    }
-  }
-  const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
-  const JPDB_RELATED_WORD_STATE = "not-in-deck";
-  const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
-  function renderedJpdbRelatedWords(root) {
-    const words = root instanceof HTMLElement && root.matches(JPDB_RELATED_WORD_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR))] : Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR));
-    return words.filter((word) => !word.closest(".jpdb-reader-jpdb-example, .jpdb-reader-jpdb-examples-group")).map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
-  }
-  function renderedJpdbRelatedWord(word) {
-    const card = renderedJpdbRelatedWordCard(word);
-    if (!card) return null;
-    const surface = readerWordSurfaceText$1(word).trim() || card.spelling;
-    return {
-      word,
-      token: {
-        card,
-        start: 0,
-        end: surface.length,
-        length: surface.length,
-        rubies: [],
-        pitchClass: word.dataset.pitchClass ?? "",
-        sentence: word.dataset.sentence || surface
-      }
-    };
-  }
-  function renderedJpdbRelatedWordCard(word) {
-    const vid = Number(word.dataset.vid);
-    const sid = Number(word.dataset.sid);
-    const spelling = (word.dataset.expression ?? readerWordSurfaceText$1(word)).trim();
-    if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
-    return {
-      vid,
-      sid,
-      rid: 0,
-      spelling,
-      reading: word.dataset.reading?.trim() || spelling,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: [JPDB_RELATED_WORD_STATE],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "jpdb",
-      sentence: word.dataset.sentence || spelling
-    };
-  }
-  function renderProviderExamples(provider, sourceId, collection, sourceAttributes, language) {
-    const availability = collection.availability;
-    if (availability !== "loaded" || !collection.items.length) return "";
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
-            </div>
-        </details>
-    `;
-  }
-  function definitionSourceStateKey$3(sourceId) {
-    return `definition-source:${sourceId}`;
-  }
-  function renderProviderExample(example) {
-    const hasAudio = Boolean(example.audio);
-    return `
-        <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$1(example.id)}">
-            <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
-                ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
-                <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
-                </div>
-            </div>
-        </li>
-    `;
-  }
-  function renderProviderExampleAudio(audio) {
-    const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$1(value)}"`).join("");
-    return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml$1(audio.action)}"${attributes} title="${escapeHtml$1(audio.label)}" aria-label="${escapeHtml$1(audio.label)}">${speakerIcon()}</button>`;
-  }
-  function classes(...values) {
-    return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
-  }
-  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
-    const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
-    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return "";
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey$2(JPDB_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
-            ${extras}
-        </details>
-    `;
-  }
-  function jpdbDefinitionMeanings(card, info) {
-    if (shouldPreferCardMeanings(card)) return cardDefinitionMeanings(card, info);
-    return (info?.meanings ?? []).slice(0, 6);
-  }
-  function shouldPreferCardMeanings(card) {
-    return !card.source || card.source === "jpdb";
-  }
-  function cardDefinitionMeanings(card, info) {
-    const cardMeanings = card.meanings.slice(0, 6).map((meaning) => meaning.glosses.join("; ").trim()).filter(Boolean);
-    return cardMeanings.length ? cardMeanings : (info?.meanings ?? []).slice(0, 6);
-  }
-  function renderJpdbVocabularyExtras(info, sourceAttributes, language, card) {
-    if (!hasJpdbVocabularyExtras(info)) return "";
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info, language)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
-  }
-  function hasJpdbVocabularyExtras(info) {
-    return Boolean(info && (info.compounds.length || (info.usedInVocabulary?.length ?? 0) || info.examples.length));
-  }
-  function renderJpdbCompounds(info, language) {
-    return info.compounds.length ? `
-        <section class="jpdb-reader-jpdb-extra">
-            <ul class="jpdb-reader-jpdb-compounds">
-                ${info.compounds.map((compound) => `
-                    <li class="jpdb-reader-jpdb-compound-row${compound.audioIds?.length ? " has-audio" : ""}">
-                        ${renderJpdbExampleAudioButton(compound.audioIds, compound.term, language)}
-                        <span class="jpdb-reader-jpdb-compound-main">
-                            <a
-                                class="gloss-link jpdb-reader-jpdb-compound"
-                                href="#jpdb-reader-dictionary-lookup"
-                                data-dictionary-lookup="${escapeHtml$1(compound.term)}"
-                                data-dictionary-reading="${escapeHtml$1(compound.reading)}"
-                                data-dictionary="JPDB"
-                                data-external="false"
-                            >
-                                <span class="jpdb-reader-jpdb-compound-head">
-                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
-                                </span>
-                            </a>
-                            ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
-                        </span>
-                    </li>
-                `).join("")}
-            </ul>
-        </section>
-    ` : "";
-  }
-  function renderJpdbUsedInVocabulary(info, sourceAttributes, language) {
-    const entries2 = info.usedInVocabulary ?? [];
-    return entries2.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$2(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "usedInVocabulary"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries2.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">
-                ${entries2.map((entry) => `
-                    <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? " has-audio" : ""}">
-                        ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
-                        <span class="jpdb-reader-jpdb-used-in-main">
-                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.term)}" data-dictionary-reading="${escapeHtml$1(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
-                            ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
-                        </span>
-                    </li>
-                `).join("")}
-                </ul>
-            </div>
-        </details>
-    ` : "";
-  }
-  function renderJpdbExamples(info, sourceAttributes, language, card) {
-    if (!info.examples.length) return "";
-    const items = info.examples.map((example, index) => ({
-      id: String(index),
-      sentenceHtml: renderJpdbExampleSentence(example, card),
-      translation: example.translation,
-      ...example.audioIds?.length ? {
-        audio: {
-          action: "jpdb-example-audio",
-          label: uiText(language, "playJpdbExampleAudio"),
-          attributes: {
-            "data-jpdb-audio": example.audioIds.join(","),
-            "data-jpdb-example-sentence": example.sentence
-          }
-        }
-      } : {}
-    }));
-    return renderProviderExamples("jpdb", JPDB_DEFINITION_SOURCE_ID, { availability: "loaded", items }, sourceAttributes, language);
-  }
-  function renderJpdbExampleAudioButton(audioIds, sentence, language) {
-    const audio = audioIds?.join(",") ?? "";
-    const label = uiText(language, "playJpdbExampleAudio");
-    return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>` : "";
-  }
-  function renderJpdbExampleSentence(example, card) {
-    if (example.sentenceHtml) return example.sentenceHtml;
-    return renderJpdbPlainExampleSentence(example.sentence, card);
-  }
-  function renderJpdbPlainExampleSentence(sentence, card) {
-    const term = card.spelling.trim();
-    const start = term ? sentence.indexOf(term) : -1;
-    if (start < 0) return renderCardHighlightedTextHtml(sentence, card);
-    const before = sentence.slice(0, start);
-    const after = sentence.slice(start + term.length);
-    const url = Number.isFinite(card.vid) && card.vid > 0 ? `/vocabulary/${card.vid}` : "";
-    return `${escapeHtml$1(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? "", url, { sentence })}${escapeHtml$1(after)}`;
-  }
-  function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
-    return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
-  }
-  function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
-    const vid = jpdbVocabularyVidFromUrl(url);
-    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
-    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-    const { classes: classes2, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
-  }
-  function passiveJpdbRelatedWordContent(term, reading, options) {
-    const termHtml = options.termHtml?.trim() ?? "";
-    const visibleReading = passiveJpdbRelatedReading(term, reading, options, termHtml);
-    return {
-      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml)), options.className),
-      content: termHtml || passiveJpdbRelatedPlainContent(term, visibleReading)
-    };
-  }
-  function passiveJpdbRelatedReading(term, reading, options, termHtml) {
-    return termHtml || options.showReading === false ? "" : visibleJpdbRelatedReading(term, reading);
-  }
-  function passiveJpdbRelatedClasses(hasFuri, className = "") {
-    const extra = className.trim();
-    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$1(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
-  }
-  function passiveJpdbRelatedPlainContent(term, visibleReading) {
-    return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(term);
-  }
-  function jpdbVocabularyVidFromUrl(value) {
-    try {
-      const parts = new URL(value, "https://jpdb.io").pathname.split("/").filter(Boolean);
-      if (parts[0] !== "vocabulary") return null;
-      const vid = Number.parseInt(parts[1] ?? "", 10);
-      return Number.isFinite(vid) && vid > 0 ? vid : null;
-    } catch {
-      return null;
-    }
-  }
-  function visibleJpdbRelatedReading(term, reading) {
-    const normalizedTerm = term.trim();
-    const normalizedReading = reading.trim();
-    return normalizedReading && normalizedReading !== normalizedTerm ? normalizedReading : "";
-  }
-  function definitionSourceStateKey$2(sourceId) {
-    return `definition-source:${sourceId}`;
-  }
-  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
-    const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
-    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
-    return dictionarySections.join("");
-  }
-  function renderKanjiDefinitions(entries2, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
-    if (!entries2.length) return "";
-    const heading = title ?? uiText(language, "kanjiDictionaries");
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(heading)}</summary>
-            ${entries2.map((entry) => `
-                <div class="jpdb-reader-local-entry">
-                    <div class="jpdb-reader-local-head">
-                        <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
-                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
-                    </div>
-                    <div class="jpdb-reader-kanji-readings">
-                        ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
-                        ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
-                    </div>
-                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
-                        ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
-                    </div>
-                </div>
-            `).join("")}
-        </details>
-    `;
-  }
-  function definitionSourceStateKey$1(sourceId) {
-    return `definition-source:${sourceId}`;
-  }
-  function localDictionaryStateKey(dictionary) {
-    return `definition-dictionary:${dictionary}`;
-  }
-  function kanjiSourceStateKey(sourceId) {
-    return `kanji:${sourceId}`;
-  }
-  function kanjiFactProviderTitle(source) {
-    return source === "jiten" ? "Jiten" : "JPDB";
-  }
-  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
-    const entryCount = groups.length;
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore>
-                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
-            </summary>
-            <div class="jpdb-reader-local-terms">
-                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
-            </div>
-        </details>
-    `;
-  }
-  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, options = {}) {
-    return `
-        <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-            ${renderLocalTermHead(group, reference)}
-            ${renderLocalTermTags(dictionary, group, dictionaryLabel2, options.showDictionaryTag ?? true, language)}
-            ${renderLocalTermMeaning(dictionary, group)}
-        </article>
-    `;
-  }
-  function renderLocalTermHead(group, reference) {
-    if (repeatsLookupHeadword$1(group, reference)) return "";
-    return `<div class="jpdb-reader-local-head">
-        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
-        ${renderLocalTermReading(group)}
-        ${renderLocalTermFrequency(group)}
-    </div>`;
-  }
-  function repeatsLookupHeadword$1(group, reference) {
-    if (!matchesLookupExpression(group, reference)) return false;
-    return matchesLookupReading(group, reference);
-  }
-  function matchesLookupExpression(group, reference) {
-    if (!reference) return false;
-    return group.expression === reference.spelling;
-  }
-  function matchesLookupReading(group, reference) {
-    if (!reference.reading) return true;
-    if (group.reading === reference.reading) return true;
-    return group.reading === group.expression;
-  }
-  function renderLocalTermReading(group) {
-    return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
-  }
-  function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag, language) {
-    const tagItems = [
-      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
-      ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
-    ].filter(Boolean);
-    return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
-  }
-  function renderLocalTermMeaning(dictionary, group) {
-    if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
-    if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
-    return `<div class="jpdb-reader-local-senses">
-        ${group.meanings.slice(0, 8).map((meaning, index) => `
-            <div class="jpdb-reader-local-sense">
-                ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
-                <span>${escapeHtml$1(meaning)}</span>
-            </div>
-        `).join("")}
-    </div>`;
-  }
-  function renderLocalTermFrequency(group) {
-    return group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}</span>` : "";
-  }
-  function renderLocalGlossaryEntries(dictionary, entries2, options = {}) {
-    const showIndex = options.showIndex ?? entries2.length > 1;
-    const entryHtml = entries2.map((entry, index) => {
-      const content = localGlossaryItemsForRender(entry.glossary).map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
-      if (!content) return "";
-      return `
-            <div class="jpdb-reader-local-glossary-entry ${showIndex ? "" : "no-index"}">
-                ${showIndex ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
-                <div>${content}</div>
-            </div>
-        `;
-    }).filter(Boolean).join("");
-    if (!entryHtml) return "";
-    return `
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(dictionary)}">
-            ${entryHtml}
-        </div>
-    `;
-  }
-  function localGlossaryItemsForRender(glossary) {
-    const items = /* @__PURE__ */ new Set();
-    glossary.slice(0, 4).forEach((item) => items.add(item));
-    glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE.test(glossaryToText(item))).forEach((item) => items.add(item));
-    return Array.from(items);
-  }
-  function hasAdditionalLocalDictionaryText(entry) {
-    const summary = summarizeLearnerGlossary(entry);
-    return entry.glossary.some((item) => {
-      if (hasRichStructuredGlossary(item)) return true;
-      const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
-      if (!text2 || text2 === summary) return false;
-      return HAS_JAPANESE.test(text2);
-    });
-  }
-  function renderFrequencyPill(entry, dictionaryLabel2) {
-    const label = dictionaryLabel2(entry.dictionary);
-    const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
-    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(`${label} local frequency`)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
   }
   function detectGrammarHints(sentence) {
     return yomuKanjiStudyCompanion()?.detectGrammarHints?.(sentence) ?? [];
@@ -36303,17 +37935,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const sourceRecord = S.records[id];
       if (!sourceRecord) return [];
       return latestOps(sourceRecord.ops, beforeSeq).map((sourceOp) => {
-        const copy = { ...sourceOp };
+        const copy2 = { ...sourceOp };
         if (sourceOp.srcId) {
           const nestedRecord = S.records[sourceOp.srcId];
           if (nestedRecord) {
-            copy.srcW = nestedRecord.w;
-            copy.srcH = nestedRecord.h;
+            copy2.srcW = nestedRecord.w;
+            copy2.srcH = nestedRecord.h;
             const nested = snapshotOps(sourceOp.srcId, sourceOp.seq, depth + 1);
-            if (nested.length) copy.srcOps = nested;
+            if (nested.length) copy2.srcOps = nested;
           }
         }
-        return copy;
+        return copy2;
       });
     };
     const addSnapshotDependencies = (ops, out, seen, depth) => {
@@ -38155,9 +39787,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     if (ArrayBuffer.isView(value)) {
       const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-      const copy = new Uint8Array(source.byteLength);
-      copy.set(source);
-      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
+      const copy2 = new Uint8Array(source.byteLength);
+      copy2.set(source);
+      return new Blob([copy2.buffer], { type: sniffImageMimeType(copy2.subarray(0, 16)) ?? fallbackType });
     }
     return new Blob([value], { type: fallbackType });
   }
@@ -43239,7 +44871,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.236".trim() ? "1.6.236".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.237".trim() ? "1.6.237".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -47540,16 +49172,16 @@ ${spelling}`);
     return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
   }
   function audioHelpHtml(language) {
-    const copy = uiText(language, "audioHelp");
+    const copy2 = uiText(language, "audioHelp");
     const linkLabel = uiText(language, "audioGuideLinkLabel");
-    const [before, after = ""] = copy.split(linkLabel);
+    const [before, after = ""] = copy2.split(linkLabel);
     return `${escapeHtml$1(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(linkLabel)}</a>${escapeHtml$1(after)}`;
   }
   function ankiSetupHelpHtml(language) {
-    const copy = uiText(language, "ankiHelp");
+    const copy2 = uiText(language, "ankiHelp");
     const addOnLabel = language === "ja" ? "AnkiConnectアドオンを開く" : "Open AnkiConnect add-on";
     const docsLabel = language === "ja" ? "モバイルAnki設定ドキュメント" : "Mobile Anki setup docs";
-    return `${escapeHtml$1(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
+    return `${escapeHtml$1(copy2)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
   }
   function installShortcutCapture(root) {
     root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
@@ -49906,7 +51538,7 @@ ${spelling}`);
       closeButton.addEventListener("click", () => void this.complete(false));
       const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", uiText(this.options.getSettings().interfaceLanguage, "onboardingEyebrow"));
       const title = element("h2", "", APP_NAME);
-      const copy = element(
+      const copy2 = element(
         "p",
         "",
         uiText(this.options.getSettings().interfaceLanguage, "onboardingCopy")
@@ -50073,7 +51705,7 @@ ${spelling}`);
         if (event.key !== "Enter" && event.key !== " ") return;
         if (this.handleWordLookup(event)) event.preventDefault();
       });
-      this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
+      this.panel.append(closeButton, eyebrow, title, copy2, basics, actions, immersionOptions, featureList);
       this.syncThemeSwitch();
       this.syncAccentPicker(this.accentColorInput.value);
       this.syncManualPageScanShortcut();
@@ -50102,8 +51734,8 @@ ${spelling}`);
       if (!panel) return;
       panel.setAttribute("aria-label", uiText(language, "welcomeLabel"));
       panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(uiText(language, "onboardingEyebrow"));
-      const copy = panel.querySelector("p");
-      copy?.replaceChildren(uiText(language, "onboardingCopy"));
+      const copy2 = panel.querySelector("p");
+      copy2?.replaceChildren(uiText(language, "onboardingCopy"));
       panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
       panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
       panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
@@ -50343,11 +51975,11 @@ ${spelling}`);
   function checkboxLabel(input2, text2) {
     const label = document.createElement("label");
     label.className = "inline";
-    const copy = document.createElement("span");
-    copy.id = onboardingCopyId(input2.name);
-    copy.dataset.onboardingCopy = input2.name;
-    copy.textContent = text2;
-    label.append(input2, copy);
+    const copy2 = document.createElement("span");
+    copy2.id = onboardingCopyId(input2.name);
+    copy2.dataset.onboardingCopy = input2.name;
+    copy2.textContent = text2;
+    label.append(input2, copy2);
     return label;
   }
   function shortcutTextInput(name, value, language, placeholderKey) {
@@ -50399,11 +52031,11 @@ ${spelling}`);
   function shortcutLabel(input2, text2) {
     const label = document.createElement("label");
     label.className = "jpdb-reader-onboarding-shortcut";
-    const copy = document.createElement("span");
-    copy.id = onboardingCopyId(input2.name);
-    copy.dataset.onboardingCopy = input2.name;
-    copy.textContent = text2;
-    label.append(copy, input2);
+    const copy2 = document.createElement("span");
+    copy2.id = onboardingCopyId(input2.name);
+    copy2.dataset.onboardingCopy = input2.name;
+    copy2.textContent = text2;
+    label.append(copy2, input2);
     return label;
   }
   function onboardingCopyId(name) {
@@ -63521,8 +65153,8 @@ ${spelling}`);
     return false;
   }
   function youtubeShelfText(language, key, values = {}) {
-    const copy = YOUTUBE_SHELF_COPY[language === "ja" ? "ja" : "en"][key];
-    return copy.replace(/\{(\w+)\}/g, (_match, name) => String(values[name] ?? ""));
+    const copy2 = YOUTUBE_SHELF_COPY[language === "ja" ? "ja" : "en"][key];
+    return copy2.replace(/\{(\w+)\}/g, (_match, name) => String(values[name] ?? ""));
   }
   function collectYouTubeVideoCards(root = document) {
     if (isInsideReaderRoot(root)) return [];
@@ -64164,8 +65796,8 @@ ${spelling}`);
       shelf.setAttribute("aria-label", youtubeShelfText(this.options.getSettings().interfaceLanguage, YT_RECOMMENDATIONS));
       const header = document.createElement("div");
       header.className = "jpdb-youtube-channel-shelf-head";
-      const copy = document.createElement("div");
-      copy.className = "jpdb-youtube-channel-shelf-copy";
+      const copy2 = document.createElement("div");
+      copy2.className = "jpdb-youtube-channel-shelf-copy";
       const eyebrow = document.createElement("div");
       eyebrow.className = "jpdb-youtube-channel-shelf-eyebrow";
       eyebrow.textContent = APP_NAME;
@@ -64173,7 +65805,7 @@ ${spelling}`);
       title.dataset.role = "channel-title";
       const description = document.createElement("p");
       description.dataset.role = "channel-copy";
-      copy.append(eyebrow, title, description);
+      copy2.append(eyebrow, title, description);
       const actions = document.createElement("div");
       actions.className = "jpdb-youtube-channel-shelf-actions";
       actions.append(
@@ -64181,7 +65813,7 @@ ${spelling}`);
         channelShelfButton("subscribe-all"),
         channelShelfButton("never")
       );
-      header.append(copy, actions);
+      header.append(copy2, actions);
       const filters = document.createElement("div");
       filters.className = "jpdb-youtube-channel-shelf-filters";
       filters.dataset.role = "channel-filters";
@@ -67606,859 +69238,6 @@ ${component.reading}`;
       Audio: card.ankiAudioFilenames?.map((filename) => `[sound:${filename}]`).join(" ") ?? ""
     };
   }
-  function renderPassiveReference(view) {
-    const reading = visibleReferenceReading(view.text, view.reading);
-    const identity = Object.entries(view.identityAttributes ?? {}).map(([name, value]) => `${name}="${escapeHtml$1(value)}"`).join(" ");
-    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-    const identityAttributes = identity ? ` ${identity}` : "";
-    const extraClass = view.className?.trim();
-    const classes2 = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
-    const content = reading && view.annotatedReading && /\[[^\]]+\]/.test(view.annotatedReading) ? renderAnnotatedReadingRuby(view.annotatedReading) : renderPassiveReferenceContent(view.text, reading);
-    return `<span class="${classes2}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="${escapeHtml$1(view.dictionary)}" data-pitch-class="" data-sentence="${escapeHtml$1(view.sentence ?? view.text)}" data-expression="${escapeHtml$1(view.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
-  }
-  function renderAnnotatedReadingRuby(value) {
-    const source = value.trim();
-    if (!source) return "";
-    let html = "";
-    let offset = 0;
-    const regex = /([一-龯々-〇]+)\[([^\]]+)\]/g;
-    let match;
-    while ((match = regex.exec(source)) !== null) {
-      html += escapeHtml$1(source.slice(offset, match.index));
-      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
-      offset = match.index + match[0].length;
-    }
-    html += escapeHtml$1(source.slice(offset));
-    return html;
-  }
-  function renderPassiveReferenceContent(text2, reading) {
-    return reading ? renderRuby(text2, referenceRubyToken(text2, reading)) : escapeHtml$1(text2);
-  }
-  function referenceRubyToken(text2, reading) {
-    return {
-      card: {
-        vid: 0,
-        sid: 0,
-        rid: 0,
-        spelling: text2,
-        reading,
-        frequencyRank: null,
-        partOfSpeech: [],
-        meanings: [],
-        cardState: ["not-in-deck"],
-        pitchAccent: [],
-        wordWithReading: null
-      },
-      start: 0,
-      end: text2.length,
-      length: text2.length,
-      rubies: [],
-      pitchClass: "",
-      sentence: text2
-    };
-  }
-  function visibleReferenceReading(text2, reading) {
-    const normalizedText = text2.trim();
-    const normalizedReading = reading.trim();
-    return normalizedReading && normalizedReading !== normalizedText ? normalizedReading : "";
-  }
-  const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
-  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
-  const REQUEST_TIMEOUT_MS$4 = 3e4;
-  const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
-  const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
-  const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
-  class BunproApiError extends Error {
-    constructor(message, status) {
-      super(message);
-      this.status = status;
-      this.name = "BunproApiError";
-    }
-  }
-  class BunproClient {
-    getFrontendToken;
-    getLegacyApiKey;
-    frontendBaseUrl;
-    legacyBaseUrl;
-    requestImpl;
-    timeoutMs;
-    getProxyUrl;
-    transportRetryAfter = 0;
-    constructor(options = {}) {
-      this.getFrontendToken = options.getFrontendToken ?? (() => "");
-      this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
-      this.getProxyUrl = options.getProxyUrl ?? (() => "");
-      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
-      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
-      this.requestImpl = options.requestImpl ?? requestHttp;
-      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
-    }
-    hasFrontendCredential() {
-      return Boolean(this.getFrontendToken().trim());
-    }
-    /** Cheap non-reversible fingerprint of the frontend token, so persisted
-     * per-account caches can be validated without storing the token itself. */
-    // fallow-ignore-next-line unused-class-member
-    frontendCredentialFingerprint() {
-      const token = this.getFrontendToken().trim();
-      if (!token) return "";
-      let hash = 5381;
-      for (let index = 0; index < token.length; index += 1) {
-        hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
-      }
-      return `${hash.toString(16)}:${token.length}`;
-    }
-    // fallow-ignore-next-line unused-class-member
-    hasLegacyCredential() {
-      return Boolean(this.getLegacyApiKey().trim());
-    }
-    getUser() {
-      return this.frontend("/user");
-    }
-    getDueCount() {
-      return this.frontend("/user/due");
-    }
-    getQueue() {
-      return this.frontend("/reviews/quiz_index");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getUserFurigana() {
-      return this.frontend("/user/user_furigana");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getReviews(page = 1, perPage = 25) {
-      return this.frontend("/reviews", {
-        query: {
-          page: String(Math.max(1, Math.floor(page))),
-          per_page: String(Math.max(1, Math.floor(perPage)))
-        }
-      });
-    }
-    getBaseStats() {
-      return this.frontend("/user_stats/base_stats");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getJlptProgress() {
-      return this.frontend("/user_stats/jlpt_progress_mixed");
-    }
-    // Called through a structural Pick<> by the word-state store, which the
-    // member-usage analysis cannot see.
-    // fallow-ignore-next-line unused-class-member
-    getSrsOverview() {
-      return this.frontend("/user_stats/srs_level_overview");
-    }
-    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
-    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
-    // through a structural Pick<> by the word-state store.
-    // fallow-ignore-next-line unused-class-member
-    getSrsLevelDetails(level, reviewableType, page = 1) {
-      return this.frontend("/user_stats/srs_level_details", {
-        query: {
-          level,
-          reviewable_type: reviewableType,
-          page: String(Math.max(1, Math.floor(page)))
-        }
-      });
-    }
-    // fallow-ignore-next-line unused-class-member
-    getForecastDaily() {
-      return this.frontend("/user_stats/forecast_daily");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getForecastHourly() {
-      return this.frontend("/user_stats/forecast_hourly");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getReviewActivity() {
-      return this.frontend("/user_stats/review_activity");
-    }
-    getVocab(slugOrId) {
-      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
-    }
-    getGrammarPoint(id) {
-      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
-    }
-    async search(query, options = {}) {
-      return this.frontend("/search/reviewables_v1_1", {
-        method: "POST",
-        body: {
-          query,
-          options: {
-            // Definition/mining lookups do not need the learner's
-            // private notes or bookmarks. Review relationships are
-            // opt-in for the rare caller that actually consumes them.
-            include_reviews: options.includeReviews ?? false,
-            include_bookmarks: false,
-            include_notes: false,
-            only_bookmarks: false
-          },
-          is_searching_grammar: options.grammar ?? true,
-          is_searching_vocab: options.vocab ?? true
-        },
-        trimLimit: options.limit
-      });
-    }
-    updateReviewsViaActionType(request) {
-      return this.frontend("/reviews/update_via_action_type", {
-        method: "PATCH",
-        body: {
-          deck_id: request.deckId ?? null,
-          action_type: request.actionType,
-          reviewables: request.reviewables.map((item) => [item.type, item.id])
-        }
-      });
-    }
-    updateReview(reviewId, body, endpoint = "review") {
-      const collection = endpoint === "ghost-review" ? "ghost_reviews" : endpoint === "self-study-review" ? "self_study_reviews" : "reviews";
-      return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
-        method: "POST",
-        body
-      });
-    }
-    getLegacyStudyQueue() {
-      return this.legacy("/study_queue");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getLegacyRecentItems(limit = 10) {
-      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
-    }
-    async frontend(path, options = {}) {
-      const token = this.getFrontendToken().trim();
-      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
-      const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
-      const response = await this.requestJson(url, {
-        method: options.method ?? "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json"
-        },
-        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-        statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
-      });
-      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
-    }
-    legacy(path) {
-      const apiKey = this.getLegacyApiKey().trim();
-      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
-      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
-        method: "GET",
-        headers: { Accept: "application/json" }
-      });
-    }
-    async requestJson(url, options) {
-      if (this.transportRetryAfter > Date.now()) {
-        throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
-      }
-      try {
-        const response = await this.requestImpl(url, {
-          ...options,
-          responseType: "json",
-          timeoutMs: this.timeoutMs,
-          preferFetch: true,
-          allowDirectCrossOrigin: true,
-          // The Bearer token must never transit the SHARED public proxy,
-          // but the user's own configured proxy is their infrastructure —
-          // and on hosted pages with no userscript bridge it is the only
-          // transport that can carry an authenticated Bunpro request.
-          proxyUrl: this.getProxyUrl(),
-          allowPublicProxies: false,
-          allowSensitiveConfiguredProxy: true,
-          credentials: "omit",
-          referrerPolicy: "no-referrer",
-          failureLabel: "Bunpro request"
-        });
-        this.transportRetryAfter = 0;
-        return response;
-      } catch (error) {
-        if (isBunproTransportFailure(error)) this.transportRetryAfter = Date.now() + TRANSPORT_FAILURE_BACKOFF_MS;
-        throw normalizeBunproError(error);
-      }
-    }
-  }
-  function isBunproTransportFailure(error) {
-    if (errorStatus$1(error) !== void 0) return false;
-    if (error instanceof BunproApiError) return false;
-    return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
-  }
-  function normalizeBunproError(error) {
-    if (error instanceof BunproApiError) return error;
-    const status = errorStatus$1(error);
-    if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
-    if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
-    return error;
-  }
-  function errorStatus$1(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const status = error.status ?? error.statusCode;
-    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
-  }
-  function trimBaseUrl(value) {
-    return value.replace(/\/+$/u, "");
-  }
-  function urlWithQuery(url, query) {
-    if (!query) return url;
-    const next = new URL(url);
-    Object.entries(query).forEach(([key, value]) => {
-      if (value !== void 0) next.searchParams.set(key, value);
-    });
-    return next.href;
-  }
-  function trimBunproSearchResponse(raw, limit) {
-    const maxItems = Math.max(1, Math.floor(limit));
-    if (!raw || typeof raw !== "object") return raw;
-    const value = raw;
-    return {
-      ...value,
-      grammar_points: trimBunproSearchSection(value.grammar_points, maxItems),
-      vocabs: trimBunproSearchSection(value.vocabs, maxItems)
-    };
-  }
-  function trimBunproSearchSection(section, limit) {
-    if (!section || typeof section !== "object") return section;
-    const value = section;
-    if (!Array.isArray(value.data)) return section;
-    return { ...value, data: value.data.slice(0, limit) };
-  }
-  class LruCache {
-    constructor(maxSize) {
-      this.maxSize = maxSize;
-    }
-    map = /* @__PURE__ */ new Map();
-    get(key) {
-      const value = this.map.get(key);
-      if (value !== void 0) {
-        this.map.delete(key);
-        this.map.set(key, value);
-      }
-      return value;
-    }
-    set(key, value) {
-      this.map.delete(key);
-      this.map.set(key, value);
-      if (this.map.size > this.maxSize) {
-        const oldest = this.map.keys().next().value;
-        if (oldest !== void 0) {
-          this.map.delete(oldest);
-        }
-      }
-    }
-    clear() {
-      this.map.clear();
-    }
-  }
-  const BUNPRO_EXAMPLE_LIMIT = 10;
-  async function lookupBunproDefinitionResult(client, card) {
-    const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-    const result = selectBunproDefinitionSearch(raw, card.spelling, card.reading, {
-      id: card.bunproReviewableId,
-      kind: bunproDefinitionKind(card.bunproReviewableType)
-    });
-    if (!result.info) return result;
-    const info = result.info;
-    try {
-      const detail = await bunproReviewableDetail(client, info);
-      applyBunproReviewableDetail(info, detail);
-      applyBunproExampleCollection(info, normalizeBunproExampleCollection(detail, info.sourceUrl));
-    } catch (error) {
-      applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
-    }
-    await resolveBunproUsedInVocab(client, info);
-    return { state: "success", info };
-  }
-  const BUNPRO_FREQUENCY_LISTS = ["general", "anime", "novels", "netflix", "dictionary"];
-  function applyBunproReviewableDetail(info, raw) {
-    const attributes = objectRecord(objectRecord(objectRecord(raw)?.data)?.attributes);
-    if (!attributes) return;
-    info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
-    info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list) => ({ list, rank: numberValue$1(attributes[`frequency_${list}`]) })).filter((entry) => entry.rank > 0);
-    info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
-    info.caution = stripBunproMarkup(textValue(attributes.caution));
-    info.register = textValue(attributes.register);
-    info.registerTranslation = textValue(attributes.register_translation);
-    info.structures = [["polite", attributes.polite_structure], ["casual", attributes.casual_structure]].map(([label, value]) => ({ label, lines: bunproStructureLines(textValue(value)) })).filter((entry) => entry.lines.length);
-    info.relatedGrammar = uniqueRelatedGrammar([
-      bunproRelatedGrammarPoint(attributes.previous_grammar_point),
-      bunproRelatedGrammarPoint(attributes.next_grammar_point)
-    ]).filter((entry) => entry.id !== info.id);
-    info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
-  }
-  function bunproCoverageVocabIds(raw) {
-    if (!Array.isArray(raw)) return [];
-    return raw.map((value) => numberValue$1(value)).filter((id) => id > 0).slice(0, 50);
-  }
-  const BUNPRO_USED_IN_LIMIT = 5;
-  const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
-  const bunproUsedInVocabCache = new LruCache(200);
-  async function resolveBunproUsedInVocab(client, info) {
-    if (info.kind !== "grammar") return;
-    const ids = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
-    if (!ids.length) return;
-    const resolved = await Promise.race([
-      Promise.all(ids.map((id) => bunproUsedInVocabEntry(client, id))),
-      new Promise((resolve) => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS))
-    ]);
-    if (!resolved) return;
-    info.usedInVocab = resolved.filter((entry) => entry !== null);
-  }
-  async function bunproUsedInVocabEntry(client, id) {
-    const cached = bunproUsedInVocabCache.get(id);
-    if (cached) return cached;
-    try {
-      const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id))?.data)?.attributes);
-      const kana = textValue(attributes?.kana);
-      const text2 = textValue(attributes?.word) || kana;
-      if (!text2) return null;
-      const entry = {
-        id,
-        text: text2,
-        reading: kana && kana !== text2 ? kana : "",
-        meaning: stripBunproMarkup(textValue(attributes?.meaning))
-      };
-      bunproUsedInVocabCache.set(id, entry);
-      return entry;
-    } catch {
-      return null;
-    }
-  }
-  function bunproJmdictRelatedWords(raw, info) {
-    const senses = objectRecord(raw)?.sense;
-    if (!Array.isArray(senses)) return [];
-    const seen = /* @__PURE__ */ new Set([info.expression, info.reading]);
-    const related = [];
-    for (const sense of senses) {
-      const record = objectRecord(sense);
-      for (const relation of ["related", "antonym"]) {
-        for (const reference of Array.isArray(record?.[relation]) ? record[relation] : []) {
-          const text2 = textValue(Array.isArray(reference) ? reference[0] : reference);
-          if (!text2 || seen.has(text2)) continue;
-          seen.add(text2);
-          related.push({ text: text2, relation });
-        }
-      }
-    }
-    return related.slice(0, 20);
-  }
-  function bunproStructureLines(value) {
-    return value.split(/<br\s*\/?\s*>|\n/gi).map((line) => stripBunproFurigana(stripBunproMarkup(line)).trim()).filter(Boolean).slice(0, 12);
-  }
-  function bunproRelatedGrammarPoint(raw) {
-    const record = objectRecord(raw);
-    const id = numberValue$1(record?.id);
-    const title = textValue(record?.title);
-    if (!id || !title) return null;
-    return { id, title, slug: textValue(record?.slug) || title };
-  }
-  function uniqueRelatedGrammar(entries2) {
-    const seen = /* @__PURE__ */ new Set();
-    return entries2.filter((entry) => {
-      if (!entry || seen.has(entry.id)) return false;
-      seen.add(entry.id);
-      return true;
-    });
-  }
-  function bunproReviewableDetail(client, info) {
-    return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
-  }
-  function normalizeBunproExampleCollection(raw, sourceUrl) {
-    const included = objectRecord(raw)?.included;
-    if (!Array.isArray(included)) return { availability: "unavailable", items: [], reason: "schema" };
-    const questions = included.filter((value) => textValue(objectRecord(value)?.type) === "study_question");
-    if (!questions.length) return { availability: "empty", items: [] };
-    const examples = questions.map((value) => bunproExampleSentence(value, sourceUrl)).filter((item) => item !== null).sort((a, b) => a.order - b.order);
-    if (!examples.length) return { availability: "unavailable", items: [], reason: "schema" };
-    const deduped = dedupeBunproExamples(examples).slice(0, BUNPRO_EXAMPLE_LIMIT).map(({ order: _order, ...example }) => example);
-    return { availability: "loaded", items: deduped };
-  }
-  function applyBunproExampleCollection(info, collection) {
-    info.examples = collection.items;
-    info.examplesAvailability = collection.availability;
-    info.examplesUnavailableReason = collection.availability === "unavailable" ? collection.reason : "";
-  }
-  function bunproExampleSentence(value, sourceUrl) {
-    const record = objectRecord(value);
-    if (textValue(record?.type) !== "study_question") return null;
-    const attributes = objectRecord(record?.attributes);
-    if (!attributes) return null;
-    const answer = textValue(attributes.kanji_answer) || textValue(attributes.answer);
-    const content = fillBunproClozeContent(textValue(attributes.content), answer);
-    const parts = bunproSentenceParts(content);
-    const text2 = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
-    if (!text2 || !/[぀-ヿ㐀-鿿]/u.test(text2)) return null;
-    return {
-      id: textValue(record?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
-      parts,
-      text: text2,
-      translation: stripBunproMarkup(textValue(attributes.translation)),
-      audioUrls: uniqueText$1([
-        bunproHttpsUrl(textValue(attributes.female_audio_url)),
-        bunproHttpsUrl(textValue(attributes.male_audio_url))
-      ]),
-      source: { provider: "bunpro", url: sourceUrl },
-      order: Number(attributes.sentence_order) || 0
-    };
-  }
-  function dedupeBunproExamples(examples) {
-    const unique2 = /* @__PURE__ */ new Map();
-    for (const example of examples) {
-      const key = `${normalizedDisplayText(example.text)}\0${normalizedDisplayText(example.translation)}`;
-      const current = unique2.get(key);
-      if (!current) {
-        unique2.set(key, example);
-        continue;
-      }
-      current.audioUrls = uniqueText$1([...current.audioUrls, ...example.audioUrls]);
-    }
-    return Array.from(unique2.values());
-  }
-  function bunproExampleFailureReason(error) {
-    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
-    if (status === 401 || status === 403) return "auth";
-    if (status === 404) return "schema";
-    return "network";
-  }
-  function fillBunproClozeContent(content, answer) {
-    if (!answer || !/_{2,}/u.test(content)) return content;
-    return content.replace(/_{2,}/u, `<strong>${answer}</strong>`);
-  }
-  function bunproSentenceParts(content) {
-    const parts = [];
-    content.split(/<strong[^>]*>([\s\S]*?)<\/strong>/gi).forEach((segment, index) => {
-      const text2 = stripBunproMarkup(segment ?? "");
-      if (!text2) return;
-      parts.push({ text: text2, target: index % 2 === 1 });
-    });
-    return parts;
-  }
-  function stripBunproMarkup(value) {
-    return decodeBasicEntities(value.replace(/<[^>]*>/g, ""));
-  }
-  function decodeBasicEntities(value) {
-    return value.replace(/&nbsp;/g, " ").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-  }
-  function bunproHttpsUrl(value) {
-    return value.startsWith("https://") ? value : "";
-  }
-  function selectBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
-    const candidates = bunproDefinitionCandidates(raw);
-    if (!candidates.length) return noBunproMatch("no-results");
-    const selectedById = selectBunproDefinitionById(candidates, selection);
-    if (selectedById) return selectedById;
-    const eligible = selection.kind ? candidates.filter((item) => item.kind === selection.kind) : candidates;
-    return selectExactBunproDefinition(eligible, expression, reading);
-  }
-  function bunproDefinitionCandidates(raw) {
-    return [
-      ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
-      ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
-    ].filter((item) => item !== null);
-  }
-  function selectBunproDefinitionById(candidates, selection) {
-    const expectedId = numberValue$1(selection.id);
-    if (!expectedId) return null;
-    const info = candidates.find((item) => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
-    return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
-  }
-  function selectExactBunproDefinition(candidates, expression, reading) {
-    const normalizedExpression = normalizedLookupText$2(expression);
-    const exactExpression = candidates.filter((item) => normalizedLookupText$2(item.expression) === normalizedExpression);
-    if (!exactExpression.length) return noBunproMatch("expression-mismatch");
-    return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
-  }
-  function selectExactBunproReading(candidates, reading) {
-    const normalizedReading = normalizedLookupText$2(reading);
-    const exactReading = candidates.filter((item) => normalizedLookupText$2(item.reading) === normalizedReading);
-    return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
-  }
-  function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
-    if (candidates.length === 1 || sameDefinitionIdentity(candidates)) return bunproMatch(candidates[0]);
-    return noBunproMatch(ambiguousReason);
-  }
-  function bunproMatch(info) {
-    return { state: "success", info };
-  }
-  function noBunproMatch(reason) {
-    return { state: "no-match", reason, info: null };
-  }
-  function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
-    if (!info) return "";
-    const japanese = resolveUiLanguage(language) === "ja";
-    const registerTag = japanese ? info.register : info.registerTranslation || info.register;
-    const details = [
-      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
-      ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`),
-      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : ""
-    ].filter(Boolean).join("");
-    const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
-    const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
-    const glosses = distinctBunproGlosses(info);
-    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-                ${renderBunproHeadword(card, info)}
-                ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
-                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
-                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
-                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
-                ${renderBunproStructures(info, language)}
-                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$1(info.caution)}</div></div>` : ""}
-            </article>
-            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
-        </details>
-    `;
-  }
-  function renderBunproHeadword(card, info, _language) {
-    if (repeatsLookupHeadword(card, info)) return "";
-    const reference = renderPassiveReference({
-      text: info.expression,
-      reading: info.reading,
-      dictionary: "Bunpro",
-      className: "jpdb-reader-bunpro-headword-target"
-    });
-    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
-  }
-  function renderBunproGlossText(value) {
-    if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
-    return `<div class="jpdb-reader-parseable">${escapeHtml$1(stripBunproFurigana(value))}</div>`;
-  }
-  function renderBunproStructures(info, language) {
-    if (!info.structures.length) return "";
-    const blocks = info.structures.map((structure) => `
-        <div class="jpdb-reader-bunpro-structure" data-structure="${structure.label}">
-            ${structure.lines.map((line) => `<div class="jpdb-reader-parseable">${escapeHtml$1(line)}</div>`).join("")}
-        </div>
-    `).join("");
-    return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
-  }
-  function renderBunproUsedInVocab(info, sourceAttributes, language) {
-    if (!info.usedInVocab.length) return "";
-    const rows = info.usedInVocab.map((entry) => `
-        <li class="jpdb-reader-jpdb-used-in-row">
-            <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
-                </a>
-                ${entry.reading ? `<small lang="ja">${escapeHtml$1(entry.reading)}</small>` : ""}
-                ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
-            </span>
-        </li>
-    `).join("");
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
-  }
-  function renderBunproRelatedWords(info, sourceAttributes, language) {
-    if (!info.relatedWords.length) return "";
-    const rows = info.relatedWords.map((entry) => `
-        <li class="jpdb-reader-jpdb-used-in-row">
-            <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
-                </a>
-                ${entry.relation === "antonym" ? `<small>${escapeHtml$1(uiText(language, "antonymWord"))}</small>` : ""}
-            </span>
-        </li>
-    `).join("");
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-words`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedWords"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedWords.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
-  }
-  function renderBunproRelatedGrammar(info, sourceAttributes, language) {
-    if (!info.relatedGrammar.length) return "";
-    const rows = info.relatedGrammar.map((entry) => `
-        <li class="jpdb-reader-jpdb-used-in-row">
-            <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.title)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.title)}</span>
-                </a>
-            </span>
-        </li>
-    `).join("");
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-grammar`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedGrammar"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedGrammar.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
-  }
-  function renderBunproExamples(info, sourceAttributes, language) {
-    const collection = info.examplesAvailability === "loaded" ? { availability: "loaded", items: info.examples } : info.examplesAvailability === "unavailable" ? { availability: "unavailable", items: [], reason: info.examplesUnavailableReason || "schema" } : { availability: "empty", items: [] };
-    const view = collection.availability === "loaded" ? { availability: "loaded", items: collection.items.map((example) => bunproExampleView(example, language)) } : collection;
-    return renderProviderExamples("bunpro", BUNPRO_DEFINITION_SOURCE_ID, view, sourceAttributes, language);
-  }
-  function renderBunproExamplePart(part, sentence) {
-    const plain = stripBunproFurigana(part.text);
-    if (!part.target) return escapeHtml$1(plain);
-    return renderPassiveReference({
-      text: plain,
-      reading: bunproAnnotatedKana(part.text),
-      dictionary: "Bunpro",
-      sentence,
-      className: "jpdb-reader-example-target jpdb-reader-bunpro-example-target",
-      annotatedReading: bunproBracketAnnotated(part.text)
-    });
-  }
-  function bunproExampleView(example, language) {
-    const audioUrl = example.audioUrls[0] ?? "";
-    return {
-      id: example.id,
-      sentenceHtml: example.parts.map((part) => renderBunproExamplePart(part, example.text)).join(""),
-      translation: example.translation,
-      audio: {
-        action: "bunpro-audio",
-        label: uiText(language, "playAudio"),
-        attributes: {
-          "data-study-sentence": example.text,
-          ...audioUrl ? { "data-audio-url": audioUrl } : {}
-        }
-      }
-    };
-  }
-  const BUNPRO_FURIGANA_RE = /([一-龯々-〇]+)（([ぁ-ゖァ-ヺー・]+)）/g;
-  function stripBunproFurigana(value) {
-    BUNPRO_FURIGANA_RE.lastIndex = 0;
-    return value.replace(BUNPRO_FURIGANA_RE, "$1");
-  }
-  function bunproBracketAnnotated(value) {
-    BUNPRO_FURIGANA_RE.lastIndex = 0;
-    return value.replace(BUNPRO_FURIGANA_RE, "$1[$2]");
-  }
-  function bunproAnnotatedKana(value) {
-    BUNPRO_FURIGANA_RE.lastIndex = 0;
-    const rendered = value.replace(BUNPRO_FURIGANA_RE, "$2").trim();
-    return rendered === value.trim() ? "" : rendered;
-  }
-  function definitionInfo(value, kind) {
-    const record = objectRecord(value);
-    const attributes = objectRecord(record?.attributes) ?? record;
-    if (!attributes) return null;
-    const id = numberValue$1(attributes.id ?? record?.id);
-    const expression = textValue(attributes.title ?? attributes.grammar_point ?? attributes.word);
-    if (!id || !expression) return null;
-    const reading = textValue(attributes.kana ?? attributes.furigana ?? attributes.reading) || expression;
-    const slug = textValue(attributes.slug) || expression;
-    return {
-      id,
-      kind,
-      expression,
-      reading,
-      slug,
-      meaning: textValue(attributes.meaning),
-      nuance: stripBunproMarkup(textValue(attributes.nuance)),
-      nuanceTranslation: stripBunproMarkup(textValue(attributes.nuance_translation)),
-      acceptedAnswers: textList(attributes.accepted_answers),
-      partOfSpeech: normalizeBunproPartOfSpeech(attributes.jmdict_pos),
-      jlptLevel: normalizeBunproJlptLevel(attributes.jlpt_level),
-      sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`,
-      examples: [],
-      examplesAvailability: "empty",
-      examplesUnavailableReason: "",
-      pitchAccentStress: "",
-      frequencies: [],
-      relatedWords: [],
-      caution: "",
-      register: "",
-      registerTranslation: "",
-      structures: [],
-      relatedGrammar: [],
-      coverageVocabIds: [],
-      usedInVocab: []
-    };
-  }
-  function searchItems(raw, key) {
-    const section = objectRecord(objectRecord(raw)?.[key]);
-    return Array.isArray(section?.data) ? section.data : [];
-  }
-  function repeatsLookupHeadword(card, info) {
-    return info.expression === card.spelling && (!card.reading || info.reading === card.reading || info.reading === info.expression);
-  }
-  function bunproDefinitionKind(type) {
-    if (type === "vocabulary" || type === "grammar") return type;
-    return void 0;
-  }
-  function normalizedLookupText$2(value) {
-    return value.normalize("NFKC").trim();
-  }
-  function normalizeBunproJlptLevel(value) {
-    const level = textValue(value).normalize("NFKC").toUpperCase();
-    return /^N[1-5]$/u.test(level) ? level : "";
-  }
-  function normalizeBunproPartOfSpeech(value) {
-    return uniqueText$1(textList(value).filter((tag) => !/^(?:unc|unclassified)$/iu.test(tag)).map((tag) => formatPartOfSpeech([tag]).trim()).filter((label) => label && !/^unclassified$/iu.test(label)));
-  }
-  function distinctBunproGlosses(info) {
-    const meaning = info.meaning.trim();
-    return {
-      meaning,
-      nuance: distinctDisplayText([info.nuance, info.nuanceTranslation], meaning ? [meaning] : [])
-    };
-  }
-  function distinctDisplayText(values, excluded = []) {
-    const seen = new Set(excluded.map(normalizedDisplayText).filter(Boolean));
-    const result = [];
-    for (const value of values) {
-      const text2 = value.trim();
-      const key = normalizedDisplayText(text2);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      result.push(text2);
-    }
-    return result;
-  }
-  function normalizedDisplayText(value) {
-    return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase();
-  }
-  function uniqueText$1(values) {
-    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-  }
-  function sameDefinitionIdentity(items) {
-    const first2 = items[0];
-    return Boolean(first2 && items.every((item) => item.id === first2.id && item.kind === first2.kind));
-  }
-  function textList(value) {
-    if (Array.isArray(value)) return value.map(textValue).filter(Boolean);
-    const text2 = textValue(value);
-    return text2 ? text2.split(/[;,]\s*/u).map((item) => item.trim()).filter(Boolean) : [];
-  }
-  function textValue(value) {
-    return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
-  }
-  function numberValue$1(value) {
-    const number = Number(value);
-    return Number.isInteger(number) && number > 0 ? number : 0;
-  }
-  function errorStatus(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const value = error;
-    const status = value.status ?? value.statusCode;
-    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
-  }
-  function objectRecord(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
   function frequencyProviderForLookupId(id) {
     if (id === "jiten-frequency") return "jiten";
     if (id === "jpdb-frequency") return "jpdb";
@@ -68849,11 +69628,13 @@ ${component.reading}`;
       const settings = this.settings();
       if (!included) return Promise.resolve({ info: null, status: { state: "disabled", reason: "load-excluded" } });
       if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
+      const lookupBunproDefinitionResult2 = yomuBunproCompanion()?.lookupBunproDefinitionResult;
+      if (!lookupBunproDefinitionResult2) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
       if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
       if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
       const startedAt = performance.now();
       log$d.debug("Bunpro definition lookup started", { term: card.spelling });
-      return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
+      return lookupBunproDefinitionResult2(this.dependencies.bunpro, card).then((result) => {
         const resolved = {
           info: result.info,
           status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
@@ -69216,7 +69997,7 @@ ${component.reading}`;
       if (!card.pitchAccent.includes(pattern)) card.pitchAccent = [...card.pitchAccent, pattern];
     }
   }
-  function normalizedLookupText$1(text2) {
+  function normalizedLookupText(text2) {
     return text2.replace(/\s+/g, " ").trim();
   }
   function isRubyAnnotation(element2) {
@@ -69944,7 +70725,9 @@ ${component.reading}`;
   }
   function renderBunproDefinitionSourceSection(context, params) {
     if (!context.includeBunproSource) return "";
-    return renderBunproDefinitionSource(
+    const renderBunproDefinitionSource2 = yomuBunproCompanion()?.renderBunproDefinitionSource;
+    if (!renderBunproDefinitionSource2) return "";
+    return renderBunproDefinitionSource2(
       context.card,
       params.sourceAttributes,
       context.bunproDefinitionInfo,
@@ -75605,14 +76388,14 @@ ${reading}`);
     }
     return [...prefix, ...partial];
   }
-  function renderBrowseSourceChips(cards, active, copy) {
+  function renderBrowseSourceChips(cards, active, copy2) {
     const counts = browseSourceCounts(cards);
     const labels = {
-      jpdb: copy.jpdb,
-      jiten: copy.jiten,
-      bunpro: copy.bunpro,
-      "yomu-local": copy.yomuLocal,
-      anki: copy.anki
+      jpdb: copy2.jpdb,
+      jiten: copy2.jiten,
+      bunpro: copy2.bunpro,
+      "yomu-local": copy2.yomuLocal,
+      anki: copy2.anki
     };
     const chip = (filter, label, count, pressed) => el("button", {
       type: "button",
@@ -75623,7 +76406,7 @@ ${reading}`);
     return el(
       "div",
       { class: "jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips", role: "group" },
-      chip("all", copy.all, cards.length, active.size === 0),
+      chip("all", copy2.all, cards.length, active.size === 0),
       ...["jiten", "jpdb", "bunpro", "yomu-local", "anki"].filter((source) => (counts.get(source) ?? 0) > 0).map((source) => chip(source, labels[source], counts.get(source) ?? 0, active.has(source)))
     );
   }
@@ -75670,22 +76453,22 @@ ${reading}`);
       ...BROWSE_FILTER_ORDER.filter((state2) => (counts.get(state2) ?? 0) > 0).map((state2) => chip(state2, cardStateLabel(state2, language), counts.get(state2) ?? 0, active.has(state2)))
     );
   }
-  function renderBrowseControls(sort, descending, selectMode, copy) {
-    const directionLabel = descending ? copy.directionDescending : copy.directionAscending;
+  function renderBrowseControls(sort, descending, selectMode, copy2) {
+    const directionLabel = descending ? copy2.directionDescending : copy2.directionAscending;
     return el(
       "div",
       { class: "jpdb-reader-newtab-browse-controls" },
       el(
         "label",
         { class: "jpdb-reader-newtab-browse-sort" },
-        el("span", { class: "jpdb-reader-newtab-sr-only" }, copy.sortLabel),
+        el("span", { class: "jpdb-reader-newtab-sr-only" }, copy2.sortLabel),
         el(
           "select",
-          { dataset: { newtabAction: "browse-sort" }, "aria-label": copy.sortLabel },
-          el("option", { value: "queue", selected: sort === "queue" }, copy.sortQueue),
-          el("option", { value: "alpha", selected: sort === "alpha" }, copy.sortAlpha),
-          el("option", { value: "frequency", selected: sort === "frequency" }, copy.sortFrequency),
-          el("option", { value: "history", selected: sort === "history" }, copy.sortHistory)
+          { dataset: { newtabAction: "browse-sort" }, "aria-label": copy2.sortLabel },
+          el("option", { value: "queue", selected: sort === "queue" }, copy2.sortQueue),
+          el("option", { value: "alpha", selected: sort === "alpha" }, copy2.sortAlpha),
+          el("option", { value: "frequency", selected: sort === "frequency" }, copy2.sortFrequency),
+          el("option", { value: "history", selected: sort === "history" }, copy2.sortHistory)
         )
       ),
       el("button", {
@@ -75701,44 +76484,44 @@ ${reading}`);
         class: "jpdb-reader-newtab-browse-select-toggle",
         dataset: { newtabAction: "browse-select-mode" },
         "aria-pressed": String(selectMode)
-      }, copy.select)
+      }, copy2.select)
     );
   }
-  function renderBrowseList(cards, page, language, copy) {
+  function renderBrowseList(cards, page, language, copy2) {
     if (!cards.length) {
-      return el("div", { class: "jpdb-reader-newtab-browse-empty" }, copy.empty);
+      return el("div", { class: "jpdb-reader-newtab-browse-empty" }, copy2.empty);
     }
-    const pageCount = Math.max(1, Math.ceil(cards.length / BROWSE_PAGE_SIZE));
-    const currentPage = Math.max(0, Math.min(page, pageCount - 1));
+    const pageCount2 = Math.max(1, Math.ceil(cards.length / BROWSE_PAGE_SIZE));
+    const currentPage = Math.max(0, Math.min(page, pageCount2 - 1));
     const start = currentPage * BROWSE_PAGE_SIZE;
     const visible = cards.slice(start, start + BROWSE_PAGE_SIZE);
     return el(
       "div",
       { class: "jpdb-reader-newtab-browse-list" },
-      el("p", { class: "jpdb-reader-newtab-browse-meta" }, copy.showing(start + 1, start + visible.length, cards.length)),
-      copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
+      el("p", { class: "jpdb-reader-newtab-browse-meta" }, copy2.showing(start + 1, start + visible.length, cards.length)),
+      copy2.bulk ? renderBrowseBulkBar(copy2.bulk) : null,
       el(
         "ol",
         { class: "jpdb-reader-newtab-browse-rows" },
-        ...visible.map((card) => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? ""))
+        ...visible.map((card) => renderBrowseRow(card, language, Boolean(copy2.bulk), copy2.dueIn?.(card) ?? ""))
       ),
-      pageCount > 1 ? el(
+      pageCount2 > 1 ? el(
         "div",
         { class: "jpdb-reader-newtab-browse-pager" },
         el("button", {
           type: "button",
           dataset: { newtabAction: "browse-page", browsePage: String(currentPage - 1) },
           disabled: currentPage === 0
-        }, copy.previous),
+        }, copy2.previous),
         el("button", {
           type: "button",
           dataset: { newtabAction: "browse-page", browsePage: String(currentPage + 1) },
-          disabled: currentPage >= pageCount - 1
-        }, copy.next)
+          disabled: currentPage >= pageCount2 - 1
+        }, copy2.next)
       ) : null
     );
   }
-  function renderBrowseBulkBar(copy) {
+  function renderBrowseBulkBar(copy2) {
     const action = (bulkAction, label) => el("button", {
       type: "button",
       dataset: { newtabAction: "browse-bulk", bulkAction },
@@ -75750,15 +76533,15 @@ ${reading}`);
       el(
         "label",
         { class: "jpdb-reader-newtab-browse-bulk-select" },
-        el("input", { type: "checkbox", dataset: { browseSelectPage: true }, "aria-label": copy.selectPage }),
-        copy.selectPage
+        el("input", { type: "checkbox", dataset: { browseSelectPage: true }, "aria-label": copy2.selectPage }),
+        copy2.selectPage
       ),
       el("span", { class: "jpdb-reader-newtab-browse-bulk-count", dataset: { browseBulkCount: true } }, ""),
-      copy.mining ? action("jiten-mining", copy.mining) : null,
-      action("neverforget", copy.neverForget),
-      action("blacklist", copy.blacklist),
-      copy.suspend ? action("jiten-suspend", copy.suspend) : null,
-      copy.forget ? action("jiten-forget", copy.forget) : null
+      copy2.mining ? action("jiten-mining", copy2.mining) : null,
+      action("neverforget", copy2.neverForget),
+      action("blacklist", copy2.blacklist),
+      copy2.suspend ? action("jiten-suspend", copy2.suspend) : null,
+      copy2.forget ? action("jiten-forget", copy2.forget) : null
     );
   }
   function renderBrowseRow(card, language, selectable = false, dueIn = "") {
@@ -76754,21 +77537,21 @@ ${options.version}`;
     return 0;
   }
   function renderedWordCacheMatches(word, card) {
-    const expression = normalizedLookupText$1(word.dataset.expression ?? "");
-    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    const expression = normalizedLookupText(word.dataset.expression ?? "");
+    const reading = normalizedLookupText(word.dataset.reading ?? "");
     if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
     if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
     return true;
   }
   function cardMatchesRenderedLookupValue(card, value) {
-    return normalizedLookupText$1(card.spelling) === value || normalizedLookupText$1(card.reading) === value;
+    return normalizedLookupText(card.spelling) === value || normalizedLookupText(card.reading) === value;
   }
   function renderedWordCardForLookup(word, cachedCard) {
     if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
     if (!cachedCard) return void 0;
-    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    const reading = normalizedLookupText(word.dataset.reading ?? "");
     const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
-    const explicitSpelling = normalizedLookupText$1(word.dataset.expression || "");
+    const explicitSpelling = normalizedLookupText(word.dataset.expression || "");
     if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
     if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
     if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
@@ -92238,368 +93021,6 @@ ${entry.url}`),
   }
   function isSingleKanji(value) {
     return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
-  }
-  const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
-  function createBunproSrsAdapter(client) {
-    return {
-      id: "bunpro",
-      label: "Bunpro",
-      capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
-      hasCredential: () => client.hasFrontendCredential(),
-      verify: () => client.getUser().then(() => true, () => false),
-      stats: async () => {
-        const [base, due] = await Promise.all([client.getBaseStats(), client.getDueCount().catch(() => null)]);
-        return normalizeBunproStatsResponse(base, due);
-      },
-      queue: async (limit) => normalizeBunproQueueResponse(await client.getQueue(), limit),
-      review: (request) => reviewBunproCard(client, request),
-      mine: (request) => mineBunproCard(client, request)
-    };
-  }
-  function normalizeBunproQueueResponse(raw, limit = 50) {
-    const reviewSessionId = readString(raw, ["review_session_id", "reviewSessionId"]);
-    const cards = collectBunproReviewables(raw).map((card) => normalizeBunproReviewable(card)).filter((card) => card !== null).map((card) => {
-      if (!reviewSessionId) return card;
-      const endpoint = normalizeBunproReviewEndpoint(readString(card.raw, ["review_endpoint_kind", "reviewEndpointKind"]));
-      return {
-        ...card,
-        reviewSession: {
-          id: reviewSessionId,
-          inputMode: endpoint === "review" && readBoolean(card.raw, ["is_fsrs", "isFsrs"]) ? "fsrs" : "regular",
-          endpoint
-        }
-      };
-    }).slice(0, Math.max(0, Math.floor(limit)));
-    return {
-      providerId: "bunpro",
-      fetchedAt: Date.now(),
-      cards,
-      dueCount: readFirstNumber(raw, ["due_count", "dueCount", "reviews_due", "reviewsDue", "total_pending_attempt_count"]) ?? cards.filter((card) => card.state.includes("due")).length,
-      newCount: readFirstNumber(raw, ["new_count", "newCount", "new_cards", "newCards"]) ?? cards.filter((card) => card.state.includes("new")).length,
-      reviewCount: readFirstNumber(raw, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]) ?? cards.length
-    };
-  }
-  function normalizeBunproStatsResponse(raw, due) {
-    const source = isNonNullObject(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
-    return {
-      providerId: "bunpro",
-      fetchedAt: Date.now(),
-      reviewsDue: bunproDueTotal(due) ?? readFirstNumber(source, ["reviews_due", "reviewsDue", "due", "due_count"]),
-      reviewsToday: readFirstNumber(source, ["reviews_today", "reviewsToday", "reviews_done_today"]),
-      newToday: readFirstNumber(source, ["new_today", "newToday", "new_cards_today"]),
-      streakDays: readFirstNumber(source, ["streak", "streak_days", "streakDays"]),
-      levelCounts: normalizeLevelCounts(raw),
-      raw
-    };
-  }
-  function bunproDueTotal(due) {
-    const grammar = readFirstNumber(due, ["total_due_grammar"]);
-    const vocab = readFirstNumber(due, ["total_due_vocab"]);
-    if (grammar === void 0 && vocab === void 0) return void 0;
-    return (grammar ?? 0) + (vocab ?? 0);
-  }
-  function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
-    const record = reviewableRecord(raw);
-    if (!record) return null;
-    const id = readString(record, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
-    const reviewableId = readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
-    const expression = readString(record, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
-    if (!id || !expression) return null;
-    const kind = normalizeBunproKind(
-      readString(record, ["reviewable_type", "reviewableType", "type", "kind"]),
-      inferBunproKind(record, fallbackKind)
-    );
-    const slug = readString(record, ["slug", "grammar_point_slug", "grammarPointSlug"]);
-    return {
-      providerId: "bunpro",
-      providerCardId: id,
-      providerReviewId: readString(record, ["review_id", "reviewId"]) || id,
-      providerReviewableId: reviewableId || void 0,
-      kind,
-      expression,
-      reading: readString(record, ["reading", "kana", "furigana"]) || expression,
-      meanings: normalizeBunproMeanings(record, kind),
-      state: normalizeBunproCardState(readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel", "status", "state"])),
-      srsLevel: readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel"]) || void 0,
-      dueAt: readFirstDate(record, ["next_review_at", "nextReviewAt", "due_at", "dueAt"]),
-      lastReviewAt: readFirstDate(record, ["last_reviewed_at", "lastReviewedAt", "last_review_at", "lastReviewAt"]),
-      sourceUrl: bunproReviewableUrl(kind, slug || reviewableId || id),
-      raw
-    };
-  }
-  async function reviewBunproCard(client, request) {
-    const reviewId = request.card.providerReviewId || request.card.providerCardId;
-    const session = request.card.reviewSession;
-    if (!positiveIntegerString(reviewId)) {
-      throw new BunproApiError("Bunpro grading needs a valid numeric review id. Reload the Bunpro queue and try again.");
-    }
-    if (!session || !positiveIntegerString(session.id)) {
-      throw new BunproApiError("Bunpro grading needs an active review session. Reload the Bunpro queue and try again.");
-    }
-    if (session.inputMode === "fsrs" && session.endpoint !== "review") {
-      throw new BunproApiError("Bunpro FSRS grading is available only for ordinary review cards. Reload the queue and try again.");
-    }
-    const input2 = bunproReviewInput(session.inputMode, request.grade);
-    const body = {
-      review_session_id: Number(session.id),
-      correct: input2.correct,
-      fsrs_input: input2.fsrsInput,
-      loaded_review_ids: null,
-      loaded_ghost_review_ids: null,
-      loaded_self_study_review_ids: null
-    };
-    if (input2.incorrectAnswer) body.incorrect_answer = input2.incorrectAnswer;
-    const raw = await client.updateReview(reviewId, body, session.endpoint);
-    const normalized = normalizeBunproReviewable(raw);
-    return { card: normalized ? { ...normalized, reviewSession: session } : request.card, raw };
-  }
-  async function mineBunproCard(client, request) {
-    const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 12 });
-    const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
-    const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
-    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
-    if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
-      throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
-    }
-    const providerReviewableId = reviewable.providerReviewableId || reviewable.providerCardId;
-    const providerReviewableIdNumber = Number(providerReviewableId);
-    if (!Number.isFinite(providerReviewableIdNumber) || providerReviewableIdNumber <= 0) {
-      throw new BunproApiError(`Bunpro returned no addable reviewable id for "${request.expression}".`);
-    }
-    const type = reviewable.kind === "vocabulary" ? "Vocab" : "GrammarPoint";
-    const raw = await client.updateReviewsViaActionType({
-      actionType: "add",
-      reviewables: [{ type, id: providerReviewableIdNumber }]
-    });
-    return { card: { ...reviewable, providerReviewableId }, raw };
-  }
-  function bunproReviewInput(mode, grade) {
-    if (mode === "regular") {
-      if (grade === "fail") return { correct: false, fsrsInput: null, incorrectAnswer: "__FLASHCARD_REGULAR_HARD" };
-      if (grade === "pass") return { correct: true, fsrsInput: null };
-      throw new BunproApiError("This Bunpro review accepts only Hard or Good.");
-    }
-    if (grade === "nothing" || grade === "again") return { correct: false, fsrsInput: "again", incorrectAnswer: "__FLASHCARD_FSRS_AGAIN" };
-    if (grade === "hard") return { correct: false, fsrsInput: "hard", incorrectAnswer: "__FLASHCARD_FSRS_HARD" };
-    if (grade === "okay" || grade === "good") return { correct: true, fsrsInput: "good" };
-    if (grade === "easy") return { correct: true, fsrsInput: "easy" };
-    throw new BunproApiError("This Bunpro FSRS review accepts Again, Hard, Good, or Easy.");
-  }
-  function collectBunproReviewables(raw) {
-    const quizEntries = collectBunproQuizIndexEntries(raw);
-    if (quizEntries.length) return quizEntries;
-    const arrays = [
-      readArray(raw, ["data"]),
-      readArray(raw, ["reviews"]),
-      readArray(raw, ["reviewables"]),
-      readArray(raw, ["items"]),
-      readArray(raw, ["queue"]),
-      readArray(raw, ["due"])
-    ];
-    return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
-  }
-  function collectBunproQuizIndexEntries(raw) {
-    if (!isNonNullObject(raw)) return [];
-    const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
-    return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
-  }
-  function flattenBunproQuizIndexEntry(entry) {
-    if (!isNonNullObject(entry)) return null;
-    const review = objectAt(entry, "data");
-    if (!review) return null;
-    const attributes = objectAt(review, "attributes") ?? {};
-    const reviewId = readString(review, ["id"]) || readString(attributes, ["id"]);
-    if (!reviewId) return null;
-    const reviewable = bunproQuizIndexReviewable(entry, attributes);
-    return {
-      ...reviewable,
-      ...attributes,
-      // Slugs can be disambiguated ("カレー-dup"); the title is the word.
-      japanese: readString(reviewable, ["title"]) || void 0,
-      id: reviewId,
-      review_id: reviewId,
-      review_endpoint_kind: bunproQuizReviewEndpoint(attributes),
-      // `state` is the last key the shared normalizer's srs_stage/srs_level/
-      // status/state chain reads, so nothing else may reintroduce those keys.
-      state: "due",
-      srs_stage: void 0,
-      srs_level: void 0,
-      status: void 0,
-      next_review_at: readString(attributes, ["next_review"]) || void 0
-    };
-  }
-  function bunproQuizReviewEndpoint(attributes) {
-    if (readString(attributes, ["user_study_question_id", "userStudyQuestionId"])) return "self-study-review";
-    return Object.prototype.hasOwnProperty.call(attributes, "ghost_count") ? "review" : "ghost-review";
-  }
-  function normalizeBunproReviewEndpoint(value) {
-    if (value === "ghost-review" || value === "self-study-review") return value;
-    return "review";
-  }
-  function bunproQuizIndexReviewable(entry, reviewAttributes) {
-    const type = readString(reviewAttributes, ["reviewable_type"]).toLowerCase();
-    const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
-    const included = readArray(entry, ["included"]);
-    for (const item of included) {
-      if (!isNonNullObject(item) || readString(item, ["type"]) !== wantedKind) continue;
-      const attributes = objectAt(item, "attributes");
-      if (attributes) return attributes;
-    }
-    return {};
-  }
-  function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
-    const record = isNonNullObject(raw) ? raw : {};
-    const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
-    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
-    if (!hits.length) return null;
-    if (reading) {
-      const readingMatches = hits.filter((hit) => normalizedLookupText(hit.reading) === normalizedLookupText(reading));
-      if (readingMatches.length === 1) return readingMatches[0] ?? null;
-      if (readingMatches.length > 1) return sameBunproReviewableIdentity(readingMatches) ? readingMatches[0] ?? null : null;
-      return null;
-    }
-    return hits.length === 1 || sameBunproReviewableIdentity(hits) ? hits[0] ?? null : null;
-  }
-  function normalizedLookupText(value) {
-    return value.normalize("NFKC").trim();
-  }
-  function sameBunproReviewableIdentity(cards) {
-    const first2 = cards[0];
-    return Boolean(first2 && cards.every((card) => card.providerCardId === first2.providerCardId));
-  }
-  function positiveIntegerString(value) {
-    const number = Number(value);
-    return Number.isInteger(number) && number > 0;
-  }
-  function reviewableRecord(raw) {
-    const unwrapped = unwrapBunproData(raw);
-    if (!isNonNullObject(unwrapped)) return null;
-    const attributes = objectAt(unwrapped, "attributes");
-    return attributes ? { ...unwrapped, ...attributes } : unwrapped;
-  }
-  function unwrapBunproData(value) {
-    if (!isNonNullObject(value)) return value;
-    const data = value.data;
-    if (isNonNullObject(data) && !Array.isArray(data)) return data;
-    const review = value.review;
-    if (isNonNullObject(review)) return review;
-    const item = value.item;
-    if (isNonNullObject(item)) return item;
-    return value;
-  }
-  function normalizeBunproKind(value, fallback) {
-    const normalized = value.toLowerCase();
-    if (normalized.includes("vocab")) return "vocabulary";
-    if (normalized.includes("grammar")) return "grammar";
-    if (normalized.includes("kanji")) return "kanji";
-    if (normalized.includes("sentence") || normalized.includes("question")) return "sentence";
-    return fallback;
-  }
-  function inferBunproKind(record, fallback) {
-    if (readString(record, ["vocab_id", "vocabId", "vocabulary_id", "vocabularyId", "word"])) return "vocabulary";
-    if (readString(record, ["grammar_id", "grammarId", "grammar_point", "grammarPoint"])) return "grammar";
-    return fallback;
-  }
-  function normalizeBunproCardState(value) {
-    const normalized = value.toLowerCase();
-    if (!normalized) return ["in-deck"];
-    if (normalized.includes("due") || normalized.includes("review")) return ["due"];
-    if (normalized.includes("new") || normalized.includes("beginner")) return ["new"];
-    if (normalized.includes("ghost") || normalized.includes("fail")) return ["failed"];
-    if (normalized.includes("master") || normalized.includes("known")) return ["known"];
-    if (normalized.includes("seasoned") || normalized.includes("expert") || normalized.includes("adept")) return ["learning"];
-    return ["in-deck"];
-  }
-  function normalizeBunproMeanings(record, kind) {
-    const glosses = readStringList(record, ["meaning", "meanings", "english", "translation", "translations", "definition"]).filter(Boolean);
-    return glosses.length ? [{ glosses, partOfSpeech: kind === "grammar" ? ["grammar"] : [] }] : [];
-  }
-  function normalizeLevelCounts(raw) {
-    const record = objectAt(raw, "srs_level_counts") ?? objectAt(raw, "srsLevelCounts") ?? objectAt(raw, "level_counts") ?? objectAt(raw, "levelCounts");
-    if (!record) return void 0;
-    const counts = {};
-    for (const [key, value] of Object.entries(record)) {
-      const number = Number(value);
-      if (Number.isFinite(number)) counts[key] = number;
-    }
-    return Object.keys(counts).length ? counts : void 0;
-  }
-  function bunproReviewableUrl(kind, slugOrId) {
-    const value = slugOrId.trim();
-    if (!value) return BUNPRO_SETTINGS_URL;
-    const encoded = encodeURIComponent(value);
-    if (kind === "vocabulary") return `https://bunpro.jp/vocabs/${encoded}`;
-    if (kind === "sentence") return BUNPRO_SETTINGS_URL;
-    return `https://bunpro.jp/grammar_points/${encoded}`;
-  }
-  function readFirstDate(value, keys) {
-    const raw = readString(value, keys);
-    if (!raw) return null;
-    const parsed = Date.parse(raw);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  function readFirstNumber(value, keys) {
-    const record = isNonNullObject(value) ? value : null;
-    if (!record) return void 0;
-    for (const key of keys) {
-      const number = Number(record[key]);
-      if (Number.isFinite(number)) return number;
-    }
-    const data = record.data;
-    if (isNonNullObject(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
-    const attributes = objectAt(record, "attributes");
-    return attributes ? readFirstNumber(attributes, keys) : void 0;
-  }
-  function readBoolean(value, keys) {
-    const record = isNonNullObject(value) ? value : null;
-    if (!record) return false;
-    for (const key of keys) {
-      const raw = record[key];
-      if (typeof raw === "boolean") return raw;
-      if (raw === 1 || raw === "1" || raw === "true") return true;
-    }
-    const data = record.data;
-    if (isNonNullObject(data) && !Array.isArray(data)) return readBoolean(data, keys);
-    const attributes = objectAt(record, "attributes");
-    return attributes ? readBoolean(attributes, keys) : false;
-  }
-  function readString(value, keys) {
-    const record = isNonNullObject(value) ? value : null;
-    if (!record) return "";
-    for (const key of keys) {
-      const raw = record[key];
-      if (typeof raw === "string" && raw.trim()) return raw.trim();
-      if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
-    }
-    const data = record.data;
-    if (isNonNullObject(data) && !Array.isArray(data)) return readString(data, keys);
-    return "";
-  }
-  function readStringList(value, keys) {
-    const record = isNonNullObject(value) ? value : null;
-    if (!record) return [];
-    for (const key of keys) {
-      const raw = record[key];
-      if (typeof raw === "string" && raw.trim()) return [raw.trim()];
-      if (Array.isArray(raw)) return raw.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
-    }
-    return [];
-  }
-  function readArray(value, keys) {
-    const record = isNonNullObject(value) ? value : null;
-    if (!record) return [];
-    for (const key of keys) {
-      const raw = record[key];
-      if (Array.isArray(raw)) return raw;
-    }
-    const data = record.data;
-    if (isNonNullObject(data) && !Array.isArray(data)) return readArray(data, keys);
-    return [];
-  }
-  function objectAt(value, key) {
-    if (!isNonNullObject(value)) return null;
-    const nested = value[key];
-    return isNonNullObject(nested) && !Array.isArray(nested) ? nested : null;
   }
   function normalizeStoredYomuSrsDeck(value) {
     if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
