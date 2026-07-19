@@ -2449,6 +2449,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'file instead of opening an install screen.': 'ファイルをダウンロードしてしまうユーザースクリプトマネージャーについて、インストールのトラブルシューティングを追加しました。',
     'fails if a build ever drops or mismatches those hashes.': 'が失敗するようになりました。',
     'Allow User Scripts': 'Allow User Scripts（ユーザースクリプトを許可）',
+    'The docs language toggle now switches the whole Getting Started page: the rewritten install, update, browser-extension, welcome-panel, and mobile sections all have Japanese copy again, so neither language shows leftover text from the other after toggling.': 'ドキュメントの言語切り替えボタンで「使い始める」ページ全体が切り替わるようになりました。書き直されたインストール、アップデート、ブラウザー拡張機能、ようこそパネル、モバイルの各セクションに日本語コピーが再び揃ったため、切り替え後にどちらの言語でももう一方の言語の文章が残らなくなりました。',
+    'Tapping the docs language toggle once is enough again. A reader install that finished booting just after the tap could save its older language preference over the new choice, forcing a second tap; the page now keeps the tapped choice and the reader adopts it instead.': 'ドキュメントの言語切り替えは、再び1回のタップで済むようになりました。タップ直後に起動を終えたリーダーが、古い言語設定を新しい選択の上に保存してしまい、2回目のタップが必要になることがありました。ページはタップされた選択を保持し、リーダー側がそれを取り込むようになりました。',
     // Getting Started (2026-07 rewrite): userscript-first install flow, update
     // guidance, browser-extension section, welcome panel, and mobile guidance.
     'Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, Bunpro, JPDB, Anki, OCR, and audio setup included.': '3つのステップでよむをインストール — 無料のユーザースクリプト管理ツール（PCはTampermonkey、iPhone/iPadはUserscripts）を追加し、よむをインストールして、日本語ページを開いて単語を検索します。アカウントは不要です。Jiten、Bunpro、JPDB、Anki、OCR、音声の設定は任意で追加できます。',

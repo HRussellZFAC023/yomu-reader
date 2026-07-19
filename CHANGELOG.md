@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.252] - 2026-07-19
+
+### Fixed
+
+- The docs language toggle now switches the whole Getting Started page: the rewritten install, update, browser-extension, welcome-panel, and mobile sections all have Japanese copy again, so neither language shows leftover text from the other after toggling.
+- Tapping the docs language toggle once is enough again. A reader install that finished booting just after the tap could save its older language preference over the new choice, forcing a second tap; the page now keeps the tapped choice and the reader adopts it instead.
+
 ## [1.6.251] - 2026-07-19
 
 ### Fixed

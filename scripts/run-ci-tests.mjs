@@ -32,6 +32,7 @@ const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/public-vocabulary-repaint.test.ts'),
     join(ROOT, 'tests/reader/bridge-fetch-fallback.test.ts'),
     join(ROOT, 'tests/reader/mirror-text-fidelity.test.ts'),
+    join(ROOT, 'tests/reader/startup-hosted-language.test.ts'),
     join(ROOT, 'tests/reader/settings-form/01-help-panel.test.ts'),
     join(ROOT, 'tests/reader/settings-form/02-recommended-dictionaries.test.ts'),
     join(ROOT, 'tests/reader/settings-form/03-source-display-names.test.ts'),
