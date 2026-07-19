@@ -4327,7 +4327,7 @@ function scanTargetSuppressesRuby(
     // boxes, so it keeps real rt instead of the rest-hidden detached lane.
     if (inPlace) {
         const clipRow = closestRubyFragileConstrainedRow(parent);
-        if (clipRow && !clampRowAllowsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? undefined, clipRow)) return true;
+        if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? undefined, clipRow)) return true;
     }
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
@@ -5365,7 +5365,7 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
             // prose detached lane, and growable multi-line clamp rows that
             // keep in-flow rt (owner rule 2026-07-19).
             clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow)
-                    || clampRowAllowsInFlowRestRuby(renderTarget.decoration, clipRow)
+                    || clampRowKeepsInFlowRestRuby(renderTarget.decoration, clipRow)
                 ? 'content'
                 : 'true';
         }
@@ -5847,7 +5847,14 @@ function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
     // Growable multi-line clamp content rows keep IN-FLOW ruby (owner rule
     // 2026-07-19): their line boxes absorb the readings, so the detached
     // rest-hidden lane would needlessly blank furigana at rest.
-    return !clampRowAllowsInFlowRestRuby(target.decoration ?? decorationStateForWord(target.parent) ?? undefined, clipRow);
+    return !clampRowKeepsInFlowRestRuby(target.decoration ?? decorationStateForWord(target.parent) ?? undefined, clipRow);
+}
+
+// The policy predicate plus the measured engine verdict: a row the heal has
+// marked growth-failed never re-enters the in-flow channel, no matter how
+// often re-applies recompute the stamp.
+function clampRowKeepsInFlowRestRuby(decoration: DecorationState | undefined, clipRow: HTMLElement): boolean {
+    return !clampRowGrowthFailed(clipRow) && clampRowAllowsInFlowRestRuby(decoration, clipRow);
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {
@@ -6978,9 +6985,26 @@ const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
 // rest-hidden "true" stamp, which removes rt from layout and restores the
 // plain line. Engines that grow correctly (macOS Chromium/WebKit verified)
 // never trip this. Reads complete before the attribute writes.
+const CLAMP_GROWTH_FAILED_ATTRIBUTE = 'data-yomu-clamp-growth';
+const CONTENT_CLIP_ROW_SELECTOR = '[data-yomu-clip-constrained="content"]';
+
+// The verdict must persist: token re-applies recompute the clip stamp, so a
+// healed row would flip straight back to "content" without this mark.
+export function clampRowGrowthFailed(clipRow: HTMLElement): boolean {
+    return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === 'failed';
+}
+
 export function healUngrowableInFlowClampRows(root: ParentNode = document): number {
-    const rows = root.querySelectorAll<HTMLElement>('[data-yomu-clip-constrained="content"]');
-    if (!rows.length) return 0;
+    // querySelectorAll never matches the root itself, and per-root apply
+    // passes the annotated row AS the root — include it (and a stamped
+    // ancestor) or the one row that matters is the one that is never checked.
+    const rows = new Set<HTMLElement>();
+    if (root instanceof HTMLElement) {
+        const stampedSelfOrAncestor = root.closest<HTMLElement>(CONTENT_CLIP_ROW_SELECTOR);
+        if (stampedSelfOrAncestor) rows.add(stampedSelfOrAncestor);
+    }
+    for (const row of root.querySelectorAll<HTMLElement>(CONTENT_CLIP_ROW_SELECTOR)) rows.add(row);
+    if (!rows.size) return 0;
     const broken: HTMLElement[] = [];
     for (const row of rows) {
         if (row.classList.contains('jpdb-reader-text-mirror')) continue;
@@ -6993,7 +7017,10 @@ export function healUngrowableInFlowClampRows(root: ParentNode = document): numb
         if (!baseRect.height) continue;
         if (baseRect.top < rect.top - 1 || baseRect.bottom > rect.bottom + 1) broken.push(row);
     }
-    for (const row of broken) row.dataset.yomuClipConstrained = 'true';
+    for (const row of broken) {
+        row.setAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE, 'failed');
+        row.dataset.yomuClipConstrained = 'true';
+    }
     return broken.length;
 }
 

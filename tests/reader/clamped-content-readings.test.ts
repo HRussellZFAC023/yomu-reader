@@ -173,8 +173,35 @@ describe('clamped content preserves base text and bounded geometry', () => {
         stampRects('healthy', { top: 200, bottom: 258, height: 58 }, { top: 212, bottom: 232, height: 20 });
 
         expect(healUngrowableInFlowClampRows(document)).toBe(1);
-        expect(document.getElementById('row')!.dataset.yomuClipConstrained).toBe('true');
+        const row = document.getElementById('row')!;
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.getAttribute('data-yomu-clamp-growth')).toBe('failed');
         expect(document.getElementById('healthy')!.dataset.yomuClipConstrained).toBe('content');
+
+        // The verdict must survive token re-applies: the apply-time stamp
+        // recomputes the clip state, and without the growth-failed veto a
+        // healed row flipped straight back to "content" (v1.6.244 CI smoke).
+        row.textContent = SNIPPET;
+        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+    });
+
+    it('finds the stamped row when the heal root IS the row (per-root apply pass)', () => {
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">東京</span><rt class="jpdb-reader-furi">とうきょう</rt></ruby></span>
+            </div>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 111, height: 11 }) as DOMRect,
+        });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 112, bottom: 132, height: 20 }) as DOMRect,
+        });
+        // Root is the row itself — querySelectorAll alone never matches it.
+        expect(healUngrowableInFlowClampRows(row)).toBe(1);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
     });
 
     it('vetoes in-flow clamp readings under a fixed-height clipping shell', () => {
