@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- The dictionary popover no longer jumps from one side of the word to the other while its entry loads. Placement is now planned for a full-size entry up front, and once the panel is shown it keeps its side as sections hydrate, so the content shift where a panel briefly appears above the word and then snaps below it is gone.
 - The docs language toggle now switches the whole Getting Started page: the rewritten install, update, browser-extension, welcome-panel, and mobile sections all have Japanese copy again, so neither language shows leftover text from the other after toggling.
 - Tapping the docs language toggle once is enough again. A reader install that finished booting just after the tap could save its older language preference over the new choice, forcing a second tap; the page now keeps the tapped choice and the reader adopts it instead.
 
