@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.247] - 2026-07-19
+
+### Fixed
+
+- Word-status highlighting from a connected Jiten, JPDB, or Anki source now shows by default on every content word, including words wrapped in links such as the cards and guides on yomureader.com. Previously linked words revealed their status colour only while hovered and otherwise looked like plain page links; interface chrome such as navigation bars, buttons, and tabs still stays uncoloured until hover.
+- The homepage Try me sample no longer fakes account word-status colours for visitors without a connected dictionary account: in a fresh or incognito browser it now shows exactly what a keyless install renders, furigana and pitch underlines, and the known/due/new status boxes appear only when the viewer really has a status source connected.
+
 ## [1.6.246] - 2026-07-19
 
 ### Fixed

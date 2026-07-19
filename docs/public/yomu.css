@@ -1196,20 +1196,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
 }
-/* The highlight (background) channel stays hover-only on ALL passive words,
-   chrome or not: filled highlights across every linked word repaint busy pages
-   (search results, link lists) wall-to-wall. Underline and text colour are the
-   quiet channels and stay visible at rest; specificity must beat the
-   .jpdb-reader-word-highlight-* mode rules above, and releasing on :hover is
-   what lets the mode rule's highlight surface for the hovered word. */
-.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) {
-  --jpdb-reader-word-accessible-highlight: transparent;
-  --jpdb-reader-word-highlight-source: transparent;
-  --jpdb-reader-word-highlight-shadow-source: none;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
+/* Passive CONTENT words (link-wrapped prose, docs cards, news headlines) keep
+   the status highlight at rest exactly like active words: the word-state
+   colour is the whole point of a connected Jiten/JPDB/Anki source, and a
+   1.6.2 blanket hover-only rule here made every linked word look like a bare
+   host link until hovered (owner report, 2026-07-19). Chrome contexts remain
+   bare-until-hover through the scoped rules below — buttons/nav/tabs and any
+   host the scanner stamped interactive-passive (which covers busy list pages
+   such as search results) never repaint wall-to-wall. */
 /* Bare-until-hover applies to CHROME passive words only (buttons, tabs, menus,
    nav links, compact controls the scanner marked). Only the highlight
    (background) channel is stripped here — filled highlights across every

@@ -200,15 +200,13 @@ describe('reader stylesheet loading', () => {
         expect(baseRule).not.toContain('--jpdb-reader-word-decoration-source: transparent');
         expect(baseRule).not.toContain('background-image: none');
 
-        // Only the highlight (background) channel may go bare-until-hover on
-        // ALL passive words; the underline/text channels must stay visible at
-        // rest — stripping them globally regresses pitch underlines on
-        // link-heavy sites into hover-only flicker (1.5.4 regression).
-        const bareRestRule = css.match(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(bareRestRule).toContain('--jpdb-reader-word-highlight-source: transparent');
-        expect(bareRestRule).not.toContain('--jpdb-reader-word-underline');
-        expect(bareRestRule).not.toContain('--jpdb-reader-word-decoration-source');
-        expect(bareRestRule).not.toContain('text-decoration-color');
+        // Passive CONTENT words keep the status highlight at rest exactly like
+        // active words (owner report 2026-07-19: docs cards / link-wrapped
+        // words showed their state only on hover and read as bare host links
+        // at rest). The 1.6.2 blanket hover-only rule must NOT come back —
+        // only chrome contexts (the :is(button, nav, …) rule below) go
+        // bare-until-hover.
+        expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/);
         expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)::after/);
         const strippedAtRest = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
         // Chrome bare-until-hover strips only the highlight (background) paint;

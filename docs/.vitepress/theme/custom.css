@@ -1294,9 +1294,15 @@ html[lang="ja"] .VPHomeHero .tagline {
    words elsewhere in a try-me block (labels, live demo paragraphs) follow the
    user's real decoration settings — painting demo status boxes on them faked
    "API key" state colours, and pairing this native underline with the
-   runtime's ::after border underline drew every underline twice. */
+   runtime's ::after border underline drew every underline twice.
+   The baked known/due/new status boxes are additionally gated below on the
+   runtime root actually resolving a status colour source: a keyless visitor
+   (incognito) boots as jpdb-reader-word-highlight-off, and faking account
+   state colours for them misrepresents the out-of-box experience (owner
+   report 2026-07-19). Furigana and the pitch underline stay — keyless local
+   parsing really does provide those. */
 .yomu-try-me-sample .jpdb-reader-word {
-  --yomu-demo-status-highlight: color-mix(in srgb, var(--yomu-demo-status-color, var(--vp-c-brand-2)) 14%, transparent);
+  --yomu-demo-status-highlight: transparent;
   --yomu-demo-pitch-color: var(--jpdb-reader-pitch-heiban);
   --jpdb-reader-word-underline: var(--yomu-demo-pitch-color);
   position: relative;
@@ -1324,6 +1330,17 @@ html[lang="ja"] .VPHomeHero .tagline {
    underline, so the runtime one must never also render (doubled underlines). */
 .yomu-try-me-sample .jpdb-reader-word::after {
   content: none !important;
+}
+
+/* Status boxes on the baked sample appear only when the viewer's runtime has
+   a real status source (Jiten/JPDB key or Anki) — mirrors what the live
+   annotation channel would paint. */
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-anki
+) .yomu-try-me-sample .jpdb-reader-word {
+  --yomu-demo-status-highlight: color-mix(in srgb, var(--yomu-demo-status-color, var(--vp-c-brand-2)) 14%, transparent);
 }
 
 .yomu-try-me-sample .jpdb-reader-word.jpdb-known {

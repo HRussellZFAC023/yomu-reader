@@ -268,8 +268,11 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
             throw new Error(`Google Search smoke did not parse fixture: ${String(error)}\n${JSON.stringify({ debug, requests, consoleErrors }, null, 2)}`);
         }
 
+        // Passive CONTENT words (the link-wrapped snippet) keep their status
+        // highlight at rest — only chrome-stamped hosts are bare-until-hover
+        // (owner report 2026-07-19; reversal of the 1.6.2 blanket rule).
         const beforeHover = await snapshotGoogleSearchFixture(page);
-        assertGoogleSearchSnapshot(beforeHover, 'before hover', { expectStatusHighlight: false, baseline });
+        assertGoogleSearchSnapshot(beforeHover, 'before hover', { expectStatusHighlight: true, baseline });
 
         const snippetWord = page.locator('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]').first();
         await snippetWord.hover();
