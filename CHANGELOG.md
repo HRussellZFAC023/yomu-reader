@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.214] - 2026-07-19
+
+### Fixed
+
+- Kept short annotated labels inside their native ellipsis boxes, fixing the stray `…` that appeared on YouTube navigation and shelf labels on iPad. Reading-free annotation mirrors now remain clipped to the page's authored box, while labels that actually show furigana retain room for it.
+
 ## [1.6.213] - 2026-07-19
 
 ### Fixed

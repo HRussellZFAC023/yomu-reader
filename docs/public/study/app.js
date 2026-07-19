@@ -9773,7 +9773,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, detachedReadings } = textMirrorClipMode(host, safeTokens);
+    const { clipRow, detachedReadings } = textMirrorClipMode(
+      host,
+      renderPlan,
+      renderSettings,
+      targetHasNativeRuby(target)
+    );
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     return {
@@ -10203,9 +10208,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       mirror.style.setProperty("overflow", "visible");
     } else constrainMirrorToClampBox(mirror, clipRow);
   }
-  function textMirrorClipMode(host, tokens) {
+  function textMirrorClipMode(host, renderPlan, settings, hasNativeRuby) {
     const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasReadings = tokens.some((token) => token.rubies.length > 0);
+    const hasReadings = renderPlan.tokens.some((token) => token.rubies.length > 0 && shouldRenderRuby(
+      renderPlan.text.slice(token.start, token.end),
+      token,
+      settings,
+      !hasNativeRuby,
+      true
+    ));
     const detachedReadings = hasReadings;
     return {
       clipRow,
@@ -10214,10 +10225,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function constrainMirrorToClampBox(mirror, clipRow) {
     const height = clipRow.clientHeight;
-    if (height > 0) {
-      mirror.style.setProperty("max-height", `${height}px`);
-      mirror.style.setProperty("overflow", "hidden");
-    }
+    if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
+    mirror.style.setProperty("overflow", "hidden");
   }
   function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
     if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
@@ -40375,7 +40384,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.213".trim() ? "1.6.213".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.214".trim() ? "1.6.214".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
