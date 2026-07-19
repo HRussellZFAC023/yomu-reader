@@ -6216,7 +6216,12 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const { clipRow, detachedReadings } = textMirrorClipMode(host, safeTokens);
+  const { clipRow, detachedReadings } = textMirrorClipMode(
+  host,
+  renderPlan,
+  renderSettings,
+  targetHasNativeRuby(target)
+  );
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
@@ -6696,9 +6701,15 @@ function styleConstrainedTextMirror(mirror, clipRow, detachedReadings = false) {
   mirror.style.setProperty("overflow", "visible");
   } else constrainMirrorToClampBox(mirror, clipRow);
 }
-function textMirrorClipMode(host, tokens) {
+function textMirrorClipMode(host, renderPlan, settings, hasNativeRuby) {
   const clipRow = closestRubyFragileConstrainedRow(host);
-  const hasReadings = tokens.some((token) => token.rubies.length > 0);
+  const hasReadings = renderPlan.tokens.some((token) => token.rubies.length > 0 && shouldRenderRuby(
+  renderPlan.text.slice(token.start, token.end),
+  token,
+  settings,
+  !hasNativeRuby,
+  true
+  ));
   const detachedReadings = hasReadings;
   return {
   clipRow,
@@ -6707,10 +6718,8 @@ function textMirrorClipMode(host, tokens) {
 }
 function constrainMirrorToClampBox(mirror, clipRow) {
   const height = clipRow.clientHeight;
-  if (height > 0) {
-  mirror.style.setProperty("max-height", `${height}px`);
+  if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
   mirror.style.setProperty("overflow", "hidden");
-  }
 }
 function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
   if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
