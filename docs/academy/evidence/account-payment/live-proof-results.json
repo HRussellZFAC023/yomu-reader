@@ -1,54 +1,151 @@
 {
   "origin": "https://yomureader.com",
-  "ranAt": "2026-07-19T10:32:38.363Z",
+  "ranAt": "2026-07-19T11:16:58.356Z",
+  "summary": {
+    "pass": 17,
+    "fail": 0,
+    "blocked": 5,
+    "info": 1,
+    "complete": false
+  },
   "results": [
     {
       "step": "worker health",
       "outcome": "pass",
-      "detail": "",
-      "at": "2026-07-19T10:31:04.509Z"
+      "detail": "status 200",
+      "at": "2026-07-19T11:16:08.407Z"
     },
     {
-      "step": "checkout session created (test mode, £2)",
+      "step": "checkout session created (Stripe test mode, GBP 2)",
       "outcome": "pass",
-      "detail": "status 200, host+mode checkout.stripe.com cs_test_",
-      "at": "2026-07-19T10:31:08.089Z"
+      "detail": "status 200, validated checkout.stripe.com cs_test_: true",
+      "at": "2026-07-19T11:16:12.609Z"
     },
     {
       "step": "HttpOnly claim cookie bound to this browser",
       "outcome": "pass",
-      "detail": "value …(43 chars, redacted)",
-      "at": "2026-07-19T10:31:08.090Z"
+      "detail": "cookie present; value fully redacted",
+      "at": "2026-07-19T11:16:12.612Z"
     },
     {
-      "step": "cancel return scrubbed from address bar",
-      "outcome": "pass",
-      "detail": "cancel param seen: false",
-      "at": "2026-07-19T10:31:10.066Z"
-    },
-    {
-      "step": "Stripe test payment redirected to success URL",
-      "outcome": "pass",
-      "detail": "session_id cs_test_…(66 chars, redacted)",
-      "at": "2026-07-19T10:31:21.422Z"
-    },
-    {
-      "step": "success/session_id scrubbed from address bar",
+      "step": "Stripe cancel redirect observed",
       "outcome": "pass",
       "detail": "",
-      "at": "2026-07-19T10:31:21.434Z"
+      "at": "2026-07-19T11:16:15.250Z"
     },
     {
-      "step": "signed webhook fulfilled and claim returned the paid code",
-      "outcome": "fail",
-      "detail": "claim ended as null",
-      "at": "2026-07-19T10:32:38.267Z"
+      "step": "cancel parameters scrubbed from address bar",
+      "outcome": "pass",
+      "detail": "",
+      "at": "2026-07-19T11:16:15.556Z"
     },
     {
-      "step": "runner aborted",
-      "outcome": "fail",
-      "detail": "No paid code claimed; aborting dependent steps.",
-      "at": "2026-07-19T10:32:38.268Z"
+      "step": "Stripe test payment success redirect observed",
+      "outcome": "pass",
+      "detail": "checkout=success and cs_test_ prefix: true",
+      "at": "2026-07-19T11:16:25.681Z"
+    },
+    {
+      "step": "success and Stripe parameters scrubbed from address bar",
+      "outcome": "pass",
+      "detail": "",
+      "at": "2026-07-19T11:16:28.493Z"
+    },
+    {
+      "step": "signed Stripe webhook fulfilled and app claimant received a paid code",
+      "outcome": "pass",
+      "detail": "one claimant used 1 bounded request(s); code fully redacted",
+      "at": "2026-07-19T11:16:28.742Z"
+    },
+    {
+      "step": "paid claim retry is idempotent",
+      "outcome": "pass",
+      "detail": "status 200; same redacted code: true",
+      "at": "2026-07-19T11:16:28.856Z"
+    },
+    {
+      "step": "paid code exchanged for an account-required session",
+      "outcome": "pass",
+      "detail": "status 200; public session id fully redacted",
+      "at": "2026-07-19T11:16:30.020Z"
+    },
+    {
+      "step": "04-desktop account/recovery UI (1440x900)",
+      "outcome": "pass",
+      "detail": "sign-in phase: true, visible controls: true, no horizontal overflow: true",
+      "at": "2026-07-19T11:16:30.027Z"
+    },
+    {
+      "step": "05-mobile account/recovery UI (390x844)",
+      "outcome": "pass",
+      "detail": "sign-in phase: true, visible controls: true, no horizontal overflow: true",
+      "at": "2026-07-19T11:16:30.310Z"
+    },
+    {
+      "step": "profile and entitlement remain closed before Google",
+      "outcome": "pass",
+      "detail": "profile 401, entitlement 401",
+      "at": "2026-07-19T11:16:30.681Z"
+    },
+    {
+      "step": "expired session resumes with cookie rotation inside the fixed window",
+      "outcome": "pass",
+      "detail": "expired GET 401, resume 200, rotated: true, final GET 200",
+      "at": "2026-07-19T11:16:35.790Z"
+    },
+    {
+      "step": "Google OIDC start uses state, nonce, and S256 PKCE",
+      "outcome": "pass",
+      "detail": "status 302",
+      "at": "2026-07-19T11:16:35.907Z"
+    },
+    {
+      "step": "Google callback binds the paid session to a real account",
+      "outcome": "blocked",
+      "detail": "requires a real Google provider sign-in; the harness does not synthesize identity tokens",
+      "at": "2026-07-19T11:16:35.907Z"
+    },
+    {
+      "step": "paid entitlement is active on the linked account",
+      "outcome": "blocked",
+      "detail": "depends on the blocked real Google callback",
+      "at": "2026-07-19T11:16:35.907Z"
+    },
+    {
+      "step": "account recovery creates an auth-only session and valid OIDC start",
+      "outcome": "pass",
+      "detail": "recovery 201, session 200, OIDC 302",
+      "at": "2026-07-19T11:16:36.975Z"
+    },
+    {
+      "step": "known-account recovery and unknown-subject rejection",
+      "outcome": "blocked",
+      "detail": "both require valid Google callbacks from real provider subjects; no callback was forged",
+      "at": "2026-07-19T11:16:36.975Z"
+    },
+    {
+      "step": "one-use class code is consumed exactly once",
+      "outcome": "blocked",
+      "detail": "ACADEMY_PROOF_ADMIN_TOKEN was not supplied; no admin fixture was created",
+      "at": "2026-07-19T11:16:36.975Z"
+    },
+    {
+      "step": "duplicate signed Stripe webhook delivery is idempotent",
+      "outcome": "blocked",
+      "detail": "Stripe did not redeliver during this run and the signing secret is not consumed by the harness; covered by the local Worker test suite only",
+      "at": "2026-07-19T11:16:36.975Z"
+    },
+    {
+      "step": "Stripe test purchase/invite disposition",
+      "outcome": "info",
+      "detail": "retained as an audit record (status paid, invite minted: true, redeemed: false); no supported deletion endpoint exists",
+      "at": "2026-07-19T11:16:45.868Z"
+    },
+    {
+      "step": "proof sessions, browser contexts, and browser process cleaned up",
+      "outcome": "pass",
+      "detail": "",
+      "at": "2026-07-19T11:16:58.356Z"
     }
   ]
 }
