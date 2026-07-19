@@ -300,6 +300,69 @@ describe('Academy lesson flow', () => {
         expect(route.shell.current?.textContent).not.toContain('The first response card is still open.');
     });
 
+    it('turns the first repaired l1-l01 answer into one Stasi journal memory', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const route = context('authored-week:l1-l01');
+        const recordActivity = vi.fn(async (
+            _evaluation: unknown,
+            _lessonId: string,
+            _milestone?: unknown,
+        ) => undefined);
+        const flow = createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite: vi.fn(async () => undefined),
+                recordActivity,
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('lesson-overview', route.value);
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        for (let index = 0; index < 5; index += 1) {
+            route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
+        }
+        expect(route.shell.current?.dataset.lessonPhase).toBe('support');
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="b"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('.academy-authored-week-next'),
+        ).not.toBeNull());
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.click();
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.disabled,
+        ).toBe(false));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(2));
+
+        expect(recordActivity.mock.calls[0]?.[2]).toBeUndefined();
+        expect(recordActivity.mock.calls[1]?.[2]).toEqual({
+            id: 'l1-l01-first-name-card-repair',
+            sceneId: 'scene:l1-l01-first-name-card-repair',
+            journalLine: expect.objectContaining({
+                lineId: 'journal:l1-l01:first-name-card-repair',
+                characterId: 'stasi',
+                text: {
+                    ja: 'スタシさんが待ってくれて、アーカッシュさんの名刺をもう一度読んだ。今度は「エンジニアです」を見つけた。',
+                    en: "Stasi waited while I read Aakash's name card again. This time I found the line that says エンジニアです.",
+                },
+                sourceQuestionId: 'l1-l01/ex-input-job',
+            }),
+        });
+    });
+
     it('does not claim unrelated routes', async () => {
         const route = context();
         await expect(createLessonFlow().render('review', route.value)).resolves.toBe(false);

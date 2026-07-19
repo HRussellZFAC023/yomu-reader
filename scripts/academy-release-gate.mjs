@@ -45,6 +45,9 @@ const EVIDENCE_MILESTONES = new Set([
     'journal',
     'l1-l01-prerequisite',
     'l1-l01-authored-week',
+    'l1-l01-repair',
+    'l1-l01-world-return',
+    'l1-l01-repair-journal',
 ]);
 
 rmSync(EVIDENCE_ROOT, { recursive: true, force: true });
@@ -245,6 +248,66 @@ async function runCoreJourney(page, viewport, runtime) {
     assert(await authoredWeek.locator('[data-exposure-kind]').count() === 1, `${run}: l1-l01 has no current teaching exposure`);
     assert(await authoredWeek.locator('.academy-lesson-activity-continue').isVisible(), `${run}: l1-l01 teaching cannot continue`);
     assert(await authoredWeek.locator('.academy-authored-week-progress-value').isVisible(), `${run}: l1-l01 progress is not visible`);
+
+    const expectedTeaching = ['explanation', 'passage', 'prompt', 'prompt', 'mission'];
+    for (const expectedKind of expectedTeaching) {
+        assert(await authoredWeek.getAttribute('data-lesson-phase') === 'teaching', `${run}: l1-l01 left teaching before ${expectedKind}`);
+        assert(await authoredWeek.locator(`[data-exposure-kind="${expectedKind}"]`).count() === 1, `${run}: l1-l01 teaching order lost ${expectedKind}`);
+        await pressFocused(page, `${authoredWeekSelector} .academy-lesson-activity-continue`);
+    }
+    assert(await authoredWeek.getAttribute('data-lesson-phase') === 'support', `${run}: l1-l01 omitted first-question support`);
+    await pressFocused(page, `${authoredWeekSelector} .academy-lesson-activity-continue`);
+
+    const firstActivitySelector = '[data-activity-id="authored:l1-l01/ex-input-job"]';
+    await page.waitForSelector(firstActivitySelector);
+    await pressFocused(page, `${firstActivitySelector} [data-choice-id="b"]`);
+    await page.waitForSelector(`${firstActivitySelector}[data-outcome="lapse"]`);
+    assert(await authoredWeek.locator('.academy-feedback-repair').count() === 0, `${run}: l1-l01 exposed repair before the learner asked for it`);
+    await pressFocused(page, `${firstActivitySelector} .academy-progressive-hint-button`);
+    assert(await authoredWeek.locator('.academy-feedback-repair').isVisible(), `${run}: l1-l01 repair hint did not appear after the lapse`);
+
+    const lapsedState = await readLearningState(page, run);
+    const firstAttempts = lapsedState.events.filter(event => event.kind === 'attempt-recorded'
+        && event.activityId === 'authored:l1-l01/ex-input-job');
+    assert(firstAttempts.length === 1 && firstAttempts[0].outcome === 'lapse', `${run}: l1-l01 lapse was not durably recorded`, firstAttempts);
+    assert(firstAttempts[0].errorTags?.includes('concept:self-introduction-job:repair'), `${run}: l1-l01 lapse lost its precise repair tag`, firstAttempts[0]);
+    const repairSchedule = lapsedState.events.find(event => event.eventId === 'review-scheduled:academy:review:ex-input-job:concept:self-introduction-job');
+    assert(repairSchedule?.kind === 'review-scheduled' && repairSchedule.dueAt <= Date.now(), `${run}: l1-l01 repair was not scheduled immediately`, repairSchedule);
+    const repairCard = lapsedState.srs?.cards?.['エンジニアです\u0000エンジニアです'];
+    const repairProvenance = repairCard?.academyProvenance?.['academy:review-seed:review:ex-input-job:concept:self-introduction-job'];
+    assert(repairCard && repairCard.dueAt <= Date.now(), `${run}: l1-l01 repair is absent from Yomu SRS`, repairCard);
+    assert(repairProvenance?.reason === 'repair', `${run}: l1-l01 SRS card lost its repair provenance`, repairProvenance);
+
+    await pressFocused(page, `${firstActivitySelector} .academy-authored-week-next`);
+    await page.waitForSelector(`${firstActivitySelector} [data-choice-id="a"]:not(:disabled)`);
+    await pressFocused(page, `${firstActivitySelector} [data-choice-id="a"]`);
+    await page.waitForSelector(`${firstActivitySelector}[data-outcome="pass"][data-repaired="true"]`);
+    assert(await authoredWeek.locator('.academy-authored-week-repair-win').isVisible(), `${run}: l1-l01 repaired answer received no competence feedback`);
+    await auditMilestone(page, viewport, runtime, 'l1-l01-repair', authoredWeekSelector);
+
+    const repairedState = await readLearningState(page, run);
+    const repairedAttempts = repairedState.events.filter(event => event.kind === 'attempt-recorded'
+        && event.activityId === 'authored:l1-l01/ex-input-job');
+    assert(repairedAttempts.length === 2, `${run}: l1-l01 repair does not retain both attempts`, repairedAttempts);
+    assert(repairedAttempts[0].outcome === 'lapse' && repairedAttempts[1].outcome === 'pass', `${run}: l1-l01 repair attempt order is wrong`, repairedAttempts);
+    assert(repairedState.events.some(event => event.kind === 'journal-line-recorded'
+        && event.journalLineId === 'journal:l1-l01:first-name-card-repair'), `${run}: l1-l01 repair did not become a story memory`);
+
+    await pressFocused(page, `${authoredWeekSelector} .academy-authored-week-back`);
+    const lessonBoundClassroom = '[data-current-place="classroom"][data-world-lesson-id="authored-week:l1-l01"]';
+    await auditMilestone(page, viewport, runtime, 'l1-l01-world-return', lessonBoundClassroom);
+    await pressFocused(page, `${lessonBoundClassroom} .academy-world-exit[data-location="courtyard"]`);
+    const courtyard = '[data-current-place="courtyard"]';
+    await page.waitForSelector(courtyard);
+    const courtyardArrival = page.locator(`${courtyard} .academy-world-arrival-continue`);
+    if (await courtyardArrival.isVisible()) await pressFocused(page, `${courtyard} .academy-world-arrival-continue`);
+    await pressFocused(page, `${courtyard} [data-activity-route="journal"]`);
+    await page.waitForSelector('.academy-journal-screen');
+    await pressFocused(page, '.academy-journal-book-tab:nth-child(2)');
+    const repairJournalLine = '[data-journal-line-id="journal:l1-l01:first-name-card-repair"]';
+    await page.waitForSelector(repairJournalLine, { state: 'visible' });
+    assert((await page.locator(repairJournalLine).textContent())?.includes("Stasi waited while I read Aakash's name card again."), `${run}: l1-l01 journal memory lost its story text`);
+    await auditMilestone(page, viewport, runtime, 'l1-l01-repair-journal', '.academy-journal-screen');
 }
 
 async function completePlacement(page, run) {
@@ -654,6 +717,27 @@ async function setCheckpoint(page, run, route, context = {}, routeHistory = []) 
         database.close();
     }, { databaseName: databaseName(run), route, context, routeHistory });
     await openAcademy(page, run);
+}
+
+async function readLearningState(page, run) {
+    return page.evaluate(async databaseName => {
+        const database = await new Promise((resolve, reject) => {
+            const request = indexedDB.open(databaseName, 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        const events = await new Promise((resolve, reject) => {
+            const request = database.transaction('learner-events').objectStore('learner-events').getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        database.close();
+        const storedSrs = localStorage.getItem('yomu:srs-local:v1');
+        return {
+            events: events.sort((left, right) => left.at - right.at || left.eventId.localeCompare(right.eventId)),
+            srs: storedSrs ? JSON.parse(storedSrs) : null,
+        };
+    }, databaseName(run));
 }
 
 function watchRuntime(page, label) {

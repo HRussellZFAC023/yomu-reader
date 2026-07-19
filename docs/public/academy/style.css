@@ -24854,6 +24854,18 @@ a.academy-chrome-button {
     border-left: 3px solid var(--academy-green);
 }
 
+.academy-authored-week-repair-win,
+.academy-authored-week-repair-summary {
+    border-left: 3px solid var(--academy-green);
+    color: var(--academy-ink);
+}
+
+.academy-authored-week-repair-summary {
+    margin: 8px 0 0;
+    padding-left: 12px;
+    line-height: 1.5;
+}
+
 .academy-activity[data-outcome="lapse"] .academy-feedback-explanation,
 .academy-feedback-repair {
     border-left: 3px solid var(--academy-red);

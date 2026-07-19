@@ -55,6 +55,11 @@ describe('authored week learner screen', () => {
         expect(context.textContent).toContain('One label remains open.');
         expect(context.querySelector('img')).toBeNull();
         expect(screen.element.querySelector('.academy-authored-week-host')).toBeNull();
+        expect(context.hidden).toBe(false);
+        openQuestion(screen.element);
+        expect(context.hidden).toBe(true);
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')?.click();
+        expect(context.hidden).toBe(false);
     });
 
     it('conceals answer material until commitment and presents a Japanese-first bilingual prompt', () => {
@@ -212,6 +217,9 @@ describe('authored week learner screen', () => {
         expect(evaluatedStates).toEqual([true, true]);
         expect(screen.element.dataset.outcome).toBeUndefined();
         expect(screen.element.querySelector('.academy-authored-week-activity')?.getAttribute('data-outcome')).toBe('pass');
+        expect(screen.element.querySelector('.academy-authored-week-activity')?.getAttribute('data-repaired')).toBe('true');
+        expect(screen.element.querySelector('.academy-authored-week-repair-win')?.textContent)
+            .toContain('You corrected this one yourself.');
         expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.textContent).toBe('Next question');
     });
 
@@ -381,6 +389,9 @@ describe('authored week learner screen', () => {
         expect(screen.currentActivityId).toBeNull();
         expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('2 / 2');
         expect(screen.element.querySelector('[data-week-complete="true"]')).not.toBeNull();
+        expect(screen.element.querySelector('[data-week-complete="true"]')?.getAttribute('data-repaired-count')).toBe('1');
+        expect(screen.element.querySelector('.academy-authored-week-repair-summary')?.textContent)
+            .toContain('一つのポイントを直し');
         expect(screen.element.querySelector('.academy-authored-week-story-handoff')?.textContent)
             .toContain('元の道へ戻ります。');
         const returnToRoute = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!;

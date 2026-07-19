@@ -245725,6 +245725,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ja: "この週の音声は利用できません。文字の問題を続けられます。"
     },
     pass: { en: "Correct.", ja: "正解です。" },
+    repaired: {
+      en: "Repaired. You corrected this one yourself.",
+      ja: "直せました。自分で答えを直せました。"
+    },
     lapse: { en: "Let’s repair this one.", ja: "ここを直しましょう。" },
     retry: { en: "Try again", ja: "もう一度" },
     next: { en: "Next question", ja: "次の問題" },
@@ -245763,8 +245767,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const audio2 = unavailableAudio(options.week);
     const activityHost = element("div", "academy-activity-host");
     const languageSupport = createLessonLanguageSupport(activityHost, options.language);
+    let storyContextElement;
     if (options.storyContext) {
       const context2 = element("section", "academy-authored-week-story-context");
+      storyContextElement = context2;
       const host2 = element("h2", "academy-authored-week-story-host");
       host2.textContent = options.storyContext.hostName;
       context2.dataset.storyHost = options.storyContext.hostId;
@@ -245804,6 +245810,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let preAssessmentIndex = 0;
     let preAssessmentComplete = options.week.preAssessment.length === 0;
     const completedActivityIds = /* @__PURE__ */ new Set();
+    const lapsedActivityIds = /* @__PURE__ */ new Set();
+    const repairedActivityIds = /* @__PURE__ */ new Set();
     let extensionCompleted = 0;
     let disposed = false;
     let completionNotified = false;
@@ -245813,6 +245821,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let activityController;
     const resetPanelScroll = () => {
       panel.scrollTop = 0;
+    };
+    const showStoryContext = (visible) => {
+      if (storyContextElement) storyContextElement.hidden = !visible;
     };
     const focusInPanel = (target2) => {
       target2?.focus({ preventScroll: true });
@@ -245836,6 +245847,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         renderCurrent(focus);
         return;
       }
+      showStoryContext(preAssessmentIndex === 0);
       screen.dataset.lessonPhase = "teaching";
       const supportView = element("div", "academy-authored-week-pre-question academy-authored-week-briefing");
       const step2 = element("p", "academy-eyebrow academy-authored-week-briefing-step");
@@ -245866,6 +245878,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderCurrent = (focus = false, showSupport = true) => {
       resetPanelScroll();
+      showStoryContext(false);
       options.onListeningStop?.();
       activityController?.dispose();
       activityController = void 0;
@@ -245886,6 +245899,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       if (showSupport && hasTeachingSupport) {
+        showStoryContext(currentIndex === 0);
         screen.dataset.lessonPhase = "support";
         const teachingSupport = authoredTeachingSupport(activity2);
         const supportView = element("div", "academy-authored-week-pre-question");
@@ -245936,9 +245950,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
           },
           registerReadingSurface: languageSupport.registerReadingSurface
         }, async (evaluation) => {
+          const repaired = evaluation.result.outcome === "pass" && lapsedActivityIds.has(activity2.id);
+          if (evaluation.result.outcome === "lapse") lapsedActivityIds.add(activity2.id);
+          if (repaired) repairedActivityIds.add(activity2.id);
           await Promise.all([
             options.onReviewSeeds?.(evaluation.reviewSeeds),
-            options.onEvaluation?.(activity2, evaluation)
+            options.onEvaluation?.(activity2, evaluation, { repaired })
           ]);
           if (evaluation.result.outcome !== "pass" || passed) return;
           passed = true;
@@ -245963,11 +245980,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
         signal: lifecycle.signal,
         evaluate: (responseId) => options.week.evaluate(activity2.id, responseId),
         async onEvaluation(evaluation) {
+          const repaired = evaluation.result.outcome === "pass" && lapsedActivityIds.has(activity2.id);
+          if (evaluation.result.outcome === "lapse") lapsedActivityIds.add(activity2.id);
+          if (repaired) repairedActivityIds.add(activity2.id);
           await Promise.all([
             options.onReviewSeeds?.(evaluation.reviewSeeds),
-            options.onEvaluation?.(activity2, evaluation)
+            options.onEvaluation?.(activity2, evaluation, { repaired })
           ]);
         },
+        hadPriorLapse: lapsedActivityIds.has(activity2.id),
         onRetry() {
           renderCurrent(true, false);
         },
@@ -245985,6 +246006,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderExtension = () => {
       resetPanelScroll();
+      showStoryContext(false);
       screen.dataset.lessonPhase = "extension";
       showingComplete = false;
       showingAuthoredActivity = false;
@@ -246017,6 +246039,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderComplete = () => {
       resetPanelScroll();
+      showStoryContext(true);
       screen.dataset.lessonPhase = "complete";
       activityController?.dispose();
       activityController = void 0;
@@ -246026,8 +246049,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       showingAuthoredActivity = false;
       const complete = element("section", "academy-activity academy-authored-week-complete");
       complete.dataset.weekComplete = "true";
+      complete.dataset.repairedCount = String(repairedActivityIds.size);
       complete.tabIndex = -1;
       complete.append(bilingualParagraph(COPY.complete, "academy-success-note"));
+      if (repairedActivityIds.size) {
+        complete.append(bilingualParagraph(
+          repairSummary(repairedActivityIds.size),
+          "academy-authored-week-repair-summary"
+        ));
+      }
       if (options.storyContext?.handoff) {
         complete.append(bilingualParagraph(options.storyContext.handoff, "academy-authored-week-story-handoff"));
       }
@@ -246242,7 +246272,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
           return;
         }
         root.dataset.outcome = evaluation.result.outcome;
-        showFeedback(feedback2, evaluation, actions.language, activity2.id);
+        const repaired = evaluation.result.outcome === "pass" && actions.hadPriorLapse;
+        if (repaired) root.dataset.repaired = "true";
+        showFeedback(feedback2, evaluation, actions.language, activity2.id, repaired);
         if (listening) feedback2.append(listeningTranscript(listening, actions.language));
         const action2 = element("button", "academy-button academy-authored-week-next");
         action2.type = "button";
@@ -246512,13 +246544,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     root.append(summary, transcript);
     return root;
   }
-  function showFeedback(root, evaluation, language, activityId) {
+  function showFeedback(root, evaluation, language, activityId, repaired) {
     const { result } = evaluation;
     root.setAttribute("role", "status");
     const summary = result.outcome === "pass" ? COPY.pass : COPY.lapse;
     root.replaceChildren(bilingualParagraph(summary, "academy-authored-week-feedback-summary"));
+    if (repaired) root.append(bilingualParagraph(COPY.repaired, "academy-authored-week-repair-win"));
     root.append(bilingualParagraph(result.feedback.explanation, "academy-feedback-explanation"));
     if (result.outcome === "lapse") appendProgressiveFeedback(root, result.feedback, { language, activityId });
+  }
+  function repairSummary(count2) {
+    return {
+      en: count2 === 1 ? "One difficult point was repaired and saved for review." : `${count2} difficult points were repaired and saved for review.`,
+      ja: count2 === 1 ? "一つのポイントを直し、復習に残しました。" : `${count2}つのポイントを直し、復習に残しました。`
+    };
   }
   function lessonNavigation(language, actions, signal) {
     const root = element("nav", "academy-lesson-activity-navigation");
@@ -247691,7 +247730,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             releaseListeningDuck?.();
             releaseListeningDuck = void 0;
           },
-          onEvaluation: (activity2, evaluation) => {
+          onEvaluation: (activity2, evaluation, attemptContext) => {
             this.playFeedbackSfx(evaluation.result.outcome);
             return this.options.evidence.recordActivity({
               result: evaluation.result,
@@ -247706,7 +247745,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 errorTags: evaluation.result.errorTags
               },
               reviewSeeds: evaluation.reviewSeeds
-            }, `authored-week:${packageId}`);
+            }, `authored-week:${packageId}`, attemptContext.repaired && packageId === "l1-l01" && activity2.id === "authored:l1-l01/ex-input-job" ? {
+              id: "l1-l01-first-name-card-repair",
+              sceneId: "scene:l1-l01-first-name-card-repair",
+              journalLine: {
+                lineId: "journal:l1-l01:first-name-card-repair",
+                characterId: "stasi",
+                text: {
+                  ja: "スタシさんが待ってくれて、アーカッシュさんの名刺をもう一度読んだ。今度は「エンジニアです」を見つけた。",
+                  en: "Stasi waited while I read Aakash's name card again. This time I found the line that says エンジニアです."
+                },
+                sourceQuestionId: activity2.sourceQuestionId
+              }
+            } : void 0);
           },
           onComplete: async () => {
             await this.options.evidence.recordEncounter(continuity ? lessonStoryEncounter(continuity) : {

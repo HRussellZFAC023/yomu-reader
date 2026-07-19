@@ -204,7 +204,7 @@ class LessonFlow implements AcademyRouteFlow {
                 releaseListeningDuck?.();
                 releaseListeningDuck = undefined;
             },
-            onEvaluation: (activity, evaluation) => {
+            onEvaluation: (activity, evaluation, attemptContext) => {
                 this.playFeedbackSfx(evaluation.result.outcome);
                 return this.options.evidence.recordActivity({
                 result: evaluation.result,
@@ -219,7 +219,23 @@ class LessonFlow implements AcademyRouteFlow {
                     errorTags: evaluation.result.errorTags,
                 },
                 reviewSeeds: evaluation.reviewSeeds,
-            }, `authored-week:${packageId}`);
+            }, `authored-week:${packageId}`, attemptContext.repaired
+                && packageId === 'l1-l01'
+                && activity.id === 'authored:l1-l01/ex-input-job'
+                ? {
+                    id: 'l1-l01-first-name-card-repair',
+                    sceneId: 'scene:l1-l01-first-name-card-repair',
+                    journalLine: {
+                        lineId: 'journal:l1-l01:first-name-card-repair',
+                        characterId: 'stasi',
+                        text: {
+                            ja: 'スタシさんが待ってくれて、アーカッシュさんの名刺をもう一度読んだ。今度は「エンジニアです」を見つけた。',
+                            en: "Stasi waited while I read Aakash's name card again. This time I found the line that says エンジニアです.",
+                        },
+                        sourceQuestionId: activity.sourceQuestionId,
+                    },
+                }
+                : undefined);
             },
             onComplete: async () => {
                 await this.options.evidence.recordEncounter(continuity

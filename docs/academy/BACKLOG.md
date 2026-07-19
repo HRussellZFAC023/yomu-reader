@@ -9,8 +9,8 @@ This queue is the release scheduler. Work below it remains required, but these i
 | Priority | Channel | Current deliverable | State |
 | --- | --- | --- | --- |
 | P0 | Release | Mandatory linked account in production; explicit localhost QA bypass | Shipped `735336f27`, `522452c10` |
-| P0 | Golden path | Prove entry -> lesson -> repair/SRS -> story return -> journal/world continuation on desktop and phone | Gate green through `l1-l01` teaching; attempt/return next |
-| P0 | Motivation | Carry meaningful goals, competence feedback, narrative anticipation, relationship/world rewards, return cues, and clean endings across the whole loop | Daily route shipped; cross-surface pass next |
+| P0 | Golden path | Prove entry -> lesson -> repair/SRS -> story return -> journal/world continuation on desktop and phone | Green through a repaired `l1-l01` attempt, exact SRS card, Stasi memory, classroom return, and visible journal line |
+| P0 | Motivation | Carry meaningful goals, competence feedback, narrative anticipation, relationship/world rewards, return cues, and clean endings across the whole loop | Daily route plus the first lesson-repair-memory slice shipped; cross-surface pass continues |
 | P0 | Curriculum | Ground and expose the next source-faithful lesson slice | Integrated: exact Chapter 36 homework matches |
 | P0 | Activities/audio | Add the next taught-first, hinted, gradable multimodal activity with evidence/SRS | Integrated: Lesson 0 vowel dictation |
 | P0 | Story/world/cast | Make the next first-path encounter and journal unlock distinct and reachable | Integrated: library encounter continuity |
@@ -25,7 +25,8 @@ This is the short operational order inside the queue above. The detailed catalog
 - [x] Recover the interrupted Claude story/voice/art sessions, preserve private transcript archives with hashes, and record their exact finished and unfinished outputs.
 - [x] Recover, validate, compile, and list all 48 four-season story chapters; later chapters remain playable while unregistered practice is labelled honestly.
 - [x] Restore the deterministic desktop/phone Browser gate through onboarding, world navigation, Lesson 0, Study, placement, the finite journal, Class, the `l1-l01` source sheet, and its teaching-first seam; self-confirm furigana persistence and remove the journal's duplicated Replay overflow.
-- [ ] Prove the real learner golden path in Browser: onboarding → lesson → repair/SRS → story return → journal/world continuation, with the journal redesign and furigana regressions resolved.
+- [x] Prove the real learner golden path in Browser: onboarding → `l1-l01` teaching → committed lapse → earned repair hint → canonical due SRS card → independent correction → inline story memory → classroom return → visible journal line on desktop and phone; the finite journal and furigana checks remain green.
+- [ ] Persist authored-week teaching/activity position so leaving after a saved attempt resumes at that activity instead of replaying all lesson notes.
 - [x] Integrate Moodle Lesson 10 as canonical `l3plus-l10`, including its handouts, listening, homework, runtime route, source ledger, and focused reachability tests.
 - [ ] Verify Lessons 1-10 source, handout, listening, homework, and runtime coverage against the Moodle inventory as one release audit.
 - [ ] Finish N3-N1 lesson packages and bind every Season 3-4 practice hook to a real lesson, varied activity, deterministic evidence, and SRS consequence.
@@ -34,6 +35,7 @@ This is the short operational order inside the queue above. The detailed catalog
 - [x] Wire the deterministic daily learning route and warm return arc into the live Course route from the world; connect due SRS, grounded lessons, relationships, place discovery, visible diegetic payoffs, and one dominant next action without grind rewards.
 - [x] Make Yomu's scheduler queue authoritative for due repair and advance Course/daily recommendations from the learner's selected-band floor and completed class-week evidence, including Lesson 10 → Kanji 7.
 - [x] Complete the learner-motivation pass for the daily route: one clear start, competence cue, warm return without loss, the learner's own reason, relationship/world payoff, and a clean stopping point.
+- [x] Ship the first cross-surface psychological slice: recognize a repaired answer as competence, retain both attempts, schedule the exact repair, turn it into one natural Stasi memory, make that memory visible after returning through the world, and stop repeating the full story header above every assessed question.
 - [ ] Apply the psychological-elements pass across lesson, repair, SRS, story, world, and journal: meaningful learner goals, immediate competence feedback, open-loop narrative anticipation, earned relationship/world payoffs, memorable return cues, and satisfying stopping points.
 - [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
 - [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
@@ -105,7 +107,7 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 
 - [x] Reconcile the three external reviews against current source and binding product decisions; reject proposals that remove the required fiction note, optional placement route, Course view, or fidelity gate.
 - [ ] Ship one complete grounded Lesson 0 route and one complete grounded class Week; zero-playable remains the release-blocking denominator until both are learner-reachable.
-- [ ] Connect a real grounded attempt through `LearnerEvidence.recordActivity` into the canonical Study queue, then prove attempt → repair → review → scene return in the real app.
+- [x] Connect a real grounded attempt through `LearnerEvidence.recordActivity` into canonical Yomu SRS, then prove lapse → earned hint → exact repair schedule/card → independent pass → story memory → world/journal return in the real app on desktop and phone.
 - [x] Keep placement answer controls outside automatic lookup/annotation until commitment; native radio selection and the Reader-ignore contract now pass focused tests and fresh 390×844 Browser proof.
 - [x] Ensure canonical Study contains no pre-reveal answer-bearing text or attributes while preserving reveal, grading, statistics, and Academy provenance. Opaque `study-card-N` / indexed Doodle identities preserve in-memory actions and stale guards; the full card key appears only after reveal.
 - [x] Rebase the checkpoint on Yomu 1.6.149, regenerate canonical Study/Academy assets, clear dead-code and line-scoped changed-code maintainability gates, and repair the extension build's stale hosted redirect input.

@@ -50,6 +50,7 @@ export interface AuthoredWeekScreenOptions {
     readonly onEvaluation?: (
         activity: LearnerAuthoredActivity,
         evaluation: AuthoredChoiceEvaluation,
+        context: Readonly<{ repaired: boolean }>,
     ) => void | Promise<void>;
     readonly onComplete?: () => void | Promise<void>;
     readonly onBack?: () => void | Promise<void>;
@@ -74,6 +75,10 @@ const COPY = {
         ja: 'この週の音声は利用できません。文字の問題を続けられます。',
     },
     pass: { en: 'Correct.', ja: '正解です。' },
+    repaired: {
+        en: 'Repaired. You corrected this one yourself.',
+        ja: '直せました。自分で答えを直せました。',
+    },
     lapse: { en: 'Let’s repair this one.', ja: 'ここを直しましょう。' },
     retry: { en: 'Try again', ja: 'もう一度' },
     next: { en: 'Next question', ja: '次の問題' },
@@ -114,8 +119,10 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     const audio = unavailableAudio(options.week);
     const activityHost = element('div', 'academy-activity-host');
     const languageSupport = createLessonLanguageSupport(activityHost, options.language);
+    let storyContextElement: HTMLElement | undefined;
     if (options.storyContext) {
         const context = element('section', 'academy-authored-week-story-context');
+        storyContextElement = context;
         const host = element('h2', 'academy-authored-week-story-host');
         host.textContent = options.storyContext.hostName;
         context.dataset.storyHost = options.storyContext.hostId;
@@ -156,6 +163,8 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     let preAssessmentIndex = 0;
     let preAssessmentComplete = options.week.preAssessment.length === 0;
     const completedActivityIds = new Set<string>();
+    const lapsedActivityIds = new Set<string>();
+    const repairedActivityIds = new Set<string>();
     let extensionCompleted = 0;
     let disposed = false;
     let completionNotified = false;
@@ -166,6 +175,10 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const resetPanelScroll = (): void => {
         panel.scrollTop = 0;
+    };
+
+    const showStoryContext = (visible: boolean): void => {
+        if (storyContextElement) storyContextElement.hidden = !visible;
     };
 
     const focusInPanel = (target: HTMLElement | null | undefined): void => {
@@ -192,6 +205,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             renderCurrent(focus);
             return;
         }
+        showStoryContext(preAssessmentIndex === 0);
         screen.dataset.lessonPhase = 'teaching';
         const supportView = element('div', 'academy-authored-week-pre-question academy-authored-week-briefing');
         const step = element('p', 'academy-eyebrow academy-authored-week-briefing-step');
@@ -227,6 +241,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const renderCurrent = (focus = false, showSupport = true): void => {
         resetPanelScroll();
+        showStoryContext(false);
         options.onListeningStop?.();
         activityController?.dispose();
         activityController = undefined;
@@ -247,6 +262,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             return;
         }
         if (showSupport && hasTeachingSupport) {
+            showStoryContext(currentIndex === 0);
             screen.dataset.lessonPhase = 'support';
             const teachingSupport = authoredTeachingSupport(activity);
             const supportView = element('div', 'academy-authored-week-pre-question');
@@ -295,9 +311,12 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
                 announce(message) { questionHost.setAttribute('aria-label', message); },
                 registerReadingSurface: languageSupport.registerReadingSurface,
             }, async evaluation => {
+                const repaired = evaluation.result.outcome === 'pass' && lapsedActivityIds.has(activity.id);
+                if (evaluation.result.outcome === 'lapse') lapsedActivityIds.add(activity.id);
+                if (repaired) repairedActivityIds.add(activity.id);
                 await Promise.all([
                     options.onReviewSeeds?.(evaluation.reviewSeeds),
-                    options.onEvaluation?.(activity, evaluation),
+                    options.onEvaluation?.(activity, evaluation, { repaired }),
                 ]);
                 if (evaluation.result.outcome !== 'pass' || passed) return;
                 passed = true;
@@ -322,11 +341,15 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             signal: lifecycle.signal,
             evaluate: responseId => options.week.evaluate(activity.id, responseId),
             async onEvaluation(evaluation) {
+                const repaired = evaluation.result.outcome === 'pass' && lapsedActivityIds.has(activity.id);
+                if (evaluation.result.outcome === 'lapse') lapsedActivityIds.add(activity.id);
+                if (repaired) repairedActivityIds.add(activity.id);
                 await Promise.all([
                     options.onReviewSeeds?.(evaluation.reviewSeeds),
-                    options.onEvaluation?.(activity, evaluation),
+                    options.onEvaluation?.(activity, evaluation, { repaired }),
                 ]);
             },
+            hadPriorLapse: lapsedActivityIds.has(activity.id),
             onRetry() {
                 renderCurrent(true, false);
             },
@@ -345,6 +368,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const renderExtension = (): void => {
         resetPanelScroll();
+        showStoryContext(false);
         screen.dataset.lessonPhase = 'extension';
         showingComplete = false;
         showingAuthoredActivity = false;
@@ -378,6 +402,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const renderComplete = (): void => {
         resetPanelScroll();
+        showStoryContext(true);
         screen.dataset.lessonPhase = 'complete';
         activityController?.dispose();
         activityController = undefined;
@@ -387,8 +412,15 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         showingAuthoredActivity = false;
         const complete = element('section', 'academy-activity academy-authored-week-complete');
         complete.dataset.weekComplete = 'true';
+        complete.dataset.repairedCount = String(repairedActivityIds.size);
         complete.tabIndex = -1;
         complete.append(bilingualParagraph(COPY.complete, 'academy-success-note'));
+        if (repairedActivityIds.size) {
+            complete.append(bilingualParagraph(
+                repairSummary(repairedActivityIds.size),
+                'academy-authored-week-repair-summary',
+            ));
+        }
         if (options.storyContext?.handoff) {
             complete.append(bilingualParagraph(options.storyContext.handoff, 'academy-authored-week-story-handoff'));
         }
@@ -510,6 +542,7 @@ interface ActivityActions {
     readonly signal: AbortSignal;
     readonly evaluate: (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation;
     readonly onEvaluation: (evaluation: AuthoredChoiceEvaluation) => Promise<void>;
+    readonly hadPriorLapse: boolean;
     readonly onRetry: () => void;
     readonly onAdvance: () => void;
     readonly hasExtension: boolean;
@@ -631,7 +664,9 @@ function renderActivity(
                 }
 
                 root.dataset.outcome = evaluation.result.outcome;
-                showFeedback(feedback, evaluation, actions.language, activity.id);
+                const repaired = evaluation.result.outcome === 'pass' && actions.hadPriorLapse;
+                if (repaired) root.dataset.repaired = 'true';
+                showFeedback(feedback, evaluation, actions.language, activity.id, repaired);
                 if (listening) feedback.append(listeningTranscript(listening, actions.language));
                 const action = element('button', 'academy-button academy-authored-week-next');
                 action.type = 'button';
@@ -944,13 +979,26 @@ function showFeedback(
     evaluation: AuthoredChoiceEvaluation,
     language: AcademyLanguage,
     activityId: string,
+    repaired: boolean,
 ): void {
     const { result } = evaluation;
     root.setAttribute('role', 'status');
     const summary = result.outcome === 'pass' ? COPY.pass : COPY.lapse;
     root.replaceChildren(bilingualParagraph(summary, 'academy-authored-week-feedback-summary'));
+    if (repaired) root.append(bilingualParagraph(COPY.repaired, 'academy-authored-week-repair-win'));
     root.append(bilingualParagraph(result.feedback.explanation, 'academy-feedback-explanation'));
     if (result.outcome === 'lapse') appendProgressiveFeedback(root, result.feedback, { language, activityId });
+}
+
+function repairSummary(count: number): LocalizedText {
+    return {
+        en: count === 1
+            ? 'One difficult point was repaired and saved for review.'
+            : `${count} difficult points were repaired and saved for review.`,
+        ja: count === 1
+            ? '一つのポイントを直し、復習に残しました。'
+            : `${count}つのポイントを直し、復習に残しました。`,
+    };
 }
 
 function lessonNavigation(
