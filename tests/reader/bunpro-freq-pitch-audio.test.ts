@@ -146,6 +146,22 @@ describe('Bunpro pitch accent stress', () => {
         expect(c.pitchAccent).toEqual(['LHHH', 'HLLL']);
     });
 
+    it('does not make a ready Bunpro definition wait for slow public pitch', async () => {
+        const publicPitch = deferred<string[]>();
+        const c = card('人間', 'にんげん');
+        const load = bunproLoader({ bunproDefinitionsEnabled: true, showPitchAccent: true }, () => publicPitch.promise).load(c);
+
+        await expect(load.bunproDefinitionInfo).resolves.toMatchObject({
+            expression: '人間',
+            pitchAccentStress: 'HLLL',
+        });
+        expect(c.pitchAccent).toEqual([]);
+
+        publicPitch.resolve(['LHHH']);
+        await expect(load.hydratePitchAccent?.()).resolves.toEqual(['LHHH', 'HLLL']);
+        expect(c.pitchAccent).toEqual(['LHHH', 'HLLL']);
+    });
+
     it('resolves Bunpro-only pitch so deferred headers repaint after a public miss', async () => {
         const c = card('人間', 'にんげん');
         const load = bunproLoader({ bunproDefinitionsEnabled: true, showPitchAccent: true }).load(c);
@@ -201,9 +217,7 @@ describe('Bunpro pitch accent stress', () => {
                 data: { attributes: { pitch_accent_stress: 'HLLL' } },
                 included: [],
             });
-            await expect(load.hydrateBunproDefinitionResult?.()).resolves.toMatchObject({
-                info: { pitchAccentStress: 'HLLL' },
-            });
+            await expect(load.hydratePitchAccent?.()).resolves.toEqual(['HLLL']);
             expect(c.pitchAccent).toEqual(['HLLL']);
         } finally {
             vi.useRealTimers();

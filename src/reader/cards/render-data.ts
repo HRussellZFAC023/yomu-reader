@@ -71,6 +71,7 @@ export interface CardRenderDataLoad {
     hydrateLocalEntries?: () => Promise<YomitanTermEntry[]>;
     localMetaEntries?: Promise<YomitanMetaEntry[]>;
     pitchAccent?: Promise<string[]>;
+    hydratePitchAccent?: () => Promise<string[]>;
     ankiLookup?: Promise<AnkiLookupResult>;
     hydrateAnkiLookup?: () => Promise<AnkiLookupResult>;
     jpdbVocabularyInfo?: Promise<JpdbVocabularyInfo | null>;
@@ -225,8 +226,12 @@ export class CardRenderDataLoader {
             if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
             return result;
         });
+        // Definition rendering is independent from the public-pitch lookup.
+        // A ready Bunpro entry must not wait behind a slow JPDB pitch request;
+        // the uncapped hydration channel below coordinates only the late pitch
+        // repaint after primary evidence has had its priority window.
         const bunproDefinitionLookup = bunproDefinitionRequested
-            ? hydratedBunproPitchData
+            ? bunproDataLookup
             : Promise.resolve({
                 info: null,
                 status: {
@@ -247,6 +252,7 @@ export class CardRenderDataLoader {
             // both trigger a header refresh.
             return [...card.pitchAccent];
         });
+        const hydratedPitchAccent = hydratedBunproPitchData.then(() => [...card.pitchAccent]);
         const bunproDefinitionResult = this.withFallback(
             card,
             CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -271,7 +277,7 @@ export class CardRenderDataLoader {
             [] as ExpressionComponentPitch[],
         );
         void pitchAccent.catch(() => undefined);
-        void hydratedBunproPitchData.catch(() => undefined);
+        void hydratedPitchAccent.catch(() => undefined);
         void jpdbDeckMembership.catch(() => undefined);
         void jitenVocabularyInfo.catch(() => undefined);
         void frequencyRankLoad.initial.catch(() => undefined);
@@ -283,6 +289,7 @@ export class CardRenderDataLoader {
             localEntries,
             localMetaEntries,
             pitchAccent,
+            hydratePitchAccent: () => hydratedPitchAccent,
             ankiLookup: fastAnkiLookup,
             hydrateAnkiLookup,
             jpdbVocabularyInfo,

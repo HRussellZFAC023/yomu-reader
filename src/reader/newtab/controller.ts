@@ -398,6 +398,7 @@ export interface NewTabControllerDependencies {
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard, options?: CardRenderDataLoadOptions) => Promise<CardRenderData>;
+    hydratePitchAccent?: (card: JPDBCard) => Promise<string[]>;
     hydrateFrequencyRanks?: (card: JPDBCard) => Promise<NonNullable<CardRenderData['frequencyRanks']>>;
     hydrateBunproDefinitionInfo?: (card: JPDBCard) => Promise<import('../bunpro/definition').BunproDefinitionInfo | null>;
     hydrateBunproDefinitionResult?: (card: JPDBCard) => Promise<{

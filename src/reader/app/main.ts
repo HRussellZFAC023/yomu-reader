@@ -5859,6 +5859,7 @@ export class ReaderApp {
         this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
         this.renderHydratedCardLocalEntries(hydrationContext, renderData);
         this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
+        this.renderHydratedCardPitchAccent(hydrationContext, renderData);
         this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
         this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
     }
@@ -6419,6 +6420,20 @@ export class ReaderApp {
                 this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
             })
             .catch(error => log.debug('Popup Jiten vocabulary hydration failed', { term: card.spelling, error }));
+    }
+
+    private renderHydratedCardPitchAccent(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        if (!renderData.hydratePitchAccent) return;
+        const renderedPitchKey = card.pitchAccent.join('|');
+        void renderData.hydratePitchAccent()
+            .then(pitchAccent => {
+                if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+                if (renderedPitchKey === card.pitchAccent.join('|')) return;
+                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            })
+            .catch(error => log.debug('Popup pitch hydration failed', { term: card.spelling, error }));
     }
 
     private renderHydratedCardFrequencyRanks(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {

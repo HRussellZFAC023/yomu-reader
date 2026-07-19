@@ -873,7 +873,17 @@ export class NewTabSearchController {
                 wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails),
             };
             renderCurrentDetail();
-            const { hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
+            const { hydratePitchAccent, hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
+            if (hydratePitchAccent) {
+                const renderedPitchKey = card.pitchAccent.join('|');
+                void hydratePitchAccent(card).then(pitchAccent => {
+                    if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+                    if (renderedPitchKey === card.pitchAccent.join('|')) return;
+                    renderCurrentDetail();
+                }).catch(error => {
+                    log.debug('Search pitch hydration failed', { term: card.spelling, error });
+                });
+            }
             if (hydrateFrequencyRanks) {
                 void hydrateFrequencyRanks(card).then(frequencyRanks => {
                     if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;

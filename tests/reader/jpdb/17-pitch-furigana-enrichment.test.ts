@@ -1285,6 +1285,64 @@ describe('reader helpers', () => {
         }
     });
 
+    it('repaints a completed popup when uncapped supplemental pitch arrives late', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard({ pitchAccent: [] });
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const latePitch = deferred<string[]>();
+        const hydratePitchAccent = vi.fn(() => latePitch.promise);
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardPitchAccent(
+                context: TestCardPopoverHydrationContext,
+                renderData: { hydratePitchAccent?: () => Promise<string[]> },
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardPitchAccent({
+                popover,
+                card: lookupCard,
+                sentence: '青空です。',
+                trigger: 'modal',
+                state: { data },
+                requestId: 1,
+                isCurrentHoverCard: () => true,
+            }, { hydratePitchAccent });
+
+            lookupCard.pitchAccent = ['LHHLL'];
+            latePitch.resolve(['LHHLL']);
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalledTimes(1));
+            expect(hydratePitchAccent).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(
+                popover,
+                lookupCard,
+                '青空です。',
+                'modal',
+                data,
+                undefined,
+            );
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('hydrates popup Anki details even when the fast status cache misses', async () => {
         const app = new ReaderApp();
         const lookupCard: JPDBCard = {

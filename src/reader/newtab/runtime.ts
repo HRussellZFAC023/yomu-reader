@@ -681,6 +681,7 @@ export class NewTabRuntime {
                 userGesture: options?.userGesture,
             }),
             loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
+            hydratePitchAccent: card => this.cardRenderData.load(card).hydratePitchAccent?.() ?? Promise.resolve([...card.pitchAccent]),
             hydrateFrequencyRanks: card => this.cardRenderData.load(card).hydrateFrequencyRanks?.() ?? Promise.resolve({}),
             hydrateBunproDefinitionInfo: card => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
             hydrateBunproDefinitionResult: card => this.cardRenderData.load(card).hydrateBunproDefinitionResult?.()
@@ -897,6 +898,17 @@ export class NewTabRuntime {
                 if (renderedPitchKey === card.pitchAccent.join('|')) return;
                 renderedPitchKey = card.pitchAccent.join('|');
                 this.updateDeferredLookupPitch(popover, card, metaEntriesValue, currentAnkiLookup);
+            });
+        }
+        if (renderData.hydratePitchAccent) {
+            void renderData.hydratePitchAccent().then(pitchAccent => {
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+                if (renderedPitchKey === card.pitchAccent.join('|')) return;
+                renderedPitchKey = card.pitchAccent.join('|');
+                this.updateDeferredLookupPitch(popover, card, metaEntriesValue, currentAnkiLookup);
+            }).catch(error => {
+                log.debug('New-tab pitch hydration failed', { term: card.spelling, error });
             });
         }
         void renderData.all.then(data => {
