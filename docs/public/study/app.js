@@ -40384,7 +40384,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.214".trim() ? "1.6.214".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.215".trim() ? "1.6.215".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -82064,7 +82064,10 @@ ${entry.url}`),
         this.searchController.selectSearchSuggestion(root, request.expression);
         return;
       }
-      const sourceReviewCard = this.sourceReviewLookupCardForTarget(request.word);
+      const sourceReviewCard = renderedWordCardForLookup(
+        request.word,
+        this.sourceReviewLookupCardForTarget(request.word)
+      );
       if (sourceReviewCard && this.dependencies.showLookupCard) {
         void this.dependencies.showLookupCard(sourceReviewCard, request.sentence, request.word, this.nestedLookupOptions());
         return;

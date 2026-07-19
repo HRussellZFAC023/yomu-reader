@@ -2254,7 +2254,14 @@ export class NewTabController {
             this.searchController.selectSearchSuggestion(root, request.expression);
             return;
         }
-        const sourceReviewCard = this.sourceReviewLookupCardForTarget(request.word);
+        // A rendered Study word is the last authoritative boundary before the
+        // popover. Its card wrapper and the provider source can temporarily be
+        // different objects while pitch enrichment settles, so restore the
+        // exact rendered contour onto whichever source card wins this lookup.
+        const sourceReviewCard = renderedWordCardForLookup(
+            request.word,
+            this.sourceReviewLookupCardForTarget(request.word),
+        );
         if (sourceReviewCard && this.dependencies.showLookupCard) {
             void this.dependencies.showLookupCard(sourceReviewCard, request.sentence, request.word, this.nestedLookupOptions());
             return;

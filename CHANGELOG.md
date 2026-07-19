@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.215] - 2026-07-19
+
+### Fixed
+
+- Restored the exact rendered pitch contour onto the provider source card selected for a Study popover, closing the final path where 自（じ） could show Listen/Speak but still report “Exact pitch unavailable”.
+
 ## [1.6.214] - 2026-07-19
 
 ### Fixed

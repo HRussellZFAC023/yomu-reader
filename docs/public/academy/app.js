@@ -18952,7 +18952,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const renderPlan = preservesWhitespace(safeComputedStyle(host2).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host2, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host2);
-    const { clipRow, detachedReadings } = textMirrorClipMode(host2, safeTokens);
+    const { clipRow, detachedReadings } = textMirrorClipMode(
+      host2,
+      renderPlan,
+      renderSettings,
+      targetHasNativeRuby(target)
+    );
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     return {
@@ -19382,9 +19387,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       mirror.style.setProperty("overflow", "visible");
     } else constrainMirrorToClampBox(mirror, clipRow);
   }
-  function textMirrorClipMode(host2, tokens) {
+  function textMirrorClipMode(host2, renderPlan, settings, hasNativeRuby) {
     const clipRow = closestRubyFragileConstrainedRow(host2);
-    const hasReadings = tokens.some((token) => token.rubies.length > 0);
+    const hasReadings = renderPlan.tokens.some((token) => token.rubies.length > 0 && shouldRenderRuby(
+      renderPlan.text.slice(token.start, token.end),
+      token,
+      settings,
+      !hasNativeRuby,
+      true
+    ));
     const detachedReadings = hasReadings;
     return {
       clipRow,
@@ -19393,10 +19404,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function constrainMirrorToClampBox(mirror, clipRow) {
     const height = clipRow.clientHeight;
-    if (height > 0) {
-      mirror.style.setProperty("max-height", `${height}px`);
-      mirror.style.setProperty("overflow", "hidden");
-    }
+    if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
+    mirror.style.setProperty("overflow", "hidden");
   }
   function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
     if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
@@ -251683,7 +251692,10 @@ ${entry2.url}`),
         this.searchController.selectSearchSuggestion(root, request2.expression);
         return;
       }
-      const sourceReviewCard = this.sourceReviewLookupCardForTarget(request2.word);
+      const sourceReviewCard = renderedWordCardForLookup(
+        request2.word,
+        this.sourceReviewLookupCardForTarget(request2.word)
+      );
       if (sourceReviewCard && this.dependencies.showLookupCard) {
         void this.dependencies.showLookupCard(sourceReviewCard, request2.sentence, request2.word, this.nestedLookupOptions());
         return;

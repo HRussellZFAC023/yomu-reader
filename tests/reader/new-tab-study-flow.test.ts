@@ -599,6 +599,41 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
             controller.destroy();
         }
     });
+
+    it('restores exact rendered pitch onto the provider source card chosen for the popover', () => {
+        const source = headwordCard({ pitchAccent: [] });
+        const visible = headwordCard({
+            source: 'local',
+            reviewSource: 'yomu-local',
+            sourceCardKey: cardKey(source),
+            pitchAccent: ['LHHH'],
+        });
+        const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const { controller, internals } = studyController([source], {
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+        }, { showLookupCard });
+        const root = studyRoot();
+        try {
+            internals.visibleWords = [visible];
+            internals.state.mode = 'word';
+            internals.bindRootEvents(root);
+            internals.renderWord(root, visible);
+
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
+            word?.closest<HTMLElement>('[data-newtab-prompt]')?.classList.add('jpdb-reader-parseable');
+            expect(word?.dataset.pitchAccent).toBe('LHHH');
+            // Model the live async seam: the DOM has the resolved contour, but
+            // the visible wrapper and provider source are still pitch-empty.
+            visible.pitchAccent = [];
+            source.pitchAccent = [];
+            word?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(showLookupCard).toHaveBeenCalledWith(source, source.sentence, word, expect.any(Object));
+            expect(source.pitchAccent).toEqual(['LHHH']);
+        } finally {
+            controller.destroy();
+        }
+    });
 });
 
 describe('study flow: revealed answer reading stays visible', () => {
