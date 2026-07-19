@@ -14789,7 +14789,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
   const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
   const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
-  const constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
   function constrainedRowStyleFacts(element2) {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element2);
@@ -19381,6 +19381,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!matches) return false;
     const state = textMirrorHosts.get(host2);
     if (state) reassertTextMirrorHostStyles(host2, state);
+    if (context2.detachedReadings && existing) {
+      openSafeDetachedReadingClips(host2);
+      stabilizeDetachedReadings(existing, context2.clipRow, true);
+    }
     return true;
   }
   function createNonDestructiveTextMirror(context2) {
@@ -19427,6 +19431,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       state.mirror = new WeakRef(mirror);
       if (context2.detachedReadings) {
         styleDetachedReadingElements(mirror, host2);
+        openSafeDetachedReadingClips(host2);
         stabilizeDetachedReadings(mirror, context2.clipRow, true);
       }
       syncTextMirrorVisibilityToPage(host2, mirror);
@@ -19511,21 +19516,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
-    const clipRect = clipRow?.getBoundingClientRect();
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-    if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
-      for (const word of words) {
-        const bases = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
-        const rects = (bases.length ? bases : [word]).map((base) => base.getBoundingClientRect());
-        const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
-        if (!visible) word.style.setProperty("visibility", "hidden", "important");
-      }
-    }
+    if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
     settleDetachedReadingLanes(
       Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
       Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"))
     );
     if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+  }
+  function filterDetachedWordsToClip(root, clipRow) {
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+    for (const word of words) {
+      if (word.dataset.yomuDetachedWordHidden !== "outside-clip") continue;
+      delete word.dataset.yomuDetachedWordHidden;
+      word.style.removeProperty("visibility");
+    }
+    const clipRect = clipRow?.getBoundingClientRect();
+    if (!clipRect || clipRect.width <= 0 || clipRect.height <= 0) return;
+    for (const word of words) {
+      const bases = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
+      const rects = (bases.length ? bases : [word]).map((base) => base.getBoundingClientRect());
+      const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
+      if (visible) continue;
+      word.dataset.yomuDetachedWordHidden = "outside-clip";
+      word.style.setProperty("visibility", "hidden", "important");
+    }
   }
   const DETACHED_READING_COLLISION_SLOP = 0.5;
   const DETACHED_READING_CLEARANCE_PX = 3;
@@ -19534,10 +19548,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
     return composedAncestorElement(owner) ?? owner;
   }
+  function exposeDetachedReadingCandidate(reading) {
+    delete reading.dataset.yomuDetachedReadingHidden;
+    reading.style.setProperty("display", "block", "important");
+  }
   function settleDetachedReadingLanes(readings, bases) {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
     for (const reading of readings) {
-      restoreUnsafeDetachedReading(reading);
+      exposeDetachedReadingCandidate(reading);
       reading.style.removeProperty("--jpdb-reader-detached-lift");
       reading.style.removeProperty("margin-left");
     }
@@ -19576,7 +19594,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         unsafe.add(other.element);
       }
     }
-    unsafe.forEach(hideUnsafeDetachedReading);
+    const measured = new Set(readingRects.map(({ element: element2 }) => element2));
+    for (const reading of readings) {
+      if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
+    }
   }
   function detachedReadingCoversForeignText(reading, rect) {
     const ownWord = reading.closest(".jpdb-reader-word");
@@ -19636,11 +19657,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
     reading.style.setProperty("display", "none", "important");
   }
-  function restoreUnsafeDetachedReading(reading) {
-    if (reading.dataset.yomuDetachedReadingHidden !== "unsafe-lane") return;
-    delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
-  }
   function detachedReadingRestHidden(reading) {
     for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
       if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
@@ -19662,13 +19678,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
-  const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
+  const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
+    "details",
+    '[id*="expand" i]',
+    '[id*="collaps" i]',
+    '[class*="expand" i]',
+    '[class*="collaps" i]'
+  ].join(",");
+  const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
+  function ownsExpandableContentClip(element2) {
+    if (element2.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
+    return element2.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element2.localName);
+  }
   function openSafeDetachedReadingClips(element2) {
+    restoreOwnedDetachedReadingClips(element2);
     let current = element2;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
       if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
-      if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+      if (ownsExpandableContentClip(current)) {
         restoreDetachedReadingClip(current);
         continue;
       }
@@ -19681,6 +19709,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
       if (compact2 && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
+    }
+  }
+  function restoreOwnedDetachedReadingClips(element2) {
+    let current = element2;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+      if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
     }
   }
   function openedDetachedReadingChildFits(box) {

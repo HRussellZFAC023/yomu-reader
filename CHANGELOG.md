@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.221] - 2026-07-19
+
+### Fixed
+
+- Furigana now stays visible on compact buttons, chips, menu labels, metadata rows, and nested clipped controls whenever its measured lane is unclipped and clear of nearby text. Only a reading proven unsafe is hidden; its base word, lookup target, and pitch annotation remain intact.
+- Opening a menu or rescanning a nested control no longer closes an already-safe furigana lane. Clip reclassification is now performed only beside the geometry settle that commits the next visibility verdict, and remains reversible when the page reflows.
+
+### Testing
+
+- Expanded the Chromium and WebKit layout gates to require painted furigana on known-safe controls and nested metadata, explicit safety verdicts for every hidden reading, preservation of real expandable-panel clipping, and safe-to-unsafe-to-safe reflow recovery.
+
 ## [1.6.220] - 2026-07-19
 
 ### Changed

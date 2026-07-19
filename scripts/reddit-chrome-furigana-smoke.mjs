@@ -280,18 +280,7 @@ async function runEngine(engineName, browser) {
         await page.locator('#menu-heading .jpdb-reader-word').waitFor({ timeout: 20_000 });
         await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
         await page.locator('.jpdb-reader-fab').click();
-        await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
-        await page.waitForFunction(() => {
-            const items = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
-            const rects = items.map(item => item.getBoundingClientRect());
-            const centers = rects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
-            return rects.length >= 6
-                && rects.every(rect => rect.width >= 45 && rect.width <= 51)
-                && centers.slice(1).every((center, index) => Math.hypot(
-                    center.x - centers[index].x,
-                    center.y - centers[index].y,
-                ) >= 60);
-        }, undefined, { timeout: 5_000 });
+        await waitForSettledRadialMenu(page);
 
         const snapshot = await snapshotRedditRegression(page);
         const touchHover = await snapshotTouchHoverSafety(page);
@@ -355,8 +344,7 @@ function userscriptCompanionPaths(userscriptPath) {
 
 async function exerciseCompensatedFixedChrome(page) {
     const radialSurface = await snapshotFixedSurface(page, '.jpdb-reader-fab-radial.is-open');
-    const settingsAction = page.locator('[data-radial-id="settings"]');
-    await settingsAction.click();
+    await clickSettledRadialAction(page, 'settings');
     const settingsRoot = page.locator('.jpdb-reader-settings');
     await settingsRoot.waitFor({ timeout: 10_000 });
     await page.waitForTimeout(250);
@@ -381,8 +369,7 @@ async function exerciseCompensatedFixedChrome(page) {
     await sheet.waitFor({ state: 'detached', timeout: 10_000 });
 
     await page.locator('.jpdb-reader-fab').click();
-    await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
-    await page.locator('[data-radial-id="settings"]').click();
+    await clickSettledRadialAction(page, 'settings');
     await settingsRoot.waitFor({ timeout: 10_000 });
     await settingsRoot.locator('select[name="popupMode"]').selectOption('popover');
     await settingsRoot.locator('input[name="popoverWidth"]').fill('520');
@@ -415,6 +402,78 @@ async function exerciseCompensatedFixedChrome(page) {
         popover: popoverSurface,
         popupControlClick,
     };
+}
+
+async function waitForSettledRadialMenu(page) {
+    const radial = page.locator('.jpdb-reader-fab-radial.is-open');
+    await radial.waitFor({ timeout: 5_000 });
+    try {
+        await page.waitForFunction(snapshotRadialMenuReadiness, false, { timeout: 5_000 });
+    } catch (error) {
+        const readiness = await page.evaluate(snapshotRadialMenuReadiness, true);
+        throw new Error(`Radial menu did not become geometrically clickable: ${JSON.stringify(readiness)}`, {
+            cause: error,
+        });
+    }
+}
+
+function snapshotRadialMenuReadiness(returnUnready) {
+    const radial = document.querySelector('.jpdb-reader-fab-radial.is-open');
+    const items = [...document.querySelectorAll(
+        '.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item',
+    )];
+    const puck = document.querySelector('.jpdb-reader-fab');
+    const pageScale = outerWidth / innerWidth;
+    const rawPuckRect = puck?.getBoundingClientRect();
+    const measuredPuckScale = puck?.offsetWidth
+        ? rawPuckRect.width / puck.offsetWidth
+        : 1;
+    const physicalScale = pageScale > 1
+        && Math.abs(measuredPuckScale - 1 / pageScale) < Math.abs(measuredPuckScale - 1)
+        ? pageScale
+        : 1;
+    const rects = items.map(item => item.getBoundingClientRect());
+    const centers = rects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
+    const widths = rects.map(rect => rect.width * physicalScale);
+    const distances = centers.slice(1).map((center, index) => Math.hypot(
+        center.x - centers[index].x,
+        center.y - centers[index].y,
+    ) * physicalScale);
+    const hitTargets = items.map((item, index) => {
+        const center = centers[index];
+        return document.elementFromPoint(center.x / pageScale, center.y / pageScale)
+            ?.closest('.jpdb-reader-fab-radial-item') === item;
+    });
+    const animationStates = radial?.getAnimations({ subtree: true })
+        .map(animation => animation.playState) ?? [];
+    const animationsSettled = animationStates.every(state => state === 'finished');
+    const ready = animationsSettled
+        && rects.length >= 6
+        && widths.every(width => width >= 45 && width <= 51)
+        && distances.every(distance => distance >= 60)
+        && hitTargets.every(Boolean);
+    const readiness = {
+        ready,
+        pageScale,
+        physicalScale,
+        widths,
+        distances,
+        hitTargets,
+        animationStates,
+    };
+    return ready || returnUnready ? readiness : false;
+}
+
+async function clickSettledRadialAction(page, actionId) {
+    await waitForSettledRadialMenu(page);
+    const target = await page.locator(`[data-radial-id="${actionId}"]`).evaluate(action => {
+        const rect = action.getBoundingClientRect();
+        return {
+            x: (rect.left + rect.width / 2) / (outerWidth / innerWidth),
+            y: (rect.top + rect.height / 2) / (outerWidth / innerWidth),
+        };
+    });
+    await page.mouse.click(target.x, target.y);
 }
 
 async function snapshotFixedSurface(page, selector) {

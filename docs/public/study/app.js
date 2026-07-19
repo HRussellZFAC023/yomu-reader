@@ -5883,7 +5883,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
   const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
   const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
-  const constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
   function constrainedRowStyleFacts(element) {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element);
@@ -10219,6 +10219,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!matches) return false;
     const state2 = textMirrorHosts.get(host);
     if (state2) reassertTextMirrorHostStyles(host, state2);
+    if (context.detachedReadings && existing) {
+      openSafeDetachedReadingClips(host);
+      stabilizeDetachedReadings(existing, context.clipRow, true);
+    }
     return true;
   }
   function createNonDestructiveTextMirror(context) {
@@ -10265,6 +10269,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       state2.mirror = new WeakRef(mirror);
       if (context.detachedReadings) {
         styleDetachedReadingElements(mirror, host);
+        openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
       }
       syncTextMirrorVisibilityToPage(host, mirror);
@@ -10349,21 +10354,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
-    const clipRect = clipRow?.getBoundingClientRect();
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-    if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
-      for (const word of words) {
-        const bases = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
-        const rects = (bases.length ? bases : [word]).map((base) => base.getBoundingClientRect());
-        const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
-        if (!visible) word.style.setProperty("visibility", "hidden", "important");
-      }
-    }
+    if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
     settleDetachedReadingLanes(
       Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
       Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"))
     );
     if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+  }
+  function filterDetachedWordsToClip(root, clipRow) {
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+    for (const word of words) {
+      if (word.dataset.yomuDetachedWordHidden !== "outside-clip") continue;
+      delete word.dataset.yomuDetachedWordHidden;
+      word.style.removeProperty("visibility");
+    }
+    const clipRect = clipRow?.getBoundingClientRect();
+    if (!clipRect || clipRect.width <= 0 || clipRect.height <= 0) return;
+    for (const word of words) {
+      const bases = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
+      const rects = (bases.length ? bases : [word]).map((base) => base.getBoundingClientRect());
+      const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
+      if (visible) continue;
+      word.dataset.yomuDetachedWordHidden = "outside-clip";
+      word.style.setProperty("visibility", "hidden", "important");
+    }
   }
   const DETACHED_READING_COLLISION_SLOP = 0.5;
   const DETACHED_READING_CLEARANCE_PX = 3;
@@ -10372,10 +10386,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
     return composedAncestorElement(owner) ?? owner;
   }
+  function exposeDetachedReadingCandidate(reading) {
+    delete reading.dataset.yomuDetachedReadingHidden;
+    reading.style.setProperty("display", "block", "important");
+  }
   function settleDetachedReadingLanes(readings2, bases) {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
     for (const reading of readings2) {
-      restoreUnsafeDetachedReading(reading);
+      exposeDetachedReadingCandidate(reading);
       reading.style.removeProperty("--jpdb-reader-detached-lift");
       reading.style.removeProperty("margin-left");
     }
@@ -10414,7 +10432,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         unsafe.add(other.element);
       }
     }
-    unsafe.forEach(hideUnsafeDetachedReading);
+    const measured = new Set(readingRects.map(({ element }) => element));
+    for (const reading of readings2) {
+      if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
+    }
   }
   function detachedReadingCoversForeignText(reading, rect) {
     const ownWord = reading.closest(".jpdb-reader-word");
@@ -10474,11 +10495,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
     reading.style.setProperty("display", "none", "important");
   }
-  function restoreUnsafeDetachedReading(reading) {
-    if (reading.dataset.yomuDetachedReadingHidden !== "unsafe-lane") return;
-    delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
-  }
   function detachedReadingRestHidden(reading) {
     for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
       if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
@@ -10500,13 +10516,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
-  const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
+  const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
+    "details",
+    '[id*="expand" i]',
+    '[id*="collaps" i]',
+    '[class*="expand" i]',
+    '[class*="collaps" i]'
+  ].join(",");
+  const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
+  function ownsExpandableContentClip(element) {
+    if (element.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
+    return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element.localName);
+  }
   function openSafeDetachedReadingClips(element) {
+    restoreOwnedDetachedReadingClips(element);
     let current = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
       if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
-      if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+      if (ownsExpandableContentClip(current)) {
         restoreDetachedReadingClip(current);
         continue;
       }
@@ -10519,6 +10547,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
       if (compact2 && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
+    }
+  }
+  function restoreOwnedDetachedReadingClips(element) {
+    let current = element;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+      if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
     }
   }
   function openedDetachedReadingChildFits(box) {
@@ -40662,7 +40696,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.220".trim() ? "1.6.220".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.221".trim() ? "1.6.221".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
