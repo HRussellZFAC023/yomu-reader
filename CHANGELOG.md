@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.254] - 2026-07-19
+
+### Fixed
+
+- Immersion Kit example sentences load again on the yomureader.com demo popup instead of sticking at the loading message forever. The example client and its popup controller ship in the kanji-study companion, but the homepage and docs demo never loaded that companion, so the open section had nothing to fetch with. The hosted docs demo now loads the kanji-study and Anki companions like the video player and PDF reader already do, and the reader resolves every kanji-study collaborator lazily so a companion that registers after the reader boots still works.
+- The dictionary popup no longer shows a bottom mining-drawer handle that cannot open. The drawer's expand and collapse behaviour lives in the kanji-study companion, so when no companion is available the collapsed pill was dead weight; the drawer and its handle now only render when there are mining options that can actually be revealed.
+
 ## [1.6.253] - 2026-07-19
 
 ### Fixed
