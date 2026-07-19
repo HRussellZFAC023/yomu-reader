@@ -53,6 +53,7 @@
     "academy:source:census": "node scripts/academy-source-pipeline.mjs census",
     "academy:source:pipeline": "node scripts/academy-source-pipeline.mjs all",
     "academy:audio:catalog": "node scripts/academy-audio-source-catalog.mjs",
+    "academy:account-payment:proof": "node scripts/academy-account-payment-proof.mjs --live",
     "academy:listening:assets": "node scripts/academy-listening-assets.mjs",
     "academy:listening:bindings": "node scripts/academy-listening-task-bindings.mjs",
     "academy:source:validate": "node scripts/academy-source-pipeline.mjs validate && node scripts/academy-library-pipeline.mjs validate && npm run academy:corpus:validate",
