@@ -2231,7 +2231,12 @@ function nonDestructiveMirrorRenderContext(
         : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, detachedReadings } = textMirrorClipMode(host, safeTokens);
+    const { clipRow, detachedReadings } = textMirrorClipMode(
+        host,
+        renderPlan,
+        renderSettings,
+        targetHasNativeRuby(target),
+    );
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     // The rendered text depends on the host's LAYOUT (whitespace joints from
     // computed display contexts), not just its source text: a framework can
@@ -2925,12 +2930,19 @@ function styleConstrainedTextMirror(
     } else constrainMirrorToClampBox(mirror, clipRow);
 }
 
-function textMirrorClipMode(host: HTMLElement, tokens: JPDBToken[]): {
+function textMirrorClipMode(
+    host: HTMLElement,
+    renderPlan: { text: string; tokens: JPDBToken[] },
+    settings: ReaderSettings,
+    hasNativeRuby: boolean,
+): {
     clipRow: HTMLElement | null;
     detachedReadings: boolean;
 } {
     const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasReadings = tokens.some(token => token.rubies.length > 0);
+    const hasReadings = renderPlan.tokens.some(token => token.rubies.length > 0 && shouldRenderRuby(
+        renderPlan.text.slice(token.start, token.end), token, settings, !hasNativeRuby, true,
+    ));
     // Every mirror is additive, so readings are always detached from the line
     // box. If collision/clip checks find no safe lane, only the reading is
     // hidden; source glyphs, pitch and lookup remain available.
@@ -2951,10 +2963,8 @@ function constrainMirrorToClampBox(mirror: HTMLElement, clipRow: HTMLElement): v
     // -webkit-box (clamp active) on WebKit but flow-root (clamp INERT) on
     // Chromium, so line-count copying diverges across engines.
     const height = clipRow.clientHeight;
-    if (height > 0) {
-        mirror.style.setProperty('max-height', `${height}px`);
-        mirror.style.setProperty('overflow', 'hidden');
-    }
+    if (height > 0) mirror.style.setProperty('max-height', `${height}px`);
+    mirror.style.setProperty('overflow', 'hidden');
 }
 
 function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken[], whitespaceJoints?: number[]): { text: string; tokens: JPDBToken[] } {

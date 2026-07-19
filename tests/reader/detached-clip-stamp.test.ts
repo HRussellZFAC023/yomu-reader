@@ -46,6 +46,21 @@ afterEach(() => {
 // row must therefore be stamped for BOTH channels so the rest-hide rule can
 // keep unverified clips reading-free.
 describe('clip-constrained stamping covers the detached channel', () => {
+    it('keeps a reading-free annotated mirror inside its native ellipsis box', () => {
+        document.body.innerHTML = '<span id="label" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:80px">ショート</span>';
+        const label = document.querySelector<HTMLElement>('#label')!;
+        applyTokensToScanTarget(
+            fragmentTarget(label, 'ショート', { nonDestructive: true, decoration: 'interactive-passive' }),
+            [token('ショート', 'ショート', 'ショート')],
+            DEFAULT_SETTINGS,
+        );
+
+        const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.dataset.yomuDetachedReadings).toBeUndefined();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(mirror.style.overflow).toBe('hidden');
+    });
+
     it('stamps the ellipsis row for a suppressRuby target', () => {
         document.body.innerHTML = '<div><span id="label" style="display:block;overflow-x:hidden;overflow-y:visible;text-overflow:ellipsis;white-space:nowrap;width:40px">共有</span></div>';
         const label = document.querySelector<HTMLElement>('#label')!;
