@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.233] - 2026-07-19
+
+### Fixed
+
+- Importing a newer revision of an installed dictionary, such as Jitendex.org [2026-06-06] over [2026-05-05], now upgrades it in place: the old revision's settings row retires together with its data and hands its position, alias, and enabled state to the new revision. Previously the old row stayed listed as an enabled definition source that could never render again, so settings promised more popup sources than any lookup could show.
+- Installs already carrying such stale dictionary rows heal themselves the next time the dictionary list refreshes: rows whose data was replaced by a newer revision are removed, while rows are never dropped merely because the current site has no imported data.
+
 ## [1.6.232] - 2026-07-19
 
 ### Fixed
