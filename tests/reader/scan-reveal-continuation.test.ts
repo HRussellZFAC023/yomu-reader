@@ -361,7 +361,10 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         await vi.waitFor(() => expect(collectScanTargets).toHaveBeenCalledTimes(2), { timeout: 5_000 });
         expect(collectScanTargets.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: false }));
         expect(collectScanTargets.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: true }));
-        expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(250);
+        await vi.waitFor(
+            () => expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(250),
+            { timeout: 5_000 },
+        );
         scanner.destroy();
     }, 15_000);
 });
