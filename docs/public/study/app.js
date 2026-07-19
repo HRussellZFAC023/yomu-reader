@@ -12356,7 +12356,7 @@ ${spelling}`);
     if (decoration === "interactive-passive") return true;
     if (inPlace) {
       const clipRow = closestRubyFragileConstrainedRow(parent);
-      if (clipRow && !clampRowAllowsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? void 0, clipRow)) return true;
+      if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? void 0, clipRow)) return true;
     }
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
@@ -12770,7 +12770,7 @@ ${spelling}`);
     {
       const clipRow = closestRubyFragileConstrainedRow(target.parent);
       if (clipRow) {
-        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowAllowsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
+        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowKeepsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
       }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
@@ -13106,7 +13106,10 @@ ${spelling}`);
     if (target.suppressRuby) return true;
     const clipRow = closestRubyFragileConstrainedRow(target.parent);
     if (!clipRow) return false;
-    return !clampRowAllowsInFlowRestRuby(target.decoration ?? decorationStateForWord(target.parent) ?? void 0, clipRow);
+    return !clampRowKeepsInFlowRestRuby(target.decoration ?? decorationStateForWord(target.parent) ?? void 0, clipRow);
+  }
+  function clampRowKeepsInFlowRestRuby(decoration, clipRow) {
+    return !clampRowGrowthFailed(clipRow) && clampRowAllowsInFlowRestRuby(decoration, clipRow);
   }
   function isInsideOwnedReaderRoot(element2) {
     const readerRoot = element2.closest(READER_ROOT_SELECTOR);
@@ -13848,6 +13851,10 @@ ${spelling}`);
     if (isLikelyProseLink(link, element2)) return false;
     const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
     return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
+  }
+  const CLAMP_GROWTH_FAILED_ATTRIBUTE = "data-yomu-clamp-growth";
+  function clampRowGrowthFailed(clipRow) {
+    return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === "failed";
   }
   const POS_LABELS = {
     abbr: "abbreviation",
@@ -15550,6 +15557,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -45135,7 +45143,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.247".trim() ? "1.6.247".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.248".trim() ? "1.6.248".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

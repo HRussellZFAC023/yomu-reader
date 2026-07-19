@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.248] - 2026-07-19
+
+### Fixed
+
+- On browsers that cannot make room for furigana inside a clamped snippet row, the readings now stay tucked away instead of pushing the row's own text out of view. Rows that can grow keep their always-visible furigana.
+
 ## [1.6.247] - 2026-07-19
 
 ### Fixed
