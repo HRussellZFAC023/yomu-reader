@@ -14666,7 +14666,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       classes2.add(`${source2}-deck-${slug}`);
     });
   }
-  const HAS_JAPANESE$2 = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const HAS_JAPANESE$2 = /[\u3040-\u30ff\u3400-\u9fff々〆\uff66-\uff9f]/;
   const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const CORE_COLOR_TOKENS = {
@@ -15494,11 +15494,44 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     clonedShadowStyleNodes.add(new WeakRef(style));
   }
   const scannedShadowRootRefs = /* @__PURE__ */ new Set();
-  const scannedShadowRoots = /* @__PURE__ */ new WeakSet();
-  function noteScannedShadowRoot(root) {
-    if (scannedShadowRoots.has(root)) return;
-    scannedShadowRoots.add(root);
-    scannedShadowRootRefs.add(new WeakRef(root));
+  const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
+  const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 6e4;
+  const potentialShadowHosts = /* @__PURE__ */ new Set();
+  let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+  function noteShadowRoot(root, cause) {
+    const active = scannedShadowRootState.get(root);
+    if (active) return;
+    scannedShadowRootState.set(root, true);
+    if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+  }
+  function watchPotentialOpenShadowRootHost(host2, includeNativeHost = false) {
+    const root = host2.shadowRoot;
+    if (root) {
+      noteShadowRoot(root);
+      return root;
+    }
+    if (!includeNativeHost && !host2.localName.includes("-") || seenPotentialShadowHosts.has(host2)) return null;
+    const now = Date.now();
+    seenPotentialShadowHosts.add(host2);
+    potentialShadowHosts.add({
+      ref: new WeakRef(host2),
+      expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS
+    });
+    return null;
+  }
+  function forEachScannedShadowRoot(callback2, includeDetached = false) {
+    for (const ref of scannedShadowRootRefs) {
+      const root = ref.deref();
+      if (!root) {
+        scannedShadowRootRefs.delete(ref);
+        continue;
+      }
+      if (!root.host?.isConnected) {
+        scannedShadowRootState.set(root, false);
+        if (!includeDetached) continue;
+      }
+      callback2(root);
+    }
   }
   function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
     return right > rect.left && bottom > rect.top;
@@ -18094,7 +18127,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-    const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
+    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
     assignSentenceInfo(paragraphs, tokens);
     return tokens;
   }
@@ -18553,7 +18586,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const SHADOW_SCAN_MAX_DEPTH = 4;
   const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
   function visitFragmentShadowRoot(element2, state) {
-    const shadowRoot = element2.shadowRoot;
+    const shadowRoot = watchPotentialOpenShadowRootHost(element2);
     if (!shadowRoot) return;
     if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
       deferDepthCappedShadowHost(element2);
@@ -18562,7 +18595,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
     flushFragmentTextTarget(state);
     if (fragmentCollectionComplete(state)) return;
-    noteScannedShadowRoot(shadowRoot);
     state.shadowDepth += 1;
     for (const child of Array.from(shadowRoot.childNodes)) {
       visitFragmentNode(child, state, false);
@@ -18946,10 +18978,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const nonDestructiveHost = nonDestructiveScanHost(target2);
     stampTargetDecoration(target2, nonDestructiveHost);
     const sourcePreservingFrameworkHost = !target2.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-    const repaintLooping = !target2.nonDestructive && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target2.text) : false;
-    const canUseRepaintLoopMirror = !(target2.forceInlineRender && target2.suppressRepaintLoopMirror);
+    const repaintLooping = !target2.nonDestructive && !target2.suppressRepaintLoopMirror && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target2.text) : false;
     const canUseRequestedNonDestructiveMirror = target2.nonDestructive && !nonDestructiveTargetShouldRenderInline(target2, nonDestructiveHost);
-    if ((!target2.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
+    if ((!target2.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
       applyTokensToNonDestructiveScanTarget(target2, tokens, settings);
       return;
     }
@@ -19683,11 +19714,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function reconcilePendingDetachedReadingLanes() {
     const surfaces = [...pendingDetachedReadingSurfaces];
     pendingDetachedReadingSurfaces.clear();
-    const readings = uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-furi")));
+    const readings = uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi")));
     if (!readings.length) return;
     settleDetachedReadingLanes(
       readings,
-      uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
+      uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
     );
   }
   function uniqueElements(elements) {
@@ -19712,7 +19743,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     restoreOwnedDetachedReadingClips(element2);
     let current = element2;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
-      if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
+      if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
       if (ownsExpandableContentClip(current)) {
         restoreDetachedReadingClip(current);
         continue;
@@ -20506,14 +20537,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (value) host2.style.setProperty(property, value, priority);
     else host2.style.removeProperty(property);
   }
-  function queryAllPiercingShadow(root, selector, depth = 0) {
-    const matches = Array.from(root.querySelectorAll(selector));
-    if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
-    for (const host2 of root.querySelectorAll("*")) {
-      const shadowRoot = host2.shadowRoot;
-      if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+  function queryAllInAnnotationRoots(root, selector) {
+    const matches = /* @__PURE__ */ new Set();
+    const collect = (annotationRoot) => {
+      if (annotationRoot instanceof HTMLElement && annotationRoot.matches(selector)) matches.add(annotationRoot);
+      annotationRoot.querySelectorAll(selector).forEach((match) => matches.add(match));
+    };
+    collect(root);
+    forEachScannedShadowRoot((shadowRoot) => {
+      if (root === document || composedTreeContains(root, shadowRoot.host)) collect(shadowRoot);
+    }, true);
+    return [...matches];
+  }
+  function composedTreeContains(root, node2) {
+    const rootNode = root;
+    let current = node2;
+    while (current) {
+      if (current === rootNode || rootNode.contains(current)) return true;
+      const tree = current.getRootNode();
+      current = tree instanceof ShadowRoot ? tree.host : null;
     }
-    return matches;
+    return false;
   }
   function appendPlainTextBeforeToken(fragment2, text2, start, end, followedByToken = false) {
     if (end <= start) return;
@@ -21030,7 +21074,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return safe;
   }
   function isSafeTokenSpan(token, offset, text2) {
-    if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+    if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
     return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
@@ -269135,9 +269179,9 @@ ${component.reading}`;
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
+  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
+  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
   const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
   const FALLBACK_INFLECTION_MAX_LENGTH = 18;
   const FALLBACK_LOOKUP_TERM_LIMIT = 8;
@@ -269162,7 +269206,7 @@ ${component.reading}`;
   const KANA_I_ADJECTIVE_END_RE = /い$/u;
   const SMALL_TSU_RE = /っ/u;
   const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
+  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
   function normalizeFallbackTerm(text2) {
     return text2.replace(/\s+/g, " ").trim().slice(0, 80);
   }
@@ -269598,7 +269642,7 @@ ${component.reading}`;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
-  const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+  const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
   function japaneseBatchCharCount(paragraphs) {
     return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
   }
@@ -269953,10 +269997,15 @@ ${spelling}`);
       });
     }
     withSegmentedFallbackGaps(paragraphs, parsed, options) {
-      if (options.allowSegmentedFallback !== true) return parsed;
-      return parsed.map((tokens, index) => this.fillSegmentedFallbackGaps(paragraphs[index] ?? "", tokens));
+      const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
+      if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
+      return paragraphs.map((text2, index) => {
+        const tokens = parsed[index] ?? [];
+        return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
+      });
     }
     fillSegmentedFallbackGaps(text2, tokens) {
+      tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
       const fallbackTokens = this.parseSegmentedText(text2);
       const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
       const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
@@ -270307,18 +270356,13 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return [...repaired].sort(compareTokensByOffset);
   }
   function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-    if (!isCompleteFallbackRepairCandidate(fallback)) return null;
     if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
     const overlapping = tokens.filter((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     if (!overlapping.length) return null;
     const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
     const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
     if (!tokens.every((token) => !rangesOverlap(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-    return fallbackTokensCoveringRange(fallbackTokens, start, end);
-  }
-  function isCompleteFallbackRepairCandidate(fallback) {
-    const surface = fallback.card.spelling;
-    return Boolean(fallback.card.fallbackLookupTerms?.length) || /^[\u3040-\u309fー]{3,}$/u.test(surface) || /[\u3400-\u9fff々〆ヵヶ]/u.test(surface) && surface.length >= 2;
+    return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
   }
   function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
     for (let index = start; index < end; index += 1) {
@@ -270327,15 +270371,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     return false;
   }
-  function fallbackTokensCoveringRange(fallbackTokens, start, end) {
+  function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
     const group2 = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
     if (!group2.length) return null;
     group2.sort(compareTokensByOffset);
-    if (group2[0]?.start !== start || group2[group2.length - 1]?.end !== end) return null;
-    for (let index = 1; index < group2.length; index += 1) {
-      if (group2[index - 1]?.end !== group2[index]?.start) return null;
-    }
-    return group2;
+    return rangeHasUncoveredJapaneseText(text2, start, end, group2) ? null : group2;
   }
   function compareTokensByOffset(a, b) {
     return a.start - b.start || b.length - a.length;

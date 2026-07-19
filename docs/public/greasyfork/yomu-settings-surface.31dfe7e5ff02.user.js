@@ -792,6 +792,140 @@
       return "unreachable";
     }
   }
+  function isAppleTouchBrowser() {
+    if (typeof navigator === "undefined") return false;
+    const userAgent = navigator.userAgent ?? "";
+    const platform = navigator.platform ?? "";
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+  }
+  const SCALE_EPSILON = 0.05;
+  const MAX_PAGE_SCALE = 3;
+  const REDDIT_APPLE_TOUCH_ADAPTER = "reddit-apple-touch-page-scale";
+  const rememberedRectScales = /* @__PURE__ */ new WeakMap();
+  function isRedditHostname(hostname) {
+    const normalized = hostname.toLowerCase().replace(/\.$/, "");
+    return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
+  }
+  function redditPageScale(environment) {
+    if (!isRedditHostname(environment.hostname) || !environment.appleTouch) return 1;
+    if (!positiveFinite(environment.innerWidth) || !positiveFinite(environment.outerWidth)) return 1;
+    const scale = environment.outerWidth / environment.innerWidth;
+    if (!Number.isFinite(scale) || scale <= 1 + SCALE_EPSILON) return 1;
+    return Math.min(scale, MAX_PAGE_SCALE);
+  }
+  function redditOverlayViewport(environment = currentEnvironment()) {
+    const pageScale = redditPageScale(environment);
+    return {
+      width: environment.innerWidth * pageScale,
+      height: environment.innerHeight * pageScale,
+      pageScale
+    };
+  }
+  function redditOverlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+    const pageScale = redditPageScale(environment);
+    const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
+    const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
+    const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
+    const top = finiteCoordinate(visualViewport?.offsetTop) * pageScale;
+    const scaledWidth = width * pageScale;
+    const scaledHeight = height * pageScale;
+    return {
+      left,
+      top,
+      right: left + scaledWidth,
+      bottom: top + scaledHeight,
+      width: scaledWidth,
+      height: scaledHeight,
+      pageScale
+    };
+  }
+  function redditLayoutPointToOverlay(point, pageScale = redditOverlayViewport().pageScale) {
+    return {
+      x: point.x * pageScale,
+      y: point.y * pageScale
+    };
+  }
+  function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewport().pageScale) {
+    const rememberedScale = rememberedRectScales.get(rect);
+    const root = compensatedRedditOverlayRoot(source);
+    const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
+    const overlayRect = scaleRect(rect, rectScale);
+    rememberedRectScales.set(overlayRect, 1);
+    return overlayRect;
+  }
+  function compensatedRedditOverlayRoot(source) {
+    const element = source instanceof Element ? source : source?.parentElement;
+    const root = element?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
+    return root instanceof HTMLElement ? root : null;
+  }
+  function applyRedditOverlayScale(element, environment = currentEnvironment()) {
+    const pageScale = redditPageScale(environment);
+    if (pageScale === 1) {
+      clearOwnedScale(element);
+      return;
+    }
+    const inverseScale = 1 / pageScale;
+    element.style.setProperty("zoom", formatScale(inverseScale), "important");
+    element.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
+    element.dataset.jpdbReaderPageScale = formatScale(pageScale);
+    element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  }
+  function hasRedditOverlayScale(element) {
+    return element?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
+  }
+  function currentEnvironment() {
+    return {
+      hostname: location.hostname,
+      appleTouch: isAppleTouchBrowser(),
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      outerWidth: window.outerWidth
+    };
+  }
+  function currentVisualViewport() {
+    const viewport = window.visualViewport;
+    return viewport ? {
+      width: viewport.width,
+      height: viewport.height,
+      offsetLeft: viewport.offsetLeft,
+      offsetTop: viewport.offsetTop
+    } : void 0;
+  }
+  function clearOwnedScale(element) {
+    if (!hasRedditOverlayScale(element)) return;
+    element.style.removeProperty("zoom");
+    delete element.dataset.jpdbReaderScaleAdapter;
+    delete element.dataset.jpdbReaderPageScale;
+    delete element.dataset.jpdbReaderScaleCompensation;
+  }
+  function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
+    if (pageScale === 1) return 1;
+    const rect = root.getBoundingClientRect();
+    const ratios = [
+      dimensionRatio(rect.width, root.offsetWidth),
+      dimensionRatio(rect.height, root.offsetHeight)
+    ].filter((ratio) => ratio !== void 0);
+    if (!ratios.length) return 1;
+    const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+    const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
+    return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
+  }
+  function dimensionRatio(rectSize, offsetSize) {
+    if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
+    return rectSize / offsetSize;
+  }
+  function scaleRect(rect, scale) {
+    return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+  }
+  function positiveFinite(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0;
+  }
+  function finiteCoordinate(value) {
+    return Number.isFinite(value) ? value ?? 0 : 0;
+  }
+  function formatScale(value) {
+    return String(Number(value.toFixed(6)));
+  }
   async function copyText(text) {
     if (navigator.clipboard?.writeText) {
       try {
@@ -1099,7 +1233,8 @@
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+    { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
     { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
     // store's own deleteDatabase during reset; registered so the invariant test
@@ -3525,6 +3660,7 @@
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -4089,7 +4225,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.219".trim() ? "1.6.219".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.222".trim() ? "1.6.222".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -6784,6 +6920,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let drawerHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
+    let dragPageScale = 1;
     let suppressNextHandleClick = false;
     const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
@@ -6807,9 +6944,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
     };
     const applyViewportSize = () => {
+      applyRedditOverlayScale(drawer);
       const previousViewportHeight = viewportHeight;
-      const bottomInset = settingsDrawerBottomInset();
-      viewportHeight = visualViewportHeight();
+      const { pageScale } = redditOverlayViewport();
+      const bottomInset = settingsDrawerBottomInset() * pageScale;
+      viewportHeight = fixedChromeViewportHeight();
       drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
       drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
       drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
@@ -6830,15 +6969,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
     const drawerDrag = createHandleDragController({
       tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
-      movementDistance: (state) => Math.abs(state.deltaY),
+      movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
       onBegin: () => {
+        dragPageScale = redditOverlayViewport().pageScale;
         startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
         rawDragHeight = startHeight;
         drawer.style.transition = "";
         drawer.classList.add("jpdb-reader-settings-drawer-resizing");
       },
       onUpdate: (state) => {
-        rawDragHeight = startHeight - state.deltaY;
+        rawDragHeight = startHeight - state.deltaY * dragPageScale;
         applyDrawerHeight(rawDragHeight);
       },
       onFinish: (_state, wasMoved) => {
@@ -6908,6 +7048,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     });
     addViewportChangeListeners(handleViewportChange, viewportController.signal);
+  }
+  function fixedChromeViewportHeight() {
+    const overlayViewport = redditOverlayViewport();
+    return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
   }
   function visualViewportHeight() {
     return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
@@ -7043,7 +7187,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!row || !container) return;
       event.preventDefault();
       setSourceRowPointerCapture(handle, event.pointerId);
-      drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
+      const pageScale = redditOverlayViewport().pageScale;
+      drag = {
+        active: false,
+        container,
+        handle,
+        pageScale,
+        pointerId: event.pointerId,
+        row,
+        startY: sourceRowOverlayY(event.clientY, pageScale)
+      };
       row.classList.add("jpdb-reader-order-row-drag-pending");
       dragDocument.addEventListener("pointermove", moveDrag);
       dragDocument.addEventListener("pointerup", finishDrag);
@@ -7051,11 +7204,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     const moveDrag = (event) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
+      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
       event.preventDefault();
       drag.active = true;
       drag.row.classList.add("jpdb-reader-order-row-dragging");
-      moveSourceRowToPointer(drag.container, drag.row, event.clientY);
+      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
     };
     const finishDrag = (event) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
@@ -7092,15 +7246,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
     }
   }
-  function moveSourceRowToPointer(container, row, clientY) {
+  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
     const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
     const target = rows.find((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      return clientY < rect.top + rect.height / 2;
+      const rect = redditSourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+      return overlayY < rect.top + rect.height / 2;
     });
     if (target) container.insertBefore(row, target);
     else container.appendChild(row);
     syncSourceRowOrder(container);
+  }
+  function sourceRowOverlayY(clientY, pageScale) {
+    return redditLayoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
   }
   function canMoveSourceRow(index, targetIndex, rowCount) {
     return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
@@ -15907,10 +16064,11 @@ ${glossaryKey}`;
     if (!canScrollFocusedSettingsControl(form, control)) return null;
     const scroll = settingsControlScrollContainer(form, control);
     if (!scroll) return null;
-    const scrollRect = scroll.getBoundingClientRect();
-    const controlRect = control.getBoundingClientRect();
+    const pageScale = redditOverlayViewport().pageScale;
+    const scrollRect = redditSourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = redditSourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
     if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form, scrollRect);
+    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
     return limits ? { scroll, controlRect, ...limits } : null;
   }
   function canScrollFocusedSettingsControl(form, control) {
@@ -15920,13 +16078,17 @@ ${glossaryKey}`;
     const scroll = control.closest(".jpdb-reader-settings-scroll");
     return scroll && form.contains(scroll) ? scroll : null;
   }
-  function settingsControlScrollLimits(form, scrollRect) {
-    const viewport = settingsControlViewportBounds(scrollRect);
+  function settingsControlScrollLimits(form, scrollRect, pageScale) {
+    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
     const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
     return validSettingsControlScrollLimits(bottomLimit, topLimit);
   }
-  function settingsControlViewportBounds(scrollRect) {
+  function settingsControlViewportBounds(scrollRect, pageScale) {
+    if (pageScale > 1) {
+      const viewport = redditOverlayViewportBounds();
+      return { bottom: viewport.bottom, top: viewport.top };
+    }
     const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
     const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
     return { bottom: top + height, top };
@@ -15936,8 +16098,9 @@ ${glossaryKey}`;
     if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
     return scrollRect.bottom;
   }
-  function measuredSettingsFooterTop(form) {
-    const footerRect = form.querySelector(".footer")?.getBoundingClientRect();
+  function measuredSettingsFooterTop(form, pageScale) {
+    const footer = form.querySelector(".footer");
+    const footerRect = footer ? redditSourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
     if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
     return footerRect.top;
   }
