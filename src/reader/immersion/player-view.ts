@@ -1,5 +1,5 @@
 import { uiText } from '../app/i18n';
-import { escapeHtml } from '../dom/index';
+import { escapeHtml, setInnerHtml } from '../dom/index';
 import { el } from '../dom/builder';
 import { speakerIcon } from '../ui/icons';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './labels';
@@ -68,7 +68,7 @@ function renderImmersionActionButton(action: ImmersionPlayerAction, label: strin
         title: label,
         'aria-label': label,
     });
-    button.innerHTML = content;
+    setInnerHtml(button, content);
     return button;
 }
 

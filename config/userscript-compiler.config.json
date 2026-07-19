@@ -9,8 +9,5 @@
     "pages": [
       { "path": "newtab/index.html", "label": "Open Study" }
     ]
-  },
-  "firefox": {
-    "id": "yomu@yomureader.com"
   }
 }

@@ -51,9 +51,10 @@ function parseJpdbVocabularyPath(pathname: string): JpdbVocabularyUrlIdentity | 
 }
 
 export function decodeEntities(value: string): string {
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = value;
-    return textarea.value;
+    return value.replace(/&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]+);/gi, entity => {
+        const parsed = new DOMParser().parseFromString(`<!doctype html><body>${entity}`, 'text/html');
+        return parsed.body.textContent || entity;
+    });
 }
 
 export function canonicalUchisenUrl(value: string): string {

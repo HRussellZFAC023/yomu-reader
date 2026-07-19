@@ -53,6 +53,7 @@ await run(process.execPath, [
     '--target', 'chrome,firefox,safari',
     '--runtime', 'content-script',
     '--newtab-dir', newtab,
+    '--firefox-id', 'yomu@yomureader.com',
     '--config', path.join(root, 'config', 'userscript-compiler.config.json'),
 ], { cwd: root });
 
@@ -253,7 +254,11 @@ async function verifyStoreZip(artifact, target) {
     if (executableSource.includes('https://accounts.google.com/gsi/client')) {
         throw new Error(`${target} store package contains the hosted Google Identity Services script URL.`);
     }
-    if (executableSource.includes('video-player/index.html')) {
+    const popupSource = Object.entries(entries)
+        .filter(([file]) => file === 'popup.html' || file === 'popup.js')
+        .map(([, bytes]) => new TextDecoder().decode(bytes))
+        .join('\n');
+    if (popupSource.includes('video-player/index.html')) {
         throw new Error(`${target} store popup references a video-player page that is not packaged.`);
     }
 }

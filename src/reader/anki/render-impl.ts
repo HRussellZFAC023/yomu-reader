@@ -1,6 +1,6 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
-import { escapeHtml, setInnerHtml } from '../dom';
+import { escapeHtml, parseHtmlDocument, setInnerHtml } from '../dom';
 import { definitionSourceLabel } from '../sources/sections';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
@@ -366,18 +366,15 @@ function renderedAnkiAnswerIncludesQuestion(questionHtml: string, answerHtml: st
 
 function normalizedAnkiRenderedText(html: string): string {
     if (typeof document === 'undefined') return html.replace(/\s+/g, ' ').trim();
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    return template.content.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    return parseHtmlDocument(html).body.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
 function hasRenderableAnkiCardContent(html: string): boolean {
     if (typeof document === 'undefined') return Boolean(html.trim());
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    const text = template.content.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const body = parseHtmlDocument(html).body;
+    const text = body.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     if (text) return true;
-    return Boolean(template.content.querySelector([
+    return Boolean(body.querySelector([
         'img[src]',
         'audio[src]',
         'audio source[src]',
@@ -462,8 +459,7 @@ function sanitizeAnkiCardHtml(
     const trimmed = value.trim();
     if (!trimmed) return '';
     if (typeof document === 'undefined') return escapeHtml(trimmed);
-    const template = document.createElement('template');
-    template.innerHTML = trimmed;
+    const template = ankiCardTemplate(trimmed);
     sanitizeAnkiCardFragment(template.content, mediaDataUrls, options);
     installAnkiMediaFallbackButtons(template.content, language, ankiPlaybackMarkerFilenames(template.content, soundFilenames));
     replaceAnkiSoundMarkers(template.content, language);
@@ -600,7 +596,8 @@ function installAnkiMediaFallbackButtons(root: ParentNode, language: InterfaceLa
         if (!filename) return;
         media.setAttribute('controls', '');
         if (media.tagName === 'AUDIO' && playbackMarkerFilenames.has(filename)) return;
-        media.insertAdjacentHTML('beforebegin', renderAnkiSoundChip(filename, language));
+        const template = ankiCardTemplate(renderAnkiSoundChip(filename, language));
+        media.before(template.content);
     });
 }
 
@@ -664,7 +661,7 @@ function ankiSoundMarkerNode(value: string, language: InterfaceLanguage): HTMLEl
     chip.dataset.ankiMediaName = filename;
     chip.title = ankiAudioLabel(filename, language);
     chip.setAttribute('aria-label', chip.title);
-    chip.innerHTML = speakerIcon();
+    setInnerHtml(chip, speakerIcon());
     return chip;
 }
 
@@ -680,13 +677,22 @@ function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], languag
     chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, 'ankiAudioUnavailablePreview');
     chip.setAttribute('aria-label', chip.title);
     chip.disabled = !filename;
-    chip.innerHTML = speakerIcon();
+    setInnerHtml(chip, speakerIcon());
     return chip;
 }
 
 function ankiPlaybackMarkerFilename(value: string, soundFilenames: string[]): string {
     const audioIndex = ankiPlaybackMarkerIndex(value);
     return audioIndex === null ? '' : ankiPlaybackMarkerFilenameAtIndex(soundFilenames, audioIndex);
+}
+
+function ankiCardTemplate(html: string): HTMLTemplateElement {
+    const template = document.createElement('template');
+    const body = parseHtmlDocument(html).body;
+    for (const node of Array.from(body.childNodes)) {
+        template.content.append(document.importNode(node, true));
+    }
+    return template;
 }
 
 function ankiPlaybackMarkerIndex(value: string): number | null {

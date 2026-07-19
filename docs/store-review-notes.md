@@ -29,6 +29,8 @@ The manifest uses the browser's static new-tab override because browsers do not 
 
 All executable JavaScript and CSS is packaged. Yomu does not load remote executable code. Network-fetched dictionaries, definitions, examples, pitch, audio, OCR results, and user-selected settings backups are data. The package contains no minified or obfuscated source.
 
+Mozilla's linter may identify the centralized assignment inside `src/reader/dom/html.ts`. Yomu-owned render functions escape dynamic text, attributes, and URLs before calling that sink. Imported Anki card HTML is first parsed in a detached document and passed through `sanitizeAnkiCardFragment`: executable/embedding elements are removed, event-handler and `srcdoc` attributes are removed, unsafe URL schemes are rejected, and media URLs are resolved only from AnkiConnect-provided data. Remaining icon markup is a static template shipped with the extension. Keeping the final assignment in one audited helper also lets Trusted Types apply consistently.
+
 ## Reviewer test
 
 1. Install the package and open a new tab.

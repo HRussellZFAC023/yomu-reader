@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 
 const BACKGROUND_FILE = 'background.js';
 const MANIFEST_FILE = 'manifest.json';
@@ -91,7 +92,33 @@ export async function hardenGeneratedExtensionBackgrounds(root) {
         if (hardened !== source) await writeFile(file, hardened);
     }
     await hardenGeneratedExtensionManifests(root);
+    await hardenGeneratedReleaseArchives(root);
     return files;
+}
+
+async function hardenGeneratedReleaseArchives(root) {
+    const releaseRoot = path.join(root, 'release');
+    const files = await collectArchiveFiles(releaseRoot);
+    for (const file of files) {
+        const target = extensionTargetFromPath(file, releaseRoot);
+        if (target !== 'chrome' && target !== 'firefox') continue;
+        const entries = unzipSync(new Uint8Array(await readFile(file)));
+        const googleOAuthClientId = process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
+            ?? process.env.GOOGLE_OAUTH_CLIENT_ID
+            ?? '';
+        for (const [name, bytes] of Object.entries(entries)) {
+            if (name === BACKGROUND_FILE) {
+                entries[name] = strToU8(hardenExtensionBackgroundSource(new TextDecoder().decode(bytes), {
+                    target,
+                    googleOAuthClientId,
+                }));
+            } else if (name === MANIFEST_FILE) {
+                const manifest = JSON.parse(new TextDecoder().decode(bytes));
+                entries[name] = strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, { target }), null, 2)}\n`);
+            }
+        }
+        await writeFile(file, zipSync(entries, { level: 9 }));
+    }
 }
 
 async function hardenGeneratedExtensionManifests(root) {
@@ -134,6 +161,17 @@ async function collectManifestFiles(directory) {
         } else if (entry.isFile() && entry.name === MANIFEST_FILE) {
             files.push(file);
         }
+    }
+    return files;
+}
+
+async function collectArchiveFiles(directory) {
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+    const files = [];
+    for (const entry of entries) {
+        const file = path.join(directory, entry.name);
+        if (entry.isDirectory()) files.push(...await collectArchiveFiles(file));
+        else if (entry.isFile() && (entry.name.endsWith('.zip') || entry.name.endsWith('.xpi'))) files.push(file);
     }
     return files;
 }

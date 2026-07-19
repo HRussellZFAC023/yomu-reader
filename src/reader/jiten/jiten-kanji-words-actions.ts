@@ -76,7 +76,9 @@ function appendJitenKanjiWords(button: HTMLButtonElement, page: JitenKanjiWordsP
         button.remove();
         return;
     }
-    button.insertAdjacentHTML('beforebegin', html);
+    const template = document.createElement('template');
+    setInnerHtml(template, html);
+    button.before(template.content);
     removeDuplicateJitenKanjiWords(grid);
     const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
     const rendered = grid.querySelectorAll('[data-jiten-kanji-word-key]').length;
