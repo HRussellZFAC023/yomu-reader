@@ -63,6 +63,12 @@ export interface DictionarySummary {
     kanjiMeta: number;
 }
 
+export interface DictionaryImportOptions {
+    // false when replication re-imports from the cross-origin archive cache —
+    // the archive it just read must not be re-persisted.
+    persistArchive?: boolean;
+}
+
 export interface ImportSummary {
     dictionaries: string[];
     // Older same-identity revisions (e.g. "Jitendex.org [2026-05-05]" when

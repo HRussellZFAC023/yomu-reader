@@ -12,6 +12,7 @@ import { uiText } from '../../app/i18n';
 import { Logger } from '../../app/logger';
 import { normalizeDictionaryPreferences } from '../../settings/index';
 import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
+import { deleteDictionaryArchive, persistDictionaryArchive } from '../archive-cache';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';
@@ -73,6 +74,7 @@ import {
     shouldSkipGlossaryFallback,
 } from './sampling';
 import type {
+    DictionaryImportOptions,
     DictionarySummary,
     EntryStoreName,
     GlossaryCursorSearchOptions,
@@ -149,6 +151,7 @@ interface HotLookupCacheEntry<T> {
 }
 
 export type {
+    DictionaryImportOptions,
     DictionarySummary,
     ImportSummary,
     YomitanDictionaryInfo,
@@ -730,7 +733,7 @@ export class YomitanDictionaryStore {
         return reservoir;
     }
 
-    async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
+    async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = '', options: DictionaryImportOptions = {}): Promise<ImportSummary> {
         const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
@@ -739,7 +742,7 @@ export class YomitanDictionaryStore {
             // storage up front.
             requestPersistentDictionaryStorage();
             const summary = /\.zip$/i.test(file.name)
-                ? await this.importZip(file, onProgress, sourceUrl)
+                ? await this.importZip(file, onProgress, sourceUrl, options)
                 : await this.importJson(file, onProgress);
             log.info('Dictionary file import completed', summary);
             return summary;
@@ -751,17 +754,17 @@ export class YomitanDictionaryStore {
         }
     }
 
-    async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void): Promise<ImportSummary> {
+    async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void, options: DictionaryImportOptions = {}): Promise<ImportSummary> {
         log.info('Dictionary URL import started', { filename, host: safeHost(url) });
         onProgress?.(`${this.text('dictionaryDownloading')}: ${filename}...`);
         const blob = await requestBlob(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
         const file = namedBlobFile(blob, filename, blob.type || 'application/zip');
-        const summary = await this.importFile(file, onProgress, url);
+        const summary = await this.importFile(file, onProgress, url, options);
         log.info('Dictionary URL import completed', { filename, host: safeHost(url), ...summary });
         return summary;
     }
 
-    async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
+    async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = '', options: DictionaryImportOptions = {}): Promise<ImportSummary> {
         const language = this.getInterfaceLanguage();
         onProgress?.(`${this.text('dictionaryReadingZip')} ${formatBytes(file.size)}...`);
         const zip = await readZipArchive(file, progress => {
@@ -846,6 +849,13 @@ export class YomitanDictionaryStore {
         info.type = dictionaryTypeFromCounts(info.counts);
         summary.dictionaryTypes = { [dictionary]: info.type };
         await this.putDictionaryInfo(info);
+        // Keep the archive in cross-origin GM storage so other origins (whose
+        // page IndexedDB never saw this import) can replicate it on demand.
+        // Replication itself imports with persistArchive:false to avoid
+        // re-writing the archive it just read.
+        if (options.persistArchive !== false) {
+            await persistDictionaryArchive({ title: dictionary, filename: file.name, downloadUrl: sourceUrl || undefined, file: sourceUrl ? undefined : file });
+        }
         log.info('ZIP dictionary import parsed', summary);
         return summary;
     }
@@ -1166,6 +1176,7 @@ export class YomitanDictionaryStore {
             if (dictionaries.length === 1) {
                 await this.clearDictionaryStores(db);
                 this.invalidateCaches();
+                await deleteDictionaryArchive(dictionary).catch(() => undefined);
                 log.info('Only installed dictionary cleared', { dictionary });
                 return;
             }
@@ -1182,6 +1193,10 @@ export class YomitanDictionaryStore {
             });
             await this.clearDerivedTermIndexes(db);
             this.invalidateCaches();
+            // Drop the cross-origin archive too, or replication would
+            // resurrect the dictionary on the next origin visited. Revision
+            // upgrades re-persist their new archive right after this delete.
+            await deleteDictionaryArchive(dictionary).catch(() => undefined);
             log.info('Dictionary deleted', { dictionary });
         } catch (error) {
             log.warn('Dictionary delete failed', { dictionary, error });

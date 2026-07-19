@@ -22,6 +22,7 @@ import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
 import {
     yomuImageOcrController,
+    yomuLocalDictionaries,
     yomuOnboardingController,
     yomuSettingsDialogController,
     yomuSubtitlePlayerController,
@@ -1175,6 +1176,37 @@ export class ReaderApp {
         } else {
             this.scheduleStatusWarmups();
         }
+        this.scheduleLocalDictionaryReplication();
+    }
+
+    // Imported dictionaries live in per-origin IndexedDB, so a first visit to
+    // a site has none of them even though settings promise their sources.
+    // Rebuild the local store from the cross-origin archive cache off the
+    // critical path; a successful replication reparses the page so local
+    // parsing and popup sources appear without a reload.
+    private scheduleLocalDictionaryReplication(): void {
+        if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
+        const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
+        if (!replicate) return;
+        const run = () => {
+            if (this.isDestroyed) return;
+            void replicate({
+                dictionaries: this.dictionaries,
+                getSettings: () => this.settings,
+                onReplicated: () => {
+                    if (this.isDestroyed) return;
+                    this.parser.clearLocalCache();
+                    // The initial scan may have annotated with segmenter
+                    // fallback tokens before replication landed; scans skip
+                    // already-wrapped text, so unwrap exactly those words and
+                    // let the rescan re-annotate them from the local store.
+                    unwrapReaderWords(document, { excludeSelector: ':not([data-card-source="fallback"])' });
+                    this.scheduleDictionaryRescan();
+                },
+            });
+        };
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 15_000 });
+        else window.setTimeout(run, 3_000);
     }
 
     private async installBunproTokenImporter(): Promise<void> {

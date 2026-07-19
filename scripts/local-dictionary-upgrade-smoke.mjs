@@ -131,6 +131,18 @@ try {
     assert(jitendexRows.length === 1, 'Revision upgrade left more than one Jitendex settings row', savedPreferences);
     assert(jitendexRows[0].name === JUNE_TITLE, 'Settings row does not point at the imported revision', jitendexRows);
 
+    // Capture the GM values (settings + archive cache) BEFORE the reload:
+    // the fixture bridge re-seeds base settings on every navigation, which
+    // would wipe the imported dictionary preferences from the dump.
+    const gmDump = await page.evaluate(() => {
+        const entries = {};
+        for (let index = 0; index < localStorage.length; index++) {
+            const key = localStorage.key(index);
+            if (key) entries[key] = localStorage.getItem(key);
+        }
+        return entries;
+    });
+
     // Fresh load: the popover must render the upgraded dictionary as a source.
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await inject();
@@ -153,11 +165,71 @@ try {
 
     const screenshotPath = path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
-    const report = { ok: true, browser: BROWSER_NAME, preferences: savedPreferences, dom, screenshot: screenshotPath };
+
+    // Phase 2 — cross-origin replication: GM values (settings + archive
+    // cache) are shared by the userscript manager across origins, but page
+    // IndexedDB is not. Visit the same server under a DIFFERENT origin
+    // (localhost vs 127.0.0.1), seed only the GM values, and the reader must
+    // rebuild its local store from the archive cache and render the imported
+    // dictionary source without any manual import.
+    await context.close();
+
+    const archiveIndex = gmDump['yomu-dictionary-archives'] ? JSON.parse(gmDump['yomu-dictionary-archives']) : null;
+    assert(archiveIndex && archiveIndex['jitendex.org'], 'Import did not persist a cross-origin dictionary archive', Object.keys(gmDump));
+
+    const crossOrigin = server.origin.replace('127.0.0.1', 'localhost');
+    if (crossOrigin === server.origin) throw new Error(`Could not derive a second origin from ${server.origin}`);
+    const crossContext = await browser.newContext({ bypassCSP: true, viewport: { width: 1100, height: 900 } });
+    const crossPage = await crossContext.newPage();
+    if (process.env.SMOKE_DEBUG) {
+        crossPage.on('console', message => console.error('[cross:console]', message.type(), message.text().slice(0, 300)));
+        crossPage.on('pageerror', error => console.error('[cross:pageerror]', error.message.slice(0, 300)));
+    }
+    await crossPage.exposeFunction('__yomuLocalDictionaryUpgradeRequest', () => ({ status: 503, responseText: '' }));
+    await crossPage.addInitScript(entries => {
+        for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value);
+    }, gmDump);
+    await addGmStorageBridgeInitScript(crossPage, {
+        key: YOMU_SETTINGS_KEY,
+        value: settings,
+        requestBridgeName: '__yomuLocalDictionaryUpgradeRequest',
+        initialize: 'ifMissing',
+    });
+    await crossPage.goto(`${crossOrigin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await installUserscriptCssResource(crossPage, CSS_PATH);
+    await addScriptTagWithCspFallback(crossPage, UI_COPY_COMPANION_PATH);
+    await addScriptTagWithCspFallback(crossPage, SETTINGS_COMPANION_PATH);
+    await addScriptTagWithCspFallback(crossPage, SCRIPT_PATH);
+    await crossPage.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 8000 });
+
+    // Replication runs off idle and then reparses the page; only once a word
+    // carries data-card-source="local" has the replicated store actually fed
+    // the parser (fallback segmenter annotations appear earlier and don't
+    // count).
+    await crossPage.waitForFunction(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
+        .some(word => word.getAttribute('data-card-source') === 'local'), null, { timeout: 90_000, polling: 500 });
+    await crossPage.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first().click();
+    const crossPopover = crossPage.locator('.jpdb-reader-popover').last();
+    await crossPopover.waitFor({ state: 'visible', timeout: 15_000 });
+    await crossPopover.locator('[data-source="local-dictionary"]').waitFor({ state: 'attached', timeout: 20_000 });
+    const crossDom = await crossPopover.evaluate(node => {
+        const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();
+        return {
+            dictionaries: [...node.querySelectorAll('[data-source="local-dictionary"]')].map(card => card.getAttribute('data-dictionary') ?? ''),
+            text: clean(node.textContent ?? '').slice(0, 400),
+        };
+    });
+    assert(crossDom.dictionaries.includes(JUNE_TITLE), 'Cross-origin popover did not render the replicated dictionary source', crossDom);
+    assert(crossDom.text.includes('library (June)'), 'Cross-origin popover did not render replicated definitions', crossDom);
+    const crossScreenshotPath = path.join(ARTIFACTS, `local-dictionary-crossorigin-${BROWSER_NAME}.png`);
+    await crossPage.screenshot({ path: crossScreenshotPath, fullPage: true });
+    await crossContext.close();
+
+    const report = { ok: true, browser: BROWSER_NAME, preferences: savedPreferences, dom, crossOrigin: { origin: crossOrigin, dom: crossDom, screenshot: crossScreenshotPath }, screenshot: screenshotPath };
     writeFileSync(path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.json`), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     console.log('local-dictionary-upgrade smoke passed');
-    await context.close();
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
+

@@ -62,6 +62,10 @@ type StudySourceControllerClass = typeof import('../study/sources').StudySourceC
 interface YomuCompanionRegistry {
     localDictionaries?: {
         YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
+        // Rebuilds this origin's per-origin dictionary store from the
+        // cross-origin archive cache; ships with the settings-surface
+        // companion because core has no local dictionaries without it.
+        ensureLocalDictionariesReplicated?: typeof import('../dictionaries/replication').ensureLocalDictionariesReplicated;
     };
     anki?: {
         AnkiConnectClient: AnkiConnectClientClass;
