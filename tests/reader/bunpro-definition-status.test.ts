@@ -66,14 +66,16 @@ async function statusFor(settings: Partial<ReaderSettings>, search: (...args: an
 }
 
 describe('Bunpro definition absence status', () => {
-    it('distinguishes disabled, missing-auth, and expired-auth states without a request', async () => {
+    it('looks up public definition data regardless of login state', async () => {
         await expect(statusFor({ bunproDefinitionsEnabled: false })).resolves.toMatchObject({ state: 'disabled' });
-        await expect(statusFor({ bunproDefinitionsEnabled: true, bunproFrontendApiToken: '' })).resolves.toMatchObject({ state: 'auth-missing' });
+        // Reviewable data is public: a missing or expired token must not
+        // suppress the lookup (the client retries anonymously on auth failure).
+        await expect(statusFor({ bunproDefinitionsEnabled: true, bunproFrontendApiToken: '' })).resolves.toMatchObject({ state: 'no-match' });
         await expect(statusFor({
             bunproDefinitionsEnabled: true,
             bunproFrontendApiToken: 'redacted-test-token',
             bunproFrontendApiTokenExpiresAt: '2020-01-01T00:00:00.000Z',
-        })).resolves.toMatchObject({ state: 'auth-expired' });
+        })).resolves.toMatchObject({ state: 'no-match' });
     });
 
     it('distinguishes an unavailable client and a caller-excluded definition load', async () => {

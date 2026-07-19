@@ -472,13 +472,15 @@ export class CardRenderDataLoader {
     }
 
     private lookupBunproDataResult(card: JPDBCard, included: boolean): Promise<BunproDefinitionHydrationResult> {
-        const settings = this.settings();
         if (!included) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'load-excluded' } });
         if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
         const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
         if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
-        if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: 'auth-missing' } });
-        if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: 'auth-expired' } });
+        // No credential gate: definitions, frequency, and pitch read PUBLIC
+        // reviewable data (the client attaches the token opportunistically and
+        // falls back to an anonymous request on auth failure). Gating here made
+        // a missing or expired login silently erase enrichment that never
+        // needed it — only review state and grading are account-bound.
         const startedAt = performance.now();
         log.debug('Bunpro definition lookup started', { term: card.spelling });
         return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then(result => {

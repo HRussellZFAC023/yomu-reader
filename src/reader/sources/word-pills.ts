@@ -104,11 +104,12 @@ function renderLookupLinkPill(
     if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
-    // Merge a provider's single live rank inline (e.g. "Jiten #18447").
-    // Bunpro's multi-corpus evidence renders as separate visible pills below;
-    // choosing one number here would mislabel it as the provider-wide rank.
+    // Merge a provider's live rank inline (e.g. "Jiten #18447"). Bunpro shows
+    // its primary corpus rank the same way; the full per-corpus breakdown
+    // rides in the tooltip so the pill row stays one number wide.
     const rank = linkPillLiveRank(link, mergedLiveRanks);
-    const title = lookupLinkPillTitle(options, language, link);
+    const baseTitle = lookupLinkPillTitle(options, language, link);
+    const title = rank?.detail ? `${baseTitle}\n${rank.detail}` : baseTitle;
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
         return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
@@ -116,16 +117,18 @@ function renderLookupLinkPill(
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
 }
 
-// The live-frequency rank is shown inline on its sibling Jiten/JPDB link pill.
+// The live-frequency rank is shown inline on its sibling link pill.
 interface MergedLiveRank {
     rank: number;
     display?: string;
+    // Per-corpus breakdown appended to the pill tooltip (Bunpro only).
+    detail?: string;
 }
 
 type MergedLiveRanks = Map<FrequencyProvider, MergedLiveRank>;
 
 function linkPillLiveRank(link: ReaderSettings['dictionaryLookupLinks'][number], mergedLiveRanks: MergedLiveRanks): MergedLiveRank | null {
-    const provider = link.id === 'jiten' ? 'jiten' : link.id === 'jpdb' ? 'jpdb' : null;
+    const provider = link.id === 'jiten' ? 'jiten' : link.id === 'jpdb' ? 'jpdb' : link.id === 'bunpro' ? 'bunpro' : null;
     return provider ? mergedLiveRanks.get(provider) ?? null : null;
 }
 
@@ -137,20 +140,18 @@ const BUNPRO_FREQUENCY_LIST_LABELS: Record<string, [string, string]> = {
     dictionary: ['Dictionary', '辞書'],
 };
 
-function renderBunproFrequencyPills(
-    state: FrequencyPillState,
+function bunproFrequencyDetail(
     language: ReaderSettings['interfaceLanguage'],
     lists: Array<{ list: string; rank: number }>,
-): void {
+): string {
     const japanese = language === 'ja';
-    const style = lookupPillStyle('bunpro');
-    for (const entry of lists) {
-        const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
-        const corpus = label ? label[japanese ? 1 : 0] : entry.list;
-        const value = `#${entry.rank.toLocaleString('en-US')}`;
-        const accessible = `Bunpro ${corpus} ${value}`;
-        state.pills.set(`bunpro-frequency:${entry.list}`, `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-bunpro-frequency-pill" data-dictionary="Bunpro" data-frequency-source="bunpro" data-frequency-list="${escapeHtml(entry.list)}"${lookupPillStyleAttribute(style)} title="${escapeHtml(accessible)}" aria-label="${escapeHtml(accessible)}">${escapeHtml(corpus)} ${escapeHtml(value)}</span>`);
-    }
+    return lists
+        .map(entry => {
+            const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
+            const corpus = label ? label[japanese ? 1 : 0] : entry.list;
+            return `${corpus} #${entry.rank.toLocaleString('en-US')}`;
+        })
+        .join(' · ');
 }
 
 function renderConfiguredLookupPill(
@@ -355,11 +356,15 @@ function mergeLiveFrequencyRanks(
         if (!rank) continue;
         if (kanjiQuery ? (rank.source !== 'kanji' || rank.spelling !== kanjiQuery) : rank.source === 'kanji') continue;
         if (!mergeIntoLinkPill || !enabledLinkIds.has(provider)) continue;
-        if (provider === 'bunpro' && rank.lists?.length) {
-            renderBunproFrequencyPills(state, options.settings.interfaceLanguage, rank.lists);
-            continue;
-        }
-        state.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
+        state.mergedLiveRanks.set(provider, {
+            rank: rank.rank,
+            display: rank.display,
+            // Bunpro's per-corpus ranks stay one pill wide: the primary rank
+            // renders inline and the breakdown rides in the tooltip.
+            detail: provider === 'bunpro' && rank.lists?.length
+                ? bunproFrequencyDetail(options.settings.interfaceLanguage, rank.lists)
+                : undefined,
+        });
     }
 }
 

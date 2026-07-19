@@ -168,16 +168,19 @@ export class BunproClient {
     }
 
     getVocab(slugOrId: string | number): Promise<unknown> {
-        return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+        return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`, { auth: 'optional' });
     }
 
     getGrammarPoint(id: string | number): Promise<unknown> {
-        return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
+        return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`, { auth: 'optional' });
     }
 
     async search(query: string, options: BunproSearchOptions = {}): Promise<unknown> {
         return this.frontend('/search/reviewables_v1_1', {
             method: 'POST',
+            // Definition/frequency lookups read public reviewable data; only a
+            // search that asks for the learner's review state needs the token.
+            auth: options.includeReviews ? 'required' : 'optional',
             body: {
                 query,
                 options: {
@@ -228,12 +231,28 @@ export class BunproClient {
 
     private async frontend(path: string, options: BunproFrontendRequestOptions = {}): Promise<unknown> {
         const token = this.getFrontendToken().trim();
-        if (!token) throw new BunproApiError('Bunpro frontend token is not set.');
+        const optionalAuth = options.auth === 'optional';
+        if (!token && !optionalAuth) throw new BunproApiError('Bunpro frontend token is not set.');
+        let response: unknown;
+        try {
+            response = await this.frontendRequest(path, options, token);
+        } catch (error) {
+            // Public reviewable data must not go down with a stale login: a
+            // 401/403 on an optional-auth request retries anonymously, exactly
+            // what an expired or revoked token would otherwise silently break.
+            const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+            if (!optionalAuth || !token || (status !== 401 && status !== 403)) throw error;
+            response = await this.frontendRequest(path, options, '');
+        }
+        return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
+    }
+
+    private frontendRequest(path: string, options: BunproFrontendRequestOptions, token: string): Promise<unknown> {
         const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
-        const response = await this.requestJson(url, {
+        return this.requestJson(url, {
             method: options.method ?? 'GET',
             headers: {
-                Authorization: `Bearer ${token}`,
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
             },
@@ -242,7 +261,6 @@ export class BunproClient {
                 ? 'Bunpro token expired or was denied (401).'
                 : `Bunpro API request failed (${status}).`,
         });
-        return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
     }
 
     private legacy(path: string): Promise<unknown> {
@@ -290,6 +308,9 @@ interface BunproFrontendRequestOptions {
     query?: Record<string, string | undefined>;
     body?: unknown;
     trimLimit?: number;
+    // 'optional' marks endpoints whose data is public: the token is attached
+    // when present (never required), and an auth failure retries anonymously.
+    auth?: 'required' | 'optional';
 }
 
 // Transport failures carry no HTTP status: the request never completed (CORS

@@ -241,7 +241,8 @@ describe('Bunpro frequency evidence separation', () => {
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
-        expect(html).toContain('>General #178</span>');
+        expect(html).toContain('>Bunpro #178 ');
+        expect(html).toContain('General #178');
         expect(html).not.toContain('Jiten #');
         expect(html).not.toContain('JPDB #');
     });

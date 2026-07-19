@@ -95,6 +95,37 @@ describe('BunproClient', () => {
         await expect(client.getDueCount()).rejects.toBeInstanceOf(BunproApiError);
     });
 
+    it('serves public reviewable endpoints without a frontend token', async () => {
+        const request = vi.fn(async () => ({ data: { attributes: { frequency_general: 334 } } }));
+        const client = new BunproClient({ getFrontendToken: () => '', requestImpl: request });
+
+        await expect(client.getVocab('もっと')).resolves.toMatchObject({ data: { attributes: { frequency_general: 334 } } });
+        await client.search('もっと');
+        await client.getGrammarPoint(466);
+
+        for (const call of request.mock.calls as unknown as Array<[string, ReaderHttpOptions]>) {
+            expect(call[1].headers).not.toHaveProperty('Authorization');
+        }
+        // Account-bound endpoints still demand the token.
+        await expect(client.getDueCount()).rejects.toBeInstanceOf(BunproApiError);
+        await expect(client.search('もっと', { includeReviews: true })).rejects.toBeInstanceOf(BunproApiError);
+    });
+
+    it('retries public reviewable endpoints anonymously when the stored token is stale', async () => {
+        const request = vi.fn(async (_url: string, options?: ReaderHttpOptions) => {
+            if ((options?.headers as Record<string, string> | undefined)?.Authorization) {
+                throw Object.assign(new Error('Bunpro API request failed (401).'), { status: 401 });
+            }
+            return { data: { attributes: { frequency_general: 334 } } };
+        });
+        const client = new BunproClient({ getFrontendToken: () => 'stale-token', requestImpl: request });
+
+        await expect(client.getVocab('もっと')).resolves.toMatchObject({ data: { attributes: { frequency_general: 334 } } });
+        expect(request).toHaveBeenCalledTimes(2);
+        // Account-bound endpoints must NOT silently degrade to anonymous.
+        await expect(client.getUser()).rejects.toMatchObject({ status: 401 });
+    });
+
     it('normalizes frontend token expiry into a typed 401 error', async () => {
         const request = vi.fn(async () => {
             throw Object.assign(new Error('Bunpro API request failed (401).'), { status: 401 });

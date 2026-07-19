@@ -78,16 +78,24 @@ describe('Bunpro multi-list frequency pills', () => {
         });
     }
 
-    it('renders every populated corpus as visible, touch-accessible evidence', () => {
+    it('merges the primary rank inline on the Bunpro pill, one number wide', () => {
         const html = renderWithBunproRank();
-        expect(html).toContain('data-frequency-source="bunpro"');
-        expect(html).toContain('data-frequency-list="dictionary"');
-        expect(html).toContain('>Dictionary #40,271</span>');
-        expect(html).toContain('>Anime #793</span>');
-        expect(html).toContain('>Novels #6,182</span>');
-        expect(html).toContain('>Netflix #778</span>');
-        expect(html).not.toContain('>General #');
-        expect(html).not.toContain('>Bunpro #40271 ');
+        expect(html).toContain('>Bunpro #40271 ');
+        // No standalone corpus pills bloating the row.
+        expect(html).not.toContain('jpdb-reader-bunpro-frequency-pill');
+        expect(html).not.toContain('>Dictionary #40,271</span>');
+    });
+
+    it('carries the per-corpus breakdown in the Bunpro pill tooltip', () => {
+        const html = renderWithBunproRank();
+        expect(html).toContain('Dictionary #40,271');
+        expect(html).toContain('Anime #793');
+        expect(html).toContain('Novels #6,182');
+        expect(html).toContain('Netflix #778');
+        // Breakdown lives on the link pill itself (title attribute), so it
+        // must appear before the pill body closes.
+        const pill = html.slice(html.indexOf('href="https://bunpro.jp/search'));
+        expect(pill.slice(0, pill.indexOf('</a>'))).toContain('Anime #793');
     });
 
     it('shows no rank when the bunpro-frequency link is disabled', () => {
@@ -99,14 +107,15 @@ describe('Bunpro multi-list frequency pills', () => {
         };
         const html = renderWithBunproRank(settings);
         expect(html).toContain('>Bunpro ');
-        expect(html).not.toContain('data-frequency-source="bunpro"');
+        expect(html).not.toContain('>Bunpro #');
+        expect(html).not.toContain('Anime #793');
     });
 
-    it('localizes the visible corpus labels in Japanese mode', () => {
+    it('localizes the tooltip corpus labels in Japanese mode', () => {
         const html = renderWithBunproRank({ ...settingsWithBunproPill(true), interfaceLanguage: 'ja' });
-        expect(html).toContain('>辞書 #40,271</span>');
-        expect(html).toContain('>アニメ #793</span>');
-        expect(html).toContain('>小説 #6,182</span>');
+        expect(html).toContain('辞書 #40,271');
+        expect(html).toContain('アニメ #793');
+        expect(html).toContain('小説 #6,182');
         expect(html).not.toContain('未翻訳');
     });
 
