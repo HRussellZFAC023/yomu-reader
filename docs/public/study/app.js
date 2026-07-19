@@ -23767,14 +23767,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderPitchGraphSvg(reading, pitch, options = {}) {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
-    if (highs.length < 2) return "";
+    if (!highs.length || highs.length !== morae.length) return "";
     const width = morae.length * 24 + 18;
     const startX = options.centerContent ? 21 : 9;
     const point = (index) => `${startX + index * 24},${highs[index] === "H" ? 10 : 29}`;
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
     const points = highs.map((_, index) => point(index)).join(" ");
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.length > 1 ? `<polyline class="${cls}" points="${points}"></polyline>` : ""}
         ${highs.map((_, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
@@ -40384,7 +40384,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.216".trim() ? "1.6.216".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.217".trim() ? "1.6.217".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

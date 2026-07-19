@@ -211,6 +211,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Rendered exact one-mora pitch accents as a valid single-point graph instead of rejecting graphs with fewer than two morae, so 自（じ） now shows its high atamadaka point and one-mora heiban words show their low point.': '1モーラの完全一致するピッチアクセントを、2モーラ未満として拒否せず、有効な1点グラフで描画するようにしました。「自（じ）」は高い頭高型の点を表示し、1モーラの平板型語は低い点を表示します。',
     'Reused the matching visible Study card for parsed-word popovers when a portable card has neither a provider lookup target nor a parser cache entry, preventing 自（じ） from falling through to a fresh pitchless text lookup.': '共有用カードに提供元の検索対象もパーサーキャッシュもない場合、解析済み単語のポップオーバーには一致する表示中のStudyカードを再利用するようにしました。「自（じ）」がピッチなしの新しい文字検索へフォールスルーすることを防ぎます。',
     'Kept short annotated labels inside their native ellipsis boxes, fixing the stray': '短い注釈付きラベルをページ本来の省略表示ボックス内に収め、余計な省略記号が表示される問題を修正しました。',
     "that appeared on YouTube navigation and shelf labels on iPad. Reading-free annotation mirrors now remain clipped to the page's authored box, while labels that actually show furigana retain room for it.": 'iPad版YouTubeのナビゲーションやシェルフのラベルで発生していた問題です。読みを表示しない注釈ミラーはページが定めたボックス内に留まり、実際にふりがなを表示するラベルには引き続き必要な空間を確保します。',

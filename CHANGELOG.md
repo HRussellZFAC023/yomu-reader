@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.217] - 2026-07-19
+
+### Fixed
+
+- Rendered exact one-mora pitch accents as a valid single-point graph instead of rejecting graphs with fewer than two morae, so 自（じ） now shows its high atamadaka point and one-mora heiban words show their low point.
+
 ## [1.6.216] - 2026-07-19
 
 ### Fixed
