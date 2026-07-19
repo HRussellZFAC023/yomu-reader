@@ -1,12 +1,18 @@
 # Changelog
 
-## [1.6.217] - 2026-07-19
+## [1.6.218] - 2026-07-19
 
 ### Changed
 
 - Bunpro dictionary entries now use the same compact example-sentence layout as Jiten and JPDB. Bunpro's inline full-width kana brackets are removed before display so よむ can add its own furigana and pitch annotations to the Japanese text.
 - Bunpro frequency now shows every available corpus rank as a visible labelled pill, including General, Anime, Novels, Netflix, and Dictionary, while Bunpro pitch variants supplement rather than replace local or JPDB pitch evidence.
 - Bunpro pronunciation recordings are available as a new opt-in audio source. It is added disabled to both new and existing audio-source lists, so the configured pronunciation source makes no requests until enabled; explicit Bunpro audio buttons fetch only when pressed. Recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
+
+## [1.6.217] - 2026-07-19
+
+### Fixed
+
+- Rendered exact one-mora pitch accents as a valid single-point graph instead of rejecting graphs with fewer than two morae, so 自（じ） now shows its high atamadaka point and one-mora heiban words show their low point.
 
 ## [1.6.216] - 2026-07-19
 

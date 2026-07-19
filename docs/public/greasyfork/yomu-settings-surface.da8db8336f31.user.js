@@ -1812,13 +1812,6 @@
     urlTemplate: "https://bunpro.jp/search?query={query}",
     enabled: true
   };
-  const BUNPRO_LIVE_FREQUENCY_PILL = {
-    id: "bunpro-frequency",
-    label: "Bunpro",
-    urlTemplate: "",
-    enabled: true,
-    action: "frequency-live"
-  };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
     label: "Weblio",
@@ -1870,7 +1863,6 @@
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
     BUNPRO_LOOKUP_LINK,
-    BUNPRO_LIVE_FREQUENCY_PILL,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
@@ -1974,7 +1966,7 @@
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" || link.id === "bunpro-frequency" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -2257,7 +2249,6 @@
     "jpod101",
     "language-pod-101",
     "jisho",
-    "bunpro",
     "lingua-libre",
     "wiktionary",
     "jiten-tts",
@@ -2273,7 +2264,6 @@
     { type: "jpod101", url: "", voice: "", enabled: false },
     { type: "language-pod-101", url: "", voice: "", enabled: false },
     { type: "jisho", url: "", voice: "", enabled: false },
-    { type: "bunpro", url: "", voice: "", enabled: false },
     { type: "jiten-tts", url: "", voice: "", enabled: false },
     { type: "jpdb-tts", url: "", voice: "", enabled: false },
     { type: "text-to-speech", url: "", voice: "", enabled: false }
@@ -3476,7 +3466,7 @@
   }
   function normalizeAudioSources(value, legacyUrl) {
     const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
-    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
+    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(migrateLegacyDefaultAudioSources(sources)) : sources;
     if (typeof legacyUrl === "string" && legacyUrl.trim()) {
       return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
     }
@@ -3513,11 +3503,6 @@
   }
   function isDefaultOffAudioSource(source) {
     return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
-  }
-  function withBunproAudioSource(sources) {
-    const result = sources.map((source) => ({ ...source }));
-    ensureBuiltInAudioSource(result, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
-    return result;
   }
   function ensureBuiltInAudioSource(sources, source, beforeType) {
     if (sources.some((candidate) => candidate.type === source.type)) return;
@@ -3610,11 +3595,7 @@
   ]);
   const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
     "d1pra95f92lrn3.cloudfront.net",
-    "d1vjc5dkcd3yh2.cloudfront.net",
-    // Bunpro pronunciation CDN: public (HTTP 200 without auth) but returns no
-    // access-control-allow-origin header, so browser fetch()/Web-Audio paths
-    // must go through the worker proxy; direct <audio src> playback is fine.
-    "dk3kgylsgq3k1.cloudfront.net"
+    "d1vjc5dkcd3yh2.cloudfront.net"
   ]);
   const YOMU_PUBLIC_PROXY_HOSTS = /* @__PURE__ */ new Set([
     "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
@@ -4089,7 +4070,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.218".trim() ? "1.6.218".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.217".trim() ? "1.6.217".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -4522,7 +4503,6 @@
       audioSourceJpod101: "JapanesePod101",
       audioSourceLanguagePod101: "LanguagePod101",
       audioSourceJisho: "Jisho.org",
-      audioSourceBunpro: "Bunpro",
       audioSourceLinguaLibre: "(Commons) Lingua Libre",
       audioSourceWiktionary: "(Commons) Wiktionary",
       audioSourceJitenTts: "Jiten text-to-speech",
@@ -5237,11 +5217,6 @@
       noExampleSentences: "No example sentences",
       exampleSentencesUnavailable: "Example sentences unavailable",
       acceptedInputs: "Accepted inputs",
-      relatedWords: "Related words",
-      relatedGrammar: "Related grammar",
-      antonymWord: "Antonym",
-      bunproCaution: "Caution",
-      bunproStructure: "Structure",
       playJpdbExampleAudio: "Play JPDB example audio",
       contextVideo: "Video",
       contextImage: "Image",
@@ -5820,11 +5795,6 @@ exampleSentences	例文
 noExampleSentences	例文はありません
 exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
-relatedWords	関連語
-relatedGrammar	関連文法
-antonymWord	対義語
-bunproCaution	注意
-bunproStructure	構造
 playJpdbExampleAudio	JPDB例文音声を再生
 kanjiDictionaries	漢字辞書
 sourceNameWordsUsingKanji	関連語彙
@@ -6137,7 +6107,6 @@ textToSpeechVoiceNumber	読み上げ音声 {number}
 audioSourceJpod101	JapanesePod101
 audioSourceLanguagePod101	LanguagePod101
 audioSourceJisho	Jisho.org
-audioSourceBunpro	Bunpro
 audioSourceLinguaLibre	(Commons) Lingua Libre
 audioSourceWiktionary	(Commons) Wiktionary
 audioSourceJitenTts	Jiten読み上げ
@@ -6569,7 +6538,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     jpod101: "audioSourceJpod101",
     "language-pod-101": "audioSourceLanguagePod101",
     jisho: "audioSourceJisho",
-    bunpro: "audioSourceBunpro",
     "lingua-libre": "audioSourceLinguaLibre",
     wiktionary: "audioSourceWiktionary",
     "jiten-tts": "audioSourceJitenTts",

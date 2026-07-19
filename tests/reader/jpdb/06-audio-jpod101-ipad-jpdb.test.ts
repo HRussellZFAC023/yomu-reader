@@ -916,6 +916,38 @@ describe('reader helpers', () => {
         expect(html).toContain('>く<');
     });
 
+    it('renders a one-mora atamadaka graph as a single high point', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: '自',
+            reading: 'じ',
+            pitchAccent: ['H'],
+            source: 'local',
+        });
+
+        expect(html).toContain('jpdb-reader-pitch');
+        expect(html).toContain('class="atamadaka"');
+        expect(html).toContain('cy="10"');
+        expect(html).toContain('>じ<');
+        expect(html).not.toContain('<polyline');
+    });
+
+    it('renders a one-mora heiban graph as a single low point', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: '手',
+            reading: 'て',
+            pitchAccent: ['L'],
+            source: 'local',
+        });
+
+        expect(html).toContain('jpdb-reader-pitch');
+        expect(html).toContain('class="heiban"');
+        expect(html).toContain('cy="29"');
+        expect(html).toContain('>て<');
+        expect(html).not.toContain('<polyline');
+    });
+
     it('renders every distinct accent variant when a reading has more than one', () => {
         const html = renderPitch({
             ...card,

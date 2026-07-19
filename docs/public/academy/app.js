@@ -230574,14 +230574,14 @@ ${entry2.reading || ""}`;
   function renderPitchGraphSvg(reading, pitch, options = {}) {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
-    if (highs.length < 2) return "";
+    if (!highs.length || highs.length !== morae.length) return "";
     const width = morae.length * 24 + 18;
     const startX = options.centerContent ? 21 : 9;
     const point = (index) => `${startX + index * 24},${highs[index] === "H" ? 10 : 29}`;
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
     const points = highs.map((_, index) => point(index)).join(" ");
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.length > 1 ? `<polyline class="${cls}" points="${points}"></polyline>` : ""}
         ${highs.map((_, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
