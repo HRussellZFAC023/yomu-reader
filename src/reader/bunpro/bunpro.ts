@@ -6,12 +6,18 @@ const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
+// A transport failure (CORS wall, dead bridge — no HTTP status at all) means
+// EVERY Bunpro call from this page is doomed until the environment changes.
+// Without a breaker each hovered word refired the same blocked search request.
+const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1000;
+const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
 
 type BunproRequest = (url: string, options?: ReaderHttpOptions) => Promise<unknown>;
 
 export interface BunproClientOptions {
     getFrontendToken?: () => string;
     getLegacyApiKey?: () => string;
+    getProxyUrl?: () => string;
     frontendBaseUrl?: string;
     legacyBaseUrl?: string;
     requestImpl?: BunproRequest;
@@ -52,10 +58,13 @@ export class BunproClient {
     private readonly legacyBaseUrl: string;
     private readonly requestImpl: BunproRequest;
     private readonly timeoutMs: number;
+    private readonly getProxyUrl: () => string;
+    private transportRetryAfter = 0;
 
     constructor(options: BunproClientOptions = {}) {
         this.getFrontendToken = options.getFrontendToken ?? (() => '');
         this.getLegacyApiKey = options.getLegacyApiKey ?? (() => '');
+        this.getProxyUrl = options.getProxyUrl ?? (() => '');
         this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
         this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
         this.requestImpl = options.requestImpl ?? requestHttp;
@@ -246,20 +255,31 @@ export class BunproClient {
     }
 
     private async requestJson(url: string, options: ReaderHttpOptions): Promise<unknown> {
+        if (this.transportRetryAfter > Date.now()) {
+            throw new BunproApiError('Bunpro is unreachable from this page (cross-origin blocked); backing off.');
+        }
         try {
-            return await this.requestImpl(url, {
+            const response = await this.requestImpl(url, {
                 ...options,
                 responseType: 'json',
                 timeoutMs: this.timeoutMs,
                 preferFetch: true,
                 allowDirectCrossOrigin: true,
+                // The Bearer token must never transit the SHARED public proxy,
+                // but the user's own configured proxy is their infrastructure —
+                // and on hosted pages with no userscript bridge it is the only
+                // transport that can carry an authenticated Bunpro request.
+                proxyUrl: this.getProxyUrl(),
                 allowPublicProxies: false,
-                allowSensitiveConfiguredProxy: false,
+                allowSensitiveConfiguredProxy: true,
                 credentials: 'omit',
                 referrerPolicy: 'no-referrer',
                 failureLabel: 'Bunpro request',
             });
+            this.transportRetryAfter = 0;
+            return response;
         } catch (error) {
+            if (isBunproTransportFailure(error)) this.transportRetryAfter = Date.now() + TRANSPORT_FAILURE_BACKOFF_MS;
             throw normalizeBunproError(error);
         }
     }
@@ -270,6 +290,15 @@ interface BunproFrontendRequestOptions {
     query?: Record<string, string | undefined>;
     body?: unknown;
     trimLimit?: number;
+}
+
+// Transport failures carry no HTTP status: the request never completed (CORS
+// wall, dead bridge, offline). An HTTP status — even 401/500 — proves the
+// transport works and must NOT trip the breaker.
+function isBunproTransportFailure(error: unknown): boolean {
+    if (errorStatus(error) !== undefined) return false;
+    if (error instanceof BunproApiError) return false;
+    return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
 }
 
 function normalizeBunproError(error: unknown): Error {

@@ -363,6 +363,22 @@ export function pageCompartmentDescriptor(descriptor: PropertyDescriptor, _targe
     return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
 }
 
+// Fail-CLOSED variant: when the sandbox descriptor cannot be cloned into the
+// page compartment, returns null so the caller SKIPS the page write entirely.
+// Falling back to the raw sandbox descriptor (what pageCompartmentValue does)
+// makes Firefox deny the define and log "Not allowed to define cross-origin
+// object as property" to the console even though the exception is caught.
+// Same-realm contexts (no cloneInto) pass the descriptor through untouched.
+export function pageCompartmentDescriptorOrNull(descriptor: PropertyDescriptor): PropertyDescriptor | null {
+    const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
+    if (!cloneInto || typeof window === 'undefined') return descriptor;
+    try {
+        return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }) as PropertyDescriptor;
+    } catch {
+        return null;
+    }
+}
+
 export function pageCompartmentValue<T>(value: T, options: { cloneFunctions?: boolean; wrapReflectors?: boolean } = {}): T {
     const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
     if (!cloneInto || typeof window === 'undefined') return value;

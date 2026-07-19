@@ -24,7 +24,6 @@ export const SETTINGS_PARSE_TARGET_LIMIT = 120;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
-    '.jpdb-reader-status-line',
     '[data-settings-preview-lookup]',
     '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',
@@ -45,7 +44,6 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
 const SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
-    '.jpdb-reader-status-line',
     '[data-settings-preview-lookup]',
     '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',

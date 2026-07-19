@@ -299,6 +299,7 @@ export class NewTabRuntime {
     private bunpro = new BunproClient({
         getFrontendToken: () => this.activeBunproFrontendApiToken(),
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+        getProxyUrl: () => this.settings.corsProxyUrl,
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private yomuLocalSrsRepository = new LocalYomuSrsRepository();

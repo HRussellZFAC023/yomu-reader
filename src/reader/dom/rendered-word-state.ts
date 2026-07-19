@@ -123,6 +123,14 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
 
+// A pitch class must never be painted without the pattern that produced it:
+// popups and tests read data-pitch-accent, and the in-place enrichment repaint
+// used to update only the class, leaving the two permanently disagreeing.
+export function setRenderedWordPitchAccentPattern(word: HTMLElement, card: JPDBCard): void {
+    const pitchAccent = card.pitchAccent.join('|');
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+}
+
 export function setRenderedWordPitchComponents(word: HTMLElement, card: JPDBCard): void {
     const gradient = pitchComponentUnderlineGradient(card);
     if (!gradient) {
@@ -149,9 +157,8 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    const pitchAccent = card.pitchAccent.join('|');
-    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-    else delete word.dataset.pitchAccent;
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
     setRenderedWordPitchComponents(word, card);
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);

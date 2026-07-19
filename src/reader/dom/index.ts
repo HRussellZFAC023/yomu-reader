@@ -6004,14 +6004,14 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.cardState = state;
-    if (showPitchAccent) span.dataset.pitchClass = safePitchClass(token.pitchClass);
+    if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join('|');
-    if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent && pitchAccent && !isParticleCard(token.card)) span.dataset.pitchAccent = pitchAccent;
     if (showPitchAccent) applyPitchComponentGradient(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
@@ -6050,7 +6050,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : '';
+    const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : '';
     const classes = [
         readerWordClassName(state, token, settings),
         hasRuby ? 'jpdb-reader-has-furi' : '',
@@ -6067,7 +6067,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
     const pitchAccent = token.card.pitchAccent.join('|');
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
-    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
+    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== 'particle' ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
     const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : '';
     const pitchComponentMetadata = pitchComponentGradient
         ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"`
@@ -6122,7 +6122,7 @@ export function readerWordClassName(state: string, token: JPDBToken, settings: P
         if (source !== 'jpdb') classes.push(`${source}-${state}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
     return classes.join(' ');
 }
 
@@ -6130,12 +6130,20 @@ function hasKnownCardState(card: JPDBToken['card']): boolean {
     return Array.isArray(card.cardState) && card.cardState.length > 0;
 }
 
-function isParticleCard(card: JPDBCard): boolean {
+export function isParticleCard(card: JPDBCard): boolean {
     return card.partOfSpeech.includes('prt') || PARTICLE_SURFACE_RE.test(card.spelling.trim());
 }
 
 function safePitchClass(value: string): string {
     return PITCH_CLASSES.has(value) ? value : 'unknown';
+}
+
+// Grammatical particles are clitics with no lexical accent of their own — any
+// pattern a dictionary reports for the same kana belongs to a homophone noun
+// (葉/荷/戸), so は・に・と used to wear a spurious underline while を・の had
+// none. Particles get a deliberate accentless class distinct from 'unknown'.
+function tokenPitchClass(token: JPDBToken): string {
+    return isParticleCard(token.card) ? 'particle' : safePitchClass(token.pitchClass);
 }
 
 export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions, preserveTokenRubies = false): string {

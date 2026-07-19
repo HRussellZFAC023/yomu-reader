@@ -49,6 +49,7 @@ import {
     documentJapaneseTextProbe,
     escapeHtml,
     getSelectionText,
+    isParticleCard,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
     readerRenderRejectionRescanDelay,
@@ -315,6 +316,7 @@ import {
     renderedWordSelectorForKey,
     rootContainsRenderedWord,
     setRenderedWordCardIdentity,
+    setRenderedWordPitchAccentPattern,
     setRenderedWordPitchComponents,
     setRenderedWordPitchClass,
     uniqueParentNodes,
@@ -690,6 +692,7 @@ export class ReaderApp {
     private bunpro = new BunproClient({
         getFrontendToken: () => this.activeBunproFrontendApiToken(),
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+        getProxyUrl: () => this.settings.corsProxyUrl,
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private bunproWordStates = new BunproWordStateStore(this.bunpro);
@@ -8285,6 +8288,9 @@ export class ReaderApp {
     }
 
     private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<void> {
+        // Particles render as deliberately accentless — enriching them would
+        // only resurrect a homophone noun's pattern as a spurious underline.
+        if (isParticleCard(token.card)) return;
         const fallback = token.card;
         const previousPitchClass = token.pitchClass ?? '';
         const card = await this.pitchEnrichedRenderedCard(fallback, options);
@@ -8769,6 +8775,7 @@ export class ReaderApp {
             const apply = (word: HTMLElement): void => {
                 if (pitchClass) {
                     this.applyPitchClassToRenderedSurface(word, pitchClass);
+                    setRenderedWordPitchAccentPattern(word, card);
                 }
                 setRenderedWordPitchComponents(word, card);
                 changedRoots.add(word.parentElement ?? word);

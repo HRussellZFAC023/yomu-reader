@@ -1,4 +1,5 @@
-import { normalizePitchPatternsForReading, pitchPatternFromPosition } from './pitch-accent';
+import { normalizePitchPatternsForReading, pitchNumberForReading, pitchPatternFromPosition } from './pitch-accent';
+import { deinflectJapaneseTerm } from './deinflect';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export type PitchMetaLookup = (expression: string) => Promise<YomitanMetaEntry[]>;
@@ -30,7 +31,51 @@ export async function localPitchResolutionFromMetaLookup(
     const pronunciation = reading.trim();
     if (!expression || !pronunciation) return { patterns: [] };
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
-    return { patterns: localPitchPatternsFromMeta(expression, pronunciation, initialEntries) };
+    const patterns = localPitchPatternsFromMeta(expression, pronunciation, initialEntries);
+    if (patterns.length) return { patterns };
+    return { patterns: await deconjugatedHeibanPitchPatterns(expression, pronunciation, lookupMeta) };
+}
+
+const DECONJUGATION_PITCH_CANDIDATE_LIMIT = 4;
+const KANA_SUFFIX_RE = /^[\u3040-\u30ff\u3099\u309A]*$/u;
+
+// Pitch dictionaries key on dictionary forms, so entries whose lemma is itself
+// inflected (問わず, 〜て/〜ます forms a provider lexicalised) miss the exact
+// lookup even though their base verb is listed. Deinflect and project the base
+// accent — but ONLY a heiban (accentless) base, which stays heiban in every
+// conjugation; an accented base moves its downstep per inflection type, and a
+// guessed position would paint a confidently wrong accent.
+async function deconjugatedHeibanPitchPatterns(expression: string, reading: string, lookupMeta: PitchMetaLookup): Promise<string[]> {
+    const candidates = deinflectJapaneseTerm(expression)
+        .filter(candidate => candidate.term !== expression)
+        .slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
+    for (const candidate of candidates) {
+        const baseReading = deconjugatedReading(expression, candidate.term, reading);
+        if (!baseReading) continue;
+        const basePatterns = localPitchPatternsFromMeta(candidate.term, baseReading, await lookupMeta(candidate.term));
+        if (!basePatterns.length) continue;
+        const heiban = basePatterns.some(pattern => pitchNumberForReading([pattern], baseReading) === 0);
+        return heiban ? [pitchPatternFromPosition(reading, 0)].filter(Boolean) : [];
+    }
+    return [];
+}
+
+// The inflected suffix is the same kana run on the spelling and its reading
+// (問わず/とわず both end わず), so the base reading follows from replaying the
+// spelling's suffix swap on the reading. Bail on any non-kana difference — that
+// means the deinflection rewrote more than a conjugation suffix.
+function deconjugatedReading(expression: string, baseTerm: string, reading: string): string {
+    const expressionChars = Array.from(expression);
+    const baseChars = Array.from(baseTerm);
+    let shared = 0;
+    while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
+    const removed = expressionChars.slice(shared).join('');
+    const added = baseChars.slice(shared).join('');
+    if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return '';
+    if (removed && !reading.endsWith(removed)) return '';
+    const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
+    if (!stem && !added) return '';
+    return stem + added;
 }
 
 export function localPitchPatternFromMeta(expression: string, reading: string, entries: YomitanMetaEntry[]): string {

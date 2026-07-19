@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from '../settings/index';
 import { gmStorageGet, gmStorageGetSync } from './storage';
-import { pageCompartmentDescriptor, pageCompartmentValue } from '../platform/window-events';
+import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 
 const JA_LANG = 'ja';
@@ -657,8 +657,12 @@ function restoreJapanesePreferences(state: JapanesePreferenceState): void {
     state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
         try {
-            if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, crossRealmDescriptor(snapshot.descriptor, snapshot.target));
-            else delete (snapshot.target as Record<PropertyKey, unknown>)[snapshot.key];
+            if (snapshot.hadOwn && snapshot.descriptor) {
+                const descriptor = crossRealmDescriptor(snapshot.descriptor, snapshot.target);
+                if (descriptor) Object.defineProperty(snapshot.target, snapshot.key, descriptor);
+            } else {
+                delete (snapshot.target as Record<PropertyKey, unknown>)[snapshot.key];
+            }
         } catch {
             // Some browser host objects are immutable after first definition; leave them as-is.
         }
@@ -764,13 +768,18 @@ function rememberDescriptor(state: JapanesePreferenceState, target: object | nul
     });
 }
 
-function crossRealmDescriptor(descriptor: PropertyDescriptor, target: object): PropertyDescriptor {
+// Returns null when the descriptor cannot enter the page compartment — the
+// caller must skip the write; a raw sandbox descriptor makes Firefox log
+// "Not allowed to define cross-origin object" even when the throw is caught.
+// (Serialized into the page-side script, where pageCompartmentDescriptorOrNull
+// is a free undefined name and every descriptor is same-realm.)
+function crossRealmDescriptor(descriptor: PropertyDescriptor, _target: object): PropertyDescriptor | null {
     try {
-        return typeof pageCompartmentDescriptor === 'function'
-            ? pageCompartmentDescriptor(descriptor, target)
+        return typeof pageCompartmentDescriptorOrNull === 'function'
+            ? pageCompartmentDescriptorOrNull(descriptor)
             : descriptor;
     } catch {
-        return descriptor;
+        return null;
     }
 }
 
@@ -781,10 +790,11 @@ function defineGetter(state: JapanesePreferenceState, target: object | null | un
         // Firefox Xray: a sandbox getter must be cloned into the page
         // compartment or the define throws "Not allowed to define
         // cross-origin object" and the spoof silently never applies.
-        Object.defineProperty(target, key, crossRealmDescriptor({
+        const descriptor = crossRealmDescriptor({
             configurable: true,
             get: getter,
-        }, target));
+        }, target);
+        if (descriptor) Object.defineProperty(target, key, descriptor);
     } catch {
         // Browser-defined properties may be non-configurable in some engines.
     }
@@ -799,11 +809,14 @@ function defineValue(state: JapanesePreferenceState, target: object | null | und
 function defineUntrackedValue(target: object | null | undefined, key: PropertyKey, value: unknown): void {
     if (!target) return;
     try {
-        Object.defineProperty(target, key, crossRealmDescriptor({
+        const descriptor = crossRealmDescriptor({
             configurable: true,
             writable: true,
             value,
-        }, target));
+        }, target);
+        // A null descriptor means the value cannot cross into the page
+        // compartment; a raw assignment would be denied the same way, so skip.
+        if (descriptor) Object.defineProperty(target, key, descriptor);
     } catch {
         try {
             (target as Record<PropertyKey, unknown>)[key] = value;

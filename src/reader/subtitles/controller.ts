@@ -1,4 +1,5 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
+import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { escapeHtml, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
@@ -4386,7 +4387,9 @@ export class SubtitlePlayerController {
             else video.pause();
             this.armPlaybackPauseReassert(video);
         }
-        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+        // Raw sandbox detail objects are denied at the Firefox Xray boundary;
+        // the shared factory clones the detail into the page compartment.
+        document.dispatchEvent(createWindowCustomEvent('yomu-ocr-video-frame-request', { video }));
     }
 
     // YouTube's #movie_player exposes its player API on the element in the

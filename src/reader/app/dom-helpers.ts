@@ -59,8 +59,12 @@ export function canHoverLookupReaderWordElement(word: HTMLElement, hasHoverLooku
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest('.jpdb-reader-popover')) return false;
     if (word.closest('.jpdb-reader-control-text-mirror')) return !word.closest('[data-jpdb-reader-root]') || hasHoverLookupShortcut;
-    if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
+    // Interactive controls keep their native pointer behaviour; every other
+    // annotated word in the settings dialog hover-looks-up exactly like page
+    // words (it already click-looks-up — hover was gated behind a shortcut
+    // that is empty by default, so hover parity silently never applied).
     if (isSettingsNativeControlWord(word)) return false;
+    if (isSettingsReaderWord(word)) return true;
     if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== 'true') return false;
     if (!word.closest('[data-jpdb-reader-root]')) return true;
     if (word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon')) return true;
@@ -72,9 +76,12 @@ function isSettingsReaderWord(word: HTMLElement): boolean {
     return Boolean(word.closest('.jpdb-reader-settings'));
 }
 
+// `label` is deliberately NOT excluded: most settings prose lives inside
+// labels, hover never swallows the label's native click, and the click-lookup
+// path already treats label text as words.
 function isSettingsNativeControlWord(word: HTMLElement): boolean {
     return Boolean(word.closest('.jpdb-reader-settings')
-        && word.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
+        && word.closest('a[href],button,input,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
 }
 
 export function currentLookupNavigationWord(
