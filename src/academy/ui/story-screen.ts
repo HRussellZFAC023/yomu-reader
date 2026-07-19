@@ -21,6 +21,7 @@ import type {
 import { n3StoryPractice } from '../content/n3-story-practice';
 import { STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
 import { ACADEMY_ASSETS } from '../assets';
+import type { StoryVoicePlayback } from '../audio/voice-lines';
 import { canRenderAcademyCastPortrait, displayAcademyCastName } from '../domain/cast-registry';
 import { backButton, element } from './dom';
 import {
@@ -49,6 +50,7 @@ export interface StoryScreenOptions {
     readonly activityOutcomes?: Readonly<Record<string, StoryActivityOutcome>>;
     readonly selectedBand?: string;
     readonly audio?: AcademyVnStageOptions['audio'];
+    readonly createVoicePlayback?: () => StoryVoicePlayback;
     readonly onOpenReviewCalendar: () => void;
     readonly onBack: () => void;
     readonly onReturnToEpisodes: () => void;
@@ -69,7 +71,11 @@ export function renderStoryScreen(options: StoryScreenOptions): HTMLElement {
     }
     const cursor = parseStoryCursor(options.sectionId);
     const episode = options.story.episode(cursor ? options.story.openingArc.episodeId : options.sectionId);
-    screen.append(episode ? renderEpisode(options, episode) : renderEpisodeList(options));
+    const content = episode ? renderEpisode(options, episode) : renderEpisodeList(options);
+    screen.append(content);
+    screen.addEventListener('academy:dispose', () => {
+        content.dispatchEvent(new CustomEvent('academy:dispose'));
+    }, { once: true });
     return screen;
 }
 
@@ -146,6 +152,7 @@ function renderPlayableArc(
         label: arc.title,
         uiLanguage: options.language,
         audio: options.audio,
+        voice: options.createVoicePlayback?.(),
         onBack: options.onBack,
     });
     stage.element.classList.add('academy-story-vn-stage');
@@ -200,6 +207,9 @@ function renderPlayableArc(
                 reading: storyReadingControl(options.language),
                 translation: moment.line.english,
                 translationEarned: true,
+                ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
+                    ? { voice: { band: moment.line.band } }
+                    : {}),
             });
             stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
             return;

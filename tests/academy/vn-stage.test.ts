@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { StoryVoicePlayback } from '../../src/academy/audio/voice-lines';
 import { createAcademyVnStage, type AcademyVnCastMember } from '../../src/academy/ui/vn-stage';
 
 const expressions = {
@@ -46,6 +47,67 @@ describe('Academy VN stage', () => {
         expect(stage.element.querySelector('[data-character="rie"]')?.getAttribute('data-speaking')).toBe('true');
         expect(stage.element.querySelector('.academy-vn-dialogue')?.getAttribute('data-tail')).toBe('left');
         expect(stage.element.querySelector('.academy-panel')).toBeNull();
+    });
+
+    it('keeps a stable accessible replay slot and gates automatic voice on learner interaction', async () => {
+        const releaseStatus = vi.fn();
+        const voice = {
+            snapshot: { status: 'idle' as const },
+            setLine: vi.fn(async line => Boolean(line)),
+            play: vi.fn(async () => true),
+            stop: vi.fn(),
+            onStatus: vi.fn(listener => {
+                listener({ status: 'idle' });
+                return releaseStatus;
+            }),
+            dispose: vi.fn(),
+        } satisfies StoryVoicePlayback;
+        const stage = createAcademyVnStage({ voice });
+        const replay = stage.element.querySelector<HTMLButtonElement>('.academy-vn-voice-replay')!;
+
+        expect(replay).not.toBeNull();
+        expect(replay.textContent).toBe('\u25b6');
+        expect(replay.getAttribute('aria-label')).toBe('Replay voice line');
+        expect(replay.disabled).toBe(true);
+        stage.setLine({
+            id: 'line:pilot:first',
+            speakerId: 'rie',
+            japanese: '聞いてください。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+            voice: { band: 'n5' },
+        });
+        await vi.waitFor(() => expect(replay.disabled).toBe(false));
+        expect(voice.play).not.toHaveBeenCalled();
+
+        replay.click();
+        expect(voice.play).toHaveBeenCalledOnce();
+        stage.element.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        stage.setLine({
+            id: 'line:pilot:next',
+            speakerId: 'rie',
+            japanese: '次の文です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+            voice: { band: 'n5' },
+        });
+        await vi.waitFor(() => expect(voice.play).toHaveBeenCalledTimes(2));
+        expect(voice.setLine).toHaveBeenLastCalledWith({
+            lineId: 'line:pilot:next',
+            speakerId: 'rie',
+            japanese: '次の文です。',
+            band: 'n5',
+        });
+
+        stage.setLine({
+            id: 'narration:no-voice',
+            japanese: 'The room is quiet.',
+            language: 'en',
+            reading: { available: false, showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+        await vi.waitFor(() => expect(voice.setLine).toHaveBeenLastCalledWith(null));
+        expect(replay.disabled).toBe(true);
+        stage.dispose();
+        expect(voice.dispose).toHaveBeenCalledOnce();
+        expect(releaseStatus).toHaveBeenCalledOnce();
     });
 
     it('keeps one page-wide readings state across dialogue lines and registered surfaces', () => {
