@@ -67,9 +67,8 @@ import {
     renderKanjiDefinitions,
 } from '../sources/definition-render';
 import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
-import { ImmersionKitClient } from '../immersion/kit';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
-import { ImmersionPopoverController, type ImmersionSearchOptions } from '../immersion/popover-controller';
+import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
@@ -685,7 +684,7 @@ export class ReaderApp {
     private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
     private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
-    private immersionKit = new ImmersionKitClient();
+    private immersionKit = this.kanjiCompanion ? new this.kanjiCompanion.ImmersionKitClient() : null;
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private bunpro = new BunproClient({
@@ -785,7 +784,7 @@ export class ReaderApp {
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
     });
-    private immersionPopover = new ImmersionPopoverController({
+    private immersionPopover = this.kanjiCompanion && this.immersionKit ? new this.kanjiCompanion.ImmersionPopoverController({
         getSettings: () => this.settings,
         client: this.immersionKit,
         audio: this.audio,
@@ -797,13 +796,13 @@ export class ReaderApp {
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
         toast: message => this.toast(message),
-    });
+    }) : null;
     private audioActions = new ReaderAudioActions({
         audio: this.audio,
         getSettings: () => this.settings,
         getActivePopover: () => this.activePopover,
         getHoverLookupGeneration: () => this.hoverLookupGeneration,
-        stopImmersionAudio: () => this.immersionPopover.stopAudio(),
+        stopImmersionAudio: () => this.immersionPopover?.stopAudio(),
         toast: message => this.toast(message),
     });
     private floatingButton = new FloatingButtonController();
@@ -5728,7 +5727,7 @@ export class ReaderApp {
         const trigger = this.renderedWordTrigger(options.trigger, true);
         const navigation = options.navigation ?? renderedWordNavigationMode(true, trigger);
         const sentence = this.renderedWordSentence(word) ?? expression;
-        if (word.closest('.jpdb-reader-example-card')) this.immersionPopover.rememberTermMiningContext(expression, sentence, word);
+        if (word.closest('.jpdb-reader-example-card')) this.immersionPopover?.rememberTermMiningContext(expression, sentence, word);
         await this.lookupText(expression, sentence, {
             anchor: renderedWordAnchor(word, true, this.activePopoverAnchor),
             navigation,
@@ -5744,7 +5743,7 @@ export class ReaderApp {
 
     private rememberRenderedWordMiningContext(word: HTMLElement, card: JPDBCard, insideReaderPopup: boolean): void {
         if (!insideReaderPopup || !word.closest('.jpdb-reader-example-card')) return;
-        this.immersionPopover.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
+        this.immersionPopover?.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
     }
 
     private renderedWordDisplayContext(
@@ -6103,9 +6102,9 @@ export class ReaderApp {
     }
 
     private rememberCardMiningContext(card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: CardDisplayOptions): void {
-        const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
-        if (hasNestedImmersionContext || this.immersionPopover.hasActiveContext(card, sentence)) return;
-        this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
+        const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover?.activeContextFor(card));
+        if (hasNestedImmersionContext || this.immersionPopover?.hasActiveContext(card, sentence)) return;
+        this.immersionPopover?.rememberPageMiningContext(card, sentence, anchor);
     }
 
     private async mountInitialCardShell(
@@ -6291,7 +6290,7 @@ export class ReaderApp {
     }
 
     private installLazyImmersionExamples(popover: HTMLElement, card: JPDBCard, options: ImmersionSearchOptions = {}): void {
-        if (this.settings.immersionKitEnabled) this.immersionPopover.installLazyLoad(popover, card, options);
+        if (this.settings.immersionKitEnabled) this.immersionPopover?.installLazyLoad(popover, card, options);
     }
 
     private renderDeferredCardLocalEntries(
@@ -7320,7 +7319,7 @@ export class ReaderApp {
             if (!url) return;
             // Load cross-origin radical frames through the userscript bridge so a
             // strict page CSP (jpdb.io img-src) can't block them.
-            void this.immersionKit.fetchBlobUrl(url, 9000, this.settings.corsProxyUrl, this.settings.interfaceLanguage)
+            void this.immersionKit?.fetchBlobUrl(url, 9000, this.settings.corsProxyUrl, this.settings.interfaceLanguage)
                 .then(blobUrl => { image.src = blobUrl; })
                 .catch(() => image.remove());
         });
@@ -7363,12 +7362,12 @@ export class ReaderApp {
 
     private installKanjiImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries: string[] = []): void {
         if (!this.shouldRenderKanjiImmersionKit()) return;
-        this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
+        this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
     }
 
     private installJpdbPageImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries: string[] = []): void {
         if (!this.settings.immersionKitEnabled) return;
-        this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
+        this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
     }
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
@@ -8928,8 +8927,8 @@ export class ReaderApp {
     }
 
     private async resolveMiningContext(card: JPDBCard, sentence?: string): Promise<MiningContext> {
-        const activeContext = this.immersionPopover.activeContextFor(card);
-        const storedImmersionContext = this.immersionPopover.storedContextFor(card);
+        const activeContext = this.immersionPopover?.activeContextFor(card);
+        const storedImmersionContext = this.immersionPopover?.storedContextFor(card);
         const anchor = this.activePopoverAnchor;
         const context = await resolveStoredMiningContext({
             term: card.spelling,
@@ -8943,8 +8942,8 @@ export class ReaderApp {
             }),
             imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined,
             videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined,
-            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
-            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
+            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit ? this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage) : Promise.resolve(undefined),
+            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit ? this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage) : Promise.resolve(undefined),
         });
         return context;
     }
@@ -9100,7 +9099,7 @@ export class ReaderApp {
     private prepareSettingsStackedPopover(stack: SettingsDialogStack): void {
         this.stackedSettingsDialog = stack;
         if (this.activePopover && this.activePopover !== stack.form) {
-            this.immersionPopover.abortPendingRequests(this.activePopover);
+            this.immersionPopover?.abortPendingRequests(this.activePopover);
             this.activePopover.remove();
         }
         if (this.activeBackdrop && this.activeBackdrop !== stack.backdrop) this.activeBackdrop.remove();
@@ -9395,7 +9394,7 @@ export class ReaderApp {
     }
 
     private prepareActivePopoverDismiss(options: ActivePopoverDismissOptions): void {
-        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+        if (this.activePopover) this.immersionPopover?.abortPendingRequests(this.activePopover);
         // Re-mounts during nested navigation (push-current) dismiss with
         // preserveNavigation:true — keep the video paused across them; only a
         // real close resumes. Without this gate, drilling into a sub-lookup
@@ -9405,7 +9404,7 @@ export class ReaderApp {
         }
         this.clearHoverDismissState(options);
         this.audio.stop();
-        this.immersionPopover.stopAudio();
+        this.immersionPopover?.stopAudio();
         this.updateSuppressedHoverTarget(options);
         this.cardRenderRequest++;
     }

@@ -4,6 +4,8 @@ import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { JpdbKanjiClient } from '../jpdb/jpdb-kanji';
 import { KanjiVGClient } from '../kanji/vg';
+import { ImmersionKitClient } from '../immersion/kit';
+import { ImmersionPopoverController } from '../immersion/popover-controller';
 import { registerYomuCompanion } from './registry';
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls } from '../popup/jpdb-kanji-info';
 import { renderKanjiOriginGraph } from '../popup/origin-graph';
@@ -41,6 +43,8 @@ import {
 import { StudySourceController } from '../study/sources';
 
 registerYomuCompanion('kanjiStudy', {
+    ImmersionKitClient,
+    ImmersionPopoverController,
     KanjiOriginClient,
     KanjiVGClient,
     RtkClient,

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.234] - 2026-07-19
+
+### Changed
+
+- Moved the Immersion Kit example-sentence client and its popup section controller into the Yomu Kanji/Study companion script, restoring real headroom under Greasy Fork's 2 MB core-script limit; the previous release had crossed the limit, which blocked publishing. Behavior is unchanged: the companion is always required by the userscript and bundled into hosted builds.
+
 ## [1.6.233] - 2026-07-19
 
 ### Fixed

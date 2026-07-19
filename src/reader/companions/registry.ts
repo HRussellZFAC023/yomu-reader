@@ -108,6 +108,11 @@ interface YomuCompanionRegistry {
     // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
     // import-severing remains a follow-up lane).
     kanjiStudy?: {
+        // Immersion Kit is study material (example sentences with media), so it
+        // ships in the Kanji/Study companion; core only keeps the cheap
+        // query-usefulness gate (../immersion/query) for preload decisions.
+        ImmersionKitClient: typeof import('../immersion/kit').ImmersionKitClient;
+        ImmersionPopoverController: typeof import('../immersion/popover-controller').ImmersionPopoverController;
         KanjiOriginClient: typeof import('../kanji/origin').KanjiOriginClient;
         KanjiVGClient: typeof import('../kanji/vg').KanjiVGClient;
         RtkClient: typeof import('../kanji/rtk').RtkClient;

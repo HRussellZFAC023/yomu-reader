@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.233
+// @version 1.6.234
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -10,10 +10,10 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.9379b4304b96.user.js#sha256=k3m0MEuWEK7Z7HtWmFjzJ2xNJt6VCQItToRPq6TwaQY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.ae31c27aded7.user.js#sha256=rjHCet7XeCBtCk8zPdrwc8BsG/IyLJtiwsjso9d0r98=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.eba9e0adf10b.user.js#sha256=66ngrfELvEt9qFwZugqruIWUOvJtGjX0Twdn1DqOLJw=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.2912ecb2030c.user.js#sha256=KRLssgMMUZtxORf7u0pmG9/X9K3Tble7POZsPajKzsc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.5bd06da55328.user.js#sha256=W9BtpVMobpDnD0Ec8cwtWbtNtBJouI80BboNX+MTD+I=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.fe210c0cf1ce.user.js#sha256=/iEMDPHOiLgkZxIAesgpOnPEE2JuxvJGSv67S90lA/I=
 // @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
@@ -439,10 +439,10 @@ function isExplicitControlLink(link) {
 function linkHasControlMedia(link) {
   return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
 }
-function linkHasControlShape(link, text2) {
+function linkHasControlShape(link, text) {
   const style = safeComputedStyle(link);
   const rect = link.getBoundingClientRect();
-  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
+  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text) && hasControlLinkWidth(rect);
 }
 function hasControlLinkStyle(style) {
   return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
@@ -456,8 +456,8 @@ function hasVisibleControlLinkBox(style) {
 function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
-function hasShortControlLinkText(link, text2) {
-  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+function hasShortControlLinkText(link, text) {
+  return compactLength(text) <= 16 && compactLength(link.textContent ?? "") <= 40;
 }
 function hasControlLinkWidth(rect) {
   return rect.width > 0 && rect.width < 360;
@@ -483,8 +483,8 @@ function isPassiveInteractionElement(element) {
   return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 function isCompactPassiveInteractionElement(element) {
-  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+  const text = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!text || text.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
   return element.childElementCount <= 4;
 }
 function isCompactPassiveChromeElement(element) {
@@ -538,8 +538,8 @@ function compactVisualLabelElement(parent) {
   let current = parent;
   for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
   if (!UI_CLASS_RE.test(elementClassName(current))) continue;
-  const text2 = compactInteractiveChromeText(current);
-  if (!isCompactInteractiveChromeText(text2)) continue;
+  const text = compactInteractiveChromeText(current);
+  if (!isCompactInteractiveChromeText(text)) continue;
   if (hasCompactInteractiveChromeGeometry(current)) return current;
   const rect = current.getBoundingClientRect();
   if (chromeContext && rect.width === 0 && rect.height === 0) return current;
@@ -552,8 +552,8 @@ function compactMetadataChromeElement(parent) {
   for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
   const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
   if (!explicit || isConversationTextClass(current)) continue;
-  const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!isCompactInteractiveChromeText(text2)) continue;
+  const text = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!isCompactInteractiveChromeText(text)) continue;
   const rect = current.getBoundingClientRect();
   if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
   }
@@ -585,10 +585,10 @@ function passiveChromeAccessibleLabel(element) {
 function compactInteractiveChromeElement(parent) {
   const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
   if (!chrome) return null;
-  const text2 = compactInteractiveChromeText(chrome);
-  if (!isCompactInteractiveChromeText(text2)) return null;
+  const text = compactInteractiveChromeText(chrome);
+  if (!isCompactInteractiveChromeText(text)) return null;
   if (safeElementMatches$1(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-  return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
+  return isCompactInteractiveChromeLink(chrome, parent, text) ? chrome : null;
   }
   return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
@@ -598,8 +598,8 @@ function compactInteractiveChromeText(element) {
 function compactPassiveChromeElement(parent) {
   if (isReadableProseContext(parent)) return null;
   if (!isCompactInteractiveChromeContext(parent)) return null;
-  const text2 = compactInteractiveChromeText(parent);
-  if (!isCompactInteractiveChromeText(text2)) return null;
+  const text = compactInteractiveChromeText(parent);
+  if (!isCompactInteractiveChromeText(text)) return null;
   return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
 }
 function compactPassiveInteractionRubyElement(parent) {
@@ -615,14 +615,14 @@ function compactPassiveInteractionRubyElement(parent) {
   if (isCompactInteractiveChromeContext(interaction)) return interaction;
   return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
 }
-function isCompactInteractiveChromeText(text2) {
-  const length = compactLength(text2);
-  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text2);
+function isCompactInteractiveChromeText(text) {
+  const length = compactLength(text);
+  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text);
 }
-function isCompactInteractiveChromeLink(link, parent, text2) {
+function isCompactInteractiveChromeLink(link, parent, text) {
   if (isLikelyProseLink(link, parent)) return false;
   if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
+  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text);
   return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
 }
 function isCompactInteractiveChromeControl(control, parent) {
@@ -831,9 +831,9 @@ function interactivePassiveControl(element) {
 const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
 function siblingOwnedInteractiveControl(element) {
   if (!(element instanceof HTMLElement)) return null;
-  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const text = element.textContent?.replace(/\s+/g, "").trim() ?? "";
   const chromeContext = isCompactInteractiveChromeContext(element);
-  if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element) && !chromeContext) return null;
+  if (!isCompactInteractiveChromeText(text) || isReadableProseContext(element) && !chromeContext) return null;
   let current = element.parentElement;
   for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
   if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
@@ -868,11 +868,11 @@ function isLinkedCardMetadataElement(link, textElement) {
   ].every(Boolean);
 }
 function isCompactMetadataElement(element) {
-  const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  const text = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element.getBoundingClientRect().height;
   return [
-  HAS_JAPANESE.test(text2),
-  compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+  HAS_JAPANESE.test(text),
+  compactLength(text) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
   height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
   ].every(Boolean);
 }
@@ -1575,18 +1575,18 @@ function readerWordSurfaceText(element) {
   return surface || element.getAttribute("data-surface") || "";
 }
 function readerWordChildSurfaceText(element) {
-  let text2 = "";
+  let text = "";
   element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
-    text2 += node.textContent ?? "";
+    text += node.textContent ?? "";
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const child = node;
   if (isSurfaceIgnoredElement$1(child)) return;
-  text2 += readerWordChildSurfaceText(child);
+  text += readerWordChildSurfaceText(child);
   });
-  return text2;
+  return text;
 }
 function isReaderWordElement(element) {
   return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
@@ -1672,9 +1672,9 @@ function isReadableAncestorCandidate(element) {
 }
 function readableAncestorSentence(element, target, surface, cleanFallback) {
   if (!canReadSentenceContextFrom(element)) return "";
-  const text2 = readableSurfaceText(element);
+  const text = readableSurfaceText(element);
   const range = readableSurfaceRange(element, target);
-  const sentence = range ? sentenceAroundRange(text2, range.start, range.end, cleanFallback) : sentenceAroundSurface(text2, surface, cleanFallback);
+  const sentence = range ? sentenceAroundRange(text, range.start, range.end, cleanFallback) : sentenceAroundSurface(text, surface, cleanFallback);
   return isUsefulContextSentence(sentence, cleanFallback, surface) ? sentence : "";
 }
 function fallbackReadableSentence(cleanFallback, surface) {
@@ -1684,12 +1684,12 @@ function canReadSentenceContextFrom(element) {
   return !element.closest(READER_ROOT_SELECTOR$3) || Boolean(element.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
 }
 function sentenceAroundSurface(value, surface = "", fallback = "") {
-  const text2 = cleanReadableSentence(value);
-  if (!isJapaneseSentenceContext(text2)) return "";
-  const search = sentenceSearchText(text2, surface, fallback);
-  const index = sentenceSearchIndex(text2, search);
-  if (index < 0) return clampContextText(text2);
-  const hardBounded = hardBoundedSentence(text2, index, search.length);
+  const text = cleanReadableSentence(value);
+  if (!isJapaneseSentenceContext(text)) return "";
+  const search = sentenceSearchText(text, surface, fallback);
+  const index = sentenceSearchIndex(text, search);
+  if (index < 0) return clampContextText(text);
+  const hardBounded = hardBoundedSentence(text, index, search.length);
   const hardClean = trimSoftSentenceBoundary(hardBounded, search);
   if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
   return clampLongSentence(hardClean, search);
@@ -1716,26 +1716,26 @@ function normalizedSentenceRange(length, start, end) {
   const safeEnd = Math.max(safeStart + 1, Math.min(length, Math.ceil(end)));
   return { start: safeStart, end: safeEnd };
 }
-function sentenceSearchIndex(text2, search) {
+function sentenceSearchIndex(text, search) {
   if (!search) return 0;
-  return text2.indexOf(search);
+  return text.indexOf(search);
 }
-function isJapaneseSentenceContext(text2) {
-  return Boolean(text2 && HAS_JAPANESE.test(text2));
+function isJapaneseSentenceContext(text) {
+  return Boolean(text && HAS_JAPANESE.test(text));
 }
-function sentenceSearchText(text2, surface, fallback) {
+function sentenceSearchText(text, surface, fallback) {
   const cleanSurface = cleanReadableSentence(surface);
   const cleanFallback = cleanReadableSentence(fallback);
-  if (textIncludesSearch(text2, cleanSurface)) return cleanSurface;
-  if (textIncludesSearch(text2, cleanFallback)) return cleanFallback;
+  if (textIncludesSearch(text, cleanSurface)) return cleanSurface;
+  if (textIncludesSearch(text, cleanFallback)) return cleanFallback;
   return "";
 }
-function textIncludesSearch(text2, search) {
+function textIncludesSearch(text, search) {
   if (!search) return false;
-  return text2.includes(search);
+  return text.includes(search);
 }
-function clampContextText(text2) {
-  return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+function clampContextText(text) {
+  return text.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text : text.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
 }
 function isUsefulContextSentence(sentence, fallback, surface) {
   if (!isJapaneseContextSentence(sentence)) return false;
@@ -1760,11 +1760,11 @@ function readableSurfaceText(node) {
 }
 function readableElementSurfaceText(element) {
   if (isIgnoredReadableElement(element)) return "";
-  let text2 = "";
+  let text = "";
   element.childNodes.forEach((child) => {
-  text2 += readableSurfaceText(child);
+  text += readableSurfaceText(child);
   });
-  return text2;
+  return text;
 }
 function readableSurfaceRange(root, target) {
   let offset = 0;
@@ -1772,9 +1772,9 @@ function readableSurfaceRange(root, target) {
   const visit = (node) => {
   if (range) return;
   if (node === target) {
-    const text2 = readableSurfaceText(node);
-    range = { start: offset, end: offset + text2.length };
-    offset += text2.length;
+    const text = readableSurfaceText(node);
+    range = { start: offset, end: offset + text.length };
+    offset += text.length;
     return;
   }
   if (node.nodeType === Node.TEXT_NODE) {
@@ -1798,30 +1798,30 @@ function isSurfaceIgnoredElement$1(element) {
 function cleanReadableSentence(value) {
   return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
 }
-function hardBoundedSentence(text2, index, length) {
-  const start = sentenceStartIndex(text2, index);
-  const end = sentenceEndIndex(text2, index + length);
-  return text2.slice(start, end).trim();
+function hardBoundedSentence(text, index, length) {
+  const start = sentenceStartIndex(text, index);
+  const end = sentenceEndIndex(text, index + length);
+  return text.slice(start, end).trim();
 }
-function hardBoundedSentenceRange(text2, start, end) {
-  const sentenceStart = sentenceStartIndex(text2, start);
-  const sentenceEnd = sentenceEndIndex(text2, end);
+function hardBoundedSentenceRange(text, start, end) {
+  const sentenceStart = sentenceStartIndex(text, start);
+  const sentenceEnd = sentenceEndIndex(text, end);
   return {
-  text: text2.slice(sentenceStart, sentenceEnd),
+  text: text.slice(sentenceStart, sentenceEnd),
   start: sentenceStart
   };
 }
-function sentenceStartIndex(text2, index) {
+function sentenceStartIndex(text, index) {
   for (let i = index - 1; i >= 0; i--) {
-  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+  if (/[。！？!?]/u.test(text[i] ?? "")) return i + 1;
   }
   return 0;
 }
-function sentenceEndIndex(text2, index) {
-  for (let i = index; i < text2.length; i++) {
-  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+function sentenceEndIndex(text, index) {
+  for (let i = index; i < text.length; i++) {
+  if (/[。！？!?]/u.test(text[i] ?? "")) return i + 1;
   }
-  return text2.length;
+  return text.length;
 }
 function trimSoftSentenceBoundary(sentence, surface) {
   const clean = sentence.trim();
@@ -1850,23 +1850,23 @@ function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
   if (!trimmed || trimmed === clean) return false;
   return clean.length > 48 || /[。！？!?]/u.test(omitted);
 }
-function softBoundaryStart(text2, index) {
+function softBoundaryStart(text, index) {
   for (let i = index - 1; i >= 0; i--) {
-  if (isStrongWhitespaceBoundary(text2, i)) return i + 1;
+  if (isStrongWhitespaceBoundary(text, i)) return i + 1;
   }
   return 0;
 }
-function softBoundaryEnd(text2, index) {
-  for (let i = index; i < text2.length; i++) {
-  if (isStrongWhitespaceBoundary(text2, i)) return i;
+function softBoundaryEnd(text, index) {
+  for (let i = index; i < text.length; i++) {
+  if (isStrongWhitespaceBoundary(text, i)) return i;
   }
-  return text2.length;
+  return text.length;
 }
-function isStrongWhitespaceBoundary(text2, index) {
-  const char = text2[index] ?? "";
+function isStrongWhitespaceBoundary(text, index) {
+  const char = text[index] ?? "";
   if (!/\s/u.test(char)) return false;
-  const before = text2.slice(Math.max(0, index - 24), index);
-  const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
+  const before = text.slice(Math.max(0, index - 24), index);
+  const after = text.slice(index + 1, Math.min(text.length, index + 25));
   return HAS_JAPANESE.test(before) && HAS_JAPANESE.test(after);
 }
 function clampLongSentence(sentence, surface) {
@@ -3767,7 +3767,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const log$h = Logger.scope("Settings");
+const log$f = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -4998,7 +4998,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
   const params = new URLSearchParams(search);
   const bootstrap = urlBootstrapSettings(params);
   if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-  log$h.info("Applying URL bootstrap settings", {
+  log$f.info("Applying URL bootstrap settings", {
   hasApiKey: Boolean(bootstrap.apiKey),
   hasAudio: Boolean(bootstrap.audio),
   hasOcr: Boolean(bootstrap.ocr)
@@ -5070,7 +5070,7 @@ async function loadSettings() {
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
-  log$h.warn("Settings load failed", { error });
+  log$f.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
 }
@@ -5096,13 +5096,13 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings) {
   if (settingsResetInProgress) {
-  log$h.warn("Skipped save during reset");
+  log$f.warn("Skipped save during reset");
   return;
   }
   try {
   await persistSettings(settings);
   } catch (error) {
-  log$h.warn("Settings save failed", { error });
+  log$f.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -5349,37 +5349,37 @@ function assignSentenceInfo(paragraphs, tokens) {
   }
   });
 }
-function splitJapaneseSentences(text2) {
+function splitJapaneseSentences(text) {
   const sentences = [];
   const state = { start: 0, quote: null };
-  for (let index = 0; index < text2.length; index++) {
-  index = advanceSentenceSplitter(sentences, text2, state, index);
+  for (let index = 0; index < text.length; index++) {
+  index = advanceSentenceSplitter(sentences, text, state, index);
   }
-  const tail = text2.slice(state.start).trim();
+  const tail = text.slice(state.start).trim();
   if (tail) sentences.push(tail);
   const nonEmptySentences = sentences.filter(Boolean);
-  const result = nonEmptySentences.length ? nonEmptySentences : [text2];
+  const result = nonEmptySentences.length ? nonEmptySentences : [text];
   return result;
 }
-function advanceSentenceSplitter(sentences, text2, state, index) {
-  state.quote = closingQuoteFor(text2[index]) ?? state.quote;
-  if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
-  return advancePunctuationSentenceSplitter(sentences, text2, state, index);
+function advanceSentenceSplitter(sentences, text, state, index) {
+  state.quote = closingQuoteFor(text[index]) ?? state.quote;
+  if (state.quote) return advanceQuotedSentenceSplitter(sentences, text, state, index);
+  return advancePunctuationSentenceSplitter(sentences, text, state, index);
 }
-function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
+function advanceQuotedSentenceSplitter(sentences, text, state, index) {
   if (!state.quote) return index;
-  const boundary = quotedSentenceBoundary(text2, index, state.quote);
-  if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+  const boundary = quotedSentenceBoundary(text, index, state.quote);
+  if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text, state.start, boundary.end));
   return index;
 }
-function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
-  const boundary = punctuationSentenceBoundary(text2, index);
+function advancePunctuationSentenceSplitter(sentences, text, state, index) {
+  const boundary = punctuationSentenceBoundary(text, index);
   if (!boundary) return index;
-  Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+  Object.assign(state, pushSentenceBoundary(sentences, text, state.start, boundary.end));
   return boundary.nextIndex;
 }
-function pushSentenceBoundary(sentences, text2, start, end) {
-  sentences.push(text2.slice(start, end).trim());
+function pushSentenceBoundary(sentences, text, start, end) {
+  sentences.push(text.slice(start, end).trim());
   return { start: end, quote: null };
 }
 function closingQuoteFor(char) {
@@ -5387,14 +5387,14 @@ function closingQuoteFor(char) {
   if (char === "『") return "』";
   return null;
 }
-function quotedSentenceBoundary(text2, index, quote) {
-  if (text2[index] !== quote) return null;
-  const next = text2[index + 1];
+function quotedSentenceBoundary(text, index, quote) {
+  if (text[index] !== quote) return null;
+  const next = text[index + 1];
   return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
 }
-function punctuationSentenceBoundary(text2, index) {
-  if (!"。！？".includes(text2[index])) return null;
-  const next = text2[index + 1];
+function punctuationSentenceBoundary(text, index) {
+  if (!"。！？".includes(text[index])) return null;
+  const next = text[index + 1];
   const includesClosingQuote = next === "」" || next === "』";
   return {
   end: includesClosingQuote ? index + 2 : index + 1,
@@ -5449,8 +5449,8 @@ function assignWordWithReading(token) {
   if (!rubies.length) return;
   const word = Array.from(card.spelling);
   for (let i = rubies.length - 1; i >= 0; i--) {
-  const { text: text2, start, length } = rubies[i];
-  word.splice(start - offset + length, 0, `[${text2}]`);
+  const { text, start, length } = rubies[i];
+  word.splice(start - offset + length, 0, `[${text}]`);
   }
   card.wordWithReading = word.join("");
 }
@@ -5682,8 +5682,8 @@ function controlSelectionRange(control) {
   return null;
   }
 }
-function normalizedSelectedText(text2) {
-  return text2.replace(/\s+/g, " ").trim();
+function normalizedSelectedText(text) {
+  return text.replace(/\s+/g, " ").trim();
 }
 function collectVisibleTextTargets(limit = 40) {
   return collectTextTargetsIn(document.body, limit, true);
@@ -5771,8 +5771,8 @@ function isAnnotatableChipControl(blocked) {
   if (blocked.matches('[role="combobox"]') && !isNonEditableListboxTrigger(blocked)) return false;
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
   if (isComposerActionControl(control)) return false;
-  const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
-  return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text2);
+  const text = control.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
 }
 function isComposerActionControl(control) {
   return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
@@ -5798,31 +5798,31 @@ function textTargetWalker(root, visibleOnly, options) {
   });
 }
 function textTargetFilterResult(node, visibleOnly, options) {
-  const text2 = nodeTextContent(node).trim();
-  if (!isCandidateScanText(text2)) return NodeFilter.FILTER_REJECT;
+  const text = nodeTextContent(node).trim();
+  if (!isCandidateScanText(text)) return NodeFilter.FILTER_REJECT;
   const parent = node.parentElement;
   if (!parent) return NodeFilter.FILTER_REJECT;
-  return textTargetParentFilterResult(parent, text2, visibleOnly, options);
+  return textTargetParentFilterResult(parent, text, visibleOnly, options);
 }
-function isCandidateScanText(text2) {
-  if (text2.length < 2) return false;
-  return HAS_JAPANESE.test(text2);
+function isCandidateScanText(text) {
+  if (text.length < 2) return false;
+  return HAS_JAPANESE.test(text);
 }
-function textTargetParentFilterResult(parent, text2, visibleOnly, options) {
-  if (shouldRejectTextTargetParent(parent, text2, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
+function textTargetParentFilterResult(parent, text, visibleOnly, options) {
+  if (shouldRejectTextTargetParent(parent, text, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
   if (shouldSkipTextTargetParent(parent)) return NodeFilter.FILTER_SKIP;
   return NodeFilter.FILTER_ACCEPT;
 }
-function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
+function shouldRejectTextTargetParent(parent, text, visibleOnly, options) {
   const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
-  if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text2)) return true;
+  if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
   const blocked = parent.closest(SKIP_SELECTOR);
   if (blocked && !isAnnotatableChipControl(blocked) && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
   if (isInsideExcludedReaderRoot(parent, options)) return true;
   return shouldRejectTextTargetPresentation(parent, visibleOnly);
 }
-function isCompactControlDescendantTextTarget(parent, text2) {
-  if (!isCompactInteractiveChromeText(text2.replace(/\s+/g, ""))) return false;
+function isCompactControlDescendantTextTarget(parent, text) {
+  if (!isCompactInteractiveChromeText(text.replace(/\s+/g, ""))) return false;
   return Boolean(compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent));
 }
 function isInsideExcludedReaderRoot(parent, options) {
@@ -5850,21 +5850,21 @@ function textTargetFromAcceptedNode(node) {
   if (!parent) return null;
   let decoration = classifyDecoration(parent);
   if (decoration === "skip") return null;
-  const text2 = nodeTextContent(node).trim();
-  if (decoration !== "interactive-passive" && (isFragileUiText(parent, text2) || isShortCenteredDisplayHeading(parent, text2))) {
+  const text = nodeTextContent(node).trim();
+  if (decoration !== "interactive-passive" && (isFragileUiText(parent, text) || isShortCenteredDisplayHeading(parent, text))) {
   decoration = "interactive-passive";
   }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
   return {
   node,
-  text: text2,
+  text,
   parent,
   hasNativeRuby: Boolean(parent.closest("ruby")),
   decoration,
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
-  layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
+  layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
   passiveInteraction
   };
 }
@@ -5899,10 +5899,10 @@ function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, o
 }
 function formControlTextTarget(control, visibleOnly, options) {
   if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
-  const text2 = collectableFormControlLookupText(control, options);
-  if (!text2) return null;
+  const text = collectableFormControlLookupText(control, options);
+  if (!text) return null;
   return {
-  text: text2,
+  text,
   parent: control,
   fragments: [],
   parserId: options.parserId,
@@ -5936,8 +5936,8 @@ function isUnlookupableFormControl(control) {
   return ["hidden", "password", "file", "image"].includes(control.type.toLowerCase());
 }
 function collectableFormControlLookupText(control, options = {}) {
-  const text2 = formControlLookupText(control, options);
-  return isCollectableControlText(text2) ? text2 : "";
+  const text = formControlLookupText(control, options);
+  return isCollectableControlText(text) ? text : "";
 }
 function formControlLookupText(control, options = {}) {
   const parts = [];
@@ -5953,34 +5953,34 @@ function formControlLookupText(control, options = {}) {
 function selectLookupText(select, mode) {
   const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
   if (mode === "selected") return selectedText.join(" / ");
-  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text2) => HAS_JAPANESE.test(text2));
+  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text) => HAS_JAPANESE.test(text));
   const compactOptionList = compactSelectOptionListText(optionTextList);
   return compactOptionList || selectedText.join(" / ") || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(" / ");
 }
 function compactSelectOptionListText(options) {
   if (options.length < 2 || options.length > FORM_CONTROL_SELECT_OPTION_LIMIT) return "";
-  const text2 = options.join(" / ");
-  return compactLength(text2) <= FORM_CONTROL_TEXT_MAX_LENGTH ? text2 : "";
+  const text = options.join(" / ");
+  return compactLength(text) <= FORM_CONTROL_TEXT_MAX_LENGTH ? text : "";
 }
 function optionText(option) {
   return normalizedControlText(option.label || option.textContent || "");
 }
-function pushUniqueControlText(parts, text2) {
-  const normalized = normalizedControlText(text2);
+function pushUniqueControlText(parts, text) {
+  const normalized = normalizedControlText(text);
   if (!normalized || !HAS_JAPANESE.test(normalized) || parts.includes(normalized)) return;
   parts.push(normalized);
 }
 function uniqueControlTexts(texts) {
   const result = [];
-  texts.forEach((text2) => pushUniqueControlText(result, text2));
+  texts.forEach((text) => pushUniqueControlText(result, text));
   return result;
 }
-function normalizedControlText(text2) {
-  return text2.replace(/\s+/g, " ").trim();
+function normalizedControlText(text) {
+  return text.replace(/\s+/g, " ").trim();
 }
-function isCollectableControlText(text2) {
-  const compact2 = compactLength(text2);
-  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text2);
+function isCollectableControlText(text) {
+  const compact2 = compactLength(text);
+  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text);
 }
 function fragmentText(items) {
   return items.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
@@ -5996,17 +5996,17 @@ function flushFragmentTextTarget(state) {
 }
 function fragmentTextTargetFrom(fragments, options) {
   const trimmedFragments = trimTextFragments(fragments);
-  const text2 = fragmentText(trimmedFragments);
-  if (!isCollectableFragmentText(text2, trimmedFragments, options)) return null;
+  const text = fragmentText(trimmedFragments);
+  if (!isCollectableFragmentText(text, trimmedFragments, options)) return null;
   const parent = trimmedFragments[0]?.node.parentElement;
   if (!parent) return null;
-  if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
+  if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
   const decoration = fragmentTargetDecoration(parent, trimmedFragments);
   if (decoration === "skip") return null;
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
   return {
-  text: text2,
+  text,
   parent,
   fragments: trimmedFragments,
   decoration,
@@ -6041,13 +6041,13 @@ function fragmentTargetDecoration(parent, fragments) {
   }
   return parentDecoration;
 }
-function isCollectableFragmentText(text2, fragments, options) {
-  if (!HAS_JAPANESE.test(text2)) return false;
-  if (compactFragmentTextLength(text2) >= (options.minLength ?? 2)) return true;
+function isCollectableFragmentText(text, fragments, options) {
+  if (!HAS_JAPANESE.test(text)) return false;
+  if (compactFragmentTextLength(text) >= (options.minLength ?? 2)) return true;
   return fragments.some((fragment) => fragment.hasNativeRuby);
 }
-function compactFragmentTextLength(text2) {
-  return text2.replace(/\s+/g, "").length;
+function compactFragmentTextLength(text) {
+  return text.replace(/\s+/g, "").length;
 }
 function visitFragmentNode(node, state, hasNativeRuby = false, isRoot = false) {
   if (fragmentCollectionComplete(state)) return;
@@ -6059,20 +6059,20 @@ function visitFragmentNode(node, state, hasNativeRuby = false, isRoot = false) {
   visitFragmentElement(node, state, hasNativeRuby, isRoot);
 }
 function collectFragmentTextNode(node, state, hasNativeRuby) {
-  const text2 = node.textContent ?? "";
-  if (shouldIgnoreFragmentTextNode(text2, state.options)) return;
+  const text = node.textContent ?? "";
+  if (shouldIgnoreFragmentTextNode(text, state.options)) return;
   const parent = node.parentElement;
-  if (text2) state.fragments.push({
+  if (text) state.fragments.push({
   node,
   start: 0,
-  end: text2.length,
+  end: text.length,
   hasNativeRuby,
   layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
   passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state.options) : false
   });
 }
-function shouldIgnoreFragmentTextNode(text2, options) {
-  return Boolean(options.mergeBlockFragments && !text2.trim());
+function shouldIgnoreFragmentTextNode(text, options) {
+  return Boolean(options.mergeBlockFragments && !text.trim());
 }
 function visitFragmentElement(element, state, hasNativeRuby, isRoot) {
   if (shouldIgnoreFragmentElement(element, state.options, isRoot)) return;
@@ -6155,9 +6155,9 @@ function textWalkerHasJapaneseWithinBudget(walker, budget) {
   if (budget.inspectedCharacters >= budget.limit) return false;
   let node;
   while (node = walker.nextNode()) {
-  const text2 = nodeTextContent(node);
+  const text = nodeTextContent(node);
   const remaining = budget.limit - budget.inspectedCharacters;
-  const sampled = text2.slice(0, remaining);
+  const sampled = text.slice(0, remaining);
   budget.inspectedCharacters += sampled.length;
   if (HAS_JAPANESE.test(sampled)) return true;
   if (budget.inspectedCharacters >= budget.limit) return false;
@@ -6264,16 +6264,16 @@ function hasVisibleTextMirror(element) {
   return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
 }
 function shouldSkipFragmentTextPresentation(element, options) {
-  const text2 = element.textContent?.trim() ?? "";
-  if (shouldSkipFragmentHeading(element, text2, options)) return true;
-  if (shouldSkipFragmentUiText(element, text2, options)) return true;
+  const text = element.textContent?.trim() ?? "";
+  if (shouldSkipFragmentHeading(element, text, options)) return true;
+  if (shouldSkipFragmentUiText(element, text, options)) return true;
   return isReaderRenderedTextBlock(element);
 }
-function shouldSkipFragmentHeading(element, text2, options) {
-  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element, text2));
+function shouldSkipFragmentHeading(element, text, options) {
+  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text && isShortCenteredDisplayHeading(element, text));
 }
-function shouldSkipFragmentUiText(element, text2, options) {
-  return Boolean(!options.allowUiText && text2 && isFragileUiText(element, text2));
+function shouldSkipFragmentUiText(element, text, options) {
+  return Boolean(!options.allowUiText && text && isFragileUiText(element, text));
 }
 function isBlockFragmentElement(element, options) {
   return !options.mergeBlockFragments && isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
@@ -6351,8 +6351,8 @@ function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
   return candidates.some(visibleVisualLabel);
 }
 function visibleVisualLabel(element) {
-  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text2)) return false;
+  const text = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!text || compactLength(text) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text)) return false;
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element));
 }
@@ -6483,23 +6483,23 @@ function isCurrentFragmentScanTarget(target) {
   if (!target.parent.isConnected) return false;
   if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
   if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
-  const text2 = target.fragments.map((fragment) => {
+  const text = target.fragments.map((fragment) => {
   if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
   return fragment.node.data.slice(fragment.start, fragment.end);
   });
-  return text2.every((value) => value !== null) && text2.join("") === target.text;
+  return text.every((value) => value !== null) && text.join("") === target.text;
 }
 const REPAINT_LOOP_THRESHOLD = 4;
 const REPAINT_LOOP_WINDOW_MS = 3e3;
 const loopingScanHosts = new WeakSet();
 const scanHostRepaintLog = new WeakMap();
-function scanHostIsRepaintLooping(host, text2) {
+function scanHostIsRepaintLooping(host, text) {
   if (loopingScanHosts.has(host)) return true;
   const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
   const previous = scanHostRepaintLog.get(host);
-  const times = (previous && previous.text === text2 ? previous.times : []).filter((time) => now - time < REPAINT_LOOP_WINDOW_MS);
+  const times = (previous && previous.text === text ? previous.times : []).filter((time) => now - time < REPAINT_LOOP_WINDOW_MS);
   times.push(now);
-  scanHostRepaintLog.set(host, { text: text2, times });
+  scanHostRepaintLog.set(host, { text, times });
   if (times.length < REPAINT_LOOP_THRESHOLD) return false;
   loopingScanHosts.add(host);
   return true;
@@ -6589,13 +6589,13 @@ function targetRequiresReactiveLeafMirrors(target) {
 function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
   const indexed = indexTextFragments(target.fragments);
   for (const run of reactiveLeafRuns(indexed)) {
-  const text2 = target.text.slice(run.globalStart, run.globalEnd);
+  const text = target.text.slice(run.globalStart, run.globalEnd);
   const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
-  if (!runTokens.length || !HAS_JAPANESE.test(text2)) continue;
+  if (!runTokens.length || !HAS_JAPANESE.test(text)) continue;
   const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
   const leafTarget = {
     ...target,
-    text: text2,
+    text,
     parent: run.parent,
     fragments: run.fragments.map((fragment) => ({
       node: fragment.node,
@@ -6680,8 +6680,8 @@ function applyTokensToTextNode(target, tokens, settings) {
   applyTokensToNonDestructiveScanTarget({ ...target, insideShadowDOM: true }, tokens, settings);
   return;
   }
-  const text2 = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text2);
+  const text = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text);
   if (!safeTokens.length) return;
   const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
   registerDestructivePaintTextNodes(fragment);
@@ -6702,7 +6702,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
   });
   return wrapDirectFlexGridTextRun(fragment, target.parent);
 }
-function renderTokenizedScanText(text2, tokens, settings, target) {
+function renderTokenizedScanText(text, tokens, settings, target) {
   const fragment = document.createDocumentFragment();
   const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
   const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
@@ -6710,16 +6710,16 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
   let offset = 0;
   const tokenPlans = tokens.map((token) => ({
   token,
-  tokenWithSentence: tokenWithReadableSentence(token, text2, token.sentence)
+  tokenWithSentence: tokenWithReadableSentence(token, text, token.sentence)
   }));
   const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map((plan) => plan.tokenWithSentence));
   for (const plan of tokenPlans) {
   const { token, tokenWithSentence } = plan;
-  appendPlainTextBeforeToken(fragment, text2, offset, token.start, true);
+  appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
   if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
     fragment.append(document.createElement("wbr"));
   }
-  fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
+  fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
     allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
     detachedReadings: target.detachedReadings ?? suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -6731,7 +6731,7 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
   }));
   offset = token.end;
   }
-  appendPlainTextBeforeToken(fragment, text2, offset, text2.length);
+  appendPlainTextBeforeToken(fragment, text, offset, text.length);
   return fragment;
 }
 function nonDestructiveHostRenderPlan(host, target, tokens) {
@@ -6926,9 +6926,9 @@ function shiftTokenOffsets(token, delta) {
 }
 function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
-  const text2 = plan.text;
+  const text = plan.text;
   const safeTokens = plan.tokens;
-  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
+  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const { clipRow, detachedReadings } = textMirrorClipMode(
@@ -6940,7 +6940,7 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
-  text: text2,
+  text,
   safeTokens,
   renderPlan,
   renderSettings,
@@ -7747,48 +7747,48 @@ function constrainMirrorToClampBox(mirror, clipRow) {
   if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
   mirror.style.setProperty("overflow", "hidden");
 }
-function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
-  if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
-  const { normalized, offsets } = collapseWhitespaceWithOffsets(text2, whitespaceJoints);
-  if (normalized === text2) return { text: text2, tokens };
+function whitespaceCollapsedNonDestructiveRender(text, tokens, whitespaceJoints) {
+  if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
+  const { normalized, offsets } = collapseWhitespaceWithOffsets(text, whitespaceJoints);
+  if (normalized === text) return { text, tokens };
   return {
   text: normalized,
   tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
   };
 }
-function collapseWhitespaceWithOffsets(text2, whitespaceJoints = []) {
-  const offsets = new Array(text2.length + 1);
+function collapseWhitespaceWithOffsets(text, whitespaceJoints = []) {
+  const offsets = new Array(text.length + 1);
   const joints = new Set(whitespaceJoints);
   let normalized = "";
   let index = 0;
-  while (index < text2.length) {
-  if (/\s/u.test(text2[index] ?? "")) {
+  while (index < text.length) {
+  if (/\s/u.test(text[index] ?? "")) {
     const start = index;
     let touchesJoint = joints.has(start);
-    while (index < text2.length && /\s/u.test(text2[index] ?? "")) {
+    while (index < text.length && /\s/u.test(text[index] ?? "")) {
       index += 1;
       if (joints.has(index)) touchesJoint = true;
     }
     const mapped = normalized.length;
-    if (normalized.length > 0 && index < text2.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
+    if (normalized.length > 0 && index < text.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text.codePointAt(index) ?? 0)))) {
       normalized += " ";
     }
     for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
     continue;
   }
   offsets[index] = normalized.length;
-  normalized += text2[index];
+  normalized += text[index];
   index += 1;
   }
-  offsets[text2.length] = normalized.length;
+  offsets[text.length] = normalized.length;
   return { normalized, offsets };
 }
 function isCjkChar(char) {
   return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-ﾟ\u{20000}-\u{3FFFF}]/u.test(char ?? "");
 }
-function lastFullChar(text2) {
-  if (!text2) return void 0;
-  const chars = Array.from(text2.slice(-2));
+function lastFullChar(text) {
+  if (!text) return void 0;
+  const chars = Array.from(text.slice(-2));
   return chars[chars.length - 1];
 }
 function remapTokenOffsets(token, offsets, sentence) {
@@ -7834,11 +7834,11 @@ function currentTextMirror(host) {
   if (direct) return direct;
   return ownedTextMirrors(host)[0] ?? null;
 }
-function textMirrorAlreadyRenders(host, text2) {
+function textMirrorAlreadyRenders(host, text) {
   const mirror = currentTextMirror(host);
   if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
   const source = mirror.dataset.sourceText ?? "";
-  const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text2);
+  const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
   if (renders && mirror.style.getPropertyValue("visibility") === "hidden") {
   syncTextMirrorVisibilityToPage(host, mirror);
   }
@@ -7869,25 +7869,25 @@ const controlTextMirrorHosts = new WeakMap();
 function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   const host = target.parent;
   if (!host.isConnected) return;
-  const text2 = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text2);
-  const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
+  const text = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text);
+  const placeholderOverlay = isPlaceholderControlTextMirror(host, text);
   const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
   const detachedReadings = suppressRuby && !placeholderOverlay;
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const existing = currentControlTextMirror(host);
-  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
+  if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
   removeControlTextMirror(host);
   if (!safeTokens.length) return;
   const mirror = document.createElement("span");
   mirror.className = "jpdb-reader-control-text-mirror";
   mirror.dataset.jpdbReaderControlTextMirror = "true";
   mirror.dataset.jpdbReaderControlMirrorKind = placeholderOverlay ? "placeholder" : "inline";
-  mirror.dataset.sourceText = text2;
+  mirror.dataset.sourceText = text;
   mirror.dataset.renderSignature = signature;
   const state = styleControlTextMirror(mirror, host, placeholderOverlay);
-  mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+  mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
   parent: host,
   hasNativeRuby: false,
   decoration: target.decoration,
@@ -7914,13 +7914,13 @@ function canvasFallbackRenderContext(target, tokens, settings) {
   if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return null;
   const host = canvas.parentElement;
   if (!host) return null;
-  const text2 = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text2);
+  const text = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text);
   const nativeCanvas = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
   const suppressRuby = [nativeCanvas, Boolean(target.suppressRuby)].includes(true);
   const renderSettings = furiganaSettingsForTarget(settings, canvas);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
-  return { canvas, host, text: text2, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
+  return { canvas, host, text, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
 }
 function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
   const context = canvasFallbackRenderContext(target, tokens, settings);
@@ -8008,10 +8008,10 @@ function removeCanvasFallbackTextLayer(canvas) {
   }
   canvasFallbackTextLayers.delete(canvas);
 }
-function isPlaceholderControlTextMirror(host, text2) {
+function isPlaceholderControlTextMirror(host, text) {
   if (!(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return false;
   if (host.value.trim()) return false;
-  return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text2);
+  return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text);
 }
 function styleControlTextMirror(mirror, host, placeholderOverlay) {
   const style = safeComputedStyle(host);
@@ -8369,7 +8369,7 @@ function nodeIsReaderMirrorNode(node) {
   return node instanceof Element && Boolean(node.closest?.(READER_TEXT_MIRROR_SELECTOR));
 }
 function nativeTextMirrorHostText(host) {
-  let text2 = "";
+  let text = "";
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
   acceptNode(node) {
     const parent = node.parentElement;
@@ -8377,13 +8377,13 @@ function nativeTextMirrorHostText(host) {
     return NodeFilter.FILTER_ACCEPT;
   }
   });
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
-  if (HAS_JAPANESE.test(text2)) return text2;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? "";
+  if (HAS_JAPANESE.test(text)) return text;
   const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
-  return HAS_JAPANESE.test(labelledText) ? labelledText : text2;
+  return HAS_JAPANESE.test(labelledText) ? labelledText : text;
 }
-function normalizedMirrorHostText(text2) {
-  return text2.replace(/\s+/g, " ").trim();
+function normalizedMirrorHostText(text) {
+  return text.replace(/\s+/g, " ").trim();
 }
 function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
@@ -8520,9 +8520,9 @@ function canvasForFallbackTextLayer(layer) {
   if (!host) return null;
   return Array.from(host.querySelectorAll("canvas")).find((canvas) => canvasFallbackTextLayers.get(canvas)?.layer === layer) ?? null;
 }
-function appendPlainTextBeforeToken(fragment, text2, start, end, followedByToken = false) {
+function appendPlainTextBeforeToken(fragment, text, start, end, followedByToken = false) {
   if (end <= start) return;
-  const slice = text2.slice(start, end);
+  const slice = text.slice(start, end);
   const digits = followedByToken ? TRAILING_DIGITS_RE.exec(slice)?.[0] : void 0;
   if (!digits) {
   fragment.append(document.createTextNode(slice));
@@ -8536,13 +8536,13 @@ function appendPlainTextBeforeToken(fragment, text2, start, end, followedByToken
   fragment.append(bind);
 }
 function markRenderedScanTarget(target) {
-  const text2 = normalizedRenderedHostText(target.text);
-  if (!text2 || !HAS_JAPANESE.test(text2) || !target.parent.isConnected) return;
+  const text = normalizedRenderedHostText(target.text);
+  if (!text || !HAS_JAPANESE.test(text) || !target.parent.isConnected) return;
   const previous = renderedScanHosts.get(target.parent);
   const now = Date.now();
-  const keepBackoff = previous && previous.text === text2 && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
+  const keepBackoff = previous && previous.text === text && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
   renderedScanHosts.set(target.parent, {
-  text: text2,
+  text,
   markedAt: now,
   lastRejectedAt: keepBackoff ? previous.lastRejectedAt : void 0,
   rejectionCount: keepBackoff ? previous.rejectionCount : void 0
@@ -8618,8 +8618,8 @@ function restoredHostTextMatches(element, previousText, addedNodes) {
 function textMatchesRenderedHost(candidate, previousText) {
   return Boolean(candidate && previousText && (candidate.includes(previousText) || previousText.includes(candidate)));
 }
-function normalizedRenderedHostText(text2) {
-  return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+function normalizedRenderedHostText(text) {
+  return text.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
 }
 function normalizedRenderedHostSurfaceText(element) {
   return normalizedRenderedHostText(readerWordSurfaceText(element) || element.textContent || "");
@@ -8660,16 +8660,16 @@ function renderedWordLooksDamaged(word) {
   return hasFuri && (!hasBase || !surface);
 }
 function readerWordDomSurfaceText(element) {
-  let text2 = "";
+  let text = "";
   element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
-    text2 += node.textContent ?? "";
+    text += node.textContent ?? "";
     return;
   }
   if (!(node instanceof Element) || node.matches("rt,rp")) return;
-  text2 += readerWordDomSurfaceText(node);
+  text += readerWordDomSurfaceText(node);
   });
-  return text2;
+  return text;
 }
 function mutationTargetElement(target) {
   if (target.nodeType === Node.ELEMENT_NODE) return target;
@@ -8744,14 +8744,14 @@ function groupSingleFragmentTokenPlans(plans) {
 function replaceSingleFragmentTokenNode(target, fragment, plans, settings, miningInsightKeys) {
   if (!fragment.node.parentNode || !plans.length) return;
   const replacement = document.createDocumentFragment();
-  const text2 = fragment.node.data;
+  const text = fragment.node.data;
   let offset = fragment.start;
   for (const plan of plans) {
-  appendPlainTextBeforeToken(replacement, text2, offset, plan.localStart, true);
+  appendPlainTextBeforeToken(replacement, text, offset, plan.localStart, true);
   replacement.append(renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys));
   offset = plan.localEnd;
   }
-  appendPlainTextBeforeToken(replacement, text2, offset, fragment.end);
+  appendPlainTextBeforeToken(replacement, text, offset, fragment.end);
   replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
 }
 function wrapDirectFlexGridTextRun(replacement, parent) {
@@ -9042,8 +9042,8 @@ function insertMultiFragmentToken(range, surface, token, settings, options = {})
   shell.append(range.extractContents());
   range.insertNode(shell);
 }
-function tokenWithReadableSentence(token, text2, fallback) {
-  const sentence = sentenceAroundRange(text2, token.start, token.end, fallback) || fallback || token.sentence;
+function tokenWithReadableSentence(token, text, fallback) {
+  const sentence = sentenceAroundRange(text, token.start, token.end, fallback) || fallback || token.sentence;
   return sentence === token.sentence ? token : { ...token, sentence };
 }
 function indexTextFragments(fragments) {
@@ -9085,56 +9085,37 @@ function leadingEdgeFragmentBoundary(fragments, offset) {
   const fragment = fragments[0];
   return fragment && offset === fragment.globalStart ? { fragment, localOffset: fragment.start } : null;
 }
-function renderTokensToHtml(text2, tokens, settings) {
-  let html = "";
-  let offset = 0;
-  const safeTokens = nonOverlappingTokens(tokens, text2);
-  const miningInsightKeys = miningInsightTokenKeys(safeTokens);
-  for (const token of safeTokens) {
-  if (token.start > offset) html += plainTextBeforeTokenHtml(text2.slice(offset, token.start));
-  html += renderTokenHtml(text2.slice(token.start, token.end), token, settings, miningInsightKeys);
-  offset = token.end;
-  }
-  if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-  return html;
-}
-function plainTextBeforeTokenHtml(gap) {
-  const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
-  if (!digits) return escapeHtml$1(gap);
-  const prefix = gap.slice(0, gap.length - digits.length);
-  return `${escapeHtml$1(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$1(digits)}</span>`;
-}
-function renderHighlightedTextHtml(text2, targets, className) {
+function renderHighlightedTextHtml(text, targets, className) {
   const needles = uniqueNonEmptyStrings$1(targets).sort((a, b) => b.length - a.length);
-  if (!text2 || !needles.length) return escapeHtml$1(text2);
-  return renderHighlightChunks(text2, needles, className);
+  if (!text || !needles.length) return escapeHtml$1(text);
+  return renderHighlightChunks(text, needles, className);
 }
-function renderHighlightChunks(text2, needles, className) {
+function renderHighlightChunks(text, needles, className) {
   let html = "";
   let offset = 0;
-  while (offset < text2.length) {
-  const match = nextHighlightMatch(text2, needles, offset);
+  while (offset < text.length) {
+  const match = nextHighlightMatch(text, needles, offset);
   if (!match) break;
-  html += renderHighlightChunk(text2, className, offset, match);
+  html += renderHighlightChunk(text, className, offset, match);
   offset = match.index + match.needle.length;
   }
-  if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
+  if (offset < text.length) html += escapeHtml$1(text.slice(offset));
   return html;
 }
-function renderHighlightChunk(text2, className, offset, match) {
-  const prefix = match.index > offset ? escapeHtml$1(text2.slice(offset, match.index)) : "";
-  const marked = text2.slice(match.index, match.index + match.needle.length);
+function renderHighlightChunk(text, className, offset, match) {
+  const prefix = match.index > offset ? escapeHtml$1(text.slice(offset, match.index)) : "";
+  const marked = text.slice(match.index, match.index + match.needle.length);
   return `${prefix}<mark class="${escapeHtml$1(className)}">${escapeHtml$1(marked)}</mark>`;
 }
-function nextHighlightMatch(text2, needles, offset) {
+function nextHighlightMatch(text, needles, offset) {
   let best = null;
   for (const needle of needles) {
-  best = betterHighlightMatch(best, highlightMatchForNeedle(text2, needle, offset));
+  best = betterHighlightMatch(best, highlightMatchForNeedle(text, needle, offset));
   }
   return best;
 }
-function highlightMatchForNeedle(text2, needle, offset) {
-  const index = text2.indexOf(needle, offset);
+function highlightMatchForNeedle(text, needle, offset) {
+  const index = text.indexOf(needle, offset);
   return index < 0 ? null : { index, needle };
 }
 function betterHighlightMatch(current, candidate) {
@@ -9148,19 +9129,19 @@ function isBetterHighlightMatch(candidate, current) {
 function uniqueNonEmptyStrings$1(values) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
-function nonOverlappingTokens(tokens, text2) {
+function nonOverlappingTokens(tokens, text) {
   const safe = [];
   let offset = 0;
   for (const token of tokens) {
-  if (!isSafeTokenSpan(token, offset, text2)) continue;
+  if (!isSafeTokenSpan(token, offset, text)) continue;
   safe.push(token);
   offset = token.end;
   }
   return safe;
 }
-function isSafeTokenSpan(token, offset, text2) {
-  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-  return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
+function isSafeTokenSpan(token, offset, text) {
+  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text.length) return false;
+  return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
 }
 function miningInsightTokenKeys(tokens) {
   const sentences = new Map();
@@ -9288,45 +9269,11 @@ function applyTokenRenderOptions(span, token, options) {
   span.dataset.jpdbReaderPassive = "true";
   }
 }
-function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-  const state = primaryCardState(token.card.cardState);
-  const hasRuby = shouldRenderRuby(surface, token, settings);
-  const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
-  const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-  const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
-  const classes2 = [
-  readerWordClassName(state, token, settings),
-  hasRuby ? "jpdb-reader-has-furi" : "",
-  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
-  ].filter(Boolean).join(" ");
-  const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
-  const cardId = ` data-card-id="${readerCardId(token.card)}"`;
-  const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-  const cardState = ` data-card-state="${escapeHtml$1(state)}"`;
-  const tokenRange2 = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
-  const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
-  const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
-  const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
-  const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
-  const pitchAccent = token.card.pitchAccent.join("|");
-  const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-  const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
-  const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-  const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$1(pitchComponentGradient)}"` : "";
-  const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
-}
 function applyPitchComponentGradient(word, card) {
   const gradient = pitchComponentUnderlineGradient(card);
   if (!gradient) return;
   word.dataset.pitchComponents = "true";
   word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
-}
-function renderDeckMembershipAttributes(card) {
-  const membership = cardDeckMembership(card);
-  if (!membership.member) return "";
-  const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml$1(membership.names.join(", "))}"` : "";
-  return ` data-deck-member="true" data-deck-source="${escapeHtml$1(membership.source)}"${deckNames}`;
 }
 function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
   if (!allowRuby) return false;
@@ -9621,12 +9568,12 @@ function findRubyKanaAnchorPlan(base, reading, runs, index, readingOffset, ancho
   }
   return null;
 }
-function readingRunOccurrences(reading, text2, offset) {
+function readingRunOccurrences(reading, text, offset) {
   const occurrences = [];
-  let index = reading.indexOf(text2, offset);
+  let index = reading.indexOf(text, offset);
   while (index >= 0) {
   occurrences.push(index);
-  index = reading.indexOf(text2, index + 1);
+  index = reading.indexOf(text, index + 1);
   }
   return occurrences;
 }
@@ -9705,33 +9652,33 @@ function isBlockLikeDisplay(display) {
 }
 const INLINE_DISPLAY_VALUES = new Set(["inline", "contents", "inline-block", "inline-flex", "inline-grid"]);
 const BLOCK_LIKE_DISPLAY_VALUES = new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
-function isFragileUiText(element, text2) {
-  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
-  return isFragileUiContext(element, text2);
+function isFragileUiText(element, text) {
+  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
+  return isFragileUiContext(element, text);
 }
-function isGeometryFragileText(element, text2) {
-  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
-  const metrics = fragileTextMetrics(element, text2);
+function isGeometryFragileText(element, text) {
+  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
+  const metrics = fragileTextMetrics(element, text);
   if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
-  if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
-  if (isInsideMediaTextLink(element, text2)) return true;
-  return fragileByInlineControl(text2, metrics.style, metrics.rect);
+  if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
+  if (isInsideMediaTextLink(element, text)) return true;
+  return fragileByInlineControl(text, metrics.style, metrics.rect);
 }
-function isShortCenteredDisplayHeading(element, text2) {
+function isShortCenteredDisplayHeading(element, text) {
   const heading = closestDisplayHeading(element);
   if (!heading) return false;
   const style = safeComputedStyle(heading);
-  const headingText = heading.textContent?.trim() || text2;
-  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
+  const headingText = heading.textContent?.trim() || text;
+  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
   return style.textAlign === "center" && compactLength(headingText) <= 40;
 }
 function closestDisplayHeading(element) {
   return DISPLAY_HEADING_RE.test(element.tagName) ? element : element.closest(DISPLAY_HEADING_SELECTOR);
 }
-function isReadablePrimaryDisplayHeadingText(element, text2) {
+function isReadablePrimaryDisplayHeadingText(element, text) {
   const heading = closestDisplayHeading(element);
   if (!heading || heading.tagName !== "H1") return false;
-  if (compactLength(text2) < 4) return false;
+  if (compactLength(text) < 4) return false;
   return isReadablePrimaryDisplayHeadingElement(heading);
 }
 function isReadablePrimaryDisplayHeadingElement(element) {
@@ -9740,35 +9687,35 @@ function isReadablePrimaryDisplayHeadingElement(element) {
   if (heading.closest('header, nav, footer, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]')) return false;
   return Boolean(heading.closest('main, [role="main"]'));
 }
-function isFragileUiContext(element, text2) {
-  if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text2)) return true;
-  if (text2.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
-  return isInsideControlLikeLink(element, text2);
+function isFragileUiContext(element, text) {
+  if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text)) return true;
+  if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+  return isInsideControlLikeLink(element, text);
 }
-function isReadableProseUiClassText(element, text2) {
-  if (compactLength(text2) < 8) return false;
+function isReadableProseUiClassText(element, text) {
+  if (compactLength(text) < 8) return false;
   return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
 }
-function fragileTextMetrics(element, text2) {
+function fragileTextMetrics(element, text) {
   const style = safeComputedStyle(element);
   const rect = element.getBoundingClientRect();
-  const compactLength2 = Array.from(text2.replace(/\s+/g, "")).length;
+  const compactLength2 = Array.from(text.replace(/\s+/g, "")).length;
   const fontSize = cssPixels(style.fontSize);
   const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
   return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element) };
 }
-function fragileByCompactLayout(text2, style, rect) {
-  if (!hasCompactLayoutShape(text2, rect)) return false;
+function fragileByCompactLayout(text, style, rect) {
+  if (!hasCompactLayoutShape(text, rect)) return false;
   return hasCompactLayoutAlignment(style);
 }
-function hasCompactLayoutShape(text2, rect) {
-  return rect.width > 0 && text2.length <= 12 && rect.width < 180;
+function hasCompactLayoutShape(text, rect) {
+  return rect.width > 0 && text.length <= 12 && rect.width < 180;
 }
 function hasCompactLayoutAlignment(style) {
   return style.textAlign === "center" || style.whiteSpace !== "normal";
 }
-function fragileByInlineControl(text2, style, rect) {
-  return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
+function fragileByInlineControl(text, style, rect) {
+  return text.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
 }
 function fragileByTypography(element, style, compactLength2, fontSize, lineHeight, prose) {
   const centered = style.textAlign === "center";
@@ -9803,17 +9750,17 @@ function ancestorClassLooksLikeUi(element) {
   }
   return false;
 }
-function isInsideControlLikeLink(element, text2) {
+function isInsideControlLikeLink(element, text) {
   const link = element.closest("a[href]");
   if (!link) return false;
   if (isLikelyProseLink(link, element)) return false;
-  const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
-  return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
+  const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text) <= 2;
+  return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text)].some(Boolean);
 }
-function isInsideMediaTextLink(element, text2) {
+function isInsideMediaTextLink(element, text) {
   const link = element.closest("a[href]");
   if (!link || isLikelyProseLink(link, element)) return false;
-  return linkHasControlMedia(link) && compactLength(text2) > 2;
+  return linkHasControlMedia(link) && compactLength(text) > 2;
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
@@ -10297,7 +10244,7 @@ function fallbackUiText(key) {
 }
 function formatTemplate(template, values) {
   return Object.entries(values).reduce(
-  (text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
+  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
   template
   );
 }
@@ -11400,13 +11347,13 @@ async function requestText$2(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "text" });
   return typeof value === "string" ? value : String(value ?? "");
 }
-async function requestBlob$1(url, options = {}) {
+async function requestBlob(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "blob" });
   if (value instanceof Blob) return value;
   if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
   throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? "Request"} did not return a blob.`);
 }
-async function requestJson$1(url, options = {}) {
+async function requestJson(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "json" });
   return value;
 }
@@ -11430,7 +11377,7 @@ function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
   failureLabel: uiText(language, "audioRequest"),
   timeoutLabel: uiText(language, "audioRequestTimedOut")
   };
-  return responseType === "blob" ? requestBlob$1(responseUrl, requestOptions) : requestText$2(responseUrl, requestOptions);
+  return responseType === "blob" ? requestBlob(responseUrl, requestOptions) : requestText$2(responseUrl, requestOptions);
 }
 function shouldPreferFetchForAudioRequests() {
   return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
@@ -11657,7 +11604,7 @@ function jitenSentenceTtsUrl(sentenceId, voice) {
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
 const LOOPBACK_AUDIO_HOSTS = new Set(["localhost", "127.0.0.1"]);
-const KANA_ONLY_RE$2 = /^[\u3040-\u30ffー・]+$/u;
+const KANA_ONLY_RE$1 = /^[\u3040-\u30ffー・]+$/u;
 const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
 const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
 const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
@@ -12173,7 +12120,7 @@ function findJishoAudioElement(html, card) {
 function canUseKanaJishoAudioFallback(card) {
   const spelling = card.spelling.trim();
   const reading = card.reading.trim();
-  return Boolean(spelling && reading && KANA_ONLY_RE$2.test(spelling));
+  return Boolean(spelling && reading && KANA_ONLY_RE$1.test(spelling));
 }
 function findUniqueJishoReadingAudioElement(html, reading) {
   const matches = findHtmlElements(html, "audio").filter((element) => jishoAudioReading(element).trim() === reading);
@@ -12614,7 +12561,7 @@ const SOFT_CHIME_NOTES = [
   { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
 ];
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-const log$g = Logger.scope("Audio");
+const log$e = Logger.scope("Audio");
 class AudioPlaybackAttemptError extends Error {
   constructor(error) {
   super(error instanceof Error ? error.message : String(error));
@@ -12654,7 +12601,7 @@ class AudioPlayer {
   const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
-  const done = log$g.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+  const done = log$e.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
   const result = await this.playFromSources(
     request.sources,
     card,
@@ -12734,7 +12681,7 @@ class AudioPlayer {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
-  log$g.warn("No audio sources configured", { term: card.spelling });
+  log$e.warn("No audio sources configured", { term: card.spelling });
   return await this.playMissingAudioFallback(
     request.settings,
     request.requestId,
@@ -12747,7 +12694,7 @@ class AudioPlayer {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  log$g.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+  log$e.warn("No playable audio found", { term: card.spelling, errors: result.errors });
   return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
   }
   async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
@@ -12868,10 +12815,10 @@ class AudioPlayer {
   this.playRequestId++;
   this.stopCurrent();
   }
-  async playJapaneseText(text2, voiceName = "") {
+  async playJapaneseText(text, voiceName = "") {
   const settings = this.getSettings();
   const requestId = ++this.playRequestId;
-  const trimmed = text2.trim();
+  const trimmed = text.trim();
   if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, "noTextToRead"));
   this.stopCurrent();
   await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName, settings));
@@ -12973,7 +12920,7 @@ class AudioPlayer {
     void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
       const audioId = audioIds[index];
       if (audioId) this.markJpdbAudioUnavailable(audioId);
-      log$g.warn("JPDB grouped audio segment failed", { audioId }, error);
+      log$e.warn("JPDB grouped audio segment failed", { audioId }, error);
     });
   }, { once: true });
   }
@@ -13018,8 +12965,8 @@ class AudioPlayer {
   async playFromTextToSpeechSource(source, context) {
   const { card, settings, requestId, isCurrent } = context;
   if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  const text2 = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
-  const played = await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings), {
+  const text = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
+  const played = await this.playTextToSpeech(text, source.voice, this.textToSpeechSourceBagKey(source, card, settings), {
     avoidIdentity: context.avoidIdentity,
     onAvoided: () => {
       context.attemptState.skippedAvoidedIdentity = true;
@@ -13069,7 +13016,7 @@ class AudioPlayer {
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
-      log$g.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+      log$e.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
     } else {
       errors.push(audioErrorMessage(error));
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -13272,7 +13219,7 @@ class AudioPlayer {
   try {
     playbackLifecycle?.onStart?.();
   } catch (error) {
-    log$g.warn("Audio playback start callback failed", void 0, error);
+    log$e.warn("Audio playback start callback failed", void 0, error);
   }
   }
   finishPlayback(requestId) {
@@ -13283,7 +13230,7 @@ class AudioPlayer {
   try {
     active.onEnd?.();
   } catch (error) {
-    log$g.warn("Audio playback end callback failed", void 0, error);
+    log$e.warn("Audio playback end callback failed", void 0, error);
   }
   }
   async webAudioBytes(audioUrl) {
@@ -13333,15 +13280,15 @@ class AudioPlayer {
   const settings = this.getSettings();
   return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
   }
-  playTextToSpeech(text2, voiceName, deckKey, options = {}) {
+  playTextToSpeech(text, voiceName, deckKey, options = {}) {
   const settings = this.getSettings();
   if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
   return new Promise((resolve, reject) => {
-    const utterance = new SpeechSynthesisUtterance(text2);
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ja-JP";
     const voices = speechSynthesis.getVoices();
     const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
-    const identity = textToSpeechPlaybackIdentity(text2, choice.voice);
+    const identity = textToSpeechPlaybackIdentity(text, choice.voice);
     if (identity === options.avoidIdentity) {
       this.markTextToSpeechVoiceSkipped(choice);
       options.onAvoided?.();
@@ -13400,8 +13347,8 @@ class AudioPlayer {
   textToSpeechSourceBagKey(source, card, settings) {
   return settings.audioSelectionMode === "random" && !source.voice.trim() ? getAudioBagKey(source, card) : void 0;
   }
-  textToSpeechTextBagKey(text2, voiceName, settings) {
-  return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
+  textToSpeechTextBagKey(text, voiceName, settings) {
+  return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text].join("") : void 0;
   }
   async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false, playbackLifecycle) {
   if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
@@ -13461,10 +13408,10 @@ function audioCandidatePlaybackIdentity(candidate) {
   if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
   return normalizeAttemptedAudioUrl(candidate.url);
 }
-function textToSpeechPlaybackIdentity(text2, _voice) {
+function textToSpeechPlaybackIdentity(text, _voice) {
   return [
   "text-to-speech",
-  text2
+  text
   ].join("");
 }
 function audioIdentityCardKeys(card) {
@@ -13863,16 +13810,16 @@ function isEditableEventContext(event) {
   const path = typeof event.composedPath === "function" ? event.composedPath() : [];
   return path.some((node) => node instanceof Element && isEditableElement(node));
 }
-async function copyText(text2) {
+async function copyText(text) {
   if (navigator.clipboard?.writeText) {
   try {
-    await navigator.clipboard.writeText(text2);
+    await navigator.clipboard.writeText(text);
     return;
   } catch {
   }
   }
   const textarea = document.createElement("textarea");
-  textarea.value = text2;
+  textarea.value = text;
   textarea.style.position = "fixed";
   textarea.style.opacity = "0";
   document.body.append(textarea);
@@ -14272,7 +14219,7 @@ function isDisabledControl(control) {
   if (control.closest('[aria-disabled="true"]')) return true;
   return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$f = Logger.scope("CardStateSignal");
+const log$d = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -14310,7 +14257,7 @@ function publishCardStateSignal(card) {
   try {
   gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
   } catch (error) {
-  log$f.debug("GM card-state publish failed", error);
+  log$d.debug("GM card-state publish failed", error);
   }
   publishBroadcastCardStateSignal(signal);
 }
@@ -14321,7 +14268,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$f.debug("Broadcast card-state publish failed", error);
+  log$d.debug("Broadcast card-state publish failed", error);
   }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -14345,7 +14292,7 @@ function subscribeToCardStateSignals(onCard) {
       if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
     });
   } catch (error) {
-    log$f.debug("GM card-state listener failed", error);
+    log$d.debug("GM card-state listener failed", error);
   }
   }
   if (typeof BroadcastChannel === "function") {
@@ -14354,7 +14301,7 @@ function subscribeToCardStateSignals(onCard) {
     channel.onmessage = (event) => handle(event.data);
     cleanups.push(() => channel.close());
   } catch (error) {
-    log$f.debug("Broadcast card-state listener failed", error);
+    log$d.debug("Broadcast card-state listener failed", error);
   }
   }
   return () => cleanups.forEach((cleanup) => cleanup());
@@ -15540,8 +15487,8 @@ function uniqueCardHighlightValues(values) {
   });
 }
 const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
-function renderCardHighlightedTextHtml(text2, card) {
-  return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
+function renderCardHighlightedTextHtml(text, card) {
+  return renderHighlightedTextHtml(text, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
 }
 function cardHighlightScopeAttributes(card) {
   if (!card) return "";
@@ -15683,10 +15630,10 @@ function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNaviga
   if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return "";
   return classified.map(({ segment, pitchClass }) => {
   if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
-  const { text: text2, reading } = segment.pitch;
+  const { text, reading } = segment.pitch;
   const content = renderCardSpellingWithFurigana({
     ...card,
-    spelling: text2,
+    spelling: text,
     reading,
     wordWithReading: null
   }, settings, kanjiNavigation);
@@ -16107,12 +16054,12 @@ function formatLookupUrl(template, values) {
 const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
 const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
 const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
-function splitLearnerGlossaryText(text2) {
-  const withoutExamples = learnerGlossaryWithoutExamples(text2);
+function splitLearnerGlossaryText(text) {
+  const withoutExamples = learnerGlossaryWithoutExamples(text);
   return withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map((item) => item.trim()).filter(Boolean);
 }
-function learnerGlossaryWithoutExamples(text2) {
-  const normalized = text2.replace(/\s+/g, " ").trim();
+function learnerGlossaryWithoutExamples(text) {
+  const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
   return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
 }
@@ -16120,33 +16067,33 @@ function summarizeLearnerGlossaryTexts(texts, limit = 3) {
   const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
   return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
 }
-function cleanLearnerGlossaryText(text2) {
-  let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
+function cleanLearnerGlossaryText(text) {
+  let clean = text.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
   clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
   if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return "";
   return clean;
 }
-function cutBeforeExampleText(text2) {
-  const japaneseIndex = text2.search(HAS_JAPANESE);
-  const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
+function cutBeforeExampleText(text) {
+  const japaneseIndex = text.search(HAS_JAPANESE);
+  const sentenceIndex = text.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
   const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
   const cutoff = indexes.length ? Math.min(...indexes) : -1;
-  return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
+  return cutoff >= 0 ? text.slice(0, cutoff) : text;
 }
-function trimLearnerMeaning(text2, maxLength = 56) {
-  if (text2.length <= maxLength) return text2;
-  const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
-  return truncated || text2.slice(0, maxLength).trim();
+function trimLearnerMeaning(text, maxLength = 56) {
+  if (text.length <= maxLength) return text;
+  const truncated = text.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
+  return truncated || text.slice(0, maxLength).trim();
 }
-function humanizeTerseGlosses(text2) {
-  const words = text2.split(/\s+/).filter(Boolean);
-  if (words.length < 2 || words.length > 4) return text2;
-  if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
+function humanizeTerseGlosses(text) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return text;
+  if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text;
   if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
-  return text2;
+  return text;
 }
-function looksLikeGrammarTag(text2) {
-  return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
+function looksLikeGrammarTag(text) {
+  return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text);
 }
 const GODAN_ROWS = [
   { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
@@ -17381,9 +17328,9 @@ function hasAdditionalLocalDictionaryText(entry) {
   const summary = summarizeLearnerGlossary(entry);
   return entry.glossary.some((item) => {
   if (hasRichStructuredGlossary(item)) return true;
-  const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
-  if (!text2 || text2 === summary) return false;
-  return HAS_JAPANESE.test(text2);
+  const text = glossaryToText(item).replace(/\s+/g, " ").trim();
+  if (!text || text === summary) return false;
+  return HAS_JAPANESE.test(text);
   });
 }
 function renderFrequencyPill(entry, dictionaryLabel) {
@@ -17394,41 +17341,13 @@ function renderFrequencyPill(entry, dictionaryLabel) {
 const normalizeMiningSentence = (sentence) => yomuKanjiStudyCompanion()?.normalizeMiningSentence?.(sentence) ?? (sentence ?? "").replace(/\s+/g, " ").trim();
 const inferMiningSourceKind = (hints) => yomuKanjiStudyCompanion()?.inferMiningSourceKind?.(hints) ?? fallbackMiningSourceKind(hints);
 const resolveMiningContext = async (options) => yomuKanjiStudyCompanion()?.resolveMiningContext?.(options) ?? fallbackResolveMiningContext(options);
-const saveMiningContext = (term, context) => yomuKanjiStudyCompanion()?.saveMiningContext?.(term, context) ?? fallbackStoredMiningContext(term, context, Date.now());
 const loadMiningContext = (term) => yomuKanjiStudyCompanion()?.loadMiningContext?.(term) ?? null;
-const immersionContextFromExample = (...args) => yomuKanjiStudyCompanion()?.immersionContextFromExample?.(...args) ?? fallbackImmersionContextFromExample(...args);
-const immersionContextFromElement = (...args) => yomuKanjiStudyCompanion()?.immersionContextFromElement?.(...args) ?? fallbackImmersionContextFromElement(...args);
-const pageMiningContext = (sentence, sourceKind = "page") => yomuKanjiStudyCompanion()?.pageMiningContext?.(sentence, sourceKind) ?? fallbackPageMiningContext(sentence, sourceKind);
 function fallbackResolveMiningContext(options) {
   const sentence = normalizeMiningSentence(options.sentence) || options.term.trim();
   const sourceKind = options.imageDataUrl ? "image" : options.videoImageDataUrl ? "video" : options.sourceKind ?? inferMiningSourceKind();
   return {
   ...fallbackStoredMiningContext(options.term, fallbackPageMiningContext(sentence, sourceKind), Date.now()),
   imageDataUrl: options.imageDataUrl ?? options.videoImageDataUrl
-  };
-}
-function fallbackImmersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
-  return {
-  sentence: example.sentence,
-  sourceKind: "immersion-kit",
-  sourceTitle: example.sourceTitle || "Immersion Kit",
-  sourceUrl: `https://www.immersionkit.com/dictionary?keyword=${encodeURIComponent(term)}&sort=sentence_length%3Aasc&page=${index + 1}`,
-  imageUrl: imageUrl || void 0,
-  audioUrls: audioUrls.length ? audioUrls : void 0,
-  immersionIndex: index,
-  immersionTotal: total
-  };
-}
-function fallbackImmersionContextFromElement(sentence, element, sourceUrl = location.href) {
-  return {
-  sentence,
-  sourceKind: "immersion-kit",
-  sourceTitle: element.dataset.immersionSourceTitle || "Immersion Kit",
-  sourceUrl,
-  imageUrl: optionalText(element.dataset.immersionImageUrl),
-  audioUrls: optionalTextArray(parseTextArray(element.dataset.immersionAudioUrls) ?? [element.dataset.immersionAudioUrl]),
-  immersionIndex: optionalNumber(Number(element.dataset.immersionIndex ?? 0)),
-  immersionTotal: optionalNumber(Number(element.dataset.immersionTotal ?? 0))
   };
 }
 function fallbackStoredMiningContext(term, context, updatedAt) {
@@ -17460,22 +17379,13 @@ function fallbackMiningSourceKind({ isImageSource, hasVideo, hostname = location
   return "page";
 }
 function optionalText(value) {
-  const text2 = typeof value === "string" ? value.trim() : "";
-  return text2 || void 0;
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || void 0;
 }
 function optionalTextArray(value) {
   if (!Array.isArray(value)) return void 0;
-  const values = Array.from(new Set(value.map(optionalText).filter((text2) => Boolean(text2))));
+  const values = Array.from(new Set(value.map(optionalText).filter((text) => Boolean(text))));
   return values.length ? values : void 0;
-}
-function parseTextArray(value) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  try {
-  const parsed = JSON.parse(value);
-  return Array.isArray(parsed) ? parsed : null;
-  } catch {
-  return null;
-  }
 }
 function optionalNumber(value) {
   const number = Number(value);
@@ -17615,11 +17525,11 @@ function parseJpdbVocabularyPath(pathname) {
 function firstJapaneseRunOrEmpty(value) {
   return cleanText(value.match(JAPANESE_RUN_RE$1)?.[0] ?? "");
 }
-function firstReviewGlyph(text2) {
-  const direct = text2.match(KANJI_RE);
+function firstReviewGlyph(text) {
+  const direct = text.match(KANJI_RE);
   if (direct) return direct[0];
   try {
-  return decodeURIComponent(text2).match(KANJI_RE)?.[0] ?? null;
+  return decodeURIComponent(text).match(KANJI_RE)?.[0] ?? null;
   } catch {
   return null;
   }
@@ -17768,17 +17678,17 @@ function alignExpressionComponentSegments(card, components, componentPitches) {
   for (const component of components) {
   skipConnectives(component);
   if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
-  const text2 = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
+  const text = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
   spellingCursor += Array.from(component.text).length;
   readingCursor += Array.from(component.reading).length;
   const pitch = componentPitches.find((candidate) => candidate.text === component.text && candidate.reading === component.reading);
   if (pitch) {
-    segments.push({ text: text2, pitch });
+    segments.push({ text, pitch });
     continue;
   }
   if (isConnectiveKanaOnly(component)) {
     hadSkippedConnective = true;
-    segments.push({ text: text2, pitch: null });
+    segments.push({ text, pitch: null });
     continue;
   }
   return null;
@@ -17870,8 +17780,8 @@ function unannotatedPronunciationText(value) {
 const MAX_VISIBLE_KANJI_KEYWORDS = 5;
 function renderKanjiKeywordChips(sources, language) {
   const keywords = new Map();
-  for (const { text: text2, label, canonical } of sources) {
-  const normalized = text2?.trim();
+  for (const { text, label, canonical } of sources) {
+  const normalized = text?.trim();
   if (!normalized) continue;
   const key = normalized.toLocaleLowerCase();
   const existing = keywords.get(key) ?? { text: normalized, labels: [], canonical: false };
@@ -18432,28 +18342,28 @@ function expressionComponentPitchClass(component, componentPitches) {
   return match ? getPitchClass([match.pitch], match.reading) : "";
 }
 function renderExpressionComponentTerm(component, pitchClass) {
-  const text2 = component.text.trim();
+  const text = component.text.trim();
   const reading = component.reading.trim();
   const classes2 = [
   "jpdb-reader-word",
   "jpdb-reader-passive-word",
   "jpdb-reader-expression-component-term",
   "jpdb-reader-jpdb-used-in-term",
-  reading && reading !== text2 ? "jpdb-reader-has-furi" : "",
+  reading && reading !== text ? "jpdb-reader-has-furi" : "",
   pitchClass ? `jpdb-pitch-${pitchClass}` : "jpdb-pitch-unknown"
   ].filter(Boolean).join(" ");
   const pitchAttribute = pitchClass || "unknown";
   const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-  const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$1(text2);
-  return `<span class="${classes2}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  const content = reading && reading !== text ? renderRuby(text, expressionComponentRubyToken(text, reading, pitchClass)) : escapeHtml$1(text);
+  return `<span class="${classes2}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text)}" data-expression="${escapeHtml$1(text)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
-function expressionComponentRubyToken(text2, reading, pitchClass) {
+function expressionComponentRubyToken(text, reading, pitchClass) {
   return {
   card: {
     vid: 0,
     sid: 0,
     rid: 0,
-    spelling: text2,
+    spelling: text,
     reading,
     frequencyRank: null,
     partOfSpeech: [],
@@ -18463,11 +18373,11 @@ function expressionComponentRubyToken(text2, reading, pitchClass) {
     wordWithReading: null
   },
   start: 0,
-  end: text2.length,
-  length: text2.length,
+  end: text.length,
+  length: text.length,
   rubies: [],
   pitchClass,
-  sentence: text2
+  sentence: text
   };
 }
 function renderProviderToggle(nextProvider, language, content = "") {
@@ -18570,16 +18480,16 @@ function renderAnnotatedReadingRuby(value) {
   html += escapeHtml$1(source.slice(offset));
   return html;
 }
-function renderPassiveReferenceContent(text2, reading) {
-  return reading ? renderRuby(text2, referenceRubyToken(text2, reading)) : escapeHtml$1(text2);
+function renderPassiveReferenceContent(text, reading) {
+  return reading ? renderRuby(text, referenceRubyToken(text, reading)) : escapeHtml$1(text);
 }
-function referenceRubyToken(text2, reading) {
+function referenceRubyToken(text, reading) {
   return {
   card: {
     vid: 0,
     sid: 0,
     rid: 0,
-    spelling: text2,
+    spelling: text,
     reading,
     frequencyRank: null,
     partOfSpeech: [],
@@ -18589,15 +18499,15 @@ function referenceRubyToken(text2, reading) {
     wordWithReading: null
   },
   start: 0,
-  end: text2.length,
-  length: text2.length,
+  end: text.length,
+  length: text.length,
   rubies: [],
   pitchClass: "",
-  sentence: text2
+  sentence: text
   };
 }
-function visibleReferenceReading(text2, reading) {
-  const normalizedText = text2.trim();
+function visibleReferenceReading(text, reading) {
+  const normalizedText = text.trim();
   const normalizedReading = reading.trim();
   return normalizedReading && normalizedReading !== normalizedText ? normalizedReading : "";
 }
@@ -18906,12 +18816,12 @@ async function bunproUsedInVocabEntry(client, id) {
   try {
   const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id))?.data)?.attributes);
   const kana = textValue(attributes?.kana);
-  const text2 = textValue(attributes?.word) || kana;
-  if (!text2) return null;
+  const text = textValue(attributes?.word) || kana;
+  if (!text) return null;
   const entry = {
     id,
-    text: text2,
-    reading: kana && kana !== text2 ? kana : "",
+    text,
+    reading: kana && kana !== text ? kana : "",
     meaning: stripBunproMarkup(textValue(attributes?.meaning))
   };
   bunproUsedInVocabCache.set(id, entry);
@@ -18929,10 +18839,10 @@ function bunproJmdictRelatedWords(raw, info) {
   const record = objectRecord(sense);
   for (const relation of ["related", "antonym"]) {
     for (const reference of Array.isArray(record?.[relation]) ? record[relation] : []) {
-      const text2 = textValue(Array.isArray(reference) ? reference[0] : reference);
-      if (!text2 || seen.has(text2)) continue;
-      seen.add(text2);
-      related.push({ text: text2, relation });
+      const text = textValue(Array.isArray(reference) ? reference[0] : reference);
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      related.push({ text, relation });
     }
   }
   }
@@ -18982,12 +18892,12 @@ function bunproExampleSentence(value, sourceUrl) {
   const answer = textValue(attributes.kanji_answer) || textValue(attributes.answer);
   const content = fillBunproClozeContent(textValue(attributes.content), answer);
   const parts = bunproSentenceParts(content);
-  const text2 = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
-  if (!text2 || !/[぀-ヿ㐀-鿿]/u.test(text2)) return null;
+  const text = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
+  if (!text || !/[぀-ヿ㐀-鿿]/u.test(text)) return null;
   return {
   id: textValue(record?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
   parts,
-  text: text2,
+  text,
   translation: stripBunproMarkup(textValue(attributes.translation)),
   audioUrls: uniqueText$1([
     bunproHttpsUrl(textValue(attributes.female_audio_url)),
@@ -19023,9 +18933,9 @@ function fillBunproClozeContent(content, answer) {
 function bunproSentenceParts(content) {
   const parts = [];
   content.split(/<strong[^>]*>([\s\S]*?)<\/strong>/gi).forEach((segment, index) => {
-  const text2 = stripBunproMarkup(segment ?? "");
-  if (!text2) return;
-  parts.push({ text: text2, target: index % 2 === 1 });
+  const text = stripBunproMarkup(segment ?? "");
+  if (!text) return;
+  parts.push({ text, target: index % 2 === 1 });
   });
   return parts;
 }
@@ -19319,11 +19229,11 @@ function distinctDisplayText(values, excluded = []) {
   const seen = new Set(excluded.map(normalizedDisplayText).filter(Boolean));
   const result = [];
   for (const value of values) {
-  const text2 = value.trim();
-  const key = normalizedDisplayText(text2);
+  const text = value.trim();
+  const key = normalizedDisplayText(text);
   if (!key || seen.has(key)) continue;
   seen.add(key);
-  result.push(text2);
+  result.push(text);
   }
   return result;
 }
@@ -19339,8 +19249,8 @@ function sameDefinitionIdentity(items) {
 }
 function textList(value) {
   if (Array.isArray(value)) return value.map(textValue).filter(Boolean);
-  const text2 = textValue(value);
-  return text2 ? text2.split(/[;,]\s*/u).map((item) => item.trim()).filter(Boolean) : [];
+  const text = textValue(value);
+  return text ? text.split(/[;,]\s*/u).map((item) => item.trim()).filter(Boolean) : [];
 }
 function textValue(value) {
   return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
@@ -19387,32 +19297,32 @@ const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
 const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
-function normalizeFallbackTerm(text2) {
-  return text2.replace(/\s+/g, " ").trim().slice(0, 80);
+function normalizeFallbackTerm(text) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 80);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
-function segmentJapaneseText(text2) {
+function segmentJapaneseText(text) {
   const segmenter = japaneseWordSegmenter();
   if (!segmenter) {
-  return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+  return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
     const start = match.index ?? 0;
-    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
+    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
   });
   }
-  return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+  return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
   const start = match.index ?? 0;
-  return segmentJapaneseRun(match[0], start, segmenter, text2);
+  return segmentJapaneseRun(match[0], start, segmenter, text);
   });
 }
-function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
-  const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
+function segmentJapaneseRun(text, offset, segmenter, sourceText) {
+  const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
   surface: segment.segment,
   start: offset + segment.index,
   end: offset + segment.index + segment.segment.length
   }));
-  if (segments.at(-1)?.end !== offset + text2.length) {
-  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+  if (segments.at(-1)?.end !== offset + text.length) {
+  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
   }
   return finalizeJapaneseRunSegments(segments, sourceText);
 }
@@ -19688,20 +19598,20 @@ function intlSegmenter() {
   const candidate = Intl.Segmenter;
   return typeof candidate === "function" ? candidate : null;
 }
-function fallbackJapaneseRunSegment(text2, offset) {
-  const surface = text2.trim();
+function fallbackJapaneseRunSegment(text, offset) {
+  const surface = text.trim();
   if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-  const start = offset + text2.indexOf(surface);
+  const start = offset + text.indexOf(surface);
   return [{ surface, start, end: start + surface.length }];
 }
-function fallbackLookupTermsForText(text2) {
-  const source = normalizeFallbackTerm(text2);
+function fallbackLookupTermsForText(text) {
+  const source = normalizeFallbackTerm(text);
   if (!source) return [];
   const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
   return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
 }
-function fallbackDictionaryLookupTermsForText(text2) {
-  const terms = fallbackLookupTermsForText(text2);
+function fallbackDictionaryLookupTermsForText(text) {
+  const terms = fallbackLookupTermsForText(text);
   return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
 }
 function fallbackLookupTermsForCard(card) {
@@ -19732,14 +19642,14 @@ function hasAmbiguousContinuativeStemCandidate(source) {
 function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
-const KANA_ONLY_RE$1 = /^[぀-ヿー]+$/u;
+const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
 const KANA_CHAR_RE = /^[぀-ヿー]$/u;
 const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
 function splitReadingAcrossKanji(base, reading, readingsForKanji) {
   if (kanjiCharacterCount(base) < 2) return null;
   const sourceReading = reading.trim();
   const kana = toHiragana(sourceReading);
-  if (!kana || !KANA_ONLY_RE$1.test(kana)) return null;
+  if (!kana || !KANA_ONLY_RE.test(kana)) return null;
   const trimmed = trimSharedKanaAffixes(base, kana);
   const characters = Array.from(trimmed.base);
   if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
@@ -19798,7 +19708,7 @@ function candidateReadings(kanji, readingsForKanji) {
   const seen = new Set();
   for (const raw of readingsForKanji(kanji)) {
   const normalized = toHiragana(raw.trim()).replace(/[.\-．].*$/u, "");
-  if (!normalized || !KANA_ONLY_RE$1.test(normalized)) continue;
+  if (!normalized || !KANA_ONLY_RE.test(normalized)) continue;
   seen.add(normalized);
   const voiced = withInitialDakuten(normalized);
   if (voiced) seen.add(voiced);
@@ -19846,9 +19756,6 @@ function stableHash32(value) {
 function stablePositiveHashId(value) {
   return stableHash32(value) || 1;
 }
-function stableHashBase36(value) {
-  return stableHash32(value).toString(36);
-}
 const LOCAL_MATCH_LIMIT = 40;
 const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
@@ -19862,13 +19769,13 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
 const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
 function japaneseBatchCharCount(paragraphs) {
-  return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+  return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
 const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
 const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
 const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-const log$e = Logger.scope("ReaderParser");
+const log$c = Logger.scope("ReaderParser");
 const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
   const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -19893,7 +19800,7 @@ class ReaderParser {
   async parse(paragraphs, options = {}) {
   const { getSettings } = this.dependencies;
   const settings = getSettings();
-  const done = log$e.time("parse", {
+  const done = log$c.time("parse", {
     paragraphs: paragraphs.length,
     hasApiKey: hasJpdbApiCredential(settings),
     hasJitenApiKey: hasJitenApiCredential(settings),
@@ -19910,10 +19817,10 @@ class ReaderParser {
   }
   async parseWithPreferredSource(paragraphs, options, settings) {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
-    return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+    return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
   }
   if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
-    return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+    return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
   }
   if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
     const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
@@ -19974,7 +19881,7 @@ class ReaderParser {
   }
   handleRemoteParseError(source, error, options) {
   const canFallback = this.canUseParseFallback(options);
-  log$e.warn(remoteParseErrorMessage(source, options, canFallback), error);
+  log$c.warn(remoteParseErrorMessage(source, options, canFallback), error);
   if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
   }
   async parseWithFallbackSource(paragraphs, options) {
@@ -19982,7 +19889,7 @@ class ReaderParser {
     const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
     if (publicJitenResult) return publicJitenResult;
   }
-  return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+  return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
   }
   async tryParseWithPublicJiten(paragraphs, options) {
   if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
@@ -19994,7 +19901,7 @@ class ReaderParser {
     if (!parsed.some((tokens) => tokens.length)) return null;
     return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
   } catch (error) {
-    log$e.warn("Jiten public parse failed; using local or segmented fallback", error);
+    log$c.warn("Jiten public parse failed; using local or segmented fallback", error);
     return null;
   }
   }
@@ -20045,8 +19952,8 @@ ${entry.reading}`);
   this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
   return card;
   }
-  fallbackCardFromText(text2) {
-  const spelling = normalizeFallbackTerm(text2);
+  fallbackCardFromText(text) {
+  const spelling = normalizeFallbackTerm(text);
   const id = -stablePositiveHashId(`fallback
 ${spelling}`);
   const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
@@ -20074,30 +19981,30 @@ ${spelling}`);
   canUseParseFallback(options) {
   return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
   }
-  async parseLocalOrSegmentedText(text2, options) {
+  async parseLocalOrSegmentedText(text, options) {
   const settings = this.dependencies.getSettings();
-  const key = localParseCacheKey(text2, options, settings);
+  const key = localParseCacheKey(text, options, settings);
   const cached = this.localParseCache.get(key);
   if (cached) {
     this.localParseCache.delete(key);
     this.localParseCache.set(key, cached);
     return cached;
   }
-  const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
+  const promise = this.parseLocalOrSegmentedTextUncached(text, options).catch((error) => {
     if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
     throw error;
   });
   this.rememberLocalParseCacheEntry(key, promise);
   return promise;
   }
-  async parseLocalOrSegmentedTextUncached(text2, options) {
+  async parseLocalOrSegmentedTextUncached(text, options) {
   if (this.canUseLocalDictionaryFallback()) {
-    const tokens = await this.parseLocalDictionaryText(text2, options);
+    const tokens = await this.parseLocalDictionaryText(text, options);
     if (tokens.length) {
-      return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
+      return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text, tokens) : tokens;
     }
   }
-  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
   }
   rememberLocalParseCacheEntry(key, promise) {
   this.localParseCache.set(key, promise);
@@ -20107,17 +20014,17 @@ ${spelling}`);
     this.localParseCache.delete(oldest);
   }
   }
-  async parseLocalDictionaryText(text2, options) {
+  async parseLocalDictionaryText(text, options) {
   const { dictionaries, getSettings } = this.dependencies;
   if (!await this.hasLocalTermDictionaries()) return [];
   const settings = getSettings();
-  const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-    log$e.warn("Local dictionary parse failed", { length: text2.length }, error);
+  const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
+    log$c.warn("Local dictionary parse failed", { length: text.length }, error);
     return [];
   });
-  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text, match, options));
   }
-  async localTokenFromMatch(text2, match, options) {
+  async localTokenFromMatch(text, match, options) {
   const card = this.localCardFromEntry(match.entry);
   const reading = card.reading && card.reading !== match.surface ? card.reading : "";
   const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
@@ -20134,7 +20041,7 @@ ${spelling}`);
     length: match.end - match.start,
     rubies,
     pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-    sentence: text2
+    sentence: text
   };
   }
   async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
@@ -20143,13 +20050,13 @@ ${spelling}`);
   if (!candidates.some((items) => items.length)) return parsed;
   if (!await this.hasLocalTermDictionaries(true)) return parsed;
   const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-    const text2 = paragraphs[paragraphIndex] ?? "";
+    const text = paragraphs[paragraphIndex] ?? "";
     const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
       const relative = await this.exactLocalBoundaryMatch(candidate);
       if (!relative) return null;
       const match = offsetTermMatch(relative, candidate.start);
-      if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
-      return this.localTokenFromMatch(text2, match, options);
+      if (!exactMatchSafelyCrossesRemoteBoundary(text, match, tokens)) return null;
+      return this.localTokenFromMatch(text, match, options);
     }));
     return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
   }));
@@ -20167,7 +20074,7 @@ ${spelling}`);
     settings.dictionaryPreferences
   )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
     if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-    log$e.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+    log$c.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
     return null;
   });
   this.localBoundaryEvidenceCache.set(key, promise);
@@ -20187,13 +20094,13 @@ ${spelling}`);
   if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
   this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
     this.localTermDictionaryAvailability = void 0;
-    log$e.warn("Local term dictionary availability check failed", { error });
+    log$c.warn("Local term dictionary availability check failed", { error });
     return void 0;
   });
   return this.localTermDictionaryAvailability;
   }
-  parseSegmentedText(text2) {
-  return segmentJapaneseText(text2).map((segment) => {
+  parseSegmentedText(text) {
+  return segmentJapaneseText(text).map((segment) => {
     const card = this.fallbackCardFromText(segment.surface);
     return {
       card,
@@ -20202,31 +20109,31 @@ ${spelling}`);
       length: segment.end - segment.start,
       rubies: [],
       pitchClass: "",
-      sentence: text2
+      sentence: text
     };
   });
   }
   async withSegmentedFallbackGaps(paragraphs, parsed, options) {
   const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
   if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-  return Promise.all(paragraphs.map(async (text2, index) => {
+  return Promise.all(paragraphs.map(async (text, index) => {
     const tokens = parsed[index] ?? [];
     if (options.allowSegmentedFallback !== true) return tokens;
-    const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
-    return this.fillSegmentedFallbackGaps(text2, withLocal);
+    const withLocal = await this.fillGapsWithLocalDictionaryTokens(text, tokens, options);
+    return this.fillSegmentedFallbackGaps(text, withLocal);
   }));
   }
-  async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
+  async fillGapsWithLocalDictionaryTokens(text, tokens, options) {
   if (!this.canUseLocalDictionaryFallback()) return tokens;
   if (!await this.hasLocalTermDictionaries()) return tokens;
-  const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
+  const localTokens = await this.parseLocalDictionaryText(text, options).catch(() => []);
   const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap$1(local.start, local.end, token.start, token.end)));
   return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
   }
-  fillSegmentedFallbackGaps(text2, tokens) {
-  tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text2);
-  const fallbackTokens = this.parseSegmentedText(text2);
-  const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
+  fillSegmentedFallbackGaps(text, tokens) {
+  tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text);
+  const fallbackTokens = this.parseSegmentedText(text);
+  const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
   const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
   const replacements = [
     ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
@@ -20321,8 +20228,8 @@ ${spelling}`);
   if (!token.rubies.length || token.card.spelling !== surface) return;
   const word = Array.from(token.card.spelling);
   for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
-    const { text: text2, start, length } = token.rubies[index];
-    word.splice(start - token.start + length, 0, `[${text2}]`);
+    const { text, start, length } = token.rubies[index];
+    word.splice(start - token.start + length, 0, `[${text}]`);
   }
   token.card.wordWithReading = word.join("");
   }
@@ -20340,29 +20247,29 @@ ${spelling}`);
     card.reading,
     (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
   ).catch((error) => {
-    log$e.warn("Local pitch parse failed", { term: card.spelling }, error);
+    log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return { patterns: [] };
   });
   this.rememberLocalPitchCacheEntry(key, promise);
   return firstLocalPitchPattern$1(await promise);
   }
-  withNormalizedMetricTokens(text2, tokens) {
-  if (!text2.includes("回視聴")) return tokens;
+  withNormalizedMetricTokens(text, tokens) {
+  if (!text.includes("回視聴")) return tokens;
   const replacements = [];
   const replacementRanges = [];
-  for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+  for (const match of text.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
     const start = match.index ?? -1;
     if (start < 0) continue;
     const end = start + match[0].length;
     const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
     const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
-    const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
+    const hasBrokenMetricToken = overlapping.some((token) => text.slice(token.start, token.end) === "回視");
     if (alreadyCovered && !hasBrokenMetricToken) continue;
     if (!hasBrokenMetricToken && overlapping.length > 0) continue;
     replacementRanges.push({ start, end });
     replacements.push(
-      this.metricToken(text2, "回", "かい", start, start + 1),
-      this.metricToken(text2, "視聴", "しちょう", start + 1, end)
+      this.metricToken(text, "回", "かい", start, start + 1),
+      this.metricToken(text, "視聴", "しちょう", start + 1, end)
     );
   }
   if (!replacements.length) return tokens;
@@ -20448,12 +20355,12 @@ function localPitchCacheKey(card, settings) {
   }))
   });
 }
-function boundaryEvidenceCandidates(text2, tokens) {
+function boundaryEvidenceCandidates(text, tokens) {
   const sorted = [...tokens].sort(compareTokensByOffset);
   const candidates = [];
   const seen = new Set();
   for (let index = 1; index < sorted.length; index += 1) {
-  const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
+  const candidate = boundaryEvidenceCandidate(text, sorted[index - 1], sorted[index]);
   if (!candidate) continue;
   const key = `${candidate.start}:${candidate.surface}`;
   if (seen.has(key)) continue;
@@ -20463,17 +20370,17 @@ function boundaryEvidenceCandidates(text2, tokens) {
   }
   return candidates;
 }
-function boundaryEvidenceCandidate(text2, first, second) {
+function boundaryEvidenceCandidate(text, first, second) {
   if (first.end !== second.start) return null;
   if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
-  const left = text2.slice(first.end - 1, first.end);
-  const right = text2.slice(second.start, second.start + 1);
+  const left = text.slice(first.end - 1, first.end);
+  const right = text.slice(second.start, second.start + 1);
   if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-  const firstSurface = text2.slice(first.start, first.end);
-  const secondSurface = text2.slice(second.start, second.end);
+  const firstSurface = text.slice(first.start, first.end);
+  const secondSurface = text.slice(second.start, second.end);
   if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
   return {
-  surface: text2.slice(first.start, second.end),
+  surface: text.slice(first.start, second.end),
   start: first.start,
   boundary: first.end - first.start
   };
@@ -20502,12 +20409,12 @@ function offsetTermMatch(match, offset) {
   end: match.end + offset
   };
 }
-function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
+function exactMatchSafelyCrossesRemoteBoundary(text, match, tokens) {
   const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
   if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
   return overlapping.every((token) => {
-  const prefix = text2.slice(token.start, Math.min(token.end, match.start));
-  const suffix = text2.slice(Math.max(token.start, match.end), token.end);
+  const prefix = text.slice(token.start, Math.min(token.end, match.start));
+  const suffix = text.slice(Math.max(token.start, match.end), token.end);
   return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
   });
 }
@@ -20535,10 +20442,10 @@ function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
   }))
   });
 }
-function localParseCacheKey(text2, options, settings) {
+function localParseCacheKey(text, options, settings) {
   const localDictionariesEnabled = settings.localDictionariesEnabled;
   return JSON.stringify({
-  text: text2,
+  text,
   localDictionariesEnabled,
   allowSegmentedFallback: options.allowSegmentedFallback === true,
   includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
@@ -20549,16 +20456,16 @@ function localParseCacheKey(text2, options, settings) {
   })) : []
   });
 }
-function fallbackLookupTermAtOffset(text2, offset) {
-  const range = fallbackLookupRangeAtOffset(text2, offset);
-  if (range) return normalizeFallbackTerm(text2.slice(range.start, range.end));
-  return normalizeFallbackTerm(text2);
+function fallbackLookupTermAtOffset(text, offset) {
+  const range = fallbackLookupRangeAtOffset(text, offset);
+  if (range) return normalizeFallbackTerm(text.slice(range.start, range.end));
+  return normalizeFallbackTerm(text);
 }
-function fallbackLookupRangeAtOffset(text2, offset) {
-  const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text2.length - 1)));
-  const segment = segmentJapaneseText(text2).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
+function fallbackLookupRangeAtOffset(text, offset) {
+  const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
+  const segment = segmentJapaneseText(text).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
   if (segment) return { start: segment.start, end: segment.end };
-  for (const match of text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
+  for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
   const start = match.index ?? 0;
   const end = start + match[0].length;
   if (offsetInsideFallbackMatch(start, end, clampedOffset)) {
@@ -20584,35 +20491,35 @@ function preferInflectedFallback(fallback, tokens) {
 function isBroadPublic(token) {
   return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
 }
-function fallbackRepairTokens(text2, fallbackTokens, tokens) {
+function fallbackRepairTokens(text, fallbackTokens, tokens) {
   const repaired = new Set();
   for (const fallback of fallbackTokens) {
-  const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
+  const group = fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens);
   group?.forEach((token) => repaired.add(token));
   }
   return [...repaired].sort(compareTokensByOffset);
 }
-function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-  if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
+function fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens) {
+  if (!rangeHasUncoveredJapaneseText(text, fallback.start, fallback.end, tokens)) return null;
   const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
   if (!overlapping.length) return null;
   const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
   const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
   if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-  return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
+  return fallbackTokensCoveringRange(text, fallbackTokens, start, end);
 }
-function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
+function rangeHasUncoveredJapaneseText(text, start, end, tokens) {
   for (let index = start; index < end; index += 1) {
-  if (!JAPANESE_CHARACTER_RE.test(text2[index] ?? "")) continue;
+  if (!JAPANESE_CHARACTER_RE.test(text[index] ?? "")) continue;
   if (!tokens.some((token) => token.start <= index && index < token.end)) return true;
   }
   return false;
 }
-function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
+function fallbackTokensCoveringRange(text, fallbackTokens, start, end) {
   const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
   if (!group.length) return null;
   group.sort(compareTokensByOffset);
-  return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
+  return rangeHasUncoveredJapaneseText(text, start, end, group) ? null : group;
 }
 function compareTokensByOffset(a, b) {
   return a.start - b.start || b.length - a.length;
@@ -20672,8 +20579,8 @@ function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
   return ranks;
 }
 function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-  const text2 = frequency.trim();
-  const match = /([\d,]+)/.exec(text2);
+  const text = frequency.trim();
+  const match = /([\d,]+)/.exec(text);
   const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
   if (!Number.isInteger(rank) || rank <= 0) return null;
   return {
@@ -20682,7 +20589,7 @@ function jpdbKanjiFrequencyEvidence(kanji, frequency) {
   spelling: kanji,
   reading: kanji,
   source: "kanji",
-  display: /^top\b/i.test(text2) ? text2 : void 0
+  display: /^top\b/i.test(text) ? text : void 0
   };
 }
 function cardFrequencyRanks(card, isJpdbBackedCard) {
@@ -20730,7 +20637,7 @@ function frequencyRank(value) {
 function normalizeIdentityText(value) {
   return value.normalize("NFKC").trim();
 }
-const log$d = Logger.scope("CardRenderData");
+const log$b = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -20906,7 +20813,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.localDictionariesEnabled) return Promise.resolve([]);
   return this.lookupLocalTermEntries(card, settings).catch((error) => {
-    log$d.warn("Local term lookup failed", { term: card.spelling }, error);
+    log$b.warn("Local term lookup failed", { term: card.spelling }, error);
     return [];
   });
   }
@@ -20930,7 +20837,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-    log$d.warn("Local kanji lookup failed", { term: card.spelling }, error);
+    log$b.warn("Local kanji lookup failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20941,13 +20848,13 @@ class CardRenderDataLoader {
     entries: entries2,
     completed: true
   })).catch((error) => {
-    log$d.warn("Local metadata lookup failed", { term: card.spelling }, error);
+    log$b.warn("Local metadata lookup failed", { term: card.spelling }, error);
     return { entries: [], completed: false };
   });
   return Promise.race([
     lookup,
     delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-      log$d.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
+      log$b.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
       return { entries: [], completed: false };
     })
   ]);
@@ -20956,7 +20863,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-    log$d.warn("Public pitch lookup failed", { term: card.spelling }, error);
+    log$b.warn("Public pitch lookup failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20969,7 +20876,7 @@ class CardRenderDataLoader {
   if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
   const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
   return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
-    log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
+    log$b.warn("JPDB page lookup failed", { term: card.spelling }, error);
     return null;
   }), null);
   }
@@ -20979,7 +20886,7 @@ class CardRenderDataLoader {
     this.applyJitenVocabularyInfoPitchAccent(card, info);
     return info;
   }).catch((error) => {
-    log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+    log$b.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
     return null;
   });
   }
@@ -20987,12 +20894,12 @@ class CardRenderDataLoader {
   const settings = this.settings();
   const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
   const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-    log$d.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+    log$b.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
     return null;
   }) : Promise.resolve(null) : Promise.resolve(null);
   const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
   const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
-    log$d.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+    log$b.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
     return null;
   }) : Promise.resolve(null);
   const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
@@ -21013,13 +20920,13 @@ class CardRenderDataLoader {
   if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
   if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
   const startedAt = performance.now();
-  log$d.debug("Bunpro definition lookup started", { term: card.spelling });
+  log$b.debug("Bunpro definition lookup started", { term: card.spelling });
   return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
     const resolved = {
       info: result.info,
       status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
     };
-    log$d.debug("Bunpro definition lookup completed", {
+    log$b.debug("Bunpro definition lookup completed", {
       term: card.spelling,
       state: resolved.status.state,
       reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -21027,7 +20934,7 @@ class CardRenderDataLoader {
     });
     return resolved;
   }).catch((error) => {
-    log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+    log$b.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
     return { info: null, status: { state: "error" } };
   });
   }
@@ -21036,14 +20943,14 @@ class CardRenderDataLoader {
   const fallback = sourceCardAnkiLookupOrEmpty(card);
   if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
   return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-    log$d.warn("Cached Anki status failed", { term: card.spelling }, error);
+    log$b.warn("Cached Anki status failed", { term: card.spelling }, error);
     return fallback;
   });
   }
   loadDetailedAnkiLookup(card, fastLookup) {
   if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
   return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-    log$d.warn("Anki lookup failed", { term: card.spelling }, error);
+    log$b.warn("Anki lookup failed", { term: card.spelling }, error);
     return ankiLookupWithUnavailableDetails(fallback);
   }), ankiLookupWithUnavailableDetails(fallback)));
   }
@@ -21056,14 +20963,14 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-    log$d.warn("JPDB deck list failed", { term: card.spelling }, error);
+    log$b.warn("JPDB deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
   loadAnkiDecks(card) {
   if (!this.settings().ankiEnabled) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-    log$d.warn("Anki deck list failed", { term: card.spelling }, error);
+    log$b.warn("Anki deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -21071,7 +20978,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-    log$d.warn("Jiten deck list failed", { term: card.spelling }, error);
+    log$b.warn("Jiten deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -21080,7 +20987,7 @@ class CardRenderDataLoader {
   if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
   if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-    log$d.warn("Anki field target plan failed", { term: card.spelling }, error);
+    log$b.warn("Anki field target plan failed", { term: card.spelling }, error);
     return null;
   }), null);
   }
@@ -21091,7 +20998,7 @@ class CardRenderDataLoader {
   const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
   if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
   return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-    log$d.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+    log$b.warn("JPDB pool lookup failed", { term: card.spelling }, error);
     return false;
   }), false);
   }
@@ -21205,7 +21112,7 @@ class CardRenderDataLoader {
     (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
     { initialEntries: metaEntries }
   ).catch((error) => {
-    log$d.warn("Local pitch lookup failed", { term: card.spelling }, error);
+    log$b.warn("Local pitch lookup failed", { term: card.spelling }, error);
     return { patterns: [] };
   });
   const patterns = resolution.patterns;
@@ -21313,7 +21220,7 @@ function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs
   return Promise.race([
   promise,
   delay(timeoutMs).then(() => {
-    log$d.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+    log$b.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
     return fallback;
   })
   ]);
@@ -21344,10 +21251,10 @@ ${component.reading}`;
 }
 function jitenExpressionComponent(word) {
   const annotated = word.readingFurigana.trim();
-  const text2 = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling$1(annotated) || cleanJitenAnnotatedSpelling$1(word.reading)).trim();
-  if (!text2) return null;
-  const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text2).trim();
-  return { text: text2, reading };
+  const text = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling$1(annotated) || cleanJitenAnnotatedSpelling$1(word.reading)).trim();
+  if (!text) return null;
+  const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text).trim();
+  return { text, reading };
 }
 function cleanJitenAnnotatedSpelling$1(value) {
   return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
@@ -21469,7 +21376,7 @@ class DictionaryStyleController {
   this.options.onRefreshed?.(css.length);
   }
 }
-const log$c = Logger.scope("FactoryReset");
+const log$a = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
 const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -21521,12 +21428,12 @@ class FactoryResetCoordinator {
     const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
     await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
     await clearFactoryResetSignal();
-    log$c.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+    log$a.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
     this.dependencies.reload();
   } catch (error) {
     this.activeResetId = "";
     endSettingsResetGuard();
-    log$c.warn("All-data reset failed", error);
+    log$a.warn("All-data reset failed", error);
     this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
   }
   }
@@ -21534,7 +21441,7 @@ class FactoryResetCoordinator {
   try {
     return await this.dependencies.resetDictionaryDatabase();
   } catch (error) {
-    log$c.warn("Dictionary reset failed post-settings", error);
+    log$a.warn("Dictionary reset failed post-settings", error);
     this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
     return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -21545,7 +21452,7 @@ class FactoryResetCoordinator {
   if (this.handledSignals.has(handledKey)) return;
   this.handledSignals.add(handledKey);
   beginSettingsResetGuard();
-  log$c.info("Factory reset signal received", {
+  log$a.info("Factory reset signal received", {
     phase: signal.phase,
     href: signal.href,
     remote: source.remote,
@@ -21563,7 +21470,7 @@ class FactoryResetCoordinator {
   async assertSettingsStorageDeleted() {
   const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
   if (!settingsKeysStillPresent.length) return;
-  log$c.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+  log$a.warn("Settings keys remained after reset", { settingsKeysStillPresent });
   throw new Error(this.text("factoryResetDeleteSettingsFailed"));
   }
   text(key, values = {}) {
@@ -21641,7 +21548,7 @@ function isRubyAnnotation(element) {
   return element.tagName === "RT" || element.tagName === "RP";
 }
 function rubyReadingText(element, fallback, rtText = defaultRubyText) {
-  let text2 = "";
+  let text = "";
   let base = "";
   element.childNodes.forEach((child) => {
   if (child.nodeType === Node.TEXT_NODE) {
@@ -21651,14 +21558,14 @@ function rubyReadingText(element, fallback, rtText = defaultRubyText) {
   if (child.nodeType !== Node.ELEMENT_NODE) return;
   const childElement = child;
   if (childElement.tagName === "RT") {
-    text2 += rtText(childElement, base);
+    text += rtText(childElement, base);
     base = "";
     return;
   }
   if (childElement.tagName === "RP") return;
   base += fallback(childElement);
   });
-  return text2 + base || fallback(element);
+  return text + base || fallback(element);
 }
 function defaultRubyText(element, base) {
   return element.textContent || base;
@@ -22074,11 +21981,11 @@ function uniqueLookupValues(values) {
   const seen = new Set();
   const result = [];
   for (const value of values) {
-  const text2 = cleanText(value ?? "");
-  const key = text2.replace(/\s+/g, "").toLowerCase();
-  if (!text2 || seen.has(key)) continue;
+  const text = cleanText(value ?? "");
+  const key = text.replace(/\s+/g, "").toLowerCase();
+  if (!text || seen.has(key)) continue;
   seen.add(key);
-  result.push(text2);
+  result.push(text);
   }
   return result;
 }
@@ -22224,11 +22131,11 @@ function renderJitenDefinitionHeadword(card, info) {
 }
 function jitenDefinitionHeadwordReference(card, info) {
   const rawText = (info?.mainReading?.text || card.spelling || card.reading).trim();
-  const text2 = cleanJitenAnnotatedText$1(rawText);
-  if (!text2 || !hasJapaneseText(text2)) return null;
+  const text = cleanJitenAnnotatedText$1(rawText);
+  if (!text || !hasJapaneseText(text)) return null;
   return {
-  text: text2,
-  reading: jitenAnnotatedKana$1(rawText) || card.reading || text2,
+  text,
+  reading: jitenAnnotatedKana$1(rawText) || card.reading || text,
   wordId: info?.wordId ?? card.jitenWordId,
   readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
   };
@@ -22281,11 +22188,11 @@ function dedupeText(values) {
   const seen = new Set();
   const result = [];
   for (const value of values) {
-  const text2 = value.trim();
-  const key = normalizedMeaningPartOfSpeech(text2);
-  if (!text2 || seen.has(key)) continue;
+  const text = value.trim();
+  const key = normalizedMeaningPartOfSpeech(text);
+  if (!text || seen.has(key)) continue;
   seen.add(key);
-  result.push(text2);
+  result.push(text);
   }
   return result;
 }
@@ -22367,8 +22274,8 @@ function renderJitenExampleSentence(example, card, info) {
   const targetHtml = reference ? renderPassiveJitenReference(reference, { className: "jpdb-reader-example-target jpdb-reader-jiten-example-target", sentence: example.text }) : `<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml$1(target)}</mark>`;
   return `${escapeHtml$1(before)}${targetHtml}${escapeHtml$1(after)}`;
 }
-function renderJitenAudioButton(text2, language, extraAttributes = "") {
-  const audioText = text2.trim();
+function renderJitenAudioButton(text, language, extraAttributes = "") {
+  const audioText = text.trim();
   if (!audioText) return "";
   const label = uiText(language, "playAudio");
   const attrs = extraAttributes ? ` ${extraAttributes}` : "";
@@ -22410,10 +22317,10 @@ function jitenDefinitionTextReferences(card, info) {
   return Array.from(references.values()).filter((reference) => hasJapaneseText(reference.text)).sort((left, right) => right.text.length - left.text.length);
 }
 function jitenCardTextReference(card) {
-  const text2 = card.spelling.trim();
-  if (!text2) return null;
+  const text = card.spelling.trim();
+  if (!text) return null;
   return {
-  text: text2,
+  text,
   reading: card.reading.trim(),
   wordId: Number.isFinite(card.jitenWordId) ? card.jitenWordId : card.source === "jiten" && Number.isFinite(card.vid) ? card.vid : void 0,
   readingIndex: Number.isFinite(card.jitenReadingIndex) ? card.jitenReadingIndex : card.source === "jiten" && Number.isFinite(card.sid) ? card.sid : void 0
@@ -22421,28 +22328,28 @@ function jitenCardTextReference(card) {
 }
 function jitenVocabularyReadingReference(reading, wordId, fallbackReading) {
   if (!reading?.text.trim()) return null;
-  const text2 = cleanJitenAnnotatedText$1(reading.text);
+  const text = cleanJitenAnnotatedText$1(reading.text);
   return {
-  text: text2,
+  text,
   reading: jitenAnnotatedKana$1(reading.text) || fallbackReading,
   wordId,
   readingIndex: reading.readingIndex
   };
 }
 function jitenWordSummaryTextReference(word) {
-  const text2 = cleanJitenWordSurface$1(word);
-  if (!text2) return null;
+  const text = cleanJitenWordSurface$1(word);
+  if (!text) return null;
   return {
-  text: text2,
+  text,
   reading: jitenAnnotatedKana$1(word.readingFurigana) || cleanJitenAnnotatedText$1(word.reading),
   wordId: word.wordId,
   readingIndex: word.readingIndex
   };
 }
 function jitenExampleTargetReference(target, card, info) {
-  const text2 = target.trim();
-  if (!text2) return null;
-  return jitenDefinitionTextReferences(card, info).find((reference) => reference.text === text2) ?? null;
+  const text = target.trim();
+  if (!text) return null;
+  return jitenDefinitionTextReferences(card, info).find((reference) => reference.text === text) ?? null;
 }
 function jitenExampleTargetRange(example, card, info) {
   if (example.wordPosition < 0 || example.wordLength <= 0) return null;
@@ -22451,11 +22358,11 @@ function jitenExampleTargetRange(example, card, info) {
   const utf8 = utf8ByteRangeToUtf16Range$1(example.text, example.wordPosition, example.wordPosition + example.wordLength);
   return bestJitenExampleRange(example.text, references, [raw, utf8]);
 }
-function bestJitenExampleRange(text2, references, candidates) {
+function bestJitenExampleRange(text, references, candidates) {
   let best = null;
   for (const range of candidates) {
-  if (range.start < 0 || range.end <= range.start || range.end > text2.length) continue;
-  const target = text2.slice(range.start, range.end);
+  if (range.start < 0 || range.end <= range.start || range.end > text.length) continue;
+  const target = text.slice(range.start, range.end);
   let score = 1;
   if (references.some((reference) => reference.text === target)) score += 100;
   if (/[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(target)) score += 10;
@@ -22463,24 +22370,24 @@ function bestJitenExampleRange(text2, references, candidates) {
   }
   return best?.range ?? null;
 }
-function utf8ByteRangeToUtf16Range$1(text2, start, end) {
+function utf8ByteRangeToUtf16Range$1(text, start, end) {
   return {
-  start: utf16OffsetForUtf8ByteOffset$1(text2, start),
-  end: utf16OffsetForUtf8ByteOffset$1(text2, end)
+  start: utf16OffsetForUtf8ByteOffset$1(text, start),
+  end: utf16OffsetForUtf8ByteOffset$1(text, end)
   };
 }
-function utf16OffsetForUtf8ByteOffset$1(text2, byteOffset) {
+function utf16OffsetForUtf8ByteOffset$1(text, byteOffset) {
   if (byteOffset <= 0) return 0;
   let bytes = 0;
   let offset = 0;
-  for (const char of text2) {
+  for (const char of text) {
   if (bytes >= byteOffset) return offset;
   const nextBytes = bytes + utf8ByteLength$1(char);
   if (nextBytes > byteOffset) return offset;
   bytes = nextBytes;
   offset += char.length;
   }
-  return text2.length;
+  return text.length;
 }
 function utf8ByteLength$1(char) {
   const point = char.codePointAt(0) ?? 0;
@@ -22489,14 +22396,14 @@ function utf8ByteLength$1(char) {
   if (point <= 65535) return 3;
   return 4;
 }
-function renderJitenTextWithReferences(text2, references) {
-  if (!references.length) return escapeHtml$1(text2);
+function renderJitenTextWithReferences(text, references) {
+  if (!references.length) return escapeHtml$1(text);
   let html = "";
   let offset = 0;
-  while (offset < text2.length) {
-  const reference = references.find((candidate) => text2.startsWith(candidate.text, offset));
+  while (offset < text.length) {
+  const reference = references.find((candidate) => text.startsWith(candidate.text, offset));
   if (!reference) {
-    html += escapeHtml$1(text2[offset] ?? "");
+    html += escapeHtml$1(text[offset] ?? "");
     offset += 1;
     continue;
   }
@@ -22666,690 +22573,7 @@ function renderLocalDefinitionDictionarySources(context, params) {
 function renderImmersionSource(params) {
   return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
 }
-function pruneOldestCacheEntries(cache2, limit) {
-  while (cache2.size > limit) {
-  const oldest = cache2.keys().next();
-  if (oldest.done) break;
-  cache2.delete(oldest.value);
-  }
-}
-function isAbortError(error) {
-  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-}
-const API_BASE$1 = "https://apiv2express.immersionkit.com";
-const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
-const API_BASES = [API_BASE$1, LEGACY_API_BASE];
-const NADESHIKO_API_BASE = "https://api.nadeshiko.co/v1";
-const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
-const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
-const MEDIA_CANDIDATE_LIMIT = 4;
-const SEARCH_EXAMPLE_LIMIT = 250;
-const SEARCH_CACHE_LIMIT = 160;
-const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1e3;
-const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
-const NADESHIKO_SEARCH_LIMIT = 25;
-const MIN_LEARNING_SENTENCE_LENGTH = 8;
-const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-const log$b = Logger.scope("ImmersionKit");
-const IMMERSION_KIT_TITLES = {
-  your_lie_in_april: "Your Lie in April",
-  princess_mononoke: "Princess Mononoke",
-  girls_band_cry: "Girls Band Cry",
-  only_yesterday: "Only Yesterday",
-  chobits: "Chobits",
-  k_on_: "K-On!",
-  weathering_with_you: "Weathering with You",
-  from_the_new_world: "From the New World",
-  grave_of_the_fireflies: "Grave of the Fireflies",
-  steins_gate: "Steins Gate",
-  sword_art_online: "Sword Art Online",
-  nisekoi: "Nisekoi",
-  death_note: "Death Note",
-  wolf_children: "Wolf Children",
-  demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
-  your_name: "Your Name",
-  alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
-  cardcaptor_sakura: "Cardcaptor Sakura",
-  kill_la_kill: "Kill la Kill",
-  howl_s_moving_castle: "Howl's Moving Castle",
-  whisper_of_the_heart: "Whisper of the Heart",
-  bunny_drop: "Bunny Drop",
-  fermat_kitchen: "Fermat Kitchen",
-  haruhi_suzumiya: "Haruhi Suzumiya",
-  hunter_x_hunter: "Hunter × Hunter",
-  god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
-  assassination_classroom_season_1: "Assassination Classroom Season 1",
-  durarara__: "Durarara!!",
-  bakemonogatari: "Bakemonogatari",
-  hyouka: "Hyouka",
-  relife: "ReLIFE",
-  from_up_on_poppy_hill: "From Up on Poppy Hill",
-  sound__euphonium: "Sound! Euphonium",
-  lucky_star: "Lucky Star",
-  kokoro_connect: "Kokoro Connect",
-  my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
-  is_the_order_a_rabbit: "Is The Order a Rabbit",
-  clannad: "Clannad",
-  angel_beats_: "Angel Beats!",
-  daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
-  new_game_: "New Game!",
-  the_wind_rises: "The Wind Rises",
-  fate_zero: "Fate Zero",
-  toradora_: "Toradora!",
-  anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
-  wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
-  kino_s_journey: "Kino's Journey",
-  boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
-  fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
-  one_week_friends: "One Week Friends",
-  erased: "Erased",
-  mononoke: "Mononoke",
-  little_witch_academia: "Little Witch Academia",
-  re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
-  fruits_basket_season_1: "Fruits Basket Season 1",
-  mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
-  the_irregular_at_magic_high_school: "The Irregular at Magic High School",
-  clannad_after_story: "Clannad After Story",
-  frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
-  kakegurui: "Kakegurui",
-  the_garden_of_words: "The Garden of Words",
-  when_marnie_was_there: "When Marnie Was There",
-  castle_in_the_sky: "Castle in the sky",
-  shirokuma_cafe: "Shirokuma Cafe",
-  my_neighbor_totoro: "My Neighbor Totoro",
-  kiki_s_delivery_service: "Kiki's Delivery Service",
-  the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
-  fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
-  code_geass_season_1: "Code Geass Season 1",
-  the_world_god_only_knows: "The World God Only Knows",
-  the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
-  no_game_no_life: "No Game No Life",
-  kanon__2006_: "Kanon (2006)",
-  psycho_pass: "Psycho Pass",
-  the_cat_returns: "The Cat Returns",
-  the_secret_world_of_arrietty: "The Secret World of Arrietty",
-  spirited_away: "Spirited Away",
-  noragami: "Noragami",
-  fairy_tail: "Fairy Tail",
-  i_m_taking_the_day_off: "I'm Taking the Day Off",
-  border: "Border",
-  weakest_beast: "Weakest Beast",
-  mob_psycho_100: "Mob Psycho 100",
-  the_journalist: "The Journalist",
-  sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
-  smoking: "Smoking",
-  i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
-  good_morning_call: "Good Morning Call",
-  overprotected_kahoko: "Overprotected Kahoko",
-  quartet: "Quartet",
-  million_yen_woman: "Million Yen Woman",
-  legal_high_season_1: "Legal High Season 1",
-  witcher_3: "Witcher 3",
-  cyberpunk_2077: "Cyberpunk 2077",
-  skyrim: "Skyrim"
-};
-class ImmersionKitClient {
-  cache = new Map();
-  inflight = new Map();
-  mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
-  immersionKitRateLimitedUntil = 0;
-  immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-  async search(term, settings, options = {}) {
-  const query = term.trim();
-  if (!canSearchImmersionExamples(query, settings)) return [];
-  const cacheKey = this.searchCacheKey(query, settings, options);
-  const cached = this.cache.get(cacheKey);
-  if (cached) return cached;
-  const cacheInflight = !options.signal;
-  const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
-  if (inflight) return inflight;
-  const done = log$b.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-  const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
-    const result = applySearchExampleLimit(examples, settings, options);
-    if (!options.signal?.aborted) {
-      this.cache.set(cacheKey, result);
-      pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
-    }
-    return result;
-  }).finally(() => {
-    if (cacheInflight) this.inflight.delete(cacheKey);
-    done();
-  });
-  if (cacheInflight) this.inflight.set(cacheKey, promise);
-  return promise;
-  }
-  async searchEnabledSources(query, settings, options) {
-  const sources = enabledImmersionExampleSources(settings);
-  if (settings.immersionKitExampleSource === "combined" && options.fastFirst && sources.length > 1) {
-    return this.searchCombinedFastFirst(query, settings, options, sources);
-  }
-  const resultSets = await Promise.all(sources.map(
-    (source) => this.searchSource(source, query, settings, options)
-  ));
-  return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
-  }
-  searchCombinedFastFirst(query, settings, options, sources) {
-  let pending = sources.length;
-  const emptyResults = [];
-  return new Promise((resolve, reject) => {
-    sources.forEach((source) => {
-      void this.searchSource(source, query, settings, options).then((examples) => {
-        if (examples.length) {
-          resolve(examples);
-          return;
-        }
-        emptyResults.push(examples);
-        pending -= 1;
-        if (pending === 0) resolve(emptyResults.flat());
-      }).catch(reject);
-    });
-  });
-  }
-  searchSource(source, query, settings, options) {
-  return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-    if (isAbortError(error)) throw error;
-    log$b.warn("Nadeshiko examples failed", { query }, error);
-    return [];
-  }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-    if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-    log$b.warn("Immersion Kit examples failed", { query }, error);
-    return [];
-  });
-  }
-  searchImmersionKit(query, settings, options) {
-  this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
-  return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
-    this.resetImmersionKitBackoff();
-    return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
-  }).catch((error) => {
-    if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
-    throw error;
-  });
-  }
-  assertImmersionKitSearchAllowed(language) {
-  if (Date.now() < this.immersionKitRateLimitedUntil) {
-    throw new Error(uiText(language, "immersionKitRateLimited"));
-  }
-  }
-  noteImmersionKitRateLimit() {
-  this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
-  this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
-  }
-  resetImmersionKitBackoff() {
-  this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-  this.immersionKitRateLimitedUntil = 0;
-  }
-  searchNadeshiko(query, settings, options) {
-  const apiKey = settings.nadeshikoApiKey.trim();
-  if (!apiKey) return Promise.resolve([]);
-  return requestJson$1(`${NADESHIKO_API_BASE}/search`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
-    timeoutMs: settings.audioTimeoutMs,
-    allowDirectCrossOrigin: true,
-    allowPublicProxies: false,
-    allowConfiguredProxy: false,
-    preferFetch: shouldPreferFetchForImmersionKitRequests(),
-    signal: options.signal,
-    failureLabel: uiText(settings.interfaceLanguage, "nadeshikoRequest"),
-    failureMessage: uiText(settings.interfaceLanguage, "nadeshikoRequestFailed"),
-    statusFailureMessage: (status) => formatUiText(settings.interfaceLanguage, "nadeshikoRequestFailedWithStatus", { status }),
-    timeoutLabel: uiText(settings.interfaceLanguage, "nadeshikoRequestTimedOut")
-  }).then((data) => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
-  }
-  searchCacheKey(query, settings, options) {
-  return JSON.stringify({
-    query,
-    source: settings.immersionKitExampleSource,
-    nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
-    limit: searchRequestLimit(options),
-    userLimit: searchResultLimit(settings, options),
-    min: this.minimumSentenceLength(settings),
-    max: settings.immersionKitMaxLength,
-    category: settings.immersionKitCategory,
-    sort: this.effectiveSort(settings),
-    exact: settings.immersionKitExactMatch,
-    fastFirst: Boolean(options.fastFirst)
-  });
-  }
-  combinedShuffleSeed(query, settings) {
-  return JSON.stringify({
-    query,
-    source: settings.immersionKitExampleSource,
-    key: sensitiveFingerprint(settings.nadeshikoApiKey),
-    min: this.minimumSentenceLength(settings),
-    max: settings.immersionKitMaxLength,
-    category: settings.immersionKitCategory,
-    exact: settings.immersionKitExactMatch
-  });
-  }
-  searchParams(query, settings, options) {
-  const params = new URLSearchParams({
-    q: query,
-    limit: String(searchRequestLimit(options)),
-    sort: this.effectiveSort(settings)
-  });
-  if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
-  if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-  return params;
-  }
-  effectiveSort(settings) {
-  return settings.immersionKitSort === "random" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-  }
-  minimumSentenceLength(settings) {
-  return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
-  }
-  mediaUrl(example, kind) {
-  return this.mediaUrls(example, kind)[0] ?? "";
-  }
-  mediaUrls(example, kind) {
-  const direct = directMediaUrl(example, kind);
-  if (direct) return [direct];
-  const file = mediaFileName(example, kind);
-  if (!file) return [];
-  return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
-  }
-  async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-  const urls = urlCandidates(url);
-  const key = urls.join("");
-  return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-    const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-    const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
-    return blobUrl;
-  });
-  }
-  async fetchDataUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-  const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-  return readBlobAsDataUrl(blob);
-  }
-}
-function canSearchImmersionExamples(query, settings) {
-  return Boolean(query && settings.immersionKitEnabled);
-}
-function enabledImmersionExampleSources(settings) {
-  if (settings.immersionKitExampleSource === "nadeshiko") return ["nadeshiko"];
-  if (settings.immersionKitExampleSource === "combined") return ["immersion-kit", "nadeshiko"];
-  return ["immersion-kit"];
-}
-function collectExamples(value) {
-  if (Array.isArray(value)) return value;
-  if (!value || typeof value !== "object") return [];
-  const record = value;
-  return firstArrayField(record, ["examples", "results", "data"]);
-}
-function firstArrayField(record, keys) {
-  return keys.map((key) => record[key]).find(Array.isArray) ?? [];
-}
-function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
-  return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-}
-function filterNadeshikoExamples(data, query, settings, minLength) {
-  const response = nadeshikoResponseRecord(data);
-  if (!response) return [];
-  const media = nadeshikoMediaMap(response);
-  return nadeshikoSegments(response).map((value) => normalizeNadeshikoExample(value, media)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-}
-function applySearchExampleLimit(examples, settings, options = {}) {
-  const limit = searchResultLimit(settings, options);
-  return limit ? examples.slice(0, limit) : examples;
-}
-function searchRequestLimit(options) {
-  return boundedSearchLimit(options.requestLimit, SEARCH_EXAMPLE_LIMIT);
-}
-function searchResultLimit(settings, options) {
-  if (options.resultLimit !== void 0) return boundedSearchLimit(options.resultLimit, SEARCH_EXAMPLE_LIMIT);
-  return settings.immersionKitLimitEnabled ? boundedSearchLimit(settings.immersionKitLimit, SEARCH_EXAMPLE_LIMIT) : 0;
-}
-function boundedSearchLimit(value, fallback) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
-}
-function isSearchExampleInRange(example, settings, minLength) {
-  const length = sentenceLength(example.sentence);
-  return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
-}
-function isSearchExampleSurfaceMatch(example, query) {
-  return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
-}
-function normalizeExample(value, provider = "immersion-kit") {
-  return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
-}
-function normalizeExampleRecord(record, provider = "immersion-kit") {
-  const id = text(record.id);
-  const sentence = firstText(record, ["sentence", "text"]);
-  if (!sentence) return null;
-  const titleSlug = exampleTitleSlug(record, id);
-  const sourceTitle = exampleSourceTitle(record, titleSlug);
-  const category = exampleCategory(record, id);
-  const soundFile = firstText(record, ["sound", "audio", "audio_file", "audioFile"]);
-  const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
-  return {
-  id,
-  provider,
-  sentence,
-  sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
-  translation: firstText(record, ["translation", "translation_en", "english"]),
-  sourceTitle,
-  titleSlug,
-  category,
-  soundFile,
-  imageFile,
-  soundUrl: absoluteMediaUrl(firstText(record, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
-  imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
-  };
-}
-function nadeshikoSearchPayload(query, settings, minLength) {
-  const maxLength = settings.immersionKitMaxLength || 1e3;
-  return {
-  query: { search: query },
-  take: NADESHIKO_SEARCH_LIMIT,
-  filters: {
-    segmentLengthChars: {
-      min: minLength,
-      max: Math.max(minLength, maxLength)
-    }
-  }
-  };
-}
-function nadeshikoResponseRecord(data) {
-  if (Array.isArray(data)) return { segments: data };
-  return isRecord(data) ? data : null;
-}
-function nadeshikoSegments(response) {
-  return firstArrayField(response, ["segments", "examples", "results", "data"]);
-}
-function nadeshikoMediaMap(response) {
-  const includes = response.includes;
-  const media = isRecord(includes) ? includes.media : void 0;
-  return isRecord(media) ? media : {};
-}
-function normalizeNadeshikoExample(value, mediaById) {
-  if (!isRecord(value)) return null;
-  const sentence = nadeshikoSentence(value);
-  if (!sentence) return null;
-  const ids = nadeshikoExampleIds(value);
-  const media = nadeshikoMediaRecord(mediaById, ids.mediaPublicId);
-  const urls = recordField(value.urls);
-  const sourceTitle = nadeshikoSourceTitle(value, media);
-  return {
-  id: nadeshikoExampleId(sentence, ids),
-  provider: "nadeshiko",
-  sentence,
-  sentenceWithFurigana: firstText(value, ["furi_sentence", "sentenceWithFurigana", "sentence_with_furigana"]),
-  translation: nadeshikoTranslation(value),
-  sourceTitle,
-  titleSlug: slugFromTitle(sourceTitle),
-  category: nadeshikoCategory(value, media),
-  soundFile: "",
-  imageFile: "",
-  soundUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["audioUrl", "soundUrl", "audio_url", "sound_url"]),
-  imageUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["imageUrl", "image_url"]),
-  publicId: ids.publicId,
-  mediaPublicId: ids.mediaPublicId
-  };
-}
-function nadeshikoSentence(record) {
-  return nestedText(record, "textJa", ["content", "text"]) || firstText(record, ["sentence", "text", "textJa"]);
-}
-function nadeshikoExampleIds(record) {
-  return {
-  publicId: firstText(record, ["publicId", "public_id", "id"]),
-  mediaPublicId: firstText(record, ["mediaPublicId", "media_public_id", "mediaId"])
-  };
-}
-function nadeshikoMediaRecord(mediaById, mediaPublicId) {
-  return recordField(mediaById[mediaPublicId]);
-}
-function recordField(value) {
-  return isRecord(value) ? value : {};
-}
-function nadeshikoSourceTitle(record, media) {
-  return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
-}
-function nadeshikoExampleId(sentence, ids) {
-  return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
-}
-function nadeshikoTranslation(record) {
-  return nestedText(record, "textEn", ["content", "text"]) || firstText(record, ["translation", "translation_en", "english"]);
-}
-function nadeshikoCategory(record, media) {
-  return firstText(media, ["type", "category"]) || firstText(record, ["category"]) || "anime";
-}
-function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
-  return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
-}
-function nestedText(record, key, fields) {
-  const value = record[key];
-  return isRecord(value) ? firstText(value, fields) : "";
-}
-function directMediaUrl(example, kind) {
-  return kind === "image" ? example.imageUrl : example.soundUrl;
-}
-function mediaFileName(example, kind) {
-  return kind === "image" ? example.imageFile : example.soundFile;
-}
-function mediaFileUrls(example, file) {
-  const category = example.category || categoryFromId(example.id);
-  return uniqueTrimmedStrings(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
-}
-function mediaFileTitleUrls(category, title, file) {
-  const path = `media/${category}/${title}/media/${file}`;
-  return [
-  `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`,
-  ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
-  ];
-}
-function exampleTitleSlug(record, id) {
-  return firstText(record, ["title", "deck", "source"]) || titleSlugFromId(id);
-}
-function exampleSourceTitle(record, titleSlug) {
-  return firstText(record, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
-}
-function exampleCategory(record, id) {
-  return text(record.category) || categoryFromId(id);
-}
-function firstText(record, keys) {
-  for (const key of keys) {
-  const value = text(record[key]);
-  if (value) return value;
-  }
-  return "";
-}
-function text(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-function titleSlugFromId(id) {
-  const parts = id.split("_");
-  if (parts.length < 3) return "";
-  return parts.slice(1, -1).join("_");
-}
-function categoryFromId(id) {
-  const [category] = id.split("_");
-  return category || "anime";
-}
-function titleFromSlug(slug) {
-  if (!slug) return "Unknown";
-  const override = IMMERSION_KIT_TITLES[slug];
-  if (override) return override;
-  return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
-}
-function slugFromTitle(title) {
-  return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, "_").replace(/^_+|_+$/g, "");
-}
-function mediaTitleCandidates(example, file) {
-  const slug = example.titleSlug || titleSlugFromId(example.id);
-  return uniqueTrimmedStrings([
-  titleFromSlug(slug),
-  example.sourceTitle,
-  titleFromMediaFile(file),
-  slug
-  ].filter(Boolean));
-}
-function titleFromMediaFile(file) {
-  const stem = file.replace(/\.[^.]+$/u, "");
-  const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
-  const title = (episodeMatch?.[1] || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
-  if (!title) return "";
-  return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
-}
-function deterministicShuffle(values, seed) {
-  const result = [...values];
-  let state = stablePositiveHashId(seed);
-  for (let index = result.length - 1; index > 0; index--) {
-  state = nextRandomState(state);
-  const swapIndex = state % (index + 1);
-  [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-  }
-  return result;
-}
-function deterministicMergedExamples(sources, resultSets, seed) {
-  const groups = deterministicShuffle(sources.map((source, index) => ({
-  source,
-  examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`)
-  })), `${seed}:providers`).filter((group) => group.examples.length);
-  const result = [];
-  while (groups.some((group) => group.examples.length)) {
-  for (const group of groups) {
-    const example = group.examples.shift();
-    if (example) result.push(example);
-  }
-  }
-  return result;
-}
-function nextRandomState(value) {
-  return Math.imul(value, 1664525) + 1013904223 >>> 0;
-}
-function sensitiveFingerprint(value) {
-  const trimmed = value.trim();
-  return trimmed ? stableHash32(trimmed).toString(36) : "";
-}
-function absoluteMediaUrl(value) {
-  if (!value) return "";
-  if (isAbsoluteMediaUrl(value)) return value;
-  if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
-  return "";
-}
-function isAbsoluteMediaUrl(value) {
-  return /^https?:\/\//i.test(value) || value.startsWith("data:");
-}
-function sentenceLength(sentence) {
-  return Array.from(sentence.replace(/\s+/g, "")).length;
-}
-function requiresSurfaceMatch(query) {
-  return /[0-9０-９]/u.test(query);
-}
-function sentenceContainsQuery(sentence, query) {
-  const normalizedSentence = normalizeForSurfaceMatch(sentence);
-  const normalizedQuery = normalizeForSurfaceMatch(query);
-  return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
-}
-function normalizeForSurfaceMatch(value) {
-  return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-}
-async function requestJson(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-  let lastError;
-  for (const candidate of urlCandidates(url)) {
-  try {
-    return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
-  } catch (error) {
-    if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-    lastError = error;
-  }
-  }
-  throw requestError(lastError, uiText(language, "immersionKitRequestFailed"));
-}
-function urlCandidates(url) {
-  return Array.isArray(url) ? url : [url];
-}
-function requestError(error, fallback) {
-  return error instanceof Error ? error : new Error(fallback);
-}
-function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-  return requestJson$1(url, {
-  proxyUrl,
-  timeoutMs,
-  allowDirectCrossOrigin: true,
-  allowPublicProxies: false,
-  preferFetch: shouldPreferFetchForImmersionKitRequests(),
-  signal,
-  failureLabel: uiText(language, "immersionKitRequest"),
-  failureMessage: uiText(language, "immersionKitRequestFailed"),
-  statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
-  timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
-  }).catch((error) => {
-  if (isAbortError(error)) throw error;
-  if (isImmersionKitRateLimitError(error)) throw error;
-  if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
-    throw new Error(uiText(language, "immersionKitSearchBlocked"));
-  }
-  throw requestError(error, uiText(language, "immersionKitRequestFailed"));
-  });
-}
-function isImmersionKitRateLimitError(error) {
-  return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
-}
-function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
-  return requestBlob$1(url, {
-  proxyUrl,
-  timeoutMs,
-  allowDirectCrossOrigin: true,
-  preferFetch: shouldPreferFetchForImmersionKitRequests(),
-  failureLabel: uiText(language, "immersionKitMediaRequest"),
-  failureMessage: uiText(language, "immersionKitMediaRequestFailed"),
-  statusFailureMessage: (status) => formatUiText(language, "immersionKitMediaRequestFailedWithStatus", { status }),
-  timeoutLabel: uiText(language, "immersionKitMediaRequestTimedOut"),
-  blobFailureMessage: uiText(language, "immersionKitMediaRequestReturnedNonMedia")
-  }).then((blob) => {
-  if (isErrorDocumentBlob(blob)) throw new Error(uiText(language, "immersionKitMediaRequestReturnedNonMedia"));
-  return blob;
-  });
-}
-async function requestFirstBlob(urls, timeoutMs, proxyUrl = "", language = "en") {
-  const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
-  let lastError;
-  for (const candidate of candidates) {
-  try {
-    return await requestBlob(candidate, timeoutMs, proxyUrl, language);
-  } catch (error) {
-    lastError = error;
-  }
-  }
-  throw requestError(lastError, uiText(language, "immersionKitNoMediaCandidate"));
-}
-function prioritizeMediaCandidates(urls) {
-  return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
-}
-function isObjectStoreMediaUrl(url) {
-  try {
-  return new URL(url, location.href).origin === new URL(OBJECT_STORE_BASE).origin;
-  } catch {
-  return false;
-  }
-}
-function isErrorDocumentBlob(blob) {
-  const type = blob.type.toLowerCase();
-  if (isMediaBlobType(type)) return false;
-  return ERROR_DOCUMENT_TYPE_MARKERS.some((marker) => type.includes(marker)) || type.startsWith("text/");
-}
-const ERROR_DOCUMENT_TYPE_MARKERS = ["xml", "html", "json"];
-function isMediaBlobType(type) {
-  return ["image/", "audio/", "video/"].some((prefix) => type.startsWith(prefix));
-}
-function shouldPreferFetchForImmersionKitRequests() {
-  return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
-}
-function apiUrls(path) {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return API_BASES.map((base) => `${base}${cleanPath}`);
-}
-const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
 const COMMON_PARTICLES = new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
-const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
 function normalizeImmersionSearchQuery(value) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -23359,1742 +22583,13 @@ function queryKey(value) {
 function queryLength(value) {
   return Array.from(queryKey(value)).length;
 }
-function queryHasKanji(value) {
-  return /[\u3400-\u9fff々〆]/u.test(value);
-}
-function shouldRequireOriginalSurfaceMatch(value) {
-  return queryHasKanji(value) && queryLength(value) >= 3;
-}
-function shouldFilterImmersionExamplesBySurface(query) {
-  return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
-}
-function immersionSentenceContainsQuery(sentence, query) {
-  const s = normalizeSurface(sentence);
-  const q = normalizeSurface(query);
-  return Boolean(q) && s.includes(q);
-}
-function isUsefulImmersionFallbackQuery(query, exactQuery) {
-  if (isSameImmersionQuery(query, exactQuery)) return false;
-  return isUsefulStandaloneQuery(query);
-}
 function isUsefulImmersionPreloadQuery(query) {
   return isUsefulStandaloneQuery(query);
-}
-function uniqueImmersionQueries(values) {
-  const seen = new Set();
-  const result = [];
-  for (const value of values) {
-  const query = normalizeImmersionSearchQuery(value);
-  const key = queryKey(query);
-  if (!query || seen.has(key)) continue;
-  seen.add(key);
-  result.push(query);
-  }
-  return result;
-}
-function immersionFallbackFragments(value) {
-  const fragments = [];
-  const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
-  for (const run of runs) {
-  fragments.push(...scriptFragments(run));
-  }
-  return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
-}
-function normalizeSurface(value) {
-  return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-}
-function isSameImmersionQuery(query, exactQuery) {
-  return queryKey(query) === queryKey(exactQuery);
 }
 function isUsefulStandaloneQuery(query) {
   if (!query || !HAS_JAPANESE.test(query)) return false;
   if (COMMON_PARTICLES.has(queryKey(query))) return false;
   return queryLength(query) >= 2;
-}
-function scriptFragments(run) {
-  const groups = run.match(SCRIPT_GROUP_RE) ?? [];
-  if (groups.length <= 1) return groups;
-  const result = [...groups];
-  for (let i = 0; i < groups.length; i++) {
-  let q = groups[i];
-  for (let j = i + 1; j < groups.length; j++) {
-    q += groups[j];
-    result.push(q);
-  }
-  }
-  result.push(groups.filter(queryHasKanji).join(""));
-  return result;
-}
-function compareFallbackFragments(a, b) {
-  const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
-  if (order) return order;
-  return queryLength(b) - queryLength(a);
-}
-function loadCachedParsedTokens(cache2, key, limit, parse, shouldCache) {
-  const cached = cache2.get(key);
-  if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
-  const entry = { promise: Promise.resolve([]) };
-  entry.promise = parse().then((tokens) => {
-  if (shouldCache(tokens)) entry.tokens = tokens;
-  else if (cache2.get(key) === entry) cache2.delete(key);
-  return tokens;
-  }).catch((error) => {
-  if (cache2.get(key) === entry) cache2.delete(key);
-  throw error;
-  });
-  cache2.set(key, entry);
-  pruneOldestCacheEntries(cache2, limit);
-  return entry.promise;
-}
-const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
-const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
-function exampleSentenceLookupTokens(tokens, targetCard) {
-  return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
-}
-function shouldKeepExampleSentenceToken(token, targetCard) {
-  if (targetCard && cardKey(token.card) === cardKey(targetCard)) return true;
-  return !isLowValueExampleSentenceToken(token);
-}
-function isLowValueExampleSentenceToken(token) {
-  const surfaceLength = token.end - token.start;
-  if (surfaceLength > 2) return false;
-  const spelling = token.card.spelling.trim();
-  if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
-  return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
-}
-function publishImmersionFrameWidth(media) {
-  if (!media) return;
-  const rect = media.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-  const width = immersionPaintedWidth(media, rect);
-  if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
-  else media.style.removeProperty("--yomu-immersion-frame-width");
-}
-function immersionPaintedWidth(media, rect) {
-  const image = media.querySelector(".jpdb-reader-example-image");
-  if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
-  return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
-}
-const IMMERSION_SOURCE_TITLES_JA = {
-  "My Neighbor Totoro": "となりのトトロ"
-};
-function localizedImmersionProviderLabel(example, language) {
-  return example.provider === "nadeshiko" ? "Nadeshiko" : uiText(language, "immersionKit");
-}
-function localizedImmersionSourceTitle(title, language) {
-  return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
-}
-function nextImmersionExampleIndex(index, total, action) {
-  if (!Number.isFinite(index) || total <= 0) return 0;
-  const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
-  return (index + delta + total) % total;
-}
-function validImmersionExampleIndex(index, total) {
-  return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
-}
-function renderImmersionExampleActionsHtml(hasAudio, language) {
-  const previous = uiText(language, "previousExample");
-  const next = uiText(language, "nextExample");
-  const audio = uiText(language, "playExampleAudio");
-  return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
-            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-            ${renderImmersionActionButtonHtml("next", next, "›")}
-        </div>
-    `;
-}
-function renderImmersionActionButtonHtml(action, label, content) {
-  return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
-}
-function createHandleDragController(options) {
-  let state = initialDragState();
-  let pointerId = 0;
-  let touchId = 0;
-  let dragging = false;
-  let moved = false;
-  let activeInput = null;
-  let activeHandle = null;
-  let activeCaptureTarget = null;
-  const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
-  const setLastPoint = (point) => {
-  state = {
-    ...state,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: point.x - state.startX,
-    deltaY: point.y - state.startY
-  };
-  };
-  const updateDrag = (point) => {
-  if (!activeHandle) return;
-  setLastPoint(point);
-  if (movementDistance(state) > options.tapMovementPx) moved = true;
-  options.onUpdate?.(state, activeHandle);
-  };
-  const beginDrag = (handle, point, input) => {
-  if (dragging || activeInput) return false;
-  state = {
-    startX: point.x,
-    startY: point.y,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: 0,
-    deltaY: 0
-  };
-  dragging = true;
-  moved = false;
-  activeInput = input;
-  activeHandle = handle;
-  options.onBegin?.(handle, state, input);
-  return true;
-  };
-  const finishDrag = () => {
-  if (!dragging) return;
-  const wasMoved = moved;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onFinish(state, wasMoved, handle);
-  };
-  function cleanupListeners() {
-  if (typeof document === "undefined") return;
-  document.removeEventListener("pointermove", handlePointerMove, true);
-  document.removeEventListener("pointerup", handlePointerUp, true);
-  document.removeEventListener("pointercancel", handlePointerCancel, true);
-  document.removeEventListener("touchmove", handleTouchMove, true);
-  document.removeEventListener("touchend", handleTouchEnd, true);
-  document.removeEventListener("touchcancel", handleTouchCancel, true);
-  }
-  function cancel() {
-  if (!dragging) return;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onCancel?.(state, handle);
-  }
-  function handlePointerMove(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  updateDrag({ x: event.clientX, y: event.clientY });
-  }
-  function handlePointerUp(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
-  else setLastPoint({ x: event.clientX, y: event.clientY });
-  finishDrag();
-  }
-  function handlePointerCancel(event) {
-  if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  cancel();
-  }
-  function handleTouchMove(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  updateDrag({ x: touch.clientX, y: touch.clientY });
-  }
-  function handleTouchEnd(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
-  else setLastPoint({ x: touch.clientX, y: touch.clientY });
-  finishDrag();
-  }
-  function handleTouchCancel(event) {
-  if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
-  cancel();
-  }
-  return {
-  isDragging: () => dragging,
-  pointerDown(handle, event) {
-    if (activeInput) return;
-    if (event.button !== void 0 && event.button !== 0) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
-    pointerId = event.pointerId;
-    activeCaptureTarget = event.target instanceof Element ? event.target : handle;
-    setPointerCapture(activeCaptureTarget, event.pointerId);
-    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-    document.addEventListener("pointerup", handlePointerUp, true);
-    document.addEventListener("pointercancel", handlePointerCancel, true);
-  },
-  touchStart(handle, event) {
-    if (activeInput) return;
-    const touch = firstChangedTouch(event);
-    if (!touch) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
-    touchId = touch.identifier;
-    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
-    document.addEventListener("touchend", handleTouchEnd, true);
-    document.addEventListener("touchcancel", handleTouchCancel, true);
-  },
-  cancel,
-  cleanupListeners
-  };
-}
-function initialDragState() {
-  return {
-  startX: 0,
-  startY: 0,
-  lastX: 0,
-  lastY: 0,
-  deltaX: 0,
-  deltaY: 0
-  };
-}
-function getContainedClosest(target, root, selector, onFound) {
-  if (!(target instanceof Element)) return null;
-  const element = target.closest(selector);
-  if (!element || !root.contains(element)) return null;
-  onFound?.(element);
-  return element;
-}
-function consumeDragEvent(event) {
-  event.preventDefault();
-  event.stopPropagation();
-}
-function changedTouch(event, touchId) {
-  for (const touch of Array.from(event.changedTouches)) {
-  if (touch.identifier === touchId) return touch;
-  }
-  return null;
-}
-function firstChangedTouch(event) {
-  return event.changedTouches.item(0);
-}
-function releasePointerCapture(handle, id) {
-  try {
-  handle?.releasePointerCapture?.(id);
-  } catch {
-  }
-}
-function setPointerCapture(handle, id) {
-  try {
-  handle.setPointerCapture?.(id);
-  } catch {
-  }
-}
-function addViewportChangeListeners(listener, signal) {
-  const options = { passive: true, signal };
-  window.addEventListener("resize", listener, options);
-  window.addEventListener("orientationchange", listener, options);
-  window.visualViewport?.addEventListener?.("resize", listener, options);
-  window.visualViewport?.addEventListener?.("scroll", listener, options);
-}
-const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-const MIN_SHEET_HEIGHT_PX = 180;
-const SHEET_DISMISS_OVERSHOOT_PX = 72;
-const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
-const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-const SHEET_TAP_MOVEMENT_PX = 8;
-const SHEET_KEYBOARD_STEP_PX = 48;
-const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-const POPOVER_BODY_ACTION_SELECTOR = [
-  "button",
-  '[role="button"]',
-  "input",
-  "select",
-  "textarea",
-  "[data-action]",
-  "[data-immersion-action]",
-  "[data-yomu-immersion-action]",
-  "[data-uchisen-action]"
-].join(",");
-function popoverScrollBody$1(popover) {
-  return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-}
-function capturePopoverScrollFrame(target) {
-  const popover = target.closest(".jpdb-reader-popover") ?? target;
-  const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-  return { scrollBody, scrollTop: scrollBody.scrollTop };
-}
-function restorePopoverScrollFrame(frame) {
-  if (!frame.scrollBody.isConnected) return;
-  if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-}
-function restorePopoverScrollFrameSoon(frame) {
-  restorePopoverScrollFrame(frame);
-  requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-}
-function popoverBodyActionElement(target, scrollBody) {
-  const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-  return action && scrollBody.contains(action) ? action : null;
-}
-function createReaderPopover(appName, settings, trigger = "modal") {
-  const popover = document.createElement("div");
-  popover.className = "jpdb-reader-popover";
-  popover.dataset.jpdbReaderRoot = "true";
-  popover.setAttribute("role", "dialog");
-  popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
-  popover.setAttribute("aria-modal", "true");
-  popover.tabIndex = -1;
-  if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
-  else popover.style.width = `${settings.popoverWidth}px`;
-  return popover;
-}
-function forceReaderPopoverSurface(popover, settings) {
-  popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
-  refreshForcedReaderPopoverSurface(popover, settings);
-}
-function refreshForcedReaderPopoverSurface(popover, settings) {
-  if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
-  popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
-  popover.style.width = `${settings.popoverWidth}px`;
-  popover.style.height = "";
-  popover.style.minHeight = "";
-  popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element) => element.remove());
-}
-function createReaderBackdrop(onDismiss) {
-  const backdrop = document.createElement("div");
-  backdrop.className = "jpdb-reader-backdrop";
-  backdrop.dataset.jpdbReaderRoot = "true";
-  backdrop.addEventListener("mousedown", (event) => event.preventDefault());
-  backdrop.addEventListener("click", onDismiss);
-  return backdrop;
-}
-function popoverMaxHeightSetting(settings) {
-  return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
-}
-function suppressTrailingClickAfterSheetGestureDismiss() {
-  if (typeof window === "undefined") return;
-  let timer = 0;
-  const cleanup = () => {
-  if (timer) window.clearTimeout(timer);
-  window.removeEventListener("click", consume, true);
-  };
-  const consume = (event) => {
-  cleanup();
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  };
-  window.addEventListener("click", consume, { capture: true });
-  timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
-}
-function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
-  if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
-  popover.dataset.jpdbReaderSheetHandleInstalled = "true";
-  let viewportHeight = 0;
-  let sheetHeight = 0;
-  let startHeight = 0;
-  let rawDragHeight = 0;
-  let dragPageScale = 1;
-  const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
-  const syncHandle = (handle) => {
-  handle.setAttribute("role", "button");
-  handle.setAttribute("tabindex", "0");
-  handle.setAttribute("aria-label", label);
-  handle.setAttribute("aria-expanded", String(isFullHeight()));
-  handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
-  handle.setAttribute("aria-valuemax", String(viewportHeight));
-  handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
-  };
-  const syncHandleState = () => {
-  popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
-  };
-  const applySheetHeight = (height, persist = false) => {
-  const nextHeight = clampSheetHeight(height, viewportHeight);
-  sheetHeight = nextHeight;
-  popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
-  popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
-  syncHandleState();
-  if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
-  };
-  const applyViewportSize = () => {
-  applyRedditOverlayScale(popover);
-  const previousViewportHeight = viewportHeight;
-  const overlayViewport = redditOverlayViewport();
-  viewportHeight = fixedChromeViewportHeight();
-  const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
-  popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
-  popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
-  popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
-  popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
-  const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
-  applySheetHeight(viewportHeight * ratio);
-  };
-  const clearSheetPositionStyles = () => {
-  popover.style.removeProperty("left");
-  popover.style.removeProperty("right");
-  popover.style.removeProperty("top");
-  popover.style.removeProperty("bottom");
-  popover.style.removeProperty("width");
-  popover.style.removeProperty("height");
-  popover.style.removeProperty("max-width");
-  popover.style.removeProperty("max-height");
-  };
-  const clearDragStyles = () => {
-  popover.style.transform = "";
-  popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
-  popover.classList.remove("jpdb-reader-sheet-resizing");
-  };
-  const resetSheetLayout = () => {
-  clearSheetPositionStyles();
-  applyViewportSize();
-  clearDragStyles();
-  };
-  resetSheetLayout();
-  syncHandleState();
-  let handleObserver;
-  if (typeof MutationObserver !== "undefined") {
-  handleObserver = new MutationObserver(syncHandleState);
-  handleObserver.observe(popover, { childList: true, subtree: true });
-  }
-  let suppressNextHandleClick = false;
-  const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
-  const reset = () => {
-  popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
-  clearDragStyles();
-  window.setTimeout(() => {
-    popover.style.transition = "";
-  }, 180);
-  };
-  const dismissFromGesture = () => {
-  suppressTrailingClickAfterSheetGestureDismiss();
-  onDismiss();
-  };
-  const sheetDrag = createHandleDragController({
-  tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-  movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
-  onBegin: () => {
-    dragPageScale = redditOverlayViewport().pageScale;
-    startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
-    rawDragHeight = startHeight;
-    popover.style.transition = "";
-    popover.classList.add("jpdb-reader-sheet-resizing");
-  },
-  onUpdate: (state) => {
-    rawDragHeight = startHeight - state.deltaY * dragPageScale;
-    applySheetHeight(rawDragHeight);
-  },
-  onFinish: (_state, wasMoved) => {
-    const finishHeight = rawDragHeight;
-    popover.classList.remove("jpdb-reader-sheet-resizing");
-    if (!wasMoved) {
-      suppressNextHandleClick = true;
-      dismissFromGesture();
-      return;
-    }
-    suppressNextHandleClick = true;
-    if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-      dismissFromGesture();
-      return;
-    }
-    applySheetHeight(finishHeight, true);
-    reset();
-  },
-  onCancel: reset
-  });
-  const handleViewportChange = () => {
-  if (sheetDrag.isDragging()) sheetDrag.cancel();
-  popover.style.transition = "";
-  resetSheetLayout();
-  syncHandleState();
-  };
-  const viewportController = new AbortController();
-  let disposed = false;
-  let disposeObserver;
-  const dispose = () => {
-  if (disposed) return;
-  disposed = true;
-  sheetDrag.cleanupListeners();
-  viewportController.abort();
-  handleObserver?.disconnect();
-  disposeObserver?.disconnect();
-  };
-  disposeObserver = new MutationObserver(() => {
-  if (!popover.isConnected) dispose();
-  });
-  if (document.documentElement) {
-  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-  }
-  popover.addEventListener("click", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (suppressNextHandleClick) {
-    suppressNextHandleClick = false;
-    return;
-  }
-  onDismiss();
-  });
-  popover.addEventListener("pointerdown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  sheetDrag.pointerDown(handle, event);
-  });
-  popover.addEventListener("touchstart", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  sheetDrag.touchStart(handle, event);
-  }, { capture: true, passive: false });
-  popover.addEventListener("keydown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    event.stopPropagation();
-    onDismiss();
-  }
-  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-    event.preventDefault();
-    event.stopPropagation();
-    applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
-    reset();
-  }
-  if (event.key === "Escape") onDismiss();
-  });
-  addViewportChangeListeners(handleViewportChange, viewportController.signal);
-}
-function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
-  if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
-  popover.dataset.jpdbReaderSheetCloseInstalled = "true";
-  const close = (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  onDismiss();
-  };
-  const createButton = () => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "jpdb-reader-sheet-close";
-  button.dataset.jpdbReaderSheetClose = "true";
-  button.setAttribute("aria-label", label);
-  button.title = label;
-  setInnerHtml(button, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
-  button.addEventListener("click", close);
-  return button;
-  };
-  const ensureButton = () => {
-  if (!popover.isConnected) return;
-  if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
-  popover.append(createButton());
-  };
-  ensureButton();
-  let disposed = false;
-  let contentObserver;
-  let disposeObserver;
-  const dispose = () => {
-  if (disposed) return;
-  disposed = true;
-  contentObserver?.disconnect();
-  disposeObserver?.disconnect();
-  };
-  contentObserver = new MutationObserver(ensureButton);
-  contentObserver.observe(popover, { childList: true });
-  disposeObserver = new MutationObserver(() => {
-  if (!popover.isConnected) dispose();
-  });
-  if (document.documentElement) {
-  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-  }
-}
-function installMiningDrawerHandle(root, setExpanded) {
-  if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
-  root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
-  let suppressNextHandleClick = false;
-  let cleanedUp = false;
-  const getHandleFromElement = (event) => {
-  const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-  if (!target || !root.contains(target)) return null;
-  const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
-  if (!handle) return null;
-  return handle;
-  };
-  const getHandleFromEventTarget = (event) => {
-  return event instanceof Element ? getHandleFromElement(event) : null;
-  };
-  const getHandleFromPoint = (x, y) => {
-  if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element of document.elementsFromPoint(x, y)) {
-    const handle = getHandleFromElement(element);
-    if (handle) return handle;
-  }
-  return null;
-  };
-  const getHandleFromPointerEvent = (event) => {
-  return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-  };
-  const getHandleFromTouchEvent = (event) => {
-  const direct = getHandleFromEventTarget(event.target);
-  if (direct) return direct;
-  const touch = firstChangedTouch(event);
-  return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
-  };
-  const isInteractiveGutterChild = (eventTarget) => {
-  if (!(eventTarget instanceof Element)) return false;
-  const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
-  return Boolean(
-    action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
-  );
-  };
-  const miningDrag = createHandleDragController({
-  tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
-  updateOnEnd: true,
-  onBegin: (handle) => {
-    handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
-  },
-  onFinish: (state, wasMoved, handle) => {
-    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-    if (!wasMoved || !handle) return;
-    suppressNextHandleClick = true;
-    const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
-    if (expanded !== void 0) setExpanded(handle, expanded);
-  },
-  onCancel: (_state, handle) => {
-    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-  }
-  });
-  const cleanup = () => {
-  if (cleanedUp) return;
-  cleanedUp = true;
-  document.removeEventListener("click", handleClick, true);
-  document.removeEventListener("pointerdown", handlePointerDown, true);
-  document.removeEventListener("touchstart", handleTouchStart, true);
-  miningDrag.cleanupListeners();
-  };
-  const rootIsConnected = () => {
-  if (root.isConnected) return true;
-  cleanup();
-  return false;
-  };
-  const toggleHandle = (handle) => {
-  setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
-  };
-  function handleClick(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromPointerEvent(event);
-  if (!handle) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (suppressNextHandleClick) {
-    suppressNextHandleClick = false;
-    return;
-  }
-  toggleHandle(handle);
-  }
-  function handlePointerDown(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromPointerEvent(event);
-  if (!handle) return;
-  miningDrag.pointerDown(handle, event);
-  }
-  function handleTouchStart(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromTouchEvent(event);
-  if (!handle) return;
-  miningDrag.touchStart(handle, event);
-  }
-  document.addEventListener("click", handleClick, true);
-  document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
-  document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
-}
-function eventHasPointTarget(event) {
-  return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
-}
-function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
-  const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
-  if (mode === "sheet") return true;
-  if (mode === "popover") return false;
-  const { width, height } = viewport;
-  const popoverWidth = Math.max(0, settings.popoverWidth || 0);
-  const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
-  if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
-  if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
-  return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
-}
-function lookupViewportSize() {
-  const overlayViewport = redditOverlayViewport();
-  if (overlayViewport.pageScale > 1) {
-  const bounds = redditOverlayViewportBounds();
-  return {
-    width: Math.max(0, Math.round(bounds.width)),
-    height: Math.max(0, Math.round(bounds.height)),
-    pageScale: overlayViewport.pageScale
-  };
-  }
-  const visual = window.visualViewport;
-  const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
-  const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
-  return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
-}
-function fixedChromeViewportHeight() {
-  const overlayViewport = redditOverlayViewport();
-  return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
-}
-function visualViewportHeight() {
-  return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
-}
-function layoutViewportHeight() {
-  return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
-}
-function sheetMinHeight(viewportHeight) {
-  if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
-  return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
-}
-function restoredSheetHeight(viewportHeight) {
-  return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
-}
-function clampSheetHeight(height, viewportHeight) {
-  return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
-}
-function clampDrawerHeight(height, viewportHeight, minHeight) {
-  if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
-  return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
-}
-function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
-  const axis = miningDrawerDragAxis(handle);
-  if (axis === "horizontal") {
-  if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-  return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
-  }
-  if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-  return deltaY < 0;
-}
-function miningDrawerDragAxis(handle) {
-  const rect = handle.getBoundingClientRect();
-  if (rect.height > rect.width * 1.2) return "horizontal";
-  const actions = handle.closest(".jpdb-reader-actions");
-  if (!actions) return "vertical";
-  const actionsRect = actions.getBoundingClientRect();
-  return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
-}
-function miningDrawerHorizontalOpenDirection(handle) {
-  const actions = handle.closest(".jpdb-reader-actions");
-  if (!actions) return "left";
-  const handleRect = handle.getBoundingClientRect();
-  const actionsRect = actions.getBoundingClientRect();
-  const handleCenter = handleRect.left + handleRect.width / 2;
-  const actionsCenter = actionsRect.left + actionsRect.width / 2;
-  return handleCenter < actionsCenter ? "right" : "left";
-}
-function readSheetHeightRatio() {
-  return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
-}
-function storeSheetHeightRatio(height, viewportHeight) {
-  storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
-}
-function readHeightRatio(storageKey, fallback) {
-  const value = gmStorageGetSync(storageKey, fallback);
-  return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
-}
-function storeHeightRatio(storageKey, height, viewportHeight) {
-  if (viewportHeight <= 0) return;
-  const ratio = Math.max(0, Math.min(1, height / viewportHeight));
-  gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
-}
-const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
-const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
-const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
-const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
-const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
-const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
-const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
-const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
-const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
-const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
-const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
-const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-const log$a = Logger.scope("ImmersionPopover");
-class ImmersionPopoverController {
-  constructor(options) {
-  this.options = options;
-  }
-  hoverAudioPlayedKeys = new Set();
-  activeMiningContext;
-  contextByCardKey = new Map();
-  searchResultCache = new Map();
-  parsedSentenceCache = new Map();
-  loadAbortControllers = new WeakMap();
-  lazyLoadTimers = new WeakMap();
-  lazyLoadObservers = new WeakMap();
-  abortPendingRequests(popover) {
-  const container = popover.querySelector("[data-immersion-kit]");
-  if (container) {
-    this.clearLazyLoadTimer(container);
-    this.disconnectLazyLoadObserver(container);
-  }
-  this.abortActiveLoad(popover);
-  }
-  abortActiveLoad(popover) {
-  const controller = this.loadAbortControllers.get(popover);
-  if (!controller) return;
-  controller.abort();
-  this.loadAbortControllers.delete(popover);
-  }
-  hasActiveContext(card, sentence) {
-  return this.activeMiningContext?.term === card.spelling && this.activeMiningContext.sentence === (sentence || "").replace(/\s+/g, " ").trim();
-  }
-  activeContextFor(card) {
-  return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : void 0;
-  }
-  storedContextFor(card) {
-  return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-  }
-  rememberPageMiningContext(card, sentence, anchor) {
-  const cleanSentence = normalizeMiningSentence(sentence);
-  if (!isPageMiningSentence(cleanSentence, card)) return;
-  this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
-  }
-  rememberTermMiningContext(term, sentence, anchor) {
-  const cleanTerm = term.trim();
-  const cleanSentence = normalizeMiningSentence(sentence);
-  if (!cleanTerm || !isPageMiningSentence(cleanSentence, { spelling: cleanTerm })) return;
-  this.rememberStoredMiningContext(saveMiningContext(cleanTerm, this.pageMiningContextDraft(cleanSentence, anchor)));
-  }
-  pageMiningContextDraft(sentence, anchor) {
-  const immersionCard = anchor?.closest(".jpdb-reader-example-card") ?? null;
-  if (immersionCard) return immersionContextFromElement(sentence, immersionCard);
-  const sourceKind = pageMiningSourceKind(anchor);
-  return pageMiningContext(sentence, sourceKind);
-  }
-  rememberStoredMiningContext(stored) {
-  if (!stored) return;
-  this.activeMiningContext = stored;
-  }
-  async loadExamples(popover, card, options = {}) {
-  const container = popover.querySelector("[data-immersion-kit]");
-  if (!container) return;
-  this.abortActiveLoad(popover);
-  const controller = new AbortController();
-  this.loadAbortControllers.set(popover, controller);
-  const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
-  const settings = this.options.getSettings();
-  try {
-    const result = await raceAgainstAbortOrTimeout(
-      searchPromise,
-      controller.signal,
-      settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
-    );
-    if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
-    this.renderLoadedExamples(container, card, result);
-  } catch (error) {
-    if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-    log$a.warn("Immersion Kit examples failed", { term: card.spelling }, error);
-    this.renderEmptyIfConnected(popover, container);
-  } finally {
-    if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
-  }
-  }
-  shouldSkipLoadedExamplesRender(popover, container, controller) {
-  if (!controller.signal.aborted && isConnectedImmersionSurface(popover, container)) return false;
-  clearImmersionLoadingState(container);
-  return true;
-  }
-  shouldIgnoreAbortedExampleLoad(error, controller, container) {
-  if (!isAbortError(error) || !controller.signal.aborted) return false;
-  clearImmersionLoadingState(container);
-  return true;
-  }
-  installLazyLoad(popover, card, options = {}) {
-  const container = popover.querySelector("[data-immersion-kit]");
-  if (!container || container.dataset.immersionLazyBound === "true") return;
-  container.dataset.immersionLazyBound = "true";
-  const canLoad = () => this.canStartLazyLoad(popover, container);
-  const scheduleLoad = (delayMs) => {
-    if (!canLoad()) return;
-    if (container.dataset.immersionLoadState === "scheduled") return;
-    this.clearLazyLoadTimer(container);
-    container.dataset.immersionLoadState = "scheduled";
-    const timer = window.setTimeout(() => {
-      this.lazyLoadTimers.delete(container);
-      if (!canLoad()) {
-        if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-        return;
-      }
-      container.dataset.immersionLoadState = "loading";
-      void this.loadExamples(popover, card, options).then(() => {
-        if (container.dataset.immersionLoadState !== "loading") return;
-        container.dataset.immersionLoadState = "loaded";
-      }).catch(() => {
-        if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-      });
-    }, delayMs);
-    this.lazyLoadTimers.set(container, timer);
-  };
-  const maybeLoad = () => {
-    if (!canLoad()) return;
-    scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
-  };
-  const handleToggle = () => {
-    if (!container.open) {
-      this.clearLazyLoadTimer(container);
-      if (container.dataset.immersionLoadState === "scheduled" || container.dataset.immersionLoadState === "loading") {
-        delete container.dataset.immersionLoadState;
-      }
-      this.abortActiveLoad(popover);
-      return;
-    }
-    maybeLoad();
-  };
-  container.addEventListener("toggle", handleToggle);
-  this.installLazyVisibilityObserver(popover, container, maybeLoad);
-  maybeLoad();
-  }
-  canStartLazyLoad(popover, container) {
-  return isConnectedImmersionSurface(popover, container) && container.open && container.dataset.immersionEmpty !== "true" && !["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "");
-  }
-  installLazyVisibilityObserver(popover, container, maybeLoad) {
-  if (typeof IntersectionObserver !== "function") return;
-  const observer = new IntersectionObserver((entries2) => {
-    if (entries2.some((entry) => entry.isIntersecting)) maybeLoad();
-  }, {
-    root: immersionLazyLoadRoot(popover, container),
-    rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN
-  });
-  observer.observe(container);
-  this.lazyLoadObservers.set(container, observer);
-  }
-  clearLazyLoadTimer(container) {
-  const timer = this.lazyLoadTimers.get(container);
-  if (timer === void 0) return;
-  window.clearTimeout(timer);
-  this.lazyLoadTimers.delete(container);
-  if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-  }
-  disconnectLazyLoadObserver(container) {
-  this.lazyLoadObservers.get(container)?.disconnect();
-  this.lazyLoadObservers.delete(container);
-  }
-  renderLoadedExamples(container, card, result) {
-  const { examples } = result;
-  if (!examples.length) {
-    this.renderEmpty(container);
-    return;
-  }
-  this.bindExampleCarousel(container, card, result);
-  }
-  bindExampleCarousel(container, card, result) {
-  const { examples } = result;
-  let index = this.startIndex(card, examples);
-  let renderRequest = 0;
-  let hoverAudioCanPlay = true;
-  let hoverAudioActive = false;
-  const render = (nextIndex, playAudio, promoteMiningContext = false) => {
-    const requestId = ++renderRequest;
-    index = validImmersionExampleIndex(nextIndex, examples.length);
-    this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
-    bindHoverMedia();
-  };
-  container.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-immersion-action]");
-    const media = event.target.closest(".jpdb-reader-example-media");
-    const translation = event.target.closest(".jpdb-reader-example-translation");
-    if (translation) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.toggleTranslationBlur(container);
-      return;
-    }
-    if (!button && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (!button) {
-      void this.playExampleAudio(examples[index]);
-      return;
-    }
-    const action = button.dataset.immersionAction;
-    if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
-    if (action === "audio") void this.playExampleAudio(examples[index]);
-  });
-  container.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const translation = event.target.closest(".jpdb-reader-example-translation");
-    if (!translation) return;
-    event.preventDefault();
-    this.toggleTranslationBlur(container);
-  });
-  const playHoverAudioForTarget = (hoverTarget, pointerType, relatedTarget) => {
-    if (!this.canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay)) return;
-    const example = examples[index];
-    if (!this.rememberHoverAudioExample(example)) return;
-    hoverAudioCanPlay = false;
-    hoverAudioActive = true;
-    void this.playExampleAudio(example, true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(":hover"));
-  };
-  const handleImmersionHover = (event) => {
-    const hoverTarget = event.target.closest?.(".jpdb-reader-example-media, .jpdb-reader-example-card");
-    if (hoverTarget) playHoverAudioForTarget(hoverTarget, "pointerType" in event ? event.pointerType : "mouse", event.relatedTarget);
-  };
-  const bindHoverMedia = () => {
-    container.querySelectorAll(".jpdb-reader-example-media, .jpdb-reader-example-card").forEach((hoverTarget) => {
-      if (hoverTarget.dataset.immersionHoverBound === "true") return;
-      hoverTarget.dataset.immersionHoverBound = "true";
-      hoverTarget.addEventListener("pointerover", handleImmersionHover);
-      hoverTarget.addEventListener("mouseover", handleImmersionHover);
-      requestAnimationFrame(() => {
-        if (hoverTarget.isConnected && hoverTarget.matches(":hover")) playHoverAudioForTarget(hoverTarget, "mouse", null);
-      });
-    });
-  };
-  container.addEventListener("pointerleave", () => {
-    hoverAudioCanPlay = true;
-    hoverAudioActive = false;
-  });
-  container.addEventListener("mouseleave", () => {
-    hoverAudioCanPlay = true;
-    hoverAudioActive = false;
-  });
-  render(index, false);
-  }
-  shouldAutoPlayCarouselAudio() {
-  const settings = this.options.getSettings();
-  return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && !this.shouldSuppressAutoAudioForVideo() && canAttemptAudiblePlayback(true);
-  }
-  canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay) {
-  if (!this.options.getSettings().immersionKitPlayOnHover) return false;
-  if (isHoverAudioPointerSuppressed(pointerType)) return false;
-  if (hoverTarget.contains(relatedTarget)) return false;
-  if (!hoverAudioCanPlay) return false;
-  if (this.shouldSuppressAutoAudioForVideo()) return false;
-  return canAttemptAudiblePlayback();
-  }
-  rememberHoverAudioExample(example) {
-  const audioKey = hoverAudioExampleKey(example);
-  if (this.hoverAudioPlayedKeys.has(audioKey)) return false;
-  this.hoverAudioPlayedKeys.add(audioKey);
-  pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
-  return true;
-  }
-  shouldSuppressAutoAudioForVideo() {
-  const settings = this.options.getSettings();
-  return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
-  }
-  renderEmptyIfConnected(popover, container) {
-  if (!isConnectedImmersionSurface(popover, container)) return;
-  this.renderEmpty(container);
-  }
-  async searchExamples(card, options = {}) {
-  const key = this.searchCacheKey(card, options);
-  const now = Date.now();
-  const cached = this.searchResultCache.get(key);
-  if (cached && cached.expiresAt > now) return cached.promise;
-  if (options.signal) {
-    return this.fetchExamples(card, options).then((result) => {
-      if (!options.signal?.aborted) this.rememberSearchResult(key, result);
-      return result;
-    });
-  }
-  const promise = this.fetchExamples(card, options).catch((error) => {
-    if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
-    throw error;
-  });
-  this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
-  pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-  return promise;
-  }
-  rememberSearchResult(key, result) {
-  const now = Date.now();
-  this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
-  pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-  }
-  stopAudio() {
-  this.options.audio.stop();
-  }
-  async fetchExamples(card, options) {
-  const exactQuery = normalizeImmersionSearchQuery(card.spelling);
-  const triedQueries = [];
-  const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
-  if (exactResult) return exactResult;
-  const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
-  const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
-  if (fallbackResult) return fallbackResult;
-  return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
-  }
-  fetchFirstFallbackExamples(queries, exactQuery, triedQueries, signal) {
-  if (!queries.length) return Promise.resolve(null);
-  const concurrency = Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY, queries.length);
-  let nextIndex = 0;
-  let active = 0;
-  let settled = false;
-  return new Promise((resolve, reject) => {
-    const cleanupAbortListener = () => {
-      signal?.removeEventListener("abort", handleAbort);
-    };
-    const fail = (error) => {
-      if (settled) return;
-      settled = true;
-      cleanupAbortListener();
-      reject(error);
-    };
-    const finish = (result) => {
-      if (settled) return;
-      settled = true;
-      cleanupAbortListener();
-      resolve(result);
-    };
-    const handleAbort = () => fail(abortErrorForRace());
-    if (signal?.aborted) {
-      handleAbort();
-      return;
-    }
-    signal?.addEventListener("abort", handleAbort, { once: true });
-    const launch = () => {
-      if (signal?.aborted) {
-        handleAbort();
-        return;
-      }
-      while (!settled && active < concurrency && nextIndex < queries.length) {
-        const query = queries[nextIndex++];
-        active++;
-        void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result) => {
-          active--;
-          if (result) {
-            finish(result);
-            return;
-          }
-          if (nextIndex >= queries.length && active === 0) finish(null);
-          else launch();
-        }).catch((error) => {
-          active--;
-          if (signal?.aborted) {
-            handleAbort();
-            return;
-          }
-          if (isAbortError(error)) {
-            fail(error);
-            return;
-          }
-          if (nextIndex >= queries.length && active === 0) finish(null);
-          else launch();
-        });
-      }
-    };
-    launch();
-  });
-  }
-  async immersionFallbackSearchQueries(card, options, exactQuery) {
-  const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
-  const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-  return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries]).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-  }
-  async fetchExamplesForQuery(query, exactQuery, triedQueries, signal) {
-  if (!query) return null;
-  if (signal?.aborted) throw abortErrorForRace();
-  triedQueries.push(query);
-  try {
-    const settings = this.options.getSettings();
-    const searchOptions = this.popupSearchOptions(settings, signal);
-    const examples = await this.options.client.search(query, settings, searchOptions);
-    return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
-  } catch (error) {
-    if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-    return null;
-  }
-  }
-  popupSearchOptions(settings, signal) {
-  const resultLimit = settings.immersionKitLimitEnabled ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT) : IMMERSION_POPUP_EXAMPLE_LIMIT;
-  return {
-    requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
-    resultLimit,
-    fastFirst: true,
-    ...signal ? { signal } : {}
-  };
-  }
-  searchCacheKey(card, options) {
-  const settings = this.options.getSettings();
-  return JSON.stringify({
-    spelling: card.spelling,
-    reading: card.reading,
-    enabled: settings.immersionKitEnabled,
-    source: settings.immersionKitExampleSource,
-    nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-    limit: settings.immersionKitLimit,
-    limitEnabled: settings.immersionKitLimitEnabled,
-    min: settings.immersionKitMinLength,
-    max: settings.immersionKitMaxLength,
-    category: settings.immersionKitCategory,
-    sort: settings.immersionKitSort,
-    exact: settings.immersionKitExactMatch,
-    parse: this.options.canParseJapanese(),
-    relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
-  });
-  }
-  async fallbackQueries(card, exactQuery) {
-  const candidates = [];
-  addImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : "", exactQuery);
-  await this.addParsedFallbackQueries(candidates, card, exactQuery);
-  addImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
-  return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-  }
-  async addParsedFallbackQueries(candidates, card, exactQuery) {
-  if (!this.options.canParseJapanese()) return;
-  const tokens = await this.fallbackParseTokens(card);
-  addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
-  }
-  async fallbackParseTokens(card) {
-  const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).catch(() => {
-    return [[]];
-  });
-  return tokens ?? [];
-  }
-  renderEmpty(container) {
-  container.removeAttribute("open");
-  container.dataset.immersionEmpty = "true";
-  container.hidden = true;
-  setInnerHtml(container, "");
-  this.options.repositionPopover();
-  }
-  startIndex(card, examples) {
-  const context = this.miningContextForStartIndex(card);
-  if (!context || context.sourceKind !== "immersion-kit") return 0;
-  const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
-  if (sentenceIndex >= 0) return sentenceIndex;
-  return validImmersionExampleIndex(Number(context.immersionIndex), examples.length);
-  }
-  miningContextForStartIndex(card) {
-  return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-  }
-  renderExample(container, card, examples, index, playAudio, searchQuery, isCurrent = () => true, promoteMiningContext = false) {
-  const example = examples[index];
-  const settings = this.options.getSettings();
-  const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
-  const audioUrls = this.mediaUrls(example, "sound");
-  const hasAudio = audioUrls.length > 0;
-  const imageUrl = imageUrls[0] ?? "";
-  const contextImageUrl = immersionMiningImageUrl(imageUrls);
-  const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
-  this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
-  delete container.dataset.immersionEmpty;
-  container.hidden = false;
-  const scrollFrame = capturePopoverScrollFrame(container);
-  setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-  this.loadRenderedExampleImages(container, imageUrls, isCurrent);
-  this.options.repositionPopover();
-  restorePopoverScrollFrameSoon(scrollFrame);
-  if (playAudio) void this.playExampleAudio(example, true);
-  if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
-  else this.parseRenderedExampleSentence(container, card, example, isCurrent);
-  }
-  rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
-  const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
-  if (storedContext) {
-    this.contextByCardKey.set(cardKey(card), storedContext);
-    pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
-    this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
-  }
-  }
-  promoteExampleMiningContext(card, storedContext, promoteMiningContext) {
-  if (shouldPromoteExampleMiningContext(this.activeMiningContext, card, promoteMiningContext)) this.activeMiningContext = storedContext;
-  }
-  renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
-  const language = settings.interfaceLanguage;
-  const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
-  const translation = renderExampleTranslation(example.translation, settings);
-  const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
-  const sentence = renderExampleSentenceHtml(sentenceHtml, Boolean(imageUrl));
-  const image = renderExampleImageHtml(container, imageUrl, sentence);
-  return `
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(immersionExampleProviderLabel(example, language))}</span>
-            </summary>
-            <div class="jpdb-reader-example-toolbar">
-                <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
-                    <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
-                    <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
-                </div>
-                ${renderImmersionExampleActionsHtml(hasAudio, language)}
-            </div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
-                <div class="jpdb-reader-example-body">
-                    ${image}
-                    ${image ? "" : sentence}
-                    ${translation}
-                </div>
-            </div>
-        `;
-  }
-  renderExampleSentenceContent(sentence, card, settings) {
-  const tokens = this.cachedParsedExampleSentenceTokens(sentence);
-  return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
-  }
-  loadRenderedExampleImages(container, imageUrls, isCurrent) {
-  container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
-    let imageCandidateIndex = 0;
-    let imageRequestId = 0;
-    const holdUntilReady = imageElement.dataset.immersionHoldUntilReady === "true";
-    let pendingImage = null;
-    const showImageCandidate = (sourceUrl, displayUrl) => {
-      imageElement.dataset.immersionImageSrc = sourceUrl;
-      imageElement.src = displayUrl;
-      imageElement.removeAttribute("data-immersion-hold-until-ready");
-    };
-    const loadNextImageCandidate = () => {
-      if (!isCurrent() || !imageElement.isConnected) return;
-      const fallbackUrl = imageUrls[imageCandidateIndex++];
-      if (!fallbackUrl) {
-        if (imageElement.complete && imageElement.naturalWidth > 0) return;
-        this.hideBrokenExampleImage(container, imageElement);
-        return;
-      }
-      const currentSrc = imageElement.currentSrc || imageElement.src;
-      const requestId = ++imageRequestId;
-      const settings = this.options.getSettings();
-      this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).then((displayUrl) => {
-        if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-        if (!holdUntilReady || currentSrc === displayUrl) {
-          showImageCandidate(fallbackUrl, displayUrl);
-          return;
-        }
-        const preload = new Image();
-        pendingImage = preload;
-        preload.decoding = "async";
-        preload.onload = () => {
-          if (pendingImage !== preload || requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-          pendingImage = null;
-          showImageCandidate(fallbackUrl, displayUrl);
-          this.options.repositionPopover();
-        };
-        preload.onerror = () => {
-          if (pendingImage !== preload || requestId !== imageRequestId) return;
-          pendingImage = null;
-          loadNextImageCandidate();
-        };
-        preload.src = displayUrl;
-      }).catch(() => {
-        if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-        showImageCandidate(fallbackUrl, fallbackUrl);
-      });
-    };
-    imageElement.addEventListener("error", loadNextImageCandidate);
-    imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
-    imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
-    if (!imageElement.dataset.immersionImageSrc) {
-      this.hideBrokenExampleImage(container, imageElement);
-      return;
-    }
-    loadNextImageCandidate();
-  });
-  }
-  hideBrokenExampleImage(container, imageElement) {
-  if (!imageElement.isConnected) return;
-  const media = imageElement.closest(".jpdb-reader-example-media");
-  const sentence = media?.querySelector(".jpdb-reader-example-sentence");
-  if (sentence) {
-    sentence.classList.remove("jpdb-subtitle-primary");
-    sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element) => {
-      element.classList.remove("jpdb-subtitle-primary");
-    });
-    media?.after(sentence);
-  }
-  media?.remove();
-  if (imageElement.isConnected) imageElement.remove();
-  container.querySelector(".jpdb-reader-example-card")?.classList.remove("has-image");
-  this.options.repositionPopover();
-  }
-  parseRenderedExampleSentence(container, card, example, isCurrent) {
-  void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
-    if (!isCurrent() || !container.isConnected) return;
-    this.applyParsedExampleSentence(container, card, example, tokens);
-  }).catch(() => void 0);
-  }
-  applyParsedExampleSentence(container, card, example, tokens, options = {}) {
-  const sentence = container.querySelector("[data-immersion-sentence-render]");
-  if (!sentence) return;
-  const lookupTokens = exampleSentenceLookupTokens(tokens, card);
-  if (options.updateHtml !== false) {
-    setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
-  }
-  this.highlightTarget(sentence, card);
-  void this.options.enrichPitchWords(lookupTokens);
-  void this.options.enrichAnkiWords(lookupTokens, [container]);
-  this.options.repositionPopover();
-  }
-  parsedExampleSentenceTokens(sentence) {
-  const key = sentence.trim();
-  if (!key) return Promise.resolve([]);
-  return loadCachedParsedTokens(
-    this.parsedSentenceCache,
-    key,
-    IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
-    () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions()).then(([tokens]) => {
-      return tokens ?? [];
-    }),
-    shouldCacheParsedExampleSentenceTokens
-  );
-  }
-  exampleSentenceParseOptions() {
-  const settings = this.options.getSettings();
-  return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
-  }
-  cachedParsedExampleSentenceTokens(sentence) {
-  return this.parsedSentenceCache.get(sentence.trim())?.tokens;
-  }
-  highlightTarget(sentence, card) {
-  highlightCardTargetWords(sentence, card);
-  }
-  toggleTranslationBlur(container) {
-  const settings = this.options.getSettings();
-  const shouldBlur = !settings.immersionKitRevealTranslationOnClick;
-  this.options.setImmersionTranslationBlurred(shouldBlur);
-  container.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
-    setTranslationBlurAttributes(translation, shouldBlur, "immersionTranslationBlurred", settings.interfaceLanguage);
-  });
-  this.options.repositionPopover();
-  }
-  async playExampleAudio(example, quiet = false, isCurrent = () => true) {
-  const settings = this.options.getSettings();
-  if (!settings.audioEnabled) {
-    if (!quiet) this.options.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabled"));
-    return;
-  }
-  const source = this.exampleAudioSource(example, quiet);
-  if (!source) return;
-  try {
-    const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-    if (!isCurrent()) return;
-    await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
-      playbackRate: settings.immersionKitPlaybackRate,
-      isCurrent
-    });
-  } catch (error) {
-    this.handleExampleAudioError(example, quiet, error);
-  }
-  }
-  handleExampleAudioError(example, quiet, error) {
-  log$a.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
-  if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-  }
-  exampleAudioSource(example, quiet) {
-  const urls = this.mediaUrls(example, "sound");
-  const key = urls[0] ?? "";
-  if (key) return { urls, key };
-  if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-  return null;
-  }
-  mediaUrls(example, kind) {
-  const client = this.options.client;
-  return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
-  }
-}
-function immersionExampleSourceLabel(card, example, searchQuery, language) {
-  const sourceTitle = localizedImmersionSourceTitle(example.sourceTitle, language);
-  return queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${sourceTitle}` : sourceTitle;
-}
-function immersionExampleProviderLabel(example, language) {
-  return localizedImmersionProviderLabel(example, language);
-}
-function accurateImmersionExamples(query, examples) {
-  return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
-}
-function immersionSearchResultForQuery(query, exactQuery, triedQueries, examples) {
-  const accurateExamples = accurateImmersionExamples(query, examples);
-  if (!accurateExamples.length) return null;
-  return {
-  examples: accurateExamples,
-  query,
-  usedFallback: queryKey(query) !== queryKey(exactQuery),
-  triedQueries
-  };
-}
-function immersionMiningImageUrl(imageUrls) {
-  return imageUrls.find((url) => /\/download_media\?/u.test(url)) ?? imageUrls[0] ?? "";
-}
-function isPageMiningSentence(sentence, card) {
-  return Boolean(sentence && sentence !== card.spelling);
-}
-function shouldPromoteExampleMiningContext(activeContext, card, promoteMiningContext) {
-  return promoteMiningContext || !activeContext || activeContext.term !== card.spelling;
-}
-function pageMiningSourceKind(anchor) {
-  return inferMiningSourceKind({
-  isImageSource: Boolean(anchor?.closest(".jpdb-ocr-line")),
-  hasVideo: Boolean(anchor?.closest(".jpdb-subtitle-player, .jpdb-subtitle-list")) || Boolean(document.querySelector("video")),
-  hostname: location.hostname
-  });
-}
-function isConnectedImmersionSurface(popover, container) {
-  return popover.isConnected && container.isConnected;
-}
-function clearImmersionLoadingState(container) {
-  if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-}
-function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
-  if (signal.aborted) return Promise.reject(abortErrorForRace());
-  return new Promise((resolve, reject) => {
-  const onAbort = () => {
-    cleanup();
-    reject(abortErrorForRace());
-  };
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    reject(new Error("Immersion Kit examples timed out."));
-  }, Math.max(1e3, timeoutMs));
-  const cleanup = () => {
-    window.clearTimeout(timeout);
-    signal.removeEventListener("abort", onAbort);
-  };
-  signal.addEventListener("abort", onAbort, { once: true });
-  promise.then((value) => {
-    cleanup();
-    resolve(value);
-  }, (error) => {
-    cleanup();
-    reject(error);
-  });
-  });
-}
-function abortErrorForRace() {
-  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-  const error = new Error("Aborted");
-  error.name = "AbortError";
-  return error;
-}
-function addImmersionFallbackQuery(candidates, value, exactQuery) {
-  const query = normalizeImmersionSearchQuery(value);
-  if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
-}
-function addImmersionFallbackQueries(candidates, values, exactQuery) {
-  for (const value of values) addImmersionFallbackQuery(candidates, value, exactQuery);
-}
-function fallbackTokenQueries(card, tokens) {
-  return sortedFallbackTokenCandidates(card, tokens).flatMap((item) => [
-  item.token.card.spelling,
-  item.surface,
-  item.token.card.reading !== item.token.card.spelling ? item.token.card.reading : ""
-  ].filter(Boolean));
-}
-function sortedFallbackTokenCandidates(card, tokens) {
-  return tokens.map((token) => ({
-  token,
-  surface: card.spelling.slice(token.start, token.end),
-  length: queryLength(token.card.spelling)
-  })).sort(compareFallbackTokenCandidates);
-}
-function compareFallbackTokenCandidates(a, b) {
-  return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
-}
-function renderExampleImageHtml(container, imageUrl, overlay = "") {
-  if (!imageUrl) return "";
-  const heldImage = heldExampleImage(container);
-  return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
-}
-function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
-  const classes2 = [
-  "jpdb-reader-example-sentence",
-  "jpdb-reader-parseable",
-  "jpdb-reader-subtitle-surface"
-  ].filter(Boolean).join(" ");
-  if (primarySubtitle) {
-  return `<div class="${classes2}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
-  }
-  return `<div class="${classes2}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-}
-function shouldCacheParsedExampleSentenceTokens(tokens) {
-  return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
-}
-function heldExampleMediaStyle(image) {
-  return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : "";
-}
-function heldExampleImageAttributes(image) {
-  return `${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`;
-}
-function heldExampleHoldAttribute(image) {
-  return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
-}
-function heldExampleSourceAttribute(image) {
-  return image.src ? ` src="${escapeHtml$1(image.src)}"` : "";
-}
-function heldExampleImage(container) {
-  const currentImage = container.querySelector("[data-immersion-image]");
-  const src = heldExampleImageSource(currentImage);
-  const holdUntilReady = Boolean(src && currentImage?.isConnected);
-  return {
-  src: holdUntilReady ? src : "",
-  minHeight: holdUntilReady ? heldExampleImageHeight(currentImage) : 0,
-  holdUntilReady
-  };
-}
-function heldExampleImageSource(image) {
-  return image?.currentSrc || image?.src || "";
-}
-function heldExampleImageHeight(image) {
-  const media = image?.closest(".jpdb-reader-example-media") ?? null;
-  return Math.ceil(media?.getBoundingClientRect().height || image?.getBoundingClientRect().height || 0);
-}
-function hoverAudioExampleKey(example) {
-  if (!example) return "";
-  return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
-}
-function isHoverAudioPointerSuppressed(pointerType) {
-  if (pointerType === "touch") return true;
-  return pointerType !== "mouse" && (window.matchMedia?.("(hover: none)").matches ?? false);
-}
-function immersionLazyLoadRoot(popover, target) {
-  const body = popover.querySelector(".jpdb-reader-popover-body");
-  if (body?.contains(target)) return body;
-  return popover.contains(target) ? popover : null;
-}
-function isImmersionNearVisibleArea(popover, container) {
-  const root = immersionLazyLoadRoot(popover, container);
-  const containerRect = container.getBoundingClientRect();
-  const rootRect = root?.getBoundingClientRect();
-  if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
-  const visibleTop = Math.max(0, rootRect.top);
-  const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
-  return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
-}
-function hasUsableRect(rect) {
-  return rect.width > 0 || rect.height > 0;
-}
-function pruneImmersionSearchCache(cache2, now, limit) {
-  for (const [key, value] of cache2) {
-  if (value.expiresAt <= now) cache2.delete(key);
-  }
-  pruneOldestCacheEntries(cache2, limit);
-}
-function renderExampleTranslation(translation, settings) {
-  if (!settings.immersionKitShowTranslation || !translation) return "";
-  const escaped = escapeHtml$1(translation);
-  if (!settings.immersionKitRevealTranslationOnClick) {
-  return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
-  }
-  return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
-}
-function setTranslationBlurAttributes(element, blurred, key, language) {
-  if (blurred) {
-  element.dataset[key] = "true";
-  element.setAttribute("role", "button");
-  element.setAttribute("tabindex", "0");
-  element.setAttribute("aria-label", uiText(language, "revealTranslation"));
-  return;
-  }
-  delete element.dataset[key];
-  element.removeAttribute("tabindex");
-  element.removeAttribute("role");
-  element.removeAttribute("aria-label");
 }
 function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
   if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -25747,6 +23242,9 @@ function visibleVideos() {
 }
 function intersects(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+function isAbortError(error) {
+  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
 const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
 const JITEN_DAILY_STATS_MAX_DAYS = 400;
@@ -26426,11 +23924,11 @@ function jitenPayloadRecord(value) {
 }
 function normalizeJitenVocabularyReading(value) {
   if (!isJsonRecord$1(value)) return null;
-  const text2 = firstRecordString(value, ["text"]);
+  const text = firstRecordString(value, ["text"]);
   const readingIndex = finiteJitenInteger(value.readingIndex);
-  if (!text2 || readingIndex === void 0) return null;
+  if (!text || readingIndex === void 0) return null;
   return {
-  text: text2,
+  text,
   readingIndex,
   frequencyRank: nullableFiniteInteger(value.frequencyRank),
   usedInMediaAmount: nullableFiniteInteger(value.usedInMediaAmount)
@@ -26477,11 +23975,11 @@ function normalizeJitenVocabularyExamples(value) {
 }
 function normalizeJitenVocabularyExample(value) {
   if (!isJsonRecord$1(value)) return null;
-  const text2 = firstRecordString(value, ["text"]);
-  if (!text2) return null;
+  const text = firstRecordString(value, ["text"]);
+  if (!text) return null;
   return {
   sentenceId: finiteJitenInteger(value.sentenceId) ?? 0,
-  text: text2,
+  text,
   wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
   wordLength: finiteJitenInteger(value.wordLength) ?? 0,
   difficulty: nullableFiniteNumber(value.difficulty),
@@ -26524,8 +24022,8 @@ function normalizeJitenKanjiGroupingTags(value) {
   };
 }
 function jitenKanjiGroupingTag(value, keys) {
-  const text2 = firstRecordString(value, keys);
-  if (text2) return text2;
+  const text = firstRecordString(value, keys);
+  if (text) return text;
   const number = firstRecordFiniteNumber(value, keys);
   return number === null ? null : String(number);
 }
@@ -26557,11 +24055,11 @@ function jitenTokenTextSpan(paragraph, token, card) {
   const utf8 = utf8ByteRangeToUtf16Range(paragraph, token.start, token.end);
   return bestJitenTextSpan(paragraph, card.spelling, [raw, utf8]) ?? raw;
 }
-function bestJitenTextSpan(text2, expectedSurface, candidates) {
+function bestJitenTextSpan(text, expectedSurface, candidates) {
   let best = null;
   for (const span of candidates) {
-  if (span.start < 0 || span.end <= span.start || span.end > text2.length) continue;
-  const surface = text2.slice(span.start, span.end);
+  if (span.start < 0 || span.end <= span.start || span.end > text.length) continue;
+  const surface = text.slice(span.start, span.end);
   let score = 1;
   if (surface === expectedSurface) score += 100;
   else if (expectedSurface && (expectedSurface.startsWith(surface) || surface.startsWith(expectedSurface))) score += 20;
@@ -26570,23 +24068,23 @@ function bestJitenTextSpan(text2, expectedSurface, candidates) {
   }
   return best?.span ?? null;
 }
-function utf8ByteRangeToUtf16Range(text2, start, end) {
-  const utf16Start = utf16OffsetForUtf8ByteOffset(text2, start);
-  const utf16End = utf16OffsetForUtf8ByteOffset(text2, end);
+function utf8ByteRangeToUtf16Range(text, start, end) {
+  const utf16Start = utf16OffsetForUtf8ByteOffset(text, start);
+  const utf16End = utf16OffsetForUtf8ByteOffset(text, end);
   return { start: utf16Start, end: utf16End, length: utf16End - utf16Start };
 }
-function utf16OffsetForUtf8ByteOffset(text2, byteOffset) {
+function utf16OffsetForUtf8ByteOffset(text, byteOffset) {
   if (byteOffset <= 0) return 0;
   let bytes = 0;
   let offset = 0;
-  for (const char of text2) {
+  for (const char of text) {
   if (bytes >= byteOffset) return offset;
   const nextBytes = bytes + utf8ByteLength(char);
   if (nextBytes > byteOffset) return offset;
   bytes = nextBytes;
   offset += char.length;
   }
-  return text2.length;
+  return text.length;
 }
 function utf8ByteLength(char) {
   const point = char.codePointAt(0) ?? 0;
@@ -26610,11 +24108,11 @@ function extractJitenRubiesFromAnnotated(input) {
   while ((match = regex.exec(input)) !== null) {
   const prefix = match[1] ?? "";
   const base = match[2] ?? "";
-  const text2 = match[3] ?? "";
+  const text = match[3] ?? "";
   currentOffset += prefix.length;
   const start = currentOffset;
   const length = base.length;
-  rubies.push({ text: text2, start, end: start + length, length });
+  rubies.push({ text, start, end: start + length, length });
   currentOffset += length;
   }
   return rubies;
@@ -26654,13 +24152,13 @@ function addJitenSentenceInfo(paragraphs, tokens) {
   });
   });
 }
-function splitJitenJapaneseTextIntoSentences(text2) {
-  const sentences = text2.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
+function splitJitenJapaneseTextIntoSentences(text) {
+  const sentences = text.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
   return sentences.length ? sentences.map((sentence) => sentence.trim()).filter(Boolean).filter((sentence) => !/^[」』]$/.test(sentence)).map((sentence) => {
   if (/「.*?」|『.*?』/.test(sentence)) return sentence;
   const trimmed = sentence.replace(/(^「|『)|(」|』$)/, "");
   return /[。！？]$/.test(trimmed) ? trimmed : `${trimmed}。`;
-  }) : [text2];
+  }) : [text];
 }
 function arrayOfStrings(value) {
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
@@ -26947,8 +24445,8 @@ async function fetchWithTimeout$1(fetchImpl, url, init, timeoutMs) {
   }
 }
 async function parseJitenResponse(response, authenticated) {
-  const text2 = await response.text();
-  const json = parseJson(text2);
+  const text = await response.text();
+  const json = parseJson(text);
   const errorMessage2 = jitenApplicationErrorMessage(json);
   const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
   if (errorMessage2) {
@@ -26976,10 +24474,10 @@ function statusFromMessage(message) {
   const match = /\((\d{3})\)/.exec(message);
   return match ? Number(match[1]) : void 0;
 }
-function parseJson(text2) {
-  if (!text2) return void 0;
+function parseJson(text) {
+  if (!text) return void 0;
   try {
-  return JSON.parse(text2);
+  return JSON.parse(text);
   } catch {
   return void 0;
   }
@@ -27399,18 +24897,18 @@ class JitenPublicVocabularyClient {
   async requestParse(terms) {
   return this.requestParseText(terms.join(PARSE_TERM_SEPARATOR));
   }
-  async requestParseText(text2) {
-  const records = await this.requestParseRecords(text2);
+  async requestParseText(text) {
+  const records = await this.requestParseRecords(text);
   return records.filter((word) => word.wordId > 0);
   }
   async parseTermGroups(terms) {
   const records = await this.requestParseRecords(terms.join(PARSE_TERM_SEPARATOR));
   return publicParseTermGroups(terms, records);
   }
-  async requestParseRecords(text2) {
+  async requestParseRecords(text) {
   return sharedParseGate.run(async () => {
     if (this.isBackoffActive()) return [];
-    const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`).catch((error) => {
+    const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch((error) => {
       this.noteFailure(error);
       throw error;
     });
@@ -27437,7 +24935,7 @@ class JitenPublicVocabularyClient {
   return promise;
   }
   requestJson(endpoint, timeoutMs = REQUEST_TIMEOUT_MS$2) {
-  const request = this.options.requestJsonImpl ?? requestJson$1;
+  const request = this.options.requestJsonImpl ?? requestJson;
   return request(endpointUrl(this.options.baseUrl, endpoint), {
     responseType: "json",
     timeoutMs,
@@ -28333,9 +25831,9 @@ class JpdbClient {
   parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
   userDeckPoolCache;
   async parse(paragraphs) {
-  const text2 = normalizeParagraphs(paragraphs);
-  if (!text2.length) return [];
-  const cacheKey = text2.join("\n");
+  const text = normalizeParagraphs(paragraphs);
+  if (!text.length) return [];
+  const cacheKey = text.join("\n");
   const cached = this.parseCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -28344,7 +25842,7 @@ class JpdbClient {
   if (inFlight) {
     return inFlight;
   }
-  const promise = this.parseParagraphs(text2, cacheKey);
+  const promise = this.parseParagraphs(text, cacheKey);
   this.parseInFlight.set(cacheKey, promise);
   void promise.then(() => {
     if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
@@ -28542,20 +26040,20 @@ class JpdbClient {
   clearUserDeckPoolCache() {
   this.userDeckPoolCache = void 0;
   }
-  async fetchParse(text2, cacheKey) {
-  const done = log$6.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+  async fetchParse(text, cacheKey) {
+  const done = log$6.time("parse request", { paragraphs: text.length, chars: cacheKey.length });
   try {
     const raw = await this.api.request("parse", {
-      text: text2,
+      text,
       position_length_encoding: "utf16",
       token_fields: TOKEN_FIELDS,
       vocabulary_fields: VOCABULARY_FIELDS
     });
     const cards = jpdbVocabularyToCards(raw.vocabulary);
-    const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
+    const tokens = jpdbParseResultToTokens(text, raw.tokens, cards);
     this.cacheCards(cards);
     this.parseCache.set(cacheKey, tokens);
-    text2.forEach((paragraph, index) => {
+    text.forEach((paragraph, index) => {
       this.paragraphParseCache.set(paragraph, tokens[index] ?? []);
     });
     return tokens;
@@ -28563,17 +26061,17 @@ class JpdbClient {
     done();
   }
   }
-  parseParagraphs(text2, cacheKey) {
+  parseParagraphs(text, cacheKey) {
   const missing = [];
   const seenMissing = new Set();
-  for (const paragraph of text2) {
+  for (const paragraph of text) {
     if (this.paragraphParseCache.get(paragraph) || this.paragraphParseInFlight.has(paragraph)) continue;
     if (seenMissing.has(paragraph)) continue;
     seenMissing.add(paragraph);
     missing.push(paragraph);
   }
   if (missing.length) this.queueMissingParagraphParses(missing);
-  return Promise.all(text2.map((paragraph) => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [])).then((tokens) => {
+  return Promise.all(text.map((paragraph) => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [])).then((tokens) => {
     this.parseCache.set(cacheKey, tokens);
     return tokens;
   });
@@ -29541,14 +27039,14 @@ function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpa
 }
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-function normalizedLookupText$1(text2) {
-  return text2.replace(/\s+/g, " ").trim();
+function normalizedLookupText$1(text) {
+  return text.replace(/\s+/g, " ").trim();
 }
-function isLookupableJapaneseText(text2) {
-  return Boolean(text2 && HAS_JAPANESE.test(text2));
+function isLookupableJapaneseText(text) {
+  return Boolean(text && HAS_JAPANESE.test(text));
 }
-function lookupCandidateSentence(text2, start = 0, end = text2.length) {
-  const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText$1(text2);
+function lookupCandidateSentence(text, start = 0, end = text.length) {
+  const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText$1(text);
   return isLookupableJapaneseText(sentence) ? sentence : "";
 }
 function pointerTokenAtOffset(tokens, offset) {
@@ -29584,15 +27082,15 @@ function shouldPreferTokenSentence(nearest, tokenSentence) {
   if (!compactLookupText(nearest).includes(compactLookupText(tokenSentence))) return true;
   return looksLikeNoisyRenderedContext(nearest);
 }
-function compactLookupText(text2) {
-  return normalizedLookupText$1(text2).replace(/\s+/g, "");
+function compactLookupText(text) {
+  return normalizedLookupText$1(text).replace(/\s+/g, "");
 }
-function looksLikeNoisyRenderedContext(text2) {
-  const timecodes = text2.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
+function looksLikeNoisyRenderedContext(text) {
+  const timecodes = text.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
   if (timecodes >= 2) return true;
-  const digitish = text2.match(/[0-9０-９:：]/g)?.length ?? 0;
-  if (digitish >= 12 && digitish / Math.max(1, Array.from(text2).length) > 0.12) return true;
-  return /動画全編を視聴|watch full video|view full video/i.test(text2);
+  const digitish = text.match(/[0-9０-９:：]/g)?.length ?? 0;
+  if (digitish >= 12 && digitish / Math.max(1, Array.from(text).length) > 0.12) return true;
+  return /動画全編を視聴|watch full video|view full video/i.test(text);
 }
 function pitchEnrichmentPriority(token) {
   return token.card.source === "fallback" ? 0 : 1;
@@ -29727,20 +27225,20 @@ function caretTextPositionFromPoint(x, y) {
   }
   return null;
 }
-function japaneseRunAt(text2, offset) {
-  const index = japaneseRunIndexAt(text2, offset);
+function japaneseRunAt(text, offset) {
+  const index = japaneseRunIndexAt(text, offset);
   if (index === null) return null;
   return {
-  start: japaneseRunStart(text2, index),
-  end: japaneseRunEnd(text2, index),
+  start: japaneseRunStart(text, index),
+  end: japaneseRunEnd(text, index),
   offset: index
   };
 }
-function jpdbPointerLookupCandidates(text2, offset) {
-  const run = japaneseRunAt(text2, offset);
+function jpdbPointerLookupCandidates(text, offset) {
+  const run = japaneseRunAt(text, offset);
   if (!run) return [];
   const candidates = [];
-  pushPointerCandidate(candidates, pointerBoundaryCandidate(text2, run));
+  pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
   const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
   const maxEnd = Math.min(run.end, run.offset + JPDB_POINTER_CANDIDATE_MAX_LENGTH);
   const maxLength = Math.min(JPDB_POINTER_CANDIDATE_MAX_LENGTH, maxEnd - minStart);
@@ -29748,21 +27246,21 @@ function jpdbPointerLookupCandidates(text2, offset) {
   const firstStart = Math.max(minStart, run.offset - length + 1);
   const lastStart = Math.min(run.offset, maxEnd - length);
   for (let start = firstStart; start <= lastStart; start++) {
-    pushPointerCandidate(candidates, pointerCandidate(text2, start, start + length));
+    pushPointerCandidate(candidates, pointerCandidate(text, start, start + length));
     if (candidates.length >= JPDB_POINTER_CANDIDATE_LIMIT) return candidates;
   }
   }
   return candidates;
 }
-function pointerBoundaryCandidate(text2, run) {
+function pointerBoundaryCandidate(text, run) {
   const relativeOffset = run.offset - run.start;
-  const runText = text2.slice(run.start, run.end);
+  const runText = text.slice(run.start, run.end);
   const boundaries = pointerBoundarySegments(runText);
   let start = 0;
   let end = runText.length;
   for (const boundary of boundaries) {
   if (relativeOffset >= boundary.start && relativeOffset < boundary.end) {
-    return pointerCandidate(text2, run.start + boundary.start, run.start + boundary.end);
+    return pointerCandidate(text, run.start + boundary.start, run.start + boundary.end);
   }
   if (boundary.end <= relativeOffset) start = boundary.end;
   if (boundary.start > relativeOffset) {
@@ -29770,29 +27268,29 @@ function pointerBoundaryCandidate(text2, run) {
     break;
   }
   }
-  return pointerCandidate(text2, run.start + start, run.start + end);
+  return pointerCandidate(text, run.start + start, run.start + end);
 }
-function pointerBoundarySegments(text2) {
+function pointerBoundarySegments(text) {
   const boundaries = [];
-  for (let index = 0; index < text2.length; ) {
-  const boundary = boundarySegmentAt(text2, index);
+  for (let index = 0; index < text.length; ) {
+  const boundary = boundarySegmentAt(text, index);
   if (!boundary) {
     index++;
     continue;
   }
-  if (index > 0 && index + boundary.length < text2.length) {
+  if (index > 0 && index + boundary.length < text.length) {
     boundaries.push({ start: index, end: index + boundary.length });
   }
   index += boundary.length;
   }
   return boundaries;
 }
-function boundarySegmentAt(text2, index) {
-  return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => text2.startsWith(segment, index)) ?? "";
+function boundarySegmentAt(text, index) {
+  return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => text.startsWith(segment, index)) ?? "";
 }
-function pointerCandidate(text2, start, end) {
+function pointerCandidate(text, start, end) {
   if (end <= start) return null;
-  const term = text2.slice(start, end).trim();
+  const term = text.slice(start, end).trim();
   if (!isUsefulPointerCandidateTerm(term)) return null;
   return { term, start, end };
 }
@@ -29804,23 +27302,23 @@ function pushPointerCandidate(candidates, candidate) {
   if (candidates.some((existing) => existing.term === candidate.term && existing.start === candidate.start && existing.end === candidate.end)) return;
   candidates.push(candidate);
 }
-function japaneseRunIndexAt(text2, offset) {
-  let index = Math.min(Math.max(offset, 0), text2.length - 1);
-  if (!isJapaneseCharacterAt(text2, index) && index > 0 && isJapaneseCharacterAt(text2, index - 1)) index--;
-  return isJapaneseCharacterAt(text2, index) ? index : null;
+function japaneseRunIndexAt(text, offset) {
+  let index = Math.min(Math.max(offset, 0), text.length - 1);
+  if (!isJapaneseCharacterAt(text, index) && index > 0 && isJapaneseCharacterAt(text, index - 1)) index--;
+  return isJapaneseCharacterAt(text, index) ? index : null;
 }
-function japaneseRunStart(text2, index) {
+function japaneseRunStart(text, index) {
   let start = index;
-  while (start > 0 && isJapaneseCharacterAt(text2, start - 1)) start--;
+  while (start > 0 && isJapaneseCharacterAt(text, start - 1)) start--;
   return start;
 }
-function japaneseRunEnd(text2, index) {
+function japaneseRunEnd(text, index) {
   let end = index + 1;
-  while (end < text2.length && isJapaneseCharacterAt(text2, end)) end++;
+  while (end < text.length && isJapaneseCharacterAt(text, end)) end++;
   return end;
 }
-function isJapaneseCharacterAt(text2, index) {
-  return JAPANESE_RUN_RE.test(text2[index] ?? "");
+function isJapaneseCharacterAt(text, index) {
+  return JAPANESE_RUN_RE.test(text[index] ?? "");
 }
 function pointerTextCharacterOffset(node, caretOffset, x, y) {
   const parent = node.parentElement;
@@ -29836,8 +27334,8 @@ function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
   const contextual = pointerTextLookupContext(node, characterOffset, parent);
   return contextual ?? local;
 }
-function isLowValuePointerText(text2, parent) {
-  const compact2 = text2.replace(/\s+/g, "");
+function isLowValuePointerText(text, parent) {
+  const compact2 = text.replace(/\s+/g, "");
   if (!compact2) return true;
   if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
   const parts = compact2.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
@@ -29854,19 +27352,19 @@ function pointerTextLookupContext(node, characterOffset, anchor) {
   if (!lookup || lookup.end - lookup.start <= localJapaneseRunLength(node.data, characterOffset)) return null;
   return isLowValuePointerText(lookup.text, root) ? null : lookup;
 }
-function pointerTextLookupForText(anchor, text2, offset) {
-  const run = japaneseRunAt(text2, offset);
-  if (!run || isLowValuePointerText(text2, anchor)) return null;
+function pointerTextLookupForText(anchor, text, offset) {
+  const run = japaneseRunAt(text, offset);
+  if (!run || isLowValuePointerText(text, anchor)) return null;
   return {
-  text: text2,
+  text,
   offset: run.offset,
   start: run.start,
   end: run.end,
   anchor
   };
 }
-function localJapaneseRunLength(text2, offset) {
-  const run = japaneseRunAt(text2, offset);
+function localJapaneseRunLength(text, offset) {
+  const run = japaneseRunAt(text, offset);
   return run ? run.end - run.start : 0;
 }
 function pointerTextContextRoot(anchor) {
@@ -29887,21 +27385,21 @@ function pointerTextInlineContextRoot(anchor) {
   return null;
 }
 function isPointerTextInlineContextCandidate(element, localTextLength) {
-  const text2 = element.textContent ?? "";
-  return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && JAPANESE_RUN_RE.test(text2) && isPointerTextParentEligible(element);
+  const text = element.textContent ?? "";
+  return text.length > localTextLength && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && JAPANESE_RUN_RE.test(text) && isPointerTextParentEligible(element);
 }
 function readablePointerTextContext(root, target) {
-  let text2 = "";
+  let text = "";
   let rangeStart = -1;
   let rangeEnd = -1;
   const visit = (node) => {
   if (node.nodeType === Node.TEXT_NODE) {
     const value = node.textContent ?? "";
     if (node === target) {
-      rangeStart = text2.length;
-      rangeEnd = text2.length + value.length;
+      rangeStart = text.length;
+      rangeEnd = text.length + value.length;
     }
-    text2 += value;
+    text += value;
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -29910,10 +27408,10 @@ function readablePointerTextContext(root, target) {
   element.childNodes.forEach(visit);
   };
   visit(root);
-  if (rangeStart < 0 || rangeEnd <= rangeStart || !text2 || !JAPANESE_RUN_RE.test(text2)) return null;
-  const leadingWhitespace = text2.match(/^\s*/u)?.[0].length ?? 0;
-  const trailingWhitespace = text2.match(/\s*$/u)?.[0].length ?? 0;
-  const trimmedText2 = text2.slice(leadingWhitespace, text2.length - trailingWhitespace);
+  if (rangeStart < 0 || rangeEnd <= rangeStart || !text || !JAPANESE_RUN_RE.test(text)) return null;
+  const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
+  const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;
+  const trimmedText2 = text.slice(leadingWhitespace, text.length - trailingWhitespace);
   if (!trimmedText2 || !JAPANESE_RUN_RE.test(trimmedText2)) return null;
   return {
   text: trimmedText2,
@@ -31428,10 +28926,10 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
   for (const root of roots) {
   if (!siteScanHasRoom(context)) break;
   if (context.targets.some((target) => target.parent === root)) continue;
-  const text2 = syntheticYouTubeElementText(root);
-  if (!text2 || !HAS_JAPANESE.test(text2)) continue;
+  const text = syntheticYouTubeElementText(root);
+  if (!text || !HAS_JAPANESE.test(text)) continue;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
-    text: text2,
+    text,
     parent: root,
     fragments: [],
     layoutSensitive: true
@@ -31440,21 +28938,21 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
 }
 function syntheticYouTubeElementText(root) {
   if (root.matches("ytd-watch-info-text")) return syntheticYouTubeWatchInfoText(root);
-  for (const text2 of [
+  for (const text of [
   root.getAttribute("aria-label"),
   root.getAttribute("title"),
   root.innerText,
   root.textContent
   ]) {
-  const normalized = text2?.replace(/\s+/g, " ").trim();
+  const normalized = text?.replace(/\s+/g, " ").trim();
   if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
   }
   return "";
 }
 function syntheticYouTubeWatchInfoText(root) {
-  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text22) => Boolean(text22));
-  const text2 = parts.join(" • ");
-  if (HAS_JAPANESE.test(text2)) return text2;
+  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text2) => Boolean(text2));
+  const text = parts.join(" • ");
+  if (HAS_JAPANESE.test(text)) return text;
   for (const attribute of ["aria-label", "title"]) {
   const fallback = normalizedAttributeText(root, attribute);
   if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
@@ -31485,10 +28983,10 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
   }
 }
 function collectCanvasFallbackTextTarget(profile, canvas, context) {
-  const text2 = canvasFallbackText(canvas);
-  if (!text2 || !HAS_JAPANESE.test(text2)) return false;
+  const text = canvasFallbackText(canvas);
+  if (!text || !HAS_JAPANESE.test(text)) return false;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
-  text: text2,
+  text,
   parent: canvas,
   fragments: [],
   layoutSensitive: true,
@@ -31582,15 +29080,15 @@ function shouldSuppressSiteScanRuby(profile, target) {
 function isBookWalkerReaderPassiveChromeTarget(parent) {
   return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
 }
-function isJpdbReviewPromptTarget(parent, text2) {
+function isJpdbReviewPromptTarget(parent, text) {
   if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
-  if (compactTextLength(text2) > 18) return false;
+  if (compactTextLength(text) > 18) return false;
   const prompt = parent.closest(".review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling");
   if (!prompt) return false;
   return !parent.closest(".subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit");
 }
-function isJitenStudyPromptTarget(parent, text2) {
-  if (!isJitenStudyPath() || compactTextLength(text2) > 18) return false;
+function isJitenStudyPromptTarget(parent, text) {
+  if (!isJitenStudyPath() || compactTextLength(text) > 18) return false;
   const prompt = parent.closest('[lang="ja"]');
   if (!prompt || !prompt.classList.contains("font-noto-sans")) return false;
   if (!hasPromptTextSizeClass(prompt)) return false;
@@ -31604,8 +29102,8 @@ function hasPromptTextSizeClass(element) {
   (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
   );
 }
-function compactTextLength(text2) {
-  return text2.replace(/\s+/g, "").length;
+function compactTextLength(text) {
+  return text.replace(/\s+/g, "").length;
 }
 function plainScanTarget(target) {
   return {
@@ -31977,13 +29475,13 @@ function appendResidualVisibleTarget(targets, seen, target) {
   for (const fragments of unseenFragmentRuns(target, seen)) {
   const parent = fragments[0]?.node.parentElement;
   if (!parent) continue;
-  const text2 = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
-  if (!HAS_JAPANESE.test(text2)) continue;
+  const text = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
+  if (!HAS_JAPANESE.test(text)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
   appendAdmittedFragmentTarget(targets, seen, {
     ...target,
-    text: text2,
+    text,
     parent,
     fragments,
     decoration,
@@ -32037,8 +29535,8 @@ function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
   return true;
 }
 function isResidualReaderParticleTarget(target) {
-  const text2 = target.text.replace(/\s+/g, "");
-  return /^[のはをがにでへもとやかねよな]$/u.test(text2) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
+  const text = target.text.replace(/\s+/g, "");
+  return /^[のはをがにでへもとやかねよな]$/u.test(text) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
 }
 function isResidualJpdbAlternateSpellingTarget(target) {
   const spelling = target.parent.closest(".subsection-spelling.with-furigana");
@@ -32053,9 +29551,9 @@ function textNodesForFragmentTarget(target) {
 }
 function isUsefulGenericProseRoot(root) {
   if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
-  const text2 = compactRootText(root);
-  if (text2.length < 12) return false;
-  return HAS_JAPANESE.test(text2);
+  const text = compactRootText(root);
+  if (text.length < 12) return false;
+  return HAS_JAPANESE.test(text);
 }
 function isUsefulSafeUiChromeRoot(root) {
   return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
@@ -32066,8 +29564,8 @@ function isUsefulSafeFormChromeRoot(root) {
 function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
   if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
   if (!isVisibleSafeUiChromeRoot(root)) return false;
-  const text2 = compactRootText(root);
-  return HAS_JAPANESE.test(text2) && text2.length >= minLength && text2.length <= maxLength;
+  const text = compactRootText(root);
+  return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
 }
 function compactRootText(root) {
   return root.textContent?.replace(/\s+/g, "").trim() ?? "";
@@ -32507,11 +30005,11 @@ function kanaRunRenderedWordsForSurface(anchor, surface) {
   for (let prev = anchor.previousElementSibling; isRenderedWordElement(prev); prev = prev.previousElementSibling) run.unshift(prev);
   for (let next = anchor.nextElementSibling; isRenderedWordElement(next); next = next.nextElementSibling) run.push(next);
   for (let start = 0; start < run.length; start += 1) {
-  let text2 = "";
+  let text = "";
   for (let end = start; end < run.length; end += 1) {
-    text2 += renderedWordSurfaceText(run[end]);
-    if (text2.length > surface.length) break;
-    if (text2 === surface) {
+    text += renderedWordSurfaceText(run[end]);
+    if (text.length > surface.length) break;
+    if (text === surface) {
       const window2 = run.slice(start, end + 1);
       if (window2.includes(anchor)) return window2;
       break;
@@ -33041,14 +30539,14 @@ function renderTokenSentenceWord(token, surface, settings) {
   const readingAttr = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
   return `<button type="button" class="${classes2}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml$1(surface)}" data-expression="${escapeHtml$1(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml$1(pitchClass || "unknown")}">${content}</button>`;
 }
-function createTextLookupDisplayContext(text2, options, state) {
-  const selected = normalizedLookupText$1(text2);
+function createTextLookupDisplayContext(text, options, state) {
+  const selected = normalizedLookupText$1(text);
   if (!isLookupableJapaneseText(selected)) return null;
   const trigger = options.trigger ?? state.defaultTrigger;
   const navigation = options.navigation ?? "reset";
   return {
   selected,
-  displaySelected: options.displaySelected ?? text2,
+  displaySelected: options.displaySelected ?? text,
   anchor: options.anchor ?? connectedElement(state.activePopoverAnchor),
   trigger,
   navigation,
@@ -33119,6 +30617,712 @@ function textLookupPreservePosition(navigation, state) {
 }
 function lookupResultTokens(tokens = [], isJpdbBackedCard) {
   return tokens.filter((token) => isJpdbBackedCard(token.card) || token.card.source === "jiten" || token.card.source === "local" || token.card.source === "fallback");
+}
+function createHandleDragController(options) {
+  let state = initialDragState();
+  let pointerId = 0;
+  let touchId = 0;
+  let dragging = false;
+  let moved = false;
+  let activeInput = null;
+  let activeHandle = null;
+  let activeCaptureTarget = null;
+  const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
+  const setLastPoint = (point) => {
+  state = {
+    ...state,
+    lastX: point.x,
+    lastY: point.y,
+    deltaX: point.x - state.startX,
+    deltaY: point.y - state.startY
+  };
+  };
+  const updateDrag = (point) => {
+  if (!activeHandle) return;
+  setLastPoint(point);
+  if (movementDistance(state) > options.tapMovementPx) moved = true;
+  options.onUpdate?.(state, activeHandle);
+  };
+  const beginDrag = (handle, point, input) => {
+  if (dragging || activeInput) return false;
+  state = {
+    startX: point.x,
+    startY: point.y,
+    lastX: point.x,
+    lastY: point.y,
+    deltaX: 0,
+    deltaY: 0
+  };
+  dragging = true;
+  moved = false;
+  activeInput = input;
+  activeHandle = handle;
+  options.onBegin?.(handle, state, input);
+  return true;
+  };
+  const finishDrag = () => {
+  if (!dragging) return;
+  const wasMoved = moved;
+  const handle = activeHandle;
+  const captureTarget = activeCaptureTarget;
+  dragging = false;
+  moved = false;
+  activeInput = null;
+  activeHandle = null;
+  activeCaptureTarget = null;
+  cleanupListeners();
+  releasePointerCapture(captureTarget, pointerId);
+  options.onFinish(state, wasMoved, handle);
+  };
+  function cleanupListeners() {
+  if (typeof document === "undefined") return;
+  document.removeEventListener("pointermove", handlePointerMove, true);
+  document.removeEventListener("pointerup", handlePointerUp, true);
+  document.removeEventListener("pointercancel", handlePointerCancel, true);
+  document.removeEventListener("touchmove", handleTouchMove, true);
+  document.removeEventListener("touchend", handleTouchEnd, true);
+  document.removeEventListener("touchcancel", handleTouchCancel, true);
+  }
+  function cancel() {
+  if (!dragging) return;
+  const handle = activeHandle;
+  const captureTarget = activeCaptureTarget;
+  dragging = false;
+  moved = false;
+  activeInput = null;
+  activeHandle = null;
+  activeCaptureTarget = null;
+  cleanupListeners();
+  releasePointerCapture(captureTarget, pointerId);
+  options.onCancel?.(state, handle);
+  }
+  function handlePointerMove(event) {
+  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  consumeDragEvent(event);
+  updateDrag({ x: event.clientX, y: event.clientY });
+  }
+  function handlePointerUp(event) {
+  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  consumeDragEvent(event);
+  if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
+  else setLastPoint({ x: event.clientX, y: event.clientY });
+  finishDrag();
+  }
+  function handlePointerCancel(event) {
+  if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
+  cancel();
+  }
+  function handleTouchMove(event) {
+  if (!dragging || activeInput !== "touch") return;
+  const touch = changedTouch(event, touchId);
+  if (!touch) return;
+  consumeDragEvent(event);
+  updateDrag({ x: touch.clientX, y: touch.clientY });
+  }
+  function handleTouchEnd(event) {
+  if (!dragging || activeInput !== "touch") return;
+  const touch = changedTouch(event, touchId);
+  if (!touch) return;
+  consumeDragEvent(event);
+  if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
+  else setLastPoint({ x: touch.clientX, y: touch.clientY });
+  finishDrag();
+  }
+  function handleTouchCancel(event) {
+  if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
+  cancel();
+  }
+  return {
+  isDragging: () => dragging,
+  pointerDown(handle, event) {
+    if (activeInput) return;
+    if (event.button !== void 0 && event.button !== 0) return;
+    consumeDragEvent(event);
+    if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
+    pointerId = event.pointerId;
+    activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+    setPointerCapture(activeCaptureTarget, event.pointerId);
+    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+    document.addEventListener("pointerup", handlePointerUp, true);
+    document.addEventListener("pointercancel", handlePointerCancel, true);
+  },
+  touchStart(handle, event) {
+    if (activeInput) return;
+    const touch = firstChangedTouch(event);
+    if (!touch) return;
+    consumeDragEvent(event);
+    if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
+    touchId = touch.identifier;
+    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+    document.addEventListener("touchend", handleTouchEnd, true);
+    document.addEventListener("touchcancel", handleTouchCancel, true);
+  },
+  cancel,
+  cleanupListeners
+  };
+}
+function initialDragState() {
+  return {
+  startX: 0,
+  startY: 0,
+  lastX: 0,
+  lastY: 0,
+  deltaX: 0,
+  deltaY: 0
+  };
+}
+function getContainedClosest(target, root, selector, onFound) {
+  if (!(target instanceof Element)) return null;
+  const element = target.closest(selector);
+  if (!element || !root.contains(element)) return null;
+  onFound?.(element);
+  return element;
+}
+function consumeDragEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+function changedTouch(event, touchId) {
+  for (const touch of Array.from(event.changedTouches)) {
+  if (touch.identifier === touchId) return touch;
+  }
+  return null;
+}
+function firstChangedTouch(event) {
+  return event.changedTouches.item(0);
+}
+function releasePointerCapture(handle, id) {
+  try {
+  handle?.releasePointerCapture?.(id);
+  } catch {
+  }
+}
+function setPointerCapture(handle, id) {
+  try {
+  handle.setPointerCapture?.(id);
+  } catch {
+  }
+}
+function addViewportChangeListeners(listener, signal) {
+  const options = { passive: true, signal };
+  window.addEventListener("resize", listener, options);
+  window.addEventListener("orientationchange", listener, options);
+  window.visualViewport?.addEventListener?.("resize", listener, options);
+  window.visualViewport?.addEventListener?.("scroll", listener, options);
+}
+const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+const MIN_SHEET_HEIGHT_PX = 180;
+const SHEET_DISMISS_OVERSHOOT_PX = 72;
+const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
+const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+const SHEET_TAP_MOVEMENT_PX = 8;
+const SHEET_KEYBOARD_STEP_PX = 48;
+const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+const POPOVER_BODY_ACTION_SELECTOR = [
+  "button",
+  '[role="button"]',
+  "input",
+  "select",
+  "textarea",
+  "[data-action]",
+  "[data-immersion-action]",
+  "[data-yomu-immersion-action]",
+  "[data-uchisen-action]"
+].join(",");
+function popoverScrollBody$1(popover) {
+  return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+}
+function capturePopoverScrollFrame(target) {
+  const popover = target.closest(".jpdb-reader-popover") ?? target;
+  const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+  return { scrollBody, scrollTop: scrollBody.scrollTop };
+}
+function restorePopoverScrollFrame(frame) {
+  if (!frame.scrollBody.isConnected) return;
+  if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+}
+function restorePopoverScrollFrameSoon(frame) {
+  restorePopoverScrollFrame(frame);
+  requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+}
+function popoverBodyActionElement(target, scrollBody) {
+  const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+  return action && scrollBody.contains(action) ? action : null;
+}
+function createReaderPopover(appName, settings, trigger = "modal") {
+  const popover = document.createElement("div");
+  popover.className = "jpdb-reader-popover";
+  popover.dataset.jpdbReaderRoot = "true";
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
+  popover.setAttribute("aria-modal", "true");
+  popover.tabIndex = -1;
+  if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
+  else popover.style.width = `${settings.popoverWidth}px`;
+  return popover;
+}
+function forceReaderPopoverSurface(popover, settings) {
+  popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
+  refreshForcedReaderPopoverSurface(popover, settings);
+}
+function refreshForcedReaderPopoverSurface(popover, settings) {
+  if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
+  popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
+  popover.style.width = `${settings.popoverWidth}px`;
+  popover.style.height = "";
+  popover.style.minHeight = "";
+  popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element) => element.remove());
+}
+function createReaderBackdrop(onDismiss) {
+  const backdrop = document.createElement("div");
+  backdrop.className = "jpdb-reader-backdrop";
+  backdrop.dataset.jpdbReaderRoot = "true";
+  backdrop.addEventListener("mousedown", (event) => event.preventDefault());
+  backdrop.addEventListener("click", onDismiss);
+  return backdrop;
+}
+function popoverMaxHeightSetting(settings) {
+  return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
+}
+function suppressTrailingClickAfterSheetGestureDismiss() {
+  if (typeof window === "undefined") return;
+  let timer = 0;
+  const cleanup = () => {
+  if (timer) window.clearTimeout(timer);
+  window.removeEventListener("click", consume, true);
+  };
+  const consume = (event) => {
+  cleanup();
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  };
+  window.addEventListener("click", consume, { capture: true });
+  timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+}
+function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
+  if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
+  popover.dataset.jpdbReaderSheetHandleInstalled = "true";
+  let viewportHeight = 0;
+  let sheetHeight = 0;
+  let startHeight = 0;
+  let rawDragHeight = 0;
+  let dragPageScale = 1;
+  const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
+  const syncHandle = (handle) => {
+  handle.setAttribute("role", "button");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", label);
+  handle.setAttribute("aria-expanded", String(isFullHeight()));
+  handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
+  handle.setAttribute("aria-valuemax", String(viewportHeight));
+  handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
+  };
+  const syncHandleState = () => {
+  popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
+  };
+  const applySheetHeight = (height, persist = false) => {
+  const nextHeight = clampSheetHeight(height, viewportHeight);
+  sheetHeight = nextHeight;
+  popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
+  popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
+  syncHandleState();
+  if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
+  };
+  const applyViewportSize = () => {
+  applyRedditOverlayScale(popover);
+  const previousViewportHeight = viewportHeight;
+  const overlayViewport = redditOverlayViewport();
+  viewportHeight = fixedChromeViewportHeight();
+  const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
+  popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
+  popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
+  popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
+  popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
+  const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
+  applySheetHeight(viewportHeight * ratio);
+  };
+  const clearSheetPositionStyles = () => {
+  popover.style.removeProperty("left");
+  popover.style.removeProperty("right");
+  popover.style.removeProperty("top");
+  popover.style.removeProperty("bottom");
+  popover.style.removeProperty("width");
+  popover.style.removeProperty("height");
+  popover.style.removeProperty("max-width");
+  popover.style.removeProperty("max-height");
+  };
+  const clearDragStyles = () => {
+  popover.style.transform = "";
+  popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
+  popover.classList.remove("jpdb-reader-sheet-resizing");
+  };
+  const resetSheetLayout = () => {
+  clearSheetPositionStyles();
+  applyViewportSize();
+  clearDragStyles();
+  };
+  resetSheetLayout();
+  syncHandleState();
+  let handleObserver;
+  if (typeof MutationObserver !== "undefined") {
+  handleObserver = new MutationObserver(syncHandleState);
+  handleObserver.observe(popover, { childList: true, subtree: true });
+  }
+  let suppressNextHandleClick = false;
+  const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
+  const reset = () => {
+  popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
+  clearDragStyles();
+  window.setTimeout(() => {
+    popover.style.transition = "";
+  }, 180);
+  };
+  const dismissFromGesture = () => {
+  suppressTrailingClickAfterSheetGestureDismiss();
+  onDismiss();
+  };
+  const sheetDrag = createHandleDragController({
+  tapMovementPx: SHEET_TAP_MOVEMENT_PX,
+  movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
+  onBegin: () => {
+    dragPageScale = redditOverlayViewport().pageScale;
+    startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
+    rawDragHeight = startHeight;
+    popover.style.transition = "";
+    popover.classList.add("jpdb-reader-sheet-resizing");
+  },
+  onUpdate: (state) => {
+    rawDragHeight = startHeight - state.deltaY * dragPageScale;
+    applySheetHeight(rawDragHeight);
+  },
+  onFinish: (_state, wasMoved) => {
+    const finishHeight = rawDragHeight;
+    popover.classList.remove("jpdb-reader-sheet-resizing");
+    if (!wasMoved) {
+      suppressNextHandleClick = true;
+      dismissFromGesture();
+      return;
+    }
+    suppressNextHandleClick = true;
+    if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
+      dismissFromGesture();
+      return;
+    }
+    applySheetHeight(finishHeight, true);
+    reset();
+  },
+  onCancel: reset
+  });
+  const handleViewportChange = () => {
+  if (sheetDrag.isDragging()) sheetDrag.cancel();
+  popover.style.transition = "";
+  resetSheetLayout();
+  syncHandleState();
+  };
+  const viewportController = new AbortController();
+  let disposed = false;
+  let disposeObserver;
+  const dispose = () => {
+  if (disposed) return;
+  disposed = true;
+  sheetDrag.cleanupListeners();
+  viewportController.abort();
+  handleObserver?.disconnect();
+  disposeObserver?.disconnect();
+  };
+  disposeObserver = new MutationObserver(() => {
+  if (!popover.isConnected) dispose();
+  });
+  if (document.documentElement) {
+  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+  popover.addEventListener("click", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (suppressNextHandleClick) {
+    suppressNextHandleClick = false;
+    return;
+  }
+  onDismiss();
+  });
+  popover.addEventListener("pointerdown", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  sheetDrag.pointerDown(handle, event);
+  });
+  popover.addEventListener("touchstart", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  sheetDrag.touchStart(handle, event);
+  }, { capture: true, passive: false });
+  popover.addEventListener("keydown", (event) => {
+  const handle = getHandleFromEvent(event.target);
+  if (!handle) return;
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    event.stopPropagation();
+    onDismiss();
+  }
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    event.stopPropagation();
+    applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
+    reset();
+  }
+  if (event.key === "Escape") onDismiss();
+  });
+  addViewportChangeListeners(handleViewportChange, viewportController.signal);
+}
+function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
+  if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
+  popover.dataset.jpdbReaderSheetCloseInstalled = "true";
+  const close = (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  onDismiss();
+  };
+  const createButton = () => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "jpdb-reader-sheet-close";
+  button.dataset.jpdbReaderSheetClose = "true";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  setInnerHtml(button, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
+  button.addEventListener("click", close);
+  return button;
+  };
+  const ensureButton = () => {
+  if (!popover.isConnected) return;
+  if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
+  popover.append(createButton());
+  };
+  ensureButton();
+  let disposed = false;
+  let contentObserver;
+  let disposeObserver;
+  const dispose = () => {
+  if (disposed) return;
+  disposed = true;
+  contentObserver?.disconnect();
+  disposeObserver?.disconnect();
+  };
+  contentObserver = new MutationObserver(ensureButton);
+  contentObserver.observe(popover, { childList: true });
+  disposeObserver = new MutationObserver(() => {
+  if (!popover.isConnected) dispose();
+  });
+  if (document.documentElement) {
+  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+}
+function installMiningDrawerHandle(root, setExpanded) {
+  if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
+  root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
+  let suppressNextHandleClick = false;
+  let cleanedUp = false;
+  const getHandleFromElement = (event) => {
+  const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+  if (!target || !root.contains(target)) return null;
+  const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
+  if (!handle) return null;
+  return handle;
+  };
+  const getHandleFromEventTarget = (event) => {
+  return event instanceof Element ? getHandleFromElement(event) : null;
+  };
+  const getHandleFromPoint = (x, y) => {
+  if (typeof document.elementsFromPoint !== "function") return null;
+  for (const element of document.elementsFromPoint(x, y)) {
+    const handle = getHandleFromElement(element);
+    if (handle) return handle;
+  }
+  return null;
+  };
+  const getHandleFromPointerEvent = (event) => {
+  return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+  };
+  const getHandleFromTouchEvent = (event) => {
+  const direct = getHandleFromEventTarget(event.target);
+  if (direct) return direct;
+  const touch = firstChangedTouch(event);
+  return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+  };
+  const isInteractiveGutterChild = (eventTarget) => {
+  if (!(eventTarget instanceof Element)) return false;
+  const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
+  return Boolean(
+    action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
+  );
+  };
+  const miningDrag = createHandleDragController({
+  tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
+  updateOnEnd: true,
+  onBegin: (handle) => {
+    handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
+  },
+  onFinish: (state, wasMoved, handle) => {
+    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+    if (!wasMoved || !handle) return;
+    suppressNextHandleClick = true;
+    const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
+    if (expanded !== void 0) setExpanded(handle, expanded);
+  },
+  onCancel: (_state, handle) => {
+    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+  }
+  });
+  const cleanup = () => {
+  if (cleanedUp) return;
+  cleanedUp = true;
+  document.removeEventListener("click", handleClick, true);
+  document.removeEventListener("pointerdown", handlePointerDown, true);
+  document.removeEventListener("touchstart", handleTouchStart, true);
+  miningDrag.cleanupListeners();
+  };
+  const rootIsConnected = () => {
+  if (root.isConnected) return true;
+  cleanup();
+  return false;
+  };
+  const toggleHandle = (handle) => {
+  setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
+  };
+  function handleClick(event) {
+  if (!rootIsConnected()) return;
+  if (isInteractiveGutterChild(event.target)) return;
+  const handle = getHandleFromPointerEvent(event);
+  if (!handle) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (suppressNextHandleClick) {
+    suppressNextHandleClick = false;
+    return;
+  }
+  toggleHandle(handle);
+  }
+  function handlePointerDown(event) {
+  if (!rootIsConnected()) return;
+  if (isInteractiveGutterChild(event.target)) return;
+  const handle = getHandleFromPointerEvent(event);
+  if (!handle) return;
+  miningDrag.pointerDown(handle, event);
+  }
+  function handleTouchStart(event) {
+  if (!rootIsConnected()) return;
+  if (isInteractiveGutterChild(event.target)) return;
+  const handle = getHandleFromTouchEvent(event);
+  if (!handle) return;
+  miningDrag.touchStart(handle, event);
+  }
+  document.addEventListener("click", handleClick, true);
+  document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
+  document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+}
+function eventHasPointTarget(event) {
+  return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+}
+function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
+  const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
+  if (mode === "sheet") return true;
+  if (mode === "popover") return false;
+  const { width, height } = viewport;
+  const popoverWidth = Math.max(0, settings.popoverWidth || 0);
+  const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
+  if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
+  if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
+  return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
+}
+function lookupViewportSize() {
+  const overlayViewport = redditOverlayViewport();
+  if (overlayViewport.pageScale > 1) {
+  const bounds = redditOverlayViewportBounds();
+  return {
+    width: Math.max(0, Math.round(bounds.width)),
+    height: Math.max(0, Math.round(bounds.height)),
+    pageScale: overlayViewport.pageScale
+  };
+  }
+  const visual = window.visualViewport;
+  const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
+  const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
+  return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
+}
+function fixedChromeViewportHeight() {
+  const overlayViewport = redditOverlayViewport();
+  return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
+}
+function visualViewportHeight() {
+  return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
+}
+function layoutViewportHeight() {
+  return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
+}
+function sheetMinHeight(viewportHeight) {
+  if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
+  return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+}
+function restoredSheetHeight(viewportHeight) {
+  return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
+}
+function clampSheetHeight(height, viewportHeight) {
+  return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
+}
+function clampDrawerHeight(height, viewportHeight, minHeight) {
+  if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
+  return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+}
+function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
+  const axis = miningDrawerDragAxis(handle);
+  if (axis === "horizontal") {
+  if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+  return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
+  }
+  if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+  return deltaY < 0;
+}
+function miningDrawerDragAxis(handle) {
+  const rect = handle.getBoundingClientRect();
+  if (rect.height > rect.width * 1.2) return "horizontal";
+  const actions = handle.closest(".jpdb-reader-actions");
+  if (!actions) return "vertical";
+  const actionsRect = actions.getBoundingClientRect();
+  return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
+}
+function miningDrawerHorizontalOpenDirection(handle) {
+  const actions = handle.closest(".jpdb-reader-actions");
+  if (!actions) return "left";
+  const handleRect = handle.getBoundingClientRect();
+  const actionsRect = actions.getBoundingClientRect();
+  const handleCenter = handleRect.left + handleRect.width / 2;
+  const actionsCenter = actionsRect.left + actionsRect.width / 2;
+  return handleCenter < actionsCenter ? "right" : "left";
+}
+function readSheetHeightRatio() {
+  return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+}
+function storeSheetHeightRatio(height, viewportHeight) {
+  storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
+}
+function readHeightRatio(storageKey, fallback) {
+  const value = gmStorageGetSync(storageKey, fallback);
+  return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
+}
+function storeHeightRatio(storageKey, height, viewportHeight) {
+  if (viewportHeight <= 0) return;
+  const ratio = Math.max(0, Math.min(1, height / viewportHeight));
+  gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
 }
 function popoverScrollBody(popover) {
   return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
@@ -33234,11 +31438,11 @@ function injectMokuroToggleNote(root) {
   }
 }
 function elementOwnText(el) {
-  let text2 = "";
+  let text = "";
   el.childNodes.forEach((node) => {
-  if (node.nodeType === 3) text2 += node.textContent ?? "";
+  if (node.nodeType === 3) text += node.textContent ?? "";
   });
-  return text2.trim();
+  return text.trim();
 }
 function findMokuroOcrToggleInputs(root) {
   const inputs = [];
@@ -33545,12 +31749,12 @@ function textNodeMayContainJapanese(node, budget) {
   return true;
   }
   budget.inspectedTextNodes += 1;
-  const text2 = node.textContent ?? "";
+  const text = node.textContent ?? "";
   const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
-  const sampledText = text2.slice(0, remainingLength);
+  const sampledText = text.slice(0, remainingLength);
   budget.inspectedTextLength += sampledText.length;
   if (HAS_JAPANESE.test(sampledText)) return true;
-  if (sampledText.length < text2.length) {
+  if (sampledText.length < text.length) {
   budget.textBudgetExhausted = true;
   return true;
   }
@@ -34052,20 +32256,20 @@ function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, curre
   });
   return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
 }
-function supplementSettingsTargetTokens(text2, tokens) {
+function supplementSettingsTargetTokens(text, tokens) {
   const protectedRanges = tokens.filter(isProtectedSettingsToken).map(tokenRange);
   const generated = [];
   const occupied = [...protectedRanges];
   for (const [surface, reading] of SORTED_SETTINGS_FALLBACK_READINGS) {
-  let start = text2.indexOf(surface);
+  let start = text.indexOf(surface);
   while (start >= 0) {
     const end = start + surface.length;
     const range = { start, end };
     if (!rangesOverlapAny(range, occupied)) {
-      generated.push(settingsFallbackToken(surface, reading, start, text2));
+      generated.push(settingsFallbackToken(surface, reading, start, text));
       occupied.push(range);
     }
-    start = text2.indexOf(surface, start + surface.length);
+    start = text.indexOf(surface, start + surface.length);
   }
   }
   if (!generated.length) return tokens;
@@ -34915,13 +33119,13 @@ class ReaderAudioActions {
   }
   async playSentenceAudio(sentence) {
   if (!this.ensureAudioEnabled()) return;
-  const text2 = sentence?.trim();
-  if (!text2) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
+  const text = sentence?.trim();
+  if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
   const voice = this.dependencies.getSettings().audioSources.find(
     (source) => source.enabled && (source.type === "text-to-speech" || source.type === "text-to-speech-reading") && source.voice.trim()
   )?.voice.trim() ?? "";
   this.dependencies.stopImmersionAudio();
-  await this.dependencies.audio.playJapaneseText(text2, voice);
+  await this.dependencies.audio.playJapaneseText(text, voice);
   }
   async playJpdbExampleAudio(audioIds, fallbackSentence) {
   if (!this.ensureAudioEnabled()) return;
@@ -35146,9 +33350,9 @@ function initJpdbReviewPageBridge() {
   return dispose;
 }
 function jpdbLearnPageStatus(doc) {
-  const text2 = doc.body?.textContent?.replace(/\s+/g, " ") ?? "";
-  const due = /(\d+)\s+due items?\s*\((\d+)\s+vocabulary and\s+(\d+)\s+kanji\)/i.exec(text2);
-  const fresh = /(\d[\d,]*)\s+new items?/i.exec(text2);
+  const text = doc.body?.textContent?.replace(/\s+/g, " ") ?? "";
+  const due = /(\d+)\s+due items?\s*\((\d+)\s+vocabulary and\s+(\d+)\s+kanji\)/i.exec(text);
+  const fresh = /(\d[\d,]*)\s+new items?/i.exec(text);
   const learnSummary = due ? {
   dueItems: Number(due[1]),
   dueVocabulary: Number(due[2]),
@@ -35182,16 +33386,16 @@ function parsedReviewDocument(doc, href) {
   const url = safeUrl(href);
   const { cardValue, response } = reviewRequestState(doc, url);
   const cardState = parseJpdbReviewCardValue(cardValue, response);
-  const text2 = reviewDocumentText(doc);
-  const { kanji, isKanji } = reviewKindInfo(doc, cardState, text2.kindLabel, text2.highlighted);
+  const text = reviewDocumentText(doc);
+  const { kanji, isKanji } = reviewKindInfo(doc, cardState, text.kindLabel, text.highlighted);
   const phase = reviewPhase(doc, url, cardState.phase);
-  const fields = reviewCardTextFields(doc, isKanji, text2.sentence, text2.highlighted, kanji, text2.keyword);
+  const fields = reviewCardTextFields(doc, isKanji, text.sentence, text.highlighted, kanji, text.keyword);
   return {
   cardValue,
   phase,
   kind: isKanji ? "kanji" : "vocabulary",
-  keyword: text2.keyword,
-  sentence: text2.sentence,
+  keyword: text.keyword,
+  sentence: text.sentence,
   kanji,
   ...fields
   };
@@ -35271,8 +33475,8 @@ function reviewDeckMembership(doc) {
   const lines = [];
   doc.querySelectorAll('a[href*="/deck?"], a[href*="/deck/"]').forEach((link) => {
   const container = link.parentElement;
-  const text2 = cleanText(container?.textContent ?? "");
-  if (/part of/i.test(text2) && !lines.includes(text2)) lines.push(text2);
+  const text = cleanText(container?.textContent ?? "");
+  if (/part of/i.test(text) && !lines.includes(text)) lines.push(text);
   });
   return lines.join(" · ");
 }
@@ -35313,8 +33517,8 @@ function findControl(terms) {
   const controls = Array.from(document.querySelectorAll('button, input[type="submit"], a[href]'));
   return controls.find((control) => {
   if (control.closest("[data-jpdb-reader-root]")) return false;
-  const text2 = formText(control);
-  return terms.some((term) => text2.includes(term));
+  const text = formText(control);
+  return terms.some((term) => text.includes(term));
   }) ?? null;
 }
 function gradeTerms(grade) {
@@ -35358,8 +33562,8 @@ function readingFromDocument(doc) {
   return cleanText(doc.querySelector(".plain ruby rt, rt, .reading")?.textContent ?? "");
 }
 function itemsLeft(doc) {
-  const text2 = cleanText(doc.body.textContent ?? "");
-  const match = /items?\s+left\s*\((\d+)\)|items?\s+left\s+(\d+)/i.exec(text2);
+  const text = cleanText(doc.body.textContent ?? "");
+  const match = /items?\s+left\s*\((\d+)\)|items?\s+left\s+(\d+)/i.exec(text);
   if (!match) return null;
   const value = Number(match[1] ?? match[2]);
   return Number.isFinite(value) ? value : null;
@@ -37574,8 +35778,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.233"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.233"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.234"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.234"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37695,7 +35899,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.233"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.234"}`;
   } catch {
   return null;
   }
@@ -37771,10 +35975,10 @@ function normalizeAnnotation(value) {
 }
 function exactJapaneseSurface(value) {
   if (typeof value !== "string") return "";
-  const text2 = value.normalize("NFC").trim();
+  const text = value.normalize("NFC").trim();
   const forbiddenControls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
-  if (!text2 || text2.length > 80 || forbiddenControls.test(text2)) return "";
-  return text2;
+  if (!text || text.length > 80 || forbiddenControls.test(text)) return "";
+  return text;
 }
 function normalizePitch(value, reading) {
   if (!value || typeof value !== "object") return void 0;
@@ -37786,24 +35990,24 @@ function normalizePitch(value, reading) {
 }
 function normalizedJapaneseText(value, allowLayoutWhitespace = false) {
   if (typeof value !== "string") return "";
-  const text2 = value.normalize("NFKC").trim();
+  const text = value.normalize("NFKC").trim();
   const forbiddenControls = allowLayoutWhitespace ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u : /[\u0000-\u001f\u007f]/u;
-  if (!text2 || text2.length > 80 || forbiddenControls.test(text2)) return "";
-  return text2;
+  if (!text || text.length > 80 || forbiddenControls.test(text)) return "";
+  return text;
 }
 function isKanaReading(value) {
   return /^[\u3040-\u30ffー]+$/u.test(value);
 }
-function authoredVocabularyReplacements(text2, annotations, parsedTokens) {
+function authoredVocabularyReplacements(text, annotations, parsedTokens) {
   const replacements = [];
   for (const annotation of annotations) {
-  let start = text2.indexOf(annotation.surface);
+  let start = text.indexOf(annotation.surface);
   while (start >= 0) {
     const end = start + annotation.surface.length;
     if (!replacements.some((token) => rangesOverlap(token, { start, end }))) {
-      replacements.push(authoredVocabularyToken(annotation, start, end, text2, parsedTokens));
+      replacements.push(authoredVocabularyToken(annotation, start, end, text, parsedTokens));
     }
-    start = text2.indexOf(annotation.surface, end);
+    start = text.indexOf(annotation.surface, end);
   }
   }
   return replacements;
@@ -38303,10 +36507,10 @@ function chunkLongScanTarget(target, settings) {
 }
 function textTargetChunk(target, start, end) {
   if (end <= start) return null;
-  const text2 = target.node.data.slice(start, end);
-  if (!text2) return null;
+  const text = target.node.data.slice(start, end);
+  if (!text) return null;
   return {
-  text: text2,
+  text,
   parent: target.parent,
   fragments: [{
     node: target.node,
@@ -38352,19 +36556,19 @@ function fragmentRange(fragments, start, end) {
   }
   return result;
 }
-function nextChunkEnd(text2, start, chunkSize) {
-  const hardEnd = Math.min(text2.length, start + chunkSize);
-  if (hardEnd >= text2.length) return text2.length;
-  if (text2.length - hardEnd < VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL) return text2.length;
-  return chunkBoundaryBefore(text2, start, hardEnd, chunkSize) ?? hardEnd;
+function nextChunkEnd(text, start, chunkSize) {
+  const hardEnd = Math.min(text.length, start + chunkSize);
+  if (hardEnd >= text.length) return text.length;
+  if (text.length - hardEnd < VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL) return text.length;
+  return chunkBoundaryBefore(text, start, hardEnd, chunkSize) ?? hardEnd;
 }
-function chunkBoundaryBefore(text2, start, hardEnd, chunkSize) {
+function chunkBoundaryBefore(text, start, hardEnd, chunkSize) {
   const softStart = Math.max(start + Math.floor(chunkSize * 0.6), start + 1);
   for (let index = hardEnd; index > softStart; index -= 1) {
-  if (/[。！？!?]/u.test(text2[index - 1] ?? "")) return index;
+  if (/[。！？!?]/u.test(text[index - 1] ?? "")) return index;
   }
   for (let index = hardEnd; index > softStart; index -= 1) {
-  if (/[、，,\n\r\s]/u.test(text2[index - 1] ?? "")) return index;
+  if (/[、，,\n\r\s]/u.test(text[index - 1] ?? "")) return index;
   }
   return null;
 }
@@ -38561,8 +36765,8 @@ ${span.end}`;
   return true;
   });
 }
-function pointerSpanForResolvedCard(text2, offset, span, card) {
-  const surface = normalizedLookupText$1(text2.slice(span.start, span.end));
+function pointerSpanForResolvedCard(text, offset, span, card) {
+  const surface = normalizedLookupText$1(text.slice(span.start, span.end));
   if (!surface) return span;
   const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText$1).filter(Boolean))].sort((first, second) => second.length - first.length);
   for (const value of values) {
@@ -38775,7 +36979,7 @@ class ReaderApp {
   jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
   kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
   kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
-  immersionKit = new ImmersionKitClient();
+  immersionKit = this.kanjiCompanion ? new this.kanjiCompanion.ImmersionKitClient() : null;
   audio = new AudioPlayer(() => this.settings);
   anki = new AnkiConnectClient(() => this.settings);
   bunpro = new BunproClient({
@@ -38868,7 +37072,7 @@ class ReaderApp {
   onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
   onApiCardStateChanged: (card) => this.applyPublicVocabularyToRenderedWords(card, card)
   });
-  immersionPopover = new ImmersionPopoverController({
+  immersionPopover = this.kanjiCompanion && this.immersionKit ? new this.kanjiCompanion.ImmersionPopoverController({
   getSettings: () => this.settings,
   client: this.immersionKit,
   audio: this.audio,
@@ -38880,13 +37084,13 @@ class ReaderApp {
   repositionPopover: () => this.repositionActivePopover(),
   setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
   toast: (message) => this.toast(message)
-  });
+  }) : null;
   audioActions = new ReaderAudioActions({
   audio: this.audio,
   getSettings: () => this.settings,
   getActivePopover: () => this.activePopover,
   getHoverLookupGeneration: () => this.hoverLookupGeneration,
-  stopImmersionAudio: () => this.immersionPopover.stopAudio(),
+  stopImmersionAudio: () => this.immersionPopover?.stopAudio(),
   toast: (message) => this.toast(message)
   });
   floatingButton = new FloatingButtonController();
@@ -39055,7 +37259,7 @@ class ReaderApp {
     },
     showSettings: (panel) => this.showSettings(panel),
     parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
-    lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
+    lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
     installOfflineDictionaries: () => void this.installOfflineParsingDictionaries()
   });
   }
@@ -39064,7 +37268,7 @@ class ReaderApp {
   if (!Controller) return this.missingCompanionSurface("Video companion", "subtitles");
   return new Controller({
     getSettings: () => this.settings,
-    parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
+    parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     beforeRenderTokens: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
     afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
@@ -39103,14 +37307,14 @@ class ReaderApp {
   }
   return new Controller({
     getSettings: () => this.settings,
-    parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
+    parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     onToast: (message) => this.toast(message),
     shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
     shouldScanInlineImages: () => true,
     enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
     enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
-    fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
+    fallbackCardFromText: (text) => this.parser.fallbackCardFromText(text)
   });
   }
   missingCompanionSurface(label, key) {
@@ -39979,8 +38183,8 @@ class ReaderApp {
   releaseRubyRoomGrowth(document);
   document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
     if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
-      const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
-      el.replaceWith(text2);
+      const text = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
+      el.replaceWith(text);
     } else {
       el.remove();
     }
@@ -41898,8 +40102,8 @@ class ReaderApp {
   isParserBackedLookupCard(card) {
   return this.isJpdbBackedCard(card) || card.source === "jiten";
   }
-  async lookupText(text2, sentence = text2, options = {}) {
-  const context = this.textLookupDisplayContext(text2, options);
+  async lookupText(text, sentence = text, options = {}) {
+  const context = this.textLookupDisplayContext(text, options);
   if (!context) return;
   const done = log.time("lookupText", { length: context.selected.length, trigger: context.trigger });
   try {
@@ -41912,8 +40116,8 @@ class ReaderApp {
     done();
   }
   }
-  textLookupDisplayContext(text2, options) {
-  return createTextLookupDisplayContext(text2, options, this.textLookupDisplayState());
+  textLookupDisplayContext(text, options) {
+  return createTextLookupDisplayContext(text, options, this.textLookupDisplayState());
   }
   activeTextLookupTrigger() {
   return this.activePopoverMode === "hover" ? "hover" : "modal";
@@ -42288,12 +40492,12 @@ class ReaderApp {
     userGesture: options.userGesture
   });
   }
-  async lookupLocalEntryAtOffset(text2, offset) {
+  async lookupLocalEntryAtOffset(text, offset) {
   if (!this.settings.localDictionariesEnabled) return void 0;
-  const run = japaneseRunAt(text2, offset);
+  const run = japaneseRunAt(text, offset);
   if (!run) return void 0;
-  const pointerRange = fallbackLookupRangeAtOffset(text2, run.offset) ?? { start: run.start, end: run.end };
-  return await this.lookupLocalEntryInRun(text2, run, pointerRange);
+  const pointerRange = fallbackLookupRangeAtOffset(text, run.offset) ?? { start: run.start, end: run.end };
+  return await this.lookupLocalEntryInRun(text, run, pointerRange);
   }
   isCurrentRenderedWordHover(word, hoverLookupKey, hoverLookupGeneration) {
   if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
@@ -42320,38 +40524,38 @@ class ReaderApp {
   hasPendingDifferentHoverLookup(hoverLookupKey) {
   return Boolean(this.hoverPendingLookupKey && this.hoverPendingLookupKey !== hoverLookupKey || this.hoverLookupInFlightKey && this.hoverLookupInFlightKey !== hoverLookupKey);
   }
-  async lookupLocalEntryInRun(text2, run, pointerRange) {
+  async lookupLocalEntryInRun(text, run, pointerRange) {
   if (isOverbroadLocalPointerRange(run, pointerRange)) {
-    return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange, { preferShorter: true });
+    return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
   }
-  const exactSurface = text2.slice(pointerRange.start, pointerRange.end);
+  const exactSurface = text.slice(pointerRange.start, pointerRange.end);
   const exactEntry = await this.lookupSingleLocalSurface(exactSurface);
   if (exactEntry) return { entry: exactEntry, start: pointerRange.start, end: pointerRange.end };
   if (!canExpandLocalPointerRange(exactSurface)) return void 0;
-  return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange);
+  return await this.lookupContainingLocalEntryInRun(text, run, pointerRange);
   }
-  async lookupContainingLocalEntryInRun(text2, run, pointerRange, options = {}) {
+  async lookupContainingLocalEntryInRun(text, run, pointerRange, options = {}) {
   const minStart = Math.max(run.start, run.offset - 8);
   const maxEnd = Math.min(run.end, Math.max(pointerRange.end, run.offset + 18));
-  if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd);
+  if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd);
   for (let start = Math.min(pointerRange.start, run.offset); start >= minStart; start--) {
     const longestEnd = Math.min(maxEnd, start + 18);
     for (let end = longestEnd; end > run.offset; end--) {
-      const surface = text2.slice(start, end);
+      const surface = text.slice(start, end);
       const entry = await this.lookupSingleLocalSurface(surface);
       if (entry) return { entry, start, end };
     }
   }
   return void 0;
   }
-  async lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd) {
+  async lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd) {
   const maxLength = Math.min(18, maxEnd - minStart);
   for (let length = 2; length <= maxLength; length++) {
     const firstStart = Math.max(minStart, run.offset - length + 1);
     const lastStart = Math.min(run.offset, maxEnd - length);
     for (let start = lastStart; start >= firstStart; start--) {
       const end = start + length;
-      const surface = text2.slice(start, end);
+      const surface = text.slice(start, end);
       const entry = await this.lookupSingleLocalSurface(surface);
       if (entry) return { entry, start, end };
     }
@@ -42638,7 +40842,7 @@ class ReaderApp {
   const trigger = this.renderedWordTrigger(options.trigger, true);
   const navigation = options.navigation ?? renderedWordNavigationMode(true, trigger);
   const sentence = this.renderedWordSentence(word) ?? expression;
-  if (word.closest(".jpdb-reader-example-card")) this.immersionPopover.rememberTermMiningContext(expression, sentence, word);
+  if (word.closest(".jpdb-reader-example-card")) this.immersionPopover?.rememberTermMiningContext(expression, sentence, word);
   await this.lookupText(expression, sentence, {
     anchor: renderedWordAnchor(word, true, this.activePopoverAnchor),
     navigation,
@@ -42653,7 +40857,7 @@ class ReaderApp {
   }
   rememberRenderedWordMiningContext(word, card, insideReaderPopup) {
   if (!insideReaderPopup || !word.closest(".jpdb-reader-example-card")) return;
-  this.immersionPopover.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
+  this.immersionPopover?.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
   }
   renderedWordDisplayContext(word, options, insideReaderPopup) {
   const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
@@ -42928,9 +41132,9 @@ class ReaderApp {
   return HAS_JAPANESE.test(sentence) ? sentence : "";
   }
   rememberCardMiningContext(card, sentence, anchor, options) {
-  const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
-  if (hasNestedImmersionContext || this.immersionPopover.hasActiveContext(card, sentence)) return;
-  this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
+  const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover?.activeContextFor(card));
+  if (hasNestedImmersionContext || this.immersionPopover?.hasActiveContext(card, sentence)) return;
+  this.immersionPopover?.rememberPageMiningContext(card, sentence, anchor);
   }
   async mountInitialCardShell(popover, card, sentence, anchor, context) {
   if (!context.isCurrentHoverCard()) {
@@ -43027,7 +41231,7 @@ class ReaderApp {
   if (instantLocalEntries?.length) void this.parsePopoverJapanese(popover);
   }
   installLazyImmersionExamples(popover, card, options = {}) {
-  if (this.settings.immersionKitEnabled) this.immersionPopover.installLazyLoad(popover, card, options);
+  if (this.settings.immersionKitEnabled) this.immersionPopover?.installLazyLoad(popover, card, options);
   }
   renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor) {
   if (mounted.instantLocalEntries !== null) return;
@@ -43862,7 +42066,7 @@ class ReaderApp {
     image.addEventListener("error", () => image.remove(), { once: true });
     const url = image.dataset.radicalFrameUrl;
     if (!url) return;
-    void this.immersionKit.fetchBlobUrl(url, 9e3, this.settings.corsProxyUrl, this.settings.interfaceLanguage).then((blobUrl) => {
+    void this.immersionKit?.fetchBlobUrl(url, 9e3, this.settings.corsProxyUrl, this.settings.interfaceLanguage).then((blobUrl) => {
       image.src = blobUrl;
     }).catch(() => image.remove());
   });
@@ -43894,11 +42098,11 @@ class ReaderApp {
   }
   installKanjiImmersionExamples(root, card, relatedQueries = []) {
   if (!this.shouldRenderKanjiImmersionKit()) return;
-  this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
+  this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
   }
   installJpdbPageImmersionExamples(root, card, relatedQueries = []) {
   if (!this.settings.immersionKitEnabled) return;
-  this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
+  this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
   }
   async parsePopoverJapanese(popover) {
   if (!this.isCurrentPopoverRoot(popover)) return;
@@ -44081,9 +42285,9 @@ class ReaderApp {
   void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
   }
   queueSubtitleParsedHtmlRefresh(sentence) {
-  const text2 = sentence?.trim();
-  if (!text2 || this.isDestroyed) return;
-  this.pendingSubtitleRebakeTexts.add(text2);
+  const text = sentence?.trim();
+  if (!text || this.isDestroyed) return;
+  this.pendingSubtitleRebakeTexts.add(text);
   if (this.subtitleRebakeTimer !== void 0) return;
   this.subtitleRebakeTimer = window.setTimeout(() => {
     this.subtitleRebakeTimer = void 0;
@@ -45150,8 +43354,8 @@ class ReaderApp {
   return surface.length <= 80 ? surface : "";
   }
   async resolveMiningContext(card, sentence) {
-  const activeContext = this.immersionPopover.activeContextFor(card);
-  const storedImmersionContext = this.immersionPopover.storedContextFor(card);
+  const activeContext = this.immersionPopover?.activeContextFor(card);
+  const storedImmersionContext = this.immersionPopover?.storedContextFor(card);
   const anchor = this.activePopoverAnchor;
   const context = await resolveMiningContext({
     term: card.spelling,
@@ -45165,8 +43369,8 @@ class ReaderApp {
     }),
     imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : void 0,
     videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0,
-    fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
-    fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage)
+    fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit ? this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage) : Promise.resolve(void 0),
+    fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit ? this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage) : Promise.resolve(void 0)
   });
   return context;
   }
@@ -45209,7 +43413,7 @@ class ReaderApp {
     applyTheme: (settings) => this.applyTheme(settings),
     applyAccentColor: (color) => this.applyAccentColor(color),
     applyWordColors: (settings) => this.applyWordColors(settings),
-    lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
+    lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
     parseSettingsJapanese: (form) => this.parseSettingsJapanese(form),
     installFab: () => this.installFab(),
     refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
@@ -45293,7 +43497,7 @@ class ReaderApp {
   prepareSettingsStackedPopover(stack) {
   this.stackedSettingsDialog = stack;
   if (this.activePopover && this.activePopover !== stack.form) {
-    this.immersionPopover.abortPendingRequests(this.activePopover);
+    this.immersionPopover?.abortPendingRequests(this.activePopover);
     this.activePopover.remove();
   }
   if (this.activeBackdrop && this.activeBackdrop !== stack.backdrop) this.activeBackdrop.remove();
@@ -45531,13 +43735,13 @@ class ReaderApp {
   }
   }
   prepareActivePopoverDismiss(options) {
-  if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+  if (this.activePopover) this.immersionPopover?.abortPendingRequests(this.activePopover);
   if (!options.preserveNavigation) {
     this.scheduleSubtitleMiningVideoResume(options.deferSubtitleMiningResume ? SUBTITLE_HOVER_MINING_RESUME_GRACE_MS : 0);
   }
   this.clearHoverDismissState(options);
   this.audio.stop();
-  this.immersionPopover.stopAudio();
+  this.immersionPopover?.stopAudio();
   this.updateSuppressedHoverTarget(options);
   this.cardRenderRequest++;
   }

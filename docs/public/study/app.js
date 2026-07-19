@@ -14877,6 +14877,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -27045,6 +27046,4748 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       timeoutLabel: "Stroke-order request timed out."
     });
   }
+  function pruneOldestCacheEntries(cache2, limit) {
+    while (cache2.size > limit) {
+      const oldest = cache2.keys().next();
+      if (oldest.done) break;
+      cache2.delete(oldest.value);
+    }
+  }
+  function isAbortError(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stablePositiveHashId(value) {
+    return stableHash32(value) || 1;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
+  }
+  const API_BASE$1 = "https://apiv2express.immersionkit.com";
+  const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
+  const API_BASES = [API_BASE$1, LEGACY_API_BASE];
+  const NADESHIKO_API_BASE = "https://api.nadeshiko.co/v1";
+  const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
+  const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
+  const MEDIA_CANDIDATE_LIMIT = 4;
+  const SEARCH_EXAMPLE_LIMIT = 250;
+  const SEARCH_CACHE_LIMIT = 160;
+  const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1e3;
+  const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
+  const NADESHIKO_SEARCH_LIMIT = 25;
+  const MIN_LEARNING_SENTENCE_LENGTH = 8;
+  const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
+  const log$w = Logger.scope("ImmersionKit");
+  const IMMERSION_KIT_TITLES = {
+    your_lie_in_april: "Your Lie in April",
+    princess_mononoke: "Princess Mononoke",
+    girls_band_cry: "Girls Band Cry",
+    only_yesterday: "Only Yesterday",
+    chobits: "Chobits",
+    k_on_: "K-On!",
+    weathering_with_you: "Weathering with You",
+    from_the_new_world: "From the New World",
+    grave_of_the_fireflies: "Grave of the Fireflies",
+    steins_gate: "Steins Gate",
+    sword_art_online: "Sword Art Online",
+    nisekoi: "Nisekoi",
+    death_note: "Death Note",
+    wolf_children: "Wolf Children",
+    demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
+    your_name: "Your Name",
+    alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
+    cardcaptor_sakura: "Cardcaptor Sakura",
+    kill_la_kill: "Kill la Kill",
+    howl_s_moving_castle: "Howl's Moving Castle",
+    whisper_of_the_heart: "Whisper of the Heart",
+    bunny_drop: "Bunny Drop",
+    fermat_kitchen: "Fermat Kitchen",
+    haruhi_suzumiya: "Haruhi Suzumiya",
+    hunter_x_hunter: "Hunter × Hunter",
+    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
+    assassination_classroom_season_1: "Assassination Classroom Season 1",
+    durarara__: "Durarara!!",
+    bakemonogatari: "Bakemonogatari",
+    hyouka: "Hyouka",
+    relife: "ReLIFE",
+    from_up_on_poppy_hill: "From Up on Poppy Hill",
+    sound__euphonium: "Sound! Euphonium",
+    lucky_star: "Lucky Star",
+    kokoro_connect: "Kokoro Connect",
+    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
+    is_the_order_a_rabbit: "Is The Order a Rabbit",
+    clannad: "Clannad",
+    angel_beats_: "Angel Beats!",
+    daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
+    new_game_: "New Game!",
+    the_wind_rises: "The Wind Rises",
+    fate_zero: "Fate Zero",
+    toradora_: "Toradora!",
+    anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
+    wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
+    kino_s_journey: "Kino's Journey",
+    boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
+    fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
+    one_week_friends: "One Week Friends",
+    erased: "Erased",
+    mononoke: "Mononoke",
+    little_witch_academia: "Little Witch Academia",
+    re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
+    fruits_basket_season_1: "Fruits Basket Season 1",
+    mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
+    the_irregular_at_magic_high_school: "The Irregular at Magic High School",
+    clannad_after_story: "Clannad After Story",
+    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
+    kakegurui: "Kakegurui",
+    the_garden_of_words: "The Garden of Words",
+    when_marnie_was_there: "When Marnie Was There",
+    castle_in_the_sky: "Castle in the sky",
+    shirokuma_cafe: "Shirokuma Cafe",
+    my_neighbor_totoro: "My Neighbor Totoro",
+    kiki_s_delivery_service: "Kiki's Delivery Service",
+    the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
+    fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
+    code_geass_season_1: "Code Geass Season 1",
+    the_world_god_only_knows: "The World God Only Knows",
+    the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
+    no_game_no_life: "No Game No Life",
+    kanon__2006_: "Kanon (2006)",
+    psycho_pass: "Psycho Pass",
+    the_cat_returns: "The Cat Returns",
+    the_secret_world_of_arrietty: "The Secret World of Arrietty",
+    spirited_away: "Spirited Away",
+    noragami: "Noragami",
+    fairy_tail: "Fairy Tail",
+    i_m_taking_the_day_off: "I'm Taking the Day Off",
+    border: "Border",
+    weakest_beast: "Weakest Beast",
+    mob_psycho_100: "Mob Psycho 100",
+    the_journalist: "The Journalist",
+    sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
+    smoking: "Smoking",
+    i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
+    good_morning_call: "Good Morning Call",
+    overprotected_kahoko: "Overprotected Kahoko",
+    quartet: "Quartet",
+    million_yen_woman: "Million Yen Woman",
+    legal_high_season_1: "Legal High Season 1",
+    witcher_3: "Witcher 3",
+    cyberpunk_2077: "Cyberpunk 2077",
+    skyrim: "Skyrim"
+  };
+  class ImmersionKitClient {
+    cache = /* @__PURE__ */ new Map();
+    inflight = /* @__PURE__ */ new Map();
+    mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
+    immersionKitRateLimitedUntil = 0;
+    immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
+    async search(term, settings, options = {}) {
+      const query = term.trim();
+      if (!canSearchImmersionExamples(query, settings)) return [];
+      const cacheKey = this.searchCacheKey(query, settings, options);
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
+      const cacheInflight = !options.signal;
+      const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
+      if (inflight) return inflight;
+      const done = log$w.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
+        const result = applySearchExampleLimit(examples, settings, options);
+        if (!options.signal?.aborted) {
+          this.cache.set(cacheKey, result);
+          pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
+        }
+        return result;
+      }).finally(() => {
+        if (cacheInflight) this.inflight.delete(cacheKey);
+        done();
+      });
+      if (cacheInflight) this.inflight.set(cacheKey, promise);
+      return promise;
+    }
+    async searchEnabledSources(query, settings, options) {
+      const sources = enabledImmersionExampleSources(settings);
+      if (settings.immersionKitExampleSource === "combined" && options.fastFirst && sources.length > 1) {
+        return this.searchCombinedFastFirst(query, settings, options, sources);
+      }
+      const resultSets = await Promise.all(sources.map(
+        (source) => this.searchSource(source, query, settings, options)
+      ));
+      return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
+    }
+    searchCombinedFastFirst(query, settings, options, sources) {
+      let pending = sources.length;
+      const emptyResults = [];
+      return new Promise((resolve, reject) => {
+        sources.forEach((source) => {
+          void this.searchSource(source, query, settings, options).then((examples) => {
+            if (examples.length) {
+              resolve(examples);
+              return;
+            }
+            emptyResults.push(examples);
+            pending -= 1;
+            if (pending === 0) resolve(emptyResults.flat());
+          }).catch(reject);
+        });
+      });
+    }
+    searchSource(source, query, settings, options) {
+      return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
+        if (isAbortError(error)) throw error;
+        log$w.warn("Nadeshiko examples failed", { query }, error);
+        return [];
+      }) : this.searchImmersionKit(query, settings, options).catch((error) => {
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        log$w.warn("Immersion Kit examples failed", { query }, error);
+        return [];
+      });
+    }
+    searchImmersionKit(query, settings, options) {
+      this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
+      return requestJson$2(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
+        this.resetImmersionKitBackoff();
+        return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
+      }).catch((error) => {
+        if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
+        throw error;
+      });
+    }
+    assertImmersionKitSearchAllowed(language) {
+      if (Date.now() < this.immersionKitRateLimitedUntil) {
+        throw new Error(uiText(language, "immersionKitRateLimited"));
+      }
+    }
+    noteImmersionKitRateLimit() {
+      this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
+      this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
+    }
+    resetImmersionKitBackoff() {
+      this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
+      this.immersionKitRateLimitedUntil = 0;
+    }
+    searchNadeshiko(query, settings, options) {
+      const apiKey = settings.nadeshikoApiKey.trim();
+      if (!apiKey) return Promise.resolve([]);
+      return requestJson$3(`${NADESHIKO_API_BASE}/search`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
+        timeoutMs: settings.audioTimeoutMs,
+        allowDirectCrossOrigin: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        preferFetch: shouldPreferFetchForImmersionKitRequests(),
+        signal: options.signal,
+        failureLabel: uiText(settings.interfaceLanguage, "nadeshikoRequest"),
+        failureMessage: uiText(settings.interfaceLanguage, "nadeshikoRequestFailed"),
+        statusFailureMessage: (status) => formatUiText(settings.interfaceLanguage, "nadeshikoRequestFailedWithStatus", { status }),
+        timeoutLabel: uiText(settings.interfaceLanguage, "nadeshikoRequestTimedOut")
+      }).then((data) => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
+    }
+    searchCacheKey(query, settings, options) {
+      return JSON.stringify({
+        query,
+        source: settings.immersionKitExampleSource,
+        nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
+        limit: searchRequestLimit(options),
+        userLimit: searchResultLimit(settings, options),
+        min: this.minimumSentenceLength(settings),
+        max: settings.immersionKitMaxLength,
+        category: settings.immersionKitCategory,
+        sort: this.effectiveSort(settings),
+        exact: settings.immersionKitExactMatch,
+        fastFirst: Boolean(options.fastFirst)
+      });
+    }
+    combinedShuffleSeed(query, settings) {
+      return JSON.stringify({
+        query,
+        source: settings.immersionKitExampleSource,
+        key: sensitiveFingerprint(settings.nadeshikoApiKey),
+        min: this.minimumSentenceLength(settings),
+        max: settings.immersionKitMaxLength,
+        category: settings.immersionKitCategory,
+        exact: settings.immersionKitExactMatch
+      });
+    }
+    searchParams(query, settings, options) {
+      const params = new URLSearchParams({
+        q: query,
+        limit: String(searchRequestLimit(options)),
+        sort: this.effectiveSort(settings)
+      });
+      if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
+      if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
+      return params;
+    }
+    effectiveSort(settings) {
+      return settings.immersionKitSort === "random" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
+    }
+    minimumSentenceLength(settings) {
+      return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
+    }
+    // Compatibility helper for callers that still expect the first media candidate.
+    mediaUrl(example, kind) {
+      return this.mediaUrls(example, kind)[0] ?? "";
+    }
+    mediaUrls(example, kind) {
+      const direct = directMediaUrl(example, kind);
+      if (direct) return [direct];
+      const file = mediaFileName(example, kind);
+      if (!file) return [];
+      return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
+    }
+    async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
+      const urls = urlCandidates(url);
+      const key = urls.join("");
+      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
+        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
+        const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
+        return blobUrl;
+      });
+    }
+    async fetchDataUrl(url, timeoutMs, proxyUrl = "", language = "en") {
+      const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
+      return readBlobAsDataUrl(blob);
+    }
+  }
+  function canSearchImmersionExamples(query, settings) {
+    return Boolean(query && settings.immersionKitEnabled);
+  }
+  function enabledImmersionExampleSources(settings) {
+    if (settings.immersionKitExampleSource === "nadeshiko") return ["nadeshiko"];
+    if (settings.immersionKitExampleSource === "combined") return ["immersion-kit", "nadeshiko"];
+    return ["immersion-kit"];
+  }
+  function collectExamples(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    return firstArrayField(record, ["examples", "results", "data"]);
+  }
+  function firstArrayField(record, keys) {
+    return keys.map((key) => record[key]).find(Array.isArray) ?? [];
+  }
+  function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
+    return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
+  }
+  function filterNadeshikoExamples(data, query, settings, minLength) {
+    const response = nadeshikoResponseRecord(data);
+    if (!response) return [];
+    const media = nadeshikoMediaMap(response);
+    return nadeshikoSegments(response).map((value) => normalizeNadeshikoExample(value, media)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
+  }
+  function applySearchExampleLimit(examples, settings, options = {}) {
+    const limit = searchResultLimit(settings, options);
+    return limit ? examples.slice(0, limit) : examples;
+  }
+  function searchRequestLimit(options) {
+    return boundedSearchLimit(options.requestLimit, SEARCH_EXAMPLE_LIMIT);
+  }
+  function searchResultLimit(settings, options) {
+    if (options.resultLimit !== void 0) return boundedSearchLimit(options.resultLimit, SEARCH_EXAMPLE_LIMIT);
+    return settings.immersionKitLimitEnabled ? boundedSearchLimit(settings.immersionKitLimit, SEARCH_EXAMPLE_LIMIT) : 0;
+  }
+  function boundedSearchLimit(value, fallback) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+    return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
+  }
+  function isSearchExampleInRange(example, settings, minLength) {
+    const length = sentenceLength(example.sentence);
+    return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
+  }
+  function isSearchExampleSurfaceMatch(example, query) {
+    return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
+  }
+  function normalizeExample(value, provider = "immersion-kit") {
+    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
+  }
+  function normalizeExampleRecord(record, provider = "immersion-kit") {
+    const id = text$1(record.id);
+    const sentence = firstText(record, ["sentence", "text"]);
+    if (!sentence) return null;
+    const titleSlug = exampleTitleSlug(record, id);
+    const sourceTitle = exampleSourceTitle(record, titleSlug);
+    const category = exampleCategory(record, id);
+    const soundFile = firstText(record, ["sound", "audio", "audio_file", "audioFile"]);
+    const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
+    return {
+      id,
+      provider,
+      sentence,
+      sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
+      translation: firstText(record, ["translation", "translation_en", "english"]),
+      sourceTitle,
+      titleSlug,
+      category,
+      soundFile,
+      imageFile,
+      soundUrl: absoluteMediaUrl(firstText(record, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
+      imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
+    };
+  }
+  function nadeshikoSearchPayload(query, settings, minLength) {
+    const maxLength = settings.immersionKitMaxLength || 1e3;
+    return {
+      query: { search: query },
+      take: NADESHIKO_SEARCH_LIMIT,
+      filters: {
+        segmentLengthChars: {
+          min: minLength,
+          max: Math.max(minLength, maxLength)
+        }
+      }
+    };
+  }
+  function nadeshikoResponseRecord(data) {
+    if (Array.isArray(data)) return { segments: data };
+    return isRecord(data) ? data : null;
+  }
+  function nadeshikoSegments(response) {
+    return firstArrayField(response, ["segments", "examples", "results", "data"]);
+  }
+  function nadeshikoMediaMap(response) {
+    const includes = response.includes;
+    const media = isRecord(includes) ? includes.media : void 0;
+    return isRecord(media) ? media : {};
+  }
+  function normalizeNadeshikoExample(value, mediaById) {
+    if (!isRecord(value)) return null;
+    const sentence = nadeshikoSentence(value);
+    if (!sentence) return null;
+    const ids = nadeshikoExampleIds(value);
+    const media = nadeshikoMediaRecord(mediaById, ids.mediaPublicId);
+    const urls = recordField(value.urls);
+    const sourceTitle = nadeshikoSourceTitle(value, media);
+    return {
+      id: nadeshikoExampleId(sentence, ids),
+      provider: "nadeshiko",
+      sentence,
+      sentenceWithFurigana: firstText(value, ["furi_sentence", "sentenceWithFurigana", "sentence_with_furigana"]),
+      translation: nadeshikoTranslation(value),
+      sourceTitle,
+      titleSlug: slugFromTitle(sourceTitle),
+      category: nadeshikoCategory(value, media),
+      soundFile: "",
+      imageFile: "",
+      soundUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["audioUrl", "soundUrl", "audio_url", "sound_url"]),
+      imageUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["imageUrl", "image_url"]),
+      publicId: ids.publicId,
+      mediaPublicId: ids.mediaPublicId
+    };
+  }
+  function nadeshikoSentence(record) {
+    return nestedText(record, "textJa", ["content", "text"]) || firstText(record, ["sentence", "text", "textJa"]);
+  }
+  function nadeshikoExampleIds(record) {
+    return {
+      publicId: firstText(record, ["publicId", "public_id", "id"]),
+      mediaPublicId: firstText(record, ["mediaPublicId", "media_public_id", "mediaId"])
+    };
+  }
+  function nadeshikoMediaRecord(mediaById, mediaPublicId) {
+    return recordField(mediaById[mediaPublicId]);
+  }
+  function recordField(value) {
+    return isRecord(value) ? value : {};
+  }
+  function nadeshikoSourceTitle(record, media) {
+    return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
+  }
+  function nadeshikoExampleId(sentence, ids) {
+    return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
+  }
+  function nadeshikoTranslation(record) {
+    return nestedText(record, "textEn", ["content", "text"]) || firstText(record, ["translation", "translation_en", "english"]);
+  }
+  function nadeshikoCategory(record, media) {
+    return firstText(media, ["type", "category"]) || firstText(record, ["category"]) || "anime";
+  }
+  function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
+    return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
+  }
+  function nestedText(record, key, fields) {
+    const value = record[key];
+    return isRecord(value) ? firstText(value, fields) : "";
+  }
+  function directMediaUrl(example, kind) {
+    return kind === "image" ? example.imageUrl : example.soundUrl;
+  }
+  function mediaFileName(example, kind) {
+    return kind === "image" ? example.imageFile : example.soundFile;
+  }
+  function mediaFileUrls(example, file) {
+    const category = example.category || categoryFromId(example.id);
+    return uniqueTrimmedStrings(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
+  }
+  function mediaFileTitleUrls(category, title, file) {
+    const path = `media/${category}/${title}/media/${file}`;
+    return [
+      `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`,
+      ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
+    ];
+  }
+  function exampleTitleSlug(record, id) {
+    return firstText(record, ["title", "deck", "source"]) || titleSlugFromId(id);
+  }
+  function exampleSourceTitle(record, titleSlug) {
+    return firstText(record, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
+  }
+  function exampleCategory(record, id) {
+    return text$1(record.category) || categoryFromId(id);
+  }
+  function firstText(record, keys) {
+    for (const key of keys) {
+      const value = text$1(record[key]);
+      if (value) return value;
+    }
+    return "";
+  }
+  function text$1(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function titleSlugFromId(id) {
+    const parts = id.split("_");
+    if (parts.length < 3) return "";
+    return parts.slice(1, -1).join("_");
+  }
+  function categoryFromId(id) {
+    const [category] = id.split("_");
+    return category || "anime";
+  }
+  function titleFromSlug(slug) {
+    if (!slug) return "Unknown";
+    const override = IMMERSION_KIT_TITLES[slug];
+    if (override) return override;
+    return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
+  }
+  function slugFromTitle(title) {
+    return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, "_").replace(/^_+|_+$/g, "");
+  }
+  function mediaTitleCandidates(example, file) {
+    const slug = example.titleSlug || titleSlugFromId(example.id);
+    return uniqueTrimmedStrings([
+      titleFromSlug(slug),
+      example.sourceTitle,
+      titleFromMediaFile(file),
+      slug
+    ].filter(Boolean));
+  }
+  function titleFromMediaFile(file) {
+    const stem = file.replace(/\.[^.]+$/u, "");
+    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
+    const title = (episodeMatch?.[1] || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
+    if (!title) return "";
+    return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
+  }
+  function deterministicShuffle(values, seed) {
+    const result = [...values];
+    let state2 = stablePositiveHashId(seed);
+    for (let index = result.length - 1; index > 0; index--) {
+      state2 = nextRandomState(state2);
+      const swapIndex = state2 % (index + 1);
+      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+  }
+  function deterministicMergedExamples(sources, resultSets, seed) {
+    const groups = deterministicShuffle(sources.map((source, index) => ({
+      source,
+      examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`)
+    })), `${seed}:providers`).filter((group) => group.examples.length);
+    const result = [];
+    while (groups.some((group) => group.examples.length)) {
+      for (const group of groups) {
+        const example = group.examples.shift();
+        if (example) result.push(example);
+      }
+    }
+    return result;
+  }
+  function nextRandomState(value) {
+    return Math.imul(value, 1664525) + 1013904223 >>> 0;
+  }
+  function sensitiveFingerprint(value) {
+    const trimmed = value.trim();
+    return trimmed ? stableHash32(trimmed).toString(36) : "";
+  }
+  function absoluteMediaUrl(value) {
+    if (!value) return "";
+    if (isAbsoluteMediaUrl(value)) return value;
+    if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
+    return "";
+  }
+  function isAbsoluteMediaUrl(value) {
+    return /^https?:\/\//i.test(value) || value.startsWith("data:");
+  }
+  function sentenceLength(sentence) {
+    return Array.from(sentence.replace(/\s+/g, "")).length;
+  }
+  function requiresSurfaceMatch(query) {
+    return /[0-9０-９]/u.test(query);
+  }
+  function sentenceContainsQuery(sentence, query) {
+    const normalizedSentence = normalizeForSurfaceMatch(sentence);
+    const normalizedQuery = normalizeForSurfaceMatch(query);
+    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+  }
+  function normalizeForSurfaceMatch(value) {
+    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  }
+  async function requestJson$2(url, timeoutMs, proxyUrl = "", signal, language = "en") {
+    let lastError;
+    for (const candidate of urlCandidates(url)) {
+      try {
+        return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
+      } catch (error) {
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        lastError = error;
+      }
+    }
+    throw requestError(lastError, uiText(language, "immersionKitRequestFailed"));
+  }
+  function urlCandidates(url) {
+    return Array.isArray(url) ? url : [url];
+  }
+  function requestError(error, fallback) {
+    return error instanceof Error ? error : new Error(fallback);
+  }
+  function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
+    return requestJson$3(url, {
+      proxyUrl,
+      timeoutMs,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      preferFetch: shouldPreferFetchForImmersionKitRequests(),
+      signal,
+      failureLabel: uiText(language, "immersionKitRequest"),
+      failureMessage: uiText(language, "immersionKitRequestFailed"),
+      statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
+      timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
+    }).catch((error) => {
+      if (isAbortError(error)) throw error;
+      if (isImmersionKitRateLimitError(error)) throw error;
+      if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
+        throw new Error(uiText(language, "immersionKitSearchBlocked"));
+      }
+      throw requestError(error, uiText(language, "immersionKitRequestFailed"));
+    });
+  }
+  function isImmersionKitRateLimitError(error) {
+    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
+  }
+  function requestBlob$1(url, timeoutMs, proxyUrl = "", language = "en") {
+    return requestBlob$4(url, {
+      proxyUrl,
+      timeoutMs,
+      allowDirectCrossOrigin: true,
+      preferFetch: shouldPreferFetchForImmersionKitRequests(),
+      failureLabel: uiText(language, "immersionKitMediaRequest"),
+      failureMessage: uiText(language, "immersionKitMediaRequestFailed"),
+      statusFailureMessage: (status) => formatUiText(language, "immersionKitMediaRequestFailedWithStatus", { status }),
+      timeoutLabel: uiText(language, "immersionKitMediaRequestTimedOut"),
+      blobFailureMessage: uiText(language, "immersionKitMediaRequestReturnedNonMedia")
+    }).then((blob) => {
+      if (isErrorDocumentBlob(blob)) throw new Error(uiText(language, "immersionKitMediaRequestReturnedNonMedia"));
+      return blob;
+    });
+  }
+  async function requestFirstBlob(urls, timeoutMs, proxyUrl = "", language = "en") {
+    const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
+    let lastError;
+    for (const candidate of candidates) {
+      try {
+        return await requestBlob$1(candidate, timeoutMs, proxyUrl, language);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw requestError(lastError, uiText(language, "immersionKitNoMediaCandidate"));
+  }
+  function prioritizeMediaCandidates(urls) {
+    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
+  }
+  function isObjectStoreMediaUrl(url) {
+    try {
+      return new URL(url, location.href).origin === new URL(OBJECT_STORE_BASE).origin;
+    } catch {
+      return false;
+    }
+  }
+  function isErrorDocumentBlob(blob) {
+    const type = blob.type.toLowerCase();
+    if (isMediaBlobType(type)) return false;
+    return ERROR_DOCUMENT_TYPE_MARKERS.some((marker) => type.includes(marker)) || type.startsWith("text/");
+  }
+  const ERROR_DOCUMENT_TYPE_MARKERS = ["xml", "html", "json"];
+  function isMediaBlobType(type) {
+    return ["image/", "audio/", "video/"].some((prefix) => type.startsWith(prefix));
+  }
+  function shouldPreferFetchForImmersionKitRequests() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
+  }
+  function apiUrls(path) {
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return API_BASES.map((base) => `${base}${cleanPath}`);
+  }
+  const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
+  const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
+    "horizontal-tb",
+    "vertical-rl",
+    "vertical-lr",
+    "sideways-rl",
+    "sideways-lr"
+  ]);
+  function hasVisiblePageVideo() {
+    return Array.from(document.querySelectorAll("video")).some(isVisiblePageVideo);
+  }
+  function isVisiblePageVideo(video) {
+    if (video.closest("[data-jpdb-reader-root]")) return false;
+    if (!hasRenderableVideoRect(video)) return false;
+    if (isVideoHidden(video)) return false;
+    return isAudiblyPlayingVideo(video);
+  }
+  function hasRenderableVideoRect(video) {
+    const rect = video.getBoundingClientRect();
+    return rect.width >= 120 && rect.height >= 90;
+  }
+  function isVideoHidden(video) {
+    const style = getComputedStyle(video);
+    return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
+  }
+  function isAudiblyPlayingVideo(video) {
+    return !video.paused && !video.ended && !video.muted && video.volume > 0;
+  }
+  function isEditableTarget(target) {
+    const element2 = target instanceof Element ? target : null;
+    if (!element2) return false;
+    if (element2.closest("input, textarea, select")) return true;
+    const editable = element2.closest("[contenteditable]");
+    return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
+  }
+  async function copyText(text2) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text2);
+        return;
+      } catch {
+      }
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text2;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  function openUrlInNewTab(url) {
+    if (!isOpenableExternalUrl(url)) return false;
+    const userscriptOpen = userscriptOpenInTab();
+    if (userscriptOpen) {
+      try {
+        userscriptOpen(url, { active: true, insert: true, setParent: false });
+        return true;
+      } catch {
+      }
+    }
+    const opened = window.open(url, "_blank", "noopener");
+    if (opened) {
+      try {
+        opened.opener = null;
+      } catch {
+      }
+      return true;
+    }
+    return false;
+  }
+  function userscriptOpenInTab() {
+    if (typeof GM_openInTab === "function") return GM_openInTab;
+    if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
+    return void 0;
+  }
+  function isOpenableExternalUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  function positionPopover(popover, anchor, fallbackRect, options = {}) {
+    const frame = preparePopoverPositionFrame(popover, anchor, fallbackRect, options);
+    if (!frame.sourceRects.length) {
+      positionPopoverWithoutAnchor(popover, frame);
+      return;
+    }
+    positionAnchoredPopover(popover, anchor, frame);
+  }
+  function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
+    const viewport = getPopoverViewport();
+    const viewportHeight = viewport.bottom - viewport.top;
+    const viewportWidth = viewport.right - viewport.left;
+    popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
+    popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
+    return {
+      scrollTop: popover.scrollTop,
+      sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
+      viewport,
+      viewportWidth,
+      viewportHeight,
+      width: popover.offsetWidth,
+      height: popover.offsetHeight,
+      preferBefore: Boolean(options.preferBefore)
+    };
+  }
+  function popoverMaxFrameHeight(viewportHeight, options) {
+    return Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
+  }
+  function positionPopoverWithoutAnchor(popover, frame) {
+    const margin = 8;
+    const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
+    const fallbackTop = frame.viewport.top + frame.viewportHeight * 0.18;
+    popover.style.left = `${Math.max(frame.viewport.left + margin, Math.min(fallbackLeft, frame.viewport.right - frame.width - margin))}px`;
+    popover.style.top = `${Math.max(frame.viewport.top + margin, Math.min(fallbackTop, frame.viewport.bottom - frame.height - margin))}px`;
+    restorePopoverScrollTop(popover, frame.scrollTop);
+  }
+  function positionAnchoredPopover(popover, anchor, frame) {
+    const writingMode = getPopoverWritingMode(anchor);
+    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.preferBefore);
+    popover.style.maxWidth = `${Math.max(0, position.width)}px`;
+    popover.style.maxHeight = `${Math.max(0, position.height)}px`;
+    popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
+    popover.style.left = `${position.left}px`;
+    popover.style.top = `${position.top}px`;
+    restorePopoverScrollTop(popover, frame.scrollTop);
+  }
+  function restorePopoverScrollTop(popover, scrollTop) {
+    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
+  }
+  function getPopoverSourceRects(anchor, fallbackRect, options) {
+    if (options.followPoint) return pointPopoverRects(options.followPoint);
+    const anchorRects = anchorPopoverRects(anchor);
+    if (anchorRects.length) return anchorRects;
+    return selectionPopoverRects();
+  }
+  function pointPopoverRects(point) {
+    const radius = 14;
+    const overlayPoint = redditLayoutPointToOverlay(point);
+    return [{
+      left: overlayPoint.x - radius,
+      top: overlayPoint.y - radius,
+      right: overlayPoint.x + radius,
+      bottom: overlayPoint.y + radius
+    }];
+  }
+  function anchorPopoverRects(anchor) {
+    if (!anchor) return [];
+    const clientRects = rectListToPopoverRects(anchor.getClientRects(), anchor);
+    if (clientRects.length) return clientRects;
+    const rect = domRectToPopoverRect(anchor.getBoundingClientRect(), anchor);
+    return hasRectArea(rect) ? [rect] : [];
+  }
+  function selectionPopoverRects() {
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!range) return [];
+    const clientRects = rangeClientPopoverRects(range);
+    return clientRects.length ? clientRects : rangeBoundingPopoverRects(range);
+  }
+  function rangeClientPopoverRects(range) {
+    return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects(), range.commonAncestorContainer) : [];
+  }
+  function rangeBoundingPopoverRects(range) {
+    if (typeof range.getBoundingClientRect !== "function") return [];
+    const rect = domRectToPopoverRect(range.getBoundingClientRect(), range.commonAncestorContainer);
+    return hasRectArea(rect) ? [rect] : [];
+  }
+  function rectListToPopoverRects(rects, source) {
+    return Array.from(rects, (rect) => domRectToPopoverRect(rect, source)).filter(hasRectArea);
+  }
+  function domRectToPopoverRect(rect, source) {
+    const overlayRect = redditSourceRectToOverlay(rect, source);
+    return {
+      left: overlayRect.left,
+      top: overlayRect.top,
+      right: overlayRect.right,
+      bottom: overlayRect.bottom
+    };
+  }
+  function hasRectArea(rect) {
+    return rect.right > rect.left || rect.bottom > rect.top;
+  }
+  function getPopoverViewport() {
+    const overlayViewport = redditOverlayViewport();
+    if (overlayViewport.pageScale > 1) {
+      const bounds = redditOverlayViewportBounds();
+      return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
+    }
+    const { visualViewport } = window;
+    if (visualViewport) {
+      const left = visualViewport.offsetLeft;
+      const top = visualViewport.offsetTop;
+      return {
+        left,
+        top,
+        right: left + visualViewport.width,
+        bottom: top + visualViewport.height
+      };
+    }
+    return {
+      left: 0,
+      top: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight
+    };
+  }
+  function getPopoverWritingMode(anchor) {
+    return anchor ? normalizePopoverWritingMode(getComputedStyle(anchor).writingMode) : DEFAULT_POPOVER_WRITING_MODE;
+  }
+  function normalizePopoverWritingMode(writingMode) {
+    const normalized = writingMode;
+    return SUPPORTED_POPOVER_WRITING_MODES.has(normalized) ? normalized : DEFAULT_POPOVER_WRITING_MODE;
+  }
+  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, preferBefore) {
+    const horizontal = isHorizontalPopoverMode(writingMode);
+    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
+    return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
+  }
+  function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) {
+    let best = null;
+    for (const candidate of popoverSourceRectCandidates(sourceRects)) {
+      const result = getPositionForWritingMode(candidate.rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
+      if (!canUsePopoverPosition(candidate, result, sourceRects)) continue;
+      best = tallerPopoverPosition(best, result);
+      if (result.height >= frameHeight) break;
+    }
+    return best;
+  }
+  function isHorizontalPopoverMode(writingMode) {
+    return writingMode === DEFAULT_POPOVER_WRITING_MODE;
+  }
+  function fallbackPopoverPosition(viewport, frameWidth, frameHeight) {
+    return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
+  }
+  function popoverWritingLayout(writingMode, horizontal, preferBefore) {
+    return {
+      horizontalOffset: horizontal ? 0 : 10,
+      verticalOffset: horizontal ? 10 : 0,
+      preferAfter: horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore)
+    };
+  }
+  function verticalTextPrefersAfter(writingMode, preferBefore) {
+    const defaultAfter = isVerticalTextPopupOnRight(writingMode);
+    return preferBefore ? !defaultAfter : defaultAfter;
+  }
+  function tallerPopoverPosition(best, next) {
+    return best === null || next.height > best.height ? next : best;
+  }
+  function canUsePopoverPosition(candidate, position, sourceRects) {
+    return candidate.canOverlap || !isOverlapping(position, sourceRects, candidate.index);
+  }
+  function popoverSourceRectCandidates(sourceRects) {
+    const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
+    return sourceRects.length > 1 ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }] : candidates;
+  }
+  function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) {
+    return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
+  }
+  function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferBelow) {
+    const [left, width, after] = getConstrainedPosition(
+      sourceRect.right - horizontalOffset,
+      sourceRect.left + horizontalOffset,
+      frameWidth,
+      viewport.left,
+      viewport.right,
+      true
+    );
+    const [top, height, below] = getConstrainedPositionBinary(
+      sourceRect.top - verticalOffset,
+      sourceRect.bottom + verticalOffset,
+      frameHeight,
+      viewport.top,
+      viewport.bottom,
+      preferBelow
+    );
+    return { left, top, width, height, after, below };
+  }
+  function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferRight) {
+    const [left, width, after] = getConstrainedPositionBinary(
+      sourceRect.left - horizontalOffset,
+      sourceRect.right + horizontalOffset,
+      frameWidth,
+      viewport.left,
+      viewport.right,
+      preferRight
+    );
+    const [top, height, below] = getConstrainedPosition(
+      sourceRect.bottom - verticalOffset,
+      sourceRect.top + verticalOffset,
+      frameHeight,
+      viewport.top,
+      viewport.bottom,
+      true
+    );
+    return { left, top, width, height, after, below };
+  }
+  function isVerticalTextPopupOnRight(writingMode) {
+    return !(writingMode === "vertical-lr" || writingMode === "sideways-lr");
+  }
+  function getConstrainedPosition(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
+    size = Math.min(size, maxLimit - minLimit);
+    let position;
+    {
+      position = Math.max(minLimit, positionAfter);
+      position = position - Math.max(0, position + size - maxLimit);
+    }
+    return [position, size, after];
+  }
+  function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
+    const overflowBefore = minLimit - (positionBefore - size);
+    const overflowAfter = positionAfter + size - maxLimit;
+    if (overflowAfter > 0 || overflowBefore > 0) {
+      after = overflowAfter < overflowBefore;
+    }
+    let position;
+    if (after) {
+      size -= Math.max(0, overflowAfter);
+      position = Math.max(minLimit, positionAfter);
+    } else {
+      size -= Math.max(0, overflowBefore);
+      position = Math.min(maxLimit, positionBefore) - size;
+    }
+    return [position, size, after];
+  }
+  function getBoundingSourceRect(sourceRects) {
+    switch (sourceRects.length) {
+      case 0:
+        return { left: 0, top: 0, right: 0, bottom: 0 };
+      case 1:
+        return sourceRects[0];
+    }
+    let { left, top, right, bottom } = sourceRects[0];
+    for (let i2 = 1, ii = sourceRects.length; i2 < ii; ++i2) {
+      const sourceRect = sourceRects[i2];
+      left = Math.min(left, sourceRect.left);
+      top = Math.min(top, sourceRect.top);
+      right = Math.max(right, sourceRect.right);
+      bottom = Math.max(bottom, sourceRect.bottom);
+    }
+    return { left, top, right, bottom };
+  }
+  function isOverlapping(sizeRect, sourceRects, ignoreIndex) {
+    const { left, top } = sizeRect;
+    const right = left + sizeRect.width;
+    const bottom = top + sizeRect.height;
+    for (let i2 = 0, ii = sourceRects.length; i2 < ii; ++i2) {
+      if (i2 === ignoreIndex) continue;
+      const sourceRect = sourceRects[i2];
+      if (rectsOverlap$1({ left, top, right, bottom }, sourceRect)) return true;
+    }
+    return false;
+  }
+  function rectsOverlap$1(a, b) {
+    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  }
+  function getPlacementSide(writingMode, position) {
+    if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
+    return position.after ? "right" : "left";
+  }
+  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
+  function cardHighlightTargets(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = optionalJapaneseCardReading(card);
+    return uniqueCardHighlightValues([spelling, reading]);
+  }
+  function normalizedJapaneseCardReading(spelling, reading) {
+    const cleanSpelling = cleanCardHighlightValue(spelling);
+    const cleanReading = cleanCardHighlightValue(reading);
+    return cleanReading && JAPANESE_TEXT_RE$1.test(cleanReading) ? cleanReading : cleanSpelling;
+  }
+  function cleanCardHighlightValue(value) {
+    return (value ?? "").replace(/\s+/g, " ").trim();
+  }
+  function compactCardHighlightValue(value) {
+    return cleanCardHighlightValue(value).replace(/\s+/g, "");
+  }
+  function optionalJapaneseCardReading(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = normalizedJapaneseCardReading(spelling, card.reading);
+    return reading && reading !== spelling ? reading : "";
+  }
+  function uniqueCardHighlightValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map(cleanCardHighlightValue).filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
+  function renderCardHighlightedTextHtml(text2, card) {
+    return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
+  }
+  function cardHighlightScopeAttributes(card) {
+    if (!card) return "";
+    const spelling = cleanCardHighlightValue(card.spelling);
+    if (!spelling) return "";
+    return [
+      `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
+      `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
+      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
+      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
+    ].filter(Boolean).join(" ");
+  }
+  function highlightCardTargetWords(root, card) {
+    const words = cardHighlightWords(root);
+    for (const word of words) {
+      if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
+    }
+  }
+  function highlightCardTargetScopes(root) {
+    for (const scope of cardHighlightScopes(root)) {
+      const card = cardHighlightTargetFromScope(scope);
+      if (card) highlightCardTargetWords(scope, card);
+    }
+  }
+  function isCardHighlightWord(word, card) {
+    const cardVid = card.vid === void 0 ? "" : String(card.vid);
+    const cardSid = card.sid === void 0 ? "" : String(card.sid);
+    if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
+    const surface = compactCardHighlightValue(readerWordSurfaceText$1(word));
+    if (!surface) return false;
+    return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
+  }
+  function cardHighlightWords(root) {
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+    return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
+  }
+  function cardHighlightScopes(root) {
+    const selector = "[data-card-highlight-spelling]";
+    const scopes = Array.from(root.querySelectorAll(selector));
+    return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
+  }
+  function cardHighlightTargetFromScope(scope) {
+    const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
+    if (!spelling) return null;
+    const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
+    return {
+      spelling,
+      reading,
+      vid: scope.dataset.cardHighlightVid,
+      sid: scope.dataset.cardHighlightSid
+    };
+  }
+  function cardKey(card) {
+    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+  }
+  function createAudioPreviewCard() {
+    return {
+      vid: 1456360,
+      sid: 0,
+      rid: 0,
+      spelling: "読む",
+      reading: "よむ",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb"
+    };
+  }
+  function loadCachedParsedTokens(cache2, key, limit, parse, shouldCache) {
+    const cached = cache2.get(key);
+    if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
+    const entry = { promise: Promise.resolve([]) };
+    entry.promise = parse().then((tokens) => {
+      if (shouldCache(tokens)) entry.tokens = tokens;
+      else if (cache2.get(key) === entry) cache2.delete(key);
+      return tokens;
+    }).catch((error) => {
+      if (cache2.get(key) === entry) cache2.delete(key);
+      throw error;
+    });
+    cache2.set(key, entry);
+    pruneOldestCacheEntries(cache2, limit);
+    return entry.promise;
+  }
+  const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
+  const KANA_ONLY_RE$1 = /^[\u3040-\u30ffー]+$/u;
+  function exampleSentenceLookupTokens(tokens, targetCard) {
+    return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
+  }
+  function shouldKeepExampleSentenceToken(token, targetCard) {
+    if (targetCard && cardKey(token.card) === cardKey(targetCard)) return true;
+    return !isLowValueExampleSentenceToken(token);
+  }
+  function isLowValueExampleSentenceToken(token) {
+    const surfaceLength = token.end - token.start;
+    if (surfaceLength > 2) return false;
+    const spelling = token.card.spelling.trim();
+    if (!spelling || !KANA_ONLY_RE$1.test(spelling)) return false;
+    return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
+  }
+  const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
+  const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
+  function normalizeImmersionSearchQuery(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function queryKey(value) {
+    return normalizeImmersionSearchQuery(value).replace(/\s+/g, "").toLowerCase();
+  }
+  function queryLength(value) {
+    return Array.from(queryKey(value)).length;
+  }
+  function queryHasKanji(value) {
+    return /[\u3400-\u9fff々〆]/u.test(value);
+  }
+  function shouldRequireOriginalSurfaceMatch(value) {
+    return queryHasKanji(value) && queryLength(value) >= 3;
+  }
+  function shouldFilterImmersionExamplesBySurface(query) {
+    return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
+  }
+  function immersionSentenceContainsQuery(sentence, query) {
+    const s = normalizeSurface(sentence);
+    const q = normalizeSurface(query);
+    return Boolean(q) && s.includes(q);
+  }
+  function isUsefulImmersionFallbackQuery(query, exactQuery) {
+    if (isSameImmersionQuery(query, exactQuery)) return false;
+    return isUsefulStandaloneQuery(query);
+  }
+  function uniqueImmersionQueries(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const query = normalizeImmersionSearchQuery(value);
+      const key = queryKey(query);
+      if (!query || seen.has(key)) continue;
+      seen.add(key);
+      result.push(query);
+    }
+    return result;
+  }
+  function immersionFallbackFragments(value) {
+    const fragments = [];
+    const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
+    for (const run of runs) {
+      fragments.push(...scriptFragments(run));
+    }
+    return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
+  }
+  function normalizeSurface(value) {
+    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  }
+  function isSameImmersionQuery(query, exactQuery) {
+    return queryKey(query) === queryKey(exactQuery);
+  }
+  function isUsefulStandaloneQuery(query) {
+    if (!query || !HAS_JAPANESE.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+  }
+  function scriptFragments(run) {
+    const groups = run.match(SCRIPT_GROUP_RE) ?? [];
+    if (groups.length <= 1) return groups;
+    const result = [...groups];
+    for (let i2 = 0; i2 < groups.length; i2++) {
+      let q = groups[i2];
+      for (let j = i2 + 1; j < groups.length; j++) {
+        q += groups[j];
+        result.push(q);
+      }
+    }
+    result.push(groups.filter(queryHasKanji).join(""));
+    return result;
+  }
+  function compareFallbackFragments(a, b) {
+    const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
+    if (order) return order;
+    return queryLength(b) - queryLength(a);
+  }
+  function publishImmersionFrameWidth(media) {
+    if (!media) return;
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const width = immersionPaintedWidth(media, rect);
+    if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
+    else media.style.removeProperty("--yomu-immersion-frame-width");
+  }
+  function immersionPaintedWidth(media, rect) {
+    const image = media.querySelector(".jpdb-reader-example-image");
+    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
+    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
+  }
+  const IMMERSION_SOURCE_TITLES_JA = {
+    "My Neighbor Totoro": "となりのトトロ"
+  };
+  function localizedImmersionProviderLabel(example, language) {
+    return example.provider === "nadeshiko" ? "Nadeshiko" : uiText(language, "immersionKit");
+  }
+  function localizedImmersionSourceTitle(title, language) {
+    return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
+  }
+  function el(tagName, attrs, ...children) {
+    const element2 = document.createElement(tagName);
+    applyAttrs(element2, attrs);
+    appendChildren(element2, children);
+    return element2;
+  }
+  function fragment(...children) {
+    const root = document.createDocumentFragment();
+    appendChildren(root, children);
+    return root;
+  }
+  function replaceChildrenWith(parent, ...children) {
+    const nextChildren = [];
+    collectChildren(nextChildren, children);
+    parent.replaceChildren(...nextChildren);
+  }
+  function applyAttrs(element2, attrs) {
+    if (!attrs) return;
+    for (const [name, value] of Object.entries(attrs)) {
+      applyAttr(element2, name, value);
+    }
+  }
+  function applyAttr(element2, name, value) {
+    if (isSkippedAttrValue(value)) return;
+    if (applySpecialAttr(element2, name, value)) return;
+    element2.setAttribute(name, value === true ? "" : String(value));
+  }
+  function applySpecialAttr(element2, name, value) {
+    return applyClassAttr(element2, name, value) || applyDatasetAttr(element2, name, value) || applyTextAttr(element2, name, value) || applyElementProperty(element2, name, value);
+  }
+  function isSkippedAttrValue(value) {
+    return value === false || value === null || value === void 0;
+  }
+  function applyClassAttr(element2, name, value) {
+    if (name !== "class" && name !== "className") return false;
+    element2.className = String(value);
+    return true;
+  }
+  function applyDatasetAttr(element2, name, value) {
+    if (name !== "dataset") return false;
+    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
+      applyDatasetValue(element2, key, dataValue);
+    }
+    return true;
+  }
+  function datasetAttrValues(value) {
+    return value ?? {};
+  }
+  function applyDatasetValue(element2, key, value) {
+    if (isSkippedAttrValue(value)) return;
+    element2.dataset[key] = String(value);
+  }
+  function applyTextAttr(element2, name, value) {
+    if (name !== "text") return false;
+    element2.textContent = String(value);
+    return true;
+  }
+  function applyElementProperty(element2, name, value) {
+    if (!canApplyElementProperty(element2, name)) return false;
+    return assignElementProperty(element2, name, value);
+  }
+  function canApplyElementProperty(element2, name) {
+    if (!(name in element2)) return false;
+    if (name === "role") return false;
+    return !name.startsWith("aria");
+  }
+  function assignElementProperty(element2, name, value) {
+    try {
+      element2[name] = value;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function appendChildren(parent, children) {
+    const nodes = [];
+    collectChildren(nodes, children);
+    parent.append(...nodes);
+  }
+  function collectChildren(nodes, children) {
+    for (const child of children) {
+      appendDomChild(nodes, child);
+    }
+  }
+  function appendDomChild(nodes, child) {
+    if (Array.isArray(child)) {
+      collectChildren(nodes, child);
+      return;
+    }
+    if (child instanceof Node) {
+      nodes.push(child);
+      return;
+    }
+    if (!isSkippedChild(child)) nodes.push(document.createTextNode(String(child)));
+  }
+  function isSkippedChild(child) {
+    return child === false || child === null || child === void 0;
+  }
+  function nextImmersionExampleIndex(index, total, action) {
+    if (!Number.isFinite(index) || total <= 0) return 0;
+    const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
+    return (index + delta + total) % total;
+  }
+  function validImmersionExampleIndex(index, total) {
+    return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
+  }
+  function renderImmersionExampleActionsHtml(hasAudio, language) {
+    const previous = uiText(language, "previousExample");
+    const next = uiText(language, "nextExample");
+    const audio = uiText(language, "playExampleAudio");
+    return `
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
+            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+            ${renderImmersionActionButtonHtml("next", next, "›")}
+        </div>
+    `;
+  }
+  function renderImmersionExampleToolbar(options) {
+    const { example, index, total, hasAudio, language, showSource } = options;
+    const metaAttributes = { class: "jpdb-reader-example-meta" };
+    if (!showSource) metaAttributes.title = localizedImmersionProviderLabel(example, language);
+    return el(
+      "div",
+      { class: "jpdb-reader-example-toolbar" },
+      el(
+        "div",
+        metaAttributes,
+        showSource ? el("span", { class: "jpdb-reader-example-source" }, localizedImmersionProviderLabel(example, language)) : null,
+        el("span", { class: "jpdb-reader-example-title" }, localizedImmersionSourceTitle(example.sourceTitle, language)),
+        el("span", { class: "jpdb-reader-example-count" }, `${index + 1}/${total}`)
+      ),
+      renderImmersionExampleActions(hasAudio, language)
+    );
+  }
+  function renderImmersionExampleActions(hasAudio, language) {
+    return el(
+      "div",
+      { class: "jpdb-reader-example-actions", role: "group", "aria-label": uiText(language, "immersionExampleControls") },
+      renderImmersionActionButton("previous", uiText(language, "previousExample"), "‹"),
+      hasAudio ? renderImmersionActionButton("audio", uiText(language, "playExampleAudio"), speakerIcon()) : null,
+      renderImmersionActionButton("next", uiText(language, "nextExample"), "›")
+    );
+  }
+  function renderImmersionActionButton(action, label, content) {
+    const button2 = el("button", {
+      class: "jpdb-reader-icon-mini",
+      type: "button",
+      dataset: { immersionAction: action },
+      title: label,
+      "aria-label": label
+    });
+    button2.innerHTML = content;
+    return button2;
+  }
+  function renderImmersionActionButtonHtml(action, label, content) {
+    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+  }
+  const CONTEXT_PREFIX = "yomu-mining-context:";
+  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
+  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
+  const log$v = Logger.scope("MiningContext");
+  function normalizeMiningSentence(sentence) {
+    return (sentence ?? "").replace(/\s+/g, " ").trim();
+  }
+  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
+    if (isImageSource) return "image";
+    if (hasVideo) return "video";
+    if (hostname === "jpdb.io") return "jpdb";
+    return "page";
+  }
+  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
+    const normalizedTerm = term.trim();
+    const sentence = context.sentence.trim();
+    if (!normalizedTerm || !sentence) return null;
+    return {
+      ...context,
+      term: normalizedTerm,
+      sentence,
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
+    return createStoredMiningContext(term, context, updatedAt) ?? {
+      ...context,
+      term: term.trim(),
+      sentence: context.sentence.trim() || term.trim(),
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  async function resolveMiningContext({
+    term,
+    sentence,
+    settings,
+    activeContext,
+    storedContext,
+    sourceKind,
+    imageDataUrl,
+    videoImageDataUrl,
+    fetchImageDataUrl,
+    fetchAudioDataUrl: fetchAudioDataUrl2
+  }) {
+    const done = log$v.time("Resolve mining context", {
+      term,
+      hasSentence: Boolean(sentence?.trim()),
+      activeKind: activeContext?.sourceKind,
+      storedKind: storedContext?.sourceKind,
+      sourceKind,
+      hasImage: Boolean(imageDataUrl),
+      hasVideoImage: Boolean(videoImageDataUrl)
+    });
+    const cleanSentence = normalizeMiningSentence(sentence);
+    try {
+      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
+      if (direct) return direct;
+      const immersion = await resolveStoredImmersionMiningContext({
+        term,
+        settings,
+        activeContext,
+        storedContext,
+        fetchImageDataUrl,
+        fetchAudioDataUrl: fetchAudioDataUrl2
+      });
+      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
+    } finally {
+      done();
+    }
+  }
+  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
+    if (imageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "image", imageDataUrl);
+    }
+    if (videoImageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
+    }
+    return null;
+  }
+  async function resolveStoredImmersionMiningContext(options) {
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl: fetchAudioDataUrl2 } = options;
+    const chosen = activeContext?.term === term ? activeContext : storedContext ?? void 0;
+    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
+    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
+      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
+      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl2)
+    ]);
+    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
+  }
+  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
+    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
+    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl2) {
+    if (!context.audioUrls?.length || !fetchAudioDataUrl2) return Promise.resolve(void 0);
+    return fetchAudioDataUrl2(context.audioUrls, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function resolvePageMiningContext(term, sentence, sourceKind) {
+    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
+    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+    return result;
+  }
+  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
+    const context = pageMiningContext(sentence, sourceKind);
+    return {
+      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
+      imageDataUrl
+    };
+  }
+  function saveMiningContext(term, context) {
+    const stored = createStoredMiningContext(term, context);
+    if (!stored) {
+      return null;
+    }
+    try {
+      gmStorageSetSync(contextStorageKey(stored.term), stored);
+    } catch (error) {
+      log$v.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+    }
+    return stored;
+  }
+  function loadMiningContext(term) {
+    const normalized = term.trim();
+    if (!normalized) return null;
+    try {
+      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
+      if (!stored) {
+        return null;
+      }
+      const context = parseStoredMiningContext(stored, normalized);
+      return context;
+    } catch (error) {
+      log$v.warn("Mining context load failed", { term: normalized, error });
+      return null;
+    }
+  }
+  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
+    return {
+      sentence: example.sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: example.sourceTitle || "Immersion Kit",
+      sourceUrl: immersionKitUrl(term, index),
+      imageUrl: imageUrl || void 0,
+      audioUrls: optionalTextArray(audioUrls),
+      immersionIndex: index,
+      immersionTotal: total
+    };
+  }
+  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
+    return {
+      sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
+      sourceUrl,
+      imageUrl: optionalText(element2.dataset.immersionImageUrl),
+      audioUrls: immersionAudioUrlsFromElement(element2),
+      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
+      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
+    };
+  }
+  function pageMiningContext(sentence, sourceKind = "page") {
+    return {
+      sentence,
+      sourceKind,
+      sourceTitle: document.title || location.hostname,
+      sourceUrl: location.href
+    };
+  }
+  function contextLabel(context) {
+    const immersionLabel = immersionContextLabel(context);
+    if (immersionLabel) return immersionLabel;
+    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
+    if (prefix) return `${prefix}: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || "Current page";
+  }
+  const CONTEXT_LABEL_PREFIXES = {
+    video: "Video",
+    image: "Image",
+    jpdb: "JPDB"
+  };
+  function immersionContextLabel(context) {
+    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
+  }
+  function shouldUseImmersionContext(settings, context) {
+    return Boolean(settings.immersionKitEnabled && context?.sourceKind === "immersion-kit" && context.sentence.trim());
+  }
+  function contextStorageKey(term) {
+    return `${CONTEXT_PREFIX}${term}`;
+  }
+  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
+    const record = storedMiningContextRecord(value, expectedTerm);
+    if (!record) return null;
+    const sourceKind = storedMiningSourceKind(record.sourceKind);
+    if (!sourceKind) return null;
+    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
+    if (updatedAt === null) return null;
+    const context = createStoredMiningContext(expectedTerm, {
+      sentence: text(record.sentence),
+      sourceKind,
+      sourceTitle: text(record.sourceTitle),
+      sourceUrl: text(record.sourceUrl),
+      imageUrl: optionalText(record.imageUrl),
+      audioUrls: optionalTextArray(record.audioUrls),
+      immersionIndex: optionalNumber(record.immersionIndex),
+      immersionTotal: optionalNumber(record.immersionTotal)
+    }, updatedAt);
+    return context;
+  }
+  function storedMiningContextRecord(value, expectedTerm) {
+    if (!isNonNullObject(value)) return null;
+    return text(value.term) === expectedTerm ? value : null;
+  }
+  function storedMiningSourceKind(value) {
+    return isMiningSourceKind(value) ? value : null;
+  }
+  function storedMiningContextUpdatedAt(value, now) {
+    const updatedAt = Number(value);
+    if (!isStoredMiningContextFresh(updatedAt, now)) {
+      return null;
+    }
+    return updatedAt;
+  }
+  function isStoredMiningContextFresh(updatedAt, now) {
+    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
+  }
+  function isMiningSourceKind(value) {
+    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
+  }
+  function optionalText(value) {
+    const normalized = text(value);
+    return normalized || void 0;
+  }
+  function optionalTextArray(value) {
+    if (!Array.isArray(value)) return void 0;
+    const values = uniqueTexts(value);
+    return values.length ? values : void 0;
+  }
+  function immersionAudioUrlsFromElement(element2) {
+    const parsed = parseTextArray(element2.dataset.immersionAudioUrls);
+    return optionalTextArray(parsed ?? [element2.dataset.immersionAudioUrl]);
+  }
+  function parseTextArray(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function uniqueTexts(values) {
+    return Array.from(new Set(values.map(text).filter(Boolean)));
+  }
+  function optionalNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : void 0;
+  }
+  function text(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function immersionKitUrl(term, index) {
+    const url = new URL("https://www.immersionkit.com/dictionary");
+    url.searchParams.set("keyword", term);
+    url.searchParams.set("sort", "sentence_length:asc");
+    url.searchParams.set("page", String(index + 1));
+    return url.toString();
+  }
+  function createHandleDragController(options) {
+    let state2 = initialDragState();
+    let pointerId = 0;
+    let touchId = 0;
+    let dragging = false;
+    let moved = false;
+    let activeInput = null;
+    let activeHandle = null;
+    let activeCaptureTarget = null;
+    const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
+    const setLastPoint = (point) => {
+      state2 = {
+        ...state2,
+        lastX: point.x,
+        lastY: point.y,
+        deltaX: point.x - state2.startX,
+        deltaY: point.y - state2.startY
+      };
+    };
+    const updateDrag = (point) => {
+      if (!activeHandle) return;
+      setLastPoint(point);
+      if (movementDistance(state2) > options.tapMovementPx) moved = true;
+      options.onUpdate?.(state2, activeHandle);
+    };
+    const beginDrag = (handle, point, input2) => {
+      if (dragging || activeInput) return false;
+      state2 = {
+        startX: point.x,
+        startY: point.y,
+        lastX: point.x,
+        lastY: point.y,
+        deltaX: 0,
+        deltaY: 0
+      };
+      dragging = true;
+      moved = false;
+      activeInput = input2;
+      activeHandle = handle;
+      options.onBegin?.(handle, state2, input2);
+      return true;
+    };
+    const finishDrag = () => {
+      if (!dragging) return;
+      const wasMoved = moved;
+      const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
+      dragging = false;
+      moved = false;
+      activeInput = null;
+      activeHandle = null;
+      activeCaptureTarget = null;
+      cleanupListeners();
+      releasePointerCapture(captureTarget, pointerId);
+      options.onFinish(state2, wasMoved, handle);
+    };
+    function cleanupListeners() {
+      if (typeof document === "undefined") return;
+      document.removeEventListener("pointermove", handlePointerMove, true);
+      document.removeEventListener("pointerup", handlePointerUp, true);
+      document.removeEventListener("pointercancel", handlePointerCancel, true);
+      document.removeEventListener("touchmove", handleTouchMove, true);
+      document.removeEventListener("touchend", handleTouchEnd, true);
+      document.removeEventListener("touchcancel", handleTouchCancel, true);
+    }
+    function cancel() {
+      if (!dragging) return;
+      const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
+      dragging = false;
+      moved = false;
+      activeInput = null;
+      activeHandle = null;
+      activeCaptureTarget = null;
+      cleanupListeners();
+      releasePointerCapture(captureTarget, pointerId);
+      options.onCancel?.(state2, handle);
+    }
+    function handlePointerMove(event) {
+      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      consumeDragEvent(event);
+      updateDrag({ x: event.clientX, y: event.clientY });
+    }
+    function handlePointerUp(event) {
+      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      consumeDragEvent(event);
+      if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
+      else setLastPoint({ x: event.clientX, y: event.clientY });
+      finishDrag();
+    }
+    function handlePointerCancel(event) {
+      if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      cancel();
+    }
+    function handleTouchMove(event) {
+      if (!dragging || activeInput !== "touch") return;
+      const touch = changedTouch(event, touchId);
+      if (!touch) return;
+      consumeDragEvent(event);
+      updateDrag({ x: touch.clientX, y: touch.clientY });
+    }
+    function handleTouchEnd(event) {
+      if (!dragging || activeInput !== "touch") return;
+      const touch = changedTouch(event, touchId);
+      if (!touch) return;
+      consumeDragEvent(event);
+      if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
+      else setLastPoint({ x: touch.clientX, y: touch.clientY });
+      finishDrag();
+    }
+    function handleTouchCancel(event) {
+      if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
+      cancel();
+    }
+    return {
+      isDragging: () => dragging,
+      pointerDown(handle, event) {
+        if (activeInput) return;
+        if (event.button !== void 0 && event.button !== 0) return;
+        consumeDragEvent(event);
+        if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
+        pointerId = event.pointerId;
+        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+        setPointerCapture(activeCaptureTarget, event.pointerId);
+        document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+        document.addEventListener("pointerup", handlePointerUp, true);
+        document.addEventListener("pointercancel", handlePointerCancel, true);
+      },
+      touchStart(handle, event) {
+        if (activeInput) return;
+        const touch = firstChangedTouch(event);
+        if (!touch) return;
+        consumeDragEvent(event);
+        if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
+        touchId = touch.identifier;
+        document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+        document.addEventListener("touchend", handleTouchEnd, true);
+        document.addEventListener("touchcancel", handleTouchCancel, true);
+      },
+      cancel,
+      cleanupListeners
+    };
+  }
+  function initialDragState() {
+    return {
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      deltaX: 0,
+      deltaY: 0
+    };
+  }
+  function getContainedClosest(target, root, selector, onFound) {
+    if (!(target instanceof Element)) return null;
+    const element2 = target.closest(selector);
+    if (!element2 || !root.contains(element2)) return null;
+    onFound?.(element2);
+    return element2;
+  }
+  function consumeDragEvent(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  function changedTouch(event, touchId) {
+    for (const touch of Array.from(event.changedTouches)) {
+      if (touch.identifier === touchId) return touch;
+    }
+    return null;
+  }
+  function firstChangedTouch(event) {
+    return event.changedTouches.item(0);
+  }
+  function releasePointerCapture(handle, id) {
+    try {
+      handle?.releasePointerCapture?.(id);
+    } catch {
+    }
+  }
+  function setPointerCapture(handle, id) {
+    try {
+      handle.setPointerCapture?.(id);
+    } catch {
+    }
+  }
+  function addViewportChangeListeners(listener, signal) {
+    const options = { passive: true, signal };
+    window.addEventListener("resize", listener, options);
+    window.addEventListener("orientationchange", listener, options);
+    window.visualViewport?.addEventListener?.("resize", listener, options);
+    window.visualViewport?.addEventListener?.("scroll", listener, options);
+  }
+  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
+  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
+  const MIN_SHEET_HEIGHT_PX = 180;
+  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
+  const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
+  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SHEET_TAP_MOVEMENT_PX = 8;
+  const SHEET_KEYBOARD_STEP_PX = 48;
+  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
+  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
+  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+  const POPOVER_BODY_ACTION_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    "[data-action]",
+    "[data-immersion-action]",
+    "[data-yomu-immersion-action]",
+    "[data-uchisen-action]"
+  ].join(",");
+  function popoverScrollBody$1(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  function popoverBodyActionElement(target, scrollBody) {
+    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
+  }
+  function createReaderPopover(appName, settings, trigger = "modal") {
+    const popover = document.createElement("div");
+    popover.className = "jpdb-reader-popover";
+    popover.dataset.jpdbReaderRoot = "true";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
+    popover.setAttribute("aria-modal", "true");
+    popover.tabIndex = -1;
+    if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
+    else popover.style.width = `${settings.popoverWidth}px`;
+    return popover;
+  }
+  function forceReaderPopoverSurface(popover, settings) {
+    popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
+    refreshForcedReaderPopoverSurface(popover, settings);
+  }
+  function refreshForcedReaderPopoverSurface(popover, settings) {
+    if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
+    popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
+    popover.style.width = `${settings.popoverWidth}px`;
+    popover.style.height = "";
+    popover.style.minHeight = "";
+    popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element2) => element2.remove());
+  }
+  function createReaderBackdrop(onDismiss) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "jpdb-reader-backdrop";
+    backdrop.dataset.jpdbReaderRoot = "true";
+    backdrop.addEventListener("mousedown", (event) => event.preventDefault());
+    backdrop.addEventListener("click", onDismiss);
+    return backdrop;
+  }
+  function popoverMaxHeightSetting(settings) {
+    return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
+  }
+  function suppressTrailingClickAfterSheetGestureDismiss() {
+    if (typeof window === "undefined") return;
+    let timer = 0;
+    const cleanup = () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("click", consume, true);
+    };
+    const consume = (event) => {
+      cleanup();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("click", consume, { capture: true });
+    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+  }
+  function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
+    if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
+    popover.dataset.jpdbReaderSheetHandleInstalled = "true";
+    let viewportHeight = 0;
+    let sheetHeight = 0;
+    let startHeight = 0;
+    let rawDragHeight = 0;
+    let dragPageScale = 1;
+    const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
+    const syncHandle = (handle) => {
+      handle.setAttribute("role", "button");
+      handle.setAttribute("tabindex", "0");
+      handle.setAttribute("aria-label", label);
+      handle.setAttribute("aria-expanded", String(isFullHeight()));
+      handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
+      handle.setAttribute("aria-valuemax", String(viewportHeight));
+      handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
+    };
+    const syncHandleState = () => {
+      popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
+    };
+    const applySheetHeight = (height, persist = false) => {
+      const nextHeight = clampSheetHeight(height, viewportHeight);
+      sheetHeight = nextHeight;
+      popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
+      popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
+      syncHandleState();
+      if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
+    };
+    const applyViewportSize = () => {
+      applyRedditOverlayScale(popover);
+      const previousViewportHeight = viewportHeight;
+      const overlayViewport = redditOverlayViewport();
+      viewportHeight = fixedChromeViewportHeight();
+      const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
+      popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
+      popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
+      popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
+      popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
+      const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
+      applySheetHeight(viewportHeight * ratio);
+    };
+    const clearSheetPositionStyles = () => {
+      popover.style.removeProperty("left");
+      popover.style.removeProperty("right");
+      popover.style.removeProperty("top");
+      popover.style.removeProperty("bottom");
+      popover.style.removeProperty("width");
+      popover.style.removeProperty("height");
+      popover.style.removeProperty("max-width");
+      popover.style.removeProperty("max-height");
+    };
+    const clearDragStyles = () => {
+      popover.style.transform = "";
+      popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
+      popover.classList.remove("jpdb-reader-sheet-resizing");
+    };
+    const resetSheetLayout = () => {
+      clearSheetPositionStyles();
+      applyViewportSize();
+      clearDragStyles();
+    };
+    resetSheetLayout();
+    syncHandleState();
+    let handleObserver;
+    if (typeof MutationObserver !== "undefined") {
+      handleObserver = new MutationObserver(syncHandleState);
+      handleObserver.observe(popover, { childList: true, subtree: true });
+    }
+    let suppressNextHandleClick = false;
+    const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
+    const reset = () => {
+      popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
+      clearDragStyles();
+      window.setTimeout(() => {
+        popover.style.transition = "";
+      }, 180);
+    };
+    const dismissFromGesture = () => {
+      suppressTrailingClickAfterSheetGestureDismiss();
+      onDismiss();
+    };
+    const sheetDrag = createHandleDragController({
+      tapMovementPx: SHEET_TAP_MOVEMENT_PX,
+      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
+      onBegin: () => {
+        dragPageScale = redditOverlayViewport().pageScale;
+        startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
+        rawDragHeight = startHeight;
+        popover.style.transition = "";
+        popover.classList.add("jpdb-reader-sheet-resizing");
+      },
+      onUpdate: (state2) => {
+        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
+        applySheetHeight(rawDragHeight);
+      },
+      onFinish: (_state, wasMoved) => {
+        const finishHeight = rawDragHeight;
+        popover.classList.remove("jpdb-reader-sheet-resizing");
+        if (!wasMoved) {
+          suppressNextHandleClick = true;
+          dismissFromGesture();
+          return;
+        }
+        suppressNextHandleClick = true;
+        if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
+          dismissFromGesture();
+          return;
+        }
+        applySheetHeight(finishHeight, true);
+        reset();
+      },
+      onCancel: reset
+    });
+    const handleViewportChange = () => {
+      if (sheetDrag.isDragging()) sheetDrag.cancel();
+      popover.style.transition = "";
+      resetSheetLayout();
+      syncHandleState();
+    };
+    const viewportController = new AbortController();
+    let disposed = false;
+    let disposeObserver;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      sheetDrag.cleanupListeners();
+      viewportController.abort();
+      handleObserver?.disconnect();
+      disposeObserver?.disconnect();
+    };
+    disposeObserver = new MutationObserver(() => {
+      if (!popover.isConnected) dispose();
+    });
+    if (document.documentElement) {
+      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    popover.addEventListener("click", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      onDismiss();
+    });
+    popover.addEventListener("pointerdown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      sheetDrag.pointerDown(handle, event);
+    });
+    popover.addEventListener("touchstart", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      sheetDrag.touchStart(handle, event);
+    }, { capture: true, passive: false });
+    popover.addEventListener("keydown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss();
+      }
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        event.stopPropagation();
+        applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
+        reset();
+      }
+      if (event.key === "Escape") onDismiss();
+    });
+    addViewportChangeListeners(handleViewportChange, viewportController.signal);
+  }
+  function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
+    if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
+    popover.dataset.jpdbReaderSheetCloseInstalled = "true";
+    const close = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+    };
+    const createButton = () => {
+      const button2 = document.createElement("button");
+      button2.type = "button";
+      button2.className = "jpdb-reader-sheet-close";
+      button2.dataset.jpdbReaderSheetClose = "true";
+      button2.setAttribute("aria-label", label);
+      button2.title = label;
+      setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
+      button2.addEventListener("click", close);
+      return button2;
+    };
+    const ensureButton = () => {
+      if (!popover.isConnected) return;
+      if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
+      popover.append(createButton());
+    };
+    ensureButton();
+    let disposed = false;
+    let contentObserver;
+    let disposeObserver;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      contentObserver?.disconnect();
+      disposeObserver?.disconnect();
+    };
+    contentObserver = new MutationObserver(ensureButton);
+    contentObserver.observe(popover, { childList: true });
+    disposeObserver = new MutationObserver(() => {
+      if (!popover.isConnected) dispose();
+    });
+    if (document.documentElement) {
+      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+  function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
+    if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
+    drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
+    let viewportHeight = 0;
+    let drawerHeight = 0;
+    let startHeight = 0;
+    let rawDragHeight = 0;
+    let dragPageScale = 1;
+    let suppressNextHandleClick = false;
+    const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
+    const syncHandle = (handle) => {
+      handle.setAttribute("role", "separator");
+      handle.setAttribute("tabindex", "0");
+      handle.setAttribute("aria-label", label);
+      handle.setAttribute("aria-orientation", "horizontal");
+      handle.setAttribute("aria-valuemin", String(settingsDrawerMinHeight(viewportHeight)));
+      handle.setAttribute("aria-valuemax", String(viewportHeight));
+      handle.setAttribute("aria-valuenow", String(Math.round(drawerHeight)));
+    };
+    const syncHandleState = () => {
+      drawer.querySelectorAll(".jpdb-reader-settings-drag-handle").forEach(syncHandle);
+    };
+    const applyDrawerHeight = (height, persist = false) => {
+      const nextHeight = clampDrawerHeight(height, viewportHeight, settingsDrawerMinHeight(viewportHeight));
+      drawerHeight = nextHeight;
+      drawer.style.setProperty("--jpdb-reader-settings-drawer-height", `${Math.round(nextHeight)}px`);
+      drawer.classList.toggle("jpdb-reader-settings-drawer-expanded", isFullHeight());
+      syncHandleState();
+      if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
+    };
+    const applyViewportSize = () => {
+      applyRedditOverlayScale(drawer);
+      const previousViewportHeight = viewportHeight;
+      const { pageScale } = redditOverlayViewport();
+      const bottomInset = settingsDrawerBottomInset() * pageScale;
+      viewportHeight = fixedChromeViewportHeight();
+      drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
+      drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
+      drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
+      drawer.classList.toggle("jpdb-reader-settings-keyboard-open", bottomInset > 0);
+      const ratio = previousViewportHeight > 0 && drawerHeight > 0 ? drawerHeight / previousViewportHeight : readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO);
+      applyDrawerHeight(viewportHeight * ratio);
+    };
+    const clearDragStyles = () => {
+      drawer.classList.remove("jpdb-reader-settings-drawer-resizing");
+    };
+    const reset = () => {
+      drawer.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease";
+      clearDragStyles();
+      window.setTimeout(() => {
+        drawer.style.transition = "";
+      }, 180);
+    };
+    const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
+    const drawerDrag = createHandleDragController({
+      tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
+      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
+      onBegin: () => {
+        dragPageScale = redditOverlayViewport().pageScale;
+        startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
+        rawDragHeight = startHeight;
+        drawer.style.transition = "";
+        drawer.classList.add("jpdb-reader-settings-drawer-resizing");
+      },
+      onUpdate: (state2) => {
+        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
+        applyDrawerHeight(rawDragHeight);
+      },
+      onFinish: (_state, wasMoved) => {
+        const finishHeight = rawDragHeight;
+        if (wasMoved) {
+          suppressNextHandleClick = true;
+          applyDrawerHeight(finishHeight, true);
+        }
+        reset();
+      },
+      onCancel: reset
+    });
+    const handleViewportChange = () => {
+      if (drawerDrag.isDragging()) drawerDrag.cancel();
+      drawer.style.transition = "";
+      applyViewportSize();
+      clearDragStyles();
+      syncHandleState();
+    };
+    applyViewportSize();
+    syncHandleState();
+    const viewportController = new AbortController();
+    let disposed = false;
+    let disposeObserver;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      drawerDrag.cleanupListeners();
+      viewportController.abort();
+      disposeObserver?.disconnect();
+    };
+    disposeObserver = new MutationObserver(() => {
+      if (!drawer.isConnected) dispose();
+    });
+    if (document.documentElement) {
+      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    drawer.addEventListener("click", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      onTap?.();
+    });
+    drawer.addEventListener("pointerdown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      drawerDrag.pointerDown(handle, event);
+    });
+    drawer.addEventListener("touchstart", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      drawerDrag.touchStart(handle, event);
+    }, { capture: true, passive: false });
+    drawer.addEventListener("keydown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        event.stopPropagation();
+        applyDrawerHeight(drawerHeight + (event.key === "ArrowUp" ? SETTINGS_DRAWER_KEYBOARD_STEP_PX : -SETTINGS_DRAWER_KEYBOARD_STEP_PX), true);
+        reset();
+      }
+    });
+    addViewportChangeListeners(handleViewportChange, viewportController.signal);
+  }
+  function installMiningDrawerHandle(root, setExpanded) {
+    if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
+    root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
+    let suppressNextHandleClick = false;
+    let cleanedUp = false;
+    const getHandleFromElement = (event) => {
+      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+      if (!target || !root.contains(target)) return null;
+      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
+      if (!handle) return null;
+      return handle;
+    };
+    const getHandleFromEventTarget = (event) => {
+      return event instanceof Element ? getHandleFromElement(event) : null;
+    };
+    const getHandleFromPoint = (x2, y) => {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element2 of document.elementsFromPoint(x2, y)) {
+        const handle = getHandleFromElement(element2);
+        if (handle) return handle;
+      }
+      return null;
+    };
+    const getHandleFromPointerEvent = (event) => {
+      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+    };
+    const getHandleFromTouchEvent = (event) => {
+      const direct = getHandleFromEventTarget(event.target);
+      if (direct) return direct;
+      const touch = firstChangedTouch(event);
+      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+    };
+    const isInteractiveGutterChild = (eventTarget) => {
+      if (!(eventTarget instanceof Element)) return false;
+      const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
+      return Boolean(
+        action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
+      );
+    };
+    const miningDrag = createHandleDragController({
+      tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
+      updateOnEnd: true,
+      onBegin: (handle) => {
+        handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
+      },
+      onFinish: (state2, wasMoved, handle) => {
+        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+        if (!wasMoved || !handle) return;
+        suppressNextHandleClick = true;
+        const expanded = miningDrawerDragExpandedState(handle, state2.deltaX, state2.deltaY);
+        if (expanded !== void 0) setExpanded(handle, expanded);
+      },
+      onCancel: (_state, handle) => {
+        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+      }
+    });
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      miningDrag.cleanupListeners();
+    };
+    const rootIsConnected = () => {
+      if (root.isConnected) return true;
+      cleanup();
+      return false;
+    };
+    const toggleHandle = (handle) => {
+      setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
+    };
+    function handleClick(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromPointerEvent(event);
+      if (!handle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      toggleHandle(handle);
+    }
+    function handlePointerDown(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromPointerEvent(event);
+      if (!handle) return;
+      miningDrag.pointerDown(handle, event);
+    }
+    function handleTouchStart(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromTouchEvent(event);
+      if (!handle) return;
+      miningDrag.touchStart(handle, event);
+    }
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+  }
+  function eventHasPointTarget(event) {
+    return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+  }
+  function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
+    const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
+    if (mode === "sheet") return true;
+    if (mode === "popover") return false;
+    const { width, height } = viewport;
+    const popoverWidth = Math.max(0, settings.popoverWidth || 0);
+    const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
+    if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
+    if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
+    return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
+  }
+  function lookupViewportSize() {
+    const overlayViewport = redditOverlayViewport();
+    if (overlayViewport.pageScale > 1) {
+      const bounds = redditOverlayViewportBounds();
+      return {
+        width: Math.max(0, Math.round(bounds.width)),
+        height: Math.max(0, Math.round(bounds.height)),
+        pageScale: overlayViewport.pageScale
+      };
+    }
+    const visual = window.visualViewport;
+    const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
+    const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
+    return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
+  }
+  function fixedChromeViewportHeight() {
+    const overlayViewport = redditOverlayViewport();
+    return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
+  }
+  function visualViewportHeight() {
+    return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
+  }
+  function settingsDrawerBottomInset() {
+    const visual = window.visualViewport;
+    if (!visual) return 0;
+    const layoutHeight = layoutViewportHeight();
+    if (layoutHeight <= 0) return 0;
+    return Math.max(0, Math.round(layoutHeight - visual.offsetTop - visual.height));
+  }
+  function layoutViewportHeight() {
+    return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
+  }
+  function sheetMinHeight(viewportHeight) {
+    if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
+    return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+  }
+  function settingsDrawerMinHeight(viewportHeight) {
+    if (viewportHeight <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
+    return Math.min(viewportHeight, MIN_SETTINGS_DRAWER_HEIGHT_PX, Math.max(220, Math.round(viewportHeight * 0.38)));
+  }
+  function restoredSheetHeight(viewportHeight) {
+    return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
+  }
+  function restoredSettingsDrawerHeight(viewportHeight) {
+    return clampDrawerHeight(
+      viewportHeight * readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO),
+      viewportHeight,
+      settingsDrawerMinHeight(viewportHeight)
+    );
+  }
+  function clampSheetHeight(height, viewportHeight) {
+    return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
+  }
+  function clampDrawerHeight(height, viewportHeight, minHeight) {
+    if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
+    return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+  }
+  function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
+    const axis = miningDrawerDragAxis(handle);
+    if (axis === "horizontal") {
+      if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+      return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
+    }
+    if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+    return deltaY < 0;
+  }
+  function miningDrawerDragAxis(handle) {
+    const rect = handle.getBoundingClientRect();
+    if (rect.height > rect.width * 1.2) return "horizontal";
+    const actions = handle.closest(".jpdb-reader-actions");
+    if (!actions) return "vertical";
+    const actionsRect = actions.getBoundingClientRect();
+    return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
+  }
+  function miningDrawerHorizontalOpenDirection(handle) {
+    const actions = handle.closest(".jpdb-reader-actions");
+    if (!actions) return "left";
+    const handleRect = handle.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    const handleCenter = handleRect.left + handleRect.width / 2;
+    const actionsCenter = actionsRect.left + actionsRect.width / 2;
+    return handleCenter < actionsCenter ? "right" : "left";
+  }
+  function readSheetHeightRatio() {
+    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+  }
+  function storeSheetHeightRatio(height, viewportHeight) {
+    storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
+  }
+  function readHeightRatio(storageKey, fallback) {
+    const value = gmStorageGetSync(storageKey, fallback);
+    return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
+  }
+  function storeHeightRatio(storageKey, height, viewportHeight) {
+    if (viewportHeight <= 0) return;
+    const ratio = Math.max(0, Math.min(1, height / viewportHeight));
+    gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
+  }
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
+  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
+  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
+  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
+  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
+  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
+  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+  const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
+  const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
+  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
+  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
+  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+  const KANA_I_ADJECTIVE_END_RE = /い$/u;
+  const SMALL_TSU_RE = /っ/u;
+  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
+  function normalizeFallbackTerm(text2) {
+    return text2.replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function fallbackJapaneseSegments(text2) {
+    return segmentJapaneseText(text2);
+  }
+  function segmentJapaneseText(text2) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
+      });
+    }
+    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
+    });
+  }
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
+    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
+      surface: segment.segment,
+      start: offset + segment.index,
+      end: offset + segment.index + segment.segment.length
+    }));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    const normalizedSegments = splitTrailingPoliteParticleSegments(
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+    );
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(normalizedSegments),
+      sourceText
+    );
+  }
+  function splitTrailingPoliteParticleSegments(segments) {
+    return segments.flatMap((segment, index) => {
+      if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
+      const previous = segments[index - 1]?.surface ?? "";
+      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
+      const particleStart = segment.end - 1;
+      const stem = segment.surface.slice(0, -1);
+      return [
+        ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
+        { surface: "ね", start: particleStart, end: segment.end }
+      ];
+    });
+  }
+  function mergeContiguousKanaSegments(segments) {
+    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = contiguousKanaMergeSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function mergeContiguousKatakanaSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const first2 = segments[index];
+      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
+        merged.push(first2);
+        index += 1;
+        continue;
+      }
+      let surface = first2.surface;
+      let runEnd = index + 1;
+      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+        surface += segments[runEnd].surface;
+        runEnd += 1;
+      }
+      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
+      index = runEnd;
+    }
+    return merged;
+  }
+  function contiguousKanaMergeSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
+    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first2.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+      const current = segments[index];
+      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      surface += current.surface;
+      lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+      segment: { surface, start: first2.start, end: segments[lastIndex].end },
+      nextIndex: lastIndex + 1
+    };
+  }
+  function contiguousKanaRunEnd(segments, startIndex) {
+    let index = startIndex + 1;
+    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+      index += 1;
+    }
+    return index;
+  }
+  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+    let surface = "";
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+  }
+  function isPureKanaSegment(surface) {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+  }
+  function isKanaContentWordSpan(span) {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+  }
+  function isKanaInflectableBaseShape(span) {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment, sourceText) {
+    const first2 = Array.from(segment.surface)[0] ?? "";
+    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    const second = Array.from(segment.surface)[1] ?? "";
+    if (second === "間") return [segment];
+    return [
+      { surface: first2, start: segment.start, end: segment.start + first2.length },
+      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
+    ];
+  }
+  function splitLeadingParticleSegments(segments) {
+    return segments.flatMap(splitLeadingParticleSegment);
+  }
+  function splitLeadingParticleSegment(segment) {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
+      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+    });
+    if (!prefix) return [segment];
+    return [
+      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
+    ];
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first2.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
+  }
+  function mergeInflectedFallbackSegments(segments, sourceText) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
+    const first2 = segments[startIndex];
+    if (!first2 || isBoundarySegment(first2.surface)) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
+      if (!current) break;
+      surface += current.surface;
+      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
+    }
+    return best;
+  }
+  function fallbackInflectionScanEnd(segments, startIndex) {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+  }
+  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
+    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+  }
+  function isPoliteNegativePastContinuation(segments, index, surface) {
+    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
+  }
+  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
+    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+  }
+  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+      segment: { surface, start: first2.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  function isBoundarySegment(surface) {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+  }
+  function isInflectionContinuationSegment(surface) {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+  }
+  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
+  }
+  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+    const first2 = segments[startIndex]?.surface ?? "";
+    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
+    const suffix = surface.slice(first2.length);
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
+    return true;
+  }
+  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment) {
+    const surface = segment.segment.trim();
+    return JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function intlSegmenter() {
+    const candidate = Intl.Segmenter;
+    return typeof candidate === "function" ? candidate : null;
+  }
+  function fallbackJapaneseRunSegment(text2, offset) {
+    const surface = text2.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text2.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function fallbackLookupTermsForText(text2) {
+    const source = normalizeFallbackTerm(text2);
+    if (!source) return [];
+    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
+    return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+  }
+  function fallbackLookupTermsForCard(card) {
+    const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
+  }
+  function isUsefulFallbackLookupCandidate(candidate) {
+    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
+  }
+  function compareFallbackLookupCandidates(a, b) {
+    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  function fallbackRulePriority(candidate) {
+    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+    if (candidate.rules.some((rule) => rule === "v1")) return 1;
+    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+    return 3;
+  }
+  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
+    const [source, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueNonEmptyStrings(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
+  }
+  function hasAmbiguousContinuativeStemCandidate(source) {
+    return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
+  const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
+  const KANA_CHAR_RE = /^[぀-ヿー]$/u;
+  const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
+  function splitReadingAcrossKanji(base, reading, readingsForKanji) {
+    if (kanjiCharacterCount$1(base) < 2) return null;
+    const sourceReading = reading.trim();
+    const kana = toHiragana(sourceReading);
+    if (!kana || !KANA_ONLY_RE.test(kana)) return null;
+    const trimmed = trimSharedKanaAffixes(base, kana);
+    const characters = Array.from(trimmed.base);
+    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
+    const plans = alignKanjiReadings(characters, trimmed.reading, 0, readingsForKanji);
+    if (plans.length !== 1) return null;
+    const readingCharacters = Array.from(sourceReading);
+    const segments = [];
+    let offset = trimmed.readingStart;
+    plans[0].forEach((segment, index) => {
+      const segmentText = readingCharacters.slice(offset, offset + segment.length).join("");
+      segments.push({ text: segmentText, start: trimmed.baseStart + index, end: trimmed.baseStart + index + 1 });
+      offset += segment.length;
+    });
+    return segments;
+  }
+  function trimSharedKanaAffixes(base, reading) {
+    let baseStart = 0;
+    let baseEnd = base.length;
+    let readingStart = 0;
+    let readingEnd = reading.length;
+    while (baseStart < baseEnd && readingStart < readingEnd && sameKana(base[baseStart], reading[readingStart])) {
+      baseStart += 1;
+      readingStart += 1;
+    }
+    while (baseEnd > baseStart && readingEnd > readingStart && sameKana(base[baseEnd - 1], reading[readingEnd - 1])) {
+      baseEnd -= 1;
+      readingEnd -= 1;
+    }
+    return {
+      base: base.slice(baseStart, baseEnd),
+      reading: reading.slice(readingStart, readingEnd),
+      baseStart,
+      readingStart
+    };
+  }
+  function sameKana(base, reading) {
+    return Boolean(base && reading && KANA_CHAR_RE.test(base) && toHiragana(base) === reading);
+  }
+  function kanjiCharacterCount$1(value) {
+    return Array.from(value).filter((char) => KANJI_CHAR_RE.test(char)).length;
+  }
+  function alignKanjiReadings(characters, kana, index, readingsForKanji) {
+    if (index >= characters.length) return kana.length === 0 ? [[]] : [];
+    const candidates = candidateReadings(characters[index], readingsForKanji);
+    const plans = [];
+    for (const candidate of candidates) {
+      if (!kana.startsWith(candidate)) continue;
+      for (const rest of alignKanjiReadings(characters, kana.slice(candidate.length), index + 1, readingsForKanji)) {
+        plans.push([candidate, ...rest]);
+        if (plans.length > 1) return plans;
+      }
+    }
+    return plans;
+  }
+  function candidateReadings(kanji, readingsForKanji) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const raw of readingsForKanji(kanji)) {
+      const normalized = toHiragana(raw.trim()).replace(/[.\-．].*$/u, "");
+      if (!normalized || !KANA_ONLY_RE.test(normalized)) continue;
+      seen.add(normalized);
+      const voiced = withInitialDakuten(normalized);
+      if (voiced) seen.add(voiced);
+      if (/[つくきち]$/u.test(normalized)) seen.add(`${normalized.slice(0, -1)}っ`);
+    }
+    return [...seen].sort((a, b) => b.length - a.length);
+  }
+  const DAKUTEN_MAP = {
+    か: "が",
+    き: "ぎ",
+    く: "ぐ",
+    け: "げ",
+    こ: "ご",
+    さ: "ざ",
+    し: "じ",
+    す: "ず",
+    せ: "ぜ",
+    そ: "ぞ",
+    た: "だ",
+    ち: "ぢ",
+    つ: "づ",
+    て: "で",
+    と: "ど",
+    は: "ば",
+    ひ: "び",
+    ふ: "ぶ",
+    へ: "べ",
+    ほ: "ぼ"
+  };
+  function withInitialDakuten(reading) {
+    const voiced = DAKUTEN_MAP[reading[0] ?? ""];
+    return voiced ? `${voiced}${reading.slice(1)}` : null;
+  }
+  function toHiragana(value) {
+    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
+  }
+  const LOCAL_MATCH_LIMIT = 40;
+  const LOCAL_ENRICHMENT_CONCURRENCY = 12;
+  const LOCAL_PARSE_CACHE_LIMIT = 600;
+  const LOCAL_PITCH_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
+  const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
+  const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
+  const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
+  const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+  const JITEN_MIN_BATCH_CHARS = 24;
+  const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
+  function japaneseBatchCharCount(paragraphs) {
+    return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+  }
+  const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
+  const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
+  const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
+  const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
+  const log$u = Logger.scope("ReaderParser");
+  const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
+  function apiFirstParseOptions(options = {}) {
+    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
+    return { includeLocalPitch: false, ...options, requireApi };
+  }
+  function jpdbFirstParseOptions(options = {}) {
+    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
+    const requireJpdb = options.requireJpdb ?? requireApi;
+    return apiFirstParseOptions({ ...options, requireApi, requireJpdb });
+  }
+  class ReaderParser {
+    constructor(dependencies) {
+      this.dependencies = dependencies;
+    }
+    localCardCache = /* @__PURE__ */ new Map();
+    localParseCache = /* @__PURE__ */ new Map();
+    localPitchCache = /* @__PURE__ */ new Map();
+    localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
+    localTermDictionaryAvailability;
+    enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
+    kanjiReadingCache = /* @__PURE__ */ new Map();
+    async parse(paragraphs, options = {}) {
+      const { getSettings } = this.dependencies;
+      const settings = getSettings();
+      const done = log$u.time("parse", {
+        paragraphs: paragraphs.length,
+        hasApiKey: hasJpdbApiCredential(settings),
+        hasJitenApiKey: hasJitenApiCredential(settings),
+        localFallback: settings.localDictionariesEnabled
+      });
+      try {
+        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
+        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+        return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+      } finally {
+        done();
+      }
+    }
+    async parseWithPreferredSource(paragraphs, options, settings) {
+      if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
+      if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
+      if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
+        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+        if (jitenResult2) return jitenResult2;
+        return this.parseWithFallbackSource(paragraphs, options);
+      }
+      if (settings.parserProvider === "jpdb") {
+        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+        if (jpdbResult2) return jpdbResult2;
+        return this.parseWithFallbackSource(paragraphs, options);
+      }
+      if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
+        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+        if (jitenResult2) return jitenResult2;
+        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+        if (jpdbResult2) return jpdbResult2;
+        return this.parseWithFallbackSource(paragraphs, options);
+      }
+      const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+      if (jpdbResult) return jpdbResult;
+      const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+      if (jitenResult) return jitenResult;
+      return this.parseWithFallbackSource(paragraphs, options);
+    }
+    // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
+    // short to justify it. Only explicit 'jiten' is gated: the auto path keeps its
+    // API-first contract, jpdb has its own batching + grading identity, and
+    // requireJpdb flows still need JPDB. Jiten-only users (no local dicts) are
+    // unaffected because the caller also requires hasLocalTermDictionaries.
+    shouldRouteShortBatchToLocal(paragraphs, options, settings) {
+      if (settings.parserProvider !== "jiten" || options.requireJpdb === true) return false;
+      return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
+    }
+    async tryParseWithJpdb(paragraphs, options, settings) {
+      if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
+      try {
+        const result = await this.parseWithJpdb(paragraphs, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result, options);
+      } catch (error) {
+        this.handleRemoteParseError("JPDB", error, options);
+        return null;
+      }
+    }
+    async parseWithJpdb(paragraphs, options) {
+      const parsePromise = this.dependencies.jpdb.parse(paragraphs);
+      const timeoutMs = remoteParseFallbackTimeoutMs(options);
+      return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : parsePromise;
+    }
+    async tryParseWithJiten(paragraphs, options, settings) {
+      if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
+      try {
+        const result = await this.parseWithJiten(paragraphs, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result, options);
+      } catch (error) {
+        this.handleRemoteParseError("Jiten", error, options);
+        return null;
+      }
+    }
+    async parseWithJiten(paragraphs, options) {
+      const parsePromise = this.dependencies.jiten.parse(paragraphs);
+      const timeoutMs = remoteParseFallbackTimeoutMs(options);
+      return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("Jiten parse timed out.")) : parsePromise;
+    }
+    handleRemoteParseError(source, error, options) {
+      const canFallback = this.canUseParseFallback(options);
+      log$u.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
+    }
+    async parseWithFallbackSource(paragraphs, options) {
+      if (!await this.hasLocalTermDictionaries()) {
+        const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
+        if (publicJitenResult) return publicJitenResult;
+      }
+      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+    }
+    async tryParseWithPublicJiten(paragraphs, options) {
+      if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
+      const parser = this.dependencies.jitenPublicVocabulary;
+      if (typeof parser?.parse !== "function") return null;
+      try {
+        const parsed = await parser.parse(paragraphs);
+        if (!parsed.some((tokens) => tokens.length)) return null;
+        return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
+      } catch (error) {
+        log$u.warn("Jiten public parse failed; using local or segmented fallback", error);
+        return null;
+      }
+    }
+    canParse() {
+      return true;
+    }
+    isJpdbBackedCard(card) {
+      return (!card.source || card.source === "jpdb") && card.vid > 0;
+    }
+    getCachedCard(vid, sid) {
+      return this.dependencies.jpdb.getCard(vid, sid) ?? this.localCardCache.get(cardCacheKey(vid, sid));
+    }
+    cacheCards(cards) {
+      cards.forEach((card) => {
+        if (card.source && card.source !== "jpdb" || card.vid <= 0 || card.sid <= 0) {
+          this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
+        }
+      });
+    }
+    clearLocalCache() {
+      this.localCardCache.clear();
+      this.localParseCache.clear();
+      this.localPitchCache.clear();
+      this.localBoundaryEvidenceCache.clear();
+      this.localTermDictionaryAvailability = void 0;
+    }
+    localCardFromEntry(entry) {
+      const id = -stablePositiveHashId(`${entry.dictionary}
+${entry.expression}
+${entry.reading}`);
+      const card = {
+        vid: id,
+        sid: id,
+        rid: 0,
+        spelling: entry.expression,
+        reading: entry.reading || entry.expression,
+        frequencyRank: entry.jpdbFrequency ?? null,
+        partOfSpeech: [],
+        meanings: [{
+          glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
+          partOfSpeech: []
+        }],
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: "local"
+      };
+      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
+      return card;
+    }
+    fallbackCardFromText(text2) {
+      const spelling = normalizeFallbackTerm(text2);
+      const id = -stablePositiveHashId(`fallback
+${spelling}`);
+      const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
+      const card = {
+        vid: id,
+        sid: id,
+        rid: 0,
+        spelling,
+        reading: "",
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: "fallback",
+        ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
+      };
+      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
+      return card;
+    }
+    canUseLocalDictionaryFallback() {
+      return this.dependencies.getSettings().localDictionariesEnabled;
+    }
+    canUseParseFallback(options) {
+      return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
+    }
+    async parseLocalOrSegmentedText(text2, options) {
+      const settings = this.dependencies.getSettings();
+      const key = localParseCacheKey(text2, options, settings);
+      const cached = this.localParseCache.get(key);
+      if (cached) {
+        this.localParseCache.delete(key);
+        this.localParseCache.set(key, cached);
+        return cached;
+      }
+      const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
+        if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
+        throw error;
+      });
+      this.rememberLocalParseCacheEntry(key, promise);
+      return promise;
+    }
+    async parseLocalOrSegmentedTextUncached(text2, options) {
+      if (this.canUseLocalDictionaryFallback()) {
+        const tokens = await this.parseLocalDictionaryText(text2, options);
+        if (tokens.length) {
+          return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
+        }
+      }
+      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+    }
+    rememberLocalParseCacheEntry(key, promise) {
+      this.localParseCache.set(key, promise);
+      while (this.localParseCache.size > LOCAL_PARSE_CACHE_LIMIT) {
+        const oldest = this.localParseCache.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.localParseCache.delete(oldest);
+      }
+    }
+    async parseLocalDictionaryText(text2, options) {
+      const { dictionaries, getSettings } = this.dependencies;
+      if (!await this.hasLocalTermDictionaries()) return [];
+      const settings = getSettings();
+      const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
+        log$u.warn("Local dictionary parse failed", { length: text2.length }, error);
+        return [];
+      });
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+    }
+    async localTokenFromMatch(text2, match, options) {
+      const card = this.localCardFromEntry(match.entry);
+      const reading = card.reading && card.reading !== match.surface ? card.reading : "";
+      const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+      if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+      const rubies = reading ? match.deinflected ? inferredInflectedSurfaceRubies(match.surface, card.spelling, reading).map((ruby) => ({
+        ...ruby,
+        start: match.start + ruby.start,
+        end: match.start + ruby.end
+      })) : await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
+      return {
+        card,
+        start: match.start,
+        end: match.end,
+        length: match.end - match.start,
+        rubies,
+        pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
+        sentence: text2
+      };
+    }
+    async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
+      if (!this.canUseLocalDictionaryFallback()) return parsed;
+      const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
+      if (!candidates.some((items) => items.length)) return parsed;
+      if (!await this.hasLocalTermDictionaries(true)) return parsed;
+      const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+        const text2 = paragraphs[paragraphIndex] ?? "";
+        const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
+          const relative = await this.exactLocalBoundaryMatch(candidate);
+          if (!relative) return null;
+          const match = offsetTermMatch(relative, candidate.start);
+          if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
+          return this.localTokenFromMatch(text2, match, options);
+        }));
+        return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
+      }));
+      return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
+    }
+    exactLocalBoundaryMatch(candidate) {
+      const settings = this.dependencies.getSettings();
+      const { surface, boundary } = candidate;
+      const key = localBoundaryEvidenceCacheKey(surface, boundary, settings);
+      const cached = this.localBoundaryEvidenceCache.get(key);
+      if (cached) return cached;
+      const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
+        surface,
+        LOCAL_BOUNDARY_MATCH_LIMIT,
+        settings.dictionaryPreferences
+      )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
+        if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
+        log$u.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+        return null;
+      });
+      this.localBoundaryEvidenceCache.set(key, promise);
+      while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
+        const oldest = this.localBoundaryEvidenceCache.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.localBoundaryEvidenceCache.delete(oldest);
+      }
+      return promise;
+    }
+    // A store that cannot report availability still gets a chance in the
+    // fallback path (it tolerates empty lookups), but local-first replaces
+    // remote parsing outright, so `confirmed` demands a positive report.
+    async hasLocalTermDictionaries(confirmed = false) {
+      if (!this.canUseLocalDictionaryFallback()) return false;
+      return await this.reportedTermDictionaryAvailability() ?? !confirmed;
+    }
+    reportedTermDictionaryAvailability() {
+      const store = this.dependencies.dictionaries;
+      if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
+      this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
+        this.localTermDictionaryAvailability = void 0;
+        log$u.warn("Local term dictionary availability check failed", { error });
+        return void 0;
+      });
+      return this.localTermDictionaryAvailability;
+    }
+    parseSegmentedText(text2) {
+      return segmentJapaneseText(text2).map((segment) => {
+        const card = this.fallbackCardFromText(segment.surface);
+        return {
+          card,
+          start: segment.start,
+          end: segment.end,
+          length: segment.end - segment.start,
+          rubies: [],
+          pitchClass: "",
+          sentence: text2
+        };
+      });
+    }
+    async withSegmentedFallbackGaps(paragraphs, parsed, options) {
+      const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
+      if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
+      return Promise.all(paragraphs.map(async (text2, index) => {
+        const tokens = parsed[index] ?? [];
+        if (options.allowSegmentedFallback !== true) return tokens;
+        const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
+        return this.fillSegmentedFallbackGaps(text2, withLocal);
+      }));
+    }
+    // Remote coverage gaps were previously filled ONLY by the bare segmenter,
+    // whose fallback cards carry no reading/ruby/pitch — so an inflected verb
+    // the provider skipped (使って, 行います) rendered with no decoration at
+    // all while its neighbours annotated. When local term dictionaries are
+    // available, fill the uncovered ranges with deinflected, enriched local
+    // tokens first; the bare segmenter only covers what the dictionary also
+    // misses.
+    async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
+      if (!this.canUseLocalDictionaryFallback()) return tokens;
+      if (!await this.hasLocalTermDictionaries()) return tokens;
+      const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
+      const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap$1(local.start, local.end, token.start, token.end)));
+      return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
+    }
+    fillSegmentedFallbackGaps(text2, tokens) {
+      tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
+      const fallbackTokens = this.parseSegmentedText(text2);
+      const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
+      const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
+      const replacements = [
+        ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
+        ...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
+      ];
+      const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
+      const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end))) : tokens;
+      return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
+    }
+    // All-kanji compounds get their reading split per kanji when the user's
+    // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
+    // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
+    async localRubySegments(surface, reading, start, end) {
+      const whole = [{ text: reading, start, end, length: end - start }];
+      const characters = [...new Set(Array.from(surface).filter((character) => LOCAL_RUBY_SPLIT_KANJI_CHAR_RE.test(character)))];
+      if (characters.length < 2) return whole;
+      const readings2 = /* @__PURE__ */ new Map();
+      await Promise.all(characters.map(async (character) => {
+        readings2.set(character, await this.cachedKanjiReadings(character));
+      }));
+      const segments = splitReadingAcrossKanji(surface, reading, (kanji) => readings2.get(kanji) ?? []);
+      if (!segments) return whole;
+      return segments.map((segment) => ({
+        text: segment.text,
+        start: start + segment.start,
+        end: start + segment.end,
+        length: segment.end - segment.start
+      }));
+    }
+    cachedKanjiReadings(character) {
+      const cached = this.kanjiReadingCache.get(character);
+      if (cached) return cached;
+      const settings = this.dependencies.getSettings();
+      const lookupKanji = this.dependencies.dictionaries.lookupKanji;
+      const promise = typeof lookupKanji === "function" && settings.localDictionariesEnabled ? lookupKanji.call(this.dependencies.dictionaries, character, 3, settings.dictionaryPreferences).then((entries2) => entries2.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi])).catch(() => []) : Promise.resolve([]);
+      this.kanjiReadingCache.set(character, promise);
+      if (this.kanjiReadingCache.size > 400) {
+        const oldest = this.kanjiReadingCache.keys().next().value;
+        if (oldest) this.kanjiReadingCache.delete(oldest);
+      }
+      return promise;
+    }
+    async withLocallySplitKanjiRubies(paragraphs, parsed) {
+      if (!this.canUseLocalKanjiRubySplits()) return parsed;
+      let nextParsed = parsed;
+      await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+        let nextTokens = tokens;
+        await Promise.all(tokens.map(async (token, tokenIndex) => {
+          const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? "";
+          const split = await this.locallySplitTokenRubies(surface, token);
+          if (!split || rubiesEqual(split, token.rubies)) return;
+          if (nextTokens === tokens) nextTokens = [...tokens];
+          nextTokens[tokenIndex] = { ...token, rubies: split };
+          this.syncCardWordWithReadingFromTokenRuby(nextTokens[tokenIndex], surface);
+        }));
+        if (nextTokens === tokens) return;
+        if (nextParsed === parsed) nextParsed = [...parsed];
+        nextParsed[paragraphIndex] = nextTokens;
+      }));
+      return nextParsed;
+    }
+    canUseLocalKanjiRubySplits() {
+      const settings = this.dependencies.getSettings();
+      return settings.localDictionariesEnabled && typeof this.dependencies.dictionaries.lookupKanji === "function";
+    }
+    async locallySplitTokenRubies(surface, token) {
+      if (!surface) return null;
+      if (token.rubies.length) {
+        return await this.locallySplitExistingRubies(surface, token);
+      }
+      const reading = token.card.reading.trim();
+      if (!shouldTryLocalKanjiRubySplit(surface, reading)) return null;
+      const whole = [{ text: reading, start: token.start, end: token.end, length: token.end - token.start }];
+      const split = await this.enrichmentGate.run(() => this.localRubySegments(surface, reading, token.start, token.end));
+      return rubiesEqual(split, whole) ? null : split;
+    }
+    async locallySplitExistingRubies(surface, token) {
+      let changed = false;
+      const split = [];
+      for (const ruby of token.rubies) {
+        const start = ruby.start - token.start;
+        const end = ruby.end - token.start;
+        const base = surface.slice(start, end);
+        if (!shouldTryLocalKanjiRubySplit(base, ruby.text)) {
+          split.push(ruby);
+          continue;
+        }
+        const next = await this.enrichmentGate.run(() => this.localRubySegments(base, ruby.text, ruby.start, ruby.end));
+        changed ||= !rubiesEqual(next, [ruby]);
+        split.push(...next);
+      }
+      return changed ? split : null;
+    }
+    syncCardWordWithReadingFromTokenRuby(token, surface) {
+      if (!token.rubies.length || token.card.spelling !== surface) return;
+      const word = Array.from(token.card.spelling);
+      for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
+        const { text: text2, start, length } = token.rubies[index];
+        word.splice(start - token.start + length, 0, `[${text2}]`);
+      }
+      token.card.wordWithReading = word.join("");
+    }
+    async localPitchPattern(card, options) {
+      const settings = this.dependencies.getSettings();
+      if (options.includeLocalPitch === false) return "";
+      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return "";
+      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
+      if (typeof lookupTermMeta !== "function") return "";
+      const key = localPitchCacheKey(card, settings);
+      const cached = this.localPitchCache.get(key);
+      if (cached) return firstLocalPitchPattern(await cached);
+      const promise = localPitchResolutionFromMetaLookup(
+        card.spelling,
+        card.reading,
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
+      ).catch((error) => {
+        log$u.warn("Local pitch parse failed", { term: card.spelling }, error);
+        return { patterns: [] };
+      });
+      this.rememberLocalPitchCacheEntry(key, promise);
+      return firstLocalPitchPattern(await promise);
+    }
+    withNormalizedMetricTokens(text2, tokens) {
+      if (!text2.includes("回視聴")) return tokens;
+      const replacements = [];
+      const replacementRanges = [];
+      for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+        const start = match.index ?? -1;
+        if (start < 0) continue;
+        const end = start + match[0].length;
+        const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
+        const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
+        const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
+        if (alreadyCovered && !hasBrokenMetricToken) continue;
+        if (!hasBrokenMetricToken && overlapping.length > 0) continue;
+        replacementRanges.push({ start, end });
+        replacements.push(
+          this.metricToken(text2, "回", "かい", start, start + 1),
+          this.metricToken(text2, "視聴", "しちょう", start + 1, end)
+        );
+      }
+      if (!replacements.length) return tokens;
+      return [
+        ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap$1(range.start, range.end, token.start, token.end))),
+        ...replacements
+      ].sort(compareTokensByOffset);
+    }
+    withNormalizedMetricParseResult(paragraphs, parsed) {
+      let normalized = parsed;
+      for (const [index, tokens] of parsed.entries()) {
+        const nextTokens = this.withNormalizedMetricTokens(paragraphs[index] ?? "", tokens);
+        if (nextTokens === tokens) continue;
+        if (normalized === parsed) normalized = [...parsed];
+        normalized[index] = nextTokens;
+      }
+      return normalized;
+    }
+    metricToken(sentence, surface, reading, start, end) {
+      const card = this.fallbackCardFromText(surface);
+      card.reading = reading;
+      return {
+        card,
+        start,
+        end,
+        length: end - start,
+        rubies: [{ text: reading, start, end, length: end - start }],
+        pitchClass: "",
+        sentence
+      };
+    }
+    rememberLocalPitchCacheEntry(key, promise) {
+      this.localPitchCache.set(key, promise);
+      while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
+        const oldest = this.localPitchCache.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.localPitchCache.delete(oldest);
+      }
+    }
+  }
+  function firstLocalPitchPattern(resolution) {
+    return resolution.patterns[0] ?? "";
+  }
+  function remoteParseFallbackTimeoutMs(options) {
+    return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
+  }
+  function shouldTryLocalKanjiRubySplit(base, reading) {
+    return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_KANJI_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
+  }
+  function rubiesEqual(first2, second) {
+    return first2.length === second.length && first2.every((ruby, index) => {
+      const other = second[index];
+      return Boolean(other) && ruby.text === other.text && ruby.start === other.start && ruby.end === other.end && ruby.length === other.length;
+    });
+  }
+  function shouldUseJitenParser(settings, options, jiten) {
+    return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
+  }
+  function shouldPreferJitenParser(settings, options, jiten) {
+    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
+  }
+  function shouldSkipApiParser(options) {
+    return Boolean(options.skipApi ?? options.skipJpdb);
+  }
+  function remoteParseErrorMessage(source, options, canFallback) {
+    if (shouldRequireRemoteParse(options)) return `${source}-first parse failed without local fallback`;
+    return canFallback ? `${source} parse failed; using local or segmented fallback` : `${source} parse failed without fallback`;
+  }
+  function shouldRethrowRemoteParseError(options, canFallback) {
+    return shouldRequireRemoteParse(options) || !canFallback;
+  }
+  function shouldRequireRemoteParse(options) {
+    return options.requireApi === true || options.requireJpdb === true;
+  }
+  function localPitchCacheKey(card, settings) {
+    return JSON.stringify({
+      spelling: card.spelling,
+      reading: card.reading,
+      dictionaries: settings.dictionaryPreferences.map((preference) => ({
+        name: preference.name,
+        enabled: preference.enabled,
+        priority: preference.priority
+      }))
+    });
+  }
+  function boundaryEvidenceCandidates(text2, tokens) {
+    const sorted = [...tokens].sort(compareTokensByOffset);
+    const candidates = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let index = 1; index < sorted.length; index += 1) {
+      const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
+      if (!candidate) continue;
+      const key = `${candidate.start}:${candidate.surface}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push(candidate);
+      if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
+    }
+    return candidates;
+  }
+  function boundaryEvidenceCandidate(text2, first2, second) {
+    if (first2.end !== second.start) return null;
+    if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
+    const left = text2.slice(first2.end - 1, first2.end);
+    const right = text2.slice(second.start, second.start + 1);
+    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
+    const firstSurface = text2.slice(first2.start, first2.end);
+    const secondSurface = text2.slice(second.start, second.end);
+    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
+    return {
+      surface: text2.slice(first2.start, second.end),
+      start: first2.start,
+      boundary: first2.end - first2.start
+    };
+  }
+  function isReconciliableParseToken(token) {
+    return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
+  }
+  function isSingleJapaneseCharacter(surface) {
+    const characters = Array.from(surface);
+    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+  }
+  function exactBoundaryMatch(surface, boundary, matches) {
+    const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
+    const identities = new Set(accepted.map((match) => boundaryMatchIdentity(match)));
+    if (identities.size !== 1) return null;
+    return accepted.sort((first2, second) => second.end - second.start - (first2.end - first2.start) || first2.start - second.start)[0] ?? null;
+  }
+  function boundaryMatchIdentity(match) {
+    return `${match.entry.expression.normalize("NFKC").trim()}
+${match.entry.reading.normalize("NFKC").trim()}`;
+  }
+  function offsetTermMatch(match, offset) {
+    return {
+      ...match,
+      start: match.start + offset,
+      end: match.end + offset
+    };
+  }
+  function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
+    const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
+    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
+    return overlapping.every((token) => {
+      const prefix = text2.slice(token.start, Math.min(token.end, match.start));
+      const suffix = text2.slice(Math.max(token.start, match.end), token.end);
+      return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
+    });
+  }
+  function replaceRemoteFragments(tokens, candidates) {
+    if (!candidates.length) return tokens;
+    const accepted = [];
+    for (const candidate of [...candidates].sort((first2, second) => second.length - first2.length || first2.start - second.start)) {
+      if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
+      accepted.push(candidate);
+    }
+    if (!accepted.length) return tokens;
+    return [
+      ...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
+      ...accepted
+    ].sort(compareTokensByOffset);
+  }
+  function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
+    return JSON.stringify({
+      surface,
+      boundary,
+      dictionaries: settings.dictionaryPreferences.map((preference) => ({
+        name: preference.name,
+        enabled: preference.enabled,
+        priority: preference.priority
+      }))
+    });
+  }
+  function localParseCacheKey(text2, options, settings) {
+    const localDictionariesEnabled = settings.localDictionariesEnabled;
+    return JSON.stringify({
+      text: text2,
+      localDictionariesEnabled,
+      allowSegmentedFallback: options.allowSegmentedFallback === true,
+      includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
+      dictionaries: localDictionariesEnabled ? settings.dictionaryPreferences.map((preference) => ({
+        name: preference.name,
+        enabled: preference.enabled,
+        priority: preference.priority
+      })) : []
+    });
+  }
+  function rangesOverlap$1(start, end, otherStart, otherEnd) {
+    return start < otherEnd && otherStart < end;
+  }
+  function tokenInsideRange(token, start, end) {
+    return token.start >= start && token.end <= end;
+  }
+  function preferInflectedFallback(fallback, tokens) {
+    if (!fallback.card.fallbackLookupTerms?.length) return false;
+    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
+    return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
+  }
+  function isBroadPublic(token) {
+    return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
+  }
+  function fallbackRepairTokens(text2, fallbackTokens, tokens) {
+    const repaired = /* @__PURE__ */ new Set();
+    for (const fallback of fallbackTokens) {
+      const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
+      group?.forEach((token) => repaired.add(token));
+    }
+    return [...repaired].sort(compareTokensByOffset);
+  }
+  function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
+    if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
+    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
+    if (!overlapping.length) return null;
+    const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
+    const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
+    if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
+    return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
+  }
+  function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
+    for (let index = start; index < end; index += 1) {
+      if (!JAPANESE_CHARACTER_RE.test(text2[index] ?? "")) continue;
+      if (!tokens.some((token) => token.start <= index && index < token.end)) return true;
+    }
+    return false;
+  }
+  function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
+    const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
+    if (!group.length) return null;
+    group.sort(compareTokensByOffset);
+    return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
+  }
+  function compareTokensByOffset(a, b) {
+    return a.start - b.start || b.length - a.length;
+  }
+  function cardCacheKey(vid, sid) {
+    return `${vid}:${sid}`;
+  }
+  function withTimeout(promise, timeoutMs, errorFactory) {
+    let timeoutId = 0;
+    const timeout = new Promise((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(errorFactory()), timeoutMs);
+    });
+    return Promise.race([
+      promise,
+      timeout
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
+  const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
+  const IMMERSION_SEARCH_CACHE_LIMIT = 120;
+  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
+  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
+  const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+  const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
+  const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
+  const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
+  const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
+  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
+  const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
+  const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
+  const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
+  const log$t = Logger.scope("ImmersionPopover");
+  class ImmersionPopoverController {
+    constructor(options) {
+      this.options = options;
+    }
+    hoverAudioPlayedKeys = /* @__PURE__ */ new Set();
+    activeMiningContext;
+    contextByCardKey = /* @__PURE__ */ new Map();
+    searchResultCache = /* @__PURE__ */ new Map();
+    parsedSentenceCache = /* @__PURE__ */ new Map();
+    loadAbortControllers = /* @__PURE__ */ new WeakMap();
+    lazyLoadTimers = /* @__PURE__ */ new WeakMap();
+    lazyLoadObservers = /* @__PURE__ */ new WeakMap();
+    abortPendingRequests(popover) {
+      const container = popover.querySelector("[data-immersion-kit]");
+      if (container) {
+        this.clearLazyLoadTimer(container);
+        this.disconnectLazyLoadObserver(container);
+      }
+      this.abortActiveLoad(popover);
+    }
+    abortActiveLoad(popover) {
+      const controller = this.loadAbortControllers.get(popover);
+      if (!controller) return;
+      controller.abort();
+      this.loadAbortControllers.delete(popover);
+    }
+    hasActiveContext(card, sentence) {
+      return this.activeMiningContext?.term === card.spelling && this.activeMiningContext.sentence === (sentence || "").replace(/\s+/g, " ").trim();
+    }
+    activeContextFor(card) {
+      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : void 0;
+    }
+    storedContextFor(card) {
+      return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+    }
+    rememberPageMiningContext(card, sentence, anchor) {
+      const cleanSentence = normalizeMiningSentence(sentence);
+      if (!isPageMiningSentence(cleanSentence, card)) return;
+      this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
+    }
+    rememberTermMiningContext(term, sentence, anchor) {
+      const cleanTerm = term.trim();
+      const cleanSentence = normalizeMiningSentence(sentence);
+      if (!cleanTerm || !isPageMiningSentence(cleanSentence, { spelling: cleanTerm })) return;
+      this.rememberStoredMiningContext(saveMiningContext(cleanTerm, this.pageMiningContextDraft(cleanSentence, anchor)));
+    }
+    pageMiningContextDraft(sentence, anchor) {
+      const immersionCard = anchor?.closest(".jpdb-reader-example-card") ?? null;
+      if (immersionCard) return immersionContextFromElement(sentence, immersionCard);
+      const sourceKind = pageMiningSourceKind(anchor);
+      return pageMiningContext(sentence, sourceKind);
+    }
+    rememberStoredMiningContext(stored) {
+      if (!stored) return;
+      this.activeMiningContext = stored;
+    }
+    async loadExamples(popover, card, options = {}) {
+      const container = popover.querySelector("[data-immersion-kit]");
+      if (!container) return;
+      this.abortActiveLoad(popover);
+      const controller = new AbortController();
+      this.loadAbortControllers.set(popover, controller);
+      const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
+      const settings = this.options.getSettings();
+      try {
+        const result = await raceAgainstAbortOrTimeout(
+          searchPromise,
+          controller.signal,
+          settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
+        );
+        if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
+        this.renderLoadedExamples(container, card, result);
+      } catch (error) {
+        if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
+        log$t.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        this.renderEmptyIfConnected(popover, container);
+      } finally {
+        if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
+      }
+    }
+    shouldSkipLoadedExamplesRender(popover, container, controller) {
+      if (!controller.signal.aborted && isConnectedImmersionSurface(popover, container)) return false;
+      clearImmersionLoadingState(container);
+      return true;
+    }
+    shouldIgnoreAbortedExampleLoad(error, controller, container) {
+      if (!isAbortError(error) || !controller.signal.aborted) return false;
+      clearImmersionLoadingState(container);
+      return true;
+    }
+    installLazyLoad(popover, card, options = {}) {
+      const container = popover.querySelector("[data-immersion-kit]");
+      if (!container || container.dataset.immersionLazyBound === "true") return;
+      container.dataset.immersionLazyBound = "true";
+      const canLoad = () => this.canStartLazyLoad(popover, container);
+      const scheduleLoad = (delayMs) => {
+        if (!canLoad()) return;
+        if (container.dataset.immersionLoadState === "scheduled") return;
+        this.clearLazyLoadTimer(container);
+        container.dataset.immersionLoadState = "scheduled";
+        const timer = window.setTimeout(() => {
+          this.lazyLoadTimers.delete(container);
+          if (!canLoad()) {
+            if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
+            return;
+          }
+          container.dataset.immersionLoadState = "loading";
+          void this.loadExamples(popover, card, options).then(() => {
+            if (container.dataset.immersionLoadState !== "loading") return;
+            container.dataset.immersionLoadState = "loaded";
+          }).catch(() => {
+            if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
+          });
+        }, delayMs);
+        this.lazyLoadTimers.set(container, timer);
+      };
+      const maybeLoad = () => {
+        if (!canLoad()) return;
+        scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
+      };
+      const handleToggle = () => {
+        if (!container.open) {
+          this.clearLazyLoadTimer(container);
+          if (container.dataset.immersionLoadState === "scheduled" || container.dataset.immersionLoadState === "loading") {
+            delete container.dataset.immersionLoadState;
+          }
+          this.abortActiveLoad(popover);
+          return;
+        }
+        maybeLoad();
+      };
+      container.addEventListener("toggle", handleToggle);
+      this.installLazyVisibilityObserver(popover, container, maybeLoad);
+      maybeLoad();
+    }
+    canStartLazyLoad(popover, container) {
+      return isConnectedImmersionSurface(popover, container) && container.open && container.dataset.immersionEmpty !== "true" && !["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "");
+    }
+    installLazyVisibilityObserver(popover, container, maybeLoad) {
+      if (typeof IntersectionObserver !== "function") return;
+      const observer = new IntersectionObserver((entries2) => {
+        if (entries2.some((entry) => entry.isIntersecting)) maybeLoad();
+      }, {
+        root: immersionLazyLoadRoot(popover, container),
+        rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN
+      });
+      observer.observe(container);
+      this.lazyLoadObservers.set(container, observer);
+    }
+    clearLazyLoadTimer(container) {
+      const timer = this.lazyLoadTimers.get(container);
+      if (timer === void 0) return;
+      window.clearTimeout(timer);
+      this.lazyLoadTimers.delete(container);
+      if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
+    }
+    disconnectLazyLoadObserver(container) {
+      this.lazyLoadObservers.get(container)?.disconnect();
+      this.lazyLoadObservers.delete(container);
+    }
+    renderLoadedExamples(container, card, result) {
+      const { examples } = result;
+      if (!examples.length) {
+        this.renderEmpty(container);
+        return;
+      }
+      this.bindExampleCarousel(container, card, result);
+    }
+    bindExampleCarousel(container, card, result) {
+      const { examples } = result;
+      let index = this.startIndex(card, examples);
+      let renderRequest = 0;
+      let hoverAudioCanPlay = true;
+      let hoverAudioActive = false;
+      const render = (nextIndex, playAudio, promoteMiningContext = false) => {
+        const requestId = ++renderRequest;
+        index = validImmersionExampleIndex(nextIndex, examples.length);
+        this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
+        bindHoverMedia();
+      };
+      container.addEventListener("click", (event) => {
+        const button2 = event.target.closest("[data-immersion-action]");
+        const media = event.target.closest(".jpdb-reader-example-media");
+        const translation = event.target.closest(".jpdb-reader-example-translation");
+        if (translation) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.toggleTranslationBlur(container);
+          return;
+        }
+        if (!button2 && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!button2) {
+          void this.playExampleAudio(examples[index]);
+          return;
+        }
+        const action = button2.dataset.immersionAction;
+        if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
+        if (action === "audio") void this.playExampleAudio(examples[index]);
+      });
+      container.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const translation = event.target.closest(".jpdb-reader-example-translation");
+        if (!translation) return;
+        event.preventDefault();
+        this.toggleTranslationBlur(container);
+      });
+      const playHoverAudioForTarget = (hoverTarget, pointerType, relatedTarget) => {
+        if (!this.canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay)) return;
+        const example = examples[index];
+        if (!this.rememberHoverAudioExample(example)) return;
+        hoverAudioCanPlay = false;
+        hoverAudioActive = true;
+        void this.playExampleAudio(example, true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(":hover"));
+      };
+      const handleImmersionHover = (event) => {
+        const hoverTarget = event.target.closest?.(".jpdb-reader-example-media, .jpdb-reader-example-card");
+        if (hoverTarget) playHoverAudioForTarget(hoverTarget, "pointerType" in event ? event.pointerType : "mouse", event.relatedTarget);
+      };
+      const bindHoverMedia = () => {
+        container.querySelectorAll(".jpdb-reader-example-media, .jpdb-reader-example-card").forEach((hoverTarget) => {
+          if (hoverTarget.dataset.immersionHoverBound === "true") return;
+          hoverTarget.dataset.immersionHoverBound = "true";
+          hoverTarget.addEventListener("pointerover", handleImmersionHover);
+          hoverTarget.addEventListener("mouseover", handleImmersionHover);
+          requestAnimationFrame(() => {
+            if (hoverTarget.isConnected && hoverTarget.matches(":hover")) playHoverAudioForTarget(hoverTarget, "mouse", null);
+          });
+        });
+      };
+      container.addEventListener("pointerleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
+      });
+      container.addEventListener("mouseleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
+      });
+      render(index, false);
+    }
+    shouldAutoPlayCarouselAudio() {
+      const settings = this.options.getSettings();
+      return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && !this.shouldSuppressAutoAudioForVideo() && canAttemptAudiblePlayback(true);
+    }
+    canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay) {
+      if (!this.options.getSettings().immersionKitPlayOnHover) return false;
+      if (isHoverAudioPointerSuppressed(pointerType)) return false;
+      if (hoverTarget.contains(relatedTarget)) return false;
+      if (!hoverAudioCanPlay) return false;
+      if (this.shouldSuppressAutoAudioForVideo()) return false;
+      return canAttemptAudiblePlayback();
+    }
+    rememberHoverAudioExample(example) {
+      const audioKey = hoverAudioExampleKey(example);
+      if (this.hoverAudioPlayedKeys.has(audioKey)) return false;
+      this.hoverAudioPlayedKeys.add(audioKey);
+      pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
+      return true;
+    }
+    shouldSuppressAutoAudioForVideo() {
+      const settings = this.options.getSettings();
+      return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
+    }
+    renderEmptyIfConnected(popover, container) {
+      if (!isConnectedImmersionSurface(popover, container)) return;
+      this.renderEmpty(container);
+    }
+    async searchExamples(card, options = {}) {
+      const key = this.searchCacheKey(card, options);
+      const now = Date.now();
+      const cached = this.searchResultCache.get(key);
+      if (cached && cached.expiresAt > now) return cached.promise;
+      if (options.signal) {
+        return this.fetchExamples(card, options).then((result) => {
+          if (!options.signal?.aborted) this.rememberSearchResult(key, result);
+          return result;
+        });
+      }
+      const promise = this.fetchExamples(card, options).catch((error) => {
+        if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
+        throw error;
+      });
+      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
+      return promise;
+    }
+    rememberSearchResult(key, result) {
+      const now = Date.now();
+      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
+      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
+    }
+    stopAudio() {
+      this.options.audio.stop();
+    }
+    async fetchExamples(card, options) {
+      const exactQuery = normalizeImmersionSearchQuery(card.spelling);
+      const triedQueries = [];
+      const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
+      if (exactResult) return exactResult;
+      const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
+      const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
+      if (fallbackResult) return fallbackResult;
+      return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
+    }
+    fetchFirstFallbackExamples(queries, exactQuery, triedQueries, signal) {
+      if (!queries.length) return Promise.resolve(null);
+      const concurrency = Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY, queries.length);
+      let nextIndex = 0;
+      let active = 0;
+      let settled = false;
+      return new Promise((resolve, reject) => {
+        const cleanupAbortListener = () => {
+          signal?.removeEventListener("abort", handleAbort);
+        };
+        const fail = (error) => {
+          if (settled) return;
+          settled = true;
+          cleanupAbortListener();
+          reject(error);
+        };
+        const finish = (result) => {
+          if (settled) return;
+          settled = true;
+          cleanupAbortListener();
+          resolve(result);
+        };
+        const handleAbort = () => fail(abortErrorForRace());
+        if (signal?.aborted) {
+          handleAbort();
+          return;
+        }
+        signal?.addEventListener("abort", handleAbort, { once: true });
+        const launch = () => {
+          if (signal?.aborted) {
+            handleAbort();
+            return;
+          }
+          while (!settled && active < concurrency && nextIndex < queries.length) {
+            const query = queries[nextIndex++];
+            active++;
+            void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result) => {
+              active--;
+              if (result) {
+                finish(result);
+                return;
+              }
+              if (nextIndex >= queries.length && active === 0) finish(null);
+              else launch();
+            }).catch((error) => {
+              active--;
+              if (signal?.aborted) {
+                handleAbort();
+                return;
+              }
+              if (isAbortError(error)) {
+                fail(error);
+                return;
+              }
+              if (nextIndex >= queries.length && active === 0) finish(null);
+              else launch();
+            });
+          }
+        };
+        launch();
+      });
+    }
+    async immersionFallbackSearchQueries(card, options, exactQuery) {
+      const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
+      const fallbackQueries = await this.fallbackQueries(card, exactQuery);
+      return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries]).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+    async fetchExamplesForQuery(query, exactQuery, triedQueries, signal) {
+      if (!query) return null;
+      if (signal?.aborted) throw abortErrorForRace();
+      triedQueries.push(query);
+      try {
+        const settings = this.options.getSettings();
+        const searchOptions = this.popupSearchOptions(settings, signal);
+        const examples = await this.options.client.search(query, settings, searchOptions);
+        return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
+      } catch (error) {
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        return null;
+      }
+    }
+    popupSearchOptions(settings, signal) {
+      const resultLimit = settings.immersionKitLimitEnabled ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT) : IMMERSION_POPUP_EXAMPLE_LIMIT;
+      return {
+        requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
+        resultLimit,
+        fastFirst: true,
+        ...signal ? { signal } : {}
+      };
+    }
+    searchCacheKey(card, options) {
+      const settings = this.options.getSettings();
+      return JSON.stringify({
+        spelling: card.spelling,
+        reading: card.reading,
+        enabled: settings.immersionKitEnabled,
+        source: settings.immersionKitExampleSource,
+        nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
+        limit: settings.immersionKitLimit,
+        limitEnabled: settings.immersionKitLimitEnabled,
+        min: settings.immersionKitMinLength,
+        max: settings.immersionKitMaxLength,
+        category: settings.immersionKitCategory,
+        sort: settings.immersionKitSort,
+        exact: settings.immersionKitExactMatch,
+        parse: this.options.canParseJapanese(),
+        relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
+      });
+    }
+    async fallbackQueries(card, exactQuery) {
+      const candidates = [];
+      addImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : "", exactQuery);
+      await this.addParsedFallbackQueries(candidates, card, exactQuery);
+      addImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
+      return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+    async addParsedFallbackQueries(candidates, card, exactQuery) {
+      if (!this.options.canParseJapanese()) return;
+      const tokens = await this.fallbackParseTokens(card);
+      addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
+    }
+    async fallbackParseTokens(card) {
+      const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).catch(() => {
+        return [[]];
+      });
+      return tokens ?? [];
+    }
+    renderEmpty(container) {
+      container.removeAttribute("open");
+      container.dataset.immersionEmpty = "true";
+      container.hidden = true;
+      setInnerHtml(container, "");
+      this.options.repositionPopover();
+    }
+    startIndex(card, examples) {
+      const context = this.miningContextForStartIndex(card);
+      if (!context || context.sourceKind !== "immersion-kit") return 0;
+      const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
+      if (sentenceIndex >= 0) return sentenceIndex;
+      return validImmersionExampleIndex(Number(context.immersionIndex), examples.length);
+    }
+    miningContextForStartIndex(card) {
+      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+    }
+    renderExample(container, card, examples, index, playAudio, searchQuery, isCurrent = () => true, promoteMiningContext = false) {
+      const example = examples[index];
+      const settings = this.options.getSettings();
+      const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
+      const audioUrls = this.mediaUrls(example, "sound");
+      const hasAudio = audioUrls.length > 0;
+      const imageUrl = imageUrls[0] ?? "";
+      const contextImageUrl = immersionMiningImageUrl(imageUrls);
+      const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
+      this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
+      delete container.dataset.immersionEmpty;
+      container.hidden = false;
+      const scrollFrame = capturePopoverScrollFrame(container);
+      setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
+      this.loadRenderedExampleImages(container, imageUrls, isCurrent);
+      this.options.repositionPopover();
+      restorePopoverScrollFrameSoon(scrollFrame);
+      if (playAudio) void this.playExampleAudio(example, true);
+      if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
+      else this.parseRenderedExampleSentence(container, card, example, isCurrent);
+    }
+    rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
+      const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
+      if (storedContext) {
+        this.contextByCardKey.set(cardKey(card), storedContext);
+        pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
+        this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
+      }
+    }
+    promoteExampleMiningContext(card, storedContext, promoteMiningContext) {
+      if (shouldPromoteExampleMiningContext(this.activeMiningContext, card, promoteMiningContext)) this.activeMiningContext = storedContext;
+    }
+    renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
+      const language = settings.interfaceLanguage;
+      const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
+      const translation = renderExampleTranslation(example.translation, settings);
+      const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
+      const sentence = renderExampleSentenceHtml(sentenceHtml, Boolean(imageUrl));
+      const image = renderExampleImageHtml(container, imageUrl, sentence);
+      return `
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(immersionExampleProviderLabel(example, language))}</span>
+            </summary>
+            <div class="jpdb-reader-example-toolbar">
+                <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
+                    <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
+                    <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
+                </div>
+                ${renderImmersionExampleActionsHtml(hasAudio, language)}
+            </div>
+            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
+                <div class="jpdb-reader-example-body">
+                    ${image}
+                    ${image ? "" : sentence}
+                    ${translation}
+                </div>
+            </div>
+        `;
+    }
+    renderExampleSentenceContent(sentence, card, settings) {
+      const tokens = this.cachedParsedExampleSentenceTokens(sentence);
+      return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
+    }
+    loadRenderedExampleImages(container, imageUrls, isCurrent) {
+      container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
+        let imageCandidateIndex = 0;
+        let imageRequestId = 0;
+        const holdUntilReady = imageElement.dataset.immersionHoldUntilReady === "true";
+        let pendingImage = null;
+        const showImageCandidate = (sourceUrl, displayUrl) => {
+          imageElement.dataset.immersionImageSrc = sourceUrl;
+          imageElement.src = displayUrl;
+          imageElement.removeAttribute("data-immersion-hold-until-ready");
+        };
+        const loadNextImageCandidate = () => {
+          if (!isCurrent() || !imageElement.isConnected) return;
+          const fallbackUrl = imageUrls[imageCandidateIndex++];
+          if (!fallbackUrl) {
+            if (imageElement.complete && imageElement.naturalWidth > 0) return;
+            this.hideBrokenExampleImage(container, imageElement);
+            return;
+          }
+          const currentSrc = imageElement.currentSrc || imageElement.src;
+          const requestId = ++imageRequestId;
+          const settings = this.options.getSettings();
+          this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).then((displayUrl) => {
+            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+            if (!holdUntilReady || currentSrc === displayUrl) {
+              showImageCandidate(fallbackUrl, displayUrl);
+              return;
+            }
+            const preload = new Image();
+            pendingImage = preload;
+            preload.decoding = "async";
+            preload.onload = () => {
+              if (pendingImage !== preload || requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+              pendingImage = null;
+              showImageCandidate(fallbackUrl, displayUrl);
+              this.options.repositionPopover();
+            };
+            preload.onerror = () => {
+              if (pendingImage !== preload || requestId !== imageRequestId) return;
+              pendingImage = null;
+              loadNextImageCandidate();
+            };
+            preload.src = displayUrl;
+          }).catch(() => {
+            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+            showImageCandidate(fallbackUrl, fallbackUrl);
+          });
+        };
+        imageElement.addEventListener("error", loadNextImageCandidate);
+        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
+        imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
+        if (!imageElement.dataset.immersionImageSrc) {
+          this.hideBrokenExampleImage(container, imageElement);
+          return;
+        }
+        loadNextImageCandidate();
+      });
+    }
+    hideBrokenExampleImage(container, imageElement) {
+      if (!imageElement.isConnected) return;
+      const media = imageElement.closest(".jpdb-reader-example-media");
+      const sentence = media?.querySelector(".jpdb-reader-example-sentence");
+      if (sentence) {
+        sentence.classList.remove("jpdb-subtitle-primary");
+        sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element2) => {
+          element2.classList.remove("jpdb-subtitle-primary");
+        });
+        media?.after(sentence);
+      }
+      media?.remove();
+      if (imageElement.isConnected) imageElement.remove();
+      container.querySelector(".jpdb-reader-example-card")?.classList.remove("has-image");
+      this.options.repositionPopover();
+    }
+    parseRenderedExampleSentence(container, card, example, isCurrent) {
+      void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
+        if (!isCurrent() || !container.isConnected) return;
+        this.applyParsedExampleSentence(container, card, example, tokens);
+      }).catch(() => void 0);
+    }
+    applyParsedExampleSentence(container, card, example, tokens, options = {}) {
+      const sentence = container.querySelector("[data-immersion-sentence-render]");
+      if (!sentence) return;
+      const lookupTokens = exampleSentenceLookupTokens(tokens, card);
+      if (options.updateHtml !== false) {
+        setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
+      }
+      this.highlightTarget(sentence, card);
+      void this.options.enrichPitchWords(lookupTokens);
+      void this.options.enrichAnkiWords(lookupTokens, [container]);
+      this.options.repositionPopover();
+    }
+    parsedExampleSentenceTokens(sentence) {
+      const key = sentence.trim();
+      if (!key) return Promise.resolve([]);
+      return loadCachedParsedTokens(
+        this.parsedSentenceCache,
+        key,
+        IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
+        () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions()).then(([tokens]) => {
+          return tokens ?? [];
+        }),
+        shouldCacheParsedExampleSentenceTokens
+      );
+    }
+    exampleSentenceParseOptions() {
+      const settings = this.options.getSettings();
+      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
+    }
+    cachedParsedExampleSentenceTokens(sentence) {
+      return this.parsedSentenceCache.get(sentence.trim())?.tokens;
+    }
+    highlightTarget(sentence, card) {
+      highlightCardTargetWords(sentence, card);
+    }
+    toggleTranslationBlur(container) {
+      const settings = this.options.getSettings();
+      const shouldBlur = !settings.immersionKitRevealTranslationOnClick;
+      this.options.setImmersionTranslationBlurred(shouldBlur);
+      container.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
+        setTranslationBlurAttributes(translation, shouldBlur, "immersionTranslationBlurred", settings.interfaceLanguage);
+      });
+      this.options.repositionPopover();
+    }
+    async playExampleAudio(example, quiet = false, isCurrent = () => true) {
+      const settings = this.options.getSettings();
+      if (!settings.audioEnabled) {
+        if (!quiet) this.options.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabled"));
+        return;
+      }
+      const source = this.exampleAudioSource(example, quiet);
+      if (!source) return;
+      try {
+        const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
+        if (!isCurrent()) return;
+        await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
+          playbackRate: settings.immersionKitPlaybackRate,
+          isCurrent
+        });
+      } catch (error) {
+        this.handleExampleAudioError(example, quiet, error);
+      }
+    }
+    handleExampleAudioError(example, quiet, error) {
+      log$t.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
+    }
+    exampleAudioSource(example, quiet) {
+      const urls = this.mediaUrls(example, "sound");
+      const key = urls[0] ?? "";
+      if (key) return { urls, key };
+      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
+      return null;
+    }
+    mediaUrls(example, kind) {
+      const client = this.options.client;
+      return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
+    }
+  }
+  function immersionExampleSourceLabel(card, example, searchQuery, language) {
+    const sourceTitle = localizedImmersionSourceTitle(example.sourceTitle, language);
+    return queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${sourceTitle}` : sourceTitle;
+  }
+  function immersionExampleProviderLabel(example, language) {
+    return localizedImmersionProviderLabel(example, language);
+  }
+  function accurateImmersionExamples(query, examples) {
+    return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
+  }
+  function immersionSearchResultForQuery(query, exactQuery, triedQueries, examples) {
+    const accurateExamples = accurateImmersionExamples(query, examples);
+    if (!accurateExamples.length) return null;
+    return {
+      examples: accurateExamples,
+      query,
+      usedFallback: queryKey(query) !== queryKey(exactQuery),
+      triedQueries
+    };
+  }
+  function immersionMiningImageUrl(imageUrls) {
+    return imageUrls.find((url) => /\/download_media\?/u.test(url)) ?? imageUrls[0] ?? "";
+  }
+  function isPageMiningSentence(sentence, card) {
+    return Boolean(sentence && sentence !== card.spelling);
+  }
+  function shouldPromoteExampleMiningContext(activeContext, card, promoteMiningContext) {
+    return promoteMiningContext || !activeContext || activeContext.term !== card.spelling;
+  }
+  function pageMiningSourceKind(anchor) {
+    return inferMiningSourceKind({
+      isImageSource: Boolean(anchor?.closest(".jpdb-ocr-line")),
+      hasVideo: Boolean(anchor?.closest(".jpdb-subtitle-player, .jpdb-subtitle-list")) || Boolean(document.querySelector("video")),
+      hostname: location.hostname
+    });
+  }
+  function isConnectedImmersionSurface(popover, container) {
+    return popover.isConnected && container.isConnected;
+  }
+  function clearImmersionLoadingState(container) {
+    if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
+  }
+  function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
+    if (signal.aborted) return Promise.reject(abortErrorForRace());
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        cleanup();
+        reject(abortErrorForRace());
+      };
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Immersion Kit examples timed out."));
+      }, Math.max(1e3, timeoutMs));
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        signal.removeEventListener("abort", onAbort);
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      promise.then((value) => {
+        cleanup();
+        resolve(value);
+      }, (error) => {
+        cleanup();
+        reject(error);
+      });
+    });
+  }
+  function abortErrorForRace() {
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
+  function addImmersionFallbackQuery(candidates, value, exactQuery) {
+    const query = normalizeImmersionSearchQuery(value);
+    if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
+  }
+  function addImmersionFallbackQueries(candidates, values, exactQuery) {
+    for (const value of values) addImmersionFallbackQuery(candidates, value, exactQuery);
+  }
+  function fallbackTokenQueries(card, tokens) {
+    return sortedFallbackTokenCandidates(card, tokens).flatMap((item) => [
+      item.token.card.spelling,
+      item.surface,
+      item.token.card.reading !== item.token.card.spelling ? item.token.card.reading : ""
+    ].filter(Boolean));
+  }
+  function sortedFallbackTokenCandidates(card, tokens) {
+    return tokens.map((token) => ({
+      token,
+      surface: card.spelling.slice(token.start, token.end),
+      length: queryLength(token.card.spelling)
+    })).sort(compareFallbackTokenCandidates);
+  }
+  function compareFallbackTokenCandidates(a, b) {
+    return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
+  }
+  function renderExampleImageHtml(container, imageUrl, overlay = "") {
+    if (!imageUrl) return "";
+    const heldImage = heldExampleImage(container);
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
+  }
+  function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
+    const classes2 = [
+      "jpdb-reader-example-sentence",
+      "jpdb-reader-parseable",
+      "jpdb-reader-subtitle-surface"
+    ].filter(Boolean).join(" ");
+    if (primarySubtitle) {
+      return `<div class="${classes2}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
+    }
+    return `<div class="${classes2}" data-immersion-sentence-render>${sentenceHtml}</div>`;
+  }
+  function shouldCacheParsedExampleSentenceTokens(tokens) {
+    return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
+  }
+  function heldExampleMediaStyle(image) {
+    return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : "";
+  }
+  function heldExampleImageAttributes(image) {
+    return `${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`;
+  }
+  function heldExampleHoldAttribute(image) {
+    return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
+  }
+  function heldExampleSourceAttribute(image) {
+    return image.src ? ` src="${escapeHtml$1(image.src)}"` : "";
+  }
+  function heldExampleImage(container) {
+    const currentImage = container.querySelector("[data-immersion-image]");
+    const src = heldExampleImageSource(currentImage);
+    const holdUntilReady = Boolean(src && currentImage?.isConnected);
+    return {
+      src: holdUntilReady ? src : "",
+      minHeight: holdUntilReady ? heldExampleImageHeight(currentImage) : 0,
+      holdUntilReady
+    };
+  }
+  function heldExampleImageSource(image) {
+    return image?.currentSrc || image?.src || "";
+  }
+  function heldExampleImageHeight(image) {
+    const media = image?.closest(".jpdb-reader-example-media") ?? null;
+    return Math.ceil(media?.getBoundingClientRect().height || image?.getBoundingClientRect().height || 0);
+  }
+  function hoverAudioExampleKey(example) {
+    if (!example) return "";
+    return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+  }
+  function isHoverAudioPointerSuppressed(pointerType) {
+    if (pointerType === "touch") return true;
+    return pointerType !== "mouse" && (window.matchMedia?.("(hover: none)").matches ?? false);
+  }
+  function immersionLazyLoadRoot(popover, target) {
+    const body = popover.querySelector(".jpdb-reader-popover-body");
+    if (body?.contains(target)) return body;
+    return popover.contains(target) ? popover : null;
+  }
+  function isImmersionNearVisibleArea(popover, container) {
+    const root = immersionLazyLoadRoot(popover, container);
+    const containerRect = container.getBoundingClientRect();
+    const rootRect = root?.getBoundingClientRect();
+    if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
+    const visibleTop = Math.max(0, rootRect.top);
+    const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
+    return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
+  }
+  function hasUsableRect(rect) {
+    return rect.width > 0 || rect.height > 0;
+  }
+  function pruneImmersionSearchCache(cache2, now, limit) {
+    for (const [key, value] of cache2) {
+      if (value.expiresAt <= now) cache2.delete(key);
+    }
+    pruneOldestCacheEntries(cache2, limit);
+  }
+  function renderExampleTranslation(translation, settings) {
+    if (!settings.immersionKitShowTranslation || !translation) return "";
+    const escaped = escapeHtml$1(translation);
+    if (!settings.immersionKitRevealTranslationOnClick) {
+      return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
+    }
+    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
+  }
+  function setTranslationBlurAttributes(element2, blurred, key, language) {
+    if (blurred) {
+      element2.dataset[key] = "true";
+      element2.setAttribute("role", "button");
+      element2.setAttribute("tabindex", "0");
+      element2.setAttribute("aria-label", uiText(language, "revealTranslation"));
+      return;
+    }
+    delete element2.dataset[key];
+    element2.removeAttribute("tabindex");
+    element2.removeAttribute("role");
+    element2.removeAttribute("aria-label");
+  }
   function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
     if (!info) return "";
     const facts = [
@@ -28014,7 +32757,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         </details>
     `;
   }
-  const log$w = Logger.scope("KanjiDoodle");
+  const log$s = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -28037,11 +32780,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$w.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$s.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$w.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$s.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -28675,7 +33418,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
-  const log$v = Logger.scope("RTK");
+  const log$r = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -28692,7 +33435,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$v.warn("RTK request failed", { kanji }, error);
+        log$r.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -28892,13 +33635,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       failureLabel: "RTK request",
       timeoutLabel: "RTK request timed out."
     });
-  }
-  function pruneOldestCacheEntries(cache2, limit) {
-    while (cache2.size > limit) {
-      const oldest = cache2.keys().next();
-      if (oldest.done) break;
-      cache2.delete(oldest.value);
-    }
   }
   function renderStudyBlock(className, content, attrs = "") {
     return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
@@ -29374,7 +34110,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const uuid = globalThis.crypto?.randomUUID?.();
     return uuid ? `grammar-known:${uuid}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   }
-  const log$u = Logger.scope("StudyTools");
+  const log$q = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
@@ -29384,7 +34120,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15e3;
   const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
   const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
-  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function gp(ruleId, level, name, source, url = "", confidence = "medium", priority = 30) {
     return { ruleId, level, pattern: new RegExp(source, "gu"), name, url, confidence, priority };
   }
@@ -29536,17 +34272,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$u.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
-        const json = await requestJson$2(url);
+        const json = await requestJson$1(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$u.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$u.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$q.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -29678,7 +34414,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function grammarDisplayName(hint, language) {
     if (language !== "ja" || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
-    if (JAPANESE_TEXT_RE$1.test(hint.match)) return hint.match;
+    if (JAPANESE_TEXT_RE.test(hint.match)) return hint.match;
     return japaneseGrammarText(hint.name) || hint.name;
   }
   function japaneseGrammarText(value) {
@@ -29839,7 +34575,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return afterLastParticle || match;
   }
   async function loadGrammarRuleData() {
-    grammarRuleDataPromise ??= requestJson$2(EN_GRAMMAR_RULE_DATA_URL, {
+    grammarRuleDataPromise ??= requestJson$1(EN_GRAMMAR_RULE_DATA_URL, {
       timeoutMs: GRAMMAR_RULE_DATA_TIMEOUT_MS,
       failureLabel: "English grammar rule data request",
       timeoutLabel: "Grammar rule data timed out."
@@ -29892,7 +34628,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isObjectRecord$1(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
-  function requestJson$2(url, options = {}) {
+  function requestJson$1(url, options = {}) {
     return requestJson$3(url, {
       timeoutMs: options.timeoutMs ?? TRANSLATION_TIMEOUT_MS$1,
       allowDirectCrossOrigin: true,
@@ -29903,879 +34639,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  function createHandleDragController(options) {
-    let state2 = initialDragState();
-    let pointerId = 0;
-    let touchId = 0;
-    let dragging = false;
-    let moved = false;
-    let activeInput = null;
-    let activeHandle = null;
-    let activeCaptureTarget = null;
-    const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
-    const setLastPoint = (point) => {
-      state2 = {
-        ...state2,
-        lastX: point.x,
-        lastY: point.y,
-        deltaX: point.x - state2.startX,
-        deltaY: point.y - state2.startY
-      };
-    };
-    const updateDrag = (point) => {
-      if (!activeHandle) return;
-      setLastPoint(point);
-      if (movementDistance(state2) > options.tapMovementPx) moved = true;
-      options.onUpdate?.(state2, activeHandle);
-    };
-    const beginDrag = (handle, point, input2) => {
-      if (dragging || activeInput) return false;
-      state2 = {
-        startX: point.x,
-        startY: point.y,
-        lastX: point.x,
-        lastY: point.y,
-        deltaX: 0,
-        deltaY: 0
-      };
-      dragging = true;
-      moved = false;
-      activeInput = input2;
-      activeHandle = handle;
-      options.onBegin?.(handle, state2, input2);
-      return true;
-    };
-    const finishDrag = () => {
-      if (!dragging) return;
-      const wasMoved = moved;
-      const handle = activeHandle;
-      const captureTarget = activeCaptureTarget;
-      dragging = false;
-      moved = false;
-      activeInput = null;
-      activeHandle = null;
-      activeCaptureTarget = null;
-      cleanupListeners();
-      releasePointerCapture(captureTarget, pointerId);
-      options.onFinish(state2, wasMoved, handle);
-    };
-    function cleanupListeners() {
-      if (typeof document === "undefined") return;
-      document.removeEventListener("pointermove", handlePointerMove, true);
-      document.removeEventListener("pointerup", handlePointerUp, true);
-      document.removeEventListener("pointercancel", handlePointerCancel, true);
-      document.removeEventListener("touchmove", handleTouchMove, true);
-      document.removeEventListener("touchend", handleTouchEnd, true);
-      document.removeEventListener("touchcancel", handleTouchCancel, true);
-    }
-    function cancel() {
-      if (!dragging) return;
-      const handle = activeHandle;
-      const captureTarget = activeCaptureTarget;
-      dragging = false;
-      moved = false;
-      activeInput = null;
-      activeHandle = null;
-      activeCaptureTarget = null;
-      cleanupListeners();
-      releasePointerCapture(captureTarget, pointerId);
-      options.onCancel?.(state2, handle);
-    }
-    function handlePointerMove(event) {
-      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-      consumeDragEvent(event);
-      updateDrag({ x: event.clientX, y: event.clientY });
-    }
-    function handlePointerUp(event) {
-      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-      consumeDragEvent(event);
-      if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
-      else setLastPoint({ x: event.clientX, y: event.clientY });
-      finishDrag();
-    }
-    function handlePointerCancel(event) {
-      if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
-      cancel();
-    }
-    function handleTouchMove(event) {
-      if (!dragging || activeInput !== "touch") return;
-      const touch = changedTouch(event, touchId);
-      if (!touch) return;
-      consumeDragEvent(event);
-      updateDrag({ x: touch.clientX, y: touch.clientY });
-    }
-    function handleTouchEnd(event) {
-      if (!dragging || activeInput !== "touch") return;
-      const touch = changedTouch(event, touchId);
-      if (!touch) return;
-      consumeDragEvent(event);
-      if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
-      else setLastPoint({ x: touch.clientX, y: touch.clientY });
-      finishDrag();
-    }
-    function handleTouchCancel(event) {
-      if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
-      cancel();
-    }
-    return {
-      isDragging: () => dragging,
-      pointerDown(handle, event) {
-        if (activeInput) return;
-        if (event.button !== void 0 && event.button !== 0) return;
-        consumeDragEvent(event);
-        if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
-        pointerId = event.pointerId;
-        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
-        setPointerCapture(activeCaptureTarget, event.pointerId);
-        document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-        document.addEventListener("pointerup", handlePointerUp, true);
-        document.addEventListener("pointercancel", handlePointerCancel, true);
-      },
-      touchStart(handle, event) {
-        if (activeInput) return;
-        const touch = firstChangedTouch(event);
-        if (!touch) return;
-        consumeDragEvent(event);
-        if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
-        touchId = touch.identifier;
-        document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
-        document.addEventListener("touchend", handleTouchEnd, true);
-        document.addEventListener("touchcancel", handleTouchCancel, true);
-      },
-      cancel,
-      cleanupListeners
-    };
-  }
-  function initialDragState() {
-    return {
-      startX: 0,
-      startY: 0,
-      lastX: 0,
-      lastY: 0,
-      deltaX: 0,
-      deltaY: 0
-    };
-  }
-  function getContainedClosest(target, root, selector, onFound) {
-    if (!(target instanceof Element)) return null;
-    const element2 = target.closest(selector);
-    if (!element2 || !root.contains(element2)) return null;
-    onFound?.(element2);
-    return element2;
-  }
-  function consumeDragEvent(event) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-  function changedTouch(event, touchId) {
-    for (const touch of Array.from(event.changedTouches)) {
-      if (touch.identifier === touchId) return touch;
-    }
-    return null;
-  }
-  function firstChangedTouch(event) {
-    return event.changedTouches.item(0);
-  }
-  function releasePointerCapture(handle, id) {
-    try {
-      handle?.releasePointerCapture?.(id);
-    } catch {
-    }
-  }
-  function setPointerCapture(handle, id) {
-    try {
-      handle.setPointerCapture?.(id);
-    } catch {
-    }
-  }
-  function addViewportChangeListeners(listener, signal) {
-    const options = { passive: true, signal };
-    window.addEventListener("resize", listener, options);
-    window.addEventListener("orientationchange", listener, options);
-    window.visualViewport?.addEventListener?.("resize", listener, options);
-    window.visualViewport?.addEventListener?.("scroll", listener, options);
-  }
-  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
-  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
-  const MIN_SHEET_HEIGHT_PX = 180;
-  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
-  const SHEET_DISMISS_OVERSHOOT_PX = 72;
-  const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
-  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SHEET_TAP_MOVEMENT_PX = 8;
-  const SHEET_KEYBOARD_STEP_PX = 48;
-  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
-  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
-  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-  const POPOVER_BODY_ACTION_SELECTOR = [
-    "button",
-    '[role="button"]',
-    "input",
-    "select",
-    "textarea",
-    "[data-action]",
-    "[data-immersion-action]",
-    "[data-yomu-immersion-action]",
-    "[data-uchisen-action]"
-  ].join(",");
-  function popoverScrollBody$1(popover) {
-    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-  }
-  function capturePopoverScrollFrame(target) {
-    const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-    return { scrollBody, scrollTop: scrollBody.scrollTop };
-  }
-  function restorePopoverScrollFrame(frame) {
-    if (!frame.scrollBody.isConnected) return;
-    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-  }
-  function restorePopoverScrollFrameSoon(frame) {
-    restorePopoverScrollFrame(frame);
-    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-  }
-  function popoverBodyActionElement(target, scrollBody) {
-    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-    return action && scrollBody.contains(action) ? action : null;
-  }
-  function createReaderPopover(appName, settings, trigger = "modal") {
-    const popover = document.createElement("div");
-    popover.className = "jpdb-reader-popover";
-    popover.dataset.jpdbReaderRoot = "true";
-    popover.setAttribute("role", "dialog");
-    popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
-    popover.setAttribute("aria-modal", "true");
-    popover.tabIndex = -1;
-    if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
-    else popover.style.width = `${settings.popoverWidth}px`;
-    return popover;
-  }
-  function forceReaderPopoverSurface(popover, settings) {
-    popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
-    refreshForcedReaderPopoverSurface(popover, settings);
-  }
-  function refreshForcedReaderPopoverSurface(popover, settings) {
-    if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
-    popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
-    popover.style.width = `${settings.popoverWidth}px`;
-    popover.style.height = "";
-    popover.style.minHeight = "";
-    popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element2) => element2.remove());
-  }
-  function createReaderBackdrop(onDismiss) {
-    const backdrop = document.createElement("div");
-    backdrop.className = "jpdb-reader-backdrop";
-    backdrop.dataset.jpdbReaderRoot = "true";
-    backdrop.addEventListener("mousedown", (event) => event.preventDefault());
-    backdrop.addEventListener("click", onDismiss);
-    return backdrop;
-  }
-  function popoverMaxHeightSetting(settings) {
-    return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
-  }
-  function suppressTrailingClickAfterSheetGestureDismiss() {
-    if (typeof window === "undefined") return;
-    let timer = 0;
-    const cleanup = () => {
-      if (timer) window.clearTimeout(timer);
-      window.removeEventListener("click", consume, true);
-    };
-    const consume = (event) => {
-      cleanup();
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    };
-    window.addEventListener("click", consume, { capture: true });
-    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
-  }
-  function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
-    if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
-    popover.dataset.jpdbReaderSheetHandleInstalled = "true";
-    let viewportHeight = 0;
-    let sheetHeight = 0;
-    let startHeight = 0;
-    let rawDragHeight = 0;
-    let dragPageScale = 1;
-    const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
-    const syncHandle = (handle) => {
-      handle.setAttribute("role", "button");
-      handle.setAttribute("tabindex", "0");
-      handle.setAttribute("aria-label", label);
-      handle.setAttribute("aria-expanded", String(isFullHeight()));
-      handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
-      handle.setAttribute("aria-valuemax", String(viewportHeight));
-      handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
-    };
-    const syncHandleState = () => {
-      popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
-    };
-    const applySheetHeight = (height, persist = false) => {
-      const nextHeight = clampSheetHeight(height, viewportHeight);
-      sheetHeight = nextHeight;
-      popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
-      popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
-      syncHandleState();
-      if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
-    };
-    const applyViewportSize = () => {
-      applyRedditOverlayScale(popover);
-      const previousViewportHeight = viewportHeight;
-      const overlayViewport = redditOverlayViewport();
-      viewportHeight = fixedChromeViewportHeight();
-      const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
-      popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
-      popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
-      popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
-      popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
-      const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
-      applySheetHeight(viewportHeight * ratio);
-    };
-    const clearSheetPositionStyles = () => {
-      popover.style.removeProperty("left");
-      popover.style.removeProperty("right");
-      popover.style.removeProperty("top");
-      popover.style.removeProperty("bottom");
-      popover.style.removeProperty("width");
-      popover.style.removeProperty("height");
-      popover.style.removeProperty("max-width");
-      popover.style.removeProperty("max-height");
-    };
-    const clearDragStyles = () => {
-      popover.style.transform = "";
-      popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
-      popover.classList.remove("jpdb-reader-sheet-resizing");
-    };
-    const resetSheetLayout = () => {
-      clearSheetPositionStyles();
-      applyViewportSize();
-      clearDragStyles();
-    };
-    resetSheetLayout();
-    syncHandleState();
-    let handleObserver;
-    if (typeof MutationObserver !== "undefined") {
-      handleObserver = new MutationObserver(syncHandleState);
-      handleObserver.observe(popover, { childList: true, subtree: true });
-    }
-    let suppressNextHandleClick = false;
-    const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
-    const reset = () => {
-      popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
-      clearDragStyles();
-      window.setTimeout(() => {
-        popover.style.transition = "";
-      }, 180);
-    };
-    const dismissFromGesture = () => {
-      suppressTrailingClickAfterSheetGestureDismiss();
-      onDismiss();
-    };
-    const sheetDrag = createHandleDragController({
-      tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
-      onBegin: () => {
-        dragPageScale = redditOverlayViewport().pageScale;
-        startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
-        rawDragHeight = startHeight;
-        popover.style.transition = "";
-        popover.classList.add("jpdb-reader-sheet-resizing");
-      },
-      onUpdate: (state2) => {
-        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
-        applySheetHeight(rawDragHeight);
-      },
-      onFinish: (_state, wasMoved) => {
-        const finishHeight = rawDragHeight;
-        popover.classList.remove("jpdb-reader-sheet-resizing");
-        if (!wasMoved) {
-          suppressNextHandleClick = true;
-          dismissFromGesture();
-          return;
-        }
-        suppressNextHandleClick = true;
-        if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-          dismissFromGesture();
-          return;
-        }
-        applySheetHeight(finishHeight, true);
-        reset();
-      },
-      onCancel: reset
-    });
-    const handleViewportChange = () => {
-      if (sheetDrag.isDragging()) sheetDrag.cancel();
-      popover.style.transition = "";
-      resetSheetLayout();
-      syncHandleState();
-    };
-    const viewportController = new AbortController();
-    let disposed = false;
-    let disposeObserver;
-    const dispose = () => {
-      if (disposed) return;
-      disposed = true;
-      sheetDrag.cleanupListeners();
-      viewportController.abort();
-      handleObserver?.disconnect();
-      disposeObserver?.disconnect();
-    };
-    disposeObserver = new MutationObserver(() => {
-      if (!popover.isConnected) dispose();
-    });
-    if (document.documentElement) {
-      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-    }
-    popover.addEventListener("click", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (suppressNextHandleClick) {
-        suppressNextHandleClick = false;
-        return;
-      }
-      onDismiss();
-    });
-    popover.addEventListener("pointerdown", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      sheetDrag.pointerDown(handle, event);
-    });
-    popover.addEventListener("touchstart", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      sheetDrag.touchStart(handle, event);
-    }, { capture: true, passive: false });
-    popover.addEventListener("keydown", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        event.stopPropagation();
-        onDismiss();
-      }
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        event.stopPropagation();
-        applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
-        reset();
-      }
-      if (event.key === "Escape") onDismiss();
-    });
-    addViewportChangeListeners(handleViewportChange, viewportController.signal);
-  }
-  function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
-    if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
-    popover.dataset.jpdbReaderSheetCloseInstalled = "true";
-    const close = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onDismiss();
-    };
-    const createButton = () => {
-      const button2 = document.createElement("button");
-      button2.type = "button";
-      button2.className = "jpdb-reader-sheet-close";
-      button2.dataset.jpdbReaderSheetClose = "true";
-      button2.setAttribute("aria-label", label);
-      button2.title = label;
-      setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
-      button2.addEventListener("click", close);
-      return button2;
-    };
-    const ensureButton = () => {
-      if (!popover.isConnected) return;
-      if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
-      popover.append(createButton());
-    };
-    ensureButton();
-    let disposed = false;
-    let contentObserver;
-    let disposeObserver;
-    const dispose = () => {
-      if (disposed) return;
-      disposed = true;
-      contentObserver?.disconnect();
-      disposeObserver?.disconnect();
-    };
-    contentObserver = new MutationObserver(ensureButton);
-    contentObserver.observe(popover, { childList: true });
-    disposeObserver = new MutationObserver(() => {
-      if (!popover.isConnected) dispose();
-    });
-    if (document.documentElement) {
-      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-    }
-  }
-  function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
-    if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
-    drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
-    let viewportHeight = 0;
-    let drawerHeight = 0;
-    let startHeight = 0;
-    let rawDragHeight = 0;
-    let dragPageScale = 1;
-    let suppressNextHandleClick = false;
-    const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
-    const syncHandle = (handle) => {
-      handle.setAttribute("role", "separator");
-      handle.setAttribute("tabindex", "0");
-      handle.setAttribute("aria-label", label);
-      handle.setAttribute("aria-orientation", "horizontal");
-      handle.setAttribute("aria-valuemin", String(settingsDrawerMinHeight(viewportHeight)));
-      handle.setAttribute("aria-valuemax", String(viewportHeight));
-      handle.setAttribute("aria-valuenow", String(Math.round(drawerHeight)));
-    };
-    const syncHandleState = () => {
-      drawer.querySelectorAll(".jpdb-reader-settings-drag-handle").forEach(syncHandle);
-    };
-    const applyDrawerHeight = (height, persist = false) => {
-      const nextHeight = clampDrawerHeight(height, viewportHeight, settingsDrawerMinHeight(viewportHeight));
-      drawerHeight = nextHeight;
-      drawer.style.setProperty("--jpdb-reader-settings-drawer-height", `${Math.round(nextHeight)}px`);
-      drawer.classList.toggle("jpdb-reader-settings-drawer-expanded", isFullHeight());
-      syncHandleState();
-      if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
-    };
-    const applyViewportSize = () => {
-      applyRedditOverlayScale(drawer);
-      const previousViewportHeight = viewportHeight;
-      const { pageScale } = redditOverlayViewport();
-      const bottomInset = settingsDrawerBottomInset() * pageScale;
-      viewportHeight = fixedChromeViewportHeight();
-      drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
-      drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
-      drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
-      drawer.classList.toggle("jpdb-reader-settings-keyboard-open", bottomInset > 0);
-      const ratio = previousViewportHeight > 0 && drawerHeight > 0 ? drawerHeight / previousViewportHeight : readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO);
-      applyDrawerHeight(viewportHeight * ratio);
-    };
-    const clearDragStyles = () => {
-      drawer.classList.remove("jpdb-reader-settings-drawer-resizing");
-    };
-    const reset = () => {
-      drawer.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease";
-      clearDragStyles();
-      window.setTimeout(() => {
-        drawer.style.transition = "";
-      }, 180);
-    };
-    const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
-    const drawerDrag = createHandleDragController({
-      tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
-      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
-      onBegin: () => {
-        dragPageScale = redditOverlayViewport().pageScale;
-        startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
-        rawDragHeight = startHeight;
-        drawer.style.transition = "";
-        drawer.classList.add("jpdb-reader-settings-drawer-resizing");
-      },
-      onUpdate: (state2) => {
-        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
-        applyDrawerHeight(rawDragHeight);
-      },
-      onFinish: (_state, wasMoved) => {
-        const finishHeight = rawDragHeight;
-        if (wasMoved) {
-          suppressNextHandleClick = true;
-          applyDrawerHeight(finishHeight, true);
-        }
-        reset();
-      },
-      onCancel: reset
-    });
-    const handleViewportChange = () => {
-      if (drawerDrag.isDragging()) drawerDrag.cancel();
-      drawer.style.transition = "";
-      applyViewportSize();
-      clearDragStyles();
-      syncHandleState();
-    };
-    applyViewportSize();
-    syncHandleState();
-    const viewportController = new AbortController();
-    let disposed = false;
-    let disposeObserver;
-    const dispose = () => {
-      if (disposed) return;
-      disposed = true;
-      drawerDrag.cleanupListeners();
-      viewportController.abort();
-      disposeObserver?.disconnect();
-    };
-    disposeObserver = new MutationObserver(() => {
-      if (!drawer.isConnected) dispose();
-    });
-    if (document.documentElement) {
-      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-    }
-    drawer.addEventListener("click", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (suppressNextHandleClick) {
-        suppressNextHandleClick = false;
-        return;
-      }
-      onTap?.();
-    });
-    drawer.addEventListener("pointerdown", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      drawerDrag.pointerDown(handle, event);
-    });
-    drawer.addEventListener("touchstart", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      drawerDrag.touchStart(handle, event);
-    }, { capture: true, passive: false });
-    drawer.addEventListener("keydown", (event) => {
-      const handle = getHandleFromEvent(event.target);
-      if (!handle) return;
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        event.stopPropagation();
-        applyDrawerHeight(drawerHeight + (event.key === "ArrowUp" ? SETTINGS_DRAWER_KEYBOARD_STEP_PX : -SETTINGS_DRAWER_KEYBOARD_STEP_PX), true);
-        reset();
-      }
-    });
-    addViewportChangeListeners(handleViewportChange, viewportController.signal);
-  }
-  function installMiningDrawerHandle(root, setExpanded) {
-    if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
-    root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
-    let suppressNextHandleClick = false;
-    let cleanedUp = false;
-    const getHandleFromElement = (event) => {
-      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-      if (!target || !root.contains(target)) return null;
-      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
-      if (!handle) return null;
-      return handle;
-    };
-    const getHandleFromEventTarget = (event) => {
-      return event instanceof Element ? getHandleFromElement(event) : null;
-    };
-    const getHandleFromPoint = (x2, y) => {
-      if (typeof document.elementsFromPoint !== "function") return null;
-      for (const element2 of document.elementsFromPoint(x2, y)) {
-        const handle = getHandleFromElement(element2);
-        if (handle) return handle;
-      }
-      return null;
-    };
-    const getHandleFromPointerEvent = (event) => {
-      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-    };
-    const getHandleFromTouchEvent = (event) => {
-      const direct = getHandleFromEventTarget(event.target);
-      if (direct) return direct;
-      const touch = firstChangedTouch(event);
-      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
-    };
-    const isInteractiveGutterChild = (eventTarget) => {
-      if (!(eventTarget instanceof Element)) return false;
-      const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
-      return Boolean(
-        action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
-      );
-    };
-    const miningDrag = createHandleDragController({
-      tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
-      updateOnEnd: true,
-      onBegin: (handle) => {
-        handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
-      },
-      onFinish: (state2, wasMoved, handle) => {
-        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-        if (!wasMoved || !handle) return;
-        suppressNextHandleClick = true;
-        const expanded = miningDrawerDragExpandedState(handle, state2.deltaX, state2.deltaY);
-        if (expanded !== void 0) setExpanded(handle, expanded);
-      },
-      onCancel: (_state, handle) => {
-        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-      }
-    });
-    const cleanup = () => {
-      if (cleanedUp) return;
-      cleanedUp = true;
-      document.removeEventListener("click", handleClick, true);
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("touchstart", handleTouchStart, true);
-      miningDrag.cleanupListeners();
-    };
-    const rootIsConnected = () => {
-      if (root.isConnected) return true;
-      cleanup();
-      return false;
-    };
-    const toggleHandle = (handle) => {
-      setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
-    };
-    function handleClick(event) {
-      if (!rootIsConnected()) return;
-      if (isInteractiveGutterChild(event.target)) return;
-      const handle = getHandleFromPointerEvent(event);
-      if (!handle) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (suppressNextHandleClick) {
-        suppressNextHandleClick = false;
-        return;
-      }
-      toggleHandle(handle);
-    }
-    function handlePointerDown(event) {
-      if (!rootIsConnected()) return;
-      if (isInteractiveGutterChild(event.target)) return;
-      const handle = getHandleFromPointerEvent(event);
-      if (!handle) return;
-      miningDrag.pointerDown(handle, event);
-    }
-    function handleTouchStart(event) {
-      if (!rootIsConnected()) return;
-      if (isInteractiveGutterChild(event.target)) return;
-      const handle = getHandleFromTouchEvent(event);
-      if (!handle) return;
-      miningDrag.touchStart(handle, event);
-    }
-    document.addEventListener("click", handleClick, true);
-    document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
-    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
-  }
-  function eventHasPointTarget(event) {
-    return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
-  }
-  function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
-    const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
-    if (mode === "sheet") return true;
-    if (mode === "popover") return false;
-    const { width, height } = viewport;
-    const popoverWidth = Math.max(0, settings.popoverWidth || 0);
-    const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
-    if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
-    if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
-    return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
-  }
-  function lookupViewportSize() {
-    const overlayViewport = redditOverlayViewport();
-    if (overlayViewport.pageScale > 1) {
-      const bounds = redditOverlayViewportBounds();
-      return {
-        width: Math.max(0, Math.round(bounds.width)),
-        height: Math.max(0, Math.round(bounds.height)),
-        pageScale: overlayViewport.pageScale
-      };
-    }
-    const visual = window.visualViewport;
-    const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
-    const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
-    return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
-  }
-  function fixedChromeViewportHeight() {
-    const overlayViewport = redditOverlayViewport();
-    return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
-  }
-  function visualViewportHeight() {
-    return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
-  }
-  function settingsDrawerBottomInset() {
-    const visual = window.visualViewport;
-    if (!visual) return 0;
-    const layoutHeight = layoutViewportHeight();
-    if (layoutHeight <= 0) return 0;
-    return Math.max(0, Math.round(layoutHeight - visual.offsetTop - visual.height));
-  }
-  function layoutViewportHeight() {
-    return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
-  }
-  function sheetMinHeight(viewportHeight) {
-    if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
-    return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
-  }
-  function settingsDrawerMinHeight(viewportHeight) {
-    if (viewportHeight <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
-    return Math.min(viewportHeight, MIN_SETTINGS_DRAWER_HEIGHT_PX, Math.max(220, Math.round(viewportHeight * 0.38)));
-  }
-  function restoredSheetHeight(viewportHeight) {
-    return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
-  }
-  function restoredSettingsDrawerHeight(viewportHeight) {
-    return clampDrawerHeight(
-      viewportHeight * readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO),
-      viewportHeight,
-      settingsDrawerMinHeight(viewportHeight)
-    );
-  }
-  function clampSheetHeight(height, viewportHeight) {
-    return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
-  }
-  function clampDrawerHeight(height, viewportHeight, minHeight) {
-    if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
-    return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
-  }
-  function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
-    const axis = miningDrawerDragAxis(handle);
-    if (axis === "horizontal") {
-      if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-      return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
-    }
-    if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-    return deltaY < 0;
-  }
-  function miningDrawerDragAxis(handle) {
-    const rect = handle.getBoundingClientRect();
-    if (rect.height > rect.width * 1.2) return "horizontal";
-    const actions = handle.closest(".jpdb-reader-actions");
-    if (!actions) return "vertical";
-    const actionsRect = actions.getBoundingClientRect();
-    return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
-  }
-  function miningDrawerHorizontalOpenDirection(handle) {
-    const actions = handle.closest(".jpdb-reader-actions");
-    if (!actions) return "left";
-    const handleRect = handle.getBoundingClientRect();
-    const actionsRect = actions.getBoundingClientRect();
-    const handleCenter = handleRect.left + handleRect.width / 2;
-    const actionsCenter = actionsRect.left + actionsRect.width / 2;
-    return handleCenter < actionsCenter ? "right" : "left";
-  }
-  function readSheetHeightRatio() {
-    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
-  }
-  function storeSheetHeightRatio(height, viewportHeight) {
-    storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
-  }
-  function readHeightRatio(storageKey, fallback) {
-    const value = gmStorageGetSync(storageKey, fallback);
-    return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
-  }
-  function storeHeightRatio(storageKey, height, viewportHeight) {
-    if (viewportHeight <= 0) return;
-    const ratio = Math.max(0, Math.min(1, height / viewportHeight));
-    gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
-  }
-  const log$t = Logger.scope("StudyRender");
+  const log$p = Logger.scope("StudyRender");
   async function renderStudyToolResult$1(button2, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$t.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$p.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
@@ -30943,374 +34813,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
-  }
-  const CONTEXT_PREFIX = "yomu-mining-context:";
-  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
-  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$s = Logger.scope("MiningContext");
-  function normalizeMiningSentence(sentence) {
-    return (sentence ?? "").replace(/\s+/g, " ").trim();
-  }
-  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
-    if (isImageSource) return "image";
-    if (hasVideo) return "video";
-    if (hostname === "jpdb.io") return "jpdb";
-    return "page";
-  }
-  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
-    const normalizedTerm = term.trim();
-    const sentence = context.sentence.trim();
-    if (!normalizedTerm || !sentence) return null;
-    return {
-      ...context,
-      term: normalizedTerm,
-      sentence,
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
-    return createStoredMiningContext(term, context, updatedAt) ?? {
-      ...context,
-      term: term.trim(),
-      sentence: context.sentence.trim() || term.trim(),
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  async function resolveMiningContext({
-    term,
-    sentence,
-    settings,
-    activeContext,
-    storedContext,
-    sourceKind,
-    imageDataUrl,
-    videoImageDataUrl,
-    fetchImageDataUrl,
-    fetchAudioDataUrl: fetchAudioDataUrl2
-  }) {
-    const done = log$s.time("Resolve mining context", {
-      term,
-      hasSentence: Boolean(sentence?.trim()),
-      activeKind: activeContext?.sourceKind,
-      storedKind: storedContext?.sourceKind,
-      sourceKind,
-      hasImage: Boolean(imageDataUrl),
-      hasVideoImage: Boolean(videoImageDataUrl)
-    });
-    const cleanSentence = normalizeMiningSentence(sentence);
-    try {
-      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
-      if (direct) return direct;
-      const immersion = await resolveStoredImmersionMiningContext({
-        term,
-        settings,
-        activeContext,
-        storedContext,
-        fetchImageDataUrl,
-        fetchAudioDataUrl: fetchAudioDataUrl2
-      });
-      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
-    } finally {
-      done();
-    }
-  }
-  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
-    if (imageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "image", imageDataUrl);
-    }
-    if (videoImageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
-    }
-    return null;
-  }
-  async function resolveStoredImmersionMiningContext(options) {
-    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl: fetchAudioDataUrl2 } = options;
-    const chosen = activeContext?.term === term ? activeContext : storedContext ?? void 0;
-    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
-    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
-      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
-      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl2)
-    ]);
-    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
-  }
-  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
-    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
-    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl2) {
-    if (!context.audioUrls?.length || !fetchAudioDataUrl2) return Promise.resolve(void 0);
-    return fetchAudioDataUrl2(context.audioUrls, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function resolvePageMiningContext(term, sentence, sourceKind) {
-    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
-    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-    return result;
-  }
-  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
-    const context = pageMiningContext(sentence, sourceKind);
-    return {
-      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
-      imageDataUrl
-    };
-  }
-  function saveMiningContext(term, context) {
-    const stored = createStoredMiningContext(term, context);
-    if (!stored) {
-      return null;
-    }
-    try {
-      gmStorageSetSync(contextStorageKey(stored.term), stored);
-    } catch (error) {
-      log$s.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
-    }
-    return stored;
-  }
-  function loadMiningContext(term) {
-    const normalized = term.trim();
-    if (!normalized) return null;
-    try {
-      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
-      if (!stored) {
-        return null;
-      }
-      const context = parseStoredMiningContext(stored, normalized);
-      return context;
-    } catch (error) {
-      log$s.warn("Mining context load failed", { term: normalized, error });
-      return null;
-    }
-  }
-  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
-    return {
-      sentence: example.sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: example.sourceTitle || "Immersion Kit",
-      sourceUrl: immersionKitUrl(term, index),
-      imageUrl: imageUrl || void 0,
-      audioUrls: optionalTextArray(audioUrls),
-      immersionIndex: index,
-      immersionTotal: total
-    };
-  }
-  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
-    return {
-      sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
-      sourceUrl,
-      imageUrl: optionalText(element2.dataset.immersionImageUrl),
-      audioUrls: immersionAudioUrlsFromElement(element2),
-      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
-      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
-    };
-  }
-  function pageMiningContext(sentence, sourceKind = "page") {
-    return {
-      sentence,
-      sourceKind,
-      sourceTitle: document.title || location.hostname,
-      sourceUrl: location.href
-    };
-  }
-  function contextLabel(context) {
-    const immersionLabel = immersionContextLabel(context);
-    if (immersionLabel) return immersionLabel;
-    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
-    if (prefix) return `${prefix}: ${context.sourceTitle}`;
-    return context.sourceTitle || context.sourceUrl || "Current page";
-  }
-  const CONTEXT_LABEL_PREFIXES = {
-    video: "Video",
-    image: "Image",
-    jpdb: "JPDB"
-  };
-  function immersionContextLabel(context) {
-    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
-  }
-  function shouldUseImmersionContext(settings, context) {
-    return Boolean(settings.immersionKitEnabled && context?.sourceKind === "immersion-kit" && context.sentence.trim());
-  }
-  function contextStorageKey(term) {
-    return `${CONTEXT_PREFIX}${term}`;
-  }
-  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
-    const record = storedMiningContextRecord(value, expectedTerm);
-    if (!record) return null;
-    const sourceKind = storedMiningSourceKind(record.sourceKind);
-    if (!sourceKind) return null;
-    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
-    if (updatedAt === null) return null;
-    const context = createStoredMiningContext(expectedTerm, {
-      sentence: text$1(record.sentence),
-      sourceKind,
-      sourceTitle: text$1(record.sourceTitle),
-      sourceUrl: text$1(record.sourceUrl),
-      imageUrl: optionalText(record.imageUrl),
-      audioUrls: optionalTextArray(record.audioUrls),
-      immersionIndex: optionalNumber(record.immersionIndex),
-      immersionTotal: optionalNumber(record.immersionTotal)
-    }, updatedAt);
-    return context;
-  }
-  function storedMiningContextRecord(value, expectedTerm) {
-    if (!isNonNullObject(value)) return null;
-    return text$1(value.term) === expectedTerm ? value : null;
-  }
-  function storedMiningSourceKind(value) {
-    return isMiningSourceKind(value) ? value : null;
-  }
-  function storedMiningContextUpdatedAt(value, now) {
-    const updatedAt = Number(value);
-    if (!isStoredMiningContextFresh(updatedAt, now)) {
-      return null;
-    }
-    return updatedAt;
-  }
-  function isStoredMiningContextFresh(updatedAt, now) {
-    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
-  }
-  function isMiningSourceKind(value) {
-    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function optionalText(value) {
-    const normalized = text$1(value);
-    return normalized || void 0;
-  }
-  function optionalTextArray(value) {
-    if (!Array.isArray(value)) return void 0;
-    const values = uniqueTexts(value);
-    return values.length ? values : void 0;
-  }
-  function immersionAudioUrlsFromElement(element2) {
-    const parsed = parseTextArray(element2.dataset.immersionAudioUrls);
-    return optionalTextArray(parsed ?? [element2.dataset.immersionAudioUrl]);
-  }
-  function parseTextArray(value) {
-    if (typeof value !== "string" || !value.trim()) return null;
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  function uniqueTexts(values) {
-    return Array.from(new Set(values.map(text$1).filter(Boolean)));
-  }
-  function optionalNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : void 0;
-  }
-  function text$1(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function immersionKitUrl(term, index) {
-    const url = new URL("https://www.immersionkit.com/dictionary");
-    url.searchParams.set("keyword", term);
-    url.searchParams.set("sort", "sentence_length:asc");
-    url.searchParams.set("page", String(index + 1));
-    return url.toString();
-  }
-  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
-  function cardHighlightTargets(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = optionalJapaneseCardReading(card);
-    return uniqueCardHighlightValues([spelling, reading]);
-  }
-  function normalizedJapaneseCardReading(spelling, reading) {
-    const cleanSpelling = cleanCardHighlightValue(spelling);
-    const cleanReading = cleanCardHighlightValue(reading);
-    return cleanReading && JAPANESE_TEXT_RE.test(cleanReading) ? cleanReading : cleanSpelling;
-  }
-  function cleanCardHighlightValue(value) {
-    return (value ?? "").replace(/\s+/g, " ").trim();
-  }
-  function compactCardHighlightValue(value) {
-    return cleanCardHighlightValue(value).replace(/\s+/g, "");
-  }
-  function optionalJapaneseCardReading(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = normalizedJapaneseCardReading(spelling, card.reading);
-    return reading && reading !== spelling ? reading : "";
-  }
-  function uniqueCardHighlightValues(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.map(cleanCardHighlightValue).filter((value) => {
-      if (!value || seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
-  function renderCardHighlightedTextHtml(text2, card) {
-    return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
-  }
-  function cardHighlightScopeAttributes(card) {
-    if (!card) return "";
-    const spelling = cleanCardHighlightValue(card.spelling);
-    if (!spelling) return "";
-    return [
-      `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
-      `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
-      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
-      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
-    ].filter(Boolean).join(" ");
-  }
-  function highlightCardTargetWords(root, card) {
-    const words = cardHighlightWords(root);
-    for (const word of words) {
-      if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
-    }
-  }
-  function highlightCardTargetScopes(root) {
-    for (const scope of cardHighlightScopes(root)) {
-      const card = cardHighlightTargetFromScope(scope);
-      if (card) highlightCardTargetWords(scope, card);
-    }
-  }
-  function isCardHighlightWord(word, card) {
-    const cardVid = card.vid === void 0 ? "" : String(card.vid);
-    const cardSid = card.sid === void 0 ? "" : String(card.sid);
-    if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
-    const surface = compactCardHighlightValue(readerWordSurfaceText$1(word));
-    if (!surface) return false;
-    return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
-  }
-  function cardHighlightWords(root) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-    return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
-  }
-  function cardHighlightScopes(root) {
-    const selector = "[data-card-highlight-spelling]";
-    const scopes = Array.from(root.querySelectorAll(selector));
-    return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
-  }
-  function cardHighlightTargetFromScope(scope) {
-    const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
-    if (!spelling) return null;
-    const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
-    return {
-      spelling,
-      reading,
-      vid: scope.dataset.cardHighlightVid,
-      sid: scope.dataset.cardHighlightSid
-    };
   }
   const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
   const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
@@ -31842,7 +35344,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
   }
-  const log$r = Logger.scope("StudySources");
+  const log$o = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
@@ -31936,7 +35438,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
       } catch (error) {
-        log$r.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+        log$o.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
       }
     }
     canRenderGrammar(popover, container) {
@@ -32025,7 +35527,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
     }
     renderTranslationError(sentence, container, error) {
-      log$r.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+      log$o.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
@@ -32047,6 +35549,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return true;
   }
   registerYomuCompanion("kanjiStudy", {
+    ImmersionKitClient,
+    ImmersionPopoverController,
     KanjiOriginClient,
     KanjiVGClient,
     RtkClient,
@@ -33312,9 +36816,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isVerticalPositionKeyword(token) {
     return token === "top" || token === "bottom";
   }
-  function isAbortError(error) {
-    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-  }
   function pushJapaneseOcrLine(lines, text2, box) {
     if (!text2 || !box || !HAS_JAPANESE.test(text2)) return;
     lines.push({ text: text2, box, vertical: isVerticalOcrBox(box, text2.length) });
@@ -34242,7 +37743,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isOcrRequestTimeout(error) {
     return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
-  const log$q = Logger.scope("OCR");
+  const log$n = Logger.scope("OCR");
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const OCR_RECOGNIZERS = {
@@ -34272,7 +37773,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ocr_adapter_name: engine,
       detection_only: false
     });
-    const response = await requestJson$1(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
+    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaCloudVision(image, settings, invert = false) {
@@ -34287,7 +37788,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }]
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson$1(url, body, ocrAttemptTimeoutMs(settings));
+    const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings, invert = false) {
@@ -34301,7 +37802,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       Math.max(1, remainingGoogleLensTimeout(deadline))
     ).catch((error) => {
       protobufFailure = error;
-      log$q.warn("Google Lens protobuf failed", error);
+      log$n.warn("Google Lens protobuf failed", error);
       return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
@@ -34313,7 +37814,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let uploadFailure;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
       uploadFailure = error;
-      log$q.warn("Google Lens upload failed", error);
+      log$n.warn("Google Lens upload failed", error);
       return void 0;
     });
     if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
@@ -34377,7 +37878,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function imageBlobToCanvas(image, maxPixels, invert = false) {
     const url = image.currentSrc || image.src;
     if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-    const blob = await requestBlob$1(url);
+    const blob = await requestBlob(url);
     const objectUrl = URL.createObjectURL(blob);
     try {
       const loaded = await loadImage(objectUrl);
@@ -34388,7 +37889,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       URL.revokeObjectURL(objectUrl);
     }
   }
-  function requestJson$1(url, data, timeout) {
+  function requestJson(url, data, timeout) {
     const userscriptRequest = requestViaUserscript({
       method: "POST",
       url,
@@ -34461,7 +37962,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw error;
     }).finally(() => window.clearTimeout(timeoutId));
   }
-  function requestBlob$1(url, timeout = 0) {
+  function requestBlob(url, timeout = 0) {
     const fallbackType = imageMimeTypeFromUrl(url);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
@@ -34517,7 +38018,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (!userscriptRequest) {
-      log$q.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      log$n.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
       return null;
     }
     return new Promise((resolve, reject) => {
@@ -35646,1274 +39147,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
-  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
-  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
-  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
-  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-  const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
-  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
-  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
-  const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
-  const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
-  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
-  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-  const KANA_I_ADJECTIVE_END_RE = /い$/u;
-  const SMALL_TSU_RE = /っ/u;
-  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
-  function normalizeFallbackTerm(text2) {
-    return text2.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
-  let cachedSegmenterConstructor;
-  let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text2) {
-    return segmentJapaneseText(text2);
-  }
-  function segmentJapaneseText(text2) {
-    const segmenter = japaneseWordSegmenter();
-    if (!segmenter) {
-      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-        const start = match.index ?? 0;
-        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
-      });
-    }
-    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-      const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter, text2);
-    });
-  }
-  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
-    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
-      surface: segment.segment,
-      start: offset + segment.index,
-      end: offset + segment.index + segment.segment.length
-    }));
-    if (segments.at(-1)?.end !== offset + text2.length) {
-      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
-    }
-    return finalizeJapaneseRunSegments(segments, sourceText);
-  }
-  function finalizeJapaneseRunSegments(segments, sourceText) {
-    const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
-    );
-    return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(normalizedSegments),
-      sourceText
-    );
-  }
-  function splitTrailingPoliteParticleSegments(segments) {
-    return segments.flatMap((segment, index) => {
-      if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
-      const previous = segments[index - 1]?.surface ?? "";
-      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
-      const particleStart = segment.end - 1;
-      const stem = segment.surface.slice(0, -1);
-      return [
-        ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
-        { surface: "ね", start: particleStart, end: segment.end }
-      ];
-    });
-  }
-  function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = contiguousKanaMergeSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function mergeContiguousKatakanaSegments(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const first2 = segments[index];
-      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
-        merged.push(first2);
-        index += 1;
-        continue;
-      }
-      let surface = first2.surface;
-      let runEnd = index + 1;
-      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
-        surface += segments[runEnd].surface;
-        runEnd += 1;
-      }
-      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
-      index = runEnd;
-    }
-    return merged;
-  }
-  function contiguousKanaMergeSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
-    const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
-    const runEnd = contiguousKanaRunEnd(segments, startIndex);
-    if (runEnd - startIndex < 2) return null;
-    let surface = first2.surface;
-    let lastIndex = startIndex;
-    for (let index = startIndex + 1; index < runEnd; index += 1) {
-      const current = segments[index];
-      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-      surface += current.surface;
-      lastIndex = index;
-    }
-    if (lastIndex === startIndex) return null;
-    return {
-      segment: { surface, start: first2.start, end: segments[lastIndex].end },
-      nextIndex: lastIndex + 1
-    };
-  }
-  function contiguousKanaRunEnd(segments, startIndex) {
-    let index = startIndex + 1;
-    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-      index += 1;
-    }
-    return index;
-  }
-  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-    let surface = "";
-    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-    return surface;
-  }
-  function isPureKanaSegment(surface) {
-    return HIRAGANA_SEGMENT_RE.test(surface);
-  }
-  function isKanaContentWordSpan(span) {
-    if (isKanaInflectableBaseShape(span)) return true;
-    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
-  }
-  function isKanaInflectableBaseShape(span) {
-    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-  }
-  function splitNumericCounterPrefixSegments(segments, sourceText) {
-    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
-  }
-  function splitNumericCounterPrefixSegment(segment, sourceText) {
-    const first2 = Array.from(segment.surface)[0] ?? "";
-    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
-    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
-    const second = Array.from(segment.surface)[1] ?? "";
-    if (second === "間") return [segment];
-    return [
-      { surface: first2, start: segment.start, end: segment.start + first2.length },
-      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
-    ];
-  }
-  function splitLeadingParticleSegments(segments) {
-    return segments.flatMap(splitLeadingParticleSegment);
-  }
-  function splitLeadingParticleSegment(segment) {
-    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
-      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
-      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
-    });
-    if (!prefix) return [segment];
-    return [
-      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
-      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
-    ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first2.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
-  }
-  function mergeInflectedFallbackSegments(segments, sourceText) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index, sourceText);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-    const first2 = segments[startIndex];
-    if (!first2 || isBoundarySegment(first2.surface)) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
-      if (!current) break;
-      surface += current.surface;
-      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
-    }
-    return best;
-  }
-  function fallbackInflectionScanEnd(segments, startIndex) {
-    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-  }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
-    const current = segments[index];
-    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
-    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
-    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
-    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
-    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-    return current;
-  }
-  function isPoliteNegativePastContinuation(segments, index, surface) {
-    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
-  }
-  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
-    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
-    return segments[index]?.start === expectedStart;
-  }
-  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
-    if (index === startIndex) return null;
-    const lookupTerms = fallbackLookupTermsForText(surface);
-    if (lookupTerms.length <= 1) return null;
-    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-    return {
-      segment: { surface, start: first2.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  function isBoundarySegment(surface) {
-    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-  }
-  function isInflectionContinuationSegment(surface) {
-    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-  }
-  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
-  }
-  function isNumericCounterFallbackStem(segment, sourceText) {
-    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
-  }
-  function numericRangeImmediatelyBefore(sourceText, start) {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-  }
-  function hasUsefulFallbackDeinflection(surface) {
-    return fallbackLookupTermsForText(surface).length > 1;
-  }
-  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-    const first2 = segments[startIndex]?.surface ?? "";
-    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
-    const suffix = surface.slice(first2.length);
-    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
-    return true;
-  }
-  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
-    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
-  }
-  function japaneseWordSegmenter() {
-    const Segmenter = intlSegmenter();
-    if (!Segmenter) {
-      cachedSegmenterConstructor = null;
-      cachedJapaneseWordSegmenter = null;
-      return null;
-    }
-    if (cachedSegmenterConstructor !== Segmenter) {
-      cachedSegmenterConstructor = Segmenter;
-      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-    }
-    return cachedJapaneseWordSegmenter ?? null;
-  }
-  function isUsefulJapaneseSegment(segment) {
-    const surface = segment.segment.trim();
-    return JAPANESE_CHARACTER_RE.test(surface);
-  }
-  function intlSegmenter() {
-    const candidate = Intl.Segmenter;
-    return typeof candidate === "function" ? candidate : null;
-  }
-  function fallbackJapaneseRunSegment(text2, offset) {
-    const surface = text2.trim();
-    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-    const start = offset + text2.indexOf(surface);
-    return [{ surface, start, end: start + surface.length }];
-  }
-  function fallbackLookupTermsForText(text2) {
-    const source = normalizeFallbackTerm(text2);
-    if (!source) return [];
-    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-  }
-  function fallbackLookupTermsForCard(card) {
-    const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
-    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
-  }
-  function isUsefulFallbackLookupCandidate(candidate) {
-    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
-  }
-  function compareFallbackLookupCandidates(a, b) {
-    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  function fallbackRulePriority(candidate) {
-    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-    if (candidate.rules.some((rule) => rule === "v1")) return 1;
-    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-    return 3;
-  }
-  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
-    const [source, ...candidates] = terms;
-    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueNonEmptyStrings(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
-  }
-  function hasAmbiguousContinuativeStemCandidate(source) {
-    return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
-  }
-  function isTerminalDictionaryFallbackTerm(term) {
-    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  const KANA_ONLY_RE$1 = /^[぀-ヿー]+$/u;
-  const KANA_CHAR_RE = /^[぀-ヿー]$/u;
-  const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
-  function splitReadingAcrossKanji(base, reading, readingsForKanji) {
-    if (kanjiCharacterCount$1(base) < 2) return null;
-    const sourceReading = reading.trim();
-    const kana = toHiragana(sourceReading);
-    if (!kana || !KANA_ONLY_RE$1.test(kana)) return null;
-    const trimmed = trimSharedKanaAffixes(base, kana);
-    const characters = Array.from(trimmed.base);
-    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
-    const plans = alignKanjiReadings(characters, trimmed.reading, 0, readingsForKanji);
-    if (plans.length !== 1) return null;
-    const readingCharacters = Array.from(sourceReading);
-    const segments = [];
-    let offset = trimmed.readingStart;
-    plans[0].forEach((segment, index) => {
-      const segmentText = readingCharacters.slice(offset, offset + segment.length).join("");
-      segments.push({ text: segmentText, start: trimmed.baseStart + index, end: trimmed.baseStart + index + 1 });
-      offset += segment.length;
-    });
-    return segments;
-  }
-  function trimSharedKanaAffixes(base, reading) {
-    let baseStart = 0;
-    let baseEnd = base.length;
-    let readingStart = 0;
-    let readingEnd = reading.length;
-    while (baseStart < baseEnd && readingStart < readingEnd && sameKana(base[baseStart], reading[readingStart])) {
-      baseStart += 1;
-      readingStart += 1;
-    }
-    while (baseEnd > baseStart && readingEnd > readingStart && sameKana(base[baseEnd - 1], reading[readingEnd - 1])) {
-      baseEnd -= 1;
-      readingEnd -= 1;
-    }
-    return {
-      base: base.slice(baseStart, baseEnd),
-      reading: reading.slice(readingStart, readingEnd),
-      baseStart,
-      readingStart
-    };
-  }
-  function sameKana(base, reading) {
-    return Boolean(base && reading && KANA_CHAR_RE.test(base) && toHiragana(base) === reading);
-  }
-  function kanjiCharacterCount$1(value) {
-    return Array.from(value).filter((char) => KANJI_CHAR_RE.test(char)).length;
-  }
-  function alignKanjiReadings(characters, kana, index, readingsForKanji) {
-    if (index >= characters.length) return kana.length === 0 ? [[]] : [];
-    const candidates = candidateReadings(characters[index], readingsForKanji);
-    const plans = [];
-    for (const candidate of candidates) {
-      if (!kana.startsWith(candidate)) continue;
-      for (const rest of alignKanjiReadings(characters, kana.slice(candidate.length), index + 1, readingsForKanji)) {
-        plans.push([candidate, ...rest]);
-        if (plans.length > 1) return plans;
-      }
-    }
-    return plans;
-  }
-  function candidateReadings(kanji, readingsForKanji) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const raw of readingsForKanji(kanji)) {
-      const normalized = toHiragana(raw.trim()).replace(/[.\-．].*$/u, "");
-      if (!normalized || !KANA_ONLY_RE$1.test(normalized)) continue;
-      seen.add(normalized);
-      const voiced = withInitialDakuten(normalized);
-      if (voiced) seen.add(voiced);
-      if (/[つくきち]$/u.test(normalized)) seen.add(`${normalized.slice(0, -1)}っ`);
-    }
-    return [...seen].sort((a, b) => b.length - a.length);
-  }
-  const DAKUTEN_MAP = {
-    か: "が",
-    き: "ぎ",
-    く: "ぐ",
-    け: "げ",
-    こ: "ご",
-    さ: "ざ",
-    し: "じ",
-    す: "ず",
-    せ: "ぜ",
-    そ: "ぞ",
-    た: "だ",
-    ち: "ぢ",
-    つ: "づ",
-    て: "で",
-    と: "ど",
-    は: "ば",
-    ひ: "び",
-    ふ: "ぶ",
-    へ: "べ",
-    ほ: "ぼ"
-  };
-  function withInitialDakuten(reading) {
-    const voiced = DAKUTEN_MAP[reading[0] ?? ""];
-    return voiced ? `${voiced}${reading.slice(1)}` : null;
-  }
-  function toHiragana(value) {
-    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  const LOCAL_MATCH_LIMIT = 40;
-  const LOCAL_ENRICHMENT_CONCURRENCY = 12;
-  const LOCAL_PARSE_CACHE_LIMIT = 600;
-  const LOCAL_PITCH_CACHE_LIMIT = 800;
-  const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
-  const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
-  const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
-  const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
-  const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
-  const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
-  const JITEN_MIN_BATCH_CHARS = 24;
-  const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
-  function japaneseBatchCharCount(paragraphs) {
-    return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
-  }
-  const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
-  const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
-  const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
-  const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-  const log$p = Logger.scope("ReaderParser");
-  const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
-  function apiFirstParseOptions(options = {}) {
-    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
-    return { includeLocalPitch: false, ...options, requireApi };
-  }
-  function jpdbFirstParseOptions(options = {}) {
-    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
-    const requireJpdb = options.requireJpdb ?? requireApi;
-    return apiFirstParseOptions({ ...options, requireApi, requireJpdb });
-  }
-  class ReaderParser {
-    constructor(dependencies) {
-      this.dependencies = dependencies;
-    }
-    localCardCache = /* @__PURE__ */ new Map();
-    localParseCache = /* @__PURE__ */ new Map();
-    localPitchCache = /* @__PURE__ */ new Map();
-    localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
-    localTermDictionaryAvailability;
-    enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
-    kanjiReadingCache = /* @__PURE__ */ new Map();
-    async parse(paragraphs, options = {}) {
-      const { getSettings } = this.dependencies;
-      const settings = getSettings();
-      const done = log$p.time("parse", {
-        paragraphs: paragraphs.length,
-        hasApiKey: hasJpdbApiCredential(settings),
-        hasJitenApiKey: hasJitenApiCredential(settings),
-        localFallback: settings.localDictionariesEnabled
-      });
-      try {
-        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
-        return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
-      } finally {
-        done();
-      }
-    }
-    async parseWithPreferredSource(paragraphs, options, settings) {
-      if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
-        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
-      }
-      if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
-        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
-      }
-      if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
-        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
-        if (jitenResult2) return jitenResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
-      }
-      if (settings.parserProvider === "jpdb") {
-        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
-        if (jpdbResult2) return jpdbResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
-      }
-      if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
-        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
-        if (jitenResult2) return jitenResult2;
-        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
-        if (jpdbResult2) return jpdbResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
-      }
-      const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
-      if (jpdbResult) return jpdbResult;
-      const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
-      if (jitenResult) return jitenResult;
-      return this.parseWithFallbackSource(paragraphs, options);
-    }
-    // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
-    // short to justify it. Only explicit 'jiten' is gated: the auto path keeps its
-    // API-first contract, jpdb has its own batching + grading identity, and
-    // requireJpdb flows still need JPDB. Jiten-only users (no local dicts) are
-    // unaffected because the caller also requires hasLocalTermDictionaries.
-    shouldRouteShortBatchToLocal(paragraphs, options, settings) {
-      if (settings.parserProvider !== "jiten" || options.requireJpdb === true) return false;
-      return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
-    }
-    async tryParseWithJpdb(paragraphs, options, settings) {
-      if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
-      try {
-        const result = await this.parseWithJpdb(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result, options);
-      } catch (error) {
-        this.handleRemoteParseError("JPDB", error, options);
-        return null;
-      }
-    }
-    async parseWithJpdb(paragraphs, options) {
-      const parsePromise = this.dependencies.jpdb.parse(paragraphs);
-      const timeoutMs = remoteParseFallbackTimeoutMs(options);
-      return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : parsePromise;
-    }
-    async tryParseWithJiten(paragraphs, options, settings) {
-      if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
-      try {
-        const result = await this.parseWithJiten(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result, options);
-      } catch (error) {
-        this.handleRemoteParseError("Jiten", error, options);
-        return null;
-      }
-    }
-    async parseWithJiten(paragraphs, options) {
-      const parsePromise = this.dependencies.jiten.parse(paragraphs);
-      const timeoutMs = remoteParseFallbackTimeoutMs(options);
-      return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("Jiten parse timed out.")) : parsePromise;
-    }
-    handleRemoteParseError(source, error, options) {
-      const canFallback = this.canUseParseFallback(options);
-      log$p.warn(remoteParseErrorMessage(source, options, canFallback), error);
-      if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
-    }
-    async parseWithFallbackSource(paragraphs, options) {
-      if (!await this.hasLocalTermDictionaries()) {
-        const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
-        if (publicJitenResult) return publicJitenResult;
-      }
-      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
-    }
-    async tryParseWithPublicJiten(paragraphs, options) {
-      if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
-      if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-      const parser = this.dependencies.jitenPublicVocabulary;
-      if (typeof parser?.parse !== "function") return null;
-      try {
-        const parsed = await parser.parse(paragraphs);
-        if (!parsed.some((tokens) => tokens.length)) return null;
-        return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
-      } catch (error) {
-        log$p.warn("Jiten public parse failed; using local or segmented fallback", error);
-        return null;
-      }
-    }
-    canParse() {
-      return true;
-    }
-    isJpdbBackedCard(card) {
-      return (!card.source || card.source === "jpdb") && card.vid > 0;
-    }
-    getCachedCard(vid, sid) {
-      return this.dependencies.jpdb.getCard(vid, sid) ?? this.localCardCache.get(cardCacheKey(vid, sid));
-    }
-    cacheCards(cards) {
-      cards.forEach((card) => {
-        if (card.source && card.source !== "jpdb" || card.vid <= 0 || card.sid <= 0) {
-          this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-        }
-      });
-    }
-    clearLocalCache() {
-      this.localCardCache.clear();
-      this.localParseCache.clear();
-      this.localPitchCache.clear();
-      this.localBoundaryEvidenceCache.clear();
-      this.localTermDictionaryAvailability = void 0;
-    }
-    localCardFromEntry(entry) {
-      const id = -stablePositiveHashId(`${entry.dictionary}
-${entry.expression}
-${entry.reading}`);
-      const card = {
-        vid: id,
-        sid: id,
-        rid: 0,
-        spelling: entry.expression,
-        reading: entry.reading || entry.expression,
-        frequencyRank: entry.jpdbFrequency ?? null,
-        partOfSpeech: [],
-        meanings: [{
-          glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
-          partOfSpeech: []
-        }],
-        cardState: ["not-in-deck"],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: "local"
-      };
-      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-      return card;
-    }
-    fallbackCardFromText(text2) {
-      const spelling = normalizeFallbackTerm(text2);
-      const id = -stablePositiveHashId(`fallback
-${spelling}`);
-      const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
-      const card = {
-        vid: id,
-        sid: id,
-        rid: 0,
-        spelling,
-        reading: "",
-        frequencyRank: null,
-        partOfSpeech: [],
-        meanings: [],
-        cardState: ["not-in-deck"],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: "fallback",
-        ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
-      };
-      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-      return card;
-    }
-    canUseLocalDictionaryFallback() {
-      return this.dependencies.getSettings().localDictionariesEnabled;
-    }
-    canUseParseFallback(options) {
-      return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
-    }
-    async parseLocalOrSegmentedText(text2, options) {
-      const settings = this.dependencies.getSettings();
-      const key = localParseCacheKey(text2, options, settings);
-      const cached = this.localParseCache.get(key);
-      if (cached) {
-        this.localParseCache.delete(key);
-        this.localParseCache.set(key, cached);
-        return cached;
-      }
-      const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
-        if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
-        throw error;
-      });
-      this.rememberLocalParseCacheEntry(key, promise);
-      return promise;
-    }
-    async parseLocalOrSegmentedTextUncached(text2, options) {
-      if (this.canUseLocalDictionaryFallback()) {
-        const tokens = await this.parseLocalDictionaryText(text2, options);
-        if (tokens.length) {
-          return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
-        }
-      }
-      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
-    }
-    rememberLocalParseCacheEntry(key, promise) {
-      this.localParseCache.set(key, promise);
-      while (this.localParseCache.size > LOCAL_PARSE_CACHE_LIMIT) {
-        const oldest = this.localParseCache.keys().next().value;
-        if (typeof oldest !== "string") break;
-        this.localParseCache.delete(oldest);
-      }
-    }
-    async parseLocalDictionaryText(text2, options) {
-      const { dictionaries, getSettings } = this.dependencies;
-      if (!await this.hasLocalTermDictionaries()) return [];
-      const settings = getSettings();
-      const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$p.warn("Local dictionary parse failed", { length: text2.length }, error);
-        return [];
-      });
-      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
-    }
-    async localTokenFromMatch(text2, match, options) {
-      const card = this.localCardFromEntry(match.entry);
-      const reading = card.reading && card.reading !== match.surface ? card.reading : "";
-      const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
-      if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
-      const rubies = reading ? match.deinflected ? inferredInflectedSurfaceRubies(match.surface, card.spelling, reading).map((ruby) => ({
-        ...ruby,
-        start: match.start + ruby.start,
-        end: match.start + ruby.end
-      })) : await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
-      return {
-        card,
-        start: match.start,
-        end: match.end,
-        length: match.end - match.start,
-        rubies,
-        pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-        sentence: text2
-      };
-    }
-    async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
-      if (!this.canUseLocalDictionaryFallback()) return parsed;
-      const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
-      if (!candidates.some((items) => items.length)) return parsed;
-      if (!await this.hasLocalTermDictionaries(true)) return parsed;
-      const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-        const text2 = paragraphs[paragraphIndex] ?? "";
-        const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
-          const relative = await this.exactLocalBoundaryMatch(candidate);
-          if (!relative) return null;
-          const match = offsetTermMatch(relative, candidate.start);
-          if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
-          return this.localTokenFromMatch(text2, match, options);
-        }));
-        return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
-      }));
-      return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
-    }
-    exactLocalBoundaryMatch(candidate) {
-      const settings = this.dependencies.getSettings();
-      const { surface, boundary } = candidate;
-      const key = localBoundaryEvidenceCacheKey(surface, boundary, settings);
-      const cached = this.localBoundaryEvidenceCache.get(key);
-      if (cached) return cached;
-      const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
-        surface,
-        LOCAL_BOUNDARY_MATCH_LIMIT,
-        settings.dictionaryPreferences
-      )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
-        if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-        log$p.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
-        return null;
-      });
-      this.localBoundaryEvidenceCache.set(key, promise);
-      while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
-        const oldest = this.localBoundaryEvidenceCache.keys().next().value;
-        if (typeof oldest !== "string") break;
-        this.localBoundaryEvidenceCache.delete(oldest);
-      }
-      return promise;
-    }
-    // A store that cannot report availability still gets a chance in the
-    // fallback path (it tolerates empty lookups), but local-first replaces
-    // remote parsing outright, so `confirmed` demands a positive report.
-    async hasLocalTermDictionaries(confirmed = false) {
-      if (!this.canUseLocalDictionaryFallback()) return false;
-      return await this.reportedTermDictionaryAvailability() ?? !confirmed;
-    }
-    reportedTermDictionaryAvailability() {
-      const store = this.dependencies.dictionaries;
-      if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
-      this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
-        this.localTermDictionaryAvailability = void 0;
-        log$p.warn("Local term dictionary availability check failed", { error });
-        return void 0;
-      });
-      return this.localTermDictionaryAvailability;
-    }
-    parseSegmentedText(text2) {
-      return segmentJapaneseText(text2).map((segment) => {
-        const card = this.fallbackCardFromText(segment.surface);
-        return {
-          card,
-          start: segment.start,
-          end: segment.end,
-          length: segment.end - segment.start,
-          rubies: [],
-          pitchClass: "",
-          sentence: text2
-        };
-      });
-    }
-    async withSegmentedFallbackGaps(paragraphs, parsed, options) {
-      const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
-      if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-      return Promise.all(paragraphs.map(async (text2, index) => {
-        const tokens = parsed[index] ?? [];
-        if (options.allowSegmentedFallback !== true) return tokens;
-        const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
-        return this.fillSegmentedFallbackGaps(text2, withLocal);
-      }));
-    }
-    // Remote coverage gaps were previously filled ONLY by the bare segmenter,
-    // whose fallback cards carry no reading/ruby/pitch — so an inflected verb
-    // the provider skipped (使って, 行います) rendered with no decoration at
-    // all while its neighbours annotated. When local term dictionaries are
-    // available, fill the uncovered ranges with deinflected, enriched local
-    // tokens first; the bare segmenter only covers what the dictionary also
-    // misses.
-    async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
-      if (!this.canUseLocalDictionaryFallback()) return tokens;
-      if (!await this.hasLocalTermDictionaries()) return tokens;
-      const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
-      const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap$1(local.start, local.end, token.start, token.end)));
-      return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
-    }
-    fillSegmentedFallbackGaps(text2, tokens) {
-      tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
-      const fallbackTokens = this.parseSegmentedText(text2);
-      const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
-      const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
-      const replacements = [
-        ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
-        ...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
-      ];
-      const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
-      const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end))) : tokens;
-      return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
-    }
-    // All-kanji compounds get their reading split per kanji when the user's
-    // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
-    // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
-    async localRubySegments(surface, reading, start, end) {
-      const whole = [{ text: reading, start, end, length: end - start }];
-      const characters = [...new Set(Array.from(surface).filter((character) => LOCAL_RUBY_SPLIT_KANJI_CHAR_RE.test(character)))];
-      if (characters.length < 2) return whole;
-      const readings2 = /* @__PURE__ */ new Map();
-      await Promise.all(characters.map(async (character) => {
-        readings2.set(character, await this.cachedKanjiReadings(character));
-      }));
-      const segments = splitReadingAcrossKanji(surface, reading, (kanji) => readings2.get(kanji) ?? []);
-      if (!segments) return whole;
-      return segments.map((segment) => ({
-        text: segment.text,
-        start: start + segment.start,
-        end: start + segment.end,
-        length: segment.end - segment.start
-      }));
-    }
-    cachedKanjiReadings(character) {
-      const cached = this.kanjiReadingCache.get(character);
-      if (cached) return cached;
-      const settings = this.dependencies.getSettings();
-      const lookupKanji = this.dependencies.dictionaries.lookupKanji;
-      const promise = typeof lookupKanji === "function" && settings.localDictionariesEnabled ? lookupKanji.call(this.dependencies.dictionaries, character, 3, settings.dictionaryPreferences).then((entries2) => entries2.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi])).catch(() => []) : Promise.resolve([]);
-      this.kanjiReadingCache.set(character, promise);
-      if (this.kanjiReadingCache.size > 400) {
-        const oldest = this.kanjiReadingCache.keys().next().value;
-        if (oldest) this.kanjiReadingCache.delete(oldest);
-      }
-      return promise;
-    }
-    async withLocallySplitKanjiRubies(paragraphs, parsed) {
-      if (!this.canUseLocalKanjiRubySplits()) return parsed;
-      let nextParsed = parsed;
-      await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-        let nextTokens = tokens;
-        await Promise.all(tokens.map(async (token, tokenIndex) => {
-          const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? "";
-          const split = await this.locallySplitTokenRubies(surface, token);
-          if (!split || rubiesEqual(split, token.rubies)) return;
-          if (nextTokens === tokens) nextTokens = [...tokens];
-          nextTokens[tokenIndex] = { ...token, rubies: split };
-          this.syncCardWordWithReadingFromTokenRuby(nextTokens[tokenIndex], surface);
-        }));
-        if (nextTokens === tokens) return;
-        if (nextParsed === parsed) nextParsed = [...parsed];
-        nextParsed[paragraphIndex] = nextTokens;
-      }));
-      return nextParsed;
-    }
-    canUseLocalKanjiRubySplits() {
-      const settings = this.dependencies.getSettings();
-      return settings.localDictionariesEnabled && typeof this.dependencies.dictionaries.lookupKanji === "function";
-    }
-    async locallySplitTokenRubies(surface, token) {
-      if (!surface) return null;
-      if (token.rubies.length) {
-        return await this.locallySplitExistingRubies(surface, token);
-      }
-      const reading = token.card.reading.trim();
-      if (!shouldTryLocalKanjiRubySplit(surface, reading)) return null;
-      const whole = [{ text: reading, start: token.start, end: token.end, length: token.end - token.start }];
-      const split = await this.enrichmentGate.run(() => this.localRubySegments(surface, reading, token.start, token.end));
-      return rubiesEqual(split, whole) ? null : split;
-    }
-    async locallySplitExistingRubies(surface, token) {
-      let changed = false;
-      const split = [];
-      for (const ruby of token.rubies) {
-        const start = ruby.start - token.start;
-        const end = ruby.end - token.start;
-        const base = surface.slice(start, end);
-        if (!shouldTryLocalKanjiRubySplit(base, ruby.text)) {
-          split.push(ruby);
-          continue;
-        }
-        const next = await this.enrichmentGate.run(() => this.localRubySegments(base, ruby.text, ruby.start, ruby.end));
-        changed ||= !rubiesEqual(next, [ruby]);
-        split.push(...next);
-      }
-      return changed ? split : null;
-    }
-    syncCardWordWithReadingFromTokenRuby(token, surface) {
-      if (!token.rubies.length || token.card.spelling !== surface) return;
-      const word = Array.from(token.card.spelling);
-      for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
-        const { text: text2, start, length } = token.rubies[index];
-        word.splice(start - token.start + length, 0, `[${text2}]`);
-      }
-      token.card.wordWithReading = word.join("");
-    }
-    async localPitchPattern(card, options) {
-      const settings = this.dependencies.getSettings();
-      if (options.includeLocalPitch === false) return "";
-      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return "";
-      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
-      if (typeof lookupTermMeta !== "function") return "";
-      const key = localPitchCacheKey(card, settings);
-      const cached = this.localPitchCache.get(key);
-      if (cached) return firstLocalPitchPattern(await cached);
-      const promise = localPitchResolutionFromMetaLookup(
-        card.spelling,
-        card.reading,
-        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
-      ).catch((error) => {
-        log$p.warn("Local pitch parse failed", { term: card.spelling }, error);
-        return { patterns: [] };
-      });
-      this.rememberLocalPitchCacheEntry(key, promise);
-      return firstLocalPitchPattern(await promise);
-    }
-    withNormalizedMetricTokens(text2, tokens) {
-      if (!text2.includes("回視聴")) return tokens;
-      const replacements = [];
-      const replacementRanges = [];
-      for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
-        const start = match.index ?? -1;
-        if (start < 0) continue;
-        const end = start + match[0].length;
-        const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
-        const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
-        const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
-        if (alreadyCovered && !hasBrokenMetricToken) continue;
-        if (!hasBrokenMetricToken && overlapping.length > 0) continue;
-        replacementRanges.push({ start, end });
-        replacements.push(
-          this.metricToken(text2, "回", "かい", start, start + 1),
-          this.metricToken(text2, "視聴", "しちょう", start + 1, end)
-        );
-      }
-      if (!replacements.length) return tokens;
-      return [
-        ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap$1(range.start, range.end, token.start, token.end))),
-        ...replacements
-      ].sort(compareTokensByOffset);
-    }
-    withNormalizedMetricParseResult(paragraphs, parsed) {
-      let normalized = parsed;
-      for (const [index, tokens] of parsed.entries()) {
-        const nextTokens = this.withNormalizedMetricTokens(paragraphs[index] ?? "", tokens);
-        if (nextTokens === tokens) continue;
-        if (normalized === parsed) normalized = [...parsed];
-        normalized[index] = nextTokens;
-      }
-      return normalized;
-    }
-    metricToken(sentence, surface, reading, start, end) {
-      const card = this.fallbackCardFromText(surface);
-      card.reading = reading;
-      return {
-        card,
-        start,
-        end,
-        length: end - start,
-        rubies: [{ text: reading, start, end, length: end - start }],
-        pitchClass: "",
-        sentence
-      };
-    }
-    rememberLocalPitchCacheEntry(key, promise) {
-      this.localPitchCache.set(key, promise);
-      while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
-        const oldest = this.localPitchCache.keys().next().value;
-        if (typeof oldest !== "string") break;
-        this.localPitchCache.delete(oldest);
-      }
-    }
-  }
-  function firstLocalPitchPattern(resolution) {
-    return resolution.patterns[0] ?? "";
-  }
-  function remoteParseFallbackTimeoutMs(options) {
-    return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
-  }
-  function shouldTryLocalKanjiRubySplit(base, reading) {
-    return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_KANJI_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
-  }
-  function rubiesEqual(first2, second) {
-    return first2.length === second.length && first2.every((ruby, index) => {
-      const other = second[index];
-      return Boolean(other) && ruby.text === other.text && ruby.start === other.start && ruby.end === other.end && ruby.length === other.length;
-    });
-  }
-  function shouldUseJitenParser(settings, options, jiten) {
-    return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
-  }
-  function shouldPreferJitenParser(settings, options, jiten) {
-    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
-  }
-  function shouldSkipApiParser(options) {
-    return Boolean(options.skipApi ?? options.skipJpdb);
-  }
-  function remoteParseErrorMessage(source, options, canFallback) {
-    if (shouldRequireRemoteParse(options)) return `${source}-first parse failed without local fallback`;
-    return canFallback ? `${source} parse failed; using local or segmented fallback` : `${source} parse failed without fallback`;
-  }
-  function shouldRethrowRemoteParseError(options, canFallback) {
-    return shouldRequireRemoteParse(options) || !canFallback;
-  }
-  function shouldRequireRemoteParse(options) {
-    return options.requireApi === true || options.requireJpdb === true;
-  }
-  function localPitchCacheKey(card, settings) {
-    return JSON.stringify({
-      spelling: card.spelling,
-      reading: card.reading,
-      dictionaries: settings.dictionaryPreferences.map((preference) => ({
-        name: preference.name,
-        enabled: preference.enabled,
-        priority: preference.priority
-      }))
-    });
-  }
-  function boundaryEvidenceCandidates(text2, tokens) {
-    const sorted = [...tokens].sort(compareTokensByOffset);
-    const candidates = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (let index = 1; index < sorted.length; index += 1) {
-      const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
-      if (!candidate) continue;
-      const key = `${candidate.start}:${candidate.surface}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      candidates.push(candidate);
-      if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
-    }
-    return candidates;
-  }
-  function boundaryEvidenceCandidate(text2, first2, second) {
-    if (first2.end !== second.start) return null;
-    if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
-    const left = text2.slice(first2.end - 1, first2.end);
-    const right = text2.slice(second.start, second.start + 1);
-    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-    const firstSurface = text2.slice(first2.start, first2.end);
-    const secondSurface = text2.slice(second.start, second.end);
-    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-    return {
-      surface: text2.slice(first2.start, second.end),
-      start: first2.start,
-      boundary: first2.end - first2.start
-    };
-  }
-  function isReconciliableParseToken(token) {
-    return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
-  }
-  function isSingleJapaneseCharacter(surface) {
-    const characters = Array.from(surface);
-    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
-  }
-  function exactBoundaryMatch(surface, boundary, matches) {
-    const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
-    const identities = new Set(accepted.map((match) => boundaryMatchIdentity(match)));
-    if (identities.size !== 1) return null;
-    return accepted.sort((first2, second) => second.end - second.start - (first2.end - first2.start) || first2.start - second.start)[0] ?? null;
-  }
-  function boundaryMatchIdentity(match) {
-    return `${match.entry.expression.normalize("NFKC").trim()}
-${match.entry.reading.normalize("NFKC").trim()}`;
-  }
-  function offsetTermMatch(match, offset) {
-    return {
-      ...match,
-      start: match.start + offset,
-      end: match.end + offset
-    };
-  }
-  function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
-    const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
-    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
-    return overlapping.every((token) => {
-      const prefix = text2.slice(token.start, Math.min(token.end, match.start));
-      const suffix = text2.slice(Math.max(token.start, match.end), token.end);
-      return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
-    });
-  }
-  function replaceRemoteFragments(tokens, candidates) {
-    if (!candidates.length) return tokens;
-    const accepted = [];
-    for (const candidate of [...candidates].sort((first2, second) => second.length - first2.length || first2.start - second.start)) {
-      if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
-      accepted.push(candidate);
-    }
-    if (!accepted.length) return tokens;
-    return [
-      ...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
-      ...accepted
-    ].sort(compareTokensByOffset);
-  }
-  function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
-    return JSON.stringify({
-      surface,
-      boundary,
-      dictionaries: settings.dictionaryPreferences.map((preference) => ({
-        name: preference.name,
-        enabled: preference.enabled,
-        priority: preference.priority
-      }))
-    });
-  }
-  function localParseCacheKey(text2, options, settings) {
-    const localDictionariesEnabled = settings.localDictionariesEnabled;
-    return JSON.stringify({
-      text: text2,
-      localDictionariesEnabled,
-      allowSegmentedFallback: options.allowSegmentedFallback === true,
-      includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
-      dictionaries: localDictionariesEnabled ? settings.dictionaryPreferences.map((preference) => ({
-        name: preference.name,
-        enabled: preference.enabled,
-        priority: preference.priority
-      })) : []
-    });
-  }
-  function rangesOverlap$1(start, end, otherStart, otherEnd) {
-    return start < otherEnd && otherStart < end;
-  }
-  function tokenInsideRange(token, start, end) {
-    return token.start >= start && token.end <= end;
-  }
-  function preferInflectedFallback(fallback, tokens) {
-    if (!fallback.card.fallbackLookupTerms?.length) return false;
-    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-    return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
-  }
-  function isBroadPublic(token) {
-    return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
-  }
-  function fallbackRepairTokens(text2, fallbackTokens, tokens) {
-    const repaired = /* @__PURE__ */ new Set();
-    for (const fallback of fallbackTokens) {
-      const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
-      group?.forEach((token) => repaired.add(token));
-    }
-    return [...repaired].sort(compareTokensByOffset);
-  }
-  function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-    if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
-    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-    if (!overlapping.length) return null;
-    const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
-    const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
-    if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-    return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
-  }
-  function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
-    for (let index = start; index < end; index += 1) {
-      if (!JAPANESE_CHARACTER_RE.test(text2[index] ?? "")) continue;
-      if (!tokens.some((token) => token.start <= index && index < token.end)) return true;
-    }
-    return false;
-  }
-  function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
-    const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
-    if (!group.length) return null;
-    group.sort(compareTokensByOffset);
-    return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
-  }
-  function compareTokensByOffset(a, b) {
-    return a.start - b.start || b.length - a.length;
-  }
-  function cardCacheKey(vid, sid) {
-    return `${vid}:${sid}`;
-  }
-  function withTimeout(promise, timeoutMs, errorFactory) {
-    let timeoutId = 0;
-    const timeout = new Promise((_resolve, reject) => {
-      timeoutId = window.setTimeout(() => reject(errorFactory()), timeoutMs);
-    });
-    return Promise.race([
-      promise,
-      timeout
-    ]).finally(() => window.clearTimeout(timeoutId));
-  }
   function isTerminalOcrStatus(status) {
     return status === "empty" || status === "failed";
   }
@@ -36942,7 +39175,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
-  const log$o = Logger.scope("OCR");
+  const log$m = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
   const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
   const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
@@ -37028,7 +39261,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const provider = inlineProviderLabel(settings);
     return {
       provider,
-      done: log$o.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+      done: log$m.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
   function finishOcrScan(state2) {
@@ -37042,10 +39275,10 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function logOcrFailure(state2, provider, manualRequested, error) {
     state2.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
-      log$o.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+      log$m.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
     }
-    log$o.warn("OCR scan failed", { provider, manualRequested }, error);
+    log$m.warn("OCR scan failed", { provider, manualRequested }, error);
   }
   const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
   const OCR_FULLSCREEN_CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange"];
@@ -37442,7 +39675,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$o.info("Manual OCR scan queued images", { images: images.length });
+      log$m.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       const staleLine = element2?.closest?.(".jpdb-ocr-line");
@@ -37663,7 +39896,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$o.warn("OCR scan task failed unexpectedly", {}, error);
+        log$m.warn("OCR scan task failed unexpectedly", {}, error);
       }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
@@ -37792,7 +40025,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         return;
       }
       await this.renderResult(state2, result, false, key);
-      log$o.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+      log$m.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
       return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
@@ -37805,7 +40038,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       this.requireCurrentContentState(state2, key);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
-        log$o.warn("OCR provider failed", { provider }, error);
+        log$m.warn("OCR provider failed", { provider }, error);
         this.readerRasterFailedScans.delete(key);
         this.clearReaderRasterProviderRetry(key);
         await this.renderResult(state2, fallback, false, key);
@@ -37943,7 +40176,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$o.warn("OCR rendered token enrichment failed", {}, error);
+        log$m.warn("OCR rendered token enrichment failed", {}, error);
       }).finally(() => this.schedulePosition());
     }
     shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
@@ -38173,7 +40406,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       this.readerRasterProviderFailures.set(key, attempts);
       if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
       const delay2 = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
-      log$o.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
+      log$m.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
       const previousTimer = this.readerRasterProviderRetryTimers.get(key);
       if (previousTimer) window.clearTimeout(previousTimer);
       const timer = window.setTimeout(() => {
@@ -38706,7 +40939,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       } catch (error) {
         if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) {
           const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-          log$o.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
+          log$m.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
         }
       } finally {
@@ -38835,7 +41068,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       this.canvasTapRecapture.delete(canvas);
       this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
       const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-      log$o.warnOnce(
+      log$m.warnOnce(
         `canvas-commit-mismatch:${surface}:${reason}`,
         `Reader raster capture repeatedly changed ${reason}; automatic retries paused`,
         { surface, userRequested }
@@ -40697,22 +42930,22 @@ ${spelling}`);
     try {
       const resolvedUrl = await bookwalkerAssetResolver.resolve(url);
       try {
-        blob = await requestBlob$1(resolvedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+        blob = await requestBlob(resolvedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
       } catch (error) {
         if (!isBookwalkerAuthorizationFailure(error)) throw error;
         const refreshedUrl = await bookwalkerAssetResolver.refresh(url);
         if (!refreshedUrl || refreshedUrl === resolvedUrl) throw error;
-        blob = await requestBlob$1(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+        blob = await requestBlob(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
       }
     } catch (error) {
-      log$o.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
+      log$m.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
       throw error;
     }
     const objectUrl = URL.createObjectURL(blob);
     try {
       return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } catch (error) {
-      log$o.warnOnce(
+      log$m.warnOnce(
         `mirror-image-decode:${resource}`,
         "BookWalker mirror image decode failed",
         { bytes: blob.size, resource, type: blob.type },
@@ -40784,370 +43017,6 @@ ${spelling}`);
     ImageOcrController,
     normalizeOcrRenderedText
   });
-  const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
-  const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
-    "horizontal-tb",
-    "vertical-rl",
-    "vertical-lr",
-    "sideways-rl",
-    "sideways-lr"
-  ]);
-  function hasVisiblePageVideo() {
-    return Array.from(document.querySelectorAll("video")).some(isVisiblePageVideo);
-  }
-  function isVisiblePageVideo(video) {
-    if (video.closest("[data-jpdb-reader-root]")) return false;
-    if (!hasRenderableVideoRect(video)) return false;
-    if (isVideoHidden(video)) return false;
-    return isAudiblyPlayingVideo(video);
-  }
-  function hasRenderableVideoRect(video) {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 120 && rect.height >= 90;
-  }
-  function isVideoHidden(video) {
-    const style = getComputedStyle(video);
-    return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
-  }
-  function isAudiblyPlayingVideo(video) {
-    return !video.paused && !video.ended && !video.muted && video.volume > 0;
-  }
-  function isEditableTarget(target) {
-    const element2 = target instanceof Element ? target : null;
-    if (!element2) return false;
-    if (element2.closest("input, textarea, select")) return true;
-    const editable = element2.closest("[contenteditable]");
-    return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
-  }
-  async function copyText(text2) {
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text2);
-        return;
-      } catch {
-      }
-    }
-    const textarea = document.createElement("textarea");
-    textarea.value = text2;
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.append(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
-  function openUrlInNewTab(url) {
-    if (!isOpenableExternalUrl(url)) return false;
-    const userscriptOpen = userscriptOpenInTab();
-    if (userscriptOpen) {
-      try {
-        userscriptOpen(url, { active: true, insert: true, setParent: false });
-        return true;
-      } catch {
-      }
-    }
-    const opened = window.open(url, "_blank", "noopener");
-    if (opened) {
-      try {
-        opened.opener = null;
-      } catch {
-      }
-      return true;
-    }
-    return false;
-  }
-  function userscriptOpenInTab() {
-    if (typeof GM_openInTab === "function") return GM_openInTab;
-    if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
-    return void 0;
-  }
-  function isOpenableExternalUrl(value) {
-    try {
-      const url = new URL(value, location.href);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch {
-      return false;
-    }
-  }
-  function positionPopover(popover, anchor, fallbackRect, options = {}) {
-    const frame = preparePopoverPositionFrame(popover, anchor, fallbackRect, options);
-    if (!frame.sourceRects.length) {
-      positionPopoverWithoutAnchor(popover, frame);
-      return;
-    }
-    positionAnchoredPopover(popover, anchor, frame);
-  }
-  function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
-    const viewport = getPopoverViewport();
-    const viewportHeight = viewport.bottom - viewport.top;
-    const viewportWidth = viewport.right - viewport.left;
-    popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-    popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
-    return {
-      scrollTop: popover.scrollTop,
-      sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
-      viewport,
-      viewportWidth,
-      viewportHeight,
-      width: popover.offsetWidth,
-      height: popover.offsetHeight,
-      preferBefore: Boolean(options.preferBefore)
-    };
-  }
-  function popoverMaxFrameHeight(viewportHeight, options) {
-    return Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
-  }
-  function positionPopoverWithoutAnchor(popover, frame) {
-    const margin = 8;
-    const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
-    const fallbackTop = frame.viewport.top + frame.viewportHeight * 0.18;
-    popover.style.left = `${Math.max(frame.viewport.left + margin, Math.min(fallbackLeft, frame.viewport.right - frame.width - margin))}px`;
-    popover.style.top = `${Math.max(frame.viewport.top + margin, Math.min(fallbackTop, frame.viewport.bottom - frame.height - margin))}px`;
-    restorePopoverScrollTop(popover, frame.scrollTop);
-  }
-  function positionAnchoredPopover(popover, anchor, frame) {
-    const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.preferBefore);
-    popover.style.maxWidth = `${Math.max(0, position.width)}px`;
-    popover.style.maxHeight = `${Math.max(0, position.height)}px`;
-    popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
-    popover.style.left = `${position.left}px`;
-    popover.style.top = `${position.top}px`;
-    restorePopoverScrollTop(popover, frame.scrollTop);
-  }
-  function restorePopoverScrollTop(popover, scrollTop) {
-    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-  }
-  function getPopoverSourceRects(anchor, fallbackRect, options) {
-    if (options.followPoint) return pointPopoverRects(options.followPoint);
-    const anchorRects = anchorPopoverRects(anchor);
-    if (anchorRects.length) return anchorRects;
-    return selectionPopoverRects();
-  }
-  function pointPopoverRects(point) {
-    const radius = 14;
-    const overlayPoint = redditLayoutPointToOverlay(point);
-    return [{
-      left: overlayPoint.x - radius,
-      top: overlayPoint.y - radius,
-      right: overlayPoint.x + radius,
-      bottom: overlayPoint.y + radius
-    }];
-  }
-  function anchorPopoverRects(anchor) {
-    if (!anchor) return [];
-    const clientRects = rectListToPopoverRects(anchor.getClientRects(), anchor);
-    if (clientRects.length) return clientRects;
-    const rect = domRectToPopoverRect(anchor.getBoundingClientRect(), anchor);
-    return hasRectArea(rect) ? [rect] : [];
-  }
-  function selectionPopoverRects() {
-    const selection = window.getSelection();
-    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
-    if (!range) return [];
-    const clientRects = rangeClientPopoverRects(range);
-    return clientRects.length ? clientRects : rangeBoundingPopoverRects(range);
-  }
-  function rangeClientPopoverRects(range) {
-    return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects(), range.commonAncestorContainer) : [];
-  }
-  function rangeBoundingPopoverRects(range) {
-    if (typeof range.getBoundingClientRect !== "function") return [];
-    const rect = domRectToPopoverRect(range.getBoundingClientRect(), range.commonAncestorContainer);
-    return hasRectArea(rect) ? [rect] : [];
-  }
-  function rectListToPopoverRects(rects, source) {
-    return Array.from(rects, (rect) => domRectToPopoverRect(rect, source)).filter(hasRectArea);
-  }
-  function domRectToPopoverRect(rect, source) {
-    const overlayRect = redditSourceRectToOverlay(rect, source);
-    return {
-      left: overlayRect.left,
-      top: overlayRect.top,
-      right: overlayRect.right,
-      bottom: overlayRect.bottom
-    };
-  }
-  function hasRectArea(rect) {
-    return rect.right > rect.left || rect.bottom > rect.top;
-  }
-  function getPopoverViewport() {
-    const overlayViewport = redditOverlayViewport();
-    if (overlayViewport.pageScale > 1) {
-      const bounds = redditOverlayViewportBounds();
-      return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
-    }
-    const { visualViewport } = window;
-    if (visualViewport) {
-      const left = visualViewport.offsetLeft;
-      const top = visualViewport.offsetTop;
-      return {
-        left,
-        top,
-        right: left + visualViewport.width,
-        bottom: top + visualViewport.height
-      };
-    }
-    return {
-      left: 0,
-      top: 0,
-      right: window.innerWidth,
-      bottom: window.innerHeight
-    };
-  }
-  function getPopoverWritingMode(anchor) {
-    return anchor ? normalizePopoverWritingMode(getComputedStyle(anchor).writingMode) : DEFAULT_POPOVER_WRITING_MODE;
-  }
-  function normalizePopoverWritingMode(writingMode) {
-    const normalized = writingMode;
-    return SUPPORTED_POPOVER_WRITING_MODES.has(normalized) ? normalized : DEFAULT_POPOVER_WRITING_MODE;
-  }
-  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, preferBefore) {
-    const horizontal = isHorizontalPopoverMode(writingMode);
-    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
-    return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
-  }
-  function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) {
-    let best = null;
-    for (const candidate of popoverSourceRectCandidates(sourceRects)) {
-      const result = getPositionForWritingMode(candidate.rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
-      if (!canUsePopoverPosition(candidate, result, sourceRects)) continue;
-      best = tallerPopoverPosition(best, result);
-      if (result.height >= frameHeight) break;
-    }
-    return best;
-  }
-  function isHorizontalPopoverMode(writingMode) {
-    return writingMode === DEFAULT_POPOVER_WRITING_MODE;
-  }
-  function fallbackPopoverPosition(viewport, frameWidth, frameHeight) {
-    return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
-  }
-  function popoverWritingLayout(writingMode, horizontal, preferBefore) {
-    return {
-      horizontalOffset: horizontal ? 0 : 10,
-      verticalOffset: horizontal ? 10 : 0,
-      preferAfter: horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore)
-    };
-  }
-  function verticalTextPrefersAfter(writingMode, preferBefore) {
-    const defaultAfter = isVerticalTextPopupOnRight(writingMode);
-    return preferBefore ? !defaultAfter : defaultAfter;
-  }
-  function tallerPopoverPosition(best, next) {
-    return best === null || next.height > best.height ? next : best;
-  }
-  function canUsePopoverPosition(candidate, position, sourceRects) {
-    return candidate.canOverlap || !isOverlapping(position, sourceRects, candidate.index);
-  }
-  function popoverSourceRectCandidates(sourceRects) {
-    const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
-    return sourceRects.length > 1 ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }] : candidates;
-  }
-  function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) {
-    return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
-  }
-  function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferBelow) {
-    const [left, width, after] = getConstrainedPosition(
-      sourceRect.right - horizontalOffset,
-      sourceRect.left + horizontalOffset,
-      frameWidth,
-      viewport.left,
-      viewport.right,
-      true
-    );
-    const [top, height, below] = getConstrainedPositionBinary(
-      sourceRect.top - verticalOffset,
-      sourceRect.bottom + verticalOffset,
-      frameHeight,
-      viewport.top,
-      viewport.bottom,
-      preferBelow
-    );
-    return { left, top, width, height, after, below };
-  }
-  function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferRight) {
-    const [left, width, after] = getConstrainedPositionBinary(
-      sourceRect.left - horizontalOffset,
-      sourceRect.right + horizontalOffset,
-      frameWidth,
-      viewport.left,
-      viewport.right,
-      preferRight
-    );
-    const [top, height, below] = getConstrainedPosition(
-      sourceRect.bottom - verticalOffset,
-      sourceRect.top + verticalOffset,
-      frameHeight,
-      viewport.top,
-      viewport.bottom,
-      true
-    );
-    return { left, top, width, height, after, below };
-  }
-  function isVerticalTextPopupOnRight(writingMode) {
-    return !(writingMode === "vertical-lr" || writingMode === "sideways-lr");
-  }
-  function getConstrainedPosition(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
-    size = Math.min(size, maxLimit - minLimit);
-    let position;
-    {
-      position = Math.max(minLimit, positionAfter);
-      position = position - Math.max(0, position + size - maxLimit);
-    }
-    return [position, size, after];
-  }
-  function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
-    const overflowBefore = minLimit - (positionBefore - size);
-    const overflowAfter = positionAfter + size - maxLimit;
-    if (overflowAfter > 0 || overflowBefore > 0) {
-      after = overflowAfter < overflowBefore;
-    }
-    let position;
-    if (after) {
-      size -= Math.max(0, overflowAfter);
-      position = Math.max(minLimit, positionAfter);
-    } else {
-      size -= Math.max(0, overflowBefore);
-      position = Math.min(maxLimit, positionBefore) - size;
-    }
-    return [position, size, after];
-  }
-  function getBoundingSourceRect(sourceRects) {
-    switch (sourceRects.length) {
-      case 0:
-        return { left: 0, top: 0, right: 0, bottom: 0 };
-      case 1:
-        return sourceRects[0];
-    }
-    let { left, top, right, bottom } = sourceRects[0];
-    for (let i2 = 1, ii = sourceRects.length; i2 < ii; ++i2) {
-      const sourceRect = sourceRects[i2];
-      left = Math.min(left, sourceRect.left);
-      top = Math.min(top, sourceRect.top);
-      right = Math.max(right, sourceRect.right);
-      bottom = Math.max(bottom, sourceRect.bottom);
-    }
-    return { left, top, right, bottom };
-  }
-  function isOverlapping(sizeRect, sourceRects, ignoreIndex) {
-    const { left, top } = sizeRect;
-    const right = left + sizeRect.width;
-    const bottom = top + sizeRect.height;
-    for (let i2 = 0, ii = sourceRects.length; i2 < ii; ++i2) {
-      if (i2 === ignoreIndex) continue;
-      const sourceRect = sourceRects[i2];
-      if (rectsOverlap$1({ left, top, right, bottom }, sourceRect)) return true;
-    }
-    return false;
-  }
-  function rectsOverlap$1(a, b) {
-    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  }
-  function getPlacementSide(writingMode, position) {
-    if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
-    return position.after ? "right" : "left";
-  }
   const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
   const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
   const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
@@ -41196,30 +43065,11 @@ ${spelling}`);
         return "updateHelpNotesManager";
     }
   }
-  function cardKey(card) {
-    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-  }
-  function createAudioPreviewCard() {
-    return {
-      vid: 1456360,
-      sid: 0,
-      rid: 0,
-      spelling: "読む",
-      reading: "よむ",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: [],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "jpdb"
-    };
-  }
   const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.233".trim() ? "1.6.233".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.234".trim() ? "1.6.234".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -41557,7 +43407,7 @@ ${spelling}`);
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$n = Logger.scope("SettingsForm");
+  const log$l = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const DEFAULT_COLOR_SOURCE_VALUES = {
@@ -41685,7 +43535,7 @@ ${spelling}`);
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
-    log$n.info("Read settings form data", {
+    log$l.info("Read settings form data", {
       enableLogging: normalized.enableLogging,
       dictionaries: normalized.dictionaryPreferences.length,
       lookupLinks: normalized.dictionaryLookupLinks.length,
@@ -45750,7 +47600,7 @@ ${spelling}`);
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
   }
-  const log$m = Logger.scope("SettingsFileIO");
+  const log$k = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -45796,14 +47646,14 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$m.warn("File picker input missing", { type });
+      log$k.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
       inputEl.onchange = () => {
         const file = inputEl.files?.[0] ?? null;
         inputEl.value = "";
-        log$m.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
+        log$k.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
         resolve(file);
       };
       inputEl.click();
@@ -45816,7 +47666,7 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$m.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$k.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
@@ -45824,7 +47674,7 @@ ${spelling}`);
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
-  const log$l = Logger.scope("SettingsDialog");
+  const log$j = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
@@ -46077,7 +47927,7 @@ ${spelling}`);
     return -1;
   }
   function handleSettingsActionError(action, control, setStatus, error, language) {
-    log$l.warn("Settings action failed", { action }, error);
+    log$j.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
     const message = errorMessage$1(error, uiText(language, "actionFailed"));
     setStatus(message);
@@ -46142,7 +47992,7 @@ ${spelling}`);
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
-      log$l.info("Opening settings", { panel: panel ?? "default" });
+      log$j.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
@@ -46247,7 +48097,7 @@ ${spelling}`);
         }
         const saveRequestId = ++this.saveRequestId;
         void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId)).catch((error) => {
-          log$l.error("Settings save failed", error);
+          log$j.error("Settings save failed", error);
           this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
         });
       });
@@ -46361,7 +48211,7 @@ ${spelling}`);
     }
     afterSettingsSaved(form, saveRequestId) {
       if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-      log$l.info("Settings saved", loggingSettingsSummary(this.settings));
+      log$j.info("Settings saved", loggingSettingsSummary(this.settings));
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       this.dependencies.installFab();
@@ -46379,7 +48229,7 @@ ${spelling}`);
       try {
         await this.dependencies.refreshDictionaryStyles();
       } catch (error) {
-        log$l.warn("Dictionary style refresh failed", error);
+        log$j.warn("Dictionary style refresh failed", error);
         this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "actionFailed")));
       }
     }
@@ -46745,7 +48595,7 @@ ${spelling}`);
         const decks = await this.dependencies.jpdb.listDecks();
         setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } catch (error) {
-        log$l.warn("Deck controls failed to load", error);
+        log$j.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } finally {
         this.settings.apiKey = originalKey;
@@ -46817,7 +48667,7 @@ ${spelling}`);
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-        log$l.warn("Anki settings probe failed", error);
+        log$j.warn("Anki settings probe failed", error);
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
@@ -46856,10 +48706,10 @@ ${spelling}`);
           ...staleDetails,
           ...this.ankiScanDetails(scan, language)
         ]);
-        log$l.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
+        log$j.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-        log$l.warn("Automatic Anki library scan failed", error);
+        log$j.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
         this.restoreTransientSettings(previous);
@@ -46879,9 +48729,9 @@ ${spelling}`);
       }
       try {
         await warmStatusIndex2.call(this.dependencies.anki);
-        log$l.info("Auto Anki status index warmup ok");
+        log$j.info("Auto Anki status index warmup ok");
       } catch (error) {
-        log$l.warn("Automatic Anki status index warmup failed", error);
+        log$j.warn("Automatic Anki status index warmup failed", error);
       } finally {
         this.restoreTransientSettings(previous);
       }
@@ -46906,7 +48756,7 @@ ${spelling}`);
         const summary = await this.dependencies.dictionaries.summary();
         await this.applyDictionaryStatus(form, elements, summary);
       } catch (error) {
-        log$l.warn("Dictionary status unavailable", error);
+        log$j.warn("Dictionary status unavailable", error);
         setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       }
     }
@@ -46944,7 +48794,7 @@ ${spelling}`);
           latest
         });
       } catch (error) {
-        log$l.warn("Yomu update status unavailable", error);
+        log$j.warn("Yomu update status unavailable", error);
         if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
         status.dataset.statusTone = "pending";
         status.textContent = formatUiText(language, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
@@ -47137,12 +48987,12 @@ ${spelling}`);
         const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
         if (played) {
           this.dependencies.toast(uiText(language, "playingAudioPreview"));
-          log$l.info("Audio settings preview started");
+          log$j.info("Audio settings preview started");
         } else {
           this.dependencies.toast(uiText(language, "audioPreviewFailed"));
         }
       } catch (error) {
-        log$l.warn("Audio settings preview failed", error);
+        log$j.warn("Audio settings preview failed", error);
         this.dependencies.toast(errorMessage$1(error, uiText(language, "audioPreviewFailed")));
       } finally {
         this.restoreTransientSettings(previous);
@@ -47167,7 +49017,7 @@ ${spelling}`);
         const blob = await this.dependencies.dictionaries.exportJson();
         downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "dictionariesExported"));
-        log$l.info("Dictionaries exported");
+        log$j.info("Dictionaries exported");
         return true;
       }
       return false;
@@ -47201,7 +49051,7 @@ ${spelling}`);
         const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
         setStatus?.(message2);
         this.dependencies.toast(message2);
-        log$l.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+        log$j.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
         return;
       }
       const snapshot = await downloadCloudSettingsFromCloud();
@@ -47227,7 +49077,7 @@ ${spelling}`);
       this.dependencies.ocr.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$l.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
+      log$j.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
       this.open("backup");
     }
     async rememberPendingCloudSettingsAction(action) {
@@ -47268,7 +49118,7 @@ ${spelling}`);
           ...dictionaries ? { dictionaries } : {}
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
-        log$l.info("Settings exported");
+        log$j.info("Settings exported");
         return true;
       }
       return false;
@@ -47308,7 +49158,7 @@ ${spelling}`);
       try {
         if (await this.dependencies.anki.isConnected()) return true;
       } catch (error) {
-        log$l.warn("Anki settings check failed", error);
+        log$j.warn("Anki settings check failed", error);
       }
       const line = this.ankiSetupUnavailableStatus(this.settings, language);
       setAnkiStatus(line.message, line.tone, line.action);
@@ -47317,23 +49167,23 @@ ${spelling}`);
     finishAnkiConnectionTest(form, setAnkiStatus, language) {
       setAnkiStatus(uiText(language, "ankiConnectionReady"), "success");
       this.queueAutomaticAnkiLibraryScan(form, language);
-      log$l.info("Anki settings check ok", { url: this.settings.ankiConnectUrl });
+      log$j.info("Anki settings check ok", { url: this.settings.ankiConnectUrl });
     }
     async prepareAnkiConnectionAction(form, setAnkiStatus, language) {
       await this.dependencies.anki.ensureDeckAndModel();
       setAnkiStatus(this.ankiReadyMessage(language), "success");
       this.queueAutomaticAnkiLibraryScan(form, language);
-      log$l.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+      log$j.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
     }
     handleAnkiConnectionActionError(error, setAnkiStatus, language) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
         const line = this.ankiSetupUnavailableStatus(this.settings, language);
-        log$l.warn("Anki settings action unavailable", error);
+        log$j.warn("Anki settings action unavailable", error);
         setAnkiStatus(line.message, line.tone, line.action);
         return;
       }
       const message = this.ankiConnectionErrorMessage(error, language);
-      log$l.warn("Anki settings test failed", error);
+      log$j.warn("Anki settings test failed", error);
       setAnkiStatus(message, "error");
       this.dependencies.toast(message);
     }
@@ -47576,7 +49426,7 @@ ${spelling}`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      log$l.info("Dictionary removed", { dictionary });
+      log$j.info("Dictionary removed", { dictionary });
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -47589,7 +49439,7 @@ ${spelling}`);
           sources: summary.dictionaries.length.toLocaleString(),
           plural: summary.dictionaries.length === 1 ? "" : "s"
         }));
-        log$l.info("Dictionary file imported", summary);
+        log$j.info("Dictionary file imported", summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
       });
@@ -47612,7 +49462,7 @@ ${spelling}`);
           const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
           this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
           setStatus(startedMessage);
-          log$l.info("Downloading selected dictionary", { dictionary: dictionary.name });
+          log$j.info("Downloading selected dictionary", { dictionary: dictionary.name });
           const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
             setStatus(message);
             this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
@@ -47625,7 +49475,7 @@ ${spelling}`);
           }));
           await this.refreshDictionaryStatus(form);
           this.dependencies.refreshNewTabIfCurrent();
-          log$l.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+          log$j.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
         } finally {
           this.clearRecommendedDictionaryInstallState(form, dictionary.id);
         }
@@ -47654,7 +49504,7 @@ ${spelling}`);
       const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
       setStatus(status);
       this.dependencies.toast(status);
-      log$l.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
+      log$j.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
@@ -47695,7 +49545,7 @@ ${spelling}`);
       this.dependencies.subtitles.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$l.info("Settings imported", loggingSettingsSummary(this.settings));
+      log$j.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
     }
     async importReaderDictionaryBackup(json, setStatus) {
@@ -47819,7 +49669,7 @@ ${spelling}`);
       }
     });
   }
-  const log$k = Logger.scope("Onboarding");
+  const log$i = Logger.scope("Onboarding");
   const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
   const ONBOARDING_FEATURE_KEYS = [
     ["featureText", "featureTextBody"],
@@ -47860,7 +49710,7 @@ ${spelling}`);
       return true;
     }
     show() {
-      log$k.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$i.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -48037,7 +49887,7 @@ ${spelling}`);
       actions.append(dictionaries, setup);
       this.languageSelect.addEventListener("change", () => {
         const language2 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
-        log$k.info("Onboarding language changed", { language: language2 });
+        log$i.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -48132,7 +49982,7 @@ ${spelling}`);
       this.annotateJapanese();
     }
     async complete(openSettings) {
-      const done = log$k.time("Onboarding complete", { openSettings });
+      const done = log$i.time("Onboarding complete", { openSettings });
       const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
       const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
       try {
@@ -48141,9 +49991,9 @@ ${spelling}`);
         this.close();
         if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
         this.openPostOnboardingSettings(openSettings);
-        log$k.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
+        log$i.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
       } catch (error) {
-        log$k.warn("Onboarding completion failed", { openSettings, error });
+        log$i.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -51779,7 +53629,7 @@ ${spelling}`);
   const TRANSLATION_BATCH_ENCODED_CHAR_BUDGET = 6e3;
   const TRANSLATION_TIMEOUT_MS = 8e3;
   const TRANSLATION_SEPARATOR = "\n";
-  const log$j = Logger.scope("SubtitleTranslate");
+  const log$h = Logger.scope("SubtitleTranslate");
   async function translateSubtitleCues(cues, sourceLanguage, targetLanguage, options = {}) {
     if (!cues.length) return [];
     const texts = cues.map((cue) => cue.text.trim());
@@ -51821,7 +53671,7 @@ ${spelling}`);
   async function translateBatch(texts, sourceLanguage, targetLanguage) {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
-    const done = log$j.time("Translate subtitle batch", { count: texts.length });
+    const done = log$h.time("Translate subtitle batch", { count: texts.length });
     try {
       const json = await requestJson$3(url, {
         timeoutMs: TRANSLATION_TIMEOUT_MS,
@@ -51834,10 +53684,10 @@ ${spelling}`);
       });
       const result = (json.sentences ?? []).map((item) => item.trans ?? "").join("");
       const lines = result.split(TRANSLATION_SEPARATOR);
-      log$j.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
+      log$h.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
       return padTranslationResults(lines, texts);
     } catch (error) {
-      log$j.warn("Subtitle batch translation failed", { count: texts.length, error });
+      log$h.warn("Subtitle batch translation failed", { count: texts.length, error });
       return texts;
     } finally {
       done();
@@ -54751,10 +56601,10 @@ ${spelling}`);
     "application/x-subrip",
     "application/srt"
   ].join(",");
-  const log$i = Logger.scope("Subtitles");
+  const log$g = Logger.scope("Subtitles");
   const TRACK_LOAD_OPTIONS = {
     requestText: requestSubtitleText,
-    onYouTubeRequestError: (track, url, error) => log$i.debug("YouTube subtitle request failed", {
+    onYouTubeRequestError: (track, url, error) => log$g.debug("YouTube subtitle request failed", {
       label: track.label,
       ...subtitleRequestFailureDetails(url),
       error
@@ -55320,7 +57170,7 @@ ${spelling}`);
       window.visualViewport?.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       this.discoverVideo();
       this.tick();
-      log$i.info("Subtitle controller initialized");
+      log$g.info("Subtitle controller initialized");
     }
     mutationCouldAffectFullscreenState(mutation) {
       if (mutation.type === "childList") return mutationSwapsFullscreenHostCandidate(mutation);
@@ -55593,7 +57443,7 @@ ${spelling}`);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
       this.alignToVideo();
-      log$i.info("Subtitle video detected", videoSummary(candidate));
+      log$g.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
       for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
@@ -58062,14 +59912,14 @@ ${spelling}`);
       await this.writeSubtitleClipboard(text2, "Subtitle clipboard copy failed");
     }
     async writeSubtitleClipboard(text2, failureMessage) {
-      await navigator.clipboard?.writeText(text2).catch((error) => log$i.warn(failureMessage, error));
+      await navigator.clipboard?.writeText(text2).catch((error) => log$g.warn(failureMessage, error));
     }
     async autoCopyCurrentCue() {
       if (!this.options.getSettings().subtitleAutoCopyLine || !this.currentCue?.text.trim()) return;
       const signature = subtitleCueSignature(this.currentCue);
       if (signature === this.lastAutoCopiedCueSignature) return;
       this.lastAutoCopiedCueSignature = signature;
-      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log$i.warn("Subtitle auto-copy failed", error));
+      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log$g.warn("Subtitle auto-copy failed", error));
     }
     openSubtitleFilePicker(kind) {
       const input2 = document.createElement("input");
@@ -58102,7 +59952,7 @@ ${spelling}`);
     async loadHostedSubtitleFileJobs(request) {
       for (const job of request.jobs) {
         await this.loadSubtitleFile(job.kind, job.file).catch((error) => {
-          log$i.warn("Hosted subtitle file load failed", { kind: job.kind, name: job.file.name, error });
+          log$g.warn("Hosted subtitle file load failed", { kind: job.kind, name: job.file.name, error });
         });
       }
       if (request.openPanel === false) {
@@ -58130,7 +59980,7 @@ ${spelling}`);
       if (kind === "primary") await this.selectTrack(track.id);
       else await this.selectSecondaryTrack(track.id);
       this.updateFromLoadedCues();
-      log$i.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
+      log$g.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
     async selectTrack(id, options = {}) {
       const requestId = this.preparePrimaryTrackSelection(id);
@@ -58302,7 +60152,7 @@ ${spelling}`);
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
-      log$i.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
+      log$g.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
       if (this.nativeFullscreenHostTracksRestored) return;
@@ -58860,7 +60710,7 @@ ${spelling}`);
         this.scheduleShadowRecordingStop(cue);
         this.renderShadowPanel(true);
       } catch (error) {
-        log$i.warn("Shadow self-recording unavailable", error);
+        log$g.warn("Shadow self-recording unavailable", error);
         this.shadowRecorder = void 0;
         this.shadowRecordingUnavailable = true;
         this.renderShadowPanel(true);
@@ -58929,7 +60779,7 @@ ${spelling}`);
       const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
       this.options.onSettingsChange();
       if (!appliedInline) this.render();
-      log$i.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
+      log$g.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     applyNativeSubtitleBlurState(nativeBlurred, language, target) {
       const targets = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
@@ -60528,7 +62378,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterPrimaryClear();
       this.syncControls();
-      log$i.info("Primary subtitle track cleared");
+      log$g.info("Primary subtitle track cleared");
     }
     clearPrimaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -60552,7 +62402,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterSecondaryClear();
       this.syncControls();
-      log$i.info("Secondary subtitle track cleared");
+      log$g.info("Secondary subtitle track cleared");
     }
     clearSecondaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -60570,7 +62420,7 @@ ${spelling}`);
       let cleared = 0;
       const roots = Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
       for (const root of roots) cleared += unwrapReaderWords(root);
-      if (cleared) log$i.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
+      if (cleared) log$g.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
     }
     positionTranscriptPanel(options = {}) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
@@ -63392,7 +65242,7 @@ ${spelling}`);
     SubtitlePlayerController,
     YoutubeImmersionFilter
   });
-  const log$h = Logger.scope("CardStateSignal");
+  const log$f = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
   const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
   const SEEN_SIGNAL_LIMIT = 32;
@@ -63430,7 +65280,7 @@ ${spelling}`);
     try {
       gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
     } catch (error) {
-      log$h.debug("GM card-state publish failed", error);
+      log$f.debug("GM card-state publish failed", error);
     }
     publishBroadcastCardStateSignal(signal);
   }
@@ -63441,7 +65291,7 @@ ${spelling}`);
       channel.postMessage(signal);
       channel.close();
     } catch (error) {
-      log$h.debug("Broadcast card-state publish failed", error);
+      log$f.debug("Broadcast card-state publish failed", error);
     }
   }
   function subscribeToCardStateSignals(onCard) {
@@ -63465,7 +65315,7 @@ ${spelling}`);
           if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
         });
       } catch (error) {
-        log$h.debug("GM card-state listener failed", error);
+        log$f.debug("GM card-state listener failed", error);
       }
     }
     if (typeof BroadcastChannel === "function") {
@@ -63474,7 +65324,7 @@ ${spelling}`);
         channel.onmessage = (event) => handle(event.data);
         cleanups.push(() => channel.close());
       } catch (error) {
-        log$h.debug("Broadcast card-state listener failed", error);
+        log$f.debug("Broadcast card-state listener failed", error);
       }
     }
     return () => cleanups.forEach((cleanup) => cleanup());
@@ -63504,7 +65354,7 @@ ${spelling}`);
       }
     };
   }
-  const log$g = Logger.scope("AnkiNewTab");
+  const log$e = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
@@ -63560,7 +65410,7 @@ ${spelling}`);
     if (Date.now() < unavailableUntil) throw new AnkiNewTabUnavailableError("AnkiConnect is cooling down after a failed new-tab request.");
     if (!await client.isAvailableForBackground()) throw new AnkiNewTabUnavailableError();
     try {
-      const done = log$g.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+      const done = log$e.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
       const allDeckNames = await newTabAnkiDeckNames(client, settings);
       const scope = normalizeNewTabAnkiDeckScope(deckScope);
       const deckNames = scope ? allDeckNames.filter((deck) => deck === scope || deck.startsWith(`${scope}::`)) : allDeckNames;
@@ -63574,7 +65424,7 @@ ${spelling}`);
       done();
       return cards;
     } catch (error) {
-      log$g.warn("Anki new-tab lookup failed", error);
+      log$e.warn("Anki new-tab lookup failed", error);
       unavailableUntil = Date.now() + 3e4;
       throw new AnkiNewTabUnavailableError("AnkiConnect failed while loading new-tab reviews.");
     }
@@ -66430,7 +68280,7 @@ ${component.reading}`;
   function normalizeIdentityText(value) {
     return value.normalize("NFKC").trim();
   }
-  const log$f = Logger.scope("CardRenderData");
+  const log$d = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -66610,7 +68460,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.lookupLocalTermEntries(card, settings).catch((error) => {
-        log$f.warn("Local term lookup failed", { term: card.spelling }, error);
+        log$d.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
       });
     }
@@ -66634,7 +68484,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$f.warn("Local kanji lookup failed", { term: card.spelling }, error);
+        log$d.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -66645,13 +68495,13 @@ ${component.reading}`;
         entries: entries2,
         completed: true
       })).catch((error) => {
-        log$f.warn("Local metadata lookup failed", { term: card.spelling }, error);
+        log$d.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return { entries: [], completed: false };
       });
       return Promise.race([
         lookup,
         delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-          log$f.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
+          log$d.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
           return { entries: [], completed: false };
         })
       ]);
@@ -66660,7 +68510,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$f.warn("Public pitch lookup failed", { term: card.spelling }, error);
+        log$d.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -66673,7 +68523,7 @@ ${component.reading}`;
       if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
-        log$f.warn("JPDB page lookup failed", { term: card.spelling }, error);
+        log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -66689,7 +68539,7 @@ ${component.reading}`;
         this.applyJitenVocabularyInfoPitchAccent(card, info);
         return info;
       }).catch((error) => {
-        log$f.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+        log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       });
     }
@@ -66697,12 +68547,12 @@ ${component.reading}`;
       const settings = this.settings();
       const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
       const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-        log$f.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+        log$d.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
         return null;
       }) : Promise.resolve(null) : Promise.resolve(null);
       const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
       const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
-        log$f.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+        log$d.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
         return null;
       }) : Promise.resolve(null);
       const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
@@ -66723,13 +68573,13 @@ ${component.reading}`;
       if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
       if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
       const startedAt = performance.now();
-      log$f.debug("Bunpro definition lookup started", { term: card.spelling });
+      log$d.debug("Bunpro definition lookup started", { term: card.spelling });
       return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
         const resolved = {
           info: result.info,
           status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
         };
-        log$f.debug("Bunpro definition lookup completed", {
+        log$d.debug("Bunpro definition lookup completed", {
           term: card.spelling,
           state: resolved.status.state,
           reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -66737,7 +68587,7 @@ ${component.reading}`;
         });
         return resolved;
       }).catch((error) => {
-        log$f.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+        log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
         return { info: null, status: { state: "error" } };
       });
     }
@@ -66746,14 +68596,14 @@ ${component.reading}`;
       const fallback = sourceCardAnkiLookupOrEmpty(card);
       if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
       return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-        log$f.warn("Cached Anki status failed", { term: card.spelling }, error);
+        log$d.warn("Cached Anki status failed", { term: card.spelling }, error);
         return fallback;
       });
     }
     loadDetailedAnkiLookup(card, fastLookup) {
       if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
       return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-        log$f.warn("Anki lookup failed", { term: card.spelling }, error);
+        log$d.warn("Anki lookup failed", { term: card.spelling }, error);
         return ankiLookupWithUnavailableDetails(fallback);
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -66766,14 +68616,14 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-        log$f.warn("JPDB deck list failed", { term: card.spelling }, error);
+        log$d.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-        log$f.warn("Anki deck list failed", { term: card.spelling }, error);
+        log$d.warn("Anki deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -66781,7 +68631,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-        log$f.warn("Jiten deck list failed", { term: card.spelling }, error);
+        log$d.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -66792,7 +68642,7 @@ ${component.reading}`;
       if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
       if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-        log$f.warn("Anki field target plan failed", { term: card.spelling }, error);
+        log$d.warn("Anki field target plan failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -66803,7 +68653,7 @@ ${component.reading}`;
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-        log$f.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+        log$d.warn("JPDB pool lookup failed", { term: card.spelling }, error);
         return false;
       }), false);
     }
@@ -66920,7 +68770,7 @@ ${component.reading}`;
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
         { initialEntries: metaEntries }
       ).catch((error) => {
-        log$f.warn("Local pitch lookup failed", { term: card.spelling }, error);
+        log$d.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       const patterns = resolution.patterns;
@@ -67028,7 +68878,7 @@ ${component.reading}`;
     return Promise.race([
       promise,
       delay(timeoutMs).then(() => {
-        log$f.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+        log$d.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
     ]);
@@ -67942,7 +69792,7 @@ ${component.reading}`;
       this.options.onRefreshed?.(css.length);
     }
   }
-  const log$e = Logger.scope("FactoryReset");
+  const log$c = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -67994,12 +69844,12 @@ ${component.reading}`;
         const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$e.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+        log$c.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
-        log$e.warn("All-data reset failed", error);
+        log$c.warn("All-data reset failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
       }
     }
@@ -68007,7 +69857,7 @@ ${component.reading}`;
       try {
         return await this.dependencies.resetDictionaryDatabase();
       } catch (error) {
-        log$e.warn("Dictionary reset failed post-settings", error);
+        log$c.warn("Dictionary reset failed post-settings", error);
         this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -68018,7 +69868,7 @@ ${component.reading}`;
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$e.info("Factory reset signal received", {
+      log$c.info("Factory reset signal received", {
         phase: signal.phase,
         href: signal.href,
         remote: source.remote,
@@ -68036,7 +69886,7 @@ ${component.reading}`;
     async assertSettingsStorageDeleted() {
       const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
       if (!settingsKeysStillPresent.length) return;
-      log$e.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+      log$c.warn("Settings keys remained after reset", { settingsKeysStillPresent });
       throw new Error(this.text("factoryResetDeleteSettingsFailed"));
     }
     text(key, values = {}) {
@@ -68054,1853 +69904,6 @@ ${component.reading}`;
       window.clearTimeout(this.remoteGuardReleaseTimer);
       this.remoteGuardReleaseTimer = void 0;
     }
-  }
-  const API_BASE$1 = "https://apiv2express.immersionkit.com";
-  const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
-  const API_BASES = [API_BASE$1, LEGACY_API_BASE];
-  const NADESHIKO_API_BASE = "https://api.nadeshiko.co/v1";
-  const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
-  const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
-  const MEDIA_CANDIDATE_LIMIT = 4;
-  const SEARCH_EXAMPLE_LIMIT = 250;
-  const SEARCH_CACHE_LIMIT = 160;
-  const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1e3;
-  const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
-  const NADESHIKO_SEARCH_LIMIT = 25;
-  const MIN_LEARNING_SENTENCE_LENGTH = 8;
-  const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$d = Logger.scope("ImmersionKit");
-  const IMMERSION_KIT_TITLES = {
-    your_lie_in_april: "Your Lie in April",
-    princess_mononoke: "Princess Mononoke",
-    girls_band_cry: "Girls Band Cry",
-    only_yesterday: "Only Yesterday",
-    chobits: "Chobits",
-    k_on_: "K-On!",
-    weathering_with_you: "Weathering with You",
-    from_the_new_world: "From the New World",
-    grave_of_the_fireflies: "Grave of the Fireflies",
-    steins_gate: "Steins Gate",
-    sword_art_online: "Sword Art Online",
-    nisekoi: "Nisekoi",
-    death_note: "Death Note",
-    wolf_children: "Wolf Children",
-    demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
-    your_name: "Your Name",
-    alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
-    cardcaptor_sakura: "Cardcaptor Sakura",
-    kill_la_kill: "Kill la Kill",
-    howl_s_moving_castle: "Howl's Moving Castle",
-    whisper_of_the_heart: "Whisper of the Heart",
-    bunny_drop: "Bunny Drop",
-    fermat_kitchen: "Fermat Kitchen",
-    haruhi_suzumiya: "Haruhi Suzumiya",
-    hunter_x_hunter: "Hunter × Hunter",
-    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
-    assassination_classroom_season_1: "Assassination Classroom Season 1",
-    durarara__: "Durarara!!",
-    bakemonogatari: "Bakemonogatari",
-    hyouka: "Hyouka",
-    relife: "ReLIFE",
-    from_up_on_poppy_hill: "From Up on Poppy Hill",
-    sound__euphonium: "Sound! Euphonium",
-    lucky_star: "Lucky Star",
-    kokoro_connect: "Kokoro Connect",
-    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
-    is_the_order_a_rabbit: "Is The Order a Rabbit",
-    clannad: "Clannad",
-    angel_beats_: "Angel Beats!",
-    daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
-    new_game_: "New Game!",
-    the_wind_rises: "The Wind Rises",
-    fate_zero: "Fate Zero",
-    toradora_: "Toradora!",
-    anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
-    wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
-    kino_s_journey: "Kino's Journey",
-    boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
-    fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
-    one_week_friends: "One Week Friends",
-    erased: "Erased",
-    mononoke: "Mononoke",
-    little_witch_academia: "Little Witch Academia",
-    re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
-    fruits_basket_season_1: "Fruits Basket Season 1",
-    mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
-    the_irregular_at_magic_high_school: "The Irregular at Magic High School",
-    clannad_after_story: "Clannad After Story",
-    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
-    kakegurui: "Kakegurui",
-    the_garden_of_words: "The Garden of Words",
-    when_marnie_was_there: "When Marnie Was There",
-    castle_in_the_sky: "Castle in the sky",
-    shirokuma_cafe: "Shirokuma Cafe",
-    my_neighbor_totoro: "My Neighbor Totoro",
-    kiki_s_delivery_service: "Kiki's Delivery Service",
-    the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
-    fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
-    code_geass_season_1: "Code Geass Season 1",
-    the_world_god_only_knows: "The World God Only Knows",
-    the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
-    no_game_no_life: "No Game No Life",
-    kanon__2006_: "Kanon (2006)",
-    psycho_pass: "Psycho Pass",
-    the_cat_returns: "The Cat Returns",
-    the_secret_world_of_arrietty: "The Secret World of Arrietty",
-    spirited_away: "Spirited Away",
-    noragami: "Noragami",
-    fairy_tail: "Fairy Tail",
-    i_m_taking_the_day_off: "I'm Taking the Day Off",
-    border: "Border",
-    weakest_beast: "Weakest Beast",
-    mob_psycho_100: "Mob Psycho 100",
-    the_journalist: "The Journalist",
-    sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
-    smoking: "Smoking",
-    i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
-    good_morning_call: "Good Morning Call",
-    overprotected_kahoko: "Overprotected Kahoko",
-    quartet: "Quartet",
-    million_yen_woman: "Million Yen Woman",
-    legal_high_season_1: "Legal High Season 1",
-    witcher_3: "Witcher 3",
-    cyberpunk_2077: "Cyberpunk 2077",
-    skyrim: "Skyrim"
-  };
-  class ImmersionKitClient {
-    cache = /* @__PURE__ */ new Map();
-    inflight = /* @__PURE__ */ new Map();
-    mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
-    immersionKitRateLimitedUntil = 0;
-    immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-    async search(term, settings, options = {}) {
-      const query = term.trim();
-      if (!canSearchImmersionExamples(query, settings)) return [];
-      const cacheKey = this.searchCacheKey(query, settings, options);
-      const cached = this.cache.get(cacheKey);
-      if (cached) return cached;
-      const cacheInflight = !options.signal;
-      const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
-      if (inflight) return inflight;
-      const done = log$d.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
-        const result = applySearchExampleLimit(examples, settings, options);
-        if (!options.signal?.aborted) {
-          this.cache.set(cacheKey, result);
-          pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
-        }
-        return result;
-      }).finally(() => {
-        if (cacheInflight) this.inflight.delete(cacheKey);
-        done();
-      });
-      if (cacheInflight) this.inflight.set(cacheKey, promise);
-      return promise;
-    }
-    async searchEnabledSources(query, settings, options) {
-      const sources = enabledImmersionExampleSources(settings);
-      if (settings.immersionKitExampleSource === "combined" && options.fastFirst && sources.length > 1) {
-        return this.searchCombinedFastFirst(query, settings, options, sources);
-      }
-      const resultSets = await Promise.all(sources.map(
-        (source) => this.searchSource(source, query, settings, options)
-      ));
-      return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
-    }
-    searchCombinedFastFirst(query, settings, options, sources) {
-      let pending = sources.length;
-      const emptyResults = [];
-      return new Promise((resolve, reject) => {
-        sources.forEach((source) => {
-          void this.searchSource(source, query, settings, options).then((examples) => {
-            if (examples.length) {
-              resolve(examples);
-              return;
-            }
-            emptyResults.push(examples);
-            pending -= 1;
-            if (pending === 0) resolve(emptyResults.flat());
-          }).catch(reject);
-        });
-      });
-    }
-    searchSource(source, query, settings, options) {
-      return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError(error)) throw error;
-        log$d.warn("Nadeshiko examples failed", { query }, error);
-        return [];
-      }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$d.warn("Immersion Kit examples failed", { query }, error);
-        return [];
-      });
-    }
-    searchImmersionKit(query, settings, options) {
-      this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
-      return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
-        this.resetImmersionKitBackoff();
-        return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
-      }).catch((error) => {
-        if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
-        throw error;
-      });
-    }
-    assertImmersionKitSearchAllowed(language) {
-      if (Date.now() < this.immersionKitRateLimitedUntil) {
-        throw new Error(uiText(language, "immersionKitRateLimited"));
-      }
-    }
-    noteImmersionKitRateLimit() {
-      this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
-      this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
-    }
-    resetImmersionKitBackoff() {
-      this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-      this.immersionKitRateLimitedUntil = 0;
-    }
-    searchNadeshiko(query, settings, options) {
-      const apiKey = settings.nadeshikoApiKey.trim();
-      if (!apiKey) return Promise.resolve([]);
-      return requestJson$3(`${NADESHIKO_API_BASE}/search`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
-        timeoutMs: settings.audioTimeoutMs,
-        allowDirectCrossOrigin: true,
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        preferFetch: shouldPreferFetchForImmersionKitRequests(),
-        signal: options.signal,
-        failureLabel: uiText(settings.interfaceLanguage, "nadeshikoRequest"),
-        failureMessage: uiText(settings.interfaceLanguage, "nadeshikoRequestFailed"),
-        statusFailureMessage: (status) => formatUiText(settings.interfaceLanguage, "nadeshikoRequestFailedWithStatus", { status }),
-        timeoutLabel: uiText(settings.interfaceLanguage, "nadeshikoRequestTimedOut")
-      }).then((data) => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
-    }
-    searchCacheKey(query, settings, options) {
-      return JSON.stringify({
-        query,
-        source: settings.immersionKitExampleSource,
-        nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
-        limit: searchRequestLimit(options),
-        userLimit: searchResultLimit(settings, options),
-        min: this.minimumSentenceLength(settings),
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        sort: this.effectiveSort(settings),
-        exact: settings.immersionKitExactMatch,
-        fastFirst: Boolean(options.fastFirst)
-      });
-    }
-    combinedShuffleSeed(query, settings) {
-      return JSON.stringify({
-        query,
-        source: settings.immersionKitExampleSource,
-        key: sensitiveFingerprint(settings.nadeshikoApiKey),
-        min: this.minimumSentenceLength(settings),
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        exact: settings.immersionKitExactMatch
-      });
-    }
-    searchParams(query, settings, options) {
-      const params = new URLSearchParams({
-        q: query,
-        limit: String(searchRequestLimit(options)),
-        sort: this.effectiveSort(settings)
-      });
-      if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
-      if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-      return params;
-    }
-    effectiveSort(settings) {
-      return settings.immersionKitSort === "random" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-    }
-    minimumSentenceLength(settings) {
-      return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
-    }
-    // Compatibility helper for callers that still expect the first media candidate.
-    mediaUrl(example, kind) {
-      return this.mediaUrls(example, kind)[0] ?? "";
-    }
-    mediaUrls(example, kind) {
-      const direct = directMediaUrl(example, kind);
-      if (direct) return [direct];
-      const file = mediaFileName(example, kind);
-      if (!file) return [];
-      return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
-    }
-    async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-      const urls = urlCandidates(url);
-      const key = urls.join("");
-      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-        const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
-        return blobUrl;
-      });
-    }
-    async fetchDataUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-      const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-      return readBlobAsDataUrl(blob);
-    }
-  }
-  function canSearchImmersionExamples(query, settings) {
-    return Boolean(query && settings.immersionKitEnabled);
-  }
-  function enabledImmersionExampleSources(settings) {
-    if (settings.immersionKitExampleSource === "nadeshiko") return ["nadeshiko"];
-    if (settings.immersionKitExampleSource === "combined") return ["immersion-kit", "nadeshiko"];
-    return ["immersion-kit"];
-  }
-  function collectExamples(value) {
-    if (Array.isArray(value)) return value;
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    return firstArrayField(record, ["examples", "results", "data"]);
-  }
-  function firstArrayField(record, keys) {
-    return keys.map((key) => record[key]).find(Array.isArray) ?? [];
-  }
-  function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
-    return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-  }
-  function filterNadeshikoExamples(data, query, settings, minLength) {
-    const response = nadeshikoResponseRecord(data);
-    if (!response) return [];
-    const media = nadeshikoMediaMap(response);
-    return nadeshikoSegments(response).map((value) => normalizeNadeshikoExample(value, media)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-  }
-  function applySearchExampleLimit(examples, settings, options = {}) {
-    const limit = searchResultLimit(settings, options);
-    return limit ? examples.slice(0, limit) : examples;
-  }
-  function searchRequestLimit(options) {
-    return boundedSearchLimit(options.requestLimit, SEARCH_EXAMPLE_LIMIT);
-  }
-  function searchResultLimit(settings, options) {
-    if (options.resultLimit !== void 0) return boundedSearchLimit(options.resultLimit, SEARCH_EXAMPLE_LIMIT);
-    return settings.immersionKitLimitEnabled ? boundedSearchLimit(settings.immersionKitLimit, SEARCH_EXAMPLE_LIMIT) : 0;
-  }
-  function boundedSearchLimit(value, fallback) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-    return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
-  }
-  function isSearchExampleInRange(example, settings, minLength) {
-    const length = sentenceLength(example.sentence);
-    return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
-  }
-  function isSearchExampleSurfaceMatch(example, query) {
-    return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
-  }
-  function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
-  }
-  function normalizeExampleRecord(record, provider = "immersion-kit") {
-    const id = text(record.id);
-    const sentence = firstText(record, ["sentence", "text"]);
-    if (!sentence) return null;
-    const titleSlug = exampleTitleSlug(record, id);
-    const sourceTitle = exampleSourceTitle(record, titleSlug);
-    const category = exampleCategory(record, id);
-    const soundFile = firstText(record, ["sound", "audio", "audio_file", "audioFile"]);
-    const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
-    return {
-      id,
-      provider,
-      sentence,
-      sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
-      translation: firstText(record, ["translation", "translation_en", "english"]),
-      sourceTitle,
-      titleSlug,
-      category,
-      soundFile,
-      imageFile,
-      soundUrl: absoluteMediaUrl(firstText(record, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
-      imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
-    };
-  }
-  function nadeshikoSearchPayload(query, settings, minLength) {
-    const maxLength = settings.immersionKitMaxLength || 1e3;
-    return {
-      query: { search: query },
-      take: NADESHIKO_SEARCH_LIMIT,
-      filters: {
-        segmentLengthChars: {
-          min: minLength,
-          max: Math.max(minLength, maxLength)
-        }
-      }
-    };
-  }
-  function nadeshikoResponseRecord(data) {
-    if (Array.isArray(data)) return { segments: data };
-    return isRecord(data) ? data : null;
-  }
-  function nadeshikoSegments(response) {
-    return firstArrayField(response, ["segments", "examples", "results", "data"]);
-  }
-  function nadeshikoMediaMap(response) {
-    const includes = response.includes;
-    const media = isRecord(includes) ? includes.media : void 0;
-    return isRecord(media) ? media : {};
-  }
-  function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord(value)) return null;
-    const sentence = nadeshikoSentence(value);
-    if (!sentence) return null;
-    const ids = nadeshikoExampleIds(value);
-    const media = nadeshikoMediaRecord(mediaById, ids.mediaPublicId);
-    const urls = recordField(value.urls);
-    const sourceTitle = nadeshikoSourceTitle(value, media);
-    return {
-      id: nadeshikoExampleId(sentence, ids),
-      provider: "nadeshiko",
-      sentence,
-      sentenceWithFurigana: firstText(value, ["furi_sentence", "sentenceWithFurigana", "sentence_with_furigana"]),
-      translation: nadeshikoTranslation(value),
-      sourceTitle,
-      titleSlug: slugFromTitle(sourceTitle),
-      category: nadeshikoCategory(value, media),
-      soundFile: "",
-      imageFile: "",
-      soundUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["audioUrl", "soundUrl", "audio_url", "sound_url"]),
-      imageUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["imageUrl", "image_url"]),
-      publicId: ids.publicId,
-      mediaPublicId: ids.mediaPublicId
-    };
-  }
-  function nadeshikoSentence(record) {
-    return nestedText(record, "textJa", ["content", "text"]) || firstText(record, ["sentence", "text", "textJa"]);
-  }
-  function nadeshikoExampleIds(record) {
-    return {
-      publicId: firstText(record, ["publicId", "public_id", "id"]),
-      mediaPublicId: firstText(record, ["mediaPublicId", "media_public_id", "mediaId"])
-    };
-  }
-  function nadeshikoMediaRecord(mediaById, mediaPublicId) {
-    return recordField(mediaById[mediaPublicId]);
-  }
-  function recordField(value) {
-    return isRecord(value) ? value : {};
-  }
-  function nadeshikoSourceTitle(record, media) {
-    return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
-  }
-  function nadeshikoExampleId(sentence, ids) {
-    return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
-  }
-  function nadeshikoTranslation(record) {
-    return nestedText(record, "textEn", ["content", "text"]) || firstText(record, ["translation", "translation_en", "english"]);
-  }
-  function nadeshikoCategory(record, media) {
-    return firstText(media, ["type", "category"]) || firstText(record, ["category"]) || "anime";
-  }
-  function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
-    return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
-  }
-  function nestedText(record, key, fields) {
-    const value = record[key];
-    return isRecord(value) ? firstText(value, fields) : "";
-  }
-  function directMediaUrl(example, kind) {
-    return kind === "image" ? example.imageUrl : example.soundUrl;
-  }
-  function mediaFileName(example, kind) {
-    return kind === "image" ? example.imageFile : example.soundFile;
-  }
-  function mediaFileUrls(example, file) {
-    const category = example.category || categoryFromId(example.id);
-    return uniqueTrimmedStrings(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
-  }
-  function mediaFileTitleUrls(category, title, file) {
-    const path = `media/${category}/${title}/media/${file}`;
-    return [
-      `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`,
-      ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
-    ];
-  }
-  function exampleTitleSlug(record, id) {
-    return firstText(record, ["title", "deck", "source"]) || titleSlugFromId(id);
-  }
-  function exampleSourceTitle(record, titleSlug) {
-    return firstText(record, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
-  }
-  function exampleCategory(record, id) {
-    return text(record.category) || categoryFromId(id);
-  }
-  function firstText(record, keys) {
-    for (const key of keys) {
-      const value = text(record[key]);
-      if (value) return value;
-    }
-    return "";
-  }
-  function text(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function titleSlugFromId(id) {
-    const parts = id.split("_");
-    if (parts.length < 3) return "";
-    return parts.slice(1, -1).join("_");
-  }
-  function categoryFromId(id) {
-    const [category] = id.split("_");
-    return category || "anime";
-  }
-  function titleFromSlug(slug) {
-    if (!slug) return "Unknown";
-    const override = IMMERSION_KIT_TITLES[slug];
-    if (override) return override;
-    return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
-  }
-  function slugFromTitle(title) {
-    return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, "_").replace(/^_+|_+$/g, "");
-  }
-  function mediaTitleCandidates(example, file) {
-    const slug = example.titleSlug || titleSlugFromId(example.id);
-    return uniqueTrimmedStrings([
-      titleFromSlug(slug),
-      example.sourceTitle,
-      titleFromMediaFile(file),
-      slug
-    ].filter(Boolean));
-  }
-  function titleFromMediaFile(file) {
-    const stem = file.replace(/\.[^.]+$/u, "");
-    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
-    const title = (episodeMatch?.[1] || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
-    if (!title) return "";
-    return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
-  }
-  function deterministicShuffle(values, seed) {
-    const result = [...values];
-    let state2 = stablePositiveHashId(seed);
-    for (let index = result.length - 1; index > 0; index--) {
-      state2 = nextRandomState(state2);
-      const swapIndex = state2 % (index + 1);
-      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-    }
-    return result;
-  }
-  function deterministicMergedExamples(sources, resultSets, seed) {
-    const groups = deterministicShuffle(sources.map((source, index) => ({
-      source,
-      examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`)
-    })), `${seed}:providers`).filter((group) => group.examples.length);
-    const result = [];
-    while (groups.some((group) => group.examples.length)) {
-      for (const group of groups) {
-        const example = group.examples.shift();
-        if (example) result.push(example);
-      }
-    }
-    return result;
-  }
-  function nextRandomState(value) {
-    return Math.imul(value, 1664525) + 1013904223 >>> 0;
-  }
-  function sensitiveFingerprint(value) {
-    const trimmed = value.trim();
-    return trimmed ? stableHash32(trimmed).toString(36) : "";
-  }
-  function absoluteMediaUrl(value) {
-    if (!value) return "";
-    if (isAbsoluteMediaUrl(value)) return value;
-    if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
-    return "";
-  }
-  function isAbsoluteMediaUrl(value) {
-    return /^https?:\/\//i.test(value) || value.startsWith("data:");
-  }
-  function sentenceLength(sentence) {
-    return Array.from(sentence.replace(/\s+/g, "")).length;
-  }
-  function requiresSurfaceMatch(query) {
-    return /[0-9０-９]/u.test(query);
-  }
-  function sentenceContainsQuery(sentence, query) {
-    const normalizedSentence = normalizeForSurfaceMatch(sentence);
-    const normalizedQuery = normalizeForSurfaceMatch(query);
-    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
-  }
-  function normalizeForSurfaceMatch(value) {
-    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-  }
-  async function requestJson(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    let lastError;
-    for (const candidate of urlCandidates(url)) {
-      try {
-        return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
-      } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        lastError = error;
-      }
-    }
-    throw requestError(lastError, uiText(language, "immersionKitRequestFailed"));
-  }
-  function urlCandidates(url) {
-    return Array.isArray(url) ? url : [url];
-  }
-  function requestError(error, fallback) {
-    return error instanceof Error ? error : new Error(fallback);
-  }
-  function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    return requestJson$3(url, {
-      proxyUrl,
-      timeoutMs,
-      allowDirectCrossOrigin: true,
-      allowPublicProxies: false,
-      preferFetch: shouldPreferFetchForImmersionKitRequests(),
-      signal,
-      failureLabel: uiText(language, "immersionKitRequest"),
-      failureMessage: uiText(language, "immersionKitRequestFailed"),
-      statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
-      timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
-    }).catch((error) => {
-      if (isAbortError(error)) throw error;
-      if (isImmersionKitRateLimitError(error)) throw error;
-      if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
-        throw new Error(uiText(language, "immersionKitSearchBlocked"));
-      }
-      throw requestError(error, uiText(language, "immersionKitRequestFailed"));
-    });
-  }
-  function isImmersionKitRateLimitError(error) {
-    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
-  }
-  function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
-    return requestBlob$4(url, {
-      proxyUrl,
-      timeoutMs,
-      allowDirectCrossOrigin: true,
-      preferFetch: shouldPreferFetchForImmersionKitRequests(),
-      failureLabel: uiText(language, "immersionKitMediaRequest"),
-      failureMessage: uiText(language, "immersionKitMediaRequestFailed"),
-      statusFailureMessage: (status) => formatUiText(language, "immersionKitMediaRequestFailedWithStatus", { status }),
-      timeoutLabel: uiText(language, "immersionKitMediaRequestTimedOut"),
-      blobFailureMessage: uiText(language, "immersionKitMediaRequestReturnedNonMedia")
-    }).then((blob) => {
-      if (isErrorDocumentBlob(blob)) throw new Error(uiText(language, "immersionKitMediaRequestReturnedNonMedia"));
-      return blob;
-    });
-  }
-  async function requestFirstBlob(urls, timeoutMs, proxyUrl = "", language = "en") {
-    const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
-    let lastError;
-    for (const candidate of candidates) {
-      try {
-        return await requestBlob(candidate, timeoutMs, proxyUrl, language);
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    throw requestError(lastError, uiText(language, "immersionKitNoMediaCandidate"));
-  }
-  function prioritizeMediaCandidates(urls) {
-    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
-  }
-  function isObjectStoreMediaUrl(url) {
-    try {
-      return new URL(url, location.href).origin === new URL(OBJECT_STORE_BASE).origin;
-    } catch {
-      return false;
-    }
-  }
-  function isErrorDocumentBlob(blob) {
-    const type = blob.type.toLowerCase();
-    if (isMediaBlobType(type)) return false;
-    return ERROR_DOCUMENT_TYPE_MARKERS.some((marker) => type.includes(marker)) || type.startsWith("text/");
-  }
-  const ERROR_DOCUMENT_TYPE_MARKERS = ["xml", "html", "json"];
-  function isMediaBlobType(type) {
-    return ["image/", "audio/", "video/"].some((prefix) => type.startsWith(prefix));
-  }
-  function shouldPreferFetchForImmersionKitRequests() {
-    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
-  }
-  function apiUrls(path) {
-    const cleanPath = path.startsWith("/") ? path : `/${path}`;
-    return API_BASES.map((base) => `${base}${cleanPath}`);
-  }
-  function loadCachedParsedTokens(cache2, key, limit, parse, shouldCache) {
-    const cached = cache2.get(key);
-    if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
-    const entry = { promise: Promise.resolve([]) };
-    entry.promise = parse().then((tokens) => {
-      if (shouldCache(tokens)) entry.tokens = tokens;
-      else if (cache2.get(key) === entry) cache2.delete(key);
-      return tokens;
-    }).catch((error) => {
-      if (cache2.get(key) === entry) cache2.delete(key);
-      throw error;
-    });
-    cache2.set(key, entry);
-    pruneOldestCacheEntries(cache2, limit);
-    return entry.promise;
-  }
-  const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
-  const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
-  function exampleSentenceLookupTokens(tokens, targetCard) {
-    return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
-  }
-  function shouldKeepExampleSentenceToken(token, targetCard) {
-    if (targetCard && cardKey(token.card) === cardKey(targetCard)) return true;
-    return !isLowValueExampleSentenceToken(token);
-  }
-  function isLowValueExampleSentenceToken(token) {
-    const surfaceLength = token.end - token.start;
-    if (surfaceLength > 2) return false;
-    const spelling = token.card.spelling.trim();
-    if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
-    return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
-  }
-  const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
-  const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
-  function normalizeImmersionSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function queryKey(value) {
-    return normalizeImmersionSearchQuery(value).replace(/\s+/g, "").toLowerCase();
-  }
-  function queryLength(value) {
-    return Array.from(queryKey(value)).length;
-  }
-  function queryHasKanji(value) {
-    return /[\u3400-\u9fff々〆]/u.test(value);
-  }
-  function shouldRequireOriginalSurfaceMatch(value) {
-    return queryHasKanji(value) && queryLength(value) >= 3;
-  }
-  function shouldFilterImmersionExamplesBySurface(query) {
-    return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
-  }
-  function immersionSentenceContainsQuery(sentence, query) {
-    const s = normalizeSurface(sentence);
-    const q = normalizeSurface(query);
-    return Boolean(q) && s.includes(q);
-  }
-  function isUsefulImmersionFallbackQuery(query, exactQuery) {
-    if (isSameImmersionQuery(query, exactQuery)) return false;
-    return isUsefulStandaloneQuery(query);
-  }
-  function uniqueImmersionQueries(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values) {
-      const query = normalizeImmersionSearchQuery(value);
-      const key = queryKey(query);
-      if (!query || seen.has(key)) continue;
-      seen.add(key);
-      result.push(query);
-    }
-    return result;
-  }
-  function immersionFallbackFragments(value) {
-    const fragments = [];
-    const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
-    for (const run of runs) {
-      fragments.push(...scriptFragments(run));
-    }
-    return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
-  }
-  function normalizeSurface(value) {
-    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-  }
-  function isSameImmersionQuery(query, exactQuery) {
-    return queryKey(query) === queryKey(exactQuery);
-  }
-  function isUsefulStandaloneQuery(query) {
-    if (!query || !HAS_JAPANESE.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
-  }
-  function scriptFragments(run) {
-    const groups = run.match(SCRIPT_GROUP_RE) ?? [];
-    if (groups.length <= 1) return groups;
-    const result = [...groups];
-    for (let i2 = 0; i2 < groups.length; i2++) {
-      let q = groups[i2];
-      for (let j = i2 + 1; j < groups.length; j++) {
-        q += groups[j];
-        result.push(q);
-      }
-    }
-    result.push(groups.filter(queryHasKanji).join(""));
-    return result;
-  }
-  function compareFallbackFragments(a, b) {
-    const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
-    if (order) return order;
-    return queryLength(b) - queryLength(a);
-  }
-  function publishImmersionFrameWidth(media) {
-    if (!media) return;
-    const rect = media.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-    const width = immersionPaintedWidth(media, rect);
-    if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
-    else media.style.removeProperty("--yomu-immersion-frame-width");
-  }
-  function immersionPaintedWidth(media, rect) {
-    const image = media.querySelector(".jpdb-reader-example-image");
-    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
-    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
-  }
-  const IMMERSION_SOURCE_TITLES_JA = {
-    "My Neighbor Totoro": "となりのトトロ"
-  };
-  function localizedImmersionProviderLabel(example, language) {
-    return example.provider === "nadeshiko" ? "Nadeshiko" : uiText(language, "immersionKit");
-  }
-  function localizedImmersionSourceTitle(title, language) {
-    return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
-  }
-  function el(tagName, attrs, ...children) {
-    const element2 = document.createElement(tagName);
-    applyAttrs(element2, attrs);
-    appendChildren(element2, children);
-    return element2;
-  }
-  function fragment(...children) {
-    const root = document.createDocumentFragment();
-    appendChildren(root, children);
-    return root;
-  }
-  function replaceChildrenWith(parent, ...children) {
-    const nextChildren = [];
-    collectChildren(nextChildren, children);
-    parent.replaceChildren(...nextChildren);
-  }
-  function applyAttrs(element2, attrs) {
-    if (!attrs) return;
-    for (const [name, value] of Object.entries(attrs)) {
-      applyAttr(element2, name, value);
-    }
-  }
-  function applyAttr(element2, name, value) {
-    if (isSkippedAttrValue(value)) return;
-    if (applySpecialAttr(element2, name, value)) return;
-    element2.setAttribute(name, value === true ? "" : String(value));
-  }
-  function applySpecialAttr(element2, name, value) {
-    return applyClassAttr(element2, name, value) || applyDatasetAttr(element2, name, value) || applyTextAttr(element2, name, value) || applyElementProperty(element2, name, value);
-  }
-  function isSkippedAttrValue(value) {
-    return value === false || value === null || value === void 0;
-  }
-  function applyClassAttr(element2, name, value) {
-    if (name !== "class" && name !== "className") return false;
-    element2.className = String(value);
-    return true;
-  }
-  function applyDatasetAttr(element2, name, value) {
-    if (name !== "dataset") return false;
-    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
-      applyDatasetValue(element2, key, dataValue);
-    }
-    return true;
-  }
-  function datasetAttrValues(value) {
-    return value ?? {};
-  }
-  function applyDatasetValue(element2, key, value) {
-    if (isSkippedAttrValue(value)) return;
-    element2.dataset[key] = String(value);
-  }
-  function applyTextAttr(element2, name, value) {
-    if (name !== "text") return false;
-    element2.textContent = String(value);
-    return true;
-  }
-  function applyElementProperty(element2, name, value) {
-    if (!canApplyElementProperty(element2, name)) return false;
-    return assignElementProperty(element2, name, value);
-  }
-  function canApplyElementProperty(element2, name) {
-    if (!(name in element2)) return false;
-    if (name === "role") return false;
-    return !name.startsWith("aria");
-  }
-  function assignElementProperty(element2, name, value) {
-    try {
-      element2[name] = value;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function appendChildren(parent, children) {
-    const nodes = [];
-    collectChildren(nodes, children);
-    parent.append(...nodes);
-  }
-  function collectChildren(nodes, children) {
-    for (const child of children) {
-      appendDomChild(nodes, child);
-    }
-  }
-  function appendDomChild(nodes, child) {
-    if (Array.isArray(child)) {
-      collectChildren(nodes, child);
-      return;
-    }
-    if (child instanceof Node) {
-      nodes.push(child);
-      return;
-    }
-    if (!isSkippedChild(child)) nodes.push(document.createTextNode(String(child)));
-  }
-  function isSkippedChild(child) {
-    return child === false || child === null || child === void 0;
-  }
-  function nextImmersionExampleIndex(index, total, action) {
-    if (!Number.isFinite(index) || total <= 0) return 0;
-    const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
-    return (index + delta + total) % total;
-  }
-  function validImmersionExampleIndex(index, total) {
-    return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
-  }
-  function renderImmersionExampleActionsHtml(hasAudio, language) {
-    const previous = uiText(language, "previousExample");
-    const next = uiText(language, "nextExample");
-    const audio = uiText(language, "playExampleAudio");
-    return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
-            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-            ${renderImmersionActionButtonHtml("next", next, "›")}
-        </div>
-    `;
-  }
-  function renderImmersionExampleToolbar(options) {
-    const { example, index, total, hasAudio, language, showSource } = options;
-    const metaAttributes = { class: "jpdb-reader-example-meta" };
-    if (!showSource) metaAttributes.title = localizedImmersionProviderLabel(example, language);
-    return el(
-      "div",
-      { class: "jpdb-reader-example-toolbar" },
-      el(
-        "div",
-        metaAttributes,
-        showSource ? el("span", { class: "jpdb-reader-example-source" }, localizedImmersionProviderLabel(example, language)) : null,
-        el("span", { class: "jpdb-reader-example-title" }, localizedImmersionSourceTitle(example.sourceTitle, language)),
-        el("span", { class: "jpdb-reader-example-count" }, `${index + 1}/${total}`)
-      ),
-      renderImmersionExampleActions(hasAudio, language)
-    );
-  }
-  function renderImmersionExampleActions(hasAudio, language) {
-    return el(
-      "div",
-      { class: "jpdb-reader-example-actions", role: "group", "aria-label": uiText(language, "immersionExampleControls") },
-      renderImmersionActionButton("previous", uiText(language, "previousExample"), "‹"),
-      hasAudio ? renderImmersionActionButton("audio", uiText(language, "playExampleAudio"), speakerIcon()) : null,
-      renderImmersionActionButton("next", uiText(language, "nextExample"), "›")
-    );
-  }
-  function renderImmersionActionButton(action, label, content) {
-    const button2 = el("button", {
-      class: "jpdb-reader-icon-mini",
-      type: "button",
-      dataset: { immersionAction: action },
-      title: label,
-      "aria-label": label
-    });
-    button2.innerHTML = content;
-    return button2;
-  }
-  function renderImmersionActionButtonHtml(action, label, content) {
-    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
-  }
-  const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
-  const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
-  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
-  const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
-  const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
-  const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
-  const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
-  const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
-  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
-  const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
-  const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
-  const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$c = Logger.scope("ImmersionPopover");
-  class ImmersionPopoverController {
-    constructor(options) {
-      this.options = options;
-    }
-    hoverAudioPlayedKeys = /* @__PURE__ */ new Set();
-    activeMiningContext;
-    contextByCardKey = /* @__PURE__ */ new Map();
-    searchResultCache = /* @__PURE__ */ new Map();
-    parsedSentenceCache = /* @__PURE__ */ new Map();
-    loadAbortControllers = /* @__PURE__ */ new WeakMap();
-    lazyLoadTimers = /* @__PURE__ */ new WeakMap();
-    lazyLoadObservers = /* @__PURE__ */ new WeakMap();
-    abortPendingRequests(popover) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (container) {
-        this.clearLazyLoadTimer(container);
-        this.disconnectLazyLoadObserver(container);
-      }
-      this.abortActiveLoad(popover);
-    }
-    abortActiveLoad(popover) {
-      const controller = this.loadAbortControllers.get(popover);
-      if (!controller) return;
-      controller.abort();
-      this.loadAbortControllers.delete(popover);
-    }
-    hasActiveContext(card, sentence) {
-      return this.activeMiningContext?.term === card.spelling && this.activeMiningContext.sentence === (sentence || "").replace(/\s+/g, " ").trim();
-    }
-    activeContextFor(card) {
-      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : void 0;
-    }
-    storedContextFor(card) {
-      return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-    }
-    rememberPageMiningContext(card, sentence, anchor) {
-      const cleanSentence = normalizeMiningSentence(sentence);
-      if (!isPageMiningSentence(cleanSentence, card)) return;
-      this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
-    }
-    rememberTermMiningContext(term, sentence, anchor) {
-      const cleanTerm = term.trim();
-      const cleanSentence = normalizeMiningSentence(sentence);
-      if (!cleanTerm || !isPageMiningSentence(cleanSentence, { spelling: cleanTerm })) return;
-      this.rememberStoredMiningContext(saveMiningContext(cleanTerm, this.pageMiningContextDraft(cleanSentence, anchor)));
-    }
-    pageMiningContextDraft(sentence, anchor) {
-      const immersionCard = anchor?.closest(".jpdb-reader-example-card") ?? null;
-      if (immersionCard) return immersionContextFromElement(sentence, immersionCard);
-      const sourceKind = pageMiningSourceKind(anchor);
-      return pageMiningContext(sentence, sourceKind);
-    }
-    rememberStoredMiningContext(stored) {
-      if (!stored) return;
-      this.activeMiningContext = stored;
-    }
-    async loadExamples(popover, card, options = {}) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (!container) return;
-      this.abortActiveLoad(popover);
-      const controller = new AbortController();
-      this.loadAbortControllers.set(popover, controller);
-      const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
-      const settings = this.options.getSettings();
-      try {
-        const result = await raceAgainstAbortOrTimeout(
-          searchPromise,
-          controller.signal,
-          settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
-        );
-        if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
-        this.renderLoadedExamples(container, card, result);
-      } catch (error) {
-        if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$c.warn("Immersion Kit examples failed", { term: card.spelling }, error);
-        this.renderEmptyIfConnected(popover, container);
-      } finally {
-        if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
-      }
-    }
-    shouldSkipLoadedExamplesRender(popover, container, controller) {
-      if (!controller.signal.aborted && isConnectedImmersionSurface(popover, container)) return false;
-      clearImmersionLoadingState(container);
-      return true;
-    }
-    shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError(error) || !controller.signal.aborted) return false;
-      clearImmersionLoadingState(container);
-      return true;
-    }
-    installLazyLoad(popover, card, options = {}) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (!container || container.dataset.immersionLazyBound === "true") return;
-      container.dataset.immersionLazyBound = "true";
-      const canLoad = () => this.canStartLazyLoad(popover, container);
-      const scheduleLoad = (delayMs) => {
-        if (!canLoad()) return;
-        if (container.dataset.immersionLoadState === "scheduled") return;
-        this.clearLazyLoadTimer(container);
-        container.dataset.immersionLoadState = "scheduled";
-        const timer = window.setTimeout(() => {
-          this.lazyLoadTimers.delete(container);
-          if (!canLoad()) {
-            if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-            return;
-          }
-          container.dataset.immersionLoadState = "loading";
-          void this.loadExamples(popover, card, options).then(() => {
-            if (container.dataset.immersionLoadState !== "loading") return;
-            container.dataset.immersionLoadState = "loaded";
-          }).catch(() => {
-            if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-          });
-        }, delayMs);
-        this.lazyLoadTimers.set(container, timer);
-      };
-      const maybeLoad = () => {
-        if (!canLoad()) return;
-        scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
-      };
-      const handleToggle = () => {
-        if (!container.open) {
-          this.clearLazyLoadTimer(container);
-          if (container.dataset.immersionLoadState === "scheduled" || container.dataset.immersionLoadState === "loading") {
-            delete container.dataset.immersionLoadState;
-          }
-          this.abortActiveLoad(popover);
-          return;
-        }
-        maybeLoad();
-      };
-      container.addEventListener("toggle", handleToggle);
-      this.installLazyVisibilityObserver(popover, container, maybeLoad);
-      maybeLoad();
-    }
-    canStartLazyLoad(popover, container) {
-      return isConnectedImmersionSurface(popover, container) && container.open && container.dataset.immersionEmpty !== "true" && !["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "");
-    }
-    installLazyVisibilityObserver(popover, container, maybeLoad) {
-      if (typeof IntersectionObserver !== "function") return;
-      const observer = new IntersectionObserver((entries2) => {
-        if (entries2.some((entry) => entry.isIntersecting)) maybeLoad();
-      }, {
-        root: immersionLazyLoadRoot(popover, container),
-        rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN
-      });
-      observer.observe(container);
-      this.lazyLoadObservers.set(container, observer);
-    }
-    clearLazyLoadTimer(container) {
-      const timer = this.lazyLoadTimers.get(container);
-      if (timer === void 0) return;
-      window.clearTimeout(timer);
-      this.lazyLoadTimers.delete(container);
-      if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-    }
-    disconnectLazyLoadObserver(container) {
-      this.lazyLoadObservers.get(container)?.disconnect();
-      this.lazyLoadObservers.delete(container);
-    }
-    renderLoadedExamples(container, card, result) {
-      const { examples } = result;
-      if (!examples.length) {
-        this.renderEmpty(container);
-        return;
-      }
-      this.bindExampleCarousel(container, card, result);
-    }
-    bindExampleCarousel(container, card, result) {
-      const { examples } = result;
-      let index = this.startIndex(card, examples);
-      let renderRequest = 0;
-      let hoverAudioCanPlay = true;
-      let hoverAudioActive = false;
-      const render = (nextIndex, playAudio, promoteMiningContext = false) => {
-        const requestId = ++renderRequest;
-        index = validImmersionExampleIndex(nextIndex, examples.length);
-        this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
-        bindHoverMedia();
-      };
-      container.addEventListener("click", (event) => {
-        const button2 = event.target.closest("[data-immersion-action]");
-        const media = event.target.closest(".jpdb-reader-example-media");
-        const translation = event.target.closest(".jpdb-reader-example-translation");
-        if (translation) {
-          event.preventDefault();
-          event.stopPropagation();
-          this.toggleTranslationBlur(container);
-          return;
-        }
-        if (!button2 && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!button2) {
-          void this.playExampleAudio(examples[index]);
-          return;
-        }
-        const action = button2.dataset.immersionAction;
-        if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
-        if (action === "audio") void this.playExampleAudio(examples[index]);
-      });
-      container.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const translation = event.target.closest(".jpdb-reader-example-translation");
-        if (!translation) return;
-        event.preventDefault();
-        this.toggleTranslationBlur(container);
-      });
-      const playHoverAudioForTarget = (hoverTarget, pointerType, relatedTarget) => {
-        if (!this.canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay)) return;
-        const example = examples[index];
-        if (!this.rememberHoverAudioExample(example)) return;
-        hoverAudioCanPlay = false;
-        hoverAudioActive = true;
-        void this.playExampleAudio(example, true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(":hover"));
-      };
-      const handleImmersionHover = (event) => {
-        const hoverTarget = event.target.closest?.(".jpdb-reader-example-media, .jpdb-reader-example-card");
-        if (hoverTarget) playHoverAudioForTarget(hoverTarget, "pointerType" in event ? event.pointerType : "mouse", event.relatedTarget);
-      };
-      const bindHoverMedia = () => {
-        container.querySelectorAll(".jpdb-reader-example-media, .jpdb-reader-example-card").forEach((hoverTarget) => {
-          if (hoverTarget.dataset.immersionHoverBound === "true") return;
-          hoverTarget.dataset.immersionHoverBound = "true";
-          hoverTarget.addEventListener("pointerover", handleImmersionHover);
-          hoverTarget.addEventListener("mouseover", handleImmersionHover);
-          requestAnimationFrame(() => {
-            if (hoverTarget.isConnected && hoverTarget.matches(":hover")) playHoverAudioForTarget(hoverTarget, "mouse", null);
-          });
-        });
-      };
-      container.addEventListener("pointerleave", () => {
-        hoverAudioCanPlay = true;
-        hoverAudioActive = false;
-      });
-      container.addEventListener("mouseleave", () => {
-        hoverAudioCanPlay = true;
-        hoverAudioActive = false;
-      });
-      render(index, false);
-    }
-    shouldAutoPlayCarouselAudio() {
-      const settings = this.options.getSettings();
-      return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && !this.shouldSuppressAutoAudioForVideo() && canAttemptAudiblePlayback(true);
-    }
-    canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay) {
-      if (!this.options.getSettings().immersionKitPlayOnHover) return false;
-      if (isHoverAudioPointerSuppressed(pointerType)) return false;
-      if (hoverTarget.contains(relatedTarget)) return false;
-      if (!hoverAudioCanPlay) return false;
-      if (this.shouldSuppressAutoAudioForVideo()) return false;
-      return canAttemptAudiblePlayback();
-    }
-    rememberHoverAudioExample(example) {
-      const audioKey = hoverAudioExampleKey(example);
-      if (this.hoverAudioPlayedKeys.has(audioKey)) return false;
-      this.hoverAudioPlayedKeys.add(audioKey);
-      pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
-      return true;
-    }
-    shouldSuppressAutoAudioForVideo() {
-      const settings = this.options.getSettings();
-      return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
-    }
-    renderEmptyIfConnected(popover, container) {
-      if (!isConnectedImmersionSurface(popover, container)) return;
-      this.renderEmpty(container);
-    }
-    async searchExamples(card, options = {}) {
-      const key = this.searchCacheKey(card, options);
-      const now = Date.now();
-      const cached = this.searchResultCache.get(key);
-      if (cached && cached.expiresAt > now) return cached.promise;
-      if (options.signal) {
-        return this.fetchExamples(card, options).then((result) => {
-          if (!options.signal?.aborted) this.rememberSearchResult(key, result);
-          return result;
-        });
-      }
-      const promise = this.fetchExamples(card, options).catch((error) => {
-        if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
-        throw error;
-      });
-      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
-      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-      return promise;
-    }
-    rememberSearchResult(key, result) {
-      const now = Date.now();
-      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
-      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-    }
-    stopAudio() {
-      this.options.audio.stop();
-    }
-    async fetchExamples(card, options) {
-      const exactQuery = normalizeImmersionSearchQuery(card.spelling);
-      const triedQueries = [];
-      const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
-      if (exactResult) return exactResult;
-      const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
-      const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
-      if (fallbackResult) return fallbackResult;
-      return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
-    }
-    fetchFirstFallbackExamples(queries, exactQuery, triedQueries, signal) {
-      if (!queries.length) return Promise.resolve(null);
-      const concurrency = Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY, queries.length);
-      let nextIndex = 0;
-      let active = 0;
-      let settled = false;
-      return new Promise((resolve, reject) => {
-        const cleanupAbortListener = () => {
-          signal?.removeEventListener("abort", handleAbort);
-        };
-        const fail = (error) => {
-          if (settled) return;
-          settled = true;
-          cleanupAbortListener();
-          reject(error);
-        };
-        const finish = (result) => {
-          if (settled) return;
-          settled = true;
-          cleanupAbortListener();
-          resolve(result);
-        };
-        const handleAbort = () => fail(abortErrorForRace());
-        if (signal?.aborted) {
-          handleAbort();
-          return;
-        }
-        signal?.addEventListener("abort", handleAbort, { once: true });
-        const launch = () => {
-          if (signal?.aborted) {
-            handleAbort();
-            return;
-          }
-          while (!settled && active < concurrency && nextIndex < queries.length) {
-            const query = queries[nextIndex++];
-            active++;
-            void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result) => {
-              active--;
-              if (result) {
-                finish(result);
-                return;
-              }
-              if (nextIndex >= queries.length && active === 0) finish(null);
-              else launch();
-            }).catch((error) => {
-              active--;
-              if (signal?.aborted) {
-                handleAbort();
-                return;
-              }
-              if (isAbortError(error)) {
-                fail(error);
-                return;
-              }
-              if (nextIndex >= queries.length && active === 0) finish(null);
-              else launch();
-            });
-          }
-        };
-        launch();
-      });
-    }
-    async immersionFallbackSearchQueries(card, options, exactQuery) {
-      const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
-      const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-      return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries]).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-    async fetchExamplesForQuery(query, exactQuery, triedQueries, signal) {
-      if (!query) return null;
-      if (signal?.aborted) throw abortErrorForRace();
-      triedQueries.push(query);
-      try {
-        const settings = this.options.getSettings();
-        const searchOptions = this.popupSearchOptions(settings, signal);
-        const examples = await this.options.client.search(query, settings, searchOptions);
-        return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
-      } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        return null;
-      }
-    }
-    popupSearchOptions(settings, signal) {
-      const resultLimit = settings.immersionKitLimitEnabled ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT) : IMMERSION_POPUP_EXAMPLE_LIMIT;
-      return {
-        requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
-        resultLimit,
-        fastFirst: true,
-        ...signal ? { signal } : {}
-      };
-    }
-    searchCacheKey(card, options) {
-      const settings = this.options.getSettings();
-      return JSON.stringify({
-        spelling: card.spelling,
-        reading: card.reading,
-        enabled: settings.immersionKitEnabled,
-        source: settings.immersionKitExampleSource,
-        nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-        limit: settings.immersionKitLimit,
-        limitEnabled: settings.immersionKitLimitEnabled,
-        min: settings.immersionKitMinLength,
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        sort: settings.immersionKitSort,
-        exact: settings.immersionKitExactMatch,
-        parse: this.options.canParseJapanese(),
-        relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
-      });
-    }
-    async fallbackQueries(card, exactQuery) {
-      const candidates = [];
-      addImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : "", exactQuery);
-      await this.addParsedFallbackQueries(candidates, card, exactQuery);
-      addImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
-      return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-    async addParsedFallbackQueries(candidates, card, exactQuery) {
-      if (!this.options.canParseJapanese()) return;
-      const tokens = await this.fallbackParseTokens(card);
-      addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
-    }
-    async fallbackParseTokens(card) {
-      const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).catch(() => {
-        return [[]];
-      });
-      return tokens ?? [];
-    }
-    renderEmpty(container) {
-      container.removeAttribute("open");
-      container.dataset.immersionEmpty = "true";
-      container.hidden = true;
-      setInnerHtml(container, "");
-      this.options.repositionPopover();
-    }
-    startIndex(card, examples) {
-      const context = this.miningContextForStartIndex(card);
-      if (!context || context.sourceKind !== "immersion-kit") return 0;
-      const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
-      if (sentenceIndex >= 0) return sentenceIndex;
-      return validImmersionExampleIndex(Number(context.immersionIndex), examples.length);
-    }
-    miningContextForStartIndex(card) {
-      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-    }
-    renderExample(container, card, examples, index, playAudio, searchQuery, isCurrent = () => true, promoteMiningContext = false) {
-      const example = examples[index];
-      const settings = this.options.getSettings();
-      const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
-      const audioUrls = this.mediaUrls(example, "sound");
-      const hasAudio = audioUrls.length > 0;
-      const imageUrl = imageUrls[0] ?? "";
-      const contextImageUrl = immersionMiningImageUrl(imageUrls);
-      const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
-      this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
-      delete container.dataset.immersionEmpty;
-      container.hidden = false;
-      const scrollFrame = capturePopoverScrollFrame(container);
-      setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-      this.loadRenderedExampleImages(container, imageUrls, isCurrent);
-      this.options.repositionPopover();
-      restorePopoverScrollFrameSoon(scrollFrame);
-      if (playAudio) void this.playExampleAudio(example, true);
-      if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
-      else this.parseRenderedExampleSentence(container, card, example, isCurrent);
-    }
-    rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
-      const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
-      if (storedContext) {
-        this.contextByCardKey.set(cardKey(card), storedContext);
-        pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
-        this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
-      }
-    }
-    promoteExampleMiningContext(card, storedContext, promoteMiningContext) {
-      if (shouldPromoteExampleMiningContext(this.activeMiningContext, card, promoteMiningContext)) this.activeMiningContext = storedContext;
-    }
-    renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
-      const language = settings.interfaceLanguage;
-      const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
-      const translation = renderExampleTranslation(example.translation, settings);
-      const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
-      const sentence = renderExampleSentenceHtml(sentenceHtml, Boolean(imageUrl));
-      const image = renderExampleImageHtml(container, imageUrl, sentence);
-      return `
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(immersionExampleProviderLabel(example, language))}</span>
-            </summary>
-            <div class="jpdb-reader-example-toolbar">
-                <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
-                    <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
-                    <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
-                </div>
-                ${renderImmersionExampleActionsHtml(hasAudio, language)}
-            </div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
-                <div class="jpdb-reader-example-body">
-                    ${image}
-                    ${image ? "" : sentence}
-                    ${translation}
-                </div>
-            </div>
-        `;
-    }
-    renderExampleSentenceContent(sentence, card, settings) {
-      const tokens = this.cachedParsedExampleSentenceTokens(sentence);
-      return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
-    }
-    loadRenderedExampleImages(container, imageUrls, isCurrent) {
-      container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
-        let imageCandidateIndex = 0;
-        let imageRequestId = 0;
-        const holdUntilReady = imageElement.dataset.immersionHoldUntilReady === "true";
-        let pendingImage = null;
-        const showImageCandidate = (sourceUrl, displayUrl) => {
-          imageElement.dataset.immersionImageSrc = sourceUrl;
-          imageElement.src = displayUrl;
-          imageElement.removeAttribute("data-immersion-hold-until-ready");
-        };
-        const loadNextImageCandidate = () => {
-          if (!isCurrent() || !imageElement.isConnected) return;
-          const fallbackUrl = imageUrls[imageCandidateIndex++];
-          if (!fallbackUrl) {
-            if (imageElement.complete && imageElement.naturalWidth > 0) return;
-            this.hideBrokenExampleImage(container, imageElement);
-            return;
-          }
-          const currentSrc = imageElement.currentSrc || imageElement.src;
-          const requestId = ++imageRequestId;
-          const settings = this.options.getSettings();
-          this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).then((displayUrl) => {
-            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-            if (!holdUntilReady || currentSrc === displayUrl) {
-              showImageCandidate(fallbackUrl, displayUrl);
-              return;
-            }
-            const preload = new Image();
-            pendingImage = preload;
-            preload.decoding = "async";
-            preload.onload = () => {
-              if (pendingImage !== preload || requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-              pendingImage = null;
-              showImageCandidate(fallbackUrl, displayUrl);
-              this.options.repositionPopover();
-            };
-            preload.onerror = () => {
-              if (pendingImage !== preload || requestId !== imageRequestId) return;
-              pendingImage = null;
-              loadNextImageCandidate();
-            };
-            preload.src = displayUrl;
-          }).catch(() => {
-            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-            showImageCandidate(fallbackUrl, fallbackUrl);
-          });
-        };
-        imageElement.addEventListener("error", loadNextImageCandidate);
-        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
-        imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
-        if (!imageElement.dataset.immersionImageSrc) {
-          this.hideBrokenExampleImage(container, imageElement);
-          return;
-        }
-        loadNextImageCandidate();
-      });
-    }
-    hideBrokenExampleImage(container, imageElement) {
-      if (!imageElement.isConnected) return;
-      const media = imageElement.closest(".jpdb-reader-example-media");
-      const sentence = media?.querySelector(".jpdb-reader-example-sentence");
-      if (sentence) {
-        sentence.classList.remove("jpdb-subtitle-primary");
-        sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element2) => {
-          element2.classList.remove("jpdb-subtitle-primary");
-        });
-        media?.after(sentence);
-      }
-      media?.remove();
-      if (imageElement.isConnected) imageElement.remove();
-      container.querySelector(".jpdb-reader-example-card")?.classList.remove("has-image");
-      this.options.repositionPopover();
-    }
-    parseRenderedExampleSentence(container, card, example, isCurrent) {
-      void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
-        if (!isCurrent() || !container.isConnected) return;
-        this.applyParsedExampleSentence(container, card, example, tokens);
-      }).catch(() => void 0);
-    }
-    applyParsedExampleSentence(container, card, example, tokens, options = {}) {
-      const sentence = container.querySelector("[data-immersion-sentence-render]");
-      if (!sentence) return;
-      const lookupTokens = exampleSentenceLookupTokens(tokens, card);
-      if (options.updateHtml !== false) {
-        setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
-      }
-      this.highlightTarget(sentence, card);
-      void this.options.enrichPitchWords(lookupTokens);
-      void this.options.enrichAnkiWords(lookupTokens, [container]);
-      this.options.repositionPopover();
-    }
-    parsedExampleSentenceTokens(sentence) {
-      const key = sentence.trim();
-      if (!key) return Promise.resolve([]);
-      return loadCachedParsedTokens(
-        this.parsedSentenceCache,
-        key,
-        IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
-        () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions()).then(([tokens]) => {
-          return tokens ?? [];
-        }),
-        shouldCacheParsedExampleSentenceTokens
-      );
-    }
-    exampleSentenceParseOptions() {
-      const settings = this.options.getSettings();
-      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
-    }
-    cachedParsedExampleSentenceTokens(sentence) {
-      return this.parsedSentenceCache.get(sentence.trim())?.tokens;
-    }
-    highlightTarget(sentence, card) {
-      highlightCardTargetWords(sentence, card);
-    }
-    toggleTranslationBlur(container) {
-      const settings = this.options.getSettings();
-      const shouldBlur = !settings.immersionKitRevealTranslationOnClick;
-      this.options.setImmersionTranslationBlurred(shouldBlur);
-      container.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
-        setTranslationBlurAttributes(translation, shouldBlur, "immersionTranslationBlurred", settings.interfaceLanguage);
-      });
-      this.options.repositionPopover();
-    }
-    async playExampleAudio(example, quiet = false, isCurrent = () => true) {
-      const settings = this.options.getSettings();
-      if (!settings.audioEnabled) {
-        if (!quiet) this.options.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabled"));
-        return;
-      }
-      const source = this.exampleAudioSource(example, quiet);
-      if (!source) return;
-      try {
-        const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-        if (!isCurrent()) return;
-        await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
-          playbackRate: settings.immersionKitPlaybackRate,
-          isCurrent
-        });
-      } catch (error) {
-        this.handleExampleAudioError(example, quiet, error);
-      }
-    }
-    handleExampleAudioError(example, quiet, error) {
-      log$c.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
-      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-    }
-    exampleAudioSource(example, quiet) {
-      const urls = this.mediaUrls(example, "sound");
-      const key = urls[0] ?? "";
-      if (key) return { urls, key };
-      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-      return null;
-    }
-    mediaUrls(example, kind) {
-      const client = this.options.client;
-      return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
-    }
-  }
-  function immersionExampleSourceLabel(card, example, searchQuery, language) {
-    const sourceTitle = localizedImmersionSourceTitle(example.sourceTitle, language);
-    return queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${sourceTitle}` : sourceTitle;
-  }
-  function immersionExampleProviderLabel(example, language) {
-    return localizedImmersionProviderLabel(example, language);
-  }
-  function accurateImmersionExamples(query, examples) {
-    return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
-  }
-  function immersionSearchResultForQuery(query, exactQuery, triedQueries, examples) {
-    const accurateExamples = accurateImmersionExamples(query, examples);
-    if (!accurateExamples.length) return null;
-    return {
-      examples: accurateExamples,
-      query,
-      usedFallback: queryKey(query) !== queryKey(exactQuery),
-      triedQueries
-    };
-  }
-  function immersionMiningImageUrl(imageUrls) {
-    return imageUrls.find((url) => /\/download_media\?/u.test(url)) ?? imageUrls[0] ?? "";
-  }
-  function isPageMiningSentence(sentence, card) {
-    return Boolean(sentence && sentence !== card.spelling);
-  }
-  function shouldPromoteExampleMiningContext(activeContext, card, promoteMiningContext) {
-    return promoteMiningContext || !activeContext || activeContext.term !== card.spelling;
-  }
-  function pageMiningSourceKind(anchor) {
-    return inferMiningSourceKind({
-      isImageSource: Boolean(anchor?.closest(".jpdb-ocr-line")),
-      hasVideo: Boolean(anchor?.closest(".jpdb-subtitle-player, .jpdb-subtitle-list")) || Boolean(document.querySelector("video")),
-      hostname: location.hostname
-    });
-  }
-  function isConnectedImmersionSurface(popover, container) {
-    return popover.isConnected && container.isConnected;
-  }
-  function clearImmersionLoadingState(container) {
-    if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-  }
-  function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
-    if (signal.aborted) return Promise.reject(abortErrorForRace());
-    return new Promise((resolve, reject) => {
-      const onAbort = () => {
-        cleanup();
-        reject(abortErrorForRace());
-      };
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        reject(new Error("Immersion Kit examples timed out."));
-      }, Math.max(1e3, timeoutMs));
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        signal.removeEventListener("abort", onAbort);
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-      promise.then((value) => {
-        cleanup();
-        resolve(value);
-      }, (error) => {
-        cleanup();
-        reject(error);
-      });
-    });
-  }
-  function abortErrorForRace() {
-    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-    const error = new Error("Aborted");
-    error.name = "AbortError";
-    return error;
-  }
-  function addImmersionFallbackQuery(candidates, value, exactQuery) {
-    const query = normalizeImmersionSearchQuery(value);
-    if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
-  }
-  function addImmersionFallbackQueries(candidates, values, exactQuery) {
-    for (const value of values) addImmersionFallbackQuery(candidates, value, exactQuery);
-  }
-  function fallbackTokenQueries(card, tokens) {
-    return sortedFallbackTokenCandidates(card, tokens).flatMap((item) => [
-      item.token.card.spelling,
-      item.surface,
-      item.token.card.reading !== item.token.card.spelling ? item.token.card.reading : ""
-    ].filter(Boolean));
-  }
-  function sortedFallbackTokenCandidates(card, tokens) {
-    return tokens.map((token) => ({
-      token,
-      surface: card.spelling.slice(token.start, token.end),
-      length: queryLength(token.card.spelling)
-    })).sort(compareFallbackTokenCandidates);
-  }
-  function compareFallbackTokenCandidates(a, b) {
-    return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
-  }
-  function renderExampleImageHtml(container, imageUrl, overlay = "") {
-    if (!imageUrl) return "";
-    const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
-  }
-  function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
-    const classes2 = [
-      "jpdb-reader-example-sentence",
-      "jpdb-reader-parseable",
-      "jpdb-reader-subtitle-surface"
-    ].filter(Boolean).join(" ");
-    if (primarySubtitle) {
-      return `<div class="${classes2}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
-    }
-    return `<div class="${classes2}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-  }
-  function shouldCacheParsedExampleSentenceTokens(tokens) {
-    return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
-  }
-  function heldExampleMediaStyle(image) {
-    return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : "";
-  }
-  function heldExampleImageAttributes(image) {
-    return `${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`;
-  }
-  function heldExampleHoldAttribute(image) {
-    return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
-  }
-  function heldExampleSourceAttribute(image) {
-    return image.src ? ` src="${escapeHtml$1(image.src)}"` : "";
-  }
-  function heldExampleImage(container) {
-    const currentImage = container.querySelector("[data-immersion-image]");
-    const src = heldExampleImageSource(currentImage);
-    const holdUntilReady = Boolean(src && currentImage?.isConnected);
-    return {
-      src: holdUntilReady ? src : "",
-      minHeight: holdUntilReady ? heldExampleImageHeight(currentImage) : 0,
-      holdUntilReady
-    };
-  }
-  function heldExampleImageSource(image) {
-    return image?.currentSrc || image?.src || "";
-  }
-  function heldExampleImageHeight(image) {
-    const media = image?.closest(".jpdb-reader-example-media") ?? null;
-    return Math.ceil(media?.getBoundingClientRect().height || image?.getBoundingClientRect().height || 0);
-  }
-  function hoverAudioExampleKey(example) {
-    if (!example) return "";
-    return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
-  }
-  function isHoverAudioPointerSuppressed(pointerType) {
-    if (pointerType === "touch") return true;
-    return pointerType !== "mouse" && (window.matchMedia?.("(hover: none)").matches ?? false);
-  }
-  function immersionLazyLoadRoot(popover, target) {
-    const body = popover.querySelector(".jpdb-reader-popover-body");
-    if (body?.contains(target)) return body;
-    return popover.contains(target) ? popover : null;
-  }
-  function isImmersionNearVisibleArea(popover, container) {
-    const root = immersionLazyLoadRoot(popover, container);
-    const containerRect = container.getBoundingClientRect();
-    const rootRect = root?.getBoundingClientRect();
-    if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
-    const visibleTop = Math.max(0, rootRect.top);
-    const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
-    return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
-  }
-  function hasUsableRect(rect) {
-    return rect.width > 0 || rect.height > 0;
-  }
-  function pruneImmersionSearchCache(cache2, now, limit) {
-    for (const [key, value] of cache2) {
-      if (value.expiresAt <= now) cache2.delete(key);
-    }
-    pruneOldestCacheEntries(cache2, limit);
-  }
-  function renderExampleTranslation(translation, settings) {
-    if (!settings.immersionKitShowTranslation || !translation) return "";
-    const escaped = escapeHtml$1(translation);
-    if (!settings.immersionKitRevealTranslationOnClick) {
-      return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
-    }
-    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
-  }
-  function setTranslationBlurAttributes(element2, blurred, key, language) {
-    if (blurred) {
-      element2.dataset[key] = "true";
-      element2.setAttribute("role", "button");
-      element2.setAttribute("tabindex", "0");
-      element2.setAttribute("aria-label", uiText(language, "revealTranslation"));
-      return;
-    }
-    delete element2.dataset[key];
-    element2.removeAttribute("tabindex");
-    element2.removeAttribute("role");
-    element2.removeAttribute("aria-label");
   }
   const NEW_TAB_COPY = {
     en: {
