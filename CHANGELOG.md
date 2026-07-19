@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.245] - 2026-07-19
+
+### Fixed
+
+- Yomu popovers, sheets, settings, notices, and the floating puck now keep their intended physical size under real iPad Safari full-page zoom. The previous browser-surface signal never fires on an actual device because iOS answers outerWidth from the web view itself, so the zoom is now inferred from the physical screen against the layout viewport: both axes must shrink together and the ratio must land on one of Safari's zoom steps, so Split View, Slide Over, and Stage Manager window shapes are never misread as zoom.
+- The page-zoom compensation is no longer Reddit-specific. The same adapter now protects every Yomu overlay on every site in Apple touch browsers, replacing the reddit.com-gated code path with one generic mechanism.
+- Popup headwords whose stored reading brackets interleave kana between annotated kanji now anchor each bracket reading to its own trailing kanji run. Furigana lands over the correct glyph, the pitch underline no longer paints twice across a mis-spanned ruby base, and the plain kana duplicate beside an already ruby-annotated headword is suppressed instead of repeating the same reading.
+- Furigana returns to tall flex-centred controls such as padded pill buttons and banner chips: a clipped control whose base text is proven to be a single untruncated line may open its clip for the reading lane regardless of padding-driven box height, while genuinely tall panels and multi-line clamps stay closed.
+
+### Changed
+
+- Slightly larger default popup typography for readability, especially on iPad: popup and dialog base text moves from 14 to 15 pixels, definitions and example sentences from 13 to 14 pixels, the headword from 24 to 26 pixels, the kana reading row from 15 to 16 pixels, and the default popup Japanese font weight from 400 to 450. Settings body text and in-page content sizes are unchanged, so existing layouts keep their geometry.
+
 ## [1.6.244] - 2026-07-19
 
 ### Changed

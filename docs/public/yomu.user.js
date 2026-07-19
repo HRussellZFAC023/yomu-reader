@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.244
+// @version 1.6.245
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -10,13 +10,13 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.879713786ac0.user.js#sha256=h5cTeGrA+TxfZ+U3dvLWfx6fPJ4Y4z1NQ8rsL4nhJOE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.321b5fbdafc2.user.js#sha256=Mhtfva/Chc0C2IvENlk5nnaZV4VJ3otIK0DDsp1oCiA=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.1fe0f11333ac.user.js#sha256=H+DxEzOsoZTRla8w3q0XgNvWkx4GIpe30BdnqIvLOxA=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.47c8189abb25.user.js#sha256=R8gYmrslvaazIDOc4wD53tWJ9vWNU21998IIT4XZxv8=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.1e783979b02c.user.js#sha256=Hng5ebAs14MLsACteUlrpnXVb4LYnSGX3+Nvd8AUMdM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.272b5eb52c9f.user.js#sha256=JytetSyfG5rTTBzmM7HTZdXwGORmxhDSavBzz0jVoog=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d3c785878cde.user.js#sha256=08eFh4ze1vrslyd/7BGPt69JlPDemmH9OaDs2X5bB3M=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.bdd3ae819722.user.js#sha256=vdOugZci5Qc5PODMdVuFZwTT2aDTn17hW3eBfT8tU+M=
-// @require https://yomureader.com/greasyfork/yomu-video.bfcdd4edb823.user.js#sha256=v83U7bgjSeQ4zY3YGFF8c7TyCyArbp4bGSDnxil1IK8=
-// @resource yomuCss  https://yomureader.com/yomu.e3dad60eb533.css#sha256=49rWDrUzfDlMWH6P/cZ0fHJsah9Vj2DUAfNJ8aJvFRM=
+// @require https://yomureader.com/greasyfork/yomu-video.2b7dd4049704.user.js#sha256=K33UBJcEkvV1pzx0C4MlYrppbMMgkeUt5tNblKl9eY8=
+// @resource yomuCss  https://yomureader.com/yomu.9906f5a2aa6a.css#sha256=mQb1oqpqdrvRapNDCpHHTUXZrKTgxGSKAHDDFJOI4EU=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -4230,7 +4230,7 @@ const DEFAULT_SETTINGS = {
   popoverHeightMode: "fixed",
   readerFontFamily: DEFAULT_READER_FONT_FAMILY,
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
-  popupFontWeight: 400,
+  popupFontWeight: 450,
   jpdbMiningEnabled: true,
   bunproMiningEnabled: true,
   yomuLocalSrsEnabled: true,
@@ -8446,6 +8446,7 @@ function uniqueElements(elements) {
 }
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+const DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT = 320;
 const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
   "details",
   "[aria-expanded]",
@@ -8476,9 +8477,11 @@ function openSafeDetachedReadingClips(element) {
   if (!clips) continue;
   const rect = current.getBoundingClientRect();
   const measured = current.clientWidth > 0 && current.clientHeight > 0;
-  const compact2 = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
+  const clamped = detachedClipRowIsMultiLineClamp(style);
+  const compact2 = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !clamped;
   const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
-  if (compact2 && baseFits) openDetachedReadingClip(current);
+  const tallSingleLine = !compact2 && rect.height > 0 && rect.height <= DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT && !clamped && measured && detachedBaseContentFits(current);
+  if (compact2 && baseFits || tallSingleLine) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
   }
 }
@@ -14486,29 +14489,56 @@ function currentFullscreenElement() {
 }
 const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
-const REDDIT_APPLE_TOUCH_ADAPTER = "reddit-apple-touch-page-scale";
+const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_AXIS_AGREEMENT = 0.97;
+const MAX_AXIS_AGREEMENT = 1.4;
+const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
 const rememberedRectScales = new WeakMap();
-function isRedditHostname(hostname) {
-  const normalized = hostname.toLowerCase().replace(/\.$/, "");
-  return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
+function overlayPageScale(environment) {
+  if (!environment.appleTouch) return 1;
+  if (!positiveFinite(environment.innerWidth)) return 1;
+  if (positiveFinite(environment.outerWidth)) {
+  const surfaceScale = environment.outerWidth / environment.innerWidth;
+  if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+    return Math.min(surfaceScale, MAX_PAGE_SCALE);
+  }
+  }
+  return screenDerivedPageScale(environment);
 }
-function redditPageScale(environment) {
-  if (!isRedditHostname(environment.hostname) || !environment.appleTouch) return 1;
-  if (!positiveFinite(environment.innerWidth) || !positiveFinite(environment.outerWidth)) return 1;
-  const scale = environment.outerWidth / environment.innerWidth;
-  if (!Number.isFinite(scale) || scale <= 1 + SCALE_EPSILON) return 1;
-  return Math.min(scale, MAX_PAGE_SCALE);
+function screenDerivedPageScale(environment) {
+  const { innerWidth, innerHeight, screenWidth, screenHeight } = environment;
+  if (!positiveFinite(innerHeight) || !positiveFinite(screenWidth) || !positiveFinite(screenHeight)) return 1;
+  const pairings = [
+  [screenWidth / innerWidth, screenHeight / innerHeight],
+  [screenHeight / innerWidth, screenWidth / innerHeight]
+  ];
+  for (const [widthRatio, heightRatio] of pairings) {
+  if (widthRatio <= 1 + SCALE_EPSILON) continue;
+  const step = nearestSafariZoomStep(widthRatio);
+  if (step === void 0) continue;
+  if (heightRatio < widthRatio * MIN_AXIS_AGREEMENT) continue;
+  if (heightRatio > widthRatio * MAX_AXIS_AGREEMENT) continue;
+  return step;
+  }
+  return 1;
 }
-function redditOverlayViewport(environment = currentEnvironment()) {
-  const pageScale = redditPageScale(environment);
+function nearestSafariZoomStep(ratio) {
+  for (const step of SAFARI_PAGE_ZOOM_STEPS) {
+  if (Math.abs(ratio - step) <= step * ZOOM_STEP_TOLERANCE) return step;
+  }
+  return void 0;
+}
+function overlayViewport(environment = currentEnvironment()) {
+  const pageScale = overlayPageScale(environment);
   return {
   width: environment.innerWidth * pageScale,
   height: environment.innerHeight * pageScale,
   pageScale
   };
 }
-function redditOverlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
-  const pageScale = redditPageScale(environment);
+function overlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+  const pageScale = overlayPageScale(environment);
   const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
   const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
   const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
@@ -14525,18 +14555,18 @@ function redditOverlayViewportBounds(environment = currentEnvironment(), visualV
   pageScale
   };
 }
-function redditOverlayViewportBottomInset(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
-  const fullViewport = redditOverlayViewport(environment);
-  const visibleBounds = redditOverlayViewportBounds(environment, visualViewport);
+function overlayViewportBottomInset(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+  const fullViewport = overlayViewport(environment);
+  const visibleBounds = overlayViewportBounds(environment, visualViewport);
   return Math.max(0, fullViewport.height - visibleBounds.bottom);
 }
-function redditLayoutPointToOverlay(point, pageScale = redditOverlayViewport().pageScale) {
+function layoutPointToOverlay(point, pageScale = overlayViewport().pageScale) {
   return {
   x: point.x * pageScale,
   y: point.y * pageScale
   };
 }
-function redditLayoutRectToOverlay(rect, pageScale = redditOverlayViewport().pageScale) {
+function layoutRectToOverlay(rect, pageScale = overlayViewport().pageScale) {
   return new DOMRect(
   rect.left * pageScale,
   rect.top * pageScale,
@@ -14544,46 +14574,47 @@ function redditLayoutRectToOverlay(rect, pageScale = redditOverlayViewport().pag
   rect.height * pageScale
   );
 }
-function rememberRedditSourceRect(rect, source, pageScale = redditOverlayViewport().pageScale) {
-  const root = compensatedRedditOverlayRoot(source);
+function rememberOverlaySourceRect(rect, source, pageScale = overlayViewport().pageScale) {
+  const root = compensatedOverlayRoot(source);
   if (root) rememberedRectScales.set(rect, compensatedRootRectScale(root, pageScale));
   return rect;
 }
-function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewport().pageScale) {
+function sourceRectToOverlay(rect, source, pageScale = overlayViewport().pageScale) {
   const rememberedScale = rememberedRectScales.get(rect);
-  const root = compensatedRedditOverlayRoot(source);
+  const root = compensatedOverlayRoot(source);
   const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
   const overlayRect = scaleRect(rect, rectScale);
   rememberedRectScales.set(overlayRect, 1);
   return overlayRect;
 }
-function compensatedRedditOverlayRoot(source) {
+function compensatedOverlayRoot(source) {
   const element = source instanceof Element ? source : source?.parentElement;
-  const root = element?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
+  const root = element?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
   return root instanceof HTMLElement ? root : null;
 }
-function applyRedditOverlayScale(element, environment = currentEnvironment()) {
-  const pageScale = redditPageScale(environment);
+function applyOverlayPageScale(element, environment = currentEnvironment()) {
+  const pageScale = overlayPageScale(environment);
   if (pageScale === 1) {
   clearOwnedScale(element);
   return;
   }
   const inverseScale = 1 / pageScale;
   element.style.setProperty("zoom", formatScale(inverseScale), "important");
-  element.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
+  element.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
   element.dataset.jpdbReaderPageScale = formatScale(pageScale);
   element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
 }
-function hasRedditOverlayScale(element) {
-  return element?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
+function hasOverlayPageScale(element) {
+  return element?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
 }
 function currentEnvironment() {
   return {
-  hostname: location.hostname,
   appleTouch: isAppleTouchBrowser(),
   innerWidth: window.innerWidth,
   innerHeight: window.innerHeight,
-  outerWidth: window.outerWidth
+  outerWidth: window.outerWidth,
+  screenWidth: window.screen?.width ?? 0,
+  screenHeight: window.screen?.height ?? 0
   };
 }
 function currentVisualViewport() {
@@ -14596,13 +14627,13 @@ function currentVisualViewport() {
   } : void 0;
 }
 function clearOwnedScale(element) {
-  if (!hasRedditOverlayScale(element)) return;
+  if (!hasOverlayPageScale(element)) return;
   element.style.removeProperty("zoom");
   delete element.dataset.jpdbReaderScaleAdapter;
   delete element.dataset.jpdbReaderPageScale;
   delete element.dataset.jpdbReaderScaleCompensation;
 }
-function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
+function compensatedRootRectScale(root, pageScale = overlayViewport().pageScale) {
   if (pageScale === 1) return 1;
   const rect = root.getBoundingClientRect();
   const ratios = [
@@ -14800,7 +14831,7 @@ function getPopoverSourceRects(anchor, fallbackRect, options) {
 }
 function pointPopoverRects(point) {
   const radius = 14;
-  const overlayPoint = redditLayoutPointToOverlay(point);
+  const overlayPoint = layoutPointToOverlay(point);
   return [{
   left: overlayPoint.x - radius,
   top: overlayPoint.y - radius,
@@ -14834,7 +14865,7 @@ function rectListToPopoverRects(rects, source) {
   return Array.from(rects, (rect) => domRectToPopoverRect(rect, source)).filter(hasRectArea);
 }
 function domRectToPopoverRect(rect, source) {
-  const overlayRect = redditSourceRectToOverlay(rect, source);
+  const overlayRect = sourceRectToOverlay(rect, source);
   return {
   left: overlayRect.left,
   top: overlayRect.top,
@@ -14846,9 +14877,9 @@ function hasRectArea(rect) {
   return rect.right > rect.left || rect.bottom > rect.top;
 }
 function getPopoverViewport() {
-  const overlayViewport = redditOverlayViewport();
-  if (overlayViewport.pageScale > 1) {
-  const bounds = redditOverlayViewportBounds();
+  const scaledViewport = overlayViewport();
+  if (scaledViewport.pageScale > 1) {
+  const bounds = overlayViewportBounds();
   return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
   }
   const { visualViewport } = window;
@@ -16420,6 +16451,7 @@ function cardHighlightTargetFromScope(scope) {
 }
 const KANJI_RE$1 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
 function compactReading(value) {
   return value.normalize("NFC").replace(/\s+/g, "").trim();
 }
@@ -16468,8 +16500,10 @@ function annotatedWordRubies(spelling, annotated) {
   let baseOffset = 0;
   for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
   const matchIndex = match.index ?? 0;
-  const plain = annotated.slice(cursor, matchIndex);
-  const base = match[1] ?? "";
+  const captured = match[1] ?? "";
+  const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+  const base = runMatch ? runMatch[1] : captured;
+  const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
   const reading = (match[2] ?? "").trim();
   baseText2 += plain;
   baseOffset += plain.length;
@@ -22062,7 +22096,7 @@ class RadialMenuController {
   backdrop.setAttribute("role", "menu");
   backdrop.setAttribute("aria-label", this.host.menuLabel());
   document.body.appendChild(backdrop);
-  applyRedditOverlayScale(backdrop);
+  applyOverlayPageScale(backdrop);
   this.backdrop = backdrop;
   this.layout(button, backdrop, actions);
   button.classList.add("jpdb-reader-fab--menu-open");
@@ -22108,10 +22142,10 @@ class RadialMenuController {
   this.state = "closed";
   }
   layout(button, backdrop, actions) {
-  const rect = redditSourceRectToOverlay(button.getBoundingClientRect(), button);
+  const rect = sourceRectToOverlay(button.getBoundingClientRect(), button);
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  const { width: vw, height: vh } = redditOverlayViewport();
+  const { width: vw, height: vh } = overlayViewport();
   const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
   let hAngle = cx > vw / 2 ? PI : 0;
   while (hAngle - vAngle > PI) hAngle -= 2 * PI;
@@ -22320,7 +22354,7 @@ class FloatingButtonController {
     this.radial?.toggle();
   });
   document.body.appendChild(button);
-  applyRedditOverlayScale(button);
+  applyOverlayPageScale(button);
   clampRestoredButtonPosition(button, settings);
   this.installVideoAvoidance(button);
   }
@@ -22428,7 +22462,7 @@ class FloatingButtonController {
   const controller = new AbortController();
   this.abortController = controller;
   const schedule = () => requestAnimationFrame(() => {
-    applyRedditOverlayScale(button);
+    applyOverlayPageScale(button);
     if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
   });
   window.addEventListener("resize", schedule, { passive: true, signal: controller.signal });
@@ -22474,8 +22508,8 @@ class FloatingButtonController {
     dragging = true;
     moved = false;
     button.dataset.jpdbReaderMoved = "false";
-    dragPageScale = redditOverlayViewport().pageScale;
-    const start = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+    dragPageScale = overlayViewport().pageScale;
+    const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     startX = start.x;
     startY = start.y;
     const rect = overlayPuckRect(button, dragPageScale);
@@ -22490,7 +22524,7 @@ class FloatingButtonController {
   });
   button.addEventListener("pointermove", (event) => {
     if (!dragging || !puckBox) return;
-    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+    const pointer = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     const dx = pointer.x - startX;
     const dy = pointer.y - startY;
     if (Math.hypot(dx, dy) > 4) moved = true;
@@ -22574,13 +22608,13 @@ function canAvoidVideoOverlap(button) {
 function shouldMoveAwayFromVideo(button, video) {
   return Boolean(video && !button.matches(":hover, :focus, :focus-visible"));
 }
-function overlayPuckRect(button, pageScale = redditOverlayViewport().pageScale) {
-  return redditSourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
+function overlayPuckRect(button, pageScale = overlayViewport().pageScale) {
+  return sourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
 }
 function overlappingVideo(rect) {
-  const { pageScale } = redditOverlayViewport();
+  const { pageScale } = overlayViewport();
   for (const video of visibleVideos()) {
-  const videoRect = redditLayoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+  const videoRect = layoutRectToOverlay(video.getBoundingClientRect(), pageScale);
   if (intersects(rect, videoRect)) return { video, rect: videoRect };
   }
   return void 0;
@@ -22633,7 +22667,7 @@ function clampPuck(button, x, y) {
 }
 function clampPuckToViewport(box, x, y) {
   const margin = 8;
-  const viewport = redditOverlayViewport();
+  const viewport = overlayViewport();
   if (!canClampPuck(box, x, y, margin, viewport)) return null;
   return {
   x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),
@@ -29307,7 +29341,7 @@ function selectionIntersectsElement(selection, element) {
 }
 function popoverAnchorRect(anchor, fallback) {
   const rect = anchor?.getBoundingClientRect();
-  return rect && (rect.width > 0 || rect.height > 0) ? rememberRedditSourceRect(rect, anchor) : fallback;
+  return rect && (rect.width > 0 || rect.height > 0) ? rememberOverlaySourceRect(rect, anchor) : fallback;
 }
 function shouldLockMountedPopoverPosition(popover, state) {
   return state.mode !== "hover" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(state.previousPopoverRect);
@@ -30393,11 +30427,11 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
   if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
   };
   const applyViewportSize = () => {
-  applyRedditOverlayScale(popover);
+  applyOverlayPageScale(popover);
   const previousViewportHeight = viewportHeight;
-  const overlayViewport = redditOverlayViewport();
+  const scaledViewport = overlayViewport();
   viewportHeight = fixedChromeViewportHeight();
-  const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
+  const bottomInset = scaledViewport.pageScale > 1 ? Math.round(overlayViewportBottomInset()) : 0;
   popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
   popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
   popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
@@ -30449,7 +30483,7 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
   tapMovementPx: SHEET_TAP_MOVEMENT_PX,
   movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
   onBegin: () => {
-    dragPageScale = redditOverlayViewport().pageScale;
+    dragPageScale = overlayViewport().pageScale;
     startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
     rawDragHeight = startHeight;
     popover.style.transition = "";
@@ -30700,13 +30734,13 @@ function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSi
   return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
 }
 function lookupViewportSize() {
-  const overlayViewport = redditOverlayViewport();
-  if (overlayViewport.pageScale > 1) {
-  const bounds = redditOverlayViewportBounds();
+  const scaledViewport = overlayViewport();
+  if (scaledViewport.pageScale > 1) {
+  const bounds = overlayViewportBounds();
   return {
     width: Math.max(0, Math.round(bounds.width)),
     height: Math.max(0, Math.round(bounds.height)),
-    pageScale: overlayViewport.pageScale
+    pageScale: scaledViewport.pageScale
   };
   }
   const visual = window.visualViewport;
@@ -30715,8 +30749,8 @@ function lookupViewportSize() {
   return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
 }
 function fixedChromeViewportHeight() {
-  const overlayViewport = redditOverlayViewport();
-  return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
+  const scaledViewport = overlayViewport();
+  return scaledViewport.pageScale > 1 ? Math.max(0, Math.round(overlayViewportBounds().height)) : visualViewportHeight();
 }
 function visualViewportHeight() {
   return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
@@ -30785,10 +30819,10 @@ function popoverScrollBody(popover) {
 function stabilizePopoverBodyAround(popover, anchor) {
   const scrollBody = popoverScrollBody(popover);
   const scrollTop = scrollBody.scrollTop;
-  const anchorTop = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top;
+  const anchorTop = sourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top;
   requestAnimationFrame(() => {
   if (!popover.isConnected || !anchor.isConnected) return;
-  const delta = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top - anchorTop;
+  const delta = sourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top - anchorTop;
   if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
   });
 }
@@ -30819,7 +30853,7 @@ function installPopoverBodyStabilizers(popover) {
   restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
   }, true);
 }
-function popoverMaxHeightAtTop(settings, top, viewportBottom = redditOverlayViewportBounds().bottom) {
+function popoverMaxHeightAtTop(settings, top, viewportBottom = overlayViewportBounds().bottom) {
   const margin = 8;
   const availableHeight = Math.max(0, viewportBottom - top - margin);
   const configuredMaxHeight = configuredPopoverMaxHeight(settings);
@@ -33736,13 +33770,13 @@ function showReaderToast(message, durationMs = 3200) {
 function ensureReaderToastStack() {
   const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
   if (existing?.isConnected) {
-  applyRedditOverlayScale(existing);
+  applyOverlayPageScale(existing);
   return existing;
   }
   const stack = document.createElement("div");
   stack.className = TOAST_STACK_CLASS;
   stack.dataset.jpdbReaderRoot = "true";
-  applyRedditOverlayScale(stack);
+  applyOverlayPageScale(stack);
   document.body.append(stack);
   return stack;
 }
@@ -33831,8 +33865,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.244"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.244"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.245"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.245"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -33952,7 +33986,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.244"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.245"}`;
   } catch {
   return null;
   }
@@ -37890,7 +37924,7 @@ class ReaderApp {
   }
   scheduleActivePopoverViewportChange() {
   const popover = this.repositionableActivePopover();
-  if (!popover || redditOverlayViewport().pageScale === 1 && !hasRedditOverlayScale(popover)) return;
+  if (!popover || overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover)) return;
   this.popoverViewportChangePending = true;
   this.scheduleRepositionActivePopoverFrame();
   }
@@ -41561,7 +41595,7 @@ class ReaderApp {
   }
   mountSettingsDialog(backdrop, form) {
   this.dismiss({ forceAll: true });
-  applyRedditOverlayScale(form);
+  applyOverlayPageScale(form);
   document.body.append(backdrop, form);
   this.activeBackdrop = backdrop;
   this.activePopover = form;
@@ -41633,7 +41667,7 @@ class ReaderApp {
   appendMountedPopover(popover, state) {
   const useBackdrop = Boolean(state.backdrop);
   const mountParent = state.mountParent ?? document.body;
-  applyRedditOverlayScale(popover);
+  applyOverlayPageScale(popover);
   popover.setAttribute("aria-modal", String(useBackdrop));
   if (state.backdrop) mountParent.append(state.backdrop, popover);
   else mountParent.append(popover);
@@ -41697,7 +41731,7 @@ class ReaderApp {
   repositionActivePopover() {
   const popover = this.repositionableActivePopover();
   if (!popover) return;
-  applyRedditOverlayScale(popover);
+  applyOverlayPageScale(popover);
   const scrollBody = this.popoverScrollBody(popover);
   const scrollTop = scrollBody.scrollTop;
   this.prepareActivePopoverForPositioning(popover);
@@ -41743,7 +41777,7 @@ class ReaderApp {
   this.syncActivePopoverFixedHeight();
   }
   popoverOverlayRect(popover) {
-  return redditSourceRectToOverlay(popover.getBoundingClientRect(), popover);
+  return sourceRectToOverlay(popover.getBoundingClientRect(), popover);
   }
   lockActivePopoverPosition(rect) {
   this.activePopoverPositionLocked = true;

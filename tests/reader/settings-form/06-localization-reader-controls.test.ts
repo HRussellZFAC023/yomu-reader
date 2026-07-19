@@ -450,7 +450,7 @@ describe('settings form localization', () => {
             roundedLabel: 'Japanese rounded',
         });
         expect(subtitleFontFamily.value).toBe(DEFAULT_SETTINGS.subtitleFontFamily);
-        expect(fontWeight.value).toBe('400');
+        expect(fontWeight.value).toBe('450');
         expect(pausePanel.checked).toBe(false);
         expect(shadowAutoPause.checked).toBe(false);
         expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
