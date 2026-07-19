@@ -133,7 +133,7 @@ export function themeForRoute(route: AcademyRoute, worldPlace?: WorldPlaceId): T
     if (route === 'classroom') return 'world.classroom';
     if (route === 'lab') return 'world.lab';
     if (route === 'review') return 'world.library';
-    if (route === 'journal' || route === 'profile-sync') return 'bond.quiet';
+    if (route === 'journal' || route === 'profile-sync' || route === 'class-board') return 'bond.quiet';
     if (route === 'day-end') return 'support.kindness';
     return 'classroom.focus';
 }

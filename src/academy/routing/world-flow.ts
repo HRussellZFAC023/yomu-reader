@@ -36,6 +36,7 @@ import type { PronunciationService } from '../integration/yomu-bridge';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAakashMemory } from '../ui/character-scenes';
 import { renderClassPathScreen } from '../ui/class-path-screen';
+import { renderClassBoardScreen } from '../ui/class-board-screen';
 import { renderDayEndScene } from '../ui/day-end-scene';
 import { renderOpeningMemory } from '../ui/lesson-screen';
 import { renderLoadingScreen } from '../ui/loading-screen';
@@ -100,6 +101,9 @@ class WorldFlow implements AcademyRouteFlow {
                 return true;
             case 'profile-sync':
                 this.renderProfileSync(context);
+                return true;
+            case 'class-board':
+                this.renderClassBoard(context);
                 return true;
             case 'day-end':
                 context.shell.replace(renderDayEndScene({
@@ -635,9 +639,36 @@ class WorldFlow implements AcademyRouteFlow {
             onExport: async () => downloadExport(await sync.exportData()),
             onSignOut: async () => { await sync.signOut(); this.renderProfileSync(context); },
             onDelete: async scope => { await sync.deleteRemoteData(scope); this.renderProfileSync(context); },
+            onClassBoard: sync.status.account?.classes.length
+                ? () => void context.go('class-board')
+                : undefined,
             onContinue: context.checkpoint.routeHistory.length === 0
                 ? () => void context.go(context.projection.profile ? 'start' : 'profile')
                 : undefined,
+        }));
+    }
+
+    private renderClassBoard(context: AcademyRouteContext): void {
+        const sync = this.options.sync;
+        if (!sync) {
+            void context.back();
+            return;
+        }
+        const account = sync.status.account;
+        if (!account) {
+            context.shell.replace(renderLoadingScreen(context.language, navigator.onLine));
+            void sync.connect().then(() => {
+                if (sync.status.account) this.renderClassBoard(context);
+                else this.renderProfileSync(context);
+            }).catch(() => this.renderProfileSync(context));
+            return;
+        }
+        context.shell.replace(renderClassBoardScreen({
+            language: context.language,
+            account,
+            onBack: () => void context.back(),
+            onLoad: (classId, metric, page) => sync.loadClassLeaderboard(classId, metric, page, 20),
+            onSaveProfile: update => sync.updateClassBoardProfile(update),
         }));
     }
 
