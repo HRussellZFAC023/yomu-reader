@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.a2d988c6b2eb.user.js#sha256=otmIxrLr/8Souu2Lz6I5GFfOSpceIlMk24Go1/Lbx9M=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.b9caf4ad3825.user.js#sha256=ucr0rTgl9oxd8wMXnWEkX8B+SZjVnkC2vzXbqCX/GbQ=
-// @require https://yomureader.com/greasyfork/yomu-video.b10a4f0e357b.user.js#sha256=sQpPDjV7iygEidv3PeJmmZlGq7KzF/lTCrPF/E358BQ=
+// @require https://yomureader.com/greasyfork/yomu-video.c5b46be050cb.user.js#sha256=xbRr4FDLAjTIU/zvK38wyeaKX/cMImzXgrUH4FLRwyU=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1133,15 +1133,6 @@ function restoreWindowProperty(key, descriptor) {
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-}
-function pageCompartmentDescriptorOrNull(descriptor) {
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto || typeof window === "undefined") return descriptor;
-  try {
-  return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
-  } catch {
-  return null;
-  }
 }
 function pageCompartmentValue(value, options = {}) {
   const cloneInto = readMethod(globalThis, "cloneInto");
@@ -10180,6 +10171,9 @@ function yomuOnboardingController() {
 }
 function yomuAnkiCompanion() {
   return yomuCompanions().anki;
+}
+function yomuVideoCompanionSlot() {
+  return yomuCompanions().video;
 }
 function yomuSubtitlePlayerController() {
   return yomuCompanions().video?.SubtitlePlayerController;
@@ -31665,667 +31659,11 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
   word.classList.add("jpdb-reader-has-furi");
   }
 }
-const JA_LANG = "ja";
-const JA_COUNTRY = "JP";
-const JA_TZ = "Asia/Tokyo";
-const JA_LOCALE = "ja-JP";
-const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
-const REDIRECT_CACHE_KEY = "yomu:jps";
-const REDIRECT_HOSTS_KEY = "yomu:jps:hosts";
-const INJECTION_RETRY_LIMIT = 12;
-const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
-const ALTERNATE_REDIRECT_RETRY_MS = 125;
-const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
-const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
-const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
-let alternateRedirectCleanup;
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
-  const syncPreference = readStoredPreferenceEnabledSync();
-  if (typeof syncPreference === "boolean") {
-  applyPreferredJapaneseSiteLanguage(syncPreference);
-  return;
-  }
-  void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
+  yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
-  if (typeof window === "undefined") return;
-  writeCachedPreferenceEnabled(enabled);
-  applyPageContextJapanesePreferences(enabled);
-  if (enabled) {
-  applySitePreferenceCookies();
-  schedulePreferredJapaneseSiteRedirect();
-  } else {
-  clearSitePreferenceCookies();
-  cancelPreferredJapaneseSiteRedirectWatcher();
-  if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
-  }
-}
-function preferredJapaneseSiteUrl(sourceHref, root) {
-  const current = parseHttpUrl(sourceHref);
-  if (!current) return null;
-  const alternate = japaneseAlternateLinkUrl(current, root);
-  const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
-  if (target) applyParams(target);
-  if (!target || target.href === current.href) return null;
-  return target.href;
-}
-function readStoredPreferenceEnabledSync() {
-  const cached = readCachedPreferenceEnabled();
-  if (typeof cached === "boolean") return cached;
-  for (const key of SETTINGS_STORAGE_KEYS) {
-  const stored = gmStorageGetSync(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
-  }
-  }
-  return void 0;
-}
-async function readStoredPreferenceEnabledAsync() {
-  const cached = readCachedPreferenceEnabled();
-  if (typeof cached === "boolean") return cached;
-  for (const key of SETTINGS_STORAGE_KEYS) {
-  const stored = await gmStorageGet(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
-  }
-  }
-  return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
-}
-function readCachedPreferenceEnabled() {
-  try {
-  const value = localStorage.getItem(PREFERENCE_CACHE_KEY);
-  if (value === "true" || value === "false") return value === "true";
-  const parsed = value == null ? void 0 : JSON.parse(value);
-  return typeof parsed === "boolean" ? parsed : void 0;
-  } catch {
-  return void 0;
-  }
-}
-function writeCachedPreferenceEnabled(enabled) {
-  try {
-  localStorage.setItem(PREFERENCE_CACHE_KEY, String(enabled));
-  } catch {
-  }
-}
-function applyPageContextJapanesePreferences(enabled) {
-  const pageWindow = sameRealmUnsafeWindow();
-  if (pageWindow) {
-  try {
-    applyJapanesePreferencesInPage(pageWindow, enabled);
-    return;
-  } catch {
-  }
-  }
-  if (hasExtensionRuntime()) return;
-  injectPagePreferenceScript(enabled);
-}
-function sameRealmUnsafeWindow() {
-  if (hasExtensionRuntime()) return void 0;
-  const pageWindow = globalThis.unsafeWindow;
-  return pageWindow && pageWindow === window ? pageWindow : void 0;
-}
-function hasExtensionRuntime() {
-  const root = globalThis;
-  return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
-}
-function injectPagePreferenceScript(enabled, attempt = 0) {
-  const parent = document.head || document.documentElement;
-  if (!parent) {
-  if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
-  return;
-  }
-  try {
-  const script = document.createElement("script");
-  const nonce = Array.from(document.querySelectorAll("script[nonce]")).map((el) => el.getAttribute("nonce")).find(Boolean);
-  if (nonce) {
-    script.setAttribute("nonce", nonce);
-  }
-  const source = injectedPagePreferenceSource(enabled);
-  const trusted = createTrustedScript(source);
-  if (trusted && typeof trusted === "object") {
-    script.textContent = trusted;
-  } else {
-    script.textContent = source;
-  }
-  parent.append(script);
-  script.remove();
-  } catch {
-  if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
-  }
-}
-function createTrustedScript(code) {
-  try {
-  const root = globalThis;
-  const factory = root.trustedTypes || (typeof window !== "undefined" ? window.trustedTypes : void 0) || root.unsafeWindow?.trustedTypes;
-  if (!factory) return code;
-  let policy = factory.getPolicy?.("yomu-reader-script");
-  if (!policy) {
-    const options = { createScript: (s) => s };
-    policy = createTrustedScriptPolicy(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedScriptPolicy(factory, options);
-  }
-  return policy && typeof policy.createScript === "function" ? policy.createScript(code) : code;
-  } catch {
-  return code;
-  }
-}
-function createTrustedScriptPolicy(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader-script", options);
-  } catch {
-  return void 0;
-  }
-}
-function injectedPagePreferenceSource(enabled) {
-  return [
-  ";(() => {",
-  `const JA_LOCALE = ${JSON.stringify(JA_LOCALE)};`,
-  `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
-  `const preferenceState = ${preferenceState.toString()};`,
-  `const rememberDescriptor = ${rememberDescriptor.toString()};`,
-  `const crossRealmDescriptor = ${crossRealmDescriptor.toString()};`,
-  `const defineGetter = ${defineGetter.toString()};`,
-  `const defineValue = ${defineValue.toString()};`,
-  `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
-  `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
-  `const installIntlDefaults = ${installIntlDefaults.toString()};`,
-  `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
-  `const installGeolocationHint = ${installGeolocationHint.toString()};`,
-  `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
-  `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
-  "})();"
-  ].join("\n");
-}
-function applySitePreferenceCookies() {
-  const hostname = currentLocationHostname();
-  if (/(^|\.)youtube\.com$/.test(hostname)) {
-  mergeCookie("PREF", {
-    hl: JA_LANG,
-    gl: JA_COUNTRY,
-    tz: JA_TZ
-  }, ".youtube.com");
-  }
-  if (/(^|\.)google\./.test(hostname)) {
-  mergeCookie("PREF", {
-    hl: JA_LANG,
-    gl: JA_COUNTRY
-  });
-  }
-}
-function clearSitePreferenceCookies() {
-  const hostname = currentLocationHostname();
-  if (/(^|\.)youtube\.com$/.test(hostname)) clearCookieValues("PREF", ["hl", "gl", "tz"], ".youtube.com");
-  if (/(^|\.)google\./.test(hostname)) clearCookieValues("PREF", ["hl", "gl"]);
-}
-function currentLocationHostname() {
-  return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
-}
-function schedulePreferredJapaneseSiteRedirect() {
-  if (hostAlreadyRedirectedThisSession()) return;
-  if (attemptPreferredJapaneseSiteRedirect()) return;
-  installAlternateRedirectWatcher();
-}
-function attemptPreferredJapaneseSiteRedirect() {
-  const href = currentLocationHref();
-  const target = href ? preferredJapaneseSiteUrl(href, document) : null;
-  if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
-  rememberRedirectAttempt(href, target);
-  markHostRedirectedThisSession();
-  replaceLocation(target);
-  return true;
-}
-function currentLocationHost() {
-  try {
-  return new URL(currentLocationHref()).host;
-  } catch {
-  return "";
-  }
-}
-function hostAlreadyRedirectedThisSession() {
-  const host = currentLocationHost();
-  if (!host) return false;
-  try {
-  const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
-  return raw ? JSON.parse(raw).includes(host) : false;
-  } catch {
-  return false;
-  }
-}
-function markHostRedirectedThisSession() {
-  const host = currentLocationHost();
-  if (!host) return;
-  try {
-  const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
-  const hosts = raw ? JSON.parse(raw) : [];
-  if (!hosts.includes(host)) {
-    hosts.push(host);
-    sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
-  }
-  } catch {
-  }
-}
-function attemptPreferredDefaultSiteRedirect() {
-  const href = currentLocationHref();
-  const target = href ? rememberedRedirectSourceForTarget(href) : null;
-  if (!target) return false;
-  replaceLocation(target);
-  return true;
-}
-function currentLocationHref() {
-  return typeof location.href === "string" ? location.href : "";
-}
-function installAlternateRedirectWatcher(attempt = 0) {
-  if (alternateRedirectCleanup) return;
-  const root = document.documentElement || document.head;
-  if (!root) {
-  if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => installAlternateRedirectWatcher(attempt + 1), 0);
-  return;
-  }
-  let checks = 0;
-  const stop = () => {
-  cleanup();
-  alternateRedirectCleanup = void 0;
-  };
-  const check = () => {
-  checks += 1;
-  if (attemptPreferredJapaneseSiteRedirect() || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
-  };
-  const observer = new MutationObserver(check);
-  const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
-  const cleanup = () => {
-  observer.disconnect();
-  window.clearInterval(timer);
-  };
-  alternateRedirectCleanup = stop;
-  observer.observe(root, {
-  subtree: true,
-  childList: true,
-  attributes: true,
-  attributeFilter: ["href", "hreflang", "rel"]
-  });
-}
-function cancelPreferredJapaneseSiteRedirectWatcher() {
-  alternateRedirectCleanup?.();
-  alternateRedirectCleanup = void 0;
-}
-function replaceLocation(href) {
-  try {
-  if (typeof location.replace === "function") {
-    location.replace(href);
-    return;
-  }
-  } catch {
-  }
-  try {
-  location.href = href;
-  } catch {
-  }
-}
-function recentlyAttemptedRedirect(sourceHref, targetHref) {
-  try {
-  const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
-  if (!value) return false;
-  const [source, target, at] = JSON.parse(value);
-  return source === sourceHref && target === targetHref && Date.now() - (at ?? 0) < 6e4;
-  } catch {
-  return false;
-  }
-}
-function rememberRedirectAttempt(sourceHref, targetHref) {
-  try {
-  sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify([sourceHref, targetHref, Date.now()]));
-  } catch {
-  }
-}
-function rememberedRedirectSourceForTarget(targetHref) {
-  try {
-  const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
-  if (!value) return null;
-  const [source, target] = JSON.parse(value);
-  if (target !== targetHref || !source) return null;
-  return source;
-  } catch {
-  return null;
-  }
-}
-function parseHttpUrl(sourceHref) {
-  try {
-  const url = new URL(sourceHref);
-  return url.protocol === "http:" || url.protocol === "https:" ? url : null;
-  } catch {
-  return null;
-  }
-}
-function japaneseAlternateLinkUrl(current, root) {
-  if (!root) return null;
-  try {
-  for (const element of alts(root)) {
-    if (!/^ja(?:[-_]|$)/i.test(element.getAttribute("hreflang") ?? "")) continue;
-    const href = element.getAttribute("href");
-    const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
-    if (candidate && candidate.href !== current.href) return candidate;
-  }
-  } catch {
-  return null;
-  }
-  return null;
-}
-function alts(root) {
-  return root.querySelectorAll("link[rel~=alternate][hreflang][href],a[hreflang][href]");
-}
-function siteRuleJapaneseUrl(current) {
-  const hostname = current.hostname.toLowerCase();
-  if (hostname === "youtu.be") return youtuBeJapaneseUrl(current);
-  if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JA_PARAMS);
-  if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
-  if (hostname === "news.google.com") return withSearchParams(current, JA_NEWS);
-  if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JA_PARAMS);
-  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JA_LOCALE });
-  if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
-  if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
-  return withHostname(current, "ja.wikipedia.org");
-  }
-  if (hostname === "developer.mozilla.org") return withLeadingLocaleSegment(current, "ja");
-  if (hostname === "docs.github.com") return withLeadingLocaleSegment(current, "ja");
-  if (hostname === "learn.microsoft.com" || hostname === "support.microsoft.com") return withLeadingLocaleSegment(current, "ja-jp");
-  if (hostname === "support.apple.com") return withLeadingLocaleSegment(current, "ja-jp");
-  return null;
-}
-function youtuBeJapaneseUrl(current) {
-  const videoId = current.pathname.split("/").filter(Boolean)[0];
-  if (!videoId) return withSearchParams(current, JA_PARAMS);
-  const target = new URL("https://www.youtube.com/watch");
-  target.searchParams.set("v", videoId);
-  for (const [key, value] of current.searchParams.entries()) {
-  if (key !== "v" && key !== "hl" && key !== "gl") target.searchParams.append(key, value);
-  }
-  for (const [key, value] of Object.entries(JA_PARAMS)) target.searchParams.set(key, value);
-  target.hash = current.hash;
-  return target;
-}
-function googleConsentJapaneseUrl(current) {
-  const next = new URL(current.href);
-  let changed = false;
-  for (const [key, value] of Object.entries(JA_PARAMS)) {
-  if (next.searchParams.get(key) !== value) {
-    next.searchParams.set(key, value);
-    changed = true;
-  }
-  }
-  const continueHref = current.searchParams.get("continue");
-  const japaneseContinueHref = continueHref ? preferredJapaneseSiteUrl(continueHref) : null;
-  if (japaneseContinueHref && japaneseContinueHref !== continueHref) {
-  next.searchParams.set("continue", japaneseContinueHref);
-  changed = true;
-  }
-  return changed ? next : null;
-}
-function isGooglePreferenceHost(hostname) {
-  return hostname === "google.com" || hostname.startsWith("www.google.") || hostname === "support.google.com" || hostname === "cloud.google.com";
-}
-function withSearchParams(current, values) {
-  const next = new URL(current.href);
-  let changed = false;
-  for (const [key, value] of Object.entries(values)) {
-  if (next.searchParams.get(key) === value) continue;
-  next.searchParams.set(key, value);
-  changed = true;
-  }
-  return changed ? next : null;
-}
-function withHostname(current, hostname) {
-  if (current.hostname.toLowerCase() === hostname) return null;
-  const next = new URL(current.href);
-  next.hostname = hostname;
-  return next;
-}
-function withLeadingLocaleSegment(current, locale) {
-  const parts = current.pathname.split("/");
-  const first = (parts[1] ?? "").toLowerCase();
-  if (!/^[a-z]{2}(?:[-_][a-z]{2})?$/.test(first) || first === locale.toLowerCase()) return null;
-  const next = new URL(current.href);
-  parts[1] = locale;
-  next.pathname = parts.join("/") || "/";
-  return next;
-}
-function genericUrl(current, root) {
-  const next = new URL(current.href);
-  let hit = applyParams(next);
-  if (!root || !alts(root).length && root.readyState !== "loading") {
-  if (/^en\./i.test(next.hostname)) {
-    next.hostname = next.hostname.replace(/^en\./i, "ja.");
-    hit = true;
-  }
-  const parts = next.pathname.split("/");
-  const first = (parts[1] ?? "").toLowerCase();
-  if (EN_LOCALE_RE.test(first)) {
-    parts[1] = /[-_]/.test(first) ? "ja-jp" : JA_LANG;
-    next.pathname = parts.join("/") || "/";
-    hit = true;
-  }
-  }
-  return hit ? next : null;
-}
-function applyParams(next) {
-  const p = next.searchParams;
-  let hit = false;
-  for (const k of ["locale", "ui_locale", "mkt", "market"]) hit = sp(p, k, jl(p.get(k))) || hit;
-  for (const k of ["lang", "language", "lng"]) {
-  const v = p.get(k);
-  hit = sp(p, k, v && /[-_]/.test(v) ? jl(v) : JA_LANG) || hit;
-  }
-  hit = sp(p, "hl", JA_LANG) || hit;
-  for (const k of ["region", "country", "gl", "cc"]) hit = sp(p, k, JA_COUNTRY, /^(?:us|usa|gb|uk)$/i) || hit;
-  return hit;
-}
-function jl(v) {
-  return v?.includes("_") ? "ja_JP" : JA_LOCALE;
-}
-function sp(p, k, v, r = EN_LOCALE_RE) {
-  const current = p.get(k);
-  if (!current || !r.test(current)) return false;
-  p.set(k, v);
-  return true;
-}
-function mergeCookie(name, values, domain) {
-  try {
-  const params = new URLSearchParams(cookieValue(name));
-  for (const [key, value] of Object.entries(values)) params.set(key, value);
-  writeCookie(name, params.toString(), domain, 31536e3);
-  } catch {
-  }
-}
-function clearCookieValues(name, keys, domain) {
-  try {
-  const currentValue = cookieValue(name);
-  if (!currentValue) return;
-  const params = new URLSearchParams(currentValue);
-  for (const key of keys) params.delete(key);
-  const nextValue = params.toString();
-  if (nextValue) writeCookie(name, nextValue, domain, 31536e3);
-  else writeCookie(name, "", domain, 0);
-  } catch {
-  }
-}
-function writeCookie(name, value, domain, maxAge) {
-  const domainPart = domain ? `; Domain=${domain}` : "";
-  const securePart = location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${name}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Lax${securePart}${domainPart}`;
-}
-function cookieValue(name) {
-  const prefix = `${name}=`;
-  return document.cookie.split(/;\s*/).find((cookie) => cookie.startsWith(prefix))?.slice(prefix.length) ?? "";
-}
-function applyJapanesePreferencesInPage(scope, enabled) {
-  const root = scope;
-  const state = preferenceState(root);
-  if (!enabled) {
-  restoreJapanesePreferences(state);
-  return;
-  }
-  if (state.installed) return;
-  state.installed = true;
-  const locale = JA_LOCALE;
-  const languages = ["ja-JP", "ja", "en-US", "en"];
-  const timeZone = "Asia/Tokyo";
-  const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
-  const navigatorObject = root.navigator;
-  const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
-  defineGetter(state, navigatorPrototype, "language", () => locale);
-  defineGetter(state, navigatorPrototype, "languages", () => languages.slice());
-  defineGetter(state, navigatorPrototype, "userLanguage", () => locale);
-  defineGetter(state, navigatorPrototype, "browserLanguage", () => locale);
-  defineGetter(state, navigatorObject, "language", () => locale);
-  defineGetter(state, navigatorObject, "languages", () => languages.slice());
-  installIntlDefaults(root, state, locale, timeZone);
-  installDateTimezoneHint(root, state, timeZone);
-  installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
-}
-function preferenceState(root) {
-  if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
-  const state = {
-  installed: false,
-  properties: [],
-  watchTimers: new Map(),
-  nextWatchId: 1
-  };
-  defineUntrackedValue(root, "__yomuJapaneseSiteLanguagePreference", state);
-  return state;
-}
-function restoreJapanesePreferences(state) {
-  for (const timer of state.watchTimers.values()) clearInterval(timer);
-  state.watchTimers.clear();
-  for (const snapshot of state.properties.slice().reverse()) {
-  try {
-    if (snapshot.hadOwn && snapshot.descriptor) {
-      const descriptor = crossRealmDescriptor(snapshot.descriptor, snapshot.target);
-      if (descriptor) Object.defineProperty(snapshot.target, snapshot.key, descriptor);
-    } else {
-      delete snapshot.target[snapshot.key];
-    }
-  } catch {
-  }
-  }
-  state.properties = [];
-  state.installed = false;
-}
-function installIntlDefaults(root, state, locale, timeZone) {
-  const intl = root.Intl;
-  if (!intl) return;
-  wrapIntlConstructor(intl, state, "DateTimeFormat", locale, (options) => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
-  wrapIntlConstructor(intl, state, "NumberFormat", locale);
-  wrapIntlConstructor(intl, state, "Collator", locale);
-  wrapIntlConstructor(intl, state, "RelativeTimeFormat", locale);
-  wrapIntlConstructor(intl, state, "PluralRules", locale);
-  wrapIntlConstructor(intl, state, "ListFormat", locale);
-  wrapIntlConstructor(intl, state, "Segmenter", locale);
-}
-function wrapIntlConstructor(intl, state, name, locale, normalizeOptions = (options) => options) {
-  const NativeConstructor = intl[name];
-  if (typeof NativeConstructor !== "function" || NativeConstructor.__yomuWrapped) return;
-  const WrappedConstructor = function(locales, options) {
-  const nextLocales = locales === void 0 ? locale : locales;
-  const nextOptions = normalizeOptions(options);
-  return Reflect.construct(NativeConstructor, [nextLocales, nextOptions], new.target || NativeConstructor);
-  };
-  defineUntrackedValue(WrappedConstructor, "__yomuWrapped", true);
-  try {
-  Object.setPrototypeOf(WrappedConstructor, NativeConstructor);
-  WrappedConstructor.prototype = NativeConstructor.prototype;
-  } catch {
-  }
-  defineValue(state, intl, name, WrappedConstructor);
-}
-function installDateTimezoneHint(root, state, timeZone) {
-  const datePrototype = root.Date?.prototype;
-  if (!datePrototype) return;
-  defineValue(state, datePrototype, "getTimezoneOffset", function getTimezoneOffset() {
-  return timeZone === "Asia/Tokyo" ? -540 : 0;
-  });
-}
-function installGeolocationHint(root, state, navigatorObject, navigatorPrototype, coords) {
-  if (!navigatorObject) return;
-  const nativeGeolocation = navigatorObject.geolocation;
-  const position = () => ({
-  coords: {
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    accuracy: coords.accuracy,
-    altitude: null,
-    altitudeAccuracy: null,
-    heading: null,
-    speed: null
-  },
-  timestamp: Date.now()
-  });
-  const geolocation = Object.create(nativeGeolocation ?? null);
-  defineUntrackedValue(geolocation, "getCurrentPosition", (success) => {
-  root.setTimeout(() => success(position()), 0);
-  });
-  defineUntrackedValue(geolocation, "watchPosition", (success) => {
-  const id = state.nextWatchId++;
-  const emit = () => success(position());
-  const timer = root.setInterval(emit, 6e4);
-  state.watchTimers.set(id, timer);
-  root.setTimeout(emit, 0);
-  return id;
-  });
-  defineUntrackedValue(geolocation, "clearWatch", (id) => {
-  const timer = state.watchTimers.get(id);
-  if (timer !== void 0) root.clearInterval(timer);
-  state.watchTimers.delete(id);
-  });
-  defineGetter(state, navigatorPrototype, "geolocation", () => geolocation);
-  defineGetter(state, navigatorObject, "geolocation", () => geolocation);
-}
-function rememberDescriptor(state, target, key) {
-  if (!target || state.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;
-  const descriptor = Object.getOwnPropertyDescriptor(target, key);
-  state.properties.push({
-  target,
-  key,
-  hadOwn: Boolean(descriptor),
-  descriptor
-  });
-}
-function crossRealmDescriptor(descriptor, _target) {
-  try {
-  return typeof pageCompartmentDescriptorOrNull === "function" ? pageCompartmentDescriptorOrNull(descriptor) : descriptor;
-  } catch {
-  return null;
-  }
-}
-function defineGetter(state, target, key, getter) {
-  if (!target) return;
-  rememberDescriptor(state, target, key);
-  try {
-  const descriptor = crossRealmDescriptor({
-    configurable: true,
-    get: getter
-  }, target);
-  if (descriptor) Object.defineProperty(target, key, descriptor);
-  } catch {
-  }
-}
-function defineValue(state, target, key, value) {
-  if (!target) return;
-  rememberDescriptor(state, target, key);
-  defineUntrackedValue(target, key, value);
-}
-function defineUntrackedValue(target, key, value) {
-  if (!target) return;
-  try {
-  const descriptor = crossRealmDescriptor({
-    configurable: true,
-    writable: true,
-    value
-  }, target);
-  if (descriptor) Object.defineProperty(target, key, descriptor);
-  } catch {
-  try {
-    target[key] = value;
-  } catch {
-  }
-  }
+  yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(enabled, revertOnDisable);
 }
 function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
@@ -34301,11 +33639,11 @@ function renderKanjiImmersionKitMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return "";
   const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
-            <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
-        </details>
-    `;
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
+        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+        <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
+    </details>
+  `;
 }
 function renderKanjiSourceMount(sourceId, options) {
   const staticMount = (options.staticMounts ?? KANJI_STATIC_SOURCE_MOUNTS)[sourceId];
@@ -34322,20 +33660,20 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   const title = options.sourceTitle(KANJI_STROKE_SOURCE_ID);
   const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
-            </div>
-            <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
-            </div>
-            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
-        </details>
-    `;
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
+        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+        <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
+            <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
+            <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
+        </div>
+        <div class="jpdb-reader-doodle-tools">
+            <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
+        </div>
+        <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
+    </details>
+  `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.237"}`;
@@ -40263,35 +39601,35 @@ class ReaderApp {
   }
   renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language) {
   setInnerHtml(popover, `
-            <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body">
-                ${renderModalNavigation({
-      ...this.navigation.kanjiModalBack(card, language),
-      controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
-    })}
-                <div class="jpdb-reader-header">
-                    <div class="jpdb-reader-heading">
-                        <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
-                            <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
-                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
-                            ${renderWordPills({
-      card,
-      jpdbUrl,
-      settings: this.settings,
-      metaEntries: [],
-      overrideQuery: kanji,
-      isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
-      dictionaryLabel: (name) => this.dictionaryLabel(name)
-    })}
-                        </div>
+        <div class="jpdb-reader-sheet-handle"></div>
+        <div class="jpdb-reader-popover-body">
+            ${renderModalNavigation({
+  ...this.navigation.kanjiModalBack(card, language),
+  controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
+  })}
+            <div class="jpdb-reader-header">
+                <div class="jpdb-reader-heading">
+                    <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
+                        <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
+                        <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
+                        ${renderWordPills({
+  card,
+  jpdbUrl,
+  settings: this.settings,
+  metaEntries: [],
+  overrideQuery: kanji,
+  isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
+  dictionaryLabel: (name) => this.dictionaryLabel(name)
+  })}
                     </div>
                 </div>
-                <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-                    ${this.renderKanjiSourceMounts(kanji, language)}
-                </div>
             </div>
-            ${this.renderKanjiActionBar(card)}
-        `);
+            <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                ${this.renderKanjiSourceMounts(kanji, language)}
+            </div>
+        </div>
+        ${this.renderKanjiActionBar(card)}
+    `);
   }
   renderKanjiNavigationControls(kanjiCharacters, kanji, language) {
   if (kanjiCharacters.length <= 1) return "";
@@ -40299,9 +39637,9 @@ class ReaderApp {
   const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
   const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
   return `
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
-        `;
+        <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
+        <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
+    `;
   }
   installKanjiCardActions(popover, card, kanji, sentence, anchor) {
   installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
@@ -40394,14 +39732,14 @@ class ReaderApp {
   renderKanjiActionBar(card) {
   const reviewButtons = this.renderKanjiReviewButtons(card);
   return `
-            <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
-                <div class="jpdb-reader-actions-gutter" hidden>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
-                </div>
-                <div data-kanji-mining-mount hidden></div>
-                ${reviewButtons}
+        <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
+            <div class="jpdb-reader-actions-gutter" hidden>
+                <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
             </div>
-        `;
+            <div data-kanji-mining-mount hidden></div>
+            ${reviewButtons}
+        </div>
+    `;
   }
   renderKanjiReviewButtons(card) {
   if (!this.settings.enableReviews) return "";
