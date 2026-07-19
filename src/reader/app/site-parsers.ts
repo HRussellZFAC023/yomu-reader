@@ -318,17 +318,16 @@ const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
 // Hosted docs annotate only declared Reader Surfaces. In English mode those
 // are just the demo surfaces; in Japanese mode the theme also declares the
-// whole #VPContent column, whose translated hero, install, and link-grid copy
-// is then ordinary Japanese reading material. Navigation chrome stays outside
-// every surface — mass annotating it produced multi-second long tasks and a
-// ~14s cold first hover before the page-owned annotation scope existed.
+// whole #VPContent column plus the nav/sidebar chrome, whose translated menu
+// labels are ordinary Japanese vocabulary. Chrome only annotates when the
+// theme declares it a surface, so the old blanket-scan long tasks (~14s cold
+// first hover before the page-owned annotation scope existed) cannot return.
 const YOMU_HOSTED_DOCS_ROOTS = [
     '[data-yomu-runtime-surface]',
     '.yomu-try-me-text',
 ];
 const YOMU_HOSTED_DOCS_EXCLUDE = [
     COMMON_EXCLUDE,
-    '.VPNav',
     '.yomu-hosted-overflow-group',
 ].join(',');
 const YOMU_VIDEO_PLAYER_ROOTS = [

@@ -27515,7 +27515,6 @@ const YOMU_HOSTED_DOCS_ROOTS = [
 ];
 const YOMU_HOSTED_DOCS_EXCLUDE = [
   COMMON_EXCLUDE,
-  ".VPNav",
   ".yomu-hosted-overflow-group"
 ].join(",");
 const YOMU_VIDEO_PLAYER_ROOTS = [

@@ -1727,6 +1727,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Added a hosted Yomu Video fullscreen button that fullscreen-targets the video frame instead of the bare video, with mobile inline fallback coverage so Yomu subtitles stay visible while watching.': 'ホスト版Yomu Videoに全画面ボタンを追加しました。動画要素単体ではなく動画フレームを全画面対象にするため、視聴中もYomu字幕が表示されます。モバイル向けのインライン全画面フォールバックもカバーしています。',
     'Added compact Yomu Video subtitle style controls beside the player for font preset, background opacity, position, size, and hover-pause behavior, with desktop and mobile Playwright coverage.': 'Yomu Videoに、プレイヤー横で使えるコンパクトな字幕スタイル操作を追加しました。フォントプリセット、背景不透明度、位置、サイズ、ホバー一時停止を調整でき、デスクトップとモバイルのPlaywrightカバレッジも追加しています。',
     'Changed': '変更',
+    'In Japanese mode the hosted docs now annotate the site chrome as reading material: the top navigation, mobile local nav, and sidebar labels such as 学ぶ, 学習, and アカデミー receive furigana and pitch underlines like the content column, while menu links keep their normal navigation clicks. English mode keeps the chrome out of scope.': '日本語モードのホスト版ドキュメントは、サイトのクロームも読み物として注釈するようになりました。上部ナビゲーション、モバイルのローカルナビ、サイドバーのラベル（学ぶ、学習、アカデミーなど）にも本文と同じようにふりがなとピッチ下線が付き、メニューリンクは通常のナビゲーションクリックを保ちます。英語モードではクロームは対象外のままです。',
     'Moved the Bunpro provider suite, including the API client, SRS adapter, word-state colouring, token importer, and the popup definition section, into a new Yomu Bunpro companion script. Together with the Immersion Kit move this restores the intended safety margin under Greasy Fork\'s 2 MB core-script limit. Behavior is unchanged: the companion is always required by the userscript, bundled into hosted builds, and loaded by the Academy reader runtime.': 'Bunproプロバイダー一式（APIクライアント、SRSアダプター、単語状態の色付け、トークンインポーター、ポップアップの定義セクション）を、新しいYomu Bunproコンパニオンスクリプトへ移動しました。イマージョンキットの移動と合わせて、Greasy Forkのコアスクリプト2MB制限に対する本来の安全マージンを取り戻します。動作は変わりません。コンパニオンはユーザースクリプトが常に必要とし、ホスト版にはバンドルされ、アカデミーのリーダーランタイムにも読み込まれます。',
     'Words whose dictionary entry is itself an inflected form, such as 問わず, no longer sit without a pitch underline. When the exact form is missing from the pitch dictionary, the reader deinflects it and projects the base verb\'s accent onto the surface — only for flat heiban bases, whose contour stays exact in every conjugation, so no word is painted with a guessed accent.': '問わずのように辞書項目自体が活用形の単語が、ピッチ下線なしのまま放置されることはなくなりました。ピッチ辞書にその形が載っていない場合、リーダーは活用を解いて基本形の動詞のアクセントを表層形に投影します。ただし、どの活用でも音形が正確に保たれる平板型の基本形に限るため、推測したアクセントで塗られる単語はありません。',
     'Pitch enrichment that resolves a word in place now records the resolved accent pattern on the rendered word together with its colour class, so the popup, mining data, and the underline can no longer disagree about a word such as 役に立つ or 学習用.': '単語をその場で解決するピッチ付与が、色クラスと一緒に解決済みのアクセント型もレンダリングされた単語に記録するようになりました。これにより、役に立つや学習用のような単語について、ポップアップ、マイニングデータ、下線の情報が食い違うことはなくなります。',
@@ -3706,8 +3707,20 @@ function declareHostedAnnotationScope(): void {
 function syncHostedContentAnnotationSurface(): void {
     const content = document.getElementById('VPContent');
     if (!content) return;
-    if (effectiveInterfaceLanguage() === 'ja') content.setAttribute('data-yomu-runtime-surface', '');
-    else content.removeAttribute('data-yomu-runtime-surface');
+    const japanese = effectiveInterfaceLanguage() === 'ja';
+    toggleHostedRuntimeSurface(content, japanese);
+    // Japanese mode reads the chrome too: the top navigation, local nav, and
+    // sidebar labels are ordinary Japanese vocabulary (学ぶ, 学習, アカデミー)
+    // with ruby room, so they join the declared surfaces. English mode keeps
+    // them out of scope entirely — there the chrome holds no Japanese.
+    for (const selector of ['.VPNav', '.VPLocalNav', '.VPSidebar']) {
+        document.querySelectorAll<HTMLElement>(selector).forEach(element => toggleHostedRuntimeSurface(element, japanese));
+    }
+}
+
+function toggleHostedRuntimeSurface(element: HTMLElement, declared: boolean): void {
+    if (declared) element.setAttribute('data-yomu-runtime-surface', '');
+    else element.removeAttribute('data-yomu-runtime-surface');
 }
 
 function installHostedDocsEnhancements(): void {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.239] - 2026-07-19
+
+### Fixed
+
+- In Japanese mode the hosted docs now annotate the site chrome as reading material: the top navigation, mobile local nav, and sidebar labels such as 学ぶ, 学習, and アカデミー receive furigana and pitch underlines like the content column, while menu links keep their normal navigation clicks. English mode keeps the chrome out of scope.
+
 ## [1.6.238] - 2026-07-19
 
 ### Changed
