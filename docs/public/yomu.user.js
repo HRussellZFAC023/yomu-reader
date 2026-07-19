@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.234
+// @version 1.6.235
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.9379b4304b96.user.js#sha256=k3m0MEuWEK7Z7HtWmFjzJ2xNJt6VCQItToRPq6TwaQY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.eba9e0adf10b.user.js#sha256=66ngrfELvEt9qFwZugqruIWUOvJtGjX0Twdn1DqOLJw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.2912ecb2030c.user.js#sha256=KRLssgMMUZtxORf7u0pmG9/X9K3Tble7POZsPajKzsc=
+// @require https://yomureader.com/greasyfork/yomu-anki.04bf9491d05c.user.js#sha256=BL+UkdBcwDeEVEBBIzdVHiiVn7Am2krgrb0n3B8TqSY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.ee4e79ebc957.user.js#sha256=7k5568lXb4DiTQ8IFns9otyAXXlQMVd/NYS40ZC2uPU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b6e510c00167.user.js#sha256=tuUQwAFnKEZDbJp1yuOxxjS/b9XDLg1oX2qh9N3TUxo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.1df135fce865.user.js#sha256=HfE1/Ohlj7M7fcXjDHchiQxMtc3RoNYVwC8SCztYhRc=
-// @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.42df0f76b089.user.js#sha256=Qt8PdrCJVqZ5mfNWLb2WLwXIsXs5aua82pQO3httJAc=
+// @require https://yomureader.com/greasyfork/yomu-video.b10a4f0e357b.user.js#sha256=sQpPDjV7iygEidv3PeJmmZlGq7KzF/lTCrPF/E358BQ=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1132,6 +1132,15 @@ function restoreWindowProperty(key, descriptor) {
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+function pageCompartmentDescriptorOrNull(descriptor) {
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto || typeof window === "undefined") return descriptor;
+  try {
+  return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+  } catch {
+  return null;
+  }
 }
 function pageCompartmentValue(value, options = {}) {
   const cloneInto = readMethod(globalThis, "cloneInto");
@@ -5283,6 +5292,12 @@ function contextPitchPattern(patterns, reading) {
   if (!reading) return patterns[0];
   return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
 }
+function pitchNumberForReading(patterns, reading) {
+  if (!reading || !patterns?.length) return null;
+  const pattern = contextPitchPattern(patterns, reading);
+  if (!pattern) return null;
+  return pitchNumberFromPattern(pattern, reading);
+}
 function pitchNumberFromPattern(pattern, reading) {
   const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
   const moraCount = countMorae(reading);
@@ -9231,14 +9246,14 @@ function createReaderWordSpan(token, options) {
   span.dataset.cardId = String(readerCardId(token.card));
   span.dataset.readingIndex = String(readerReadingIndex(token.card));
   span.dataset.cardState = state;
-  if (showPitchAccent) span.dataset.pitchClass = safePitchClass(token.pitchClass);
+  if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
   span.dataset.tokenStart = String(token.start);
   span.dataset.tokenEnd = String(token.end);
   span.dataset.sentence = token.sentence ?? "";
   if (token.card.spelling) span.dataset.expression = token.card.spelling;
   if (token.card.reading) span.dataset.reading = token.card.reading;
   const pitchAccent = token.card.pitchAccent.join("|");
-  if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+  if (showPitchAccent && pitchAccent && !isParticleCard(token.card)) span.dataset.pitchAccent = pitchAccent;
   if (showPitchAccent) applyPitchComponentGradient(span, token.card);
   applyDeckMembershipDataset(span, token.card);
   applyTokenRenderOptions(span, token, options);
@@ -9303,7 +9318,7 @@ function readerWordClassName(state, token, settings) {
   if (source !== "jpdb") classes2.push(`${source}-${state}`);
   }
   classes2.push(...cardDeckMembershipClassNames(token.card));
-  if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+  if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${tokenPitchClass(token)}`);
   return classes2.join(" ");
 }
 function hasKnownCardState(card) {
@@ -9314,6 +9329,9 @@ function isParticleCard(card) {
 }
 function safePitchClass(value) {
   return PITCH_CLASSES.has(value) ? value : "unknown";
+}
+function tokenPitchClass(token) {
+  return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
 }
 function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
   let html = "";
@@ -16117,6 +16135,7 @@ const ICHIDAN_RULES = [
   ["なくて", "る", "negative te-form"],
   ["なければ", "る", "negative conditional"],
   ["ない", "る", "negative"],
+  ["ず", "る", "negative archaic"],
   ["たかった", "る", "desiderative past"],
   ["たくなかった", "る", "desiderative negative past"],
   ["たくない", "る", "desiderative negative"],
@@ -16163,6 +16182,7 @@ const SURU_RULES = [
   ["しなくて", "する", "negative te-form"],
   ["しなければ", "する", "negative conditional"],
   ["しない", "する", "negative"],
+  ["せず", "する", "negative archaic"],
   ["しなさい", "する", "polite request"],
   ["しすぎる", "する", "excessive"],
   ["された", "する", "passive past"],
@@ -16210,6 +16230,7 @@ const KURU_RULES = [
   ["こなかった", "くる", "negative past"],
   ["こなくて", "くる", "negative te-form"],
   ["こない", "くる", "negative"],
+  ["こず", "くる", "negative archaic"],
   ["きなさい", "くる", "polite request"],
   ["きすぎる", "くる", "excessive"],
   ["こられた", "くる", "potential/passive past"],
@@ -16344,6 +16365,7 @@ function godanRules(row) {
   { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
   { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
   { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+  { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
   { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
   { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
   { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
@@ -17546,7 +17568,36 @@ async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta,
   const pronunciation = reading.trim();
   if (!expression || !pronunciation) return { patterns: [] };
   const initialEntries = options.initialEntries ?? await lookupMeta(expression);
-  return { patterns: localPitchPatternsFromMeta(expression, pronunciation, initialEntries) };
+  const patterns = localPitchPatternsFromMeta(expression, pronunciation, initialEntries);
+  if (patterns.length) return { patterns };
+  return { patterns: await deconjugatedHeibanPitchPatterns(expression, pronunciation, lookupMeta) };
+}
+const DECONJUGATION_PITCH_CANDIDATE_LIMIT = 4;
+const KANA_SUFFIX_RE = /^[\u3040-\u30ff\u3099\u309A]*$/u;
+async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) {
+  const candidates = deinflectJapaneseTerm(expression).filter((candidate) => candidate.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
+  for (const candidate of candidates) {
+  const baseReading = deconjugatedReading(expression, candidate.term, reading);
+  if (!baseReading) continue;
+  const basePatterns = localPitchPatternsFromMeta(candidate.term, baseReading, await lookupMeta(candidate.term));
+  if (!basePatterns.length) continue;
+  const heiban = basePatterns.some((pattern) => pitchNumberForReading([pattern], baseReading) === 0);
+  return heiban ? [pitchPatternFromPosition(reading, 0)].filter(Boolean) : [];
+  }
+  return [];
+}
+function deconjugatedReading(expression, baseTerm, reading) {
+  const expressionChars = Array.from(expression);
+  const baseChars = Array.from(baseTerm);
+  let shared = 0;
+  while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
+  const removed = expressionChars.slice(shared).join("");
+  const added = baseChars.slice(shared).join("");
+  if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
+  if (removed && !reading.endsWith(removed)) return "";
+  const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
+  if (!stem && !added) return "";
+  return stem + added;
 }
 function localPitchPatternFromMeta(expression, reading, entries2) {
   return localPitchPatternsFromMeta(expression, reading, entries2)[0] ?? "";
@@ -18515,6 +18566,8 @@ const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
 const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
 const REQUEST_TIMEOUT_MS$4 = 3e4;
 const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
+const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
+const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
 class BunproApiError extends Error {
   constructor(message, status) {
   super(message);
@@ -18529,9 +18582,12 @@ class BunproClient {
   legacyBaseUrl;
   requestImpl;
   timeoutMs;
+  getProxyUrl;
+  transportRetryAfter = 0;
   constructor(options = {}) {
   this.getFrontendToken = options.getFrontendToken ?? (() => "");
   this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
+  this.getProxyUrl = options.getProxyUrl ?? (() => "");
   this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
   this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
   this.requestImpl = options.requestImpl ?? requestHttp;
@@ -18672,23 +18728,35 @@ class BunproClient {
   });
   }
   async requestJson(url, options) {
+  if (this.transportRetryAfter > Date.now()) {
+    throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
+  }
   try {
-    return await this.requestImpl(url, {
+    const response = await this.requestImpl(url, {
       ...options,
       responseType: "json",
       timeoutMs: this.timeoutMs,
       preferFetch: true,
       allowDirectCrossOrigin: true,
+      proxyUrl: this.getProxyUrl(),
       allowPublicProxies: false,
-      allowSensitiveConfiguredProxy: false,
+      allowSensitiveConfiguredProxy: true,
       credentials: "omit",
       referrerPolicy: "no-referrer",
       failureLabel: "Bunpro request"
     });
+    this.transportRetryAfter = 0;
+    return response;
   } catch (error) {
+    if (isBunproTransportFailure(error)) this.transportRetryAfter = Date.now() + TRANSPORT_FAILURE_BACKOFF_MS;
     throw normalizeBunproError(error);
   }
   }
+}
+function isBunproTransportFailure(error) {
+  if (errorStatus$1(error) !== void 0) return false;
+  if (error instanceof BunproApiError) return false;
+  return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
 }
 function normalizeBunproError(error) {
   if (error instanceof BunproApiError) return error;
@@ -27677,6 +27745,10 @@ function setRenderedWordPitchClass(word, pitchClass) {
   word.dataset.pitchClass = pitchClass;
   if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
+function setRenderedWordPitchAccentPattern(word, card) {
+  const pitchAccent = card.pitchAccent.join("|");
+  if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+}
 function setRenderedWordPitchComponents(word, card) {
   const gradient = pitchComponentUnderlineGradient(card);
   if (!gradient) {
@@ -27702,9 +27774,8 @@ function setRenderedWordCardIdentity(word, card) {
   word.dataset.expression = card.spelling;
   word.dataset.reading = card.reading;
   if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-  const pitchAccent = card.pitchAccent.join("|");
-  if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-  else delete word.dataset.pitchAccent;
+  if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+  setRenderedWordPitchAccentPattern(word, card);
   setRenderedWordPitchComponents(word, card);
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
@@ -27833,8 +27904,8 @@ function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
   if (isOcrLineFrameWord(word)) return false;
   if (word.closest(".jpdb-reader-popover")) return false;
   if (word.closest(".jpdb-reader-control-text-mirror")) return !word.closest("[data-jpdb-reader-root]") || hasHoverLookupShortcut;
-  if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
-  if (isSettingsNativeControlWord(word)) return false;
+  if (isSettingsNativeControlWord(word)) return hasHoverLookupShortcut;
+  if (isSettingsReaderWord(word)) return true;
   if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== "true") return false;
   if (!word.closest("[data-jpdb-reader-root]")) return true;
   if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
@@ -27844,7 +27915,7 @@ function isSettingsReaderWord(word) {
   return Boolean(word.closest(".jpdb-reader-settings"));
 }
 function isSettingsNativeControlWord(word) {
-  return Boolean(word.closest(".jpdb-reader-settings") && word.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
+  return Boolean(word.closest(".jpdb-reader-settings") && word.closest('a[href],button,input,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
 }
 function currentLookupNavigationWord(words, activePopoverAnchor, keyboardActiveWord) {
   const activeAnchor = activePopoverAnchor?.isConnected ? activePopoverAnchor : void 0;
@@ -31911,7 +31982,6 @@ const SETTINGS_PARSE_TARGET_LIMIT = 120;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
   ".jpdb-reader-settings-actions",
   ".jpdb-reader-settings-drag-handle",
-  ".jpdb-reader-status-line",
   "[data-settings-preview-lookup]",
   "[hidden]:not([data-settings-panel])",
   '[aria-hidden="true"]',
@@ -31932,7 +32002,6 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
 const SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR = [
   ".jpdb-reader-settings-actions",
   ".jpdb-reader-settings-drag-handle",
-  ".jpdb-reader-status-line",
   "[data-settings-preview-lookup]",
   "[hidden]:not([data-settings-panel])",
   '[aria-hidden="true"]',
@@ -32892,8 +32961,12 @@ function restoreJapanesePreferences(state) {
   state.watchTimers.clear();
   for (const snapshot of state.properties.slice().reverse()) {
   try {
-    if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, crossRealmDescriptor(snapshot.descriptor, snapshot.target));
-    else delete snapshot.target[snapshot.key];
+    if (snapshot.hadOwn && snapshot.descriptor) {
+      const descriptor = crossRealmDescriptor(snapshot.descriptor, snapshot.target);
+      if (descriptor) Object.defineProperty(snapshot.target, snapshot.key, descriptor);
+    } else {
+      delete snapshot.target[snapshot.key];
+    }
   } catch {
   }
   }
@@ -32979,21 +33052,22 @@ function rememberDescriptor(state, target, key) {
   descriptor
   });
 }
-function crossRealmDescriptor(descriptor, target) {
+function crossRealmDescriptor(descriptor, _target) {
   try {
-  return typeof pageCompartmentDescriptor === "function" ? pageCompartmentDescriptor(descriptor, target) : descriptor;
+  return typeof pageCompartmentDescriptorOrNull === "function" ? pageCompartmentDescriptorOrNull(descriptor) : descriptor;
   } catch {
-  return descriptor;
+  return null;
   }
 }
 function defineGetter(state, target, key, getter) {
   if (!target) return;
   rememberDescriptor(state, target, key);
   try {
-  Object.defineProperty(target, key, crossRealmDescriptor({
+  const descriptor = crossRealmDescriptor({
     configurable: true,
     get: getter
-  }, target));
+  }, target);
+  if (descriptor) Object.defineProperty(target, key, descriptor);
   } catch {
   }
 }
@@ -33005,11 +33079,12 @@ function defineValue(state, target, key, value) {
 function defineUntrackedValue(target, key, value) {
   if (!target) return;
   try {
-  Object.defineProperty(target, key, crossRealmDescriptor({
+  const descriptor = crossRealmDescriptor({
     configurable: true,
     writable: true,
     value
-  }, target));
+  }, target);
+  if (descriptor) Object.defineProperty(target, key, descriptor);
   } catch {
   try {
     target[key] = value;
@@ -34105,6 +34180,19 @@ function inferredTransparentPageBackground(word) {
   return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
   }
   return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+function documentBackgroundLooksDark() {
+  if (typeof document === "undefined" || !document.body) return false;
+  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+  let found = false;
+  for (const element of [document.documentElement, document.body]) {
+  const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
+  if (!color || color.alpha <= 0) continue;
+  rgba = blendRgba(color, rgba);
+  found = true;
+  }
+  const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
+  return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
 }
 function pageBackgroundFromCss(color) {
   return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
@@ -35778,14 +35866,14 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.234"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.234"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.235"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.235"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
   const pitchSelector = (pattern) => `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
   const pitches = pitchClasses.map((pattern) => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
-  const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}";
+  const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown],.jpdb-pitch-particle,[data-pitch-class=particle]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}";
   const allPitches = pitchClasses.map(pitchSelector).join(",");
   return [
   pitches,
@@ -35899,7 +35987,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.234"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.235"}`;
   } catch {
   return null;
   }
@@ -36984,7 +37072,8 @@ class ReaderApp {
   anki = new AnkiConnectClient(() => this.settings);
   bunpro = new BunproClient({
   getFrontendToken: () => this.activeBunproFrontendApiToken(),
-  getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings)
+  getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+  getProxyUrl: () => this.settings.corsProxyUrl
   });
   bunproSrs = createBunproSrsAdapter(this.bunpro);
   bunproWordStates = new BunproWordStateStore(this.bunpro);
@@ -37658,10 +37747,13 @@ class ReaderApp {
   this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
     this.themeContrastRefreshFrame = void 0;
     if (this.isDestroyed) return;
+    if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
     refreshReaderWordContrast(document);
     this.themeContrastRefreshTimer = window.setTimeout(() => {
       this.themeContrastRefreshTimer = void 0;
-      if (!this.isDestroyed) refreshReaderWordContrast(document);
+      if (this.isDestroyed) return;
+      if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+      refreshReaderWordContrast(document);
     }, 80);
   });
   }
@@ -37670,7 +37762,10 @@ class ReaderApp {
   this.disposeHostThemeObserver = observeHostTheme((theme) => this.handleHostThemeChange(theme));
   }
   syncHostTheme(settings = this.settings) {
-  if (!isThemeSyncHost()) return;
+  if (!isThemeSyncHost()) {
+    this.applyAmbientReaderThemeClasses(settings);
+    return;
+  }
   this.initHostThemeSync();
   window.clearTimeout(this.hostThemeEnforceTimer);
   if (isYomuHostedPassivePage(location.href)) {
@@ -37686,6 +37781,10 @@ class ReaderApp {
   applyHostTheme(theme);
   if (remaining <= 0 || this.isDestroyed) return;
   this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
+  }
+  applyAmbientReaderThemeClasses(settings) {
+  if (settings.theme === "dark" || settings.theme === "light") return;
+  this.applyReaderThemeClasses(documentBackgroundLooksDark() ? "dark" : "light");
   }
   applyReaderThemeClasses(theme) {
   const root = document.documentElement;
@@ -41001,7 +41100,7 @@ class ReaderApp {
   this.maybePreloadLookupCardAudio(card, options, anchor);
   let renderData;
   const loadRenderData = () => {
-    renderData ??= this.cardRenderData.load(card);
+    renderData ??= this.noteInteractiveCardLoad(this.cardRenderData.load(card));
     return renderData;
   };
   if (trigger !== "hover") loadRenderData();
@@ -42809,6 +42908,7 @@ class ReaderApp {
       batchOptions.set(key, this.pitchEnrichmentQueuedOptions.get(key) ?? {});
       this.forgetQueuedPitchEnrichmentToken(key);
     });
+    await this.waitForBackgroundEnrichmentTurn();
     await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, batchOptions.get(cardKey(token.card)) ?? {}));
     if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
   }
@@ -42817,6 +42917,7 @@ class ReaderApp {
   for (let index = 0; index < tokens.length; index += PITCH_ENRICHMENT_LIMIT) {
     if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
     const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
+    await this.waitForBackgroundEnrichmentTurn();
     await runLimited(chunk, LOCAL_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
     if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
   }
@@ -42826,7 +42927,23 @@ class ReaderApp {
   const localPitch = await this.localPitchAccentForCard(card);
   if (localPitch.length) card.pitchAccent = mergePitchPatterns(localPitch, card.pitchAccent);
   }
+  interactiveCardLoadDepth = 0;
+  noteInteractiveCardLoad(load) {
+  this.interactiveCardLoadDepth += 1;
+  const release = () => {
+    this.interactiveCardLoadDepth = Math.max(0, this.interactiveCardLoadDepth - 1);
+  };
+  void load.all.then(release, release);
+  return load;
+  }
+  async waitForBackgroundEnrichmentTurn() {
+  const deadline = Date.now() + 1e4;
+  while (this.interactiveCardLoadDepth > 0 && Date.now() < deadline && !this.isDestroyed) {
+    await delay(150);
+  }
+  }
   async enrichPitchToken(token, options = {}) {
+  if (isParticleCard(token.card)) return;
   const fallback = token.card;
   const previousPitchClass = token.pitchClass ?? "";
   const card = await this.pitchEnrichedRenderedCard(fallback, options);
@@ -43221,6 +43338,7 @@ class ReaderApp {
     const apply = (word) => {
       if (pitchClass) {
         this.applyPitchClassToRenderedSurface(word, pitchClass);
+        setRenderedWordPitchAccentPattern(word, card);
       }
       setRenderedWordPitchComponents(word, card);
       changedRoots.add(word.parentElement ?? word);

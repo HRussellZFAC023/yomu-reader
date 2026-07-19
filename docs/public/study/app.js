@@ -12452,14 +12452,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.cardState = state2;
-    if (showPitchAccent) span.dataset.pitchClass = safePitchClass(token.pitchClass);
+    if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
     span.dataset.sentence = token.sentence ?? "";
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join("|");
-    if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent && pitchAccent && !isParticleCard(token.card)) span.dataset.pitchAccent = pitchAccent;
     if (showPitchAccent) applyPitchComponentGradient(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
@@ -12495,7 +12495,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
+    const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
     const classes2 = [
       readerWordClassName(state2, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
@@ -12512,7 +12512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
+    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
     const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
     const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$1(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
@@ -12558,7 +12558,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (source !== "jpdb") classes2.push(`${source}-${state2}`);
     }
     classes2.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${tokenPitchClass(token)}`);
     return classes2.join(" ");
   }
   function hasKnownCardState(card) {
@@ -12569,6 +12569,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function safePitchClass(value) {
     return PITCH_CLASSES.has(value) ? value : "unknown";
+  }
+  function tokenPitchClass(token) {
+    return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
     let html = "";
@@ -13115,6 +13118,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["なくて", "る", "negative te-form"],
     ["なければ", "る", "negative conditional"],
     ["ない", "る", "negative"],
+    ["ず", "る", "negative archaic"],
     ["たかった", "る", "desiderative past"],
     ["たくなかった", "る", "desiderative negative past"],
     ["たくない", "る", "desiderative negative"],
@@ -13161,6 +13165,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["しなくて", "する", "negative te-form"],
     ["しなければ", "する", "negative conditional"],
     ["しない", "する", "negative"],
+    ["せず", "する", "negative archaic"],
     ["しなさい", "する", "polite request"],
     ["しすぎる", "する", "excessive"],
     ["された", "する", "passive past"],
@@ -13208,6 +13213,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["こなかった", "くる", "negative past"],
     ["こなくて", "くる", "negative te-form"],
     ["こない", "くる", "negative"],
+    ["こず", "くる", "negative archaic"],
     ["きなさい", "くる", "polite request"],
     ["きすぎる", "くる", "excessive"],
     ["こられた", "くる", "potential/passive past"],
@@ -13360,6 +13366,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
       { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
       { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
       { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
       { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
       { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
@@ -14877,7 +14884,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -15695,6 +15701,7 @@ ${entry.reading}`;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 4;
+  const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
@@ -17091,8 +17098,27 @@ ${entry.reading}`;
       });
     }
     db() {
-      this.dbPromise ??= new Promise((resolve, reject) => {
+      this.dbPromise ??= this.openDb();
+      return this.dbPromise;
+    }
+    // A blocked or wedged upgrade (an older runtime still holding the
+    // connection) used to leave the open promise pending FOREVER — every local
+    // lookup then died at its own render timeout with no hint why. Fail fast,
+    // re-null the cached promise so a later call retries, and handle onblocked
+    // (the delete path at clearAll already does both).
+    openDb() {
+      const promise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
+        let settled = false;
+        const failOpen = (reason, error) => {
+          if (settled) return;
+          settled = true;
+          if (this.dbPromise === promise) this.dbPromise = void 0;
+          log$D.warn("Dictionary database open failed", { reason, error });
+          reject(error instanceof Error ? error : new Error(reason));
+        };
+        const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
+        request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
@@ -17121,16 +17147,25 @@ ${entry.reading}`;
           ensureIndex(termKanji, "dictionary", "dictionary");
         };
         request.onsuccess = () => {
+          clearTimeout(openTimeout);
+          if (settled) {
+            try {
+              request.result.close();
+            } catch {
+            }
+            return;
+          }
+          settled = true;
           const db = request.result;
           this.installVersionChangeHandler(db);
           resolve(db);
         };
         request.onerror = () => {
-          log$D.warn("Dictionary database open failed", { error: request.error });
-          reject(request.error);
+          clearTimeout(openTimeout);
+          failOpen("Dictionary database open failed", request.error);
         };
       });
-      return this.dbPromise;
+      return promise;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
@@ -24412,7 +24447,36 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const pronunciation = reading.trim();
     if (!expression || !pronunciation) return { patterns: [] };
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
-    return { patterns: localPitchPatternsFromMeta(expression, pronunciation, initialEntries) };
+    const patterns = localPitchPatternsFromMeta(expression, pronunciation, initialEntries);
+    if (patterns.length) return { patterns };
+    return { patterns: await deconjugatedHeibanPitchPatterns(expression, pronunciation, lookupMeta) };
+  }
+  const DECONJUGATION_PITCH_CANDIDATE_LIMIT = 4;
+  const KANA_SUFFIX_RE = /^[\u3040-\u30ff\u3099\u309A]*$/u;
+  async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) {
+    const candidates = deinflectJapaneseTerm(expression).filter((candidate) => candidate.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
+    for (const candidate of candidates) {
+      const baseReading = deconjugatedReading(expression, candidate.term, reading);
+      if (!baseReading) continue;
+      const basePatterns = localPitchPatternsFromMeta(candidate.term, baseReading, await lookupMeta(candidate.term));
+      if (!basePatterns.length) continue;
+      const heiban = basePatterns.some((pattern) => pitchNumberForReading([pattern], baseReading) === 0);
+      return heiban ? [pitchPatternFromPosition(reading, 0)].filter(Boolean) : [];
+    }
+    return [];
+  }
+  function deconjugatedReading(expression, baseTerm, reading) {
+    const expressionChars = Array.from(expression);
+    const baseChars = Array.from(baseTerm);
+    let shared = 0;
+    while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
+    const removed = expressionChars.slice(shared).join("");
+    const added = baseChars.slice(shared).join("");
+    if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
+    if (removed && !reading.endsWith(removed)) return "";
+    const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
+    if (!stem && !added) return "";
+    return stem + added;
   }
   function localPitchPatternFromMeta(expression, reading, entries2) {
     return localPitchPatternsFromMeta(expression, reading, entries2)[0] ?? "";
@@ -43069,7 +43133,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.234".trim() ? "1.6.234".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.235".trim() ? "1.6.235".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -48645,6 +48709,7 @@ ${spelling}`);
       const line = connected ? { message: uiText(language, successKey), tone: "success" } : { message: uiText(language, "jpdbConnectionFailed"), tone: "error" };
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, language);
+      this.refreshSettingsJapaneseParse(form);
     }
     async refreshAnkiConnectionStatus(form) {
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
@@ -48768,6 +48833,7 @@ ${spelling}`);
       status.dataset.statusTone = "pending";
       status.dataset.updateChecked = "true";
       status.textContent = formatUiText(language, "updateStatusChecking", { current: CURRENT_YOMU_VERSION });
+      this.refreshSettingsJapaneseParse(form);
       try {
         const version = await requestJson$3(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
           allowDirectCrossOrigin: true,
@@ -48785,6 +48851,7 @@ ${spelling}`);
         if (comparison === null) {
           status.dataset.statusTone = "pending";
           status.textContent = formatUiText(language, "updateStatusIncomparable", { current: CURRENT_YOMU_VERSION, latest });
+          this.refreshSettingsJapaneseParse(form);
           return;
         }
         const updateAvailable = comparison < 0;
@@ -48793,11 +48860,13 @@ ${spelling}`);
           current: CURRENT_YOMU_VERSION,
           latest
         });
+        this.refreshSettingsJapaneseParse(form);
       } catch (error) {
         log$j.warn("Yomu update status unavailable", error);
         if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
         status.dataset.statusTone = "pending";
         status.textContent = formatUiText(language, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
+        this.refreshSettingsJapaneseParse(form);
       }
     }
     async applyDictionaryStatus(form, elements, summary) {
@@ -59753,7 +59822,7 @@ ${spelling}`);
         else video.pause();
         this.armPlaybackPauseReassert(video);
       }
-      document.dispatchEvent(new CustomEvent("yomu-ocr-video-frame-request", { detail: { video } }));
+      document.dispatchEvent(createWindowCustomEvent("yomu-ocr-video-frame-request", { video }));
     }
     // YouTube's #movie_player exposes its player API on the element in the
     // page world. Routing pause/play/seek through it keeps YT's own state
@@ -67408,6 +67477,8 @@ ${component.reading}`;
   const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
   const REQUEST_TIMEOUT_MS$4 = 3e4;
   const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
+  const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
+  const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
   class BunproApiError extends Error {
     constructor(message, status) {
       super(message);
@@ -67422,9 +67493,12 @@ ${component.reading}`;
     legacyBaseUrl;
     requestImpl;
     timeoutMs;
+    getProxyUrl;
+    transportRetryAfter = 0;
     constructor(options = {}) {
       this.getFrontendToken = options.getFrontendToken ?? (() => "");
       this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
+      this.getProxyUrl = options.getProxyUrl ?? (() => "");
       this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
       this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
@@ -67584,23 +67658,39 @@ ${component.reading}`;
       });
     }
     async requestJson(url, options) {
+      if (this.transportRetryAfter > Date.now()) {
+        throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
+      }
       try {
-        return await this.requestImpl(url, {
+        const response = await this.requestImpl(url, {
           ...options,
           responseType: "json",
           timeoutMs: this.timeoutMs,
           preferFetch: true,
           allowDirectCrossOrigin: true,
+          // The Bearer token must never transit the SHARED public proxy,
+          // but the user's own configured proxy is their infrastructure —
+          // and on hosted pages with no userscript bridge it is the only
+          // transport that can carry an authenticated Bunpro request.
+          proxyUrl: this.getProxyUrl(),
           allowPublicProxies: false,
-          allowSensitiveConfiguredProxy: false,
+          allowSensitiveConfiguredProxy: true,
           credentials: "omit",
           referrerPolicy: "no-referrer",
           failureLabel: "Bunpro request"
         });
+        this.transportRetryAfter = 0;
+        return response;
       } catch (error) {
+        if (isBunproTransportFailure(error)) this.transportRetryAfter = Date.now() + TRANSPORT_FAILURE_BACKOFF_MS;
         throw normalizeBunproError(error);
       }
     }
+  }
+  function isBunproTransportFailure(error) {
+    if (errorStatus$1(error) !== void 0) return false;
+    if (error instanceof BunproApiError) return false;
+    return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
   }
   function normalizeBunproError(error) {
     if (error instanceof BunproApiError) return error;
@@ -69031,6 +69121,10 @@ ${component.reading}`;
     word.dataset.pitchClass = pitchClass;
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
   }
+  function setRenderedWordPitchAccentPattern(word, card) {
+    const pitchAccent = card.pitchAccent.join("|");
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+  }
   function setRenderedWordPitchComponents(word, card) {
     const gradient = pitchComponentUnderlineGradient(card);
     if (!gradient) {
@@ -69056,9 +69150,8 @@ ${component.reading}`;
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state2)) clearRenderedWordMiningInsight(word);
-    const pitchAccent = card.pitchAccent.join("|");
-    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-    else delete word.dataset.pitchAccent;
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
     setRenderedWordPitchComponents(word, card);
     word.classList.add(`jpdb-${state2}`);
     if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
@@ -74524,7 +74617,6 @@ ${normalizedReading}`;
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
-    ".jpdb-reader-status-line",
     "[data-settings-preview-lookup]",
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
@@ -74545,7 +74637,6 @@ ${normalizedReading}`;
   const SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
-    ".jpdb-reader-status-line",
     "[data-settings-preview-lookup]",
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
@@ -92895,7 +92986,8 @@ ${entry.url}`),
     anki = new AnkiConnectClient(() => this.settings);
     bunpro = new BunproClient({
       getFrontendToken: () => this.activeBunproFrontendApiToken(),
-      getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings)
+      getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+      getProxyUrl: () => this.settings.corsProxyUrl
     });
     bunproSrs = createBunproSrsAdapter(this.bunpro);
     yomuLocalSrsRepository = new LocalYomuSrsRepository();
