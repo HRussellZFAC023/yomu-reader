@@ -770,7 +770,7 @@ async function snapshotAnchoredPopover(page) {
 }
 
 function assertCompensatedFixedChrome(engineName, result) {
-    const expectedAdapter = engineName === 'webkit' ? 'reddit-apple-touch-page-scale' : '';
+    const expectedAdapter = engineName === 'webkit' ? 'apple-touch-page-scale' : '';
     assert(result.radial.adapter === expectedAdapter,
         `${engineName}: radial menu has the wrong Reddit scale ownership`, result.radial);
     assert(Math.abs(result.radial.rect.width - result.radial.browser.width) <= 2
@@ -1549,7 +1549,7 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     if (engineName === 'webkit') {
         assert(Math.abs(snapshot.layout.browserToLayoutScale - 1.6) <= 0.01,
             `${engineName}: fixture did not reproduce Safari's page-view scale`, snapshot.layout);
-        assert(snapshot.overlay.scaleAdapter === 'reddit-apple-touch-page-scale'
+        assert(snapshot.overlay.scaleAdapter === 'apple-touch-page-scale'
             && Math.abs(snapshot.overlay.stampedPageScale - 1.6) <= 0.01
             && Math.abs(snapshot.overlay.stampedCompensation - 0.625) <= 0.01,
         `${engineName}: Reddit page-scale adapter did not stamp its active compensation`, snapshot.overlay);

@@ -1,7 +1,7 @@
 // Toast redesign (Jiten v1.2.x parity): toasts stack instead of overlapping,
 // repeated messages refresh the existing toast's timer instead of
 // duplicating, and entrance/exit animate (CSS honors prefers-reduced-motion).
-import { applyRedditOverlayScale } from './reddit-overlay-scale';
+import { applyOverlayPageScale } from './page-scale';
 
 const TOAST_STACK_CLASS = 'jpdb-reader-toast-stack';
 const TOAST_VISIBLE_CLASS = 'is-visible';
@@ -34,13 +34,13 @@ export function showReaderToast(message: string, durationMs = 3200): void {
 function ensureReaderToastStack(): HTMLElement {
     const existing = document.querySelector<HTMLElement>(`.${TOAST_STACK_CLASS}`);
     if (existing?.isConnected) {
-        applyRedditOverlayScale(existing);
+        applyOverlayPageScale(existing);
         return existing;
     }
     const stack = document.createElement('div');
     stack.className = TOAST_STACK_CLASS;
     stack.dataset.jpdbReaderRoot = 'true';
-    applyRedditOverlayScale(stack);
+    applyOverlayPageScale(stack);
     document.body.append(stack);
     return stack;
 }

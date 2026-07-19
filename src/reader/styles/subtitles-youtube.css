@@ -1660,7 +1660,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   word-break: break-word;
   white-space: normal;
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   /* Ruby words are inline-blocks whose own height (base + rt) sizes their
      line box; a generous base line-height double-counts that headroom and
      inflates every transcript line. Keep the base tight and let ruby grow

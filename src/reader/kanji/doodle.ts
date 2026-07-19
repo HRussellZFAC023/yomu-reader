@@ -2,7 +2,7 @@ import { DOODLE_COLOR_TOKENS } from '../theme/color-tokens';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import type { InterfaceLanguage } from '../app/types';
-import { redditLayoutPointToOverlay, redditSourceRectToOverlay } from '../ui/reddit-overlay-scale';
+import { layoutPointToOverlay, sourceRectToOverlay } from '../ui/page-scale';
 
 export type DoodlePoint = { x: number; y: number; pressure: number };
 export type DoodleStroke = DoodlePoint[];
@@ -115,7 +115,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const toPoint = (event: PointerEvent): DoodlePoint => {
-        const point = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
+        const point = layoutPointToOverlay({ x: event.clientX, y: event.clientY });
         return {
             x: Math.max(0, Math.min(1, (point.x - canvasRect.left) / Math.max(canvasRect.width, 1))),
             y: Math.max(0, Math.min(1, (point.y - canvasRect.top) / Math.max(canvasRect.height, 1))),
@@ -127,7 +127,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const measureGhost = (): void => {
         const svg = ghost.querySelector('svg');
         if (!svg) return;
-        const rect = redditSourceRectToOverlay(svg.getBoundingClientRect(), svg);
+        const rect = sourceRectToOverlay(svg.getBoundingClientRect(), svg);
         const size = Math.min(rect.width, rect.height);
         if (size > 0) measuredGhostSize = size;
     };
@@ -436,5 +436,5 @@ function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {
 }
 
 function doodleOverlayRect(element: Element): DOMRect {
-    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
+    return sourceRectToOverlay(element.getBoundingClientRect(), element);
 }

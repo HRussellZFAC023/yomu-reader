@@ -499,7 +499,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popoverHeightMode: 'fixed',
     readerFontFamily: DEFAULT_READER_FONT_FAMILY,
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
-    popupFontWeight: 400,
+    popupFontWeight: 450,
     jpdbMiningEnabled: true,
     // JPDB parity: the credential is the real gate, so importing a Bunpro
     // token makes grading work without hunting for a second checkbox.

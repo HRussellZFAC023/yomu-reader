@@ -19,7 +19,7 @@
   box-shadow: 0 16px 48px var(--jpdb-reader-shadow);
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
-  font: 14px/1.45 var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
+  font: 15px/1.45 var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
 }
 
 .jpdb-reader-popover {
@@ -867,8 +867,8 @@
 
 .jpdb-reader-spelling {
   color: var(--jpdb-reader-text);
-  font-size: 24px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-size: 26px;
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.16;
   text-decoration: none;
   word-break: keep-all;
@@ -933,7 +933,7 @@
   cursor: pointer;
   font: inherit !important;
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font)) !important;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400) !important;
+  font-weight: var(--jpdb-reader-popup-font-weight, 450) !important;
   line-height: inherit !important;
   text-align: inherit !important;
   vertical-align: baseline !important;
@@ -1135,7 +1135,7 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 
 .jpdb-reader-reading {
   margin-top: 2px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .jpdb-reader-title-row .jpdb-reader-reading {
   margin-top: 0;
@@ -1206,7 +1206,7 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   inset: 86px 18px auto auto;
   width: min(360px, calc(100vw - 28px));
   color: var(--jpdb-reader-text);
-  font: 14px/1.45 var(--jpdb-reader-popup-font-family, var(--jpdb-reader-font-family, system-ui, sans-serif));
+  font: 15px/1.45 var(--jpdb-reader-popup-font-family, var(--jpdb-reader-font-family, system-ui, sans-serif));
   pointer-events: auto;
 }
 
@@ -1277,7 +1277,7 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 }
 .jpdb-reader-meaning {
   color: var(--jpdb-reader-text);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.32;
 }
 .jpdb-reader-jiten-meaning-group {
@@ -1391,7 +1391,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
 }
 .jpdb-reader-jiten-example-sentence {
   min-width: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -1536,12 +1536,12 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   max-width: 100%;
   font-size: 17px;
   line-height: 1.1;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   white-space: nowrap;
 }
 .jpdb-reader-jpdb-used-in-term {
-  font-size: 14.5px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-size: 15px;
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.25;
 }
 
@@ -1684,7 +1684,7 @@ button.jpdb-reader-token-sentence-word {
   line-height: 1.35;
 }
 .jpdb-reader-jpdb-example .jpdb-reader-example-translation {
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.3;
 }
 .jpdb-reader-meta {

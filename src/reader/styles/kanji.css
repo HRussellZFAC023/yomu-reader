@@ -18,7 +18,7 @@
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 46px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1;
 }
 .jpdb-reader-kanji-title-row {
@@ -137,7 +137,7 @@
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 11px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.15;
   overflow: visible;
   overflow-wrap: anywhere;
@@ -186,7 +186,7 @@
   color: var(--jpdb-reader-muted);
   font: inherit;
   font-size: 11px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -538,7 +538,7 @@
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 33px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1;
   box-shadow: 0 9px 26px color-mix(in srgb, var(--jpdb-reader-bg) 34%, transparent);
   cursor: grab;
@@ -1773,7 +1773,7 @@ html.jpdb-reader-doodle-active * {
 .yomu-jpdb-component-chip strong {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 16px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1;
 }
 

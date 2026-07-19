@@ -173,7 +173,7 @@
   transform: translateX(-50%);
   color: var(--jpdb-reader-white);
   font-size: 13px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -509,7 +509,7 @@ mark.jpdb-reader-example-target {
   max-width: 100%;
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 13px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.7;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -620,7 +620,7 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-study-match-text,
 .jpdb-reader-grammar-example > div:first-child {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 .jpdb-reader-study-detail,
 .jpdb-reader-study-match {
@@ -859,7 +859,7 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-kanji-char {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 20px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 .jpdb-reader-kanji-readings {
   display: flex;

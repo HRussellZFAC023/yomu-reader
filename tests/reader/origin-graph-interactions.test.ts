@@ -4,17 +4,17 @@ import { graphEdgePath } from '../../src/reader/kanji/graph-geometry';
 
 const redditCoordinates = vi.hoisted(() => ({ pageScale: 1 }));
 
-vi.mock('../../src/reader/ui/reddit-overlay-scale', async () => {
-    const actual = await vi.importActual<typeof import('../../src/reader/ui/reddit-overlay-scale')>(
-        '../../src/reader/ui/reddit-overlay-scale',
+vi.mock('../../src/reader/ui/page-scale', async () => {
+    const actual = await vi.importActual<typeof import('../../src/reader/ui/page-scale')>(
+        '../../src/reader/ui/page-scale',
     );
     return {
         ...actual,
-        redditLayoutPointToOverlay: (point: { x: number; y: number }) => (
-            actual.redditLayoutPointToOverlay(point, redditCoordinates.pageScale)
+        layoutPointToOverlay: (point: { x: number; y: number }) => (
+            actual.layoutPointToOverlay(point, redditCoordinates.pageScale)
         ),
-        redditSourceRectToOverlay: (rect: DOMRect | DOMRectReadOnly, source?: Node | null) => (
-            actual.redditSourceRectToOverlay(rect, source, redditCoordinates.pageScale)
+        sourceRectToOverlay: (rect: DOMRect | DOMRectReadOnly, source?: Node | null) => (
+            actual.sourceRectToOverlay(rect, source, redditCoordinates.pageScale)
         ),
     };
 });
@@ -78,7 +78,7 @@ function originGraphFixture(options: {
 } {
     const surface = document.createElement('section');
     if (options.compensated) {
-        surface.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+        surface.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
         surface.dataset.jpdbReaderScaleCompensation = String(1 / options.pageScale);
         Object.defineProperties(surface, {
             offsetWidth: { configurable: true, value: 520 },

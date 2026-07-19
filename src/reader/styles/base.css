@@ -250,7 +250,7 @@
   color: var(--jpdb-reader-text);
   color-scheme: normal;
   direction: ltr;
-  font: 14px/1.45 var(--jpdb-reader-font);
+  font: 15px/1.45 var(--jpdb-reader-font);
   letter-spacing: 0;
   /* Mobile browsers (iPadOS Safari desktop-mode, Chrome Android) inflate
      px-sized text via font boosting unless it is pinned; `all: initial`

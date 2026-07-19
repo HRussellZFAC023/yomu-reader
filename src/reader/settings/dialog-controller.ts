@@ -64,10 +64,10 @@ import { formatUiText, uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import {
-    redditOverlayViewport,
-    redditOverlayViewportBounds,
-    redditSourceRectToOverlay,
-} from '../ui/reddit-overlay-scale';
+    overlayViewport,
+    overlayViewportBounds,
+    sourceRectToOverlay,
+} from '../ui/page-scale';
 import {
     firefoxAuthenticationInfoRequiresExtensionPage,
     requestFirefoxAuthenticationInfoForChangedSettings,
@@ -402,9 +402,9 @@ function settingsControlScrollGeometry(form: HTMLFormElement, control: HTMLInput
     if (!canScrollFocusedSettingsControl(form, control)) return null;
     const scroll = settingsControlScrollContainer(form, control);
     if (!scroll) return null;
-    const pageScale = redditOverlayViewport().pageScale;
-    const scrollRect = redditSourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
-    const controlRect = redditSourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
+    const pageScale = overlayViewport().pageScale;
+    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = sourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
     if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
     const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
     return limits ? { scroll, controlRect, ...limits } : null;
@@ -428,7 +428,7 @@ function settingsControlScrollLimits(form: HTMLFormElement, scrollRect: DOMRect,
 
 function settingsControlViewportBounds(scrollRect: DOMRect, pageScale: number): { bottom: number; top: number } {
     if (pageScale > 1) {
-        const viewport = redditOverlayViewportBounds();
+        const viewport = overlayViewportBounds();
         return { bottom: viewport.bottom, top: viewport.top };
     }
     const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
@@ -445,7 +445,7 @@ function settingsControlViewportHeightFallback(scrollRect: DOMRect): number {
 function measuredSettingsFooterTop(form: HTMLFormElement, pageScale: number): number {
     const footer = form.querySelector<HTMLElement>('.footer');
     const footerRect = footer
-        ? redditSourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale)
+        ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale)
         : undefined;
     if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
     return footerRect.top;

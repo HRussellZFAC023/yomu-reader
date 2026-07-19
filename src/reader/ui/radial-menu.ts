@@ -1,5 +1,5 @@
 import { escapeHtml, setInnerHtml } from '../dom/index';
-import { applyRedditOverlayScale, redditOverlayViewport, redditSourceRectToOverlay } from './reddit-overlay-scale';
+import { applyOverlayPageScale, overlayViewport, sourceRectToOverlay } from './page-scale';
 
 export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 
@@ -78,7 +78,7 @@ export class RadialMenuController {
         backdrop.setAttribute('role', 'menu');
         backdrop.setAttribute('aria-label', this.host.menuLabel());
         document.body.appendChild(backdrop);
-        applyRedditOverlayScale(backdrop);
+        applyOverlayPageScale(backdrop);
         this.backdrop = backdrop;
 
         this.layout(button, backdrop, actions);
@@ -135,10 +135,10 @@ export class RadialMenuController {
     }
 
     private layout(button: HTMLButtonElement, backdrop: HTMLDivElement, actions: RadialAction[]): void {
-        const rect = redditSourceRectToOverlay(button.getBoundingClientRect(), button);
+        const rect = sourceRectToOverlay(button.getBoundingClientRect(), button);
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
-        const { width: vw, height: vh } = redditOverlayViewport();
+        const { width: vw, height: vh } = overlayViewport();
 
         // Fan into the quadrant with the most room: the arc runs from the open
         // vertical edge (straight up/down) to the open horizontal edge

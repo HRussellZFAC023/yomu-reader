@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderTokensToHtml } from '../../src/reader/dom/index';
-import { renderCardSpellingWithFurigana } from '../../src/reader/cards/reading-display';
+import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../../src/reader/cards/reading-display';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
@@ -105,6 +105,26 @@ describe('Jiten token rendering', () => {
         expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
         expect(ruby.querySelector('rt')?.textContent).toBe('たち');
         expect(document.body.textContent).toContain('あなた達');
+    });
+
+    it('binds bracket readings to the trailing kanji run across interleaved kana', () => {
+        const card = {
+            ...jitenCard('young'),
+            spelling: '並べ替え',
+            reading: 'ならべかえ',
+            wordWithReading: '並[なら]べ替[か]え',
+        };
+        const html = renderCardSpellingWithFurigana(card, { ...JITEN_SETTINGS, furiganaMode: 'all' });
+
+        document.body.innerHTML = html;
+        const bases = [...document.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.textContent);
+        const readings = [...document.querySelectorAll('rt')].map(rt => rt.textContent);
+
+        expect(bases).toEqual(['並', '替']);
+        expect(readings).toEqual(['なら', 'か']);
+        // The furigana already spells out the reading, so the plain kana
+        // duplicate beside the headword must be suppressed.
+        expect(isPlainReadingRedundantForHeadword(card, { ...JITEN_SETTINGS, furiganaMode: 'all' }, 'ならべかえ')).toBe(true);
     });
 });
 

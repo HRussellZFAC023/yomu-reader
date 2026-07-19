@@ -1,5 +1,5 @@
 import { graphEdgePath, type GraphAnchorZone } from '../kanji/graph-geometry';
-import { redditLayoutPointToOverlay, redditSourceRectToOverlay } from '../ui/reddit-overlay-scale';
+import { layoutPointToOverlay, sourceRectToOverlay } from '../ui/page-scale';
 
 const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
 const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
@@ -93,7 +93,7 @@ function installOriginGraphRefreshHooks(wrap: HTMLElement): void {
 }
 
 function pointerDistance(active: { startX: number; startY: number }, event: PointerEvent): number {
-    const distance = redditLayoutPointToOverlay({
+    const distance = layoutPointToOverlay({
         x: event.clientX - active.startX,
         y: event.clientY - active.startY,
     });
@@ -125,7 +125,7 @@ function setOriginGraphReady(wrap: HTMLElement, ready: boolean): void {
 function originGraphPointerPercent(wrap: HTMLElement, event: PointerEvent): { x: number; y: number } {
     const rect = originGraphOverlayRect(wrap);
     if (!rect.width || !rect.height) return { x: 50, y: 50 };
-    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
+    const pointer = layoutPointToOverlay({ x: event.clientX, y: event.clientY });
     return {
         x: ((pointer.x - rect.left) / rect.width) * 100,
         y: ((pointer.y - rect.top) / rect.height) * 100,
@@ -200,7 +200,7 @@ function measuredOriginGraphNodeRadii(wrap: HTMLElement, node: HTMLElement): { r
 }
 
 function originGraphOverlayRect(element: HTMLElement): DOMRect {
-    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
+    return sourceRectToOverlay(element.getBoundingClientRect(), element);
 }
 
 function originGraphTargetZone(value: string | undefined): GraphAnchorZone {

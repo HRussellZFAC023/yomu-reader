@@ -9,6 +9,10 @@ type KanjiNavigationOptions = Parameters<typeof renderRuby>[2];
 
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+// A bracket reading annotates the kanji run immediately before it (JPDB style:
+// \u4e26[\u306a\u3089]\u3079\u66ff[\u304b]\u3048). Interleaved kana between two annotated runs is plain
+// base text, never part of the next run's ruby base.
+const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
 
 function compactReading(value: string): string {
     // NFC: imported Anki/local-dictionary readings can arrive decomposed;
@@ -88,8 +92,10 @@ function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['ru
 
     for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
         const matchIndex = match.index ?? 0;
-        const plain = annotated.slice(cursor, matchIndex);
-        const base = match[1] ?? '';
+        const captured = match[1] ?? '';
+        const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+        const base = runMatch ? runMatch[1] : captured;
+        const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
         const reading = (match[2] ?? '').trim();
 
         baseText += plain;

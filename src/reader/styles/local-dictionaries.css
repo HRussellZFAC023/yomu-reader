@@ -231,7 +231,7 @@
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 16px;
   line-height: 1.25;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 .jpdb-reader-local-reading,
 .jpdb-reader-local-dict {
@@ -241,7 +241,7 @@
 }
 .jpdb-reader-local-reading {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 .jpdb-reader-local-dict {
   margin-left: auto;

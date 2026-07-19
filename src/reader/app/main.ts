@@ -6,11 +6,11 @@ import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import {
-    applyRedditOverlayScale,
-    hasRedditOverlayScale,
-    redditOverlayViewport,
-    redditSourceRectToOverlay,
-} from '../ui/reddit-overlay-scale';
+    applyOverlayPageScale,
+    hasOverlayPageScale,
+    overlayViewport,
+    sourceRectToOverlay,
+} from '../ui/page-scale';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
@@ -4332,7 +4332,7 @@ export class ReaderApp {
 
     private scheduleActivePopoverViewportChange(): void {
         const popover = this.repositionableActivePopover();
-        if (!popover || (redditOverlayViewport().pageScale === 1 && !hasRedditOverlayScale(popover))) return;
+        if (!popover || (overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover))) return;
         this.popoverViewportChangePending = true;
         this.scheduleRepositionActivePopoverFrame();
     }
@@ -9125,7 +9125,7 @@ export class ReaderApp {
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
         this.dismiss({ forceAll: true });
-        applyRedditOverlayScale(form);
+        applyOverlayPageScale(form);
         document.body.append(backdrop, form);
         this.activeBackdrop = backdrop;
         this.activePopover = form;
@@ -9214,7 +9214,7 @@ export class ReaderApp {
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
         const useBackdrop = Boolean(state.backdrop);
         const mountParent = state.mountParent ?? document.body;
-        applyRedditOverlayScale(popover);
+        applyOverlayPageScale(popover);
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (state.backdrop) mountParent.append(state.backdrop, popover);
         else mountParent.append(popover);
@@ -9300,7 +9300,7 @@ export class ReaderApp {
     private repositionActivePopover(): void {
         const popover = this.repositionableActivePopover();
         if (!popover) return;
-        applyRedditOverlayScale(popover);
+        applyOverlayPageScale(popover);
         // Title suppression is set up once at mount (suppressForPopover) and its
         // MutationObserver re-suppresses any titles added during hydration, so a
         // full popover [title] re-scan on every reposition was redundant — and
@@ -9357,7 +9357,7 @@ export class ReaderApp {
     }
 
     private popoverOverlayRect(popover: HTMLElement): DOMRect {
-        return redditSourceRectToOverlay(popover.getBoundingClientRect(), popover);
+        return sourceRectToOverlay(popover.getBoundingClientRect(), popover);
     }
 
     private lockActivePopoverPosition(rect: Pick<DOMRect, 'left' | 'top'>): void {

@@ -10,7 +10,7 @@ import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigati
 import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
-import { rememberRedditSourceRect } from '../ui/reddit-overlay-scale';
+import { rememberOverlaySourceRect } from '../ui/page-scale';
 import { documentLooksLikeImageReadingPage } from './dom-helpers';
 import { collectSiteScanTargets, isBookWalkerReaderPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
@@ -364,7 +364,7 @@ export function selectionIntersectsElement(selection: Selection, element: HTMLEl
 export function popoverAnchorRect(anchor: HTMLElement | undefined, fallback: DOMRect | undefined): DOMRect | undefined {
     const rect = anchor?.getBoundingClientRect();
     return rect && (rect.width > 0 || rect.height > 0)
-        ? rememberRedditSourceRect(rect, anchor)
+        ? rememberOverlaySourceRect(rect, anchor)
         : fallback;
 }
 

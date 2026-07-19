@@ -3006,7 +3006,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   padding: clamp(8px, 1.6vw, 14px);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: clamp(4rem, 12vw, 8rem);
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1;
 }
 
@@ -3329,7 +3329,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 11px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.15;
   overflow: visible;
   overflow-wrap: anywhere;
@@ -3429,7 +3429,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font: inherit;
   font-size: 11px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -3474,7 +3474,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-muted);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 12px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid {
@@ -3670,7 +3670,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab .jpdb-reader-origin-graph-node {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 33px;
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1;
 }
 
@@ -3824,7 +3824,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: clamp(16px, 1.45vw, 21px);
-  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.62;
   text-align: center;
   text-shadow: none;

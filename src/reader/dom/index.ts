@@ -3577,6 +3577,9 @@ function uniqueElements(elements: HTMLElement[]): HTMLElement[] {
 // deeper than inline wrapper chains reach in 6 hops.
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+// Ceiling for the proven-single-line extension of the clip opener: covers
+// padded/flex-centred controls without ever opening full-height panels.
+const DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT = 320;
 const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
     'details',
     '[aria-expanded]',
@@ -3633,12 +3636,24 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
         if (!clips) continue;
         const rect = current.getBoundingClientRect();
         const measured = current.clientWidth > 0 && current.clientHeight > 0;
+        const clamped = detachedClipRowIsMultiLineClamp(style);
         const compact = rect.height > 0
             && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT
-            && !detachedClipRowIsMultiLineClamp(style);
+            && !clamped;
         const baseFits = measured && (detachedBaseContentFits(current)
             || openedDetachedReadingChildFits(current));
-        if (compact && baseFits) openDetachedReadingClip(current);
+        // Flex-centred single-line controls (tall chips, banner buttons)
+        // blow the compact cap on padding alone. detachedBaseContentFits has
+        // already proven a single text line with nothing truncated, so
+        // opening is equally safe there; only genuinely tall panels stay
+        // closed via the outer cap.
+        const tallSingleLine = !compact
+            && rect.height > 0
+            && rect.height <= DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT
+            && !clamped
+            && measured
+            && detachedBaseContentFits(current);
+        if ((compact && baseFits) || tallSingleLine) openDetachedReadingClip(current);
         else restoreDetachedReadingClip(current);
     }
 }

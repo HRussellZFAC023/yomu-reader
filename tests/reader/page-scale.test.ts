@@ -3,61 +3,92 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { popoverMaxHeightAtTop } from '../../src/reader/runtime/popover-body-stabilizer';
 
 import {
-    applyRedditOverlayScale,
-    hasRedditOverlayScale,
-    isInsideCompensatedRedditOverlay,
-    isRedditHostname,
-    rememberRedditSourceRect,
-    redditLayoutPointToOverlay,
-    redditLayoutRectToOverlay,
-    redditOverlayViewport,
-    redditOverlayViewportBottomInset,
-    redditOverlayViewportBounds,
-    redditPageScale,
-    redditSourceRectToOverlay,
-    type RedditOverlayEnvironment,
-} from '../../src/reader/ui/reddit-overlay-scale';
+    applyOverlayPageScale,
+    hasOverlayPageScale,
+    isInsideCompensatedOverlay,
+    rememberOverlaySourceRect,
+    layoutPointToOverlay,
+    layoutRectToOverlay,
+    overlayViewport,
+    overlayViewportBottomInset,
+    overlayViewportBounds,
+    overlayPageScale,
+    sourceRectToOverlay,
+    type PageScaleEnvironment,
+} from '../../src/reader/ui/page-scale';
 
-const scaledReddit: RedditOverlayEnvironment = {
-    hostname: 'www.reddit.com',
+const scaledReddit: PageScaleEnvironment = {
     appleTouch: true,
     innerWidth: 475,
     innerHeight: 612.5,
     outerWidth: 760,
+    screenWidth: 760,
+    screenHeight: 1013,
 };
 
-describe('Reddit overlay scale isolation', () => {
-    it('recognizes Reddit hosts without matching lookalikes', () => {
-        expect(isRedditHostname('reddit.com')).toBe(true);
-        expect(isRedditHostname('www.reddit.com')).toBe(true);
-        expect(isRedditHostname('old.reddit.com.')).toBe(true);
-        expect(isRedditHostname('reddit.com.example.test')).toBe(false);
-    });
+/** Real iPadOS Safari: outerWidth mirrors the web view, so it equals
+    innerWidth even under full-page zoom; only the screen betrays the scale. */
+const onDeviceReddit = (overrides: Partial<PageScaleEnvironment>): PageScaleEnvironment => ({
+    appleTouch: true,
+    innerWidth: 410,
+    innerHeight: 545,
+    outerWidth: 410,
+    screenWidth: 820,
+    screenHeight: 1180,
+    ...overrides,
+});
 
+describe('Overlay page-scale isolation', () => {
     it('derives Safari page scale from browser and layout widths', () => {
-        expect(redditPageScale(scaledReddit)).toBeCloseTo(1.6);
-        expect(redditPageScale({ ...scaledReddit, innerWidth: 730 })).toBe(1);
-        expect(redditPageScale({ ...scaledReddit, innerWidth: 760 })).toBe(1);
+        expect(overlayPageScale(scaledReddit)).toBeCloseTo(1.6);
+        expect(overlayPageScale({ ...scaledReddit, innerWidth: 730 })).toBe(1);
+        expect(overlayPageScale({ ...scaledReddit, innerWidth: 760 })).toBe(1);
     });
 
     it('rejects invalid metrics and caps implausibly large compensation', () => {
-        expect(redditPageScale({ ...scaledReddit, innerWidth: 0 })).toBe(1);
-        expect(redditPageScale({ ...scaledReddit, outerWidth: Number.NaN })).toBe(1);
-        expect(redditPageScale({ ...scaledReddit, innerWidth: 100 })).toBe(3);
+        expect(overlayPageScale({ ...scaledReddit, innerWidth: 0 })).toBe(1);
+        expect(overlayPageScale({ ...scaledReddit, outerWidth: Number.NaN })).toBe(1);
+        expect(overlayPageScale({ ...scaledReddit, innerWidth: 100 })).toBe(3);
     });
 
-    it('requires both Reddit and Apple touch browsing', () => {
-        expect(redditPageScale({ ...scaledReddit, hostname: 'youtube.com' })).toBe(1);
-        expect(redditPageScale({ ...scaledReddit, appleTouch: false })).toBe(1);
+    it('derives on-device page zoom from screen shrinkage when outerWidth mirrors the web view', () => {
+        // Portrait 200%: 820x1180 screen, layout viewport 410 wide, ~90pt chrome.
+        expect(overlayPageScale(onDeviceReddit({}))).toBe(2);
+        // Landscape 200% with portrait-fixed screen reporting (swapped pairing).
+        expect(overlayPageScale(onDeviceReddit({ innerWidth: 590, innerHeight: 365, outerWidth: 590 }))).toBe(2);
+        // Portrait 115%.
+        expect(overlayPageScale(onDeviceReddit({ innerWidth: 713, innerHeight: 948, outerWidth: 713 }))).toBe(1.15);
+        // No zoom, full screen: width ratio is 1, chrome-only height shrink.
+        expect(overlayPageScale(onDeviceReddit({ innerWidth: 820, innerHeight: 1090, outerWidth: 820 }))).toBe(1);
+    });
+
+    it('never reads multitasking window shapes as page zoom', () => {
+        // Landscape 50/50 Split View: width halves, height stays.
+        expect(overlayPageScale(onDeviceReddit({
+            innerWidth: 590, innerHeight: 730, outerWidth: 590, screenWidth: 1180, screenHeight: 820,
+        }))).toBe(1);
+        // Portrait Split View pane.
+        expect(overlayPageScale(onDeviceReddit({ innerWidth: 410, innerHeight: 1100, outerWidth: 410 }))).toBe(1);
+        // Slide Over / Stage Manager window off Safari's zoom steps.
+        expect(overlayPageScale(onDeviceReddit({
+            innerWidth: 720, innerHeight: 500, outerWidth: 720, screenWidth: 1194, screenHeight: 834,
+        }))).toBe(1);
+        // Fingerprinting protections flatten screen metrics to the viewport.
+        expect(overlayPageScale(onDeviceReddit({ screenWidth: 410, screenHeight: 545 }))).toBe(1);
+        expect(overlayPageScale(onDeviceReddit({ screenWidth: 0, screenHeight: 0 }))).toBe(1);
+    });
+
+    it('requires Apple touch browsing', () => {
+        expect(overlayPageScale({ ...scaledReddit, appleTouch: false })).toBe(1);
     });
 
     it('returns the screen-space viewport used by inverse-scaled controls', () => {
-        expect(redditOverlayViewport(scaledReddit)).toEqual({
+        expect(overlayViewport(scaledReddit)).toEqual({
             width: 760,
             height: 980,
             pageScale: 1.6,
         });
-        expect(redditOverlayViewport({ ...scaledReddit, outerWidth: 475 })).toEqual({
+        expect(overlayViewport({ ...scaledReddit, outerWidth: 475 })).toEqual({
             width: 475,
             height: 612.5,
             pageScale: 1,
@@ -79,7 +110,7 @@ describe('Reddit overlay scale isolation', () => {
             offsetLeft: 0,
             offsetTop: 120,
         };
-        expect(redditOverlayViewportBounds(scaledReddit, visualViewport)).toEqual({
+        expect(overlayViewportBounds(scaledReddit, visualViewport)).toEqual({
             left: 0,
             top: 192,
             right: 760,
@@ -88,22 +119,22 @@ describe('Reddit overlay scale isolation', () => {
             height: 640,
             pageScale: 1.6,
         });
-        expect(redditOverlayViewportBottomInset(scaledReddit, visualViewport)).toBe(148);
+        expect(overlayViewportBottomInset(scaledReddit, visualViewport)).toBe(148);
     });
 
     it('converts layout pointer coordinates into compensated control space', () => {
-        expect(redditLayoutPointToOverlay({ x: 237.5, y: 306.25 }, 1.6)).toEqual({
+        expect(layoutPointToOverlay({ x: 237.5, y: 306.25 }, 1.6)).toEqual({
             x: 380,
             y: 490,
         });
-        expect(redditLayoutPointToOverlay({ x: 237.5, y: 306.25 }, 1)).toEqual({
+        expect(layoutPointToOverlay({ x: 237.5, y: 306.25 }, 1)).toEqual({
             x: 237.5,
             y: 306.25,
         });
     });
 
     it('normalizes host layout rects before overlay overlap calculations', () => {
-        const scaled = redditLayoutRectToOverlay(new DOMRect(300, 400, 160, 120), 1.6);
+        const scaled = layoutRectToOverlay(new DOMRect(300, 400, 160, 120), 1.6);
         expect({
             left: scaled.left,
             top: scaled.top,
@@ -120,14 +151,14 @@ describe('Reddit overlay scale isolation', () => {
             height: 192,
         });
 
-        const normal = redditLayoutRectToOverlay(new DOMRect(300, 400, 160, 120), 1);
+        const normal = layoutRectToOverlay(new DOMRect(300, 400, 160, 120), 1);
         expect(normal.toJSON()).toMatchObject({ x: 300, y: 400, width: 160, height: 120 });
     });
 
     it('normalizes host anchor rects into overlay coordinates', () => {
         const hostAnchor = document.createElement('span');
         document.body.append(hostAnchor);
-        const hostRect = redditSourceRectToOverlay(new DOMRect(200, 100, 40, 20), hostAnchor, 1.6);
+        const hostRect = sourceRectToOverlay(new DOMRect(200, 100, 40, 20), hostAnchor, 1.6);
         expect(hostRect.toJSON()).toMatchObject({ x: 320, y: 160, width: 64, height: 32 });
 
         hostAnchor.remove();
@@ -138,9 +169,9 @@ describe('Reddit overlay scale isolation', () => {
             new DOMRect(100, 80, 520, 400),
             { width: 520, height: 400 },
         );
-        expect(isInsideCompensatedRedditOverlay(nestedAnchor)).toBe(true);
+        expect(isInsideCompensatedOverlay(nestedAnchor)).toBe(true);
 
-        const nestedRect = redditSourceRectToOverlay(new DOMRect(320, 160, 64, 32), nestedAnchor, 1.6);
+        const nestedRect = sourceRectToOverlay(new DOMRect(320, 160, 64, 32), nestedAnchor, 1.6);
         expect(nestedRect.toJSON()).toMatchObject({ x: 320, y: 160, width: 64, height: 32 });
         surface.remove();
     });
@@ -150,9 +181,9 @@ describe('Reddit overlay scale isolation', () => {
             new DOMRect(100, 80, 325, 250),
             { width: 520, height: 400 },
         );
-        expect(isInsideCompensatedRedditOverlay(nestedAnchor)).toBe(true);
+        expect(isInsideCompensatedOverlay(nestedAnchor)).toBe(true);
 
-        const nestedRect = redditSourceRectToOverlay(new DOMRect(200, 100, 40, 20), nestedAnchor, 1.6);
+        const nestedRect = sourceRectToOverlay(new DOMRect(200, 100, 40, 20), nestedAnchor, 1.6);
         expect(nestedRect.toJSON()).toMatchObject({ x: 320, y: 160, width: 64, height: 32 });
         surface.remove();
     });
@@ -162,32 +193,32 @@ describe('Reddit overlay scale isolation', () => {
             new DOMRect(100, 80, 325, 250),
             { width: 520, height: 400 },
         );
-        const fallback = rememberRedditSourceRect(new DOMRect(256.25, 131.25, 31.25, 13.75), nestedAnchor, 1.6);
+        const fallback = rememberOverlaySourceRect(new DOMRect(256.25, 131.25, 31.25, 13.75), nestedAnchor, 1.6);
         surface.remove();
-        const normalized = redditSourceRectToOverlay(fallback, undefined, 1.6);
+        const normalized = sourceRectToOverlay(fallback, undefined, 1.6);
         expect(normalized.toJSON()).toMatchObject({ x: 410, y: 210, width: 50, height: 22 });
     });
 
     it('scales an unmarked host fallback when its source is unavailable', () => {
-        const normalized = redditSourceRectToOverlay(new DOMRect(120, 80, 30, 16), undefined, 1.6);
+        const normalized = sourceRectToOverlay(new DOMRect(120, 80, 30, 16), undefined, 1.6);
         expect(normalized.toJSON()).toMatchObject({ x: 192, y: 128, width: 48, height: 25.6 });
     });
 
     it('applies and stamps the inverse page scale with inline priority', () => {
         const { element, style } = overlayElement();
-        applyRedditOverlayScale(element, scaledReddit);
+        applyOverlayPageScale(element, scaledReddit);
 
         expect(style.setProperty).toHaveBeenCalledWith('zoom', '0.625', 'important');
         expect(style.removeProperty).not.toHaveBeenCalled();
-        expect(element.dataset.jpdbReaderScaleAdapter).toBe('reddit-apple-touch-page-scale');
+        expect(element.dataset.jpdbReaderScaleAdapter).toBe('apple-touch-page-scale');
         expect(element.dataset.jpdbReaderPageScale).toBe('1.6');
         expect(element.dataset.jpdbReaderScaleCompensation).toBe('0.625');
     });
 
     it('removes compensation when a previously scaled viewport returns to normal', () => {
         const { element, style } = overlayElement();
-        applyRedditOverlayScale(element, scaledReddit);
-        applyRedditOverlayScale(element, { ...scaledReddit, outerWidth: 475 });
+        applyOverlayPageScale(element, scaledReddit);
+        applyOverlayPageScale(element, { ...scaledReddit, outerWidth: 475 });
 
         expect(style.removeProperty).toHaveBeenCalledWith('zoom');
         expect(element.dataset.jpdbReaderScaleAdapter).toBeUndefined();
@@ -195,18 +226,18 @@ describe('Reddit overlay scale isolation', () => {
         expect(element.dataset.jpdbReaderScaleCompensation).toBeUndefined();
     });
 
-    it('identifies only surfaces owned by the Reddit scale adapter', () => {
+    it('identifies only surfaces owned by the page-scale adapter', () => {
         const surface = document.createElement('div');
-        expect(hasRedditOverlayScale(surface)).toBe(false);
-        surface.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
-        expect(hasRedditOverlayScale(surface)).toBe(true);
+        expect(hasOverlayPageScale(surface)).toBe(false);
+        surface.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
+        expect(hasOverlayPageScale(surface)).toBe(true);
         surface.dataset.jpdbReaderScaleAdapter = 'some-other-adapter';
-        expect(hasRedditOverlayScale(surface)).toBe(false);
+        expect(hasOverlayPageScale(surface)).toBe(false);
     });
 
-    it('does not alter styles it does not own on other sites', () => {
+    it('does not alter styles it does not own outside Apple touch browsing', () => {
         const { element, style } = overlayElement();
-        applyRedditOverlayScale(element, { ...scaledReddit, hostname: 'youtube.com' });
+        applyOverlayPageScale(element, { ...scaledReddit, appleTouch: false });
 
         expect(style.setProperty).not.toHaveBeenCalled();
         expect(style.removeProperty).not.toHaveBeenCalled();
@@ -228,7 +259,7 @@ function compensatedSurface(
     offsetSize: { width: number; height: number },
 ): { surface: HTMLElement; nestedAnchor: HTMLElement } {
     const surface = document.createElement('section');
-    surface.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+    surface.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
     surface.dataset.jpdbReaderScaleCompensation = '0.625';
     Object.defineProperties(surface, {
         offsetWidth: { configurable: true, value: offsetSize.width },

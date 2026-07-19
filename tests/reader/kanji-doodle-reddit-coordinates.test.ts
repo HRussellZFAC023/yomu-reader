@@ -125,7 +125,7 @@ function installDoodleHarness(mode: CoordinateCase): {
         </div>
     `;
     if (mode.adapter) {
-        root.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+        root.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
         root.dataset.jpdbReaderScaleCompensation = '0.625';
     }
     Object.defineProperties(root, {

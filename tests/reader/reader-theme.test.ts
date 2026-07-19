@@ -1076,9 +1076,9 @@ describe('reader theme', () => {
         expect(DEFAULT_SETTINGS.popupFontFamily).toContain('Noto Sans JP');
         expect(DEFAULT_SETTINGS.popupFontFamily).toContain('Noto Sans CJK JP');
         expect(root.style.getPropertyValue('--jpdb-reader-font')).toBe(DEFAULT_SETTINGS.readerFontFamily);
-        expect(DEFAULT_SETTINGS.popupFontWeight).toBe(400);
+        expect(DEFAULT_SETTINGS.popupFontWeight).toBe(450);
         expect(root.style.getPropertyValue('--jpdb-reader-popup-font')).toBe(DEFAULT_SETTINGS.popupFontFamily);
-        expect(root.style.getPropertyValue('--jpdb-reader-popup-font-weight')).toBe('400');
+        expect(root.style.getPropertyValue('--jpdb-reader-popup-font-weight')).toBe('450');
     });
 
 

@@ -1,9 +1,9 @@
 import {
-    redditLayoutPointToOverlay,
-    redditOverlayViewport,
-    redditOverlayViewportBounds,
-    redditSourceRectToOverlay,
-} from './reddit-overlay-scale';
+    layoutPointToOverlay,
+    overlayViewport,
+    overlayViewportBounds,
+    sourceRectToOverlay,
+} from './page-scale';
 
 type NormalizedWritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr' | 'sideways-rl' | 'sideways-lr';
 
@@ -272,7 +272,7 @@ function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DO
 
 function pointPopoverRects(point: { x: number; y: number }): PopoverRect[] {
     const radius = 14;
-    const overlayPoint = redditLayoutPointToOverlay(point);
+    const overlayPoint = layoutPointToOverlay(point);
     return [{
         left: overlayPoint.x - radius,
         top: overlayPoint.y - radius,
@@ -314,7 +314,7 @@ function rectListToPopoverRects(rects: DOMRectList, source?: Node | null): Popov
 }
 
 function domRectToPopoverRect(rect: DOMRect | DOMRectReadOnly, source?: Node | null): PopoverRect {
-    const overlayRect = redditSourceRectToOverlay(rect, source);
+    const overlayRect = sourceRectToOverlay(rect, source);
     return {
         left: overlayRect.left,
         top: overlayRect.top,
@@ -328,9 +328,9 @@ function hasRectArea(rect: PopoverRect): boolean {
 }
 
 function getPopoverViewport(): PopoverRect {
-    const overlayViewport = redditOverlayViewport();
-    if (overlayViewport.pageScale > 1) {
-        const bounds = redditOverlayViewportBounds();
+    const scaledViewport = overlayViewport();
+    if (scaledViewport.pageScale > 1) {
+        const bounds = overlayViewportBounds();
         return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
     }
     const { visualViewport } = window;

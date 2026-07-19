@@ -1,10 +1,10 @@
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
 import {
-    redditLayoutPointToOverlay,
-    redditOverlayViewport,
-    redditSourceRectToOverlay,
-} from '../ui/reddit-overlay-scale';
+    layoutPointToOverlay,
+    overlayViewport,
+    sourceRectToOverlay,
+} from '../ui/page-scale';
 
 export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');
@@ -30,7 +30,7 @@ export function installSourceRowDrag(root: HTMLElement): void {
         if (!row || !container) return;
         event.preventDefault();
         setSourceRowPointerCapture(handle, event.pointerId);
-        const pageScale = redditOverlayViewport().pageScale;
+        const pageScale = overlayViewport().pageScale;
         drag = {
             active: false,
             container,
@@ -111,7 +111,7 @@ function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, overla
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'))
         .filter(candidate => candidate !== row);
     const target = rows.find(candidate => {
-        const rect = redditSourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+        const rect = sourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
         return overlayY < rect.top + rect.height / 2;
     });
     if (target) container.insertBefore(row, target);
@@ -120,7 +120,7 @@ function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, overla
 }
 
 function sourceRowOverlayY(clientY: number, pageScale: number): number {
-    return redditLayoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
+    return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
 }
 
 function canMoveSourceRow(index: number, targetIndex: number, rowCount: number): boolean {

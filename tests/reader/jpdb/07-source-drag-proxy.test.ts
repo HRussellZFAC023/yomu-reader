@@ -1768,7 +1768,7 @@ describe('reader helpers', () => {
 });
 
 function mockCompensatedRedditRoot(root: HTMLElement, rectScale: number): void {
-    root.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+    root.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
     root.dataset.jpdbReaderScaleCompensation = '0.625';
     Object.defineProperties(root, {
         offsetWidth: { configurable: true, value: 400 },

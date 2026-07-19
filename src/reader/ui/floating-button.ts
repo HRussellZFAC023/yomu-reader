@@ -16,12 +16,12 @@ import {
 } from './radial-menu';
 import type { OcrInteractionMode } from '../ocr/mode';
 import {
-    applyRedditOverlayScale,
-    redditLayoutPointToOverlay,
-    redditLayoutRectToOverlay,
-    redditOverlayViewport,
-    redditSourceRectToOverlay,
-} from './reddit-overlay-scale';
+    applyOverlayPageScale,
+    layoutPointToOverlay,
+    layoutRectToOverlay,
+    overlayViewport,
+    sourceRectToOverlay,
+} from './page-scale';
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -143,7 +143,7 @@ export class FloatingButtonController {
             this.radial?.toggle();
         });
         document.body.appendChild(button);
-        applyRedditOverlayScale(button);
+        applyOverlayPageScale(button);
         clampRestoredButtonPosition(button, settings);
         this.installVideoAvoidance(button);
     }
@@ -266,7 +266,7 @@ export class FloatingButtonController {
         const controller = new AbortController();
         this.abortController = controller;
         const schedule = () => requestAnimationFrame(() => {
-            applyRedditOverlayScale(button);
+            applyOverlayPageScale(button);
             if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
         });
         window.addEventListener('resize', schedule, { passive: true, signal: controller.signal });
@@ -313,8 +313,8 @@ export class FloatingButtonController {
             dragging = true;
             moved = false;
             button.dataset.jpdbReaderMoved = 'false';
-            dragPageScale = redditOverlayViewport().pageScale;
-            const start = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            dragPageScale = overlayViewport().pageScale;
+            const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
             startX = start.x;
             startY = start.y;
             const rect = overlayPuckRect(button, dragPageScale);
@@ -329,7 +329,7 @@ export class FloatingButtonController {
         });
         button.addEventListener('pointermove', event => {
             if (!dragging || !puckBox) return;
-            const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            const pointer = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
             const dx = pointer.x - startX;
             const dy = pointer.y - startY;
             if (Math.hypot(dx, dy) > 4) moved = true;
@@ -422,14 +422,14 @@ function shouldMoveAwayFromVideo(button: HTMLButtonElement, video: HTMLVideoElem
     return Boolean(video && !button.matches(':hover, :focus, :focus-visible'));
 }
 
-function overlayPuckRect(button: HTMLButtonElement, pageScale = redditOverlayViewport().pageScale): DOMRect {
-    return redditSourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
+function overlayPuckRect(button: HTMLButtonElement, pageScale = overlayViewport().pageScale): DOMRect {
+    return sourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
 }
 
 function overlappingVideo(rect: DOMRect): { video: HTMLVideoElement; rect: DOMRect } | undefined {
-    const { pageScale } = redditOverlayViewport();
+    const { pageScale } = overlayViewport();
     for (const video of visibleVideos()) {
-        const videoRect = redditLayoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+        const videoRect = layoutRectToOverlay(video.getBoundingClientRect(), pageScale);
         if (intersects(rect, videoRect)) return { video, rect: videoRect };
     }
     return undefined;
@@ -498,7 +498,7 @@ function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number
 
 function clampPuckToViewport(box: PuckBox, x: number, y: number): { x: number; y: number } | null {
     const margin = 8;
-    const viewport = redditOverlayViewport();
+    const viewport = overlayViewport();
     if (!canClampPuck(box, x, y, margin, viewport)) return null;
     return {
         x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),

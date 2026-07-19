@@ -4,11 +4,11 @@ import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
 import type { ReaderSettings } from '../app/types';
 import { createHandleDragController, getContainedClosest, firstChangedTouch, addViewportChangeListeners } from './handle-drag';
 import {
-    applyRedditOverlayScale,
-    redditOverlayViewport,
-    redditOverlayViewportBottomInset,
-    redditOverlayViewportBounds,
-} from '../ui/reddit-overlay-scale';
+    applyOverlayPageScale,
+    overlayViewport,
+    overlayViewportBottomInset,
+    overlayViewportBounds,
+} from '../ui/page-scale';
 
 const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
@@ -176,12 +176,12 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
         if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
     };
     const applyViewportSize = (): void => {
-        applyRedditOverlayScale(popover);
+        applyOverlayPageScale(popover);
         const previousViewportHeight = viewportHeight;
-        const overlayViewport = redditOverlayViewport();
+        const scaledViewport = overlayViewport();
         viewportHeight = fixedChromeViewportHeight();
-        const bottomInset = overlayViewport.pageScale > 1
-            ? Math.round(redditOverlayViewportBottomInset())
+        const bottomInset = scaledViewport.pageScale > 1
+            ? Math.round(overlayViewportBottomInset())
             : 0;
         popover.style.setProperty('--jpdb-reader-sheet-bottom', `${bottomInset}px`);
         popover.style.setProperty('--jpdb-reader-sheet-viewport-height', `${viewportHeight}px`);
@@ -240,7 +240,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
         tapMovementPx: SHEET_TAP_MOVEMENT_PX,
         movementDistance: state => Math.abs(state.deltaY * dragPageScale),
         onBegin: () => {
-            dragPageScale = redditOverlayViewport().pageScale;
+            dragPageScale = overlayViewport().pageScale;
             startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
             rawDragHeight = startHeight;
             popover.style.transition = '';
@@ -412,9 +412,9 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
         if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
     };
     const applyViewportSize = (): void => {
-        applyRedditOverlayScale(drawer);
+        applyOverlayPageScale(drawer);
         const previousViewportHeight = viewportHeight;
-        const { pageScale } = redditOverlayViewport();
+        const { pageScale } = overlayViewport();
         const bottomInset = settingsDrawerBottomInset() * pageScale;
         viewportHeight = fixedChromeViewportHeight();
         drawer.style.setProperty('--jpdb-reader-settings-drawer-bottom', `${bottomInset}px`);
@@ -441,7 +441,7 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
         tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
         movementDistance: state => Math.abs(state.deltaY * dragPageScale),
         onBegin: () => {
-            dragPageScale = redditOverlayViewport().pageScale;
+            dragPageScale = overlayViewport().pageScale;
             startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
             rawDragHeight = startHeight;
             drawer.style.transition = '';
@@ -662,13 +662,13 @@ export function shouldUseSheet(
 }
 
 function lookupViewportSize(): { width: number; height: number; pageScale: number } {
-    const overlayViewport = redditOverlayViewport();
-    if (overlayViewport.pageScale > 1) {
-        const bounds = redditOverlayViewportBounds();
+    const scaledViewport = overlayViewport();
+    if (scaledViewport.pageScale > 1) {
+        const bounds = overlayViewportBounds();
         return {
             width: Math.max(0, Math.round(bounds.width)),
             height: Math.max(0, Math.round(bounds.height)),
-            pageScale: overlayViewport.pageScale,
+            pageScale: scaledViewport.pageScale,
         };
     }
     const visual = window.visualViewport;
@@ -678,9 +678,9 @@ function lookupViewportSize(): { width: number; height: number; pageScale: numbe
 }
 
 function fixedChromeViewportHeight(): number {
-    const overlayViewport = redditOverlayViewport();
-    return overlayViewport.pageScale > 1
-        ? Math.max(0, Math.round(redditOverlayViewportBounds().height))
+    const scaledViewport = overlayViewport();
+    return scaledViewport.pageScale > 1
+        ? Math.max(0, Math.round(overlayViewportBounds().height))
         : visualViewportHeight();
 }
 
