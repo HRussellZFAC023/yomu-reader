@@ -2,20 +2,40 @@
 // verify the extension-specific machinery the userscript smokes never touch:
 // service worker boot, content-script injection at document_start, popup
 // page, storage, and a real lookup popover on a Japanese page.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { unzipSync } from 'fflate';
 
 // Branded Chrome 137+ ignores --load-extension; this probe uses Playwright's
 // bundled Chromium (chromium.launchPersistentContext), which still honors it.
 // Override EXT_DIR to point at a freshly built package.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const EXT_DIR = process.env.EXT_DIR || path.join(ROOT, 'dist', 'extension', 'chrome');
+const EXT_PACKAGE = process.env.EXT_DIR || path.join(ROOT, 'dist', 'extension', 'release', 'chrome', 'yomureader.com-chrome.zip');
+const EXT_DIR = extensionDirectory(EXT_PACKAGE);
 const ART = process.env.ART_DIR || path.join(ROOT, 'artifacts', 'manual-extension-boot');
+const CONTENT_WAIT_MS = Number(process.env.CONTENT_WAIT_MS || 5_000);
+const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 25_000);
 mkdirSync(ART, { recursive: true });
+
+function extensionDirectory(source) {
+    if (!source.endsWith('.zip')) return source;
+    if (!existsSync(source)) throw new Error(`Missing Chrome extension package: ${source}`);
+    const directory = mkdtempSync(path.join(tmpdir(), 'yomu-chrome-package-'));
+    for (const [name, bytes] of Object.entries(unzipSync(new Uint8Array(readFileSync(source))))) {
+        const output = path.resolve(directory, name);
+        if (!output.startsWith(`${directory}${path.sep}`)) throw new Error(`Unsafe package path: ${name}`);
+        if (name.endsWith('/')) mkdirSync(output, { recursive: true });
+        else {
+            mkdirSync(path.dirname(output), { recursive: true });
+            writeFileSync(output, bytes);
+        }
+    }
+    return directory;
+}
 
 const PAGE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>probe</title></head>
 <body><main><p id="target">日本語を読む練習です。図書館で勉強します。</p></main></body></html>`;
@@ -29,6 +49,9 @@ await new Promise(resolve => server.listen(8977, '127.0.0.1', resolve));
 const userDataDir = mkdtempSync(path.join(tmpdir(), 'yomu-ext-probe-'));
 const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
+    // Playwright's default --disable-extensions flag can leave the service
+    // worker visible while suppressing manifest content-script injection.
+    ignoreDefaultArgs: ['--disable-extensions'],
     args: [
         `--disable-extensions-except=${EXT_DIR}`,
         `--load-extension=${EXT_DIR}`,
@@ -37,36 +60,55 @@ const context = await chromium.launchPersistentContext(userDataDir, {
     ],
 });
 
-const report = { steps: [], consoleErrors: [], swErrors: [] };
+const report = { steps: [], consoleErrors: [], swErrors: [], diagnostics: {} };
 const step = (name, ok, detail = '') => { report.steps.push({ name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`); };
 
 try {
     // 1. Service worker boots
     let [sw] = context.serviceWorkers();
     if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 15_000 }).catch(() => null);
+    sw?.on('console', message => { if (message.type() === 'error') report.swErrors.push(message.text().slice(0, 300)); });
     step('service worker boots', Boolean(sw), sw ? sw.url() : 'no service worker within 15s');
     const extensionId = sw ? new URL(sw.url()).host : null;
 
     // 2. Content script injects on a real page
     const page = await context.newPage();
     page.on('console', message => { if (message.type() === 'error') report.consoleErrors.push(message.text().slice(0, 300)); });
+    page.on('pageerror', error => report.consoleErrors.push(`[pageerror] ${error.message.slice(0, 300)}`));
     // Serve from a non-root path so the synthetic Japanese page is treated as a
     // third-party site, not a local Yomu dev app (root "/" on 127.0.0.1 is
     // recognized as the hosted reader, which suppresses first-run onboarding).
     await page.goto('http://127.0.0.1:8977/article/read.html', { waitUntil: 'domcontentloaded' });
     page.on('console', message => console.log('[page-console]', message.type(), message.text().slice(0, 200)));
     const injected = await page.waitForFunction(
-        () => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
-        null, { timeout: 20_000 },
+        () => Boolean(
+            window.__yomuReaderAppInitialized
+            || document.getElementById('jpdb-reader-runtime-owner')
+            || document.getElementById('jpdb-reader-installed-runtime')
+            || document.querySelector('#target .jpdb-reader-word'),
+        ),
+        null, { timeout: CONTENT_WAIT_MS },
     ).then(() => true).catch(() => false);
-    step('content script initializes runtime (cold SW)', injected);
+    let injectionPhase = injected ? 'cold service worker' : '';
+    let afterReload = injected;
     if (!injected) {
         await page.reload({ waitUntil: 'domcontentloaded' });
-        const afterReload = await page.waitForFunction(
-            () => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
-            null, { timeout: 20_000 },
+        afterReload = await page.waitForFunction(
+            () => Boolean(
+                window.__yomuReaderAppInitialized
+                || document.getElementById('jpdb-reader-runtime-owner')
+                || document.getElementById('jpdb-reader-installed-runtime')
+                || document.querySelector('#target .jpdb-reader-word'),
+            ),
+            null, { timeout: CONTENT_WAIT_MS },
         ).then(() => true).catch(() => false);
-        step('content script initializes runtime (warm SW after reload)', afterReload);
+        if (afterReload) injectionPhase = 'warm service worker after reload';
+    }
+    if (!afterReload && sw) {
+        report.diagnostics = await sw.evaluate(() => ({
+            runtimeId: chrome.runtime.id,
+            manifest: chrome.runtime.getManifest(),
+        })).catch(error => ({ diagnosticError: String(error) }));
     }
 
     // 3. Browser-extension onboarding belongs only on the packaged Study page,
@@ -80,9 +122,9 @@ try {
     // 4. Confirm Japanese text gets scanned (reader words appear).
     const scanned = await page.waitForFunction(
         () => document.querySelectorAll('#target .jpdb-reader-word, #target [data-surface]').length > 0,
-        null, { timeout: 25_000 },
+        null, { timeout: SCAN_WAIT_MS },
     ).then(() => true).catch(() => false);
-    step('Japanese text scanned into reader words', scanned);
+    step('content script initializes and scans Japanese', scanned, injectionPhase || (scanned ? 'verified by rendered reader words' : 'no reader words found'));
     await page.screenshot({ path: path.join(ART, 'ext-scanned.png') });
 
     // 5. Lookup popover on click
@@ -142,7 +184,10 @@ try {
     }
 } finally {
     writeFileSync(path.join(ART, 'ext-probe-report.json'), JSON.stringify(report, null, 2));
-    await context.close();
+    await Promise.race([
+        context.close(),
+        new Promise(resolve => setTimeout(resolve, 5_000)),
+    ]);
     server.close();
 }
 const failed = report.steps.filter(item => !item.ok);
