@@ -389,6 +389,74 @@ describe('Bunpro example sentences', () => {
         expect(jaHtml).toContain('関連文法');
     });
 
+    it('resolves a bounded set of grammar coverage vocab into a Used in section', async () => {
+        const vocabById: Record<number, { word?: string; kana: string; meaning: string }> = {
+            9101: { word: '食べる', kana: 'たべる', meaning: 'to eat' },
+            9102: { kana: 'クラス', meaning: 'class' },
+            9104: { word: '見る', kana: 'みる', meaning: 'to see' },
+            9105: { word: '行く', kana: 'いく', meaning: 'to go' },
+        };
+        const getVocab = vi.fn(async (id: number) => {
+            const entry = vocabById[id];
+            if (!entry) throw new Error(`no vocab ${id}`);
+            return { data: { id: String(id), type: 'vocab', attributes: entry } };
+        });
+        const client = {
+            search: async () => ({ grammar_points: { data: [{ id: 132, attributes: { id: 132, title: 'れる・られる', furigana: 'れる・られる', slug: 'れる・られる', meaning: 'potential' } }] } }),
+            getVocab,
+            getGrammarPoint: async () => ({
+                data: { id: '132', type: 'grammar_point', attributes: {
+                    coverage_vocab_ids: [9101, 9102, 9103, 9104, 9105, 9106, 9107],
+                } },
+                included: [],
+            }),
+        } as unknown as BunproClient;
+
+        const info = await lookupBunproDefinition(client, { ...card, spelling: 'れる・られる', reading: 'れる・られる' });
+        if (!info) throw new Error('expected info');
+
+        // Only the first five ids are ever requested (9106/9107 stay unfetched)
+        // and the one failing id (9103) drops silently instead of breaking the rest.
+        expect(getVocab.mock.calls.map(call => call[0])).toEqual([9101, 9102, 9103, 9104, 9105]);
+        expect(info.coverageVocabIds).toEqual([9101, 9102, 9103, 9104, 9105, 9106, 9107]);
+        expect(info.usedInVocab.map(entry => entry.text)).toEqual(['食べる', 'クラス', '見る', '行く']);
+        expect(info.usedInVocab[0]).toEqual({ id: 9101, text: '食べる', reading: 'たべる', meaning: 'to eat' });
+        expect(info.usedInVocab[1].reading).toBe('');
+
+        const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'en');
+        expect(html).toContain('Used in');
+        expect(html).toContain('jpdb-reader-jpdb-used-in-group');
+        expect(html).toContain('data-dictionary-lookup="食べる"');
+        expect(html).toContain('<small lang="ja">たべる</small>');
+        expect(html).toContain('<small>to eat</small>');
+        const jaHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'ja');
+        expect(jaHtml).toContain('使われている単語');
+
+        // Reopening the same grammar entry resolves from the LRU cache: no new
+        // requests for the ids that already succeeded (only the failed 9103 retries).
+        getVocab.mockClear();
+        const again = await lookupBunproDefinition(client, { ...card, spelling: 'れる・られる', reading: 'れる・られる' });
+        expect(again?.usedInVocab.map(entry => entry.text)).toEqual(['食べる', 'クラス', '見る', '行く']);
+        expect(getVocab.mock.calls.map(call => call[0])).toEqual([9103]);
+    });
+
+    it('never resolves coverage vocab for vocabulary entries', async () => {
+        const getVocabCalls: unknown[] = [];
+        const client = {
+            search: async () => ({ vocabs: { data: [{ id: 42, attributes: { id: 42, title: '言葉', kana: 'ことば', slug: '言葉', meaning: 'word' } }] } }),
+            getVocab: async (id: unknown) => {
+                getVocabCalls.push(id);
+                return { data: { id: '42', type: 'vocab', attributes: { coverage_vocab_ids: [1, 2, 3] } }, included: [] };
+            },
+            getGrammarPoint: async () => { throw new Error('unused'); },
+        } as unknown as BunproClient;
+        const info = await lookupBunproDefinition(client, { ...card, spelling: '言葉', reading: 'ことば' });
+        if (!info) throw new Error('expected info');
+        // Exactly one vocab request: the entry's own detail — never coverage fan-out.
+        expect(getVocabCalls).toHaveLength(1);
+        expect(info.usedInVocab).toEqual([]);
+    });
+
     it('distinguishes authoritative empty examples from auth, network, and schema failures', async () => {
         const client = {
             search: async () => ({ vocabs: { data: [{ id: 42, attributes: { id: 42, title: '読む', kana: 'よむ', slug: '読む', meaning: 'to read' } }] } }),

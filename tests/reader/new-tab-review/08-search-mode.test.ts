@@ -1022,7 +1022,7 @@ describe('new tab review — search mode', () => {
             register: '',
             registerTranslation: '',
             structures: [],
-            relatedGrammar: [],
+            relatedGrammar: [], coverageVocabIds: [], usedInVocab: [],
         };
         const hydrateBunproDefinitionInfo = vi.fn(async () => bunproDefinitionInfo);
         const cardRenderData = {

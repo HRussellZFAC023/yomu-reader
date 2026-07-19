@@ -8,6 +8,7 @@ import { renderProviderExamples, type ProviderCollection, type ProviderExampleVi
 import { renderPassiveReference } from '../sources/passive-reference';
 import { speakerIcon } from '../ui/icons';
 import { BunproApiError, type BunproClient } from './bunpro';
+import { LruCache } from '../core/lru-cache';
 
 export interface BunproExampleSentencePart {
     text: string;
@@ -32,6 +33,13 @@ export interface BunproRelatedGrammar {
     id: number;
     title: string;
     slug: string;
+}
+
+export interface BunproUsedInVocab {
+    id: number;
+    text: string;
+    reading: string;
+    meaning: string;
 }
 
 export interface BunproDefinitionInfo {
@@ -60,6 +68,8 @@ export interface BunproDefinitionInfo {
     registerTranslation: string;
     structures: Array<{ label: 'polite' | 'casual'; lines: string[] }>;
     relatedGrammar: BunproRelatedGrammar[];
+    coverageVocabIds: number[];
+    usedInVocab: BunproUsedInVocab[];
 }
 
 export type BunproDefinitionNoMatchReason =
@@ -113,6 +123,7 @@ export async function lookupBunproDefinitionResult(client: BunproClient, card: J
     } catch (error) {
         applyBunproExampleCollection(info, { availability: 'unavailable', items: [], reason: bunproExampleFailureReason(error) });
     }
+    await resolveBunproUsedInVocab(client, info);
     return { state: 'success', info };
 }
 
@@ -143,6 +154,57 @@ function applyBunproReviewableDetail(info: BunproDefinitionInfo, raw: unknown): 
         bunproRelatedGrammarPoint(attributes.previous_grammar_point),
         bunproRelatedGrammarPoint(attributes.next_grammar_point),
     ]).filter(entry => entry.id !== info.id);
+    info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
+}
+
+function bunproCoverageVocabIds(raw: unknown): number[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map(value => numberValue(value))
+        .filter(id => id > 0)
+        .slice(0, 50);
+}
+
+const BUNPRO_USED_IN_LIMIT = 5;
+const BUNPRO_USED_IN_TIMEOUT_MS = 4000;
+const bunproUsedInVocabCache = new LruCache<number, BunproUsedInVocab>(200);
+
+// Grammar coverage vocab arrives as bare ids and each id needs its own
+// vocab-detail request, so resolution is strictly bounded: only the first few
+// ids, an LRU cache so reopening a grammar entry costs nothing, individual
+// failures dropped, and a soft time cap so a slow Bunpro never delays the
+// definition itself (late responses still land in the cache for next time).
+async function resolveBunproUsedInVocab(client: BunproClient, info: BunproDefinitionInfo): Promise<void> {
+    if (info.kind !== 'grammar') return;
+    const ids = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
+    if (!ids.length) return;
+    const resolved = await Promise.race([
+        Promise.all(ids.map(id => bunproUsedInVocabEntry(client, id))),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS)),
+    ]);
+    if (!resolved) return;
+    info.usedInVocab = resolved.filter((entry): entry is BunproUsedInVocab => entry !== null);
+}
+
+async function bunproUsedInVocabEntry(client: BunproClient, id: number): Promise<BunproUsedInVocab | null> {
+    const cached = bunproUsedInVocabCache.get(id);
+    if (cached) return cached;
+    try {
+        const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id))?.data)?.attributes);
+        const kana = textValue(attributes?.kana);
+        const text = textValue(attributes?.word) || kana;
+        if (!text) return null;
+        const entry: BunproUsedInVocab = {
+            id,
+            text,
+            reading: kana && kana !== text ? kana : '',
+            meaning: stripBunproMarkup(textValue(attributes?.meaning)),
+        };
+        bunproUsedInVocabCache.set(id, entry);
+        return entry;
+    } catch {
+        return null;
+    }
 }
 
 function bunproJmdictRelatedWords(raw: unknown, info: BunproDefinitionInfo): BunproRelatedWord[] {
@@ -403,7 +465,7 @@ export function renderBunproDefinitionSource(
         : [];
     const nuanceLabel = japanese ? 'ニュアンス' : 'Nuance';
     const glosses = distinctBunproGlosses(info);
-    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
@@ -456,6 +518,32 @@ function renderBunproStructures(info: BunproDefinitionInfo, language: InterfaceL
         </div>
     `).join('');
     return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproStructure'))}</strong>${blocks}</div>`;
+}
+
+function renderBunproUsedInVocab(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
+    if (!info.usedInVocab.length) return '';
+    const rows = info.usedInVocab.map(entry => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml(entry.text)}</span>
+                </a>
+                ${entry.reading ? `<small lang="ja">${escapeHtml(entry.reading)}</small>` : ''}
+                ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ''}
+            </span>
+        </li>
+    `).join('');
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'bunproUsedInVocab'))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
 }
 
 function renderBunproRelatedWords(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
@@ -615,6 +703,8 @@ function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): Bun
         registerTranslation: '',
         structures: [],
         relatedGrammar: [],
+        coverageVocabIds: [],
+        usedInVocab: [],
     };
 }
 

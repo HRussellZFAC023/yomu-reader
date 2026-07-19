@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.225
+// @version 1.6.226
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.ac0e7d1be044.user.js#sha256=rA59G+BEokf756i4Ti4NfY0MUs1ga1RI9/3ys1/tTjQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.38b2480ba66a.user.js#sha256=OLJIC6ZqtUhgw3suFbjz7hqraRM2e5rY4FuOMvNOxnc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.6ddef4d063d3.user.js#sha256=bd700GPT6n2/+sR6Wz5aVeGCpz1IoRi7MN6B899qKoE=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.3850eb6db414.user.js#sha256=OFDrbbQUOdbNwPI/n5jVzDt9PD/UT8+Q5oKZTQ/l/ZQ=
-// @require https://yomureader.com/greasyfork/yomu-video.b64ea15cff66.user.js#sha256=tk6hXP9mqQZkzAIHL5+sVsaAzA/+48YmGq8Wu1GAjwA=
+// @require https://yomureader.com/greasyfork/yomu-anki.11f02808bcb8.user.js#sha256=EfAoCLy4vyIm1VnSgbLhB44a6oUaYsQ+JM/wwVBPXd8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.26040d7f5a1e.user.js#sha256=JgQNf1oelF9FVS1TokpD1pG1TSrptCuCS51gG5vs7LI=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.3cde77317781.user.js#sha256=PN53MXeB0vkwXyLX72hNCP2JwJOeFIXrae7bPjaL7Js=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.eaa469262902.user.js#sha256=6qRpJikCUBRbRKUKl4MqlPRCeIEYNA1Xlt9pM7CQ7GI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.0d944c9b5303.user.js#sha256=DZRMm1MDn29kqJ/lqZblXnDmt2tLOa1+lnycIOFbIso=
+// @require https://yomureader.com/greasyfork/yomu-video.ac52e0f4c662.user.js#sha256=rFLg9MZidLdmZckY+4Q0zNP+pd7kBWfrQqN7Taf25/s=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -18783,6 +18783,33 @@ function trimBunproSearchSection(section, limit) {
   if (!Array.isArray(value.data)) return section;
   return { ...value, data: value.data.slice(0, limit) };
 }
+class LruCache {
+  constructor(maxSize) {
+  this.maxSize = maxSize;
+  }
+  map = new Map();
+  get(key) {
+  const value = this.map.get(key);
+  if (value !== void 0) {
+    this.map.delete(key);
+    this.map.set(key, value);
+  }
+  return value;
+  }
+  set(key, value) {
+  this.map.delete(key);
+  this.map.set(key, value);
+  if (this.map.size > this.maxSize) {
+    const oldest = this.map.keys().next().value;
+    if (oldest !== void 0) {
+      this.map.delete(oldest);
+    }
+  }
+  }
+  clear() {
+  this.map.clear();
+  }
+}
 const BUNPRO_EXAMPLE_LIMIT = 10;
 async function lookupBunproDefinitionResult(client, card) {
   const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
@@ -18799,6 +18826,7 @@ async function lookupBunproDefinitionResult(client, card) {
   } catch (error) {
   applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
   }
+  await resolveBunproUsedInVocab(client, info);
   return { state: "success", info };
 }
 const BUNPRO_FREQUENCY_LISTS = ["general", "anime", "novels", "netflix", "dictionary"];
@@ -18820,6 +18848,45 @@ function applyBunproReviewableDetail(info, raw) {
   bunproRelatedGrammarPoint(attributes.previous_grammar_point),
   bunproRelatedGrammarPoint(attributes.next_grammar_point)
   ]).filter((entry) => entry.id !== info.id);
+  info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
+}
+function bunproCoverageVocabIds(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((value) => numberValue(value)).filter((id) => id > 0).slice(0, 50);
+}
+const BUNPRO_USED_IN_LIMIT = 5;
+const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
+const bunproUsedInVocabCache = new LruCache(200);
+async function resolveBunproUsedInVocab(client, info) {
+  if (info.kind !== "grammar") return;
+  const ids = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
+  if (!ids.length) return;
+  const resolved = await Promise.race([
+  Promise.all(ids.map((id) => bunproUsedInVocabEntry(client, id))),
+  new Promise((resolve) => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS))
+  ]);
+  if (!resolved) return;
+  info.usedInVocab = resolved.filter((entry) => entry !== null);
+}
+async function bunproUsedInVocabEntry(client, id) {
+  const cached = bunproUsedInVocabCache.get(id);
+  if (cached) return cached;
+  try {
+  const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id))?.data)?.attributes);
+  const kana = textValue(attributes?.kana);
+  const text2 = textValue(attributes?.word) || kana;
+  if (!text2) return null;
+  const entry = {
+    id,
+    text: text2,
+    reading: kana && kana !== text2 ? kana : "",
+    meaning: stripBunproMarkup(textValue(attributes?.meaning))
+  };
+  bunproUsedInVocabCache.set(id, entry);
+  return entry;
+  } catch {
+  return null;
+  }
 }
 function bunproJmdictRelatedWords(raw, info) {
   const senses = objectRecord(raw)?.sense;
@@ -18992,7 +19059,7 @@ function renderBunproDefinitionSource(card, sourceAttributes, info, language, ti
   const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
   const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
   const glosses = distinctBunproGlosses(info);
-  const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
+  const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
   return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
@@ -19034,6 +19101,31 @@ function renderBunproStructures(info, language) {
         </div>
     `).join("");
   return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
+}
+function renderBunproUsedInVocab(info, sourceAttributes, language) {
+  if (!info.usedInVocab.length) return "";
+  const rows = info.usedInVocab.map((entry) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                </a>
+                ${entry.reading ? `<small lang="ja">${escapeHtml$1(entry.reading)}</small>` : ""}
+                ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+            </span>
+        </li>
+    `).join("");
+  return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
 }
 function renderBunproRelatedWords(info, sourceAttributes, language) {
   if (!info.relatedWords.length) return "";
@@ -19162,7 +19254,9 @@ function definitionInfo(value, kind) {
   register: "",
   registerTranslation: "",
   structures: [],
-  relatedGrammar: []
+  relatedGrammar: [],
+  coverageVocabIds: [],
+  usedInVocab: []
   };
 }
 function searchItems(raw, key) {
@@ -28141,33 +28235,6 @@ function retryableReadDelayMs() {
 }
 function isTestRuntime$1() {
   return typeof process !== "undefined" && (define_process_env_default$1?.VITEST === "true" || false);
-}
-class LruCache {
-  constructor(maxSize) {
-  this.maxSize = maxSize;
-  }
-  map = new Map();
-  get(key) {
-  const value = this.map.get(key);
-  if (value !== void 0) {
-    this.map.delete(key);
-    this.map.set(key, value);
-  }
-  return value;
-  }
-  set(key, value) {
-  this.map.delete(key);
-  this.map.set(key, value);
-  if (this.map.size > this.maxSize) {
-    const oldest = this.map.keys().next().value;
-    if (oldest !== void 0) {
-      this.map.delete(oldest);
-    }
-  }
-  }
-  clear() {
-  this.map.clear();
-  }
 }
 var define_process_env_default = {};
 const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
@@ -37450,8 +37517,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.225"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.225"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.226"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.226"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37571,7 +37638,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.225"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.226"}`;
   } catch {
   return null;
   }

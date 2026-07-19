@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.226] - 2026-07-19
+
+### Added
+
+- Bunpro grammar entries now list vocabulary that uses the grammar point in a new Used in section; a small bounded set of Bunpro's coverage vocabulary is resolved with caching, so reopening an entry adds no extra requests.
+
 ## [1.6.225] - 2026-07-19
 
 ### Fixed

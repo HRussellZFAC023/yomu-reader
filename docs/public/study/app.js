@@ -2473,6 +2473,7 @@
       exampleSentencesUnavailable: "Example sentences unavailable",
       acceptedInputs: "Accepted inputs",
       relatedWords: "Related words",
+      bunproUsedInVocab: "Used in",
       relatedGrammar: "Related grammar",
       antonymWord: "Antonym",
       bunproCaution: "Caution",
@@ -3056,6 +3057,7 @@ noExampleSentences	例文はありません
 exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
+bunproUsedInVocab	使われている単語
 relatedGrammar	関連文法
 antonymWord	対義語
 bunproCaution	注意
@@ -41110,7 +41112,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.225".trim() ? "1.6.225".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.226".trim() ? "1.6.226".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -65673,6 +65675,33 @@ ${component.reading}`;
     if (!Array.isArray(value.data)) return section;
     return { ...value, data: value.data.slice(0, limit) };
   }
+  class LruCache {
+    constructor(maxSize) {
+      this.maxSize = maxSize;
+    }
+    map = /* @__PURE__ */ new Map();
+    get(key) {
+      const value = this.map.get(key);
+      if (value !== void 0) {
+        this.map.delete(key);
+        this.map.set(key, value);
+      }
+      return value;
+    }
+    set(key, value) {
+      this.map.delete(key);
+      this.map.set(key, value);
+      if (this.map.size > this.maxSize) {
+        const oldest = this.map.keys().next().value;
+        if (oldest !== void 0) {
+          this.map.delete(oldest);
+        }
+      }
+    }
+    clear() {
+      this.map.clear();
+    }
+  }
   const BUNPRO_EXAMPLE_LIMIT = 10;
   async function lookupBunproDefinitionResult(client, card) {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
@@ -65689,6 +65718,7 @@ ${component.reading}`;
     } catch (error) {
       applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
     }
+    await resolveBunproUsedInVocab(client, info);
     return { state: "success", info };
   }
   const BUNPRO_FREQUENCY_LISTS = ["general", "anime", "novels", "netflix", "dictionary"];
@@ -65710,6 +65740,45 @@ ${component.reading}`;
       bunproRelatedGrammarPoint(attributes.previous_grammar_point),
       bunproRelatedGrammarPoint(attributes.next_grammar_point)
     ]).filter((entry) => entry.id !== info.id);
+    info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
+  }
+  function bunproCoverageVocabIds(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((value) => numberValue$1(value)).filter((id) => id > 0).slice(0, 50);
+  }
+  const BUNPRO_USED_IN_LIMIT = 5;
+  const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
+  const bunproUsedInVocabCache = new LruCache(200);
+  async function resolveBunproUsedInVocab(client, info) {
+    if (info.kind !== "grammar") return;
+    const ids = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
+    if (!ids.length) return;
+    const resolved = await Promise.race([
+      Promise.all(ids.map((id) => bunproUsedInVocabEntry(client, id))),
+      new Promise((resolve) => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS))
+    ]);
+    if (!resolved) return;
+    info.usedInVocab = resolved.filter((entry) => entry !== null);
+  }
+  async function bunproUsedInVocabEntry(client, id) {
+    const cached = bunproUsedInVocabCache.get(id);
+    if (cached) return cached;
+    try {
+      const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id))?.data)?.attributes);
+      const kana = textValue(attributes?.kana);
+      const text2 = textValue(attributes?.word) || kana;
+      if (!text2) return null;
+      const entry = {
+        id,
+        text: text2,
+        reading: kana && kana !== text2 ? kana : "",
+        meaning: stripBunproMarkup(textValue(attributes?.meaning))
+      };
+      bunproUsedInVocabCache.set(id, entry);
+      return entry;
+    } catch {
+      return null;
+    }
   }
   function bunproJmdictRelatedWords(raw, info) {
     const senses = objectRecord(raw)?.sense;
@@ -65882,7 +65951,7 @@ ${component.reading}`;
     const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
     const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
     const glosses = distinctBunproGlosses(info);
-    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
@@ -65924,6 +65993,31 @@ ${component.reading}`;
         </div>
     `).join("");
     return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
+  }
+  function renderBunproUsedInVocab(info, sourceAttributes, language) {
+    if (!info.usedInVocab.length) return "";
+    const rows = info.usedInVocab.map((entry) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                </a>
+                ${entry.reading ? `<small lang="ja">${escapeHtml$1(entry.reading)}</small>` : ""}
+                ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+            </span>
+        </li>
+    `).join("");
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
   }
   function renderBunproRelatedWords(info, sourceAttributes, language) {
     if (!info.relatedWords.length) return "";
@@ -66052,7 +66146,9 @@ ${component.reading}`;
       register: "",
       registerTranslation: "",
       structures: [],
-      relatedGrammar: []
+      relatedGrammar: [],
+      coverageVocabIds: [],
+      usedInVocab: []
     };
   }
   function searchItems(raw, key) {
@@ -70624,33 +70720,6 @@ ${component.reading}`;
   }
   function isTestRuntime$1() {
     return typeof process !== "undefined" && (process.env?.VITEST === "true" || process.env?.NODE_ENV === "test");
-  }
-  class LruCache {
-    constructor(maxSize) {
-      this.maxSize = maxSize;
-    }
-    map = /* @__PURE__ */ new Map();
-    get(key) {
-      const value = this.map.get(key);
-      if (value !== void 0) {
-        this.map.delete(key);
-        this.map.set(key, value);
-      }
-      return value;
-    }
-    set(key, value) {
-      this.map.delete(key);
-      this.map.set(key, value);
-      if (this.map.size > this.maxSize) {
-        const oldest = this.map.keys().next().value;
-        if (oldest !== void 0) {
-          this.map.delete(oldest);
-        }
-      }
-    }
-    clear() {
-      this.map.clear();
-    }
   }
   const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
   const VOCABULARY_FIELDS = [

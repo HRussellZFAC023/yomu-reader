@@ -1041,6 +1041,7 @@ const COPY = {
         exampleSentencesUnavailable: 'Example sentences unavailable',
         acceptedInputs: 'Accepted inputs',
         relatedWords: 'Related words',
+        bunproUsedInVocab: 'Used in',
         relatedGrammar: 'Related grammar',
         antonymWord: 'Antonym',
         bunproCaution: 'Caution',
@@ -1629,6 +1630,7 @@ noExampleSentences	例文はありません
 exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
+bunproUsedInVocab	使われている単語
 relatedGrammar	関連文法
 antonymWord	対義語
 bunproCaution	注意
