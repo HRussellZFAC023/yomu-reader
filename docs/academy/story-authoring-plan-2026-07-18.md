@@ -36,7 +36,7 @@ The 42-entry `lesson-story-catalog.ts` is by explicit design (`lesson-story-cata
 - Raw fiction seed banks exist (`himitsu-fiction-seeds.json` 28 KB, `majime-fiction-seeds.json` 26 KB) but are **not wired to the runtime** — input material only.
 
 ### The two hard truths that shape everything
-1. **The generalized v2 loader does not exist.** Only `compileOpeningArc()` handles the opening arc, and `playableArc()` dispatches exactly `s1e01` + the 6 N3 episodes (`story-runtime.ts:307-309`). Authoring 46 more `story-package.v2` JSON files will **not load** until the BACKLOG engine items (`docs/academy/story/BACKLOG.md:20-25`) ship: v2 parser, generic compiler/loader, the 17 validators, the location alias resolver, the relationship manifest, and the class-thread compiler.
+1. **The generalized v2 loader did not exist when this plan was written.** At that snapshot, only `compileOpeningArc()` handled the opening arc, and `playableArc()` dispatched exactly `s1e01` plus the six N3 episodes. The current canonical work is tracked by `STO-002` in [`BACKLOG.md`](BACKLOG.md#sto-002), with sequencing context in [`story/EXECUTION-LEDGER.md`](story/EXECUTION-LEDGER.md); this dated plan is not a completion record.
 2. **Seasons 3–4 have no lesson spine.** Registered lesson packages stop at N4 (`l2-*`); there are **no N3/N2/N1 packages** (`CONTENT-LINKAGE.md:11-13`). Story *teaching* lines for Ch 25–48 point at functions whose grounded lessons don't yet exist, so those chapters can be authored but cannot be marked *playable/grounded* until the lessons land.
 
 ---
