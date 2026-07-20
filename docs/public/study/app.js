@@ -45354,7 +45354,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.257".trim() ? "1.6.257".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.258".trim() ? "1.6.258".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -82619,12 +82619,6 @@ ${entry.url}`),
   function isPitchItemDue(item, now) {
     return !item.suspended && item.due <= now;
   }
-  function selectPitchSessionPool(items, options) {
-    const active = items.filter((item) => !item.suspended);
-    const due = active.filter((item) => item.reps > 0 && item.due <= options.now).sort((a, b) => a.due - b.due);
-    const fresh = active.filter((item) => item.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
-    return [...due, ...fresh];
-  }
   function pitchAccuracyByClass(history2) {
     const buckets = /* @__PURE__ */ new Map();
     for (const entry of history2) {
@@ -82675,17 +82669,11 @@ ${entry.url}`),
     item(key) {
       return this.items.get(key);
     }
-    allItems() {
-      return [...this.items.values()];
-    }
     // fallow-ignore-next-line unused-class-member
     dueCount(now) {
       let count = 0;
       for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
       return count;
-    }
-    sessionPool(options) {
-      return selectPitchSessionPool(this.allItems(), options);
     }
     // Idempotent: only seeds an item that does not exist yet, so re-studying a word
     // never resets its pitch schedule. Returns the (existing or new) item, or null.

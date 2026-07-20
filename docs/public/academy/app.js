@@ -285780,12 +285780,6 @@ ${entry2.url}`),
   function isPitchItemDue(item2, now) {
     return !item2.suspended && item2.due <= now;
   }
-  function selectPitchSessionPool(items, options) {
-    const active = items.filter((item2) => !item2.suspended);
-    const due = active.filter((item2) => item2.reps > 0 && item2.due <= options.now).sort((a, b) => a.due - b.due);
-    const fresh = active.filter((item2) => item2.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
-    return [...due, ...fresh];
-  }
   function pitchAccuracyByClass(history2) {
     const buckets = /* @__PURE__ */ new Map();
     for (const entry2 of history2) {
@@ -285836,17 +285830,11 @@ ${entry2.url}`),
     item(key2) {
       return this.items.get(key2);
     }
-    allItems() {
-      return [...this.items.values()];
-    }
     // fallow-ignore-next-line unused-class-member
     dueCount(now) {
       let count2 = 0;
       for (const item2 of this.items.values()) if (isPitchItemDue(item2, now)) count2 += 1;
       return count2;
-    }
-    sessionPool(options) {
-      return selectPitchSessionPool(this.allItems(), options);
     }
     // Idempotent: only seeds an item that does not exist yet, so re-studying a word
     // never resets its pitch schedule. Returns the (existing or new) item, or null.

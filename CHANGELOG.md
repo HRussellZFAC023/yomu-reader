@@ -1,18 +1,11 @@
 # Changelog
 
-## Unreleased
+## [1.6.258] - 2026-07-20
 
 ### Changed
 
-- Every verified positive GBP Stripe support or Ko-fi donation now creates a
-  permanent Yomu Academy entitlement, and a verified positive Patreon
-  membership grant remains permanent after expiry, decline, deletion, or
-  refund. Provider signatures, private-ingress authentication, HMAC-at-rest
-  identifiers, and replay idempotency remain mandatory.
-- Stripe support Checkout now binds an HttpOnly browser claim to the signed
-  payment, giving the donor a secure self-claim path without making success
-  redirects or transaction IDs into access credentials. PayPal.me remains
-  link-only until a PayPal REST-app webhook can be cryptographically verified.
+- Every verified positive GBP Stripe support or Ko-fi donation now creates a permanent Yomu Academy entitlement, and a verified positive Patreon membership grant remains permanent after expiry, decline, deletion, or refund. Provider signatures, private-ingress authentication, HMAC-at-rest identifiers, and replay idempotency remain mandatory.
+- Stripe support Checkout now binds an HttpOnly browser claim to the signed payment, giving the donor a secure self-claim path without making success redirects or transaction IDs into access credentials. PayPal.me remains link-only until a PayPal REST-app webhook can be cryptographically verified.
 
 ## [1.6.257] - 2026-07-20
 
