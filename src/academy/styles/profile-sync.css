@@ -22,7 +22,7 @@
 .academy-account-summary dt { color: var(--academy-ink-soft); font-size: .85rem; }
 .academy-account-summary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-weight: 700; }
 .academy-profile-sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.academy-profile-sync-actions .academy-button { min-height: 42px; }
+.academy-profile-sync-actions .academy-button { min-height: 44px; }
 .academy-button-danger { border-color: #a43e36; color: #812d27; }
 .academy-code-section { display: grid; gap: 10px; padding-block: 14px; border-top: 1px solid rgba(55, 49, 37, 0.22); }
 .academy-code-heading { margin: 0; font: 720 1rem/1.3 var(--academy-font); letter-spacing: 0; }

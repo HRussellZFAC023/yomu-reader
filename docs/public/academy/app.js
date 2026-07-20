@@ -390,10 +390,14 @@
     /** Rehydrate account state after the Worker returns from Google OIDC. */
     async completeGoogleReturn() {
       const url = new URL(this.currentUrl());
-      if (url.searchParams.get("account") !== "linked") return false;
+      const outcome = url.searchParams.get("account");
+      if (outcome !== "linked" && outcome !== "failed") return false;
       url.searchParams.delete("account");
       this.replaceUrl(`${url.pathname}${url.search}${url.hash}`);
       await this.connect();
+      if (outcome === "failed") {
+        this.error = "Google sign-in could not be completed. No account data was changed.";
+      }
       return true;
     }
     /** Queueing happens after local persistence and never waits for the network. */
@@ -543,9 +547,32 @@
     async exportData() {
       await this.connect();
       const endpoint = this.account ? "/academy/api/account/export" : "/academy/api/profile/export";
-      const response = await this.authorizedRequest(endpoint, { credentials: "same-origin" });
-      if (!response.ok) throw await responseError(response);
-      return response.blob();
+      let cursor = null;
+      let numericCursor = 0;
+      let exported = null;
+      const events = [];
+      while (true) {
+        const requestPath = cursor === null ? endpoint : `${endpoint}?cursor=${encodeURIComponent(cursor)}`;
+        const response = await this.authorizedRequest(requestPath, { credentials: "same-origin" });
+        if (!response.ok) throw await responseError(response);
+        const body = await response.json();
+        if (!isRecord$7(body)) throw new Error("Academy export response was malformed.");
+        const page = parseAcademyExportPage(body.eventPage);
+        exported ??= body;
+        events.push(...page.events);
+        if (!page.hasMore) {
+          exported = {
+            ...exported,
+            eventPage: { events, nextCursor: page.nextCursor, hasMore: false, exportCursor: null }
+          };
+          return new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" });
+        }
+        if (page.nextCursor <= numericCursor || !page.exportCursor) {
+          throw new Error("Academy export pagination did not advance.");
+        }
+        numericCursor = page.nextCursor;
+        cursor = page.exportCursor;
+      }
     }
     async updateClassBoardProfile(update) {
       if (!this.account) throw new Error("Sign in before changing the Class Board profile.");
@@ -980,6 +1007,19 @@
     } catch {
     }
     return new AcademyRequestError(response.status, message);
+  }
+  function parseAcademyExportPage(value) {
+    const record2 = isRecord$7(value) ? value : {};
+    const page = parseAcademySyncPage(value);
+    const exportCursor = record2.exportCursor;
+    if (page.hasMore) {
+      if (typeof exportCursor !== "string" || exportCursor.length < 80 || exportCursor.length > 256) {
+        throw new TypeError("Academy export continuation cursor is invalid.");
+      }
+      return { ...page, exportCursor };
+    }
+    if (exportCursor !== null) throw new TypeError("Completed Academy export retained a cursor.");
+    return { ...page, exportCursor: null };
   }
   function safeStorage() {
     try {
@@ -252306,7 +252346,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ));
       }
       if (account) actions.append(actionButton$1(localize(options.language, "Sign out", "サインアウト"), async () => options.onSignOut()));
-      actions.append(deleteButton(options, account ? "account" : "profile"));
+      if (profile2) actions.append(deleteButton(options, "profile"));
+      if (account) actions.append(deleteButton(options, "account"));
     }
   }
   function accountSummary(status, language) {
@@ -252403,11 +252444,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return section;
   }
   function deleteButton(options, scope2) {
-    return actionButton$1(localize(options.language, scope2 === "account" ? "Delete account" : "Delete sync data", scope2 === "account" ? "アカウントを削除" : "同期データを削除"), async (button2) => {
+    return actionButton$1(localize(
+      options.language,
+      scope2 === "account" ? "Delete account" : "Delete cloud learning data",
+      scope2 === "account" ? "アカウントを削除" : "クラウド学習データを削除"
+    ), async (button2) => {
       const confirmation = window.confirm(localize(
         options.language,
-        scope2 === "account" ? "Delete your account and encrypted sync data? This cannot be undone." : "Delete encrypted sync data? This cannot be undone.",
-        scope2 === "account" ? "アカウントと暗号化された同期記録を削除しますか。この操作は取り消せません。" : "暗号化された同期記録を削除しますか。この操作は取り消せません。"
+        scope2 === "account" ? "Delete your Academy identity, encrypted profile, imported progress and snapshots, study days, and profile-bound sessions? A 90-day deletion receipt and minimal entitlement/payment audit records stay to prevent code reuse and support payment review. This cannot be undone." : "Delete the encrypted profile, imported progress and snapshots, study days, and profile-bound sessions? Your Academy identity stays. A 90-day deletion receipt also stays temporarily. This cannot be undone.",
+        scope2 === "account" ? "Academy の本人情報、暗号化プロフィール、取り込んだ進捗とスナップショット、学習日、プロフィールに紐づくセッションを削除しますか。コードの再利用防止と支払い確認のため、削除証明は90日間、最小限の利用権・支払い監査記録は保持されます。この操作は取り消せません。" : "暗号化プロフィール、取り込んだ進捗とスナップショット、学習日、プロフィールに紐づくセッションを削除しますか。Academy の本人情報は残り、削除証明は90日間だけ保持されます。この操作は取り消せません。"
       ));
       if (!confirmation) return;
       button2.disabled = true;

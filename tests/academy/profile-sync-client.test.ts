@@ -225,6 +225,25 @@ describe('Academy encrypted profile sync client', () => {
         expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile')).toHaveLength(1);
     });
 
+    it('scrubs a failed Google callback without claiming that the account changed', async () => {
+        let currentUrl = 'https://yomureader.com/academy/?qa-run=stream-7&account=failed#journal';
+        const replaceUrl = vi.fn((url: string) => {
+            currentUrl = new URL(url, currentUrl).href;
+        });
+        const client = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: fakeApi({ profileStatus: 401 }),
+            currentUrl: () => currentUrl,
+            replaceUrl,
+        });
+
+        expect(await client.completeGoogleReturn()).toBe(true);
+        expect(client.status.phase).toBe('sign-in');
+        expect(client.status.error).toContain('No account data was changed');
+        expect(replaceUrl).toHaveBeenCalledWith('/academy/?qa-run=stream-7#journal');
+        expect(currentUrl).not.toContain('account=');
+    });
+
     it('does not touch browser history or account endpoints outside a Google return', async () => {
         const request = fakeApi();
         const replaceUrl = vi.fn();
@@ -584,7 +603,9 @@ describe('Academy encrypted profile sync client', () => {
     });
 
     it('exports the selected profile and sends an explicit delete confirmation', async () => {
-        const request = fakeApi({ exportBody: { schemaVersion: 1, eventPage: { events: [] } } });
+        const request = fakeApi({
+            exportBody: { schemaVersion: 2, eventPage: { events: [], nextCursor: 0, hasMore: false, exportCursor: null } },
+        });
         const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
         await client.connect();
 
@@ -593,6 +614,35 @@ describe('Academy encrypted profile sync client', () => {
         const deletion = request.mock.calls.find(([path, init]) => path === '/academy/api/profile' && init?.method === 'DELETE');
         expect(JSON.parse(String(deletion?.[1]?.body))).toEqual({ confirmation: 'delete-profile' });
         expect(client.status.phase).toBe('local');
+    });
+
+    it('assembles every bounded export page into one complete download', async () => {
+        const first = await encryptedRemoteEnvelope(event('export-page-one', 'One'));
+        const second = await encryptedRemoteEnvelope(event('export-page-two', 'Two'));
+        const continuation = `v1.${'a'.repeat(43)}.7.${'b'.repeat(64)}`;
+        const request = fakeApi({
+            exportPages: {
+                start: {
+                    schemaVersion: 2,
+                    profile: profile(),
+                    eventPage: { events: [{ ...first, cursor: 7 }], nextCursor: 7, hasMore: true, exportCursor: continuation },
+                },
+                [continuation]: {
+                    schemaVersion: 2,
+                    eventPage: { events: [{ ...second, cursor: 9 }], nextCursor: 9, hasMore: false, exportCursor: null },
+                },
+            },
+        });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+        await client.connect();
+
+        const exported = JSON.parse(await readBlobText(await client.exportData())) as {
+            eventPage: { events: Array<{ id: string }>; nextCursor: number; hasMore: boolean };
+        };
+        expect(exported.eventPage.events.map(item => item.id)).toEqual([first.id, second.id]);
+        expect(exported.eventPage).toMatchObject({ nextCursor: 9, hasMore: false });
+        expect(request.mock.calls.some(([path]) => path === '/academy/api/profile/export')).toBe(true);
+        expect(request.mock.calls.some(([path]) => path === `/academy/api/profile/export?cursor=${encodeURIComponent(continuation)}`)).toBe(true);
     });
 
     it('keeps source and target pairing controls keyboard-ready in the Journal', async () => {
@@ -639,6 +689,8 @@ describe('Academy encrypted profile sync client', () => {
         expect(target.querySelector(`label[for="${input.id}"]`)?.textContent).toContain('One-time pairing code');
         expect(input.autocomplete).toBe('one-time-code');
         expect(target.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('device that already has your history');
+        expect(target.textContent).toContain('Delete cloud learning data');
+        expect(target.textContent).toContain('Delete account');
         input.value = PAIRING_CODE;
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await Promise.resolve();
@@ -829,6 +881,7 @@ function fakeApi(options: {
     pairingPut?: (envelope: { keyVersion: number; salt: string; nonce: string; ciphertext: string }) => void;
     pull?: unknown[];
     exportBody?: unknown;
+    exportPages?: Readonly<Record<string, unknown>>;
     profileStatus?: number;
     profileError?: string;
     redeemStatus?: number;
@@ -886,7 +939,12 @@ function fakeApi(options: {
             return response({ accepted, inserted: accepted, duplicates: 0, conflicts }, conflicts.length ? 409 : 200);
         }
         if (url.startsWith('/academy/api/srs/pull')) return response({ events: options.pull ?? [], nextCursor: options.pull?.length ? 1 : 0, hasMore: false });
-        if (url.endsWith('/export')) return response(options.exportBody ?? { schemaVersion: 1 });
+        if (url.endsWith('/export') || url.includes('/export?')) {
+            const cursor = new URL(url, 'https://academy.test').searchParams.get('cursor') ?? 'start';
+            return response(options.exportPages?.[cursor]
+                ?? options.exportBody
+                ?? { schemaVersion: 2, eventPage: { events: [], nextCursor: 0, hasMore: false, exportCursor: null } });
+        }
         if (url === '/academy/api/logout' || url === '/academy/api/profile') return response({ deleted: true });
         return response({ error: `Unhandled ${url}` }, 404);
     });

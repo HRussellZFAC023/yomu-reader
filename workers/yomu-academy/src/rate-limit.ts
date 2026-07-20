@@ -37,6 +37,11 @@ export async function clientSubject(request: Request, env: Env): Promise<string>
     return hmacSha256Hex(env.ACADEMY_RATE_HMAC_KEY, `subject:${ip}`);
 }
 
+/** Isolate authenticated budgets without storing the public session id. */
+export async function authenticatedSessionSubject(env: Env, sessionPublicId: string): Promise<string> {
+    return hmacSha256Hex(env.ACADEMY_RATE_HMAC_KEY, `authenticated-session:${sessionPublicId}`);
+}
+
 /**
  * Fixed-window counter in D1. The upsert is a single atomic statement, so
  * concurrent requests cannot lose increments. Throws 429 when over budget.

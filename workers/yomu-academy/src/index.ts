@@ -8,12 +8,18 @@ import { handleCreateRecoverySession, handleCreateSession, handleGetSession, han
 import { handleClaim, handleCreateCheckout, handleStripeWebhook } from './stripe';
 import { handleGetAccount, handlePatchAccount } from './accounts';
 import { handleAdminClass, handleAdminRole, handleClassRoute } from './classes';
-import { handleGoogleCallback, handleGoogleStart } from './oauth';
+import {
+    googleCallbackFailureCategory,
+    handleGoogleCallback,
+    handleGoogleCallbackFailure,
+    handleGoogleStart,
+} from './oauth';
 import { handleProgressSync } from './progress';
 import { handleGetProfile, handleInitializeProfileKey } from './profiles';
 import { handleClaimPairing, handleCompletePairing, handleCreatePairing, pruneExpiredPairings } from './pairings';
 import { handleSyncPull, handleSyncPush } from './sync';
-import { handleAccountExport, handleDeleteAccount, handleDeleteProfile, handleProfileExport } from './lifecycle';
+import { handleDeleteAccount, handleDeleteProfile, pruneLifecycleRecords } from './lifecycle';
+import { handleAccountExport, handleProfileExport } from './exports';
 import { handleGetEntitlement, handleRedeemEntitlement } from './entitlements';
 import { handleAnswerCheck } from './answer-check';
 
@@ -36,6 +42,7 @@ export default {
             switch (route) {
                 case 'POST /academy/api/session':
                     ctx.waitUntil(pruneRateWindows(env, clock).catch(() => undefined));
+                    ctx.waitUntil(pruneLifecycleRecords(env, clock).catch(() => undefined));
                     return await handleCreateSession(request, env, clock);
                 case 'GET /academy/api/session':
                     return await handleGetSession(request, env, clock);
@@ -58,7 +65,12 @@ export default {
                 case 'GET /academy/api/auth/google/start':
                     return await handleGoogleStart(request, env, clock);
                 case 'GET /academy/api/auth/google/callback':
-                    return await handleGoogleCallback(request, env, clock);
+                    try {
+                        return await handleGoogleCallback(request, env, clock);
+                    } catch (error) {
+                        console.warn(`academy_google_callback_failed:${googleCallbackFailureCategory(error)}`);
+                        return handleGoogleCallbackFailure();
+                    }
                 case 'POST /academy/api/auth/google/recovery':
                     return await handleCreateRecoverySession(request, env, clock);
                 case 'GET /academy/api/account':
@@ -96,7 +108,12 @@ export default {
                 case 'POST /academy/api/answer-check':
                     return await handleAnswerCheck(request, env, clock);
                 case 'GET /academy/api/health':
-                    return jsonResponse({ ok: true });
+                    return jsonResponse({
+                        ok: true,
+                        apiBase: `${env.ACADEMY_ORIGIN}/academy/api`,
+                        gitCommit: env.ACADEMY_BUILD_COMMIT ?? null,
+                        workerVersionId: env.CF_VERSION_METADATA?.id ?? null,
+                    });
                 default:
                     throw new HttpError(404, 'Not found.');
             }

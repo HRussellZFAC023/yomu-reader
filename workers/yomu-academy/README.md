@@ -96,7 +96,7 @@ the `__Host-academy_session` cookie.
 | `POST` | `/academy/api/session/resume` | Rotate a resumable session cookie |
 | `POST` | `/academy/api/auth/google/recovery` | Create an auth-only recovery session from `{}` |
 | `GET` | `/academy/api/auth/google/start` | Start state + nonce + S256 PKCE OIDC for the current session |
-| `GET` | `/academy/api/auth/google/callback` | Verify one-time state and signed Google ID token, then link |
+| `GET` | `/academy/api/auth/google/callback` | Verify one-time state and signed Google ID token, then link; every success or failure returns to an allowlisted, code-free Academy URL |
 | `GET` | `/academy/api/profile` | Authorized profile id, device id, key version |
 | `POST` | `/academy/api/profile/key` | Atomically pin `{ "keyCommitment": "..." }` for first-device initialization |
 | `POST` | `/academy/api/pairings` | Create a 100-bit, ten-minute, one-time ticket |
@@ -104,10 +104,10 @@ the `__Host-academy_session` cookie.
 | `POST` | `/academy/api/pairings/claim` | Consume the ticket from a fresh or same-profile device |
 | `POST` | `/academy/api/srs/push` | Append up to 50 encrypted event envelopes |
 | `GET` | `/academy/api/srs/pull?cursor=0&limit=200` | Pull ordered envelopes; limit max 200 |
-| `GET` | `/academy/api/profile/export` | Profile metadata plus paginated encrypted events |
-| `DELETE` | `/academy/api/profile` | Delete sync/profile data with `{"confirmation":"delete-profile"}` |
-| `GET` | `/academy/api/account/export` | Account, aggregate, devices, and event page |
-| `DELETE` | `/academy/api/account` | Delete account and all data with `{"confirmation":"delete-account"}` |
+| `GET` | `/academy/api/profile/export[?cursor=...]` | Start or continue a session-bound snapshot export |
+| `DELETE` | `/academy/api/profile` | Delete sync/profile data with `{"confirmation":"delete-profile"}` and return a minimized deletion receipt |
+| `GET` | `/academy/api/account/export[?cursor=...]` | Start or continue an account/session-bound snapshot export |
+| `DELETE` | `/academy/api/account` | Delete learner identity/profile data with `{"confirmation":"delete-account"}`; retain the declared audit records below |
 | `GET` | `/academy/api/entitlement` | Current Google account's safe paid-entitlement projection |
 | `POST` | `/academy/api/entitlement/redeem` | Atomically bind `{ "code": "..." }` to the signed-in account |
 
@@ -143,12 +143,29 @@ the event envelope below. Push bodies are limited to 256 KiB, 50 events, and
 16 KiB of decoded ciphertext per event. Pairing envelope/claim, event, and
 deletion payloads reject unknown fields.
 
-Profile export returns `{ schemaVersion, exportedAt, profile, devices,
-eventPage }`. Account export adds the safe account view, aggregate progress,
-UTC study days, and `paidEntitlement` with amount/status/timestamps only. It
-never exports Stripe session ids, purchase ids, claim hashes, or invite
-hashes. Encrypted events use the event page's `cursor`, `nextCursor`, and
-`hasMore` contract.
+The first profile export response returns `{ schemaVersion, exportedAt,
+snapshotSemantics, profile, devices, eventPage }`. Account export adds the safe
+account view, aggregate progress, UTC study days, and `paidEntitlement` with
+amount/status/timestamps only. It never exports Stripe session ids, purchase
+ids, claim hashes, or invite hashes. The Worker freezes the profile's highest
+event sequence at export start. Each 200-row page returns a signed,
+single-use `exportCursor` tied to the authenticated session, profile, scope,
+and a 15-minute server-side traversal. Replays, tampering, expiry, and use by
+another session fail closed. Events written after export start are deliberately
+excluded from that snapshot. The shipped Academy client follows the protocol
+until `hasMore` is false, so traversal size is not capped by the request-rate
+budget and exports beyond 24,000 records terminate without gaps or duplicates.
+
+Profile and account deletion return `{ deleted, scope, deletionReceipt }`.
+The receipt contains only a random deletion id, scope, timestamp, 90-day
+retention deadline, and counts of removed profiles, devices, and synced
+records. It retains no account, profile, provider, session, device, or event
+identifier and is pruned after 90 days. A profile receipt allows a corrupt
+client-held key/profile to be reset while retaining the Google account. An
+account receipt confirms removal of the Academy identity, encrypted profile,
+imported progress/snapshots, study days, and profile-bound sessions. Permanent
+minimal paid-redemption and payment-audit records remain so one-time codes
+cannot become transferable and payment/fraud disputes remain auditable.
 
 ## Paid entitlement protocol
 
@@ -167,10 +184,12 @@ hashes. Encrypted events use the event page's `cursor`, `nextCursor`, and
    payment returns `202`; fulfilled payment returns the same code on retries.
    Reading the claim and creating paid auth sessions do not consume it.
 4. Redemption happens only after verified Google OIDC, or through the explicit
-   redeem route from an already signed-in session. One conditional D1 update
-   sets `redeemed_by_account_id` and `redeemed_at`; a partial unique index is
-   the concurrency backstop. Same-account retries are idempotent. Conflicts and
-   interrupted/failed OIDC leave an unredeemed purchase untouched.
+   redeem route from an already signed-in session. OIDC account creation,
+   redemption, encrypted-profile attachment, session/membership binding, and
+   recovery binding share one D1 transaction with a must-succeed final
+   invariant. A profile conflict or injected later failure rolls the entire
+   transaction back. A partial unique index remains the concurrency backstop.
+   Same-account retries are idempotent.
 5. Account deletion revokes the paid invite, clears the Checkout session link,
    nulls the account foreign key, and retains `redeemed_at` as a non-identifying
    tombstone. The code cannot be recovered, transferred, or redeemed again.
@@ -263,13 +282,16 @@ after pairing or account linking, reset the pull cursor to zero.
   rejects extra plaintext fields. Any future server-side provider bridge needs
   a separately reviewed AES-GCM secret-envelope design backed by a Worker
   secret; plaintext D1 storage is forbidden.
-- Exported event pages are bounded and cursor-paginated. Exports never include
-  token hashes, OAuth-flow state, pairing rows, or internal D1 ids.
-- Profile deletion removes every paired session (and cascading OAuth flow),
-  devices, encrypted events, pairings, and account aggregate learning data,
-  but retains account identity, entitlement, and class membership. Account
-  deletion removes identity and dependent learning data while retaining only
-  the non-identifying paid-redemption tombstone.
+- Exported event pages are bounded and use signed single-use traversal cursors.
+  Exports never include token hashes, OAuth-flow state, pairing rows, or
+  internal D1 ids.
+- Profile deletion removes every profile-bound session (and cascading OAuth
+  flow/export traversal), device, encrypted event, pairing, imported progress
+  snapshot, and study day, but retains the Academy identity, entitlement, and
+  class membership. Account deletion also removes identity and memberships.
+  A non-identifying deletion receipt remains for 90 days; permanent minimal
+  paid-redemption and payment-audit records remain for code-reuse prevention
+  and payment/fraud audit.
 
 ## Rate limits
 
@@ -291,7 +313,11 @@ behind a shared school or workplace NAT keep independent limits.
 | Pairing claim | 10 per 10 minutes |
 | Event push | 120 per 10 minutes |
 | Event pull | 300 per 10 minutes |
-| Export pages | 120 per hour |
+| Export starts (per authenticated session) | 120 per hour |
+
+Signed continuation pages spend the server-owned traversal established by one
+export start and do not consume the export-start counter. This keeps a large
+export finite while learners sharing a school/workplace NAT remain isolated.
 | Profile/account deletion attempts | 5 per hour |
 
 ## D1 migrations
@@ -312,3 +338,31 @@ behind a shared school or workplace NAT keep independent limits.
   every invite requires an authenticated account.
 - `0009_session_rotation.sql`: indexes the HMACed family prefix used for
   race-safe rotation and family-wide logout; legacy cookies upgrade on resume.
+- `0010_payment_ingress.sql`: idempotent verified-provider event, charge,
+  subject, and entitlement-projection tables for the private ingress.
+- `0011_permanent_donation_access.sql`: normalized donation totals, immutable
+  provider events, and durable permanent-access projections.
+- `0012_deletion_receipts.sql`: non-identifying profile/account deletion
+  receipts with only scope, time, and aggregate removed-row counts.
+- `0013_export_traversals_and_retention.sql`: session-bound snapshot export
+  cursors plus the 90-day deletion-receipt pruning deadline.
+
+## Account lifecycle proof
+
+The deterministic proof uses the real Worker router, Web Crypto, and an
+in-memory SQLite D1 adapter which automatically applies every migration. It
+then reapplies all migrations in isolated Wrangler/Miniflare storage and
+smokes recovery-session persistence plus Google-start PKCE through the bundled
+Worker entrypoint:
+
+```bash
+npm run academy:account-lifecycle:proof:local
+```
+
+The credential-gated deployed proof is documented in
+`docs/academy/evidence/account-lifecycle/README.md`. It uses two visible Chrome
+profiles and real Google callbacks, queries remote D1 through Wrangler, and
+deletes a dedicated test account. It exits nonzero when configuration is
+missing, a callback is blocked, remote migration state is stale, or any live
+assertion is unobserved. Local proof must never be relabelled as deployment
+proof.

@@ -175,10 +175,14 @@ export class AcademySyncClient {
     /** Rehydrate account state after the Worker returns from Google OIDC. */
     async completeGoogleReturn(): Promise<boolean> {
         const url = new URL(this.currentUrl());
-        if (url.searchParams.get('account') !== 'linked') return false;
+        const outcome = url.searchParams.get('account');
+        if (outcome !== 'linked' && outcome !== 'failed') return false;
         url.searchParams.delete('account');
         this.replaceUrl(`${url.pathname}${url.search}${url.hash}`);
         await this.connect();
+        if (outcome === 'failed') {
+            this.error = 'Google sign-in could not be completed. No account data was changed.';
+        }
         return true;
     }
 
@@ -347,9 +351,32 @@ export class AcademySyncClient {
     async exportData(): Promise<Blob> {
         await this.connect();
         const endpoint = this.account ? '/academy/api/account/export' : '/academy/api/profile/export';
-        const response = await this.authorizedRequest(endpoint, { credentials: 'same-origin' });
-        if (!response.ok) throw await responseError(response);
-        return response.blob();
+        let cursor: string | null = null;
+        let numericCursor = 0;
+        let exported: Record<string, unknown> | null = null;
+        const events: unknown[] = [];
+        while (true) {
+            const requestPath = cursor === null ? endpoint : `${endpoint}?cursor=${encodeURIComponent(cursor)}`;
+            const response = await this.authorizedRequest(requestPath, { credentials: 'same-origin' });
+            if (!response.ok) throw await responseError(response);
+            const body: unknown = await response.json();
+            if (!isRecord(body)) throw new Error('Academy export response was malformed.');
+            const page = parseAcademyExportPage(body.eventPage);
+            exported ??= body;
+            events.push(...page.events);
+            if (!page.hasMore) {
+                exported = {
+                    ...exported,
+                    eventPage: { events, nextCursor: page.nextCursor, hasMore: false, exportCursor: null },
+                };
+                return new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+            }
+            if (page.nextCursor <= numericCursor || !page.exportCursor) {
+                throw new Error('Academy export pagination did not advance.');
+            }
+            numericCursor = page.nextCursor;
+            cursor = page.exportCursor;
+        }
     }
 
     async updateClassBoardProfile(update: AcademyClassBoardProfileUpdate): Promise<AcademyAccountView> {
@@ -781,6 +808,20 @@ async function responseError(response: Response): Promise<AcademyRequestError> {
         if (typeof body.error === 'string') message = body.error;
     } catch { /* keep the safe generic message */ }
     return new AcademyRequestError(response.status, message);
+}
+
+function parseAcademyExportPage(value: unknown): ReturnType<typeof parseAcademySyncPage> & { exportCursor: string | null } {
+    const record = isRecord(value) ? value : {};
+    const page = parseAcademySyncPage(value);
+    const exportCursor = record.exportCursor;
+    if (page.hasMore) {
+        if (typeof exportCursor !== 'string' || exportCursor.length < 80 || exportCursor.length > 256) {
+            throw new TypeError('Academy export continuation cursor is invalid.');
+        }
+        return { ...page, exportCursor };
+    }
+    if (exportCursor !== null) throw new TypeError('Completed Academy export retained a cursor.');
+    return { ...page, exportCursor: null };
 }
 
 function safeStorage(): AcademySyncStorage | null {

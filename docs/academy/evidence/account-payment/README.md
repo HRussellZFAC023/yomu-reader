@@ -34,3 +34,26 @@ The browser app is the only webhook-claim poller. The harness paces its requests
 The runner never forges Google identity tokens. OIDC start, account-gated UI, recovery-session creation, and session resume can be proven automatically. A real Google callback, account-bound entitlement, known-account recovery, and unknown-subject rejection remain `blocked` unless a future provider-assisted harness completes those real provider actions. Local Worker tests are useful corroboration but are not relabelled as live provider proof.
 
 Screenshots assert the account/recovery state at exactly `1440x900` and `390x844`. `live-proof-results.json` contains only redacted details and a pass/fail/blocked summary.
+
+## Current proof truth
+
+The checked-in 2026-07-19 run records 17 passes, 0 failures, 5 blocked steps,
+and `complete: false`. It is valid evidence for a deployed Stripe test checkout,
+signed webhook fulfillment, claim retry, URL scrubbing, account gating, and
+session resume on that deployed revision. It is not proof of a live Google
+callback, a duplicate provider redelivery, a deployed admin-created class code,
+or an owner-approved production payment.
+
+Patreon membership ordering/revocation and Ko-fi charge-to-entitlement mapping
+currently have deterministic Worker/D1 proof only:
+
+```bash
+npm run academy:backend-lifecycle:proof:local
+```
+
+No live Patreon or Ko-fi account/subscription has been connected, and no local
+fixture may be relabelled as subscription proof. The supervised real-Google,
+two-device, export, recovery, and deletion journey is documented in the
+[PLAT-001 lifecycle proof](../account-lifecycle/README.md); it also remains open
+until its credential-gated live command succeeds against the reviewed deployed
+revision.

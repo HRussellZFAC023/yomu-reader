@@ -1,6 +1,4 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import worker from '../../workers/yomu-academy/src/index';
 import { hmacSha256Hex } from '../../workers/yomu-academy/src/crypto';
 import { inviteCodeHash } from '../../workers/yomu-academy/src/invites';
@@ -50,9 +48,6 @@ describe('Academy Worker sessions', () => {
     it('applies the family-index migration and uses it for the logout lookup', () => {
         const academy = createSqliteAcademy();
         try {
-            academy.db.rows(readFileSync(resolve(
-                process.cwd(), 'workers/yomu-academy/migrations/0009_session_rotation.sql',
-            ), 'utf8'));
             expect(academy.db.rows<{ name: string }>(
                 "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_sessions_token_family'",
             )).toEqual([{ name: 'idx_sessions_token_family' }]);

@@ -4,31 +4,32 @@ import { handleClassRoute } from '../../workers/yomu-academy/src/classes';
 import { inviteCodeHash } from '../../workers/yomu-academy/src/invites';
 import { handleProgressSync } from '../../workers/yomu-academy/src/progress';
 import { activeSession, handleCreateSession, handleGetSession } from '../../workers/yomu-academy/src/sessions';
-import { createFakeAcademy, jsonRequest } from './helpers/fake-academy-env';
+import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
 const now = Date.UTC(2026, 6, 12, 12);
 
 async function enrolled(classId: string | null = 'ucl-2026') {
-    const academy = createFakeAcademy();
-    if (classId) academy.db.classes.push({ id: classId, name: 'UCL Japanese 2026', created_at: now, archived_at: null });
-    academy.db.invites.push({
-        id: 'invite-ucl',
-        code_hash: await inviteCodeHash(academy.env, 'OPEN2026'),
-        uses_remaining: 20,
-        kind: 'seed',
-        created_at: now - 1000,
-        expires_at: null,
-        revoked_at: null,
-        purchase_id: null,
-        account_required: 1,
-        class_id: classId,
-    });
+    const academy = createSqliteAcademy();
+    if (classId) {
+        await academy.env.ACADEMY_DB.prepare(
+            'INSERT INTO classes (id, name, created_at) VALUES (?1, ?2, ?3)',
+        ).bind(classId, 'UCL Japanese 2026', now).run();
+    }
+    await academy.env.ACADEMY_DB.prepare(
+        'INSERT INTO invites '
+        + '(id, code_hash, uses_remaining, kind, created_at, expires_at, revoked_at, purchase_id, account_required, class_id) '
+        + "VALUES ('invite-ucl', ?1, 20, 'seed', ?2, NULL, NULL, NULL, 1, ?3)",
+    ).bind(await inviteCodeHash(academy.env, 'OPEN2026'), now - 1000, classId).run();
     const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, () => now);
     const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0];
     const request = new Request('https://yomureader.com/academy/api/session', { headers: { cookie } });
     const session = await activeSession(request, academy.env, now);
     if (!session) throw new Error('fixture session missing');
     return { academy, cookie, session };
+}
+
+function jsonRequest(path: string, body: unknown): Request {
+    return mutation(path, 'POST', '', body);
 }
 
 function get(path: string, cookie: string): Request {
@@ -59,7 +60,7 @@ describe('Academy optional accounts', () => {
         const { academy, cookie } = await enrolled();
         expect((await handleGetSession(get('/academy/api/session', cookie), academy.env, () => now)).status).toBe(200);
         await expect(handleGetAccount(get('/academy/api/account', cookie), academy.env, () => now)).rejects.toMatchObject({ status: 401 });
-        expect(academy.db.accounts).toHaveLength(0);
+        expect(academy.db.rows('SELECT id FROM accounts')).toHaveLength(0);
     });
 
     it('creates one private account, preserves its discriminator, and exposes only Academy identity', async () => {
@@ -67,19 +68,19 @@ describe('Academy optional accounts', () => {
         expect(fixture.account.display_name).toBe('Learner');
         expect(fixture.account.discriminator).toMatch(/^\d{6}$/);
         expect(fixture.account.board_visible).toBe(0);
-        expect(fixture.academy.db.memberships).toHaveLength(1);
+        expect(fixture.academy.db.rows('SELECT class_id FROM class_memberships')).toHaveLength(1);
 
         const again = await linkGoogleSubject(fixture.academy.env, fixture.session, 'private-google-sub', now + 1);
         expect(again.id).toBe(fixture.account.id);
         expect(again.discriminator).toBe(fixture.account.discriminator);
-        expect(fixture.academy.db.accounts).toHaveLength(1);
+        expect(fixture.academy.db.rows('SELECT id FROM accounts')).toHaveLength(1);
         const refreshedSession = await activeSession(
             get('/academy/api/session', fixture.cookie), fixture.academy.env, now + 1,
         );
         if (!refreshedSession) throw new Error('linked session missing');
         await expect(linkGoogleSubject(fixture.academy.env, refreshedSession, 'different-google-sub', now + 2))
             .rejects.toMatchObject({ status: 409 });
-        expect(fixture.academy.db.accounts).toHaveLength(1);
+        expect(fixture.academy.db.rows('SELECT id FROM accounts')).toHaveLength(1);
 
         const patched = await handlePatchAccount(mutation('/academy/api/account', 'PATCH', fixture.cookie, {
             displayName: '  Aakash  ',
@@ -111,10 +112,12 @@ describe('aggregate progress merge and class board privacy', () => {
         const second = await handleProgressSync(mutation('/academy/api/progress/sync', 'POST', fixture.cookie, body), fixture.academy.env, () => now + 1);
         expect(await first.json()).toEqual({ merged: true });
         expect(await second.json()).toEqual({ merged: false });
-        expect(fixture.academy.db.progressImports.size).toBe(1);
-        expect(fixture.academy.db.studyDays.size).toBe(3);
-        expect(fixture.academy.db.progress.get(fixture.account.id)).toMatchObject({ known_word_count: 420, reviews_completed: 31 });
-        expect(JSON.stringify(fixture.academy.db)).not.toContain('private-google-sub');
+        expect(fixture.academy.db.rows('SELECT mutation_id FROM progress_imports')).toHaveLength(1);
+        expect(fixture.academy.db.rows('SELECT study_date FROM study_days')).toHaveLength(3);
+        expect(fixture.academy.db.rows(
+            'SELECT known_word_count, reviews_completed FROM progress_snapshots WHERE account_id = ?', fixture.account.id,
+        )[0]).toMatchObject({ known_word_count: 420, reviews_completed: 31 });
+        expect(JSON.stringify(fixture.academy.db.rows('SELECT * FROM accounts'))).not.toContain('private-google-sub');
     });
 
     it('requires membership, defaults off, and returns only opted-in aggregate board fields', async () => {
@@ -147,8 +150,9 @@ describe('aggregate progress merge and class board privacy', () => {
 
     it('allows Sensei moderation but never role grants through the class route', async () => {
         const fixture = await linked();
-        const membership = fixture.academy.db.memberships[0];
-        membership.role = 'sensei';
+        fixture.academy.db.database.prepare(
+            "UPDATE class_memberships SET role = 'sensei' WHERE class_id = 'ucl-2026' AND account_id = ?1",
+        ).run(fixture.account.id);
 
         const learner = {
             ...fixture.account,
@@ -163,14 +167,31 @@ describe('aggregate progress merge and class board privacy', () => {
             updated_at: now,
             recovery_bound_at: now,
         };
-        fixture.academy.db.accounts.push(learner);
-        fixture.academy.db.memberships.push({ class_id: 'ucl-2026', account_id: learner.id, role: 'learner', board_hidden: 0, joined_at: now });
+        fixture.academy.db.database.prepare(
+            'INSERT INTO accounts '
+            + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, created_at, updated_at, recovery_bound_at) '
+            + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, 0, ?8, ?8, ?8)',
+        ).run(
+            learner.id,
+            learner.public_id,
+            learner.google_sub_hash,
+            learner.display_name,
+            learner.name_chosen,
+            learner.discriminator,
+            learner.board_visible,
+            now,
+        );
+        fixture.academy.db.database.prepare(
+            "INSERT INTO class_memberships (class_id, account_id, role, board_hidden, joined_at) VALUES ('ucl-2026', ?1, 'learner', 0, ?2)",
+        ).run(learner.id, now);
 
         const response = await handleClassRoute(mutation(
             `/academy/api/classes/ucl-2026/members/${learner.public_id}/moderation`,
             'PATCH', fixture.cookie, { hidden: true, role: 'sensei' },
         ), fixture.academy.env, () => now);
         expect(response.status).toBe(200);
-        expect(fixture.academy.db.memberships.at(-1)).toMatchObject({ board_hidden: 1, role: 'learner' });
+        expect(fixture.academy.db.rows(
+            'SELECT board_hidden, role FROM class_memberships WHERE account_id = ?', learner.id,
+        )[0]).toMatchObject({ board_hidden: 1, role: 'learner' });
     });
 });
