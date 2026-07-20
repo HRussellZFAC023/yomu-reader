@@ -12,7 +12,7 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.4b7aa2b22744.user.js#sha256=S3qisidEHKN73+IXvtlElkDr2+tN716qRYR2cY+UeKw=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.d469922ac6b3.user.js#sha256=1GmSKsaz0zAV48302vR4UzUlfdQ6vQEbCI2BJwKDkL8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.303b7fb55c8e.user.js#sha256=MDt/tVyO6lQaSLbAUSf2Ex+k2SHEXO+lP6eRqmqArwc=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f4855b2333cf.user.js#sha256=9IVbIzPPRxoO9k5/Z/3+57g0CM0QZCvFR2TnEDXNbmA=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.8e7f76fdb2a0.user.js#sha256=jn92/bKg5sVhzfpcJ9iw3/yTXm9xz89cMJAIAB59exk=

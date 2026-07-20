@@ -161,9 +161,9 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 ## Wave 6 — Harness & tests
 
-- **NB-50 [DONE 2026-07-17] smoke triage** — 69 ungated `smoke:`/`e2e:`/`qa:`/`screenshots:`
+- **NB-50 [DONE 2026-07-20] smoke triage** — 70 ungated `smoke:`/`e2e:`/`qa:`/`screenshots:`
   scripts triaged against ci.yml / check / smoke:release / smoke:p0 / smoke:layout-regressions.
-  Verdicts: **21 (a)** headless fixture guards → new `smoke:nightly` aggregate
+  Verdicts: **22 (a)** headless fixture guards → new `smoke:nightly` aggregate
   (`scripts/run-nightly-smokes.mjs`) run by `.github/workflows/nightly.yml` (cron + dispatch);
   **38 (b)** live/server/display/perf/enrichment harnesses → `scripts/manual/` + renamed
   `manual:*` + `scripts/manual/README.md`; **10 (c)** redundant per-bug smokes superseded by
@@ -184,8 +184,8 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 ### NB-50 triage table (2026-07-17)
 
-Verdict counts: **21 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,107 LOC deleted,
-24,721 LOC moved to `scripts/manual/`. `smoke:nightly` verified locally 21/21 (runtimes below).
+Verdict counts: **22 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,107 LOC deleted,
+24,721 LOC moved to `scripts/manual/`. `smoke:nightly` verified locally 22/22 (runtimes below).
 
 | script | verdict | reason |
 |---|---|---|
@@ -224,6 +224,7 @@ Verdict counts: **21 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,
 | `smoke:keyless-jiten-detail -> manual:keyless-jiten-detail` | (b) manual | Needs live keyless jiten.moe detail lookups. |
 | `smoke:keyless-popover -> manual:keyless-popover` | (b) manual | Needs live keyless jiten.moe enrichment to fill the popover. |
 | `smoke:late-content` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:local-dictionary-upgrade` | (a) nightly | Passed headless in Firefox; hermetic local-dictionary revision and cross-origin replication guard. Wired into smoke:nightly; the nightly job installs Firefox explicitly. |
 | `smoke:listen-mode` | (c) delete | Redundant/superseded; covered by tests/reader/new-tab-listen.test.ts. Listen-pick behavior is unit-covered (new-tab-listen.test.ts, 100+ assertions). |
 | `smoke:live-browser -> manual:live-browser` | (b) manual | Loads the deployed hosted reader + real jisho/cloudfront audio. |
 | `smoke:live-furigana-layout -> manual:live-furigana-layout` | (b) manual | Injects into real ecommerce pages. |
@@ -259,9 +260,9 @@ Verdict counts: **21 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,
 | `smoke:youtube-sidebar-layout -> manual:youtube-sidebar-layout` | (b) manual | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage. |
 | `smoke:youtube-sidebar-resize-profile -> manual:youtube-sidebar-resize-profile` | (b) manual | Machine-dependent resize performance profiler (persistent profile). |
 
-`smoke:nightly` verified-passing runtimes (macOS, chrome channel):
+`smoke:nightly` verified-passing runtimes (macOS; Chrome channel except the Firefox-specific local-dictionary guard):
 
-PASS  10.1s smoke:anki | 1.5s smoke:anki-template | 17.0s smoke:bookwalker-cty2-scroll | 14.7s smoke:bookwalker-tap-passthrough | 10.5s smoke:bookwalker-tap-retry | 37.3s smoke:bookwalker-modes-ocr | 47.9s smoke:definition-sources | 2.6s smoke:enrichment-concurrency | 3.2s smoke:grading-provider | 5.6s smoke:hosted-settings | 3.3s smoke:jiten-keyless-definition | 10.7s smoke:late-content | 5.5s smoke:mobile-docs | 34.7s smoke:ocr-provider-matrix | 5.1s smoke:onboarding-popover | 2.8s smoke:pitch-underline | 1.3s smoke:popover-headword-furigana | 14.4s smoke:study-personas | 10.2s smoke:subtitle-network | 1.8s smoke:transcript-drawer | 5.1s smoke:youtube-dom-safe
+PASS  10.1s smoke:anki | 1.5s smoke:anki-template | 17.0s smoke:bookwalker-cty2-scroll | 14.7s smoke:bookwalker-tap-passthrough | 10.5s smoke:bookwalker-tap-retry | 37.3s smoke:bookwalker-modes-ocr | 47.9s smoke:definition-sources | 2.6s smoke:enrichment-concurrency | 3.2s smoke:grading-provider | 5.6s smoke:hosted-settings | 3.3s smoke:jiten-keyless-definition | 10.7s smoke:late-content | 12.9s smoke:local-dictionary-upgrade (Firefox) | 5.5s smoke:mobile-docs | 34.7s smoke:ocr-provider-matrix | 5.1s smoke:onboarding-popover | 2.8s smoke:pitch-underline | 1.3s smoke:popover-headword-furigana | 14.4s smoke:study-personas | 10.2s smoke:subtitle-network | 1.8s smoke:transcript-drawer | 5.1s smoke:youtube-dom-safe
 
 
 ## Wave 7 — Docs & truth

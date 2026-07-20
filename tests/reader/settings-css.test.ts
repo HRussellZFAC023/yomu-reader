@@ -40,26 +40,17 @@ describe('settings CSS', () => {
         expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
     });
 
-    it('keeps passive page annotations layout-neutral until hover or focus', () => {
+    it('keeps passive page annotations layout-neutral and honours configured highlights at rest', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
 
-        // Passive words stay layout-neutral but KEEP their decoration sources;
-        // only chrome contexts (buttons/menus/nav/marked compact controls) go
-        // bare until hover. A blanket strip here regressed pitch underlines on
-        // link-wrapped prose into hover-only flicker (1.5.4).
+        // Passive words stay layout-neutral but keep their decoration sources.
+        // The shared highlight rule deliberately includes passive chrome so the
+        // user's configured highlight mode remains visible at rest.
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit; cursor: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word { white-space: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-atomic="true"]) .jpdb-reader-passive-word { white-space: nowrap; }');
-        // The trailing :not() carves YouTube's filter chips, live chat, channel
-        // headers, and engagement panels out of bare-until-hover: their
-        // Japanese is reading material.
-        // Chrome bare-until-hover strips only the highlight (background) paint;
-        // text colour honours the contrast-computed accessible colour so ruby
-        // base glyphs stay legible (Shorts channel pill "floating readings" fix),
-        // and the underline/decoration channels stay visible at rest so pitch
-        // underlines on chrome (Shorts subscribe button) survive like subtitles.
-        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) { --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none;');
-        expect(normalizedReaderWordsOcrCss).toContain('background-image: none !important; box-shadow: none !important; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); text-shadow: none; }');
+        expect(normalizedReaderWordsOcrCss).toContain(':is( .jpdb-reader-word-highlight-status, .jpdb-reader-word-highlight-jpdb, .jpdb-reader-word-highlight-anki, .jpdb-reader-word-highlight-pitch ) .jpdb-reader-word { --jpdb-reader-word-highlight-paint:');
+        expect(normalizedReaderWordsOcrCss).not.toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word');
     });
 
 });

@@ -37,6 +37,35 @@ describe('release workflow safety', () => {
         expect(deployPagesWorkflow).toMatch(/^on:\n(?:.*\n)*?\s*workflow_dispatch:/m);
     });
 
+    it('retries transient Pages metadata failures before a required final attempt', () => {
+        const deployPagesWorkflow = readFileSync(
+            join(process.cwd(), '.github/workflows/deploy-pages.yml'),
+            'utf8',
+        );
+        const step = (name: string) => {
+            const marker = `      - name: ${name}\n`;
+            const start = deployPagesWorkflow.indexOf(marker);
+            if (start < 0) return '';
+            const rest = deployPagesWorkflow.slice(start + marker.length);
+            const next = rest.search(/\n      - (?:name|run|uses):/);
+            return marker + (next < 0 ? rest : rest.slice(0, next));
+        };
+        const attempt1 = step('Setup Pages metadata (attempt 1)');
+        const attempt2 = step('Setup Pages metadata (attempt 2)');
+        const finalAttempt = step('Setup Pages metadata (required final attempt)');
+
+        expect(deployPagesWorkflow.match(/uses: actions\/configure-pages@v6/g)).toHaveLength(3);
+        expect(attempt1).toContain('id: configure_pages_1');
+        expect(attempt1).toContain('continue-on-error: true');
+        expect(attempt1).not.toContain('if:');
+        expect(attempt2).toContain("if: steps.configure_pages_1.outcome == 'failure'");
+        expect(attempt2).toContain('id: configure_pages_2');
+        expect(attempt2).toContain('continue-on-error: true');
+        expect(finalAttempt).toContain("if: steps.configure_pages_1.outcome == 'failure' && steps.configure_pages_2.outcome == 'failure'");
+        expect(finalAttempt).toContain('uses: actions/configure-pages@v6');
+        expect(finalAttempt).not.toContain('continue-on-error:');
+    });
+
     it('rebuilds Academy after hosted Reader assets so its revision hashes deployed bytes', () => {
         const deployPagesWorkflow = readFileSync(
             join(process.cwd(), '.github/workflows/deploy-pages.yml'),
@@ -67,7 +96,22 @@ describe('release workflow safety', () => {
 
         expect(releaseGamingWorkflow).toContain('- name: Build Yomu Gaming');
         expect(releaseGamingWorkflow).toContain('- name: Write SHA256SUMS');
-        expect(releaseGamingWorkflow).toContain('gh release upload "$TAG" release-assets/* --clobber');
+        expect(releaseGamingWorkflow).toContain('upload_release_assets "$TAG" release-assets/*');
+    });
+
+    it('retries release uploads per asset while failing closed on hard errors', () => {
+        for (const workflow of [releaseWorkflow, releaseGamingWorkflow]) {
+            expect(workflow).toContain('upload_release_assets()');
+            expect(workflow).toContain('for asset in "$@"; do');
+            expect(workflow).toContain('for attempt in 1 2 3 4 5; do');
+            expect(workflow).toContain('gh release upload "$tag" "$asset" --clobber');
+            expect(workflow).toContain("if ! grep -Eiq 'HTTP (408|429|5[0-9][0-9])");
+            expect(workflow).toContain('Non-retryable release upload failure for ${asset}.');
+            expect(workflow).toContain('Failed to upload ${asset} after ${attempt} attempts.');
+        }
+
+        expect(releaseWorkflow).toContain('upload_release_assets "$TAG" "${assets[@]}"');
+        expect(releaseGamingWorkflow).toContain('upload_release_assets "$TAG" release-assets/*');
     });
 
     it('pins and submits the exact Firefox reviewer source bundle', () => {

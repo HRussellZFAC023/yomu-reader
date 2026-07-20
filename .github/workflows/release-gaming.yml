@@ -114,6 +114,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          upload_release_assets() {
+            local tag="$1"
+            shift
+            local asset attempt output
+            for asset in "$@"; do
+              for attempt in 1 2 3 4 5; do
+                if output="$(gh release upload "$tag" "$asset" --clobber 2>&1)"; then
+                  [ -z "$output" ] || printf '%s\n' "$output"
+                  break
+                fi
+                printf '%s\n' "$output" >&2
+                if ! grep -Eiq 'HTTP (408|429|5[0-9][0-9])|timed? out|timeout|connection (reset|refused|closed)|unexpected EOF|TLS handshake|temporar(il)?y unavailable|try again|server is currently unavailable' <<< "$output"; then
+                  echo "Non-retryable release upload failure for ${asset}." >&2
+                  return 1
+                fi
+                if [ "$attempt" -eq 5 ]; then
+                  echo "Failed to upload ${asset} after ${attempt} attempts." >&2
+                  return 1
+                fi
+                sleep "$((attempt * 15))"
+              done
+            done
+          }
+
           cat > release-notes-gaming.md <<EOF
           Yomu Gaming desktop release artifacts for ${TAG}.
 
@@ -128,15 +152,15 @@ jobs:
             [ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" = "false" ]
           }
           if release_is_published; then
-            gh release upload "$TAG" release-assets/* --clobber
+            upload_release_assets "$TAG" release-assets/*
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             gh release create "$TAG" --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
-            gh release upload "$TAG" release-assets/* --clobber
+            upload_release_assets "$TAG" release-assets/*
           else
             for attempt in $(seq 1 30); do
               sleep 20
               if release_is_published; then
-                gh release upload "$TAG" release-assets/* --clobber
+                upload_release_assets "$TAG" release-assets/*
                 exit 0
               fi
             done

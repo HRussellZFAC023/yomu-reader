@@ -7049,7 +7049,7 @@ const CONTENT_CLIP_ROW_SELECTOR = '[data-yomu-clip-constrained="content"]';
 
 // The verdict must persist: token re-applies recompute the clip stamp, so a
 // healed row would flip straight back to "content" without this mark.
-export function clampRowGrowthFailed(clipRow: HTMLElement): boolean {
+function clampRowGrowthFailed(clipRow: HTMLElement): boolean {
     return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === 'failed';
 }
 

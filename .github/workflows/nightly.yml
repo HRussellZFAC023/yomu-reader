@@ -28,7 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install smoke browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Build userscript + sync docs
         run: |
           npm run build

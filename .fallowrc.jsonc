@@ -18,7 +18,14 @@
     // intentionally run directly rather than through the application graph.
     "scripts/academy-audio-media.mjs",
     "scripts/academy-source-pipeline.mjs",
+    "scripts/academy-voice/build-voice-production-manifest.mjs",
     "scripts/generate-academy-achievements.mjs",
+    "scripts/organize-academy-art.mjs",
+    "scripts/organize-yomu-machine.mjs",
+    "scripts/reconcile-academy-art-usage.mjs",
+    "scripts/recover-academy-art.mjs",
+    "scripts/recover-academy-git-art.mjs",
+    "scripts/sync-kanji-alive-primary-glosses.mjs",
     "scripts/validate-story-package.mjs",
     "scripts/academy-lesson-uniqueness-conformance.mjs",
     "scripts/academy-sprite-migration-ledger.mjs",
@@ -90,6 +97,18 @@
     {
       "implements": "AudioDirectorControl",
       "members": ["playSfx", "setVolume"]
+    },
+    // The main reader reaches these through the dynamically loaded
+    // KanjiStudyCompanionSlot constructor, which obscures concrete dispatch.
+    {
+      "implements": "ImmersionPopoverControl",
+      "members": ["abortPendingRequests", "hasActiveContext", "rememberTermMiningContext"]
+    },
+    // The app owns this store behind an optional field, which obscures the
+    // concrete receiver at the settings-driven cache invalidation call.
+    {
+      "implements": "BunproWordStateStoreControl",
+      "members": ["clear"]
     }
   ],
   "ignorePatterns": [

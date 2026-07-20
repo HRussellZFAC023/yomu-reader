@@ -132,6 +132,29 @@ jobs:
         run: |
           shopt -s nullglob
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          upload_release_assets() {
+            local tag="$1"
+            shift
+            local asset attempt output
+            for asset in "$@"; do
+              for attempt in 1 2 3 4 5; do
+                if output="$(gh release upload "$tag" "$asset" --clobber 2>&1)"; then
+                  [ -z "$output" ] || printf '%s\n' "$output"
+                  break
+                fi
+                printf '%s\n' "$output" >&2
+                if ! grep -Eiq 'HTTP (408|429|5[0-9][0-9])|timed? out|timeout|connection (reset|refused|closed)|unexpected EOF|TLS handshake|temporar(il)?y unavailable|try again|server is currently unavailable' <<< "$output"; then
+                  echo "Non-retryable release upload failure for ${asset}." >&2
+                  return 1
+                fi
+                if [ "$attempt" -eq 5 ]; then
+                  echo "Failed to upload ${asset} after ${attempt} attempts." >&2
+                  return 1
+                fi
+                sleep "$((attempt * 15))"
+              done
+            done
+          }
           # The core workflow exclusively owns userscript and extension assets.
           # Release Yomu Gaming exclusively owns every desktop package and its
           # checksum file, avoiding concurrent uploads of the same asset.
@@ -158,7 +181,7 @@ jobs:
           else
             gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --latest --verify-tag
           fi
-          gh release upload "$TAG" "${assets[@]}" --clobber
+          upload_release_assets "$TAG" "${assets[@]}"
 
       - name: Decide whether to publish browser stores
         id: browser-store-gate

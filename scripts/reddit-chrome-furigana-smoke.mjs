@@ -291,8 +291,14 @@ async function runEngine(engineName, browser) {
         for (const companionPath of REQUIRED_COMPANION_PATHS) {
             await page.addScriptTag({ path: companionPath });
         }
-        await page.evaluate(startRedditResponsivenessProbe);
         await page.addScriptTag({ path: SCRIPT_PATH });
+        // Script injection includes Playwright reading, parsing, and compiling
+        // the 2 MB userscript. That host/harness cost can pause an otherwise
+        // idle WebKit page for more than a second on a cold CI runner and is
+        // not reader work. Start the frame probe after injection so the same
+        // strict 250 ms ceiling measures Yomu's asynchronous boot scans,
+        // annotations, and UI hydration instead of browser compilation.
+        await page.evaluate(startRedditResponsivenessProbe);
 
         // Wait for Yomu's initial light-DOM pass, then hydrate the existing
         // open-shadow controls. Before the fix their Latin/empty roots were

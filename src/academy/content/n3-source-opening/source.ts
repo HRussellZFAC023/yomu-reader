@@ -4,8 +4,8 @@ import type {
   N3SourceOpeningStageProvenance,
 } from "./types";
 
-export const N3_SOURCE_OPENING_TRANCHE_ID = "n3-source-opening-v1" as const;
-export const N3_SOURCE_OPENING_SOURCE_RECORD =
+const N3_SOURCE_OPENING_TRANCHE_ID = "n3-source-opening-v1" as const;
+const N3_SOURCE_OPENING_SOURCE_RECORD =
   "module-local:n3-source-opening/source.ts" as const;
 
 export const N3_SOURCE_OPENING_SOURCE_CATALOG: readonly N3SourceOpeningSourceRecord[] =
@@ -222,7 +222,7 @@ export const N3_SOURCE_OPENING_TOBIRA_EVIDENCE = Object.freeze([
   ),
 ]);
 
-export const N3_SOURCE_OPENING_TOBIRA_MEDIA = Object.freeze({
+const N3_SOURCE_OPENING_TOBIRA_MEDIA = Object.freeze({
   id: "tobira-l01-audio",
   officialUrl:
     "https://tobiraweb.9640.jp/wp-content/uploads/2015/02/L01-1_yomimono.mp3",

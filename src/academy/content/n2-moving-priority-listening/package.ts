@@ -20,7 +20,7 @@ import {
     type N2MovingPriorityListeningPackage,
 } from './types';
 
-export const N2_MOVING_PRIORITY_STRATEGY = Object.freeze([
+const N2_MOVING_PRIORITY_STRATEGY = Object.freeze([
     'することがいくつも聞こえたら、「もう済んだこと」「ほかの人がすること」「この後まずすること」に分けます。最後に更新された予定を答えにします。',
 ]);
 

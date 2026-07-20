@@ -197,10 +197,6 @@ function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFact
 // on every engine — rt paints into the half-leading and ancestor overflow
 // clips shave it mid-glyph on healthy engines too, so this fact (not an
 // engine probe) decides protection.
-export function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
-    return closestRubyFragileConstrainedRow(element) !== null;
-}
-
 export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = element;
     // Deep enough to escape inline formatting wrappers: search snippets nest

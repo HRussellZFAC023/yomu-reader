@@ -27087,7 +27087,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     cache = /* @__PURE__ */ new Map();
     kanjiAliveGlosses;
     // Called through the nullable kanji-study companion slot (app/main.ts).
-    // fallow-ignore-next-line unused-class-member
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {

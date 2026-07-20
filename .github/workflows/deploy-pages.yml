@@ -50,7 +50,27 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Setup Pages
+      # configure-pages performs a GitHub API preflight that can fail on a
+      # transient 5xx before any build work starts. Retry it twice, but keep
+      # the final attempt required so persistent configuration/auth failures
+      # remain release-blocking rather than producing a false green.
+      - name: Setup Pages metadata (attempt 1)
+        id: configure_pages_1
+        uses: actions/configure-pages@v6
+        continue-on-error: true
+      - name: Back off before Pages metadata retry
+        if: steps.configure_pages_1.outcome == 'failure'
+        run: sleep 15
+      - name: Setup Pages metadata (attempt 2)
+        if: steps.configure_pages_1.outcome == 'failure'
+        id: configure_pages_2
+        uses: actions/configure-pages@v6
+        continue-on-error: true
+      - name: Back off before final Pages metadata attempt
+        if: steps.configure_pages_1.outcome == 'failure' && steps.configure_pages_2.outcome == 'failure'
+        run: sleep 30
+      - name: Setup Pages metadata (required final attempt)
+        if: steps.configure_pages_1.outcome == 'failure' && steps.configure_pages_2.outcome == 'failure'
         uses: actions/configure-pages@v6
       - run: npm ci
       - run: npm run build

@@ -94,7 +94,6 @@ export class KanjiOriginClient {
     private kanjiAliveGlosses?: Promise<Record<string, string>>;
 
     // Called through the nullable kanji-study companion slot (app/main.ts).
-    // fallow-ignore-next-line unused-class-member
     lookup(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const key = Array.from(kanji)[0] ?? kanji;
         if (!key || !settings.kanjiOriginsEnabled) {
@@ -105,7 +104,6 @@ export class KanjiOriginClient {
         if (!promise) {
             promise = this.fetchInfo(key, settings);
             this.cache.set(cacheKey, promise);
-        } else {
         }
         return promise;
     }

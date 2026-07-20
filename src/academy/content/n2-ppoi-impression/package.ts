@@ -13,7 +13,7 @@ import {
 import { N2_PPOI_IMPRESSION_PROVENANCE } from './source';
 import { N2_PPOI_IMPRESSION_ACTIVITY_KIND, N2_PPOI_IMPRESSION_PACKAGE_ID, type N2PpoiImpressionPackage } from './types';
 
-export const N2_PPOI_IMPRESSION_PARAGRAPHS = Object.freeze([
+const N2_PPOI_IMPRESSION_PARAGRAPHS = Object.freeze([
     '美咲さんは青葉ハイツを見学しました。駅に近く、日当たりもよさそうです。',
     'しかし、置いてある机は木ではなく、薄いプラスチックでできていて、少し安っぽく見えました。部屋そのものは気に入ったので、机だけ替えることにしました。',
 ]);

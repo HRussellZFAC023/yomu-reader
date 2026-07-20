@@ -103,7 +103,15 @@ interface HeldExampleImage {
     holdUntilReady: boolean;
 }
 
-export class ImmersionPopoverController {
+// The main reader invokes these through KanjiStudyCompanionSlot's dynamically
+// loaded constructor, so this contract keeps that cross-bundle surface explicit.
+interface ImmersionPopoverControl {
+    abortPendingRequests(popover: HTMLElement): void;
+    hasActiveContext(card: JPDBCard, sentence?: string): boolean;
+    rememberTermMiningContext(term: string, sentence?: string, anchor?: HTMLElement): void;
+}
+
+export class ImmersionPopoverController implements ImmersionPopoverControl {
     private hoverAudioPlayedKeys = new Set<string>();
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();

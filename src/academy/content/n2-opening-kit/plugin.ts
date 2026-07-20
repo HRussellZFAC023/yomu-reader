@@ -54,7 +54,7 @@ export function createN2OpeningPlugin<Model extends N2OpeningActivityModel>(
     });
 }
 
-export function validateN2OpeningModel<Model extends N2OpeningActivityModel>(
+function validateN2OpeningModel<Model extends N2OpeningActivityModel>(
     model: Model,
     contract: N2OpeningPluginContract<Model>,
 ): readonly ValidationIssue[] {

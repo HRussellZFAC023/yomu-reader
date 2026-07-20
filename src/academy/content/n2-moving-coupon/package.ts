@@ -14,7 +14,7 @@ import {
 import { N2_MOVING_COUPON_PROVENANCE } from './source';
 import { N2_MOVING_COUPON_ACTIVITY_KIND, N2_MOVING_COUPON_PACKAGE_ID, type N2MovingCouponPackage } from './types';
 
-export const N2_MOVING_COUPON_PARAGRAPHS = Object.freeze([
+const N2_MOVING_COUPON_PARAGRAPHS = Object.freeze([
     '青葉生活店「引っ越し用品20%割引券」：有効期限は4月30日です。青葉生活店の本店だけで利用できます。',
     '段ボール箱、ガムテープ、食器用の緩衝材が割引の対象です。家電製品、配送料、粗大ごみ処理券には使えません。',
     '会計の前にこの券を店員に見せてください。利用は一人一回までです。ほかの割引券との併用はできません。',

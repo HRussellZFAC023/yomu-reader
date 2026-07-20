@@ -54,7 +54,7 @@ export function createN3SourceOpeningRuntime() {
   return createActivityRuntime([n3SourceOpeningPlugin]);
 }
 
-export function validateN3SourceOpening(
+function validateN3SourceOpening(
   model: N3SourceOpeningModel,
 ): readonly ValidationIssue[] {
   const issues: ValidationIssue[] = [];

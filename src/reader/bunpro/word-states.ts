@@ -30,12 +30,16 @@ interface StoredBunproWordStates {
     states: Record<string, { s: string; d: number | null }>;
 }
 
+interface BunproWordStateStoreControl {
+    clear(): void;
+}
+
 /**
  * Cached expression -> SRS-state index of the user's Bunpro vocab reviews.
  * Loads from GM storage when fresh, otherwise pages through the per-tier
  * srs_level_details listings once and persists the result.
  */
-export class BunproWordStateStore {
+export class BunproWordStateStore implements BunproWordStateStoreControl {
     private states: BunproWordStateMap | null = null;
     private pending: Promise<BunproWordStateMap | null> | null = null;
 
@@ -214,4 +218,3 @@ function objectAt(value: unknown, key: string): Record<string, unknown> | null {
     const nested = isRecord(value) ? value[key] : null;
     return isRecord(nested) && !Array.isArray(nested) ? nested : null;
 }
-

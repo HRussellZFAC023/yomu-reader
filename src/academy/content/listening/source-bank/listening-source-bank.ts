@@ -67,7 +67,7 @@ export interface ListeningTranscriptLine {
     readonly text: string;
 }
 
-export interface ListeningTranscriptCoverage {
+interface ListeningTranscriptCoverage {
     readonly taskId: string;
     readonly lineNumbers: readonly number[];
 }
@@ -92,7 +92,7 @@ export interface LocalListeningTranscript extends ListeningTranscriptBase {
 
 export type ListeningTranscript = InlineListeningTranscript | LocalListeningTranscript;
 
-export type ListeningTaskRegistry = Readonly<{
+type ListeningTaskRegistry = Readonly<{
     status: 'existing-binding';
     packageId: string;
     sourceQuestionId: string;

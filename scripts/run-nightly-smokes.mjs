@@ -36,6 +36,7 @@ export const NIGHTLY_SMOKES = [
     'smoke:hosted-settings',
     'smoke:jiten-keyless-definition',
     'smoke:late-content',
+    'smoke:local-dictionary-upgrade',
     'smoke:mobile-docs',
     'smoke:ocr-provider-matrix',
     'smoke:onboarding-popover',

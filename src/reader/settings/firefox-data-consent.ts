@@ -69,7 +69,7 @@ export function addsOrChangesAuthenticationInfo(current: ReaderSettings, next: R
     });
 }
 
-export function settingsContainAuthenticationInfo(settings: ReaderSettings): boolean {
+function settingsContainAuthenticationInfo(settings: ReaderSettings): boolean {
     return AUTHENTICATION_FIELDS.some(field => Boolean(normalizedCredential(settings[field])));
 }
 

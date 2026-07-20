@@ -154,6 +154,13 @@ export default defineConfig({
     },
     vite: {
         plugins: [jpdbAudioDevProxyPlugin()],
+        resolve: {
+            // Import the renderer package directly instead of Vue's one-line
+            // re-export facade. In linked worktrees that facade can resolve
+            // through the primary checkout and load a second Vue runtime,
+            // which loses VitePress's injected page data during SSR.
+            alias: { 'vue/server-renderer': '@vue/server-renderer' },
+        },
     },
     // Static, page-independent head entries. Per-page canonical, og:url,
     // og/twitter titles + descriptions, and JSON-LD are added in transformHead

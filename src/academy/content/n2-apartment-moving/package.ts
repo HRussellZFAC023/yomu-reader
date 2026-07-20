@@ -17,7 +17,7 @@ import {
     type N2ApartmentMovingPackage,
 } from './types';
 
-export const N2_APARTMENT_MOVING_PARAGRAPHS = Object.freeze([
+const N2_APARTMENT_MOVING_PARAGRAPHS = Object.freeze([
     '美咲さんの希望：家賃は7万円以下、駅から徒歩10分以内、南向き、礼金なし。',
     '青葉ハイツ：家賃6万8千円、駅から徒歩8分、南向き、築12年。敷金1か月、礼金なし。',
     '川原メゾン：家賃6万2千円、駅から徒歩6分、北向き、築8年。敷金なし、礼金なし。',

@@ -14,7 +14,7 @@ import {
 import { N2_HOME_LIFE_READER_PROVENANCE } from './source';
 import { N2_HOME_LIFE_READER_ACTIVITY_KIND, N2_HOME_LIFE_READER_PACKAGE_ID, type N2HomeLifeReaderPackage } from './types';
 
-export const N2_HOME_LIFE_READER_PARAGRAPHS = Object.freeze([
+const N2_HOME_LIFE_READER_PARAGRAPHS = Object.freeze([
     '美咲さんは、駅に近い新しいマンションに決めるつもりでした。けれども、見学すると、大通りの音が窓を閉めても聞こえ、備え付けの家具も少し安っぽく見えました。',
     '次に見た青葉ハイツは築12年で、駅から徒歩8分でした。新しくはありませんが、南向きの部屋には午後も光が入り、窓の外は静かな庭でした。家賃も最初の部屋より安く、礼金はありません。',
     'しかし、美咲さんがすぐに決めた理由は、条件の数字だけではありません。帰ろうとしたとき、隣の人が「引っ越しの日は手伝いますよ」と声をかけてくれたのです。',

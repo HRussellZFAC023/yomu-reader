@@ -2,7 +2,7 @@ import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type { TypedResponseModel } from '../minigames';
 import { LESSON_ZERO_KANA_SEQUENCE, LESSON_ZERO_SOURCE_MEDIA, LESSON_ZERO_SOURCE_PROVENANCE } from './lesson-zero-source-material';
 
-export const LESSON_ZERO_VOWEL_DICTATION_ID = 'activity:lesson-zero-vowel-dictation';
+const LESSON_ZERO_VOWEL_DICTATION_ID = 'activity:lesson-zero-vowel-dictation';
 
 /** Assessed N+1 after the source-led A-row teaching game: sound to written kana. */
 export function createLessonZeroVowelDictation(): TypedResponseModel {
