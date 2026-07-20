@@ -26,10 +26,10 @@
     // Public provider links. Empty = hidden in the homepage bar. The supervised
     // account-setup session pastes real URLs here (Ko-fi/BMAC page, PayPal.me,
     // Patreon join URL). Stripe stays server-side via /donate.
-    "SUPPORT_PROVIDER_KOFI_URL": "",
+    "SUPPORT_PROVIDER_KOFI_URL": "https://ko-fi.com/yomureader",
     "SUPPORT_PROVIDER_BMAC_URL": "",
     "SUPPORT_PROVIDER_PAYPAL_URL": "",
-    "SUPPORT_PROVIDER_PATREON_URL": ""
+    "SUPPORT_PROVIDER_PATREON_URL": "https://patreon.com/yomureader"
   },
   "observability": {
     "enabled": true,
