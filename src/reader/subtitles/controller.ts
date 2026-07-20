@@ -878,6 +878,16 @@ export class SubtitlePlayerController {
     private currentCue?: SubtitleCue;
     private secondaryCue?: SubtitleCue;
     private observer?: MutationObserver;
+    // The document observer runs in one of three modes so an idle subtitle
+    // feature stops paying a busy SPA's mutation cost. 'full' (a video is
+    // bound) watches attributes+childList for fullscreen/bottom-sheet/discovery
+    // work; 'discovery' (enabled, no video yet) watches childList only, purely
+    // to notice a video appearing; 'off' (disabled, no video) installs nothing.
+    private observerMode: 'full' | 'discovery' | 'off' = 'off';
+    // init() has wired the runtime signals. Guards the refresh()/bind-driven
+    // re-sync so the install()-only test harness (which never calls init) keeps
+    // its historical no-observer, no-tick behaviour.
+    private runtimeSignalsInitialized = false;
     private videoResizeObserver?: ResizeObserver;
     private subtitleControlRail?: SubtitleControlRailBinding;
     private lastPlayerChromeHidden = false;
@@ -1160,27 +1170,6 @@ export class SubtitlePlayerController {
         }
         if (!this.install()) return;
         this.syncYouTubeMobileBottomSheetState();
-        this.observer = new MutationObserver(mutations => {
-            this.syncYouTubeMobileBottomSheetState();
-            // Reader-root-only batches (Yomu's own overlay re-renders, the most
-            // common kind during playback) cannot change fullscreen state: the
-            // inline-fullscreen marker lives on the video-player host outside
-            // the reader root. Bail before the per-mutation fullscreen walk.
-            if (mutations.every(mutationInsideReaderRoot)) return;
-            if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
-                this.fullscreenHost.invalidateHostCache();
-                this.syncFullscreenState();
-                this.scheduleAlignToVideo();
-            }
-            if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
-            this.scheduleDiscoverVideo();
-        });
-        this.observer.observe(body, {
-            attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'],
-            attributes: true,
-            childList: true,
-            subtree: true,
-        });
         // Capture phase: YouTube's own keydown handlers stopImmediatePropagation
         // on keys they know, which starved the subtitle seek shortcuts of the
         // event entirely. handleKeydown only preventDefaults on a configured
@@ -1215,8 +1204,66 @@ export class SubtitlePlayerController {
         window.visualViewport?.addEventListener('resize', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
         window.visualViewport?.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         this.discoverVideo();
-        this.tick();
+        this.syncRuntimeSignals();
+        this.runtimeSignalsInitialized = true;
         log.info('Subtitle controller initialized');
+    }
+
+    // Install the document observer that matches the current runtime state and
+    // (re)start the housekeeping tick if it should run. Idempotent: the mode
+    // guard skips a redundant re-observe and wakeTick no-ops when already
+    // ticking, so refresh() and video bind/unbind can call it freely.
+    private syncRuntimeSignals(): void {
+        if (this.destroyed) return;
+        this.installRuntimeDocumentObserver();
+        this.wakeTick();
+    }
+
+    private installRuntimeDocumentObserver(): void {
+        const settings = this.options.getSettings();
+        const mode: 'full' | 'discovery' | 'off' = this.video
+            ? 'full'
+            : settings.subtitlePlayerEnabled ? 'discovery' : 'off';
+        if (mode === this.observerMode) return;
+        this.observer?.disconnect();
+        this.observer = undefined;
+        this.observerMode = mode;
+        const body = document.body;
+        if (mode === 'off' || !body) return;
+        const observer = new MutationObserver(mutations => this.handleRuntimeMutations(mutations));
+        // Discovery mode has no bound video: nothing is on screen, so the only
+        // reason to watch the page is to notice a <video>/player host
+        // appearing. A childList-only observer skips the attribute stream — a
+        // busy SPA's class/aria churn no longer wakes Yomu every frame — and
+        // the per-delivery bottom-sheet + fullscreen sync the full observer
+        // runs is meaningless with no video to sync against.
+        observer.observe(body, mode === 'full'
+            ? { attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'], attributes: true, childList: true, subtree: true }
+            : { childList: true, subtree: true });
+        this.observer = observer;
+    }
+
+    private handleRuntimeMutations(mutations: MutationRecord[]): void {
+        if (this.destroyed) return;
+        // No bound video (discovery mode, or a video that just unbound before
+        // this batch was delivered): the sole job is to notice one appearing.
+        if (!this.video) {
+            if (mutations.some(mutationCouldAffectVideoDiscovery)) this.scheduleDiscoverVideo();
+            return;
+        }
+        this.syncYouTubeMobileBottomSheetState();
+        // Reader-root-only batches (Yomu's own overlay re-renders, the most
+        // common kind during playback) cannot change fullscreen state: the
+        // inline-fullscreen marker lives on the video-player host outside the
+        // reader root. Bail before the per-mutation fullscreen walk.
+        if (mutations.every(mutationInsideReaderRoot)) return;
+        if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
+            this.fullscreenHost.invalidateHostCache();
+            this.syncFullscreenState();
+            this.scheduleAlignToVideo();
+        }
+        if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
+        this.scheduleDiscoverVideo();
     }
 
     private mutationCouldAffectFullscreenState(mutation: MutationRecord): boolean {
@@ -1265,6 +1312,8 @@ export class SubtitlePlayerController {
         this.abortController = undefined;
         this.observer?.disconnect();
         this.observer = undefined;
+        this.observerMode = 'off';
+        this.runtimeSignalsInitialized = false;
         this.videoResizeObserver?.disconnect();
         this.videoResizeObserver = undefined;
         this.subtitleControlRail?.destroy();
@@ -1306,6 +1355,10 @@ export class SubtitlePlayerController {
 
     refresh(): void {
         if (!this.root) return;
+        // Settings may have flipped subtitlePlayerEnabled: re-pick the observer
+        // mode and (re)start or leave the tick parked accordingly. Gated on the
+        // init flag so the install()-only test harness is untouched.
+        if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
         const settings = this.options.getSettings();
         this.syncRootVisibility(settings);
         this.syncTranscriptPlacementClass();
@@ -1520,6 +1573,8 @@ export class SubtitlePlayerController {
         this.setNativeTrackModes();
         this.render();
         this.syncControls();
+        // Losing the video drops the observer back to discovery/off mode.
+        if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
     }
 
     private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
@@ -1535,6 +1590,8 @@ export class SubtitlePlayerController {
         // the rAF-deferred path otherwise paints the control rail one frame at
         // the wrong position before it "sorts itself out".
         this.alignToVideo();
+        // A bound video upgrades the observer to full mode and wakes the tick.
+        if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
         log.info('Subtitle video detected', videoSummary(candidate));
     }
 
@@ -1933,10 +1990,28 @@ export class SubtitlePlayerController {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
+        if (!this.subtitleRuntimeShouldTick(settings)) {
+            // Disabled with no bound video: the tick has nothing to housekeep.
+            // Park it (leave tickTimer undefined) so a backgrounded videoless
+            // page reaches a true zero-timer idle instead of re-arming a 1.5s
+            // wakeup forever; refresh() / video discovery calls wakeTick().
+            this.tickTimer = undefined;
+            return;
+        }
         this.tickTimer = window.setTimeout(() => {
             this.tickTimer = undefined;
             this.tick();
         }, this.tickDelayMs(settings));
+    }
+
+    private subtitleRuntimeShouldTick(settings: ReaderSettings): boolean {
+        return settings.subtitlePlayerEnabled || Boolean(this.video);
+    }
+
+    private wakeTick(): void {
+        if (this.destroyed || this.tickTimer !== undefined) return;
+        if (!this.subtitleRuntimeShouldTick(this.options.getSettings())) return;
+        this.tick();
     }
 
     // The active cadence is only needed while a video is actually playing;

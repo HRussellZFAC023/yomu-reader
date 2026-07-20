@@ -23,6 +23,11 @@ import {
     sourceRectToOverlay,
 } from './page-scale';
 
+// Trailing-edge settle delay for the puck's video-avoidance recompute. Long
+// enough to outlast an inertial scroll's tail so the layout read runs once the
+// page is still, short enough that the puck steps off a revealed video promptly.
+const VIDEO_AVOIDANCE_SETTLE_MS = 120;
+
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
@@ -265,14 +270,40 @@ export class FloatingButtonController {
         this.abortController?.abort();
         const controller = new AbortController();
         this.abortController = controller;
-        const schedule = () => requestAnimationFrame(() => {
-            applyOverlayPageScale(button);
-            if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+        let settleTimer: number | undefined;
+        let frame: number | undefined;
+        const recompute = (): void => {
+            frame = requestAnimationFrame(() => {
+                frame = undefined;
+                applyOverlayPageScale(button);
+                if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+            });
+        };
+        // Scroll/resize fire continuously during a fling, and each recompute
+        // reads the puck's box plus every video's box — a forced layout on
+        // every rAF was measurable iPad heat while scrolling. Nothing the puck
+        // must avoid moves mid-fling in a way a single settle recompute cannot
+        // catch, so collapse the stream to the trailing edge. And when the
+        // overlay is unscaled AND the page has no <video> at all there is
+        // nothing to reposition, so skip the layout read entirely — the common
+        // case on a text page. querySelector('video') is a cheap selector match
+        // with no layout, unlike the getBoundingClientRect walk it guards.
+        const scheduleSettle = (): void => {
+            if (overlayViewport().pageScale === 1 && !document.querySelector('video')) return;
+            window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(recompute, VIDEO_AVOIDANCE_SETTLE_MS);
+        };
+        window.addEventListener('resize', scheduleSettle, { passive: true, signal: controller.signal });
+        window.addEventListener('scroll', scheduleSettle, { passive: true, signal: controller.signal });
+        // Entering/leaving fullscreen changes the avoidance rules this frame
+        // (the puck may need to clear a now-fullscreen video, or return once it
+        // exits), so it is never debounced.
+        document.addEventListener('fullscreenchange', recompute, { signal: controller.signal });
+        controller.signal.addEventListener('abort', () => {
+            window.clearTimeout(settleTimer);
+            if (frame !== undefined) window.cancelAnimationFrame(frame);
         });
-        window.addEventListener('resize', schedule, { passive: true, signal: controller.signal });
-        window.addEventListener('scroll', schedule, { passive: true, signal: controller.signal });
-        document.addEventListener('fullscreenchange', schedule, { signal: controller.signal });
-        schedule();
+        recompute();
     }
 
     private installDragHandlers(button: HTMLButtonElement): void {

@@ -170,7 +170,19 @@ export function attachVideo(
         });
     }
     if (options.rect) mockElementRect(video, options.rect);
-    controllerInternals<{ video: HTMLVideoElement }>(controller).video = video;
+    const internals = controllerInternals<{
+        video: HTMLVideoElement;
+        runtimeSignalsInitialized: boolean;
+        syncRuntimeSignals: () => void;
+    }>(controller);
+    internals.video = video;
+    // Production binds a video through useDiscoveredVideoCandidate, which
+    // re-syncs the runtime observer (childList-only 'discovery' -> full
+    // attribute observer) and wakes the tick. Mirror that here so a test that
+    // ran init() before attaching a video gets the full observer, exactly as
+    // the live controller would. install()-only tests leave the flag false, so
+    // this stays a no-op for them.
+    if (internals.runtimeSignalsInitialized) internals.syncRuntimeSignals();
     return video;
 }
 

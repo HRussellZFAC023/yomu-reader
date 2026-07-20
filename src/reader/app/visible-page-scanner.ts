@@ -5,6 +5,7 @@ import {
     isCurrentScanTarget,
     healUngrowableInFlowClampRows,
     makeRoomForRubyInCroppedRows,
+    noteConstrainedRowLayoutSettled,
     realignAdditiveTextMirrorRuns,
     refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
@@ -171,6 +172,20 @@ export class VisiblePageScanner {
         this.resetContinuationState();
     }
 
+    // A hidden tab cannot show a healed line, so clear the pending clamp/settle
+    // geometry timers and the ASB drain when the page is backgrounded. The
+    // settle SIGNALS (resize/font/ResizeObserver) stay wired — they simply
+    // re-arm nothing while hidden (scheduleSettleRefresh bails) — and the next
+    // scan after the page returns re-arms the sweep with fresh geometry.
+    pauseGeometrySweeps(): void {
+        window.clearTimeout(this.clampSweepTimer);
+        this.clampSweepTimer = undefined;
+        window.clearTimeout(this.settleRefreshTimer);
+        this.settleRefreshTimer = undefined;
+        window.clearTimeout(this.asbDrainTimer);
+        this.asbDrainTimer = undefined;
+    }
+
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
         if (!this.beginScan(silent)) return;
@@ -221,6 +236,13 @@ export class VisiblePageScanner {
     // every settle signal so late reflows converge on the same verdict.
     private runGeometrySettleSweep(): void {
         if (this.destroyed || typeof document === 'undefined') return;
+        // A settle sweep runs precisely because layout may have moved (font
+        // swap, image load, resize, or the immediate post-scan heal). Advance
+        // the constrained-row style generation so this sweep — and the next
+        // scan — re-measure fresh geometry instead of a stale memo. Between
+        // sweeps the memo is reused, which is what spares steady-state scans
+        // their per-pass reflow.
+        noteConstrainedRowLayoutSettled();
         const adjusted = this.makeRoomForRuby(document);
         if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
         const healed = healUngrowableInFlowClampRows(document);
@@ -272,6 +294,10 @@ export class VisiblePageScanner {
 
     private scheduleSettleRefresh(): void {
         if (this.destroyed || typeof window === 'undefined') return;
+        // A settle signal that fires while the tab is hidden (a background
+        // ResizeObserver tick, a late font load) heals nothing visible; let the
+        // post-return scan re-arm the sweep instead of waking a hidden page.
+        if (typeof document !== 'undefined' && document.hidden) return;
         window.clearTimeout(this.settleRefreshTimer);
         this.settleRefreshTimer = window.setTimeout(() => this.runGeometrySettleSweep(), VISIBLE_SCAN_SETTLE_REFRESH_DEBOUNCE_MS);
     }

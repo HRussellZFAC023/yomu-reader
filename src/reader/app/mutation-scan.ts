@@ -299,12 +299,21 @@ function probeComposedElement(
 ): boolean {
     if (!consumeProbeElement(budget)) return true;
     // Keep upstream's generic attachment bridge/poll fallback in the same
-    // bounded element walk as the shared Japanese-text probe. It covers both
-    // native hosts and custom elements, including page-realm attachShadow()
-    // calls and delayed hydration. An already-open root is registered
-    // idempotently here and by probeComposedShadowRoot below.
+    // bounded element walk as the shared Japanese-text probe. An already-open
+    // root is registered idempotently here and by probeComposedShadowRoot
+    // below; an undefined custom element enrols a bounded whenDefined/poll
+    // window for its late attachShadow().
+    //
+    // Do NOT enrol native hosts (includeNativeHost stays false): every plain
+    // <div>/<span> a busy SPA mutation burst walks would otherwise join the
+    // 100ms candidate poll, and on a page that never stops mutating (YouTube)
+    // that set is refilled faster than it drains — a permanent 10Hz timer
+    // reading the whole tracked set every tick, for hosts that will almost
+    // never call attachShadow(). A native element that genuinely attaches a
+    // late open root is covered by the page-realm attachShadow bridge, which
+    // needs no polling.
     const shadowRoot = element instanceof HTMLElement
-        ? watchPotentialOpenShadowRootHost(element, true)
+        ? watchPotentialOpenShadowRootHost(element)
         : element.shadowRoot;
     return probeComposedShadowRoot(shadowRoot, remainingDepth, budget);
 }

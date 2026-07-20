@@ -143,6 +143,10 @@ function isVerticalWritingMode(writingMode: string): boolean {
 // ---------------------------------------------------------------------------
 
 export const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
+// Backstop age for the generation-keyed style memo below. Reuse is gated on the
+// layout generation, not the clock, but a very long TTL still bounds staleness
+// if a reflow ever lands with no settle signal to advance the generation.
+const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2_000;
 const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
 // Some authored previews are taller than compact chrome but still deliberately
 // truncate their text (m.youtube's inner expanded-description preview is
@@ -165,12 +169,33 @@ interface ConstrainedRowStyleFacts {
     activelyTruncatedPreview: boolean;
 }
 
-let constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; facts: ConstrainedRowStyleFacts }>();
+let constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; gen: number; facts: ConstrainedRowStyleFacts }>();
+// The 250ms clock TTL floored reuse below the ~900ms steady-state scan cadence,
+// so every mutation-armed pass re-ran getComputedStyle ×5 plus a rect read on
+// each candidate ancestor — a forced reflow every second on a busy SPA. The
+// classification these facts drive (line-clamp / overflow-clip / short-row) is
+// a property of the CONTAINER's own style and is stable while its children
+// churn; the reflow-sensitive parts (measured height / scrollHeight) only move
+// when layout actually settles. So gate reuse on a layout generation the
+// geometry-settle sweep advances whenever it runs (resize, webfont swap, image
+// load, the post-scan heal) instead of on the clock: consecutive steady-state
+// scans reuse the memo with no reflow, and a genuine layout change forces a
+// fresh measurement on the very next read.
+let constrainedRowStyleGeneration = 0;
+
+// Called by the geometry-settle sweep before it re-measures. A sweep runs
+// precisely because layout may have moved, so invalidate the memo so the sweep
+// (and the next scan) see fresh geometry.
+export function noteConstrainedRowLayoutSettled(): void {
+    constrainedRowStyleGeneration += 1;
+}
 
 function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFacts {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element);
-    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.facts;
+    if (memo
+        && memo.gen === constrainedRowStyleGeneration
+        && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
     const style = safeComputedStyle(element);
     const clamped = hasLineClamp(style);
     const ellipsisRow = isEllipsisTextRow(style);
@@ -196,7 +221,7 @@ function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFact
         clippedShortRow,
         activelyTruncatedPreview,
     };
-    constrainedRowStyleFactMemo.set(element, { at: now, facts });
+    constrainedRowStyleFactMemo.set(element, { at: now, gen: constrainedRowStyleGeneration, facts });
     return facts;
 }
 

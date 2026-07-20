@@ -9,6 +9,7 @@ import {
     setCustomElementUpgradeHook,
     setShadowRootScanHook,
     sweepDisconnectedShadowRoots,
+    wakeShadowHostPoll,
     watchPotentialOpenShadowRootHost,
 } from '../../src/reader/dom/shadow-scan-registry';
 import {
@@ -886,6 +887,65 @@ describe('custom-element upgrade race wakeup', () => {
 
         expect(whenDefined.mock.calls.length).toBeGreaterThan(0);
         expect(whenDefined.mock.calls.length).toBeLessThanOrEqual(64);
+    });
+});
+
+// iPad heat regression (cluster G1/G2): the candidate poll must reach a true
+// zero-timer idle. Native <div>/<span> hosts walked by the mutation probe used
+// to be enrolled into a 100ms poll — on a page that never stops mutating that
+// set is refilled faster than it drains, leaving a permanent 10Hz timer. And
+// the poll must park entirely while the tab is hidden.
+describe('candidate poll idle behaviour', () => {
+    function stubVisibility(initial: 'visible' | 'hidden'): { set: (value: 'visible' | 'hidden') => void; restore: () => void } {
+        let value = initial;
+        const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+        const hiddenDescriptor = Object.getOwnPropertyDescriptor(document, 'hidden');
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => value === 'hidden' });
+        return {
+            set: next => { value = next; },
+            restore: () => {
+                if (visibilityDescriptor) Object.defineProperty(document, 'visibilityState', visibilityDescriptor);
+                else delete (document as unknown as Record<string, unknown>).visibilityState;
+                if (hiddenDescriptor) Object.defineProperty(document, 'hidden', hiddenDescriptor);
+                else delete (document as unknown as Record<string, unknown>).hidden;
+            },
+        };
+    }
+
+    it('never enrols a native host into the candidate poll from the mutation probe', () => {
+        vi.useFakeTimers();
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const host = document.createElement('div');
+        document.body.append(host);
+
+        expect(mutationMayContainJapaneseText(childListMutation(document.body, host))).toBe(false);
+
+        // A plain <div>'s late attachShadow is covered by the page-realm bridge,
+        // so the mutation probe must arm no candidate timer at all.
+        expect(vi.getTimerCount()).toBe(0);
+        vi.useRealTimers();
+    });
+
+    it('parks the candidate poll while the tab is hidden and resumes it when shown', () => {
+        vi.useFakeTimers();
+        const visibility = stubVisibility('hidden');
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const host = document.createElement('div');
+        document.body.append(host);
+
+        // Explicitly enrol a native host (as the document-start seed path would):
+        // while hidden, scheduling must be suppressed — a true zero-timer idle.
+        watchPotentialOpenShadowRootHost(host, true);
+        expect(vi.getTimerCount()).toBe(0);
+
+        // The app's visibilitychange handler re-arms the parked poll on show.
+        visibility.set('visible');
+        wakeShadowHostPoll();
+        expect(vi.getTimerCount()).toBe(1);
+
+        visibility.restore();
+        vi.useRealTimers();
     });
 });
 

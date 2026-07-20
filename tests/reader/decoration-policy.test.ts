@@ -13,7 +13,7 @@ import {
     withMirrorTokenApply,
     type FragmentTextTarget,
 } from '../../src/reader/dom';
-import { closestRubyFragileConstrainedRow, isClipConstrainedRow } from '../../src/reader/dom/decoration-policy';
+import { closestRubyFragileConstrainedRow, isClipConstrainedRow, noteConstrainedRowLayoutSettled } from '../../src/reader/dom/decoration-policy';
 import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -152,6 +152,35 @@ afterEach(() => {
     resetDecorationPolicyCachesForTest();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+});
+
+// Cluster G3 (iPad heat): the constrained-row style memo reuses its verdict
+// across steady-state scan passes (each of which would otherwise force a
+// reflow) and only re-measures once the geometry-settle sweep advances the
+// layout generation. That decouples cross-pass reuse from settle freshness.
+describe('constrained-row style memo generation', () => {
+    it('reuses the verdict until a settle sweep, then re-measures fresh geometry', () => {
+        const row = document.createElement('div');
+        row.style.overflow = 'hidden';
+        row.style.textOverflow = 'ellipsis';
+        row.style.whiteSpace = 'nowrap';
+        row.textContent = '日本語のタイトル';
+        document.body.append(row);
+
+        // First read measures and classifies the row as ruby-fragile.
+        expect(closestRubyFragileConstrainedRow(row)).toBe(row);
+
+        // The row stops ellipsizing, but with no settle sweep the memo still
+        // returns the earlier verdict — this is the cross-pass reuse that spares
+        // steady-state scans a reflow.
+        row.style.textOverflow = 'clip';
+        row.style.whiteSpace = 'normal';
+        expect(closestRubyFragileConstrainedRow(row)).toBe(row);
+
+        // A settle sweep advances the generation, so the next read re-measures.
+        noteConstrainedRowLayoutSettled();
+        expect(closestRubyFragileConstrainedRow(row)).toBeNull();
+    });
 });
 
 // The acceptance matrix: each state's exemplars classify deterministically

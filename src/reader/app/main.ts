@@ -366,6 +366,7 @@ import {
     setCustomElementUpgradeHook,
     setShadowRootScanHook,
     sweepDisconnectedShadowRoots,
+    wakeShadowHostPoll,
 } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
@@ -2466,7 +2467,15 @@ export class ReaderApp {
         // listener only sees page scrolls. Bottom sheets and side panels
         // (m.youtube comment sheet) scroll their own containers; without the
         // capture phase their content never got a settle re-scan.
+        // One handler tears the annotation loop down to a true zero-timer idle
+        // whenever the tab is hidden and rebuilds it on show. Everything below
+        // (the MutationObserver, debounce timers, scanner sweeps, the shadow
+        // candidate poll) only ever produces work whose result must be painted;
+        // a backgrounded SPA that never stops mutating would otherwise keep the
+        // whole pipeline (and the CPU) awake for nothing.
+        document.addEventListener('visibilitychange', () => this.handleAutoScanVisibilityChange(), { signal: abortSignal });
         window.addEventListener('scroll', event => {
+            if (document.hidden) return;
             // Scrolls inside Yomu's own UI (popover bodies, settings sheet,
             // transcript drawer) never change page content — don't rescan.
             if (eventTargetsReaderRoot(event)) return;
@@ -2479,12 +2488,14 @@ export class ReaderApp {
             }
         }, { passive: true, capture: true, signal: abortSignal });
         window.addEventListener('resize', () => {
+            if (document.hidden) return;
             if (allowsFrequentVisibleAutoScan()) {
                 this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
             }
         }, { passive: true, signal: abortSignal });
         document.addEventListener('click', event => {
-            if (!this.canParseJapanese()
+            if (document.hidden
+                || !this.canParseJapanese()
                 || !allowsFrequentVisibleAutoScan()
                 || !clickMayRevealDynamicUiText(event)) return;
             this.noteVisibleAutoScanWorkObserved();
@@ -2496,6 +2507,33 @@ export class ReaderApp {
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
         document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+    }
+
+    private handleAutoScanVisibilityChange(): void {
+        if (this.isDestroyed) return;
+        if (document.hidden) {
+            // Disconnect the observer (no target can deliver a paintable
+            // change) and clear every pending timer so nothing re-arms. The
+            // shadow candidate poll parks itself on the same visibility signal
+            // inside the registry.
+            this.autoScanObserver?.disconnect();
+            window.clearTimeout(this.autoScanTimer);
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
+            this.autoScanForced = false;
+            this.autoScanDebounced = false;
+            window.clearTimeout(this.asbScanTimer);
+            this.asbScanTimer = undefined;
+            this.pageScanner.pauseGeometrySweeps();
+            return;
+        }
+        // Back on screen: re-observe document.body plus every scoped shadow
+        // root (disconnect dropped them all), re-arm the shadow candidate poll
+        // that parked itself while hidden, then run one settle scan so any
+        // content the page swapped in while hidden gets annotated now.
+        this.observeAutoScanMutations();
+        wakeShadowHostPoll();
+        if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
     }
 
     private observeAutoScanMutations(): void {
@@ -2581,6 +2619,12 @@ export class ReaderApp {
         // direct scanVisiblePage call, so on-demand scanning still works.
         if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
         if (this.isDestroyed || !this.canParseJapanese()) return false;
+        // A hidden tab paints nothing, so a scheduled scan can only burn work
+        // whose result no one can see. The visibilitychange handler tears the
+        // loop down on hide and schedules a settle scan on show; this guard is
+        // the belt-and-braces so a late async callback cannot re-arm it while
+        // still hidden.
+        if (typeof document !== 'undefined' && document.hidden) return false;
         // A pending timer means the work-check already passed (or the run was
         // forced) — merging into it needs no fresh profile-root sweep.
         return force || this.autoScanTimer !== undefined || this.hasVisibleAutoScanWorkCached();
@@ -2588,8 +2632,10 @@ export class ReaderApp {
 
     private runScheduledAutoScan(): void {
         // Re-check the master gates at fire time: the pause/manual toggle can
-        // flip between scheduling and the timer firing (sol review P1).
-        if (this.isDestroyed || this.settings.annotationsPaused || this.settings.manualScanEnabled) {
+        // flip between scheduling and the timer firing (sol review P1), and the
+        // tab can have gone hidden after the timer was armed.
+        if (this.isDestroyed || this.settings.annotationsPaused || this.settings.manualScanEnabled
+            || (typeof document !== 'undefined' && document.hidden)) {
             this.autoScanTimer = undefined;
             this.autoScanDeadline = 0;
             this.autoScanForced = false;

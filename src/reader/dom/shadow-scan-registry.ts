@@ -127,11 +127,30 @@ function handleOpenShadowRootAttached(event: Event): void {
 function schedulePotentialShadowHostPoll(): void {
     if ((!openShadowRootDiscoveryUsers && !customElementUpgradeHook)
         || potentialShadowHostTimer !== undefined
-        || !potentialShadowHosts.size) return;
+        || !potentialShadowHosts.size
+        || pollSuspendedForHiddenPage()) return;
     potentialShadowHostTimer = window.setTimeout(
         pollPotentialShadowHosts,
         POTENTIAL_SHADOW_HOST_POLL_MS,
     );
+}
+
+// A hidden tab paints nothing, so a component hydrating inside it changes no
+// visible annotation — there is no reason to burn a 100ms wakeup watching for
+// its shadow root. Parking the candidate poll while hidden is what lets a
+// backgrounded SPA reach a true zero-timer idle; the app's visibility handler
+// calls wakeShadowHostPoll() when the tab is shown again, and any host whose
+// root attached while hidden is caught on that first resumed poll (or
+// immediately by the page-realm bridge).
+function pollSuspendedForHiddenPage(): boolean {
+    return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+}
+
+// Re-arm the candidate poll after it parked itself on a hidden page. Owned by
+// the app's own signal-managed visibilitychange handler so the registry adds no
+// standalone global listener of its own to leak across a re-boot.
+export function wakeShadowHostPoll(): void {
+    schedulePotentialShadowHostPoll();
 }
 
 function pollPotentialShadowHosts(): void {
