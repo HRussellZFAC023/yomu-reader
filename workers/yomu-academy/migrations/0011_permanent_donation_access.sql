@@ -61,3 +61,8 @@ ALTER TABLE payment_transactions_next RENAME TO payment_transactions;
 CREATE INDEX idx_payment_transactions_subject
     ON payment_transactions(subject_id, occurred_at);
 
+-- Rebuilding referenced tables can leave SQLite's deferred-violation counter
+-- dirty even though every copied row is valid. Check the rebuilt graph, then
+-- clear deferred mode before the migration transaction commits.
+PRAGMA foreign_key_check;
+PRAGMA defer_foreign_keys = OFF;

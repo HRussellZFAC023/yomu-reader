@@ -9,8 +9,8 @@ Routes:
   GBP) and returns `{ floorGBP: 10, forecastGBP, monthlyGoalGBP, breakdown }`
   where `monthlyGoalGBP = max(sum(lineItems), floorGBP)`. `cache-control` 5 min.
 - `/progress` returns month-to-date received across providers:
-  `{ month, totalThisMonthGbp, totalTodayGbp, providers[] }`. Stripe comes from
-  the D1 ledger; Ko-fi/Patreon totals come from KV (written by their webhooks).
+  `{ month, totalThisMonthGbp, totalTodayGbp, providers[] }`. Stripe, Ko-fi, and
+  Patreon totals are derived from unique verified-event rows in D1.
 - `/status` combines goal + progress + a **localized display**. It accepts
   `?currency=XXX` or derives the currency from `request.cf.country`, converts
   GBP using a daily-cached FX rate, and returns `display: { amount, goal,
@@ -22,13 +22,16 @@ Routes:
   after the signed paid webhook reaches Academy. If Checkout is unavailable, it
   can redirect to `SUPPORT_STRIPE_PAYMENT_LINK_URL`; fallback-link payments do
   not carry this self-claim proof.
+  The browser keeps one HttpOnly claim token, so opening a second Checkout before
+  completing the first replaces the first tab's claim proof; finish one card
+  donation before starting another.
 - `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records GBP donations in D1.
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
-  storing the running month total in KV.
+  recording each stable provider event exactly once in D1.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
   body). The first verified positive active-membership event grants permanent
   Academy access. Later decline/delete events are audited but never revoke that
-  grant; only pledge-create receipts increment the running month total in KV.
+  grant; only pledge-create receipts create unique support-income rows in D1.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for

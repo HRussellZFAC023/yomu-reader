@@ -21,8 +21,8 @@ an accidental public route.
 
 ## 0. Prerequisites (once)
 
-The `SUPPORT_KV` namespace that stores the FX-rate cache and manual-provider
-month-to-date totals was created on 2026-07-20 and its id is committed in
+The `SUPPORT_KV` namespace that stores the FX-rate cache was created on
+2026-07-20 and its id is committed in
 `wrangler.jsonc`. To recreate it in a different Cloudflare account, run:
 
 ```bash

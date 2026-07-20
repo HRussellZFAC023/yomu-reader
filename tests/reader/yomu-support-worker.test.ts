@@ -112,14 +112,15 @@ describe("Yomu support Worker", () => {
     expect(body.floorGBP).toBe(10);
   });
 
-  it("aggregates month-to-date progress across Stripe and manual providers", async () => {
-    const kv = mockKv({
-      [`manual:kofi:${monthKey()}`]: "1200",
-      [`manual:patreon:${monthKey()}`]: "500",
-    });
+  it("aggregates month-to-date progress across unique provider events", async () => {
+    const day = `${monthKey()}-01`;
+    const db = mockSupportDb([
+      providerDonationRow("kofi", "kofi-progress", day, 1200),
+      providerDonationRow("patreon", "patreon-progress", day, 500),
+    ]);
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/progress"),
-      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "3", SUPPORT_KV: kv },
+      { SUPPORT_DB: db },
       { waitUntil: vi.fn() },
     );
 
@@ -128,9 +129,8 @@ describe("Yomu support Worker", () => {
       totalThisMonthGbp: number;
       providers: Array<{ provider: string; monthGbp: number; source: string }>;
     };
-    // 3 (stripe env) + 12 (kofi) + 5 (patreon) = 20
-    expect(body.totalThisMonthGbp).toBe(20);
-    expect(body.providers.find(p => p.provider === "stripe")?.monthGbp).toBe(3);
+    expect(body.totalThisMonthGbp).toBe(17);
+    expect(body.providers.find(p => p.provider === "stripe")?.monthGbp).toBe(0);
     expect(body.providers.find(p => p.provider === "kofi")?.monthGbp).toBe(12);
     expect(body.providers.find(p => p.provider === "patreon")?.monthGbp).toBe(5);
     expect(body.providers.find(p => p.provider === "bmac")?.monthGbp).toBe(0);
@@ -351,12 +351,23 @@ describe("Yomu support Worker", () => {
     );
     expect(claimed.status).toBe(200);
     await expect(claimed.text()).resolves.toContain("YOMU-PAID-CODE");
-    expect(claimed.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(claimed.headers.get("set-cookie")).toBeNull();
     await expect(academy.requests[0]!.json()).resolves.toEqual({
       provider: "stripe",
       transactionReference: "cs_live_paid",
       claimToken,
     });
+
+    const head = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/claim?session_id=cs_live_paid", {
+        method: "HEAD",
+        headers: { cookie: `__Host-yomu_support_claim=${claimToken}` },
+      }),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    expect(head.status).toBe(405);
+    expect(head.headers.get("allow")).toBe("GET");
   });
 
   it("rejects test Checkout URLs returned to the production support host", async () => {
@@ -499,20 +510,13 @@ describe("Yomu support Worker", () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const timestamp = Math.floor(Date.now() / 1000);
-    const payload = stripeCheckoutEventPayload({
+    const response = await postStripeCheckoutEvent({
       eventId: "evt_support_only",
       sessionId: "cs_live_support",
       timestamp,
-    });
-    const response = await fetchWithAcademyIngress(
-      await signedSupportStripeWebhook(payload, "whsec_test", timestamp),
-      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
-      academy,
-    );
+    }, db, academy);
 
-    expect(response.status).toBe(200);
-    expect(db.rows).toHaveLength(1);
-    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expectWebhookOutcome(response, db, academy, 200, 1);
     await expect(academy.requests[0]!.json()).resolves.toEqual({
       schemaVersion: 1,
       provider: "stripe",
@@ -533,21 +537,14 @@ describe("Yomu support Worker", () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress(() => new Response("unavailable", { status: 503 }));
     const timestamp = Math.floor(Date.now() / 1000);
-    const payload = stripeCheckoutEventPayload({
+    const response = await postStripeCheckoutEvent({
       eventId: "evt_retry_academy",
       sessionId: "cs_live_retry",
       timestamp,
       purchaseId: "purchase-retry",
-    });
-    const response = await fetchWithAcademyIngress(
-      await signedSupportStripeWebhook(payload, "whsec_test", timestamp),
-      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
-      academy,
-    );
+    }, db, academy);
 
-    expect(response.status).toBe(500);
-    expect(db.rows).toHaveLength(0);
-    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expectWebhookOutcome(response, db, academy, 500, 0);
   });
 
   it("accepts a valid stale Academy result once and emits a distinct structured warning", async () => {
@@ -558,20 +555,14 @@ describe("Yomu support Worker", () => {
       { status: 202 },
     ));
     const timestamp = Math.floor(Date.now() / 1000);
-    const response = await fetchWithAcademyIngress(
-      await signedSupportStripeWebhook(stripeCheckoutEventPayload({
+    const response = await postStripeCheckoutEvent({
         eventId: "evt_stale_academy",
         sessionId: "cs_live_stale",
         timestamp,
         purchaseId: "purchase-stale",
-      }), "whsec_test", timestamp),
-      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
-      academy,
-    );
+    }, db, academy);
 
-    expect(response.status).toBe(200);
-    expect(db.rows).toHaveLength(1);
-    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expectWebhookOutcome(response, db, academy, 200, 1);
     expect(warning).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({
       event: "yomu_support_academy_ingress_stale",
@@ -586,54 +577,47 @@ describe("Yomu support Worker", () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress(() => Response.json({ received: true }, { status: 202 }));
     const timestamp = Math.floor(Date.now() / 1000);
-    const response = await fetchWithAcademyIngress(
-      await signedSupportStripeWebhook(stripeCheckoutEventPayload({
+    const response = await postStripeCheckoutEvent({
         eventId: "evt_bad_academy_ack",
         sessionId: "cs_live_bad_ack",
         timestamp,
         purchaseId: "purchase-bad-ack",
-      }), "whsec_test", timestamp),
-      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
-      academy,
-    );
+    }, db, academy);
 
-    expect(response.status).toBe(500);
-    expect(db.rows).toHaveLength(0);
-    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expectWebhookOutcome(response, db, academy, 500, 0);
   });
 
   it("refuses to count an authenticated Ko-fi donation without stable payment identity", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const donationPayload = JSON.stringify({
       verification_token: "kofi_secret",
       type: "Donation",
       amount: "1.00",
       currency: "GBP",
     });
-    const response = await SupportWorker.fetch(
+    const response = await fetchSupportWebhook(
       supportKofiWebhook(donationPayload),
-      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_KV: kv },
-      { waitUntil: vi.fn() },
+      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_DB: db },
     );
 
     expect(response.status).toBe(422);
-    expect(kv.store[`manual:kofi:${monthKey()}`]).toBeUndefined();
+    expect(db.rows).toHaveLength(0);
   });
 
   it("rejects a Ko-fi webhook with the wrong verification token", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const payload = JSON.stringify({ verification_token: "wrong", amount: "6.00", currency: "GBP" });
     await expectProviderAuthRejected(
       supportKofiWebhook(payload),
-      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_KV: kv },
-      kv,
+      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_DB: db },
+      db,
       academy,
     );
   });
 
   it("keeps Ko-fi event and transaction identities separate and retry-stable", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const donationPayload = JSON.stringify({
       verification_token: "kofi_secret",
@@ -646,7 +630,7 @@ describe("Yomu support Worker", () => {
     });
     const env = withAcademyIngress({
       KOFI_WEBHOOK_SECRET: "kofi_secret",
-      SUPPORT_KV: kv,
+      SUPPORT_DB: db,
     }, academy);
 
     expect((await SupportWorker.fetch(supportKofiWebhook(donationPayload), env, { waitUntil: vi.fn() })).status).toBe(200);
@@ -663,36 +647,36 @@ describe("Yomu support Worker", () => {
       transaction: { reference: "transaction-99", currency: "gbp", amountMinor: 100 },
     });
     expect(retry).toEqual(first);
-    expect(kv.store[`manual:kofi:${monthKey()}`]).toBe("100");
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({ provider: "kofi", id: "message-42", amountMinor: 100 });
   });
 
   it("refuses to count a signed Patreon event without stable membership identity", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
-    const response = await SupportWorker.fetch(
+    const response = await fetchSupportWebhook(
       await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret"),
-      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv },
-      { waitUntil: vi.fn() },
+      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db },
     );
 
     expect(response.status).toBe(422);
-    expect(kv.store[`manual:patreon:${monthKey()}`]).toBeUndefined();
+    expect(db.rows).toHaveLength(0);
   });
 
   it("rejects a Patreon webhook with an invalid signature", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
     await expectProviderAuthRejected(
       supportPatreonWebhook(payload, "members:pledge:create", "00000000000000000000000000000000"),
-      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv },
-      kv,
+      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db },
+      db,
       academy,
     );
   });
 
   it("forwards Patreon membership state without inventing a cash transaction", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const payload = JSON.stringify({
       data: {
@@ -707,7 +691,7 @@ describe("Yomu support Worker", () => {
     });
     const env = withAcademyIngress({
       PATREON_WEBHOOK_SECRET: "patreon_secret",
-      SUPPORT_KV: kv,
+      SUPPORT_DB: db,
     }, academy);
 
     expect((await SupportWorker.fetch(
@@ -736,34 +720,39 @@ describe("Yomu support Worker", () => {
     expect(first.eventId).toMatch(/^patreon_[a-f0-9]{64}$/u);
     expect(first).not.toHaveProperty("transaction");
     expect(retry).toEqual(first);
-    expect(Object.keys(kv.store)).toHaveLength(0);
+    expect(db.rows).toHaveLength(0);
   });
 
-  it("forwards Patreon revocation state even when there is no cash amount to count", async () => {
-    const kv = mockKv();
+  it("records a signed Patreon pledge receipt exactly once across retries", async () => {
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const payload = JSON.stringify({
       data: {
-        id: "member-removed",
+        id: "member-pledge-receipt",
         attributes: {
-          patron_status: "former_patron",
-          updated_at: "2026-07-20T03:00:00.000Z",
-          currently_entitled_amount_cents: 500,
+          patron_status: "active_patron",
+          amount_cents: 500,
+          last_charge_date: "2026-07-20T02:00:00.000Z",
+          next_charge_date: "2026-08-20T02:00:00.000Z",
         },
       },
     });
-    const response = await SupportWorker.fetch(
-      await signedSupportPatreonWebhook(payload, "members:pledge:delete", "patreon_secret"),
-      withAcademyIngress({
-        PATREON_WEBHOOK_SECRET: "patreon_secret",
-        SUPPORT_KV: kv,
-      }, academy),
-      { waitUntil: vi.fn() },
-    );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
-    expect(Object.keys(kv.store)).toHaveLength(0);
+    expect((await postPatreonEvent(payload, "members:pledge:create", db, academy)).status).toBe(200);
+    expect((await postPatreonEvent(payload, "members:pledge:create", db, academy)).status).toBe(200);
+
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500 });
+    expect(academy.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("forwards Patreon revocation state even when there is no cash amount to count", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const payload = patreonMemberPayload("member-removed", "former_patron", "2026-07-20T03:00:00.000Z");
+    const response = await postPatreonEvent(payload, "members:pledge:delete", db, academy);
+
+    await expectPatreonRevocationResponse(response, db);
     const envelope = await academy.requests[0]!.json() as Record<string, unknown>;
     expect(envelope).toMatchObject({ provider: "patreon", eventType: "membership.revoked" });
     expect(envelope).not.toHaveProperty("transaction");
@@ -771,27 +760,12 @@ describe("Yomu support Worker", () => {
   });
 
   it("forwards Patreon declines as revocations without recording pledge income", async () => {
-    const kv = mockKv();
+    const db = mockSupportDb();
     const academy = mockAcademyIngress();
-    const payload = JSON.stringify({
-      data: {
-        id: "member-declined",
-        attributes: {
-          patron_status: "declined_patron",
-          updated_at: "2026-07-20T04:00:00.000Z",
-          currently_entitled_amount_cents: 500,
-        },
-      },
-    });
-    const response = await SupportWorker.fetch(
-      await signedSupportPatreonWebhook(payload, "members:pledge:decline", "patreon_secret"),
-      withAcademyIngress({ PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv }, academy),
-      { waitUntil: vi.fn() },
-    );
+    const payload = patreonMemberPayload("member-declined", "declined_patron", "2026-07-20T04:00:00.000Z");
+    const response = await postPatreonEvent(payload, "members:pledge:decline", db, academy);
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
-    expect(Object.keys(kv.store)).toHaveLength(0);
+    await expectPatreonRevocationResponse(response, db);
     await expect(academy.requests[0]!.json()).resolves.toMatchObject({
       provider: "patreon",
       eventType: "membership.revoked",
@@ -849,15 +823,50 @@ function fetchWithAcademyIngress<T extends object>(
   return SupportWorker.fetch(request, withAcademyIngress(env, academy), { waitUntil: vi.fn() });
 }
 
+async function postStripeCheckoutEvent(
+  input: Parameters<typeof stripeCheckoutEventPayload>[0],
+  db: ReturnType<typeof mockSupportDb>,
+  academy: ReturnType<typeof mockAcademyIngress>,
+): Promise<Response> {
+  const payload = stripeCheckoutEventPayload(input);
+  const request = await signedSupportStripeWebhook(payload, "whsec_test", input.timestamp);
+  return fetchWithAcademyIngress(request, { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db }, academy);
+}
+
+function expectWebhookOutcome(
+  response: Response,
+  db: ReturnType<typeof mockSupportDb>,
+  academy: ReturnType<typeof mockAcademyIngress>,
+  status: number,
+  rowCount: number,
+): void {
+  expect(response.status).toBe(status);
+  expect(db.rows).toHaveLength(rowCount);
+  expect(academy.fetch).toHaveBeenCalledTimes(1);
+}
+
+async function expectPatreonRevocationResponse(
+  response: Response,
+  db: ReturnType<typeof mockSupportDb>,
+): Promise<void> {
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+  expect(db.rows).toHaveLength(0);
+}
+
+function fetchSupportWebhook<T extends object>(request: Request, env: T): Promise<Response> {
+  return SupportWorker.fetch(request, env, { waitUntil: vi.fn() });
+}
+
 async function expectProviderAuthRejected<T extends object>(
   request: Request,
   env: T,
-  kv: ReturnType<typeof mockKv>,
+  db: ReturnType<typeof mockSupportDb>,
   academy: ReturnType<typeof mockAcademyIngress>,
 ): Promise<void> {
   const response = await fetchWithAcademyIngress(request, env, academy);
   expect(response.status).toBe(401);
-  expect(Object.keys(kv.store)).toHaveLength(0);
+  expect(db.rows).toHaveLength(0);
   expect(academy.fetch).not.toHaveBeenCalled();
 }
 
@@ -916,14 +925,38 @@ async function signedSupportPatreonWebhook(payload: string, trigger: string, sec
   return supportPatreonWebhook(payload, trigger, await patreonSignature(payload, secret));
 }
 
+async function postPatreonEvent(
+  payload: string,
+  trigger: string,
+  db: ReturnType<typeof mockSupportDb>,
+  academy: ReturnType<typeof mockAcademyIngress>,
+): Promise<Response> {
+  const request = await signedSupportPatreonWebhook(payload, trigger, "patreon_secret");
+  return fetchWithAcademyIngress(request, { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db }, academy);
+}
+
+function patreonMemberPayload(id: string, status: string, updatedAt: string): string {
+  return JSON.stringify({
+    data: {
+      id,
+      attributes: {
+        patron_status: status,
+        updated_at: updatedAt,
+        currently_entitled_amount_cents: 500,
+      },
+    },
+  });
+}
+
 type DonationRow = {
+  provider: "stripe" | "kofi" | "patreon";
   id: string;
   day: string;
   amountMinor: number;
   currency: string;
   eventType: string;
-  stripeSessionId: string;
-  stripeCreatedAt: number;
+  stripeSessionId?: string;
+  stripeCreatedAt?: number;
   receivedAt: string;
 };
 
@@ -940,42 +973,87 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
         },
         async first<T>() {
           if (/SELECT COALESCE\(SUM\(amount_minor\), 0\)/.test(query)) {
+            const providerEvents = /FROM provider_donation_events/.test(query);
+            const provider = providerEvents ? String(values[0] ?? "") : "stripe";
+            const dayOffset = providerEvents ? 1 : 0;
             if (/day >= \? AND day < \?/.test(query)) {
-              const start = String(values[0] ?? "");
-              const end = String(values[1] ?? "");
+              const start = String(values[dayOffset] ?? "");
+              const end = String(values[dayOffset + 1] ?? "");
               const total_minor = rows
-                .filter(row => row.day >= start && row.day < end && row.currency === "gbp")
+                .filter(row => row.provider === provider && row.day >= start && row.day < end && row.currency === "gbp")
                 .reduce((sum, row) => sum + row.amountMinor, 0);
               return { total_minor } as T;
             }
-            const day = String(values[0] ?? "");
+            const day = String(values[dayOffset] ?? "");
             const total_minor = rows
-              .filter(row => row.day === day && row.currency === "gbp")
+              .filter(row => row.provider === provider && row.day === day && row.currency === "gbp")
               .reduce((sum, row) => sum + row.amountMinor, 0);
             return { total_minor } as T;
           }
           return null;
         },
         async run() {
-          if (/INSERT OR IGNORE INTO donation_events/.test(query)) {
-            const id = String(values[0] ?? "");
-            if (!rows.some(row => row.id === id)) {
-              rows.push({
-                id,
-                day: String(values[1] ?? ""),
-                amountMinor: Number(values[2] ?? 0),
-                currency: String(values[3] ?? ""),
-                eventType: String(values[4] ?? ""),
-                stripeSessionId: String(values[5] ?? ""),
-                stripeCreatedAt: Number(values[6] ?? 0),
-                receivedAt: String(values[7] ?? ""),
-              });
-            }
-          }
+          insertStripeDonationRow(query, values, rows);
+          insertProviderDonationRow(query, values, rows);
           return { success: true };
         },
       };
     },
+  };
+}
+
+function insertStripeDonationRow(query: string, values: unknown[], rows: DonationRow[]): void {
+  if (!/INSERT OR IGNORE INTO donation_events/.test(query)) return;
+  const id = stringValue(values, 0);
+  if (rows.some(row => row.provider === "stripe" && row.id === id)) return;
+  rows.push({
+    provider: "stripe",
+    id,
+    day: stringValue(values, 1),
+    amountMinor: numberValue(values, 2),
+    currency: stringValue(values, 3),
+    eventType: stringValue(values, 4),
+    stripeSessionId: stringValue(values, 5),
+    stripeCreatedAt: numberValue(values, 6),
+    receivedAt: stringValue(values, 7),
+  });
+}
+
+function insertProviderDonationRow(query: string, values: unknown[], rows: DonationRow[]): void {
+  if (!/INSERT OR IGNORE INTO provider_donation_events/.test(query)) return;
+  const provider = stringValue(values, 0) as "kofi" | "patreon";
+  const id = stringValue(values, 1);
+  if (rows.some(row => row.provider === provider && row.id === id)) return;
+  rows.push(providerDonationRow(provider, id, stringValue(values, 2), numberValue(values, 3), {
+    eventType: stringValue(values, 4),
+    receivedAt: stringValue(values, 6),
+  }));
+}
+
+function stringValue(values: unknown[], index: number): string {
+  return String(values[index] ?? "");
+}
+
+function numberValue(values: unknown[], index: number): number {
+  return Number(values[index] ?? 0);
+}
+
+function providerDonationRow(
+  provider: "kofi" | "patreon",
+  id: string,
+  day: string,
+  amountMinor: number,
+  overrides: Partial<DonationRow> = {},
+): DonationRow {
+  return {
+    provider,
+    id,
+    day,
+    amountMinor,
+    currency: "gbp",
+    eventType: "donation",
+    receivedAt: new Date().toISOString(),
+    ...overrides,
   };
 }
 

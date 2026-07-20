@@ -1,0 +1,126 @@
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import academyPaymentWorker from '../../workers/yomu-academy/src/payment-entrypoint';
+import SupportWorker from '../../workers/yomu-support/src/index';
+import { createSqliteAcademy, type SqliteAcademy } from './helpers/sqlite-academy-env';
+
+describe('support donation to Academy access', () => {
+    let academy: SqliteAcademy | undefined;
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        academy?.close();
+    });
+
+    it('carries the checkout commitment through a signed webhook into a refresh-safe claim', async () => {
+        academy = createSqliteAcademy();
+        const academyEnv = { ...academy.env, PAYMENT_INGRESS_TOKEN: 'end-to-end-ingress-token' };
+        let claimHash = '';
+        vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+            const checkout = new URLSearchParams(String(init?.body ?? ''));
+            claimHash = checkout.get('metadata[yomu_academy_claim_hash]') ?? '';
+            return Response.json({ url: 'https://checkout.stripe.com/c/pay/cs_live_e2e' });
+        }));
+        const bridge = {
+            fetch: (request: Request) => academyPaymentWorker.fetch(request, academyEnv, executionContext()),
+        };
+        const supportDb = supportDonationDb();
+        const supportEnv = {
+            STRIPE_SECRET_KEY: 'sk_live_e2e',
+            STRIPE_WEBHOOK_SECRET: 'whsec_e2e',
+            SUPPORT_DB: supportDb,
+            ACADEMY_PAYMENT_INGRESS: bridge,
+            PAYMENT_INGRESS_TOKEN: 'end-to-end-ingress-token',
+        };
+
+        const checkout = await SupportWorker.fetch(
+            new Request('https://support.yomureader.com/donate?amount_gbp=1'),
+            supportEnv,
+            executionContext(),
+        );
+        const claimToken = claimCookieToken(checkout);
+        expect(claimHash).toMatch(/^[a-f0-9]{64}$/u);
+
+        const timestamp = Math.floor(Date.now() / 1000);
+        const event = JSON.stringify({
+            id: 'evt_support_e2e',
+            type: 'checkout.session.completed',
+            created: timestamp,
+            data: {
+                object: {
+                    id: 'cs_live_e2e',
+                    amount_total: 100,
+                    currency: 'gbp',
+                    payment_status: 'paid',
+                    metadata: { yomu_academy_claim_hash: claimHash },
+                },
+            },
+        });
+        const webhook = await signedStripeWebhook(event, timestamp, 'whsec_e2e');
+        expect((await SupportWorker.fetch(webhook, supportEnv, executionContext())).status).toBe(200);
+
+        expect(academy.db.rows<{ claim_hash: string }>('SELECT claim_hash FROM purchases')).toEqual([
+            { claim_hash: claimHash },
+        ]);
+        expect(academy.db.rows<{ state: string; expires_at: number | null }>(
+            'SELECT state, expires_at FROM payment_entitlements',
+        )).toEqual([{ state: 'active', expires_at: null }]);
+
+        const claimRequest = new Request('https://support.yomureader.com/claim?session_id=cs_live_e2e', {
+            headers: { cookie: `__Host-yomu_support_claim=${claimToken}` },
+        });
+        const firstClaim = await SupportWorker.fetch(claimRequest.clone(), supportEnv, executionContext());
+        const refreshedClaim = await SupportWorker.fetch(claimRequest.clone(), supportEnv, executionContext());
+        expect(firstClaim.status).toBe(200);
+        const firstCode = await firstClaim.text();
+        expect(firstCode).toMatch(/permanent Yomu Academy code is: [A-Z0-9-]+/u);
+        expect(firstClaim.headers.get('set-cookie')).toBeNull();
+        expect(await refreshedClaim.text()).toBe(firstCode);
+    });
+});
+
+function supportDonationDb() {
+    const eventIds = new Set<string>();
+    return {
+        prepare() {
+            let values: unknown[] = [];
+            return {
+                bind(...bound: unknown[]) {
+                    values = bound;
+                    return this;
+                },
+                async first() { return null; },
+                async run() {
+                    eventIds.add(String(values[0] ?? ''));
+                    return { success: true, meta: { changes: 1 } };
+                },
+            };
+        },
+    };
+}
+
+function executionContext() {
+    return { waitUntil: (_promise: Promise<unknown>) => undefined };
+}
+
+function claimCookieToken(response: Response): string {
+    expect(response.status).toBe(303);
+    const cookie = response.headers.get('set-cookie') ?? '';
+    const token = /__Host-yomu_support_claim=([A-Za-z0-9_-]{43})/u.exec(cookie)?.[1] ?? '';
+    expect(token).toHaveLength(43);
+    return token;
+}
+
+async function signedStripeWebhook(payload: string, timestamp: number, secret: string): Promise<Request> {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${payload}`));
+    const hex = Array.from(new Uint8Array(signature), byte => byte.toString(16).padStart(2, '0')).join('');
+    return new Request('https://support.yomureader.com/stripe/webhook', {
+        method: 'POST',
+        headers: { 'stripe-signature': `t=${timestamp},v1=${hex}` },
+        body: payload,
+    });
+}

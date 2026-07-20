@@ -35,7 +35,7 @@
     {
       "id": "d1-kv-state",
       "label": "D1 + KV donation state",
-      "detail": "D1 donation ledger and KV (FX cache, manual provider totals, webhook state) for the support Worker.",
+      "detail": "D1 verified-event donation ledger and KV FX cache for the support Worker.",
       "monthlyGBP": 0.3,
       "category": "storage"
     },

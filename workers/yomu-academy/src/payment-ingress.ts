@@ -153,49 +153,68 @@ async function applyGrant(
     ids: CanonicalIds,
     receivedAt: number,
 ): Promise<'applied' | 'duplicate' | 'stale'> {
-    const amount = entitlementAmount(envelope);
+    const statements = [subjectUpsert(env, envelope, ids, receivedAt)];
+    const transaction = transactionUpsert(env, envelope, ids, receivedAt);
+    if (transaction) statements.push(transaction);
+    statements.push(await purchaseInsert(env, envelope, ids));
+    statements.push(purchaseFulfilmentUpdate(env, envelope, ids));
+    statements.push(entitlementUpsert(env, envelope, ids, receivedAt));
+    statements.push(eventInsert(env, envelope, ids, receivedAt));
+    const results = await env.ACADEMY_DB.batch(statements);
+    const eventResult = results.at(-1);
+    if ((eventResult?.meta.changes ?? 0) === 0) return 'duplicate';
+    const entitlementResult = results.at(-2);
+    return (entitlementResult?.meta.changes ?? 0) > 0 ? 'applied' : 'stale';
+}
+
+function subjectUpsert(env: Env, envelope: IngressEnvelope, ids: CanonicalIds, receivedAt: number) {
+    return env.ACADEMY_DB.prepare(
+        'INSERT INTO payment_subjects (id, provider, provider_subject_hash, subject_kind, created_at, updated_at) '
+        + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(provider, provider_subject_hash) '
+        + 'DO UPDATE SET updated_at = MAX(payment_subjects.updated_at, excluded.updated_at)',
+    ).bind(ids.subjectId, envelope.provider, ids.subjectHash, envelope.subject.kind, envelope.occurredAt, receivedAt);
+}
+
+function transactionUpsert(env: Env, envelope: IngressEnvelope, ids: CanonicalIds, receivedAt: number) {
     const transaction = envelope.transaction;
-    const statements = [
-        env.ACADEMY_DB.prepare(
-            'INSERT INTO payment_subjects (id, provider, provider_subject_hash, subject_kind, created_at, updated_at) '
-            + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(provider, provider_subject_hash) '
-            + 'DO UPDATE SET updated_at = MAX(payment_subjects.updated_at, excluded.updated_at)',
-        ).bind(ids.subjectId, envelope.provider, ids.subjectHash, envelope.subject.kind, envelope.occurredAt, receivedAt),
-    ];
-    if (transaction && ids.transactionHash && ids.transactionId) {
-        statements.push(env.ACADEMY_DB.prepare(
-            'INSERT INTO payment_transactions '
-            + '(id, provider, provider_transaction_hash, provider_session_hash, subject_id, currency, amount_minor, status, occurred_at, received_at) '
-            + "SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'settled', ?8, ?9 "
-            + 'WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?2 AND provider_event_hash = ?10) '
-            + 'ON CONFLICT(provider, provider_transaction_hash) DO UPDATE SET '
-            + 'provider_session_hash = COALESCE(payment_transactions.provider_session_hash, excluded.provider_session_hash), '
-            + 'amount_minor = excluded.amount_minor, status = excluded.status, occurred_at = excluded.occurred_at, received_at = excluded.received_at '
-            + 'WHERE excluded.subject_id = payment_transactions.subject_id '
-            + 'AND excluded.occurred_at >= payment_transactions.occurred_at',
-        ).bind(
-            ids.transactionId, envelope.provider, ids.transactionHash, ids.sessionHash,
-            ids.subjectId, transaction.currency, transaction.amountMinor,
-            envelope.occurredAt, receivedAt, ids.eventHash,
-        ));
-    }
-    statements.push(env.ACADEMY_DB.prepare(
+    if (!transaction || !ids.transactionHash || !ids.transactionId) return null;
+    return env.ACADEMY_DB.prepare(
+        'INSERT INTO payment_transactions '
+        + '(id, provider, provider_transaction_hash, provider_session_hash, subject_id, currency, amount_minor, status, occurred_at, received_at) '
+        + "SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'settled', ?8, ?9 "
+        + 'WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?2 AND provider_event_hash = ?10) '
+        + 'ON CONFLICT(provider, provider_transaction_hash) DO UPDATE SET '
+        + 'provider_session_hash = COALESCE(payment_transactions.provider_session_hash, excluded.provider_session_hash), '
+        + 'amount_minor = excluded.amount_minor, status = excluded.status, occurred_at = excluded.occurred_at, received_at = excluded.received_at '
+        + 'WHERE excluded.subject_id = payment_transactions.subject_id '
+        + 'AND excluded.occurred_at >= payment_transactions.occurred_at',
+    ).bind(
+        ids.transactionId, envelope.provider, ids.transactionHash, ids.sessionHash,
+        ids.subjectId, transaction.currency, transaction.amountMinor,
+        envelope.occurredAt, receivedAt, ids.eventHash,
+    );
+}
+
+async function purchaseInsert(env: Env, envelope: IngressEnvelope, ids: CanonicalIds) {
+    const claimHash = envelope.transaction?.claimHash
+        ?? await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `payment-claim:${ids.purchaseId}`);
+    return env.ACADEMY_DB.prepare(
         'INSERT OR IGNORE INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
         + "SELECT ?1, ?2, ?3, 'paid', ?4, ?4 "
         + 'WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?5 AND provider_event_hash = ?6) '
         + "AND (?7 <> 'stripe' OR ?8 IS NULL)",
     ).bind(
-        ids.purchaseId,
-        envelope.transaction?.claimHash
-            ?? await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `payment-claim:${ids.purchaseId}`),
-        amount,
+        ids.purchaseId, claimHash, entitlementAmount(envelope),
         envelope.occurredAt,
         envelope.provider,
         ids.eventHash,
         envelope.provider,
         envelope.purchaseId ?? null,
-    ));
-    statements.push(env.ACADEMY_DB.prepare(
+    );
+}
+
+function purchaseFulfilmentUpdate(env: Env, envelope: IngressEnvelope, ids: CanonicalIds) {
+    return env.ACADEMY_DB.prepare(
         "UPDATE purchases SET status = 'paid', fulfilled_at = COALESCE(fulfilled_at, ?1) "
         + 'WHERE id = ?2 AND amount_pence = ?3 '
         + "AND ?4 = 'stripe' AND ?7 IS NOT NULL "
@@ -204,13 +223,16 @@ async function applyGrant(
     ).bind(
         envelope.occurredAt,
         ids.purchaseId,
-        amount,
+        entitlementAmount(envelope),
         envelope.provider,
         envelope.transaction?.sessionReference ?? null,
         ids.eventHash,
         envelope.purchaseId ?? null,
-    ));
-    statements.push(env.ACADEMY_DB.prepare(
+    );
+}
+
+function entitlementUpsert(env: Env, envelope: IngressEnvelope, ids: CanonicalIds, receivedAt: number) {
+    return env.ACADEMY_DB.prepare(
         'INSERT INTO payment_entitlements '
         + '(id, provider, subject_id, purchase_id, state, effective_at, expires_at, updated_at) '
         + "SELECT ?1, ?2, ?3, ?4, 'active', ?5, ?6, ?7 "
@@ -224,13 +246,7 @@ async function applyGrant(
     ).bind(
         ids.entitlementId, envelope.provider, ids.subjectId, ids.purchaseId,
         envelope.occurredAt, null, receivedAt, ids.eventHash, ids.transactionId, ids.transactionId,
-    ));
-    statements.push(eventInsert(env, envelope, ids, receivedAt));
-    const results = await env.ACADEMY_DB.batch(statements);
-    const eventResult = results.at(-1);
-    if ((eventResult?.meta.changes ?? 0) === 0) return 'duplicate';
-    const entitlementResult = results.at(-2);
-    return (entitlementResult?.meta.changes ?? 0) > 0 ? 'applied' : 'stale';
+    );
 }
 
 /**
@@ -326,37 +342,90 @@ function parseEnvelope(body: Record<string, unknown>): IngressEnvelope {
     if (body.schemaVersion !== 1) throw new HttpError(422, 'Unsupported payment ingress schema.');
     const provider = readProvider(body.provider);
     const eventId = readReference(body.eventId);
-    const eventType = body.eventType;
-    if (eventType !== 'charge.settled' && eventType !== 'membership.active' && eventType !== 'membership.revoked') {
-        throw new HttpError(422, 'Unsupported payment event type.');
-    }
+    const eventType = readEventType(body.eventType);
     const occurredAt = readTimestamp(body.occurredAt, 'occurredAt');
     const subject = readSubject(body.subject);
     const transaction = body.transaction === undefined ? undefined : readTransaction(body.transaction);
     const purchaseId = body.purchaseId === undefined ? undefined : readReference(body.purchaseId);
     const entitlement = body.entitlement === undefined ? undefined : readEntitlement(body.entitlement, occurredAt);
-    if (eventType === 'charge.settled' && (!transaction || provider === 'patreon')) {
-        throw new HttpError(422, 'Settled charges require a Stripe or Ko-fi transaction.');
+    validateEventShape(provider, eventType, transaction, entitlement);
+    validateProviderShape(provider, eventType, subject, transaction, purchaseId);
+    return { schemaVersion: 1, provider, eventId, eventType, occurredAt, subject, transaction, purchaseId, entitlement };
+}
+
+function readEventType(value: unknown): EventType {
+    if (value !== 'charge.settled' && value !== 'membership.active' && value !== 'membership.revoked') {
+        throw new HttpError(422, 'Unsupported payment event type.');
     }
-    if (eventType !== 'charge.settled' && (provider !== 'patreon' || transaction)) {
+    return value;
+}
+
+function validateEventShape(
+    provider: Provider,
+    eventType: EventType,
+    transaction: IngressEnvelope['transaction'],
+    entitlement: IngressEnvelope['entitlement'],
+): void {
+    if (eventType === 'charge.settled') {
+        validateChargeShape(provider, transaction);
+        return;
+    }
+    validateMembershipShape(provider, eventType, transaction, entitlement);
+}
+
+function validateChargeShape(provider: Provider, transaction: IngressEnvelope['transaction']): void {
+    if (!transaction) throw new HttpError(422, 'Settled charges require a Stripe or Ko-fi transaction.');
+    if (provider === 'patreon') throw new HttpError(422, 'Settled charges require a Stripe or Ko-fi transaction.');
+}
+
+function validateMembershipShape(
+    provider: Provider,
+    eventType: Exclude<EventType, 'charge.settled'>,
+    transaction: IngressEnvelope['transaction'],
+    entitlement: IngressEnvelope['entitlement'],
+): void {
+    if (provider !== 'patreon' || transaction) {
         throw new HttpError(422, 'Membership events are Patreon state, not charge transactions.');
     }
     if (eventType === 'membership.active' && (!entitlement || entitlement.expiresAt === null)) {
         throw new HttpError(422, 'Active membership expiry is required.');
     }
-    if (provider === 'stripe') {
-        const academyPurchase = purchaseId !== undefined
-            && subject.kind === 'academy_purchase'
-            && subject.reference === purchaseId;
-        const supportDonation = purchaseId === undefined
-            && subject.kind === 'transaction'
-            && subject.reference === transaction?.reference;
-        if (eventType !== 'charge.settled' || !transaction?.sessionReference || (!academyPurchase && !supportDonation)) {
-            throw new HttpError(422, 'Stripe ingress must reference an exact Academy purchase or verified support transaction.');
-        }
+}
+
+function validateProviderShape(
+    provider: Provider,
+    eventType: EventType,
+    subject: IngressEnvelope['subject'],
+    transaction: IngressEnvelope['transaction'],
+    purchaseId: string | undefined,
+): void {
+    if (provider === 'stripe') validateStripeShape(eventType, subject, transaction, purchaseId);
+    if (provider === 'kofi') validateKofiShape(eventType);
+}
+
+function validateStripeShape(
+    eventType: EventType,
+    subject: IngressEnvelope['subject'],
+    transaction: IngressEnvelope['transaction'],
+    purchaseId: string | undefined,
+): void {
+    const hasSession = eventType === 'charge.settled' && Boolean(transaction?.sessionReference);
+    if (!hasSession || !isValidStripeSubject(subject, transaction, purchaseId)) {
+        throw new HttpError(422, 'Stripe ingress must reference an exact Academy purchase or verified support transaction.');
     }
-    if (provider === 'kofi' && eventType !== 'charge.settled') throw new HttpError(422, 'Ko-fi ingress accepts charge events only.');
-    return { schemaVersion: 1, provider, eventId, eventType, occurredAt, subject, transaction, purchaseId, entitlement };
+}
+
+function isValidStripeSubject(
+    subject: IngressEnvelope['subject'],
+    transaction: IngressEnvelope['transaction'],
+    purchaseId: string | undefined,
+): boolean {
+    if (purchaseId !== undefined) return subject.kind === 'academy_purchase' && subject.reference === purchaseId;
+    return subject.kind === 'transaction' && subject.reference === transaction?.reference;
+}
+
+function validateKofiShape(eventType: EventType): void {
+    if (eventType !== 'charge.settled') throw new HttpError(422, 'Ko-fi ingress accepts charge events only.');
 }
 
 function readProvider(value: unknown): Provider {

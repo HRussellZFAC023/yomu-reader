@@ -34,10 +34,6 @@ const FX_CACHE_KEY = "fx:GBP:latest";
 const FX_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const BASE_CURRENCY = "GBP";
 
-// Manual-provider month-to-date totals (Ko-fi / Patreon webhooks) live under
-// this KV prefix keyed by "manual:<provider>:<YYYY-MM>" holding integer minor
-// units (pence-equivalent GBP). Webhook receivers normalise to GBP before store.
-const MANUAL_PROVIDER_KV_PREFIX = "manual";
 const MANUAL_PROVIDERS = ["kofi", "patreon", "bmac", "paypal"] as const;
 type ManualProvider = (typeof MANUAL_PROVIDERS)[number];
 
@@ -229,47 +225,40 @@ export default {
 async function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (isCorsPreflight(request)) return preflight(request);
   const url = new URL(request.url);
-
-  if (url.pathname === "/stripe/webhook" || url.pathname === "/webhook") {
-    return handleStripeWebhook(request, env);
-  }
-  if (url.pathname === "/webhooks/kofi") {
-    return handleKofiWebhook(request, env);
-  }
-  if (url.pathname === "/webhooks/patreon") {
-    return handlePatreonWebhook(request, env);
-  }
-  if (url.pathname === "/claim") {
-    return handleDonationClaim(request, env);
-  }
+  const writeResponse = handleWriteRoute(url.pathname, request, env);
+  if (writeResponse) return writeResponse;
 
   if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
     return textResponse("Method not allowed.", 405, { allow: "GET, HEAD, OPTIONS" });
   }
 
-  if (url.pathname === "/goal") {
-    return jsonResponse(request, buildGoal(env), 200, {
-      "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}`,
-    });
-  }
+  return handleReadRoute(url.pathname, request, env, ctx);
+}
 
-  if (url.pathname === "/progress") {
-    return jsonResponse(request, await buildProgress(env), 200, {
-      "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}`,
-    });
-  }
+function handleWriteRoute(pathname: string, request: Request, env: Env): Promise<Response> | null {
+  if (pathname === "/stripe/webhook" || pathname === "/webhook") return handleStripeWebhook(request, env);
+  if (pathname === "/webhooks/kofi") return handleKofiWebhook(request, env);
+  if (pathname === "/webhooks/patreon") return handlePatreonWebhook(request, env);
+  if (pathname === "/claim") return handleDonationClaim(request, env);
+  return null;
+}
 
-  if (url.pathname === "/status" || url.pathname === "/healthz") {
+async function handleReadRoute(
+  pathname: string,
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const cacheHeaders = { "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}` };
+  if (pathname === "/goal") return jsonResponse(request, buildGoal(env), 200, cacheHeaders);
+  if (pathname === "/progress") return jsonResponse(request, await buildProgress(env), 200, cacheHeaders);
+  if (pathname === "/status" || pathname === "/healthz") {
     return jsonResponse(request, await supportStatus(request, env, ctx), 200, {
-      "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}`,
+      ...cacheHeaders,
       "vary": "Origin, Accept-Language",
     });
   }
-
-  if (url.pathname === "/donate" || url.pathname === "/checkout") {
-    return createDonationCheckout(request, env);
-  }
-
+  if (pathname === "/donate" || pathname === "/checkout") return createDonationCheckout(request, env);
   return Response.redirect(DEFAULT_SUPPORT_URL, 302);
 }
 
@@ -330,56 +319,60 @@ async function buildProgress(env: Env): Promise<ProgressResponse> {
     currency: "GBP",
     month: utcMonthKey(),
     totalThisMonthGbp,
-    totalTodayGbp: round2(stripe.donationsTodayGbp),
+    totalTodayGbp: round2(stripe.donationsTodayGbp + manual.todayMinor / 100),
     providers,
     source: stripe.source,
   };
 }
 
-async function manualProviderProgress(env: Env): Promise<{ providers: ProviderProgress[] }> {
+async function manualProviderProgress(env: Env): Promise<{ providers: ProviderProgress[]; todayMinor: number }> {
   const month = utcMonthKey();
   const providers: ProviderProgress[] = [];
+  let todayMinor = 0;
   for (const provider of MANUAL_PROVIDERS) {
-    const minor = await readManualProviderMinor(env, provider, month);
+    const progress = await providerDonationProgress(env, provider, month);
+    todayMinor += progress.todayMinor;
     providers.push({
       provider,
-      monthGbp: round2(minor / 100),
-      source: env.SUPPORT_KV ? "kv" : "none",
+      monthGbp: round2(progress.monthMinor / 100),
+      source: progress.source,
     });
   }
-  return { providers };
+  return { providers, todayMinor };
 }
 
-async function readManualProviderMinor(env: Env, provider: ManualProvider, month: string): Promise<number> {
-  if (!env.SUPPORT_KV) return 0;
+async function providerDonationProgress(
+  env: Env,
+  provider: ManualProvider,
+  month: string,
+): Promise<{ monthMinor: number; todayMinor: number; source: "d1" | "none" }> {
+  if (!env.SUPPORT_DB || (provider !== "kofi" && provider !== "patreon")) {
+    return { monthMinor: 0, todayMinor: 0, source: "none" };
+  }
   try {
-    const raw = await env.SUPPORT_KV.get(manualProviderKey(provider, month));
-    const value = raw === null ? 0 : Number(raw);
-    return Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+    const [monthRow, todayRow] = await Promise.all([
+      env.SUPPORT_DB.prepare(`
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor FROM provider_donation_events
+        WHERE provider = ? AND day >= ? AND day < ? AND currency = 'gbp'
+      `).bind(provider, month, nextUtcMonthKey()).first<{ total_minor?: number | null }>(),
+      env.SUPPORT_DB.prepare(`
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor FROM provider_donation_events
+        WHERE provider = ? AND day = ? AND currency = 'gbp'
+      `).bind(provider, utcDayKey()).first<{ total_minor?: number | null }>(),
+    ]);
+    return {
+      monthMinor: nonNegativeNumber(monthRow?.total_minor, 0),
+      todayMinor: nonNegativeNumber(todayRow?.total_minor, 0),
+      source: "d1",
+    };
   } catch (error) {
     console.error(JSON.stringify({
       event: "yomu_support_manual_provider_read_failed",
       provider,
       message: error instanceof Error ? error.message : "unknown",
     }));
-    return 0;
+    return { monthMinor: 0, todayMinor: 0, source: "none" };
   }
-}
-
-async function addManualProviderMinor(
-  env: Env,
-  provider: ManualProvider,
-  month: string,
-  amountMinor: number,
-): Promise<void> {
-  if (!env.SUPPORT_KV || amountMinor <= 0) return;
-  const key = manualProviderKey(provider, month);
-  const current = await readManualProviderMinor(env, provider, month);
-  await env.SUPPORT_KV.put(key, String(current + Math.round(amountMinor)));
-}
-
-function manualProviderKey(provider: ManualProvider, month: string): string {
-  return `${MANUAL_PROVIDER_KV_PREFIX}:${provider}:${month}`;
 }
 
 // --- Status (goal + progress + localized display) -------------------------
@@ -654,16 +647,30 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
   const fallbackUrl = fallbackDonateUrl(env, { requireLiveStripe });
   if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test") {
     logStripeTestModeBlocked(request, "secret_key");
-    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
+    return donationFallback(fallbackUrl);
   }
-
-  if (!env.STRIPE_SECRET_KEY) {
-    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
-  }
+  if (!env.STRIPE_SECRET_KEY) return donationFallback(fallbackUrl);
 
   const amountMinor = donationAmountMinor(new URL(request.url));
   const claimToken = randomSupportClaimToken();
   const claimHash = await sha256Hex(claimToken);
+  const response = await requestStripeCheckout(request, env, amountMinor, claimHash);
+  const payload = await response.json().catch(() => null);
+  const checkoutUrl = checkoutSessionUrl(payload);
+  if (checkoutUrl && requireLiveStripe && isStripeTestCheckoutUrl(checkoutUrl)) {
+    logStripeTestModeBlocked(request, "checkout_url");
+    return donationFallback(fallbackUrl);
+  }
+  if (!response.ok || !checkoutUrl) return failedStripeCheckout(response.status, fallbackUrl);
+  return completedStripeCheckout(checkoutUrl, claimToken);
+}
+
+async function requestStripeCheckout(
+  request: Request,
+  env: Env,
+  amountMinor: number,
+  claimHash: string,
+): Promise<Response> {
   const body = new URLSearchParams();
   body.set("mode", "payment");
   body.set("submit_type", "donate");
@@ -677,7 +684,7 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
   body.set("metadata[yomu_service]", "support");
   body.set("metadata[yomu_academy_claim_hash]", claimHash);
 
-  const response = await fetch(STRIPE_CHECKOUT_SESSIONS_URL, {
+  return fetch(STRIPE_CHECKOUT_SESSIONS_URL, {
     method: "POST",
     headers: {
       authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
@@ -686,19 +693,9 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
     },
     body,
   });
-  const payload = await response.json().catch(() => null);
-  const checkoutUrl = checkoutSessionUrl(payload);
-  if (checkoutUrl && requireLiveStripe && isStripeTestCheckoutUrl(checkoutUrl)) {
-    logStripeTestModeBlocked(request, "checkout_url");
-    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
-  }
-  if (!response.ok || !checkoutUrl) {
-    console.error(JSON.stringify({
-      event: "yomu_support_stripe_checkout_failed",
-      status: response.status,
-    }));
-    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
-  }
+}
+
+function completedStripeCheckout(checkoutUrl: string, claimToken: string): Response {
   return new Response(null, {
     status: 303,
     headers: {
@@ -709,9 +706,18 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
   });
 }
 
+function failedStripeCheckout(status: number, fallbackUrl: string | null): Response {
+  console.error(JSON.stringify({ event: "yomu_support_stripe_checkout_failed", status }));
+  return donationFallback(fallbackUrl);
+}
+
+function donationFallback(fallbackUrl: string | null): Response {
+  return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
+}
+
 async function handleDonationClaim(request: Request, env: Env): Promise<Response> {
-  if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
-    return textResponse("Method not allowed.", 405, { allow: "GET, HEAD" });
+  if (request.method.trim().toUpperCase() !== "GET") {
+    return textResponse("Method not allowed.", 405, { allow: "GET" });
   }
   const sessionId = new URL(request.url).searchParams.get("session_id") ?? "";
   const claimToken = cookieValue(request, SUPPORT_CLAIM_COOKIE);
@@ -724,24 +730,27 @@ async function handleDonationClaim(request: Request, env: Env): Promise<Response
     claimToken,
   });
   const payload = await response.json().catch(() => null);
-  if (response.status === 202 && objectRecord(payload)?.status === "pending") {
+  return renderDonationClaim(response.status, payload);
+}
+
+function renderDonationClaim(status: number, payload: unknown): Response {
+  if (status === 202 && objectRecord(payload)?.status === "pending") {
     return textResponse("Your payment is still being confirmed. Refresh this page in a moment.", 202, {
       "cache-control": "no-store",
       "retry-after": "2",
     });
   }
   const code = stringField(objectRecord(payload), "code");
-  if (response.status !== 200 || !/^[A-Z0-9-]{7,64}$/u.test(code ?? "")) {
-    return textResponse("This donation claim could not be verified.", response.status === 401 ? 401 : 409, {
+  if (status !== 200 || !/^[A-Z0-9-]{7,64}$/u.test(code ?? "")) {
+    return textResponse("This donation claim could not be verified.", status === 401 ? 401 : 409, {
       "cache-control": "no-store",
     });
   }
-  return new Response(request.method === "HEAD" ? null : `Your permanent Yomu Academy code is: ${code}`, {
+  return new Response(`Your permanent Yomu Academy code is: ${code}`, {
     status: 200,
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "no-store",
-      "set-cookie": clearSupportClaimCookie(),
     },
   });
 }
@@ -783,35 +792,54 @@ async function handleKofiWebhook(request: Request, env: Env): Promise<Response> 
   if (request.method.trim().toUpperCase() !== "POST") {
     return textResponse("Method not allowed.", 405, { allow: "POST" });
   }
-  if (!env.KOFI_WEBHOOK_SECRET || !env.SUPPORT_KV) {
+  const secret = env.KOFI_WEBHOOK_SECRET;
+  const db = env.SUPPORT_DB;
+  if (!secret || !db) {
     return textResponse("Ko-fi webhook is not configured.", 503);
   }
 
   // Ko-fi posts application/x-www-form-urlencoded with a single `data` field
   // whose JSON body includes a `verification_token` the account owner sets in
   // the Ko-fi webhooks page. We compare it in constant time.
-  const data = await readKofiPayload(request);
-  const record = objectRecord(parseJson(data));
-  if (!record) return textResponse("Invalid Ko-fi payload.", 400);
+  const verified = await verifiedKofiPayload(request, secret);
+  if (verified instanceof Response) return verified;
+  return handleVerifiedKofiWebhook(request, env, db, verified);
+}
 
-  const token = stringField(record, "verification_token") ?? "";
-  if (!timingSafeEqualString(token, env.KOFI_WEBHOOK_SECRET)) {
-    logWebhookRejected("kofi");
-    return textResponse("Invalid Ko-fi verification token.", 401);
-  }
-
-  const paymentType = (stringField(record, "type") ?? "").toLowerCase();
+async function handleVerifiedKofiWebhook(
+  request: Request,
+  env: Env,
+  db: D1Database,
+  verified: Record<string, unknown>,
+): Promise<Response> {
+  const paymentType = (stringField(verified, "type") ?? "").toLowerCase();
   if (paymentType !== "donation" && paymentType !== "subscription") {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
 
-  const amountMinor = gbpMinorFromProviderAmount(record, "amount", "currency");
+  const amountMinor = gbpMinorFromProviderAmount(verified, "amount", "currency");
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  const academyEnvelope = kofiAcademyEnvelope(record, amountMinor);
+  const academyEnvelope = kofiAcademyEnvelope(verified, amountMinor);
   if (!academyEnvelope) return textResponse("Ko-fi donation identity is incomplete.", 422);
   await forwardAcademyPayment(env, academyEnvelope);
-  await addManualProviderEventMinor(env, "kofi", academyEnvelope.eventId, utcMonthKey(), amountMinor);
+  await recordProviderDonationEvent(db, {
+    provider: "kofi",
+    eventId: academyEnvelope.eventId,
+    day: utcDayKey(new Date(academyEnvelope.occurredAt)),
+    amountMinor,
+    eventType: paymentType,
+    occurredAt: academyEnvelope.occurredAt,
+  });
   return jsonResponse(request, { received: true, recorded: true }, 200);
+}
+
+async function verifiedKofiPayload(request: Request, secret: string): Promise<Record<string, unknown> | Response> {
+  const record = objectRecord(parseJson(await readKofiPayload(request)));
+  if (!record) return textResponse("Invalid Ko-fi payload.", 400);
+  const token = stringField(record, "verification_token") ?? "";
+  if (timingSafeEqualString(token, secret)) return record;
+  logWebhookRejected("kofi");
+  return textResponse("Invalid Ko-fi verification token.", 401);
 }
 
 async function readKofiPayload(request: Request): Promise<string> {
@@ -827,20 +855,22 @@ async function handlePatreonWebhook(request: Request, env: Env): Promise<Respons
   if (request.method.trim().toUpperCase() !== "POST") {
     return textResponse("Method not allowed.", 405, { allow: "POST" });
   }
-  if (!env.PATREON_WEBHOOK_SECRET || !env.SUPPORT_KV) {
+  const secret = env.PATREON_WEBHOOK_SECRET;
+  const db = env.SUPPORT_DB;
+  if (!secret || !db) {
     return textResponse("Patreon webhook is not configured.", 503);
   }
 
   const raw = await request.text();
-  if (!(await hasValidPatreonSignature(request, env.PATREON_WEBHOOK_SECRET, raw))) {
+  if (!(await hasValidPatreonSignature(request, secret, raw))) {
     logWebhookRejected("patreon");
     return textResponse("Invalid Patreon signature.", 401);
   }
 
-  return handleVerifiedPatreonWebhook(request, env, raw);
+  return handleVerifiedPatreonWebhook(request, env, db, raw);
 }
 
-async function handleVerifiedPatreonWebhook(request: Request, env: Env, raw: string): Promise<Response> {
+async function handleVerifiedPatreonWebhook(request: Request, env: Env, db: D1Database, raw: string): Promise<Response> {
   const trigger = request.headers.get("x-patreon-event") ?? "";
   if (!isPatreonMembershipTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
@@ -854,7 +884,14 @@ async function handleVerifiedPatreonWebhook(request: Request, env: Env, raw: str
   }
   const amountMinor = patreonPledgeMinor(parsed);
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  await addManualProviderEventMinor(env, "patreon", academyEnvelope.eventId, utcMonthKey(), amountMinor);
+  await recordProviderDonationEvent(db, {
+    provider: "patreon",
+    eventId: academyEnvelope.eventId,
+    day: utcDayKey(new Date(academyEnvelope.occurredAt)),
+    amountMinor,
+    eventType: trigger,
+    occurredAt: academyEnvelope.occurredAt,
+  });
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
@@ -878,35 +915,36 @@ function patreonPledgeMinor(payload: unknown): number {
 }
 
 function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): AcademyPaymentEnvelope | null {
-  const record = objectRecord(event);
-  const data = objectRecord(record?.data);
-  const session = objectRecord(data?.object);
+  const session = stripeSessionRecord(event);
   const metadata = objectRecord(session?.metadata);
   const purchaseId = providerReference(metadata?.yomu_academy_purchase);
   const claimHash = providerClaimHash(metadata?.yomu_academy_claim_hash);
   const eventId = providerReference(donation.id);
   const sessionId = providerReference(donation.stripeSessionId);
   const occurredAt = providerTimestamp(donation.stripeCreatedAt);
-  if (!eventId || !sessionId) return null;
-  if (occurredAt === null || !isAcademyAmount(donation.amountMinor)) return null;
-  return {
+  if (!eventId || !sessionId || occurredAt === null || !isAcademyAmount(donation.amountMinor)) return null;
+  const common = {
     schemaVersion: 1,
     provider: "stripe",
     eventId,
     eventType: "charge.settled",
     occurredAt,
-    subject: purchaseId
-      ? { kind: "academy_purchase", reference: purchaseId }
-      : { kind: "transaction", reference: sessionId },
-    transaction: {
-      reference: sessionId,
-      sessionReference: sessionId,
-      ...(claimHash ? { claimHash } : {}),
-      currency: "gbp",
-      amountMinor: donation.amountMinor,
-    },
-    ...(purchaseId ? { purchaseId } : {}),
-  };
+    transaction: stripeAcademyTransaction(sessionId, donation.amountMinor, claimHash),
+  } as const;
+  if (purchaseId) {
+    return { ...common, subject: { kind: "academy_purchase", reference: purchaseId }, purchaseId };
+  }
+  return { ...common, subject: { kind: "transaction", reference: sessionId } };
+}
+
+function stripeAcademyTransaction(sessionId: string, amountMinor: number, claimHash: string | null) {
+  const transaction = { reference: sessionId, sessionReference: sessionId, currency: "gbp", amountMinor } as const;
+  return claimHash ? { ...transaction, claimHash } : transaction;
+}
+
+function stripeSessionRecord(event: unknown): Record<string, unknown> | null {
+  const record = objectRecord(event);
+  return objectRecord(objectRecord(record?.data)?.object);
 }
 
 function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: number): AcademyPaymentEnvelope | null {
@@ -1127,20 +1165,30 @@ async function sha256Hex(value: string): Promise<string> {
   return bytesToHex(new Uint8Array(digest));
 }
 
-async function addManualProviderEventMinor(
-  env: Env,
+async function recordProviderDonationEvent(
+  db: D1Database,
+  event: {
   provider: "kofi" | "patreon",
   eventId: string,
-  month: string,
+  day: string,
   amountMinor: number,
+  eventType: string,
+  occurredAt: number,
+  },
 ): Promise<void> {
-  if (!env.SUPPORT_KV) return;
-  const marker = `manual-event:${provider}:${await sha256Hex(eventId)}`;
-  if (await env.SUPPORT_KV.get(marker)) return;
-  // Write the replay marker before the aggregate. A retry after an interrupted
-  // write may undercount support progress, but can never double-count income.
-  await env.SUPPORT_KV.put(marker, "1", { expirationTtl: 400 * 24 * 60 * 60 });
-  await addManualProviderMinor(env, provider, month, amountMinor);
+  await db.prepare(`
+    INSERT OR IGNORE INTO provider_donation_events (
+      provider, event_id, day, amount_minor, currency, event_type, occurred_at, received_at
+    ) VALUES (?, ?, ?, ?, 'gbp', ?, ?, ?)
+  `).bind(
+    event.provider,
+    event.eventId,
+    event.day,
+    Math.round(event.amountMinor),
+    event.eventType,
+    event.occurredAt,
+    new Date().toISOString(),
+  ).run();
 }
 
 function randomSupportClaimToken(): string {
@@ -1153,10 +1201,6 @@ function randomSupportClaimToken(): string {
 
 function supportClaimCookie(token: string): string {
   return `${SUPPORT_CLAIM_COOKIE}=${token}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${SUPPORT_CLAIM_MAX_AGE_SECONDS}`;
-}
-
-function clearSupportClaimCookie(): string {
-  return `${SUPPORT_CLAIM_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 function cookieValue(request: Request, name: string): string | null {
@@ -1297,25 +1341,32 @@ function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): Str
   const record = objectRecord(event);
   const eventType = stringField(record, "type");
   if (!record || !eventType || !STRIPE_DONATION_EVENT_TYPES.has(eventType)) return null;
-  const id = stringField(record, "id");
-  const data = objectRecord(record.data);
-  const session = objectRecord(data?.object);
-  const amountMinor = numberField(session, "amount_total");
-  const currency = stringField(session, "currency")?.toLowerCase();
-  const stripeSessionId = stringField(session, "id");
-  const paymentStatus = stringField(session, "payment_status");
-  if (!id || !stripeSessionId || !amountMinor || amountMinor <= 0 || currency !== "gbp") return null;
-  if (paymentStatus !== "paid") return null;
+  const fields = validStripeDonationFields(record);
+  if (!fields) return null;
   const stripeCreatedAt = numberField(record, "created") ?? receivedTimestamp;
   return {
-    id,
+    id: fields.id,
     eventType,
     day: utcDayKey(new Date(stripeCreatedAt * 1000)),
-    amountMinor: Math.round(amountMinor),
+    amountMinor: Math.round(fields.amountMinor),
     currency: "gbp",
-    stripeSessionId,
+    stripeSessionId: fields.sessionId,
     stripeCreatedAt,
   };
+}
+
+function validStripeDonationFields(
+  event: Record<string, unknown>,
+): { id: string; sessionId: string; amountMinor: number } | null {
+  const session = stripeSessionRecord(event);
+  const id = stringField(event, "id");
+  const sessionId = stringField(session, "id");
+  const amountMinor = numberField(session, "amount_total");
+  const currency = stringField(session, "currency")?.toLowerCase();
+  const paymentStatus = stringField(session, "payment_status");
+  if (!id || !sessionId || !amountMinor || amountMinor <= 0) return null;
+  if (currency !== "gbp" || paymentStatus !== "paid") return null;
+  return { id, sessionId, amountMinor };
 }
 
 async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent): Promise<void> {

@@ -51,8 +51,8 @@
       "database_id": "c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c"
     }
   ],
-  // SUPPORT_KV holds the daily FX-rate cache (24h) and month-to-date manual
-  // provider totals written by the Ko-fi / Patreon webhook receivers.
+  // SUPPORT_KV holds only the daily FX-rate cache (24h). Verified provider
+  // donation events and aggregates live in SUPPORT_DB for atomic idempotency.
   "kv_namespaces": [
     {
       "binding": "SUPPORT_KV",
