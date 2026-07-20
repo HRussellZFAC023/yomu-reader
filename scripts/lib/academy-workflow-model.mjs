@@ -4,18 +4,75 @@ import path from 'node:path';
 
 const CANONICAL_GATES = new Set(['C', 'R', 'T', 'Q', 'S', 'O', 'D']);
 const CANONICAL_REQUIREMENTS = new Set(['owner']);
+const REQUIRED_REVIEW_POLICY = Object.freeze({
+    id: 'claude-fable',
+    reviewerId: 'claude-fable',
+    model: 'claude-fable-5',
+    executable: 'claude',
+    executableSha256: '90608b5c5ab504e96e77365cea6203d046e291d59b2bb42cf28dcb2ccdf9dd58',
+    packageName: '@anthropic-ai/claude-code',
+    packageVersion: '2.1.215',
+    realpathSuffix: '/node_modules/@anthropic-ai/claude-code/bin/claude.exe',
+    outputFormat: 'claude-json',
+    serviceProvenance: 'unresolved',
+    allowedEnvironment: ['ANTHROPIC_API_KEY', 'LANG', 'LC_ALL', 'TMPDIR'],
+    args: [
+        '-p', '--model', 'claude-fable-5', '--permission-mode', 'plan', '--output-format', 'json',
+        '--bare', '--safe-mode', '--disable-slash-commands', '--strict-mcp-config',
+        '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--no-session-persistence',
+        '--no-chrome', '--tools', 'Read,Grep,Glob',
+    ],
+});
 
 export function sha256(value) {
     return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalize(value) {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]));
+    }
+    return value;
+}
+
+export function canonicalJson(value) {
+    return JSON.stringify(canonicalize(value));
 }
 
 export function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+export function minimalReviewEnvironment(provider, source = process.env) {
+    const allowed = new Set(provider?.allowedEnvironment ?? []);
+    return Object.fromEntries(Object.entries(source).filter(([key, value]) => (
+        allowed.has(key) && typeof value === 'string'
+    )));
+}
+
 function pathIsInside(root, candidate) {
     const relative = path.relative(root, candidate);
     return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+export function canonicalizeReservationPath(repoRoot, candidate) {
+    const realRoot = fs.realpathSync.native(repoRoot);
+    const lexical = path.resolve(repoRoot, candidate);
+    let existing = lexical;
+    const suffix = [];
+    while (!fs.existsSync(existing)) {
+        const parent = path.dirname(existing);
+        if (parent === existing) throw new Error(`Reserved path has no existing parent: ${candidate}`);
+        suffix.unshift(path.basename(existing));
+        existing = parent;
+    }
+    const physical = path.resolve(fs.realpathSync.native(existing), ...suffix);
+    const relative = path.relative(realRoot, physical);
+    if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new Error(`Reserved file resolves outside the repository: ${candidate}`);
+    }
+    return relative.split(path.sep).join('/').normalize('NFC');
 }
 
 export function resolveConfinedFile(candidate, roots) {
@@ -206,11 +263,51 @@ export function validateWorkflow(tasks, config) {
     for (const gate of CANONICAL_GATES) {
         if (!config.proofGates?.[gate]) errors.push(`Proof gate ${gate} has no configured requirement`);
     }
+    const providerIds = Object.keys(config.reviewProviders ?? {});
+    if (config.requiredReviewProvider !== REQUIRED_REVIEW_POLICY.id) {
+        errors.push(`Required review provider must be ${REQUIRED_REVIEW_POLICY.id}`);
+    }
+    if (providerIds.length !== 1 || providerIds[0] !== REQUIRED_REVIEW_POLICY.id) {
+        errors.push(`Review policy must register only ${REQUIRED_REVIEW_POLICY.id}`);
+    }
     for (const [id, provider] of Object.entries(config.reviewProviders ?? {})) {
-        if (!provider?.provider || !provider?.reviewerId || !provider?.model) errors.push(`Review provider ${id} has incomplete identity`);
-        if (!provider?.executableEnv || !provider?.executableDefault) errors.push(`Review provider ${id} has no executable boundary`);
+        if (!provider?.reviewerId || !provider?.model) errors.push(`Review provider ${id} has incomplete identity`);
+        for (const key of ['reviewerId', 'model', 'executable', 'executableSha256', 'packageName', 'packageVersion', 'realpathSuffix', 'outputFormat', 'serviceProvenance']) {
+            if (provider?.[key] !== REQUIRED_REVIEW_POLICY[key]) errors.push(`Review provider ${id} must use fixed ${key} ${REQUIRED_REVIEW_POLICY[key]}`);
+        }
+        if (JSON.stringify(provider?.allowedEnvironment) !== JSON.stringify(REQUIRED_REVIEW_POLICY.allowedEnvironment)) {
+            errors.push(`Review provider ${id} must use the fixed minimal environment allowlist`);
+        }
+        if (provider?.executableEnv || provider?.executableDefault) errors.push(`Review provider ${id} cannot select its executable from the environment`);
         if (!Array.isArray(provider?.args) || provider.args.length === 0) errors.push(`Review provider ${id} has no fixed invocation`);
-        if (provider?.outputFormat !== 'claude-json') errors.push(`Review provider ${id} has unsupported output format ${provider?.outputFormat}`);
+        else if (JSON.stringify(provider.args) !== JSON.stringify(REQUIRED_REVIEW_POLICY.args)) errors.push(`Review provider ${id} invocation must be the fixed Fable invocation`);
+    }
+    const ownerPolicy = config.approvalPolicies?.owner;
+    if (ownerPolicy?.purpose !== 'academy-production-promotion') {
+        errors.push('Owner approval purpose must be academy-production-promotion');
+    }
+    if (!Array.isArray(ownerPolicy?.allowedOwnerIds) || ownerPolicy.allowedOwnerIds.length === 0
+        || ownerPolicy.allowedOwnerIds.some(value => typeof value !== 'string' || !value.trim())) {
+        errors.push('Owner approval policy needs at least one explicit owner identity');
+    }
+    if (!Number.isInteger(ownerPolicy?.maxValidityMinutes) || ownerPolicy.maxValidityMinutes < 1) {
+        errors.push('Owner approval policy needs a positive maxValidityMinutes');
+    }
+    const ownerKeyIds = new Set();
+    for (const key of ownerPolicy?.publicKeys ?? []) {
+        if (!key?.keyId || ownerKeyIds.has(key.keyId)) errors.push(`Owner approval key id is missing or duplicated: ${key?.keyId ?? ''}`);
+        ownerKeyIds.add(key?.keyId);
+        if (!ownerPolicy?.allowedOwnerIds?.includes(key?.ownerId)) errors.push(`Owner approval key ${key?.keyId} belongs to an unauthorized owner`);
+        if (key?.algorithm !== 'Ed25519' || key?.publicKeyJwk?.kty !== 'OKP'
+            || key?.publicKeyJwk?.crv !== 'Ed25519' || !key?.publicKeyJwk?.x) {
+            errors.push(`Owner approval key ${key?.keyId} is not a pinned Ed25519 public JWK`);
+        }
+        if (key?.publicKeyJwk && Object.hasOwn(key.publicKeyJwk, 'd')) {
+            errors.push(`Owner approval key ${key?.keyId} must not contain private key material`);
+        }
+    }
+    for (const ownerId of ownerPolicy?.allowedOwnerIds ?? []) {
+        if (!(ownerPolicy?.publicKeys ?? []).some(key => key.ownerId === ownerId)) errors.push(`Owner ${ownerId} has no pinned Ed25519 public key`);
     }
     for (const kind of ['workflow', 'ci']) {
         if (!Array.isArray(config.trustedGateProducers?.[kind]) || config.trustedGateProducers[kind].length === 0) {
@@ -245,6 +342,15 @@ export function activeClaims(state, now) {
     return (state.claims ?? []).filter(claim => (
         claim.status === 'active' && Date.parse(claim.expiresAt) > now.getTime()
     ));
+}
+
+export function taskCompleteForWorkflow(task, state = {}) {
+    if (!task.complete) return false;
+    const promotion = [...(state.promotions ?? [])].reverse().find(row => row.taskId === task.id);
+    if (!promotion) return true;
+    return promotion.userVisible
+        ? promotion.status === 'released'
+        : ['verified', 'released'].includes(promotion.status);
 }
 
 export function taskDefinitionSha256(task) {
@@ -311,7 +417,10 @@ function taskScore(task, config, descendants) {
 }
 
 export function buildPlan(tasks, config, state = {}, now = new Date()) {
-    const byId = new Map(tasks.map(task => [task.id, task]));
+    const completion = new Map(tasks.map(task => [task.id, taskCompleteForWorkflow(task, state)]));
+    const pendingPromotionIds = new Set((state.promotions ?? [])
+        .filter(row => !['verified', 'released', 'reopened', 'recovery-rolled-back', 'interrupted-before-backlog'].includes(row.status))
+        .map(row => row.taskId));
     const claims = activeClaims(state, now);
     const claimedIds = new Set(claims.map(claim => claim.taskId));
     const laneUse = new Map();
@@ -319,11 +428,11 @@ export function buildPlan(tasks, config, state = {}, now = new Date()) {
     const descendants = descendantCounts(tasks);
 
     const ready = tasks
-        .filter(task => !task.complete && !claimedIds.has(task.id))
-        .filter(task => task.deps.every(dep => byId.get(dep)?.complete))
+        .filter(task => !completion.get(task.id) && !claimedIds.has(task.id) && !pendingPromotionIds.has(task.id))
+        .filter(task => task.deps.every(dep => completion.get(dep)))
         .filter(task => {
             const resolved = resolveDynamicDependencies(task, tasks, config, state);
-            return resolved !== null && resolved.every(dep => byId.get(dep)?.complete);
+            return resolved !== null && resolved.every(dep => completion.get(dep));
         })
         .map(task => ({
             ...task,
@@ -348,7 +457,7 @@ export function buildPlan(tasks, config, state = {}, now = new Date()) {
         activeClaims: claims,
         selected,
         readyCount: ready.length,
-        blockedCount: tasks.filter(task => !task.complete).length - ready.length - claims.length,
+        blockedCount: tasks.filter(task => !completion.get(task.id)).length - ready.length - claims.length,
     };
 }
 
@@ -382,11 +491,27 @@ export function buildProductionLedger(tasks, config, state = {}, proofs = {}, ro
             && claim.token === candidateProof?.claimToken
             && candidateProof?.taskId === task.id
         ));
-        const liveActiveProof = proofClaim?.status === 'active'
-            && Date.parse(proofClaim.expiresAt) > generatedAt.getTime();
         const promotionPinsProof = /^[a-f0-9]{64}$/u.test(candidateProofSha256 ?? '')
             && promotion?.proofSha256 === candidateProofSha256;
-        const proof = (liveActiveProof || proofClaim?.status === 'checkpointed') && promotionPinsProof ? candidateProof : null;
+        const taskDefinition = taskDefinitionSha256(task);
+        const promotionPinsCurrentTask = promotion?.taskDefinitionSha256 === taskDefinition
+            && candidateProof?.taskDefinitionSha256 === taskDefinition;
+        const promotionPinsEvidence = /^[a-f0-9]{64}$/u.test(proofEntry?.evidenceManifestSha256 ?? '')
+            && promotion?.evidenceManifestSha256 === proofEntry.evidenceManifestSha256;
+        const verified = promotion?.userVisible ? promotion?.status === 'released' : ['verified', 'released'].includes(promotion?.status);
+        const exactClaimVerified = promotion?.userVisible ? proofClaim?.status === 'released' : ['verified', 'released'].includes(proofClaim?.status);
+        const exactClaimCheckpointed = exactClaimVerified
+            && promotion?.claimToken === candidateProof?.claimToken
+            && promotion?.claimToken === proofClaim?.token;
+        const canonicalComplete = Boolean(task.complete
+            && verified
+            && proofEntry?.valid === true
+            && promotionPinsProof
+            && promotionPinsCurrentTask
+            && promotionPinsEvidence
+            && exactClaimCheckpointed
+            && proofEntry?.checkpointValid);
+        const proof = canonicalComplete ? candidateProof : null;
         const gates = Object.fromEntries(task.gates.map(gate => [gate, proofGateStatus(proof, gate)]));
         const qualityGates = task.gates.filter(gate => gate === 'T' || gate === 'Q');
         return {
@@ -394,19 +519,25 @@ export function buildProductionLedger(tasks, config, state = {}, proofs = {}, ro
             priority: task.priority,
             lane: laneForTask(task, config)?.id ?? null,
             dependencies: task.deps,
-            canonicalComplete: task.complete,
+            backlogChecked: task.complete,
+            canonicalComplete,
             claim: active.has(task.id) ? 'active' : 'none',
             proof: proof?.submittedAt ? 'submitted' : 'none',
             audited: proof?.reuseAudit?.status === 'pass',
             implemented: gates.C === 'pass',
             learnerReachable: gates.R === 'pass',
             qaVerified: qualityGates.length > 0 && qualityGates.every(gate => gates[gate] === 'pass'),
-            deployed: gates.D === 'pass' && ['checkpointed', 'awaiting-release', 'released'].includes(promotion?.status),
+            deployed: promotion?.userVisible
+                ? canonicalComplete && promotion.status === 'released'
+                : gates.D === 'pass' && ['verified', 'released'].includes(promotion?.status),
             gates,
             promotion: promotion?.status ?? 'none',
         };
     });
-    const progress = progressSummary(tasks);
+    const progress = progressSummary(rows.map((row, index) => ({
+        complete: row.canonicalComplete,
+        priority: tasks[index].priority,
+    })));
     const evidenceStates = Object.fromEntries([
         'audited', 'implemented', 'learnerReachable', 'qaVerified', 'deployed',
     ].map(key => [key, rows.filter(row => row[key]).length]));
@@ -492,8 +623,17 @@ export function validateReviewAttestation(task, attestation, context = {}) {
     const reviewer = attestation?.reviewer;
     if (!reviewer?.id?.trim() || reviewer.id !== context.reviewer) errors.push('Independent review identity does not match the attested reviewer');
     if (reviewer?.id === context.owner || reviewer?.independentFrom !== context.owner) errors.push('Independent review is not independent from the task owner');
-    if (!reviewer?.provider?.trim() || !reviewer?.model?.trim() || !reviewer?.sessionId?.trim()) {
-        errors.push('Independent review needs provider, model, and session identity');
+    if (!reviewer?.model?.trim() || !reviewer?.sessionId?.trim()) {
+        errors.push('Independent review needs native model and session identity');
+    }
+    const required = context.requiredReviewPolicy;
+    if (context.strict && !required) {
+        errors.push('Independent review has no configured required-provider policy');
+    } else if (required && (
+        reviewer?.id !== required.reviewerId
+        || reviewer?.model !== required.model
+    )) {
+        errors.push(`Independent review must be produced by required provider ${required.id}`);
     }
     const sessionReference = reviewer?.sessionEvidence;
     if (!validArtifactReference(sessionReference)) {
@@ -509,8 +649,48 @@ export function validateReviewAttestation(task, attestation, context = {}) {
         if (session.taskId !== task.id || session.headCommit !== attestation?.headCommit) errors.push('External review session targets another task or HEAD');
         if (session.taskDefinitionSha256 !== taskDefinitionSha256(task)) errors.push('External review session targets another task definition');
         if (session.owner !== context.owner || session.reviewerId !== reviewer?.id) errors.push('External review session identities do not match the claim');
-        if (session.provider !== reviewer?.provider || session.model !== reviewer?.model || session.sessionId !== reviewer?.sessionId) {
-            errors.push('External review session provider identity does not match the attestation');
+        if (session.model !== reviewer?.model || session.sessionId !== reviewer?.sessionId) {
+            errors.push('External review session native identity does not match the attestation');
+        }
+        if (required && (
+            session.providerId !== required.id
+            || session.model !== required.model
+            || session.reviewerId !== required.reviewerId
+        )) {
+            errors.push(`External review session does not satisfy required provider ${required.id}`);
+        }
+        const nativeModels = session.nativeResult?.models;
+        if (session.nativeResult?.type !== 'result'
+            || session.nativeResult?.subtype !== 'success'
+            || session.nativeResult?.isError !== false
+            || session.nativeResult?.sessionId !== session.sessionId
+            || !session.nativeResult?.uuid?.trim()
+            || !Array.isArray(nativeModels)
+            || nativeModels.length !== 1
+            || nativeModels[0] !== required?.model
+            || session.nativeResult?.model !== nativeModels[0]) {
+            errors.push('External review session lacks verifiable native Fable result identity');
+        }
+        if (session.serviceProvenance?.status !== 'unresolved'
+            || attestation?.reviewer?.serviceProvenance !== 'unresolved') {
+            errors.push('External review must record service provenance as unresolved');
+        }
+        if (required && (
+            session.executable?.command !== required.executable
+            || session.executable?.packageName !== required.packageName
+            || session.executable?.packageVersion !== required.packageVersion
+            || session.executable?.sha256 !== required.executableSha256
+            || !session.executable?.realpath?.endsWith(required.realpathSuffix)
+        )) {
+            errors.push('External review session was not produced by the pinned Claude Code executable');
+        }
+        if (required && (
+            JSON.stringify(session.invocation?.args) !== JSON.stringify(required.args)
+            || !Array.isArray(session.invocation?.environmentKeys)
+            || session.invocation.environmentKeys.some(key => !required.allowedEnvironment?.includes(key))
+            || session.invocation.environmentKeys.some(key => /provider|base_url|bedrock|vertex|mcp|plugin|hook/iu.test(key))
+        )) {
+            errors.push('External review session was not launched with the pinned isolated invocation');
         }
         if (session.exitCode !== 0 || session.verdict !== 'ship') errors.push('External review session does not prove a successful SHIP review');
         if (session.reviewPayloadSha256 !== reviewPayloadSha256(attestation)) {
@@ -521,7 +701,11 @@ export function validateReviewAttestation(task, attestation, context = {}) {
             || registration.taskId !== task.id
             || registration.headCommit !== attestation?.headCommit
             || registration.sessionId !== reviewer?.sessionId
-            || registration.captureToken !== session.captureToken) {
+            || registration.captureToken !== session.captureToken
+            || registration.providerId !== session.providerId
+            || registration.executableSha256 !== session.executable?.sha256
+            || registration.nativeResultUuid !== session.nativeResult?.uuid
+            || registration.nativeModel !== session.nativeResult?.model) {
             errors.push('External review session is not registered by a trusted workflow capture');
         }
         if (!validArtifactReference(session.prompt) || !validArtifactReference(session.response)) {
@@ -565,6 +749,102 @@ export function checkpointIntegrityErrors(promotion, actual) {
     }
     if (!/^[a-f0-9]{64}$/u.test(promotion?.evidenceManifestSha256 ?? '')) errors.push('Promotion has no pinned evidence manifest hash');
     else if (promotion.evidenceManifestSha256 !== actual.evidenceManifestSha256) errors.push('Promotion evidence changed after verification');
+    if (!/^[a-f0-9]{64}$/u.test(promotion?.taskDefinitionSha256 ?? '')) errors.push('Promotion has no pinned task-definition hash');
+    else if (promotion.taskDefinitionSha256 !== actual.taskDefinitionSha256) errors.push('Promotion targets a stale task definition');
+    return errors;
+}
+
+export function ownerApprovalPayload(task, requirement, attestation) {
+    return {
+        schema: attestation?.schema ?? null,
+        taskId: attestation?.taskId ?? null,
+        taskDefinitionSha256: attestation?.taskDefinitionSha256 ?? null,
+        requirement: attestation?.requirement ?? null,
+        ownerId: attestation?.owner?.id ?? null,
+        purpose: attestation?.purpose ?? null,
+        decision: attestation?.decision ?? null,
+        claimToken: attestation?.claimToken ?? null,
+        headCommit: attestation?.headCommit ?? null,
+        backlogSha256: attestation?.backlogSha256 ?? null,
+        issuedAt: attestation?.issuedAt ?? null,
+        expiresAt: attestation?.expiresAt ?? null,
+        nonce: attestation?.nonce ?? null,
+        evidenceSha256: attestation?.evidence?.sha256 ?? null,
+    };
+}
+
+export function validateApprovalAttestation(task, requirement, attestation, context = {}) {
+    const errors = [];
+    if (attestation?.schema !== 'yomu-academy.owner-approval/v2') errors.push(`Requirement ${requirement} approval has the wrong schema`);
+    if (attestation?.taskId !== task.id) errors.push(`Requirement ${requirement} approval belongs to another task`);
+    if (attestation?.requirement !== requirement) errors.push(`Requirement ${requirement} approval names another requirement`);
+    if (attestation?.purpose !== context.policy?.purpose) errors.push(`Requirement ${requirement} approval has the wrong purpose`);
+    if (attestation?.decision !== 'approve') errors.push(`Requirement ${requirement} approval decision is not approve`);
+    if (!context.policy?.allowedOwnerIds?.includes(attestation?.owner?.id)) errors.push(`Requirement ${requirement} approval owner is not authorized`);
+    if (attestation?.claimToken !== context.claimToken) errors.push(`Requirement ${requirement} approval targets another claim`);
+    if (attestation?.headCommit !== context.headCommit) errors.push(`Requirement ${requirement} approval targets another HEAD`);
+    if (attestation?.backlogSha256 !== context.backlogSha256) errors.push(`Requirement ${requirement} approval targets another backlog revision`);
+    if (attestation?.taskDefinitionSha256 !== taskDefinitionSha256(task)) errors.push(`Requirement ${requirement} approval targets another task definition`);
+    validIssuedAt(attestation?.issuedAt, errors, `Requirement ${requirement} approval`);
+    const expiresAt = Date.parse(attestation?.expiresAt);
+    const issuedAt = Date.parse(attestation?.issuedAt);
+    const nowMs = context.nowMs ?? Date.now();
+    const maxFutureSkewMs = context.maxFutureSkewMs ?? 5 * 60 * 1000;
+    if (!Number.isNaN(issuedAt) && issuedAt > nowMs + maxFutureSkewMs) {
+        errors.push(`Requirement ${requirement} approval was issued in the future`);
+    }
+    if (Number.isNaN(expiresAt)) errors.push(`Requirement ${requirement} approval expiresAt must be an ISO date`);
+    else {
+        if (expiresAt <= nowMs) errors.push(`Requirement ${requirement} approval has expired`);
+        if (!Number.isNaN(issuedAt) && expiresAt <= issuedAt) {
+            errors.push(`Requirement ${requirement} approval has an invalid validity window`);
+        }
+        const maxValidityMs = (context.policy?.maxValidityMinutes ?? 0) * 60 * 1000;
+        if (!Number.isNaN(issuedAt) && maxValidityMs > 0 && expiresAt - issuedAt > maxValidityMs) {
+            errors.push(`Requirement ${requirement} approval exceeds the maximum validity window`);
+        }
+    }
+    if (!/^[A-Za-z0-9_-]{16,128}$/u.test(attestation?.nonce ?? '')) errors.push(`Requirement ${requirement} approval needs a strong nonce`);
+    if (!validArtifactReference(attestation?.evidence)) errors.push(`Requirement ${requirement} approval needs hash-bound owner evidence`);
+    if (context.evidenceHashes && attestation?.evidence?.path) {
+        const actual = context.evidenceHashes?.get(attestation.evidence.path);
+        if (!actual || actual !== attestation.evidence.sha256) errors.push(`Requirement ${requirement} approval evidence hash mismatch`);
+    }
+    const key = context.policy?.publicKeys?.find(candidate => (
+        candidate.keyId === attestation?.signature?.keyId
+        && candidate.ownerId === attestation?.owner?.id
+    ));
+    if (!key) {
+        errors.push(`Requirement ${requirement} approval does not use an authorized owner key`);
+    } else if (attestation?.signature?.algorithm !== 'Ed25519' || !attestation?.signature?.value?.trim()) {
+        errors.push(`Requirement ${requirement} approval has no detached Ed25519 signature`);
+    } else {
+        try {
+            const publicKey = crypto.createPublicKey({ key: key.publicKeyJwk, format: 'jwk' });
+            const valid = crypto.verify(
+                null,
+                Buffer.from(canonicalJson(ownerApprovalPayload(task, requirement, attestation))),
+                publicKey,
+                Buffer.from(attestation.signature.value, 'base64'),
+            );
+            if (!valid) errors.push(`Requirement ${requirement} approval signature is invalid`);
+        } catch {
+            errors.push(`Requirement ${requirement} approval signature cannot be verified`);
+        }
+    }
+    const registration = context.approvalNonces?.get(attestation?.nonce);
+    if (context.strict && (!registration
+        || registration.taskId !== task.id
+        || registration.requirement !== requirement
+        || registration.keyId !== attestation?.signature?.keyId
+        || registration.evidenceSha256 !== attestation?.evidence?.sha256
+        || (context.approvalReference && (
+            registration.path !== context.approvalReference.path
+            || registration.sha256 !== context.approvalReference.sha256
+        )))) {
+        errors.push(`Requirement ${requirement} approval nonce is not registered to this exact attestation`);
+    }
+    if (!attestation?.summary?.trim()) errors.push(`Requirement ${requirement} approval needs a summary`);
     return errors;
 }
 
@@ -749,6 +1029,7 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
                 evidenceHashes: context.evidenceHashes,
                 reviewSessions: context.reviewSessions,
                 trustedReviewSessions: context.trustedReviewSessions,
+                requiredReviewPolicy: context.requiredReviewPolicy,
             }));
         }
     }
@@ -756,6 +1037,24 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
         const approval = proof.approvals?.[requirement];
         if (approval?.status !== 'pass') errors.push(`Requirement ${requirement} is not passed`);
         validateEvidenceReference(approval?.evidence, `Requirement ${requirement}`, context, errors);
+        if (context.strict) {
+            const attestation = context.approvalAttestations?.get(approval?.evidence?.path);
+            if (!attestation) {
+                errors.push(`Requirement ${requirement} evidence is not a readable typed approval`);
+            } else {
+                errors.push(...validateApprovalAttestation(task, requirement, attestation, {
+                    policy: context.approvalPolicies?.[requirement],
+                    claimToken: proof.claimToken,
+                    headCommit: proof.headCommit,
+                    backlogSha256: proof.backlogSha256,
+                    strict: true,
+                    nowMs: context.nowMs,
+                    evidenceHashes: context.evidenceHashes,
+                    approvalNonces: context.approvalNonces,
+                    approvalReference: approval.evidence,
+                }));
+            }
+        }
     }
     if (proof.release?.userVisible && !proof.release?.releaseNotes?.trim()) errors.push('User-visible work requires release notes');
     if (context.strict && proof.release?.userVisible !== context.userVisible) errors.push('Proof misclassifies user-visible work');

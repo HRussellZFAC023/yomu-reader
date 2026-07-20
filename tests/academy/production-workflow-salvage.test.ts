@@ -18,7 +18,7 @@ const baseScan = {
     originMain: '2222222222222222222222222222222222222222',
 };
 
-function fixtureSources() {
+function fixtureSources(): Record<string, any[]> {
     return {
         documents: [
             { path: 'docs/recovery.md', text: 'Unrelated setup.\nThe Aivis voice pilot is half done.\nKeep the render script.' },
@@ -167,7 +167,57 @@ describe('Academy production prior-work salvage', () => {
         expect(report.candidates.filter(candidate => candidate.kind === 'transcript')).toEqual([]);
     });
 
-    it('keeps an exhaustive transcript inventory while bounding and hashing the ranked manual-review queue', () => {
+    it('ranks CUR-007 by exact/domain/owned-path evidence and excludes patch-equivalent duplicates', () => {
+        const curriculumTask = {
+            id: 'CUR-007',
+            description: 'Audit and adapt Soya and official candidates item by item for N5-N1 placement, quizzes, listening, reading, speaking and mocks; preserve mechanics when wording/media cannot ship and never infer licence from availability.',
+        };
+        const query = tokenizeSalvageTask(curriculumTask);
+        expect(query.tokens.map(row => row.token)).not.toEqual(expect.arrayContaining(['and', 'for', 'the']));
+        const patchEquivalent = ['c3c58e90e', 'a5ac0f154', '2306190f6', 'ea7fd951b', 'd4ce637f2', '4b96897f1'];
+
+        const sources = {
+            branches: [
+                { name: 'noise/and-for', head: '1'.repeat(40), subject: 'and for the complete workflow' },
+                { name: 'curriculum/exact', head: '2'.repeat(40), subject: 'Continue CUR-007 source audit' },
+                {
+                    name: 'curriculum/owned-path', head: '3'.repeat(40), subject: 'Soya lesson continuation',
+                    changedTrackedPaths: ['src/academy/content/lessons/l2-l07.ts'],
+                },
+                {
+                    name: 'curriculum/already-landed', head: '4'.repeat(40), subject: 'CUR-007 lesson continuation',
+                    changedTrackedPaths: ['src/academy/content/lessons/l2-l07.ts'],
+                    patchEquivalentCommits: patchEquivalent, uniqueCommits: [], patchEquivalentToOriginMain: true,
+                },
+            ],
+            commits: [
+                ...patchEquivalent.map(hash => ({
+                    hash, subject: 'CUR-007 lesson continuation',
+                    changedPaths: ['src/academy/content/l07.ts'], patchEquivalentToOriginMain: true,
+                })),
+                { hash: '96cd1a3d0', subject: 'Story route recovery', changedPaths: ['src/academy/story/route.ts'] },
+                { hash: 'edac56e62', subject: 'Audio route recovery', changedPaths: ['src/academy/audio/route.ts'] },
+                { hash: '5020d10cf', subject: 'Story audio recovery', changedPaths: ['src/academy/story/audio.ts'] },
+            ],
+        };
+        const report = buildSalvageReport(curriculumTask, sources, { baseScan });
+        const selectedSources = new Set(report.candidates.map(candidate => candidate.sourceId));
+        const branches = report.inventory.categories.branches;
+
+        expect(selectedSources.has(branches.find(row => row.name === 'noise/and-for')!.sourceId)).toBe(false);
+        expect(selectedSources.has(branches.find(row => row.name === 'curriculum/exact')!.sourceId)).toBe(true);
+        expect(selectedSources.has(branches.find(row => row.name === 'curriculum/owned-path')!.sourceId)).toBe(true);
+        expect(selectedSources.has(branches.find(row => row.name === 'curriculum/already-landed')!.sourceId)).toBe(false);
+        expect(report.inventory.counts.commits).toBe(9);
+        expect(report.candidates.every(candidate => candidate.disposition.status === 'pending')).toBe(true);
+        for (const hash of patchEquivalent) {
+            expect(report.candidates.some(candidate => candidate.references.commits.includes(hash))).toBe(false);
+        }
+        expect(report.candidates.some(candidate => ['96cd1a3d0', 'edac56e62', '5020d10cf']
+            .some(hash => candidate.references.commits.includes(hash)))).toBe(false);
+    });
+
+    it('manifests every relevant transcript while bounding and hashing only the display queue', () => {
         const sources = fixtureSources();
         sources.transcripts = Array.from({ length: 150 }, (_, index) => ({
             id: `audio-thread-${index}`,
@@ -181,13 +231,19 @@ describe('Academy production prior-work salvage', () => {
         const report = buildSalvageReport(task, sources, { baseScan });
 
         expect(report.inventory.counts.transcripts).toBe(150);
-        expect(report.candidates.filter(candidate => candidate.kind === 'transcript')).toHaveLength(100);
+        expect(report.candidates.filter(candidate => candidate.kind === 'transcript')).toHaveLength(150);
         expect(report.candidateSelection).toMatchObject({
             eligibleCounts: { transcript: 150 },
-            selectedCounts: { transcript: 100 },
+            displayedCounts: { transcript: 100 },
             omittedCounts: { transcript: 50 },
         });
         expect((report.candidateSelection as { omittedSha256: string }).omittedSha256).toMatch(/^[a-f0-9]{64}$/u);
+        expect(report.decision.candidateCount).toBe(report.candidates.length);
+        expect(report.candidates.every(candidate => candidate.disposition.status === 'pending')).toBe(true);
+        expect(report.censusSnapshot).toMatchObject({
+            counts: report.inventory.counts,
+            inventorySha256: report.inventory.sha256,
+        });
     });
 
     it('indexes commits, stashes, reflog, dangling commits, and transcript metadata without caps', () => {
@@ -209,6 +265,19 @@ describe('Academy production prior-work salvage', () => {
         });
         expect(report.inventory.categories.stashes).toHaveLength(26);
         expect(report.candidates.filter(candidate => candidate.kind === 'stash')).toHaveLength(26);
+    });
+
+    it('keeps transcript files with the same basename as distinct physical candidates', () => {
+        const sources = fixtureSources();
+        sources.transcripts = [
+            { id: 'shared', threadId: 'shared', path: '/claude/shared.jsonl', summary: 'Aivis voice audio runtime' },
+            { id: 'shared', threadId: 'shared', path: '/codex/shared.jsonl', summary: 'Aivis voice audio runtime' },
+        ];
+        const report = buildSalvageReport(task, sources, { baseScan });
+        const transcripts = report.candidates.filter(candidate => candidate.kind === 'transcript');
+
+        expect(transcripts).toHaveLength(2);
+        expect(new Set(transcripts.map(candidate => candidate.sourceId)).size).toBe(2);
     });
 
     it('produces stable source and candidate IDs independent of input order and timestamp', () => {

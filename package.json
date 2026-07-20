@@ -165,6 +165,7 @@
     "manual:youtube-real-dom-instability": "node scripts/manual/youtube-real-dom-instability-smoke.mjs",
     "test": "vitest run",
     "academy:workflow": "node scripts/academy-production-workflow.mjs",
+    "academy:workflow:validate": "node scripts/academy-production-workflow.mjs validate",
     "test:academy": "vitest run --config config/vite/academy.config.ts && VITEST_ISOLATE=1 vitest run --config config/vite/academy.config.ts tests/academy/entrypoint-lifecycle.test.ts tests/academy/library-srs-early-batch-conformance.test.ts",
     "test:ci": "node scripts/run-ci-suite.mjs",
     "typecheck": "tsc --noEmit",

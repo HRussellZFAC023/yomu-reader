@@ -13,10 +13,25 @@ const CANDIDATE_LIMITS = Object.freeze({
     transcript: 100,
 });
 const STOP_WORDS = new Set([
-    'academy', 'about', 'after', 'against', 'before', 'build', 'complete', 'every', 'from',
-    'into', 'make', 'production', 'proof', 'ship', 'that', 'their', 'through', 'with',
-    'without', 'workflow', 'yomu',
+    'academy', 'about', 'adapt', 'after', 'again', 'against', 'also', 'and', 'audit',
+    'availability', 'before', 'build', 'candidate', 'candidates', 'cannot', 'complete',
+    'coverage', 'each', 'every', 'for', 'from', 'integrate', 'integration', 'into', 'item',
+    'items', 'make', 'material', 'more', 'must', 'never', 'official', 'only', 'preserve',
+    'production', 'proof', 'ship', 'should', 'source', 'task', 'that', 'the', 'their', 'then',
+    'this', 'through', 'use', 'using', 'when', 'where', 'with', 'without', 'work', 'workflow',
+    'yomu',
 ]);
+const LOW_SIGNAL_TOKENS = new Set([
+    'art', 'asset', 'audio', 'content', 'curriculum', 'lesson', 'listening', 'media',
+    'placement', 'reading', 'speaking', 'story', 'visual', 'voice',
+]);
+const DOMAIN_HINTS = Object.freeze({
+    CUR: { tokens: ['curriculum', 'lesson', 'pedagogy'], paths: ['src/academy/content/', 'public/academy/content/', 'docs/academy/'] },
+    STO: { tokens: ['story', 'narrative', 'chapter'], paths: ['src/academy/content/story-sources/', 'src/academy/story/', 'docs/academy/story/'] },
+    AUD: { tokens: ['audio', 'voice', 'listening'], paths: ['src/academy/audio/', 'public/academy/audio/', 'docs/academy/audio/'] },
+    GOV: { tokens: ['governance', 'ledger', 'scheduler'], paths: ['config/academy-production-workflow.json', 'scripts/academy-production-workflow.mjs', 'scripts/lib/academy-workflow-'] },
+    ART: { tokens: ['art', 'asset', 'visual'], paths: ['src/academy/assets/', 'public/academy/art/', 'docs/academy/art'] },
+});
 
 export function salvageSha256(value) {
     return crypto.createHash('sha256').update(value).digest('hex');
@@ -53,36 +68,50 @@ function lexicalTokens(value) {
 export function tokenizeSalvageTask(task) {
     if (!task?.id || !task?.description) throw new TypeError('Task id and description are required');
     const id = String(task.id).normalize('NFKC').toLocaleLowerCase('en');
-    const idTokens = lexicalTokens(id);
+    const prefix = id.split('-')[0].toLocaleUpperCase('en');
+    const hints = DOMAIN_HINTS[prefix] ?? { tokens: [], paths: [] };
     const descriptionTokens = lexicalTokens(task.description)
         .filter(token => token.length >= 3 && !STOP_WORDS.has(token));
+    const specificTokens = descriptionTokens.filter(token => !LOW_SIGNAL_TOKENS.has(token));
     const weighted = new Map();
-    weighted.set(id, 12);
-    for (const token of idTokens) weighted.set(token, Math.max(weighted.get(token) ?? 0, 8));
-    for (const token of descriptionTokens) weighted.set(token, Math.max(weighted.get(token) ?? 0, 2));
+    weighted.set(id, 24);
+    for (const token of hints.tokens) weighted.set(token, Math.max(weighted.get(token) ?? 0, 6));
+    for (const token of descriptionTokens) weighted.set(token, Math.max(weighted.get(token) ?? 0, 3));
     return {
         id,
+        descriptionTokens,
+        domainTokens: hints.tokens,
+        specificTokens,
         tokens: [...weighted.entries()]
             .map(([token, weight]) => ({ token, weight }))
             .sort((left, right) => right.weight - left.weight || left.token.localeCompare(right.token, 'en')),
-        sha256: hashObject({ id, description: task.description, tokens: [...weighted.entries()].sort() }),
+        pathPrefixes: hints.paths,
+        sha256: hashObject({ id, description: task.description, tokens: [...weighted.entries()].sort(), pathPrefixes: hints.paths }),
     };
 }
 
 function relevanceFor(value, query) {
     const haystack = new Set(lexicalTokens(value));
     const matches = query.tokens.filter(({ token }) => haystack.has(token));
+    const matchedTokens = matches.map(match => match.token);
     return {
         score: matches.reduce((total, match) => total + match.weight, 0),
-        matchedTokens: matches.map(match => match.token),
+        matchedTokens,
+        matchedDescriptionTokens: matchedTokens.filter(token => query.descriptionTokens?.includes(token)),
+        matchedDomainTokens: matchedTokens.filter(token => query.domainTokens?.includes(token)),
+        matchedSpecificTokens: matchedTokens.filter(token => query.specificTokens?.includes(token)),
     };
 }
 
 function isCandidateRelevant(relevance, query, kind = null) {
     const exactTaskId = query.id && relevance.matchedTokens.includes(query.id);
     if (exactTaskId) return true;
-    if (kind === 'transcript') return relevance.score >= 10 && relevance.matchedTokens.length >= 5;
-    return relevance.score >= 4 && relevance.matchedTokens.length >= 2;
+    const specificMatches = relevance.matchedSpecificTokens?.length ?? 0;
+    const domainMatches = relevance.matchedDomainTokens?.length ?? 0;
+    if (kind === 'transcript') return specificMatches >= 2;
+    if (relevance.matchedOwnedPaths?.length && specificMatches >= 1) return true;
+    if (specificMatches >= 1 && domainMatches >= 1) return true;
+    return specificMatches >= 2;
 }
 
 function relevantLineExcerpts(text, query) {
@@ -153,6 +182,8 @@ function normalizedChangeState(row) {
 function stableSourceId(row) {
     const identity = row.kind === 'document'
         ? { kind: row.kind, path: row.path }
+        : row.kind === 'transcript'
+            ? { kind: row.kind, path: row.path ?? null, threadId: row.threadId ?? null, id: row.id ?? null }
         : row.kind === 'worktree'
             ? { kind: row.kind, path: row.path, branch: row.branch ?? null, head: row.head ?? null }
             : row.kind === 'branch'
@@ -170,6 +201,9 @@ function normalizeBranch(row) {
         branch: row.branch ?? row.name,
         upstream: row.upstream ?? null,
         subject: row.subject ?? null,
+        patchEquivalentCommits: uniqueSorted(row.patchEquivalentCommits),
+        uniqueCommits: uniqueSorted(row.uniqueCommits),
+        patchEquivalentToOriginMain: row.patchEquivalentToOriginMain === true,
         aheadBehind: normalizeAheadBehind(row),
         ...normalizedChangeState(row),
     };
@@ -207,6 +241,7 @@ function normalizeHistoryRow(kind, row) {
         path: row.path ?? null,
         threadId: row.threadId ?? null,
         metadataSha256: hashObject(row.metadata ?? {}),
+        patchEquivalentToOriginMain: row.patchEquivalentToOriginMain === true,
     };
     return { ...normalized, sourceId: stableSourceId(normalized) };
 }
@@ -243,6 +278,22 @@ function searchableText(row) {
         ...(row.changedTrackedPaths ?? []), ...(row.untrackedPaths ?? []), ...(row.changedPaths ?? []),
         ...(row.commitHashes ?? []), ...(row.taskIds ?? []), row.threadId,
     ].filter(Boolean).join('\n');
+}
+
+function relevanceForRow(row, query) {
+    const relevance = relevanceFor(searchableText(row), query);
+    const paths = [
+        row.path,
+        ...(row.changedTrackedPaths ?? []), ...(row.untrackedPaths ?? []), ...(row.changedPaths ?? []),
+    ].filter(Boolean);
+    const matchedOwnedPaths = uniqueSorted(paths.filter(candidate => (
+        (query.pathPrefixes ?? []).some(prefix => candidate === prefix || candidate.startsWith(prefix))
+    )));
+    return {
+        ...relevance,
+        score: relevance.score + (matchedOwnedPaths.length ? 8 : 0),
+        matchedOwnedPaths,
+    };
 }
 
 function referencesFor(row) {
@@ -283,9 +334,9 @@ function candidateFromRow(taskId, row, relevance) {
 
 function selectCandidateRows(rows, query) {
     const eligible = rows
-        .map(row => ({ row, relevance: relevanceFor(searchableText(row), query) }))
-        .filter(({ row, relevance }) => isCandidateRelevant(relevance, query, row.kind)
-            || (row.kind === 'document' && row.excerpts.length > 0));
+        .filter(row => row.patchEquivalentToOriginMain !== true)
+        .map(row => ({ row, relevance: relevanceForRow(row, query) }))
+        .filter(({ row, relevance }) => isCandidateRelevant(relevance, query, row.kind));
     const selected = [];
     const omitted = [];
     for (const kind of Object.keys(CANDIDATE_LIMITS)) {
@@ -308,13 +359,15 @@ function selectCandidateRows(rows, query) {
         values.filter(value => value.row.kind === kind).length,
     ]));
     return {
+        all: eligible,
         selected,
         metadata: {
-            rule: 'all exact task-id matches, then deterministic top relevance per source kind',
-            limits: CANDIDATE_LIMITS,
+            rule: 'complete relevant-candidate manifest; display all exact task-id matches, then deterministic top relevance per source kind',
+            displayLimits: CANDIDATE_LIMITS,
             eligibleCounts: countsFor(eligible),
-            selectedCounts: countsFor(selected),
+            displayedCounts: countsFor(selected),
             omittedCounts: countsFor(omitted),
+            displayedCandidateIds: selected.map(candidate => candidate.row.sourceId).sort((left, right) => left.localeCompare(right, 'en')),
             omittedSha256: hashObject(omitted.map(candidate => ({
                 sourceId: candidate.row.sourceId,
                 relevance: candidate.relevance,
@@ -328,7 +381,7 @@ export function buildSalvageReport(task, sources = {}, options = {}) {
     const inventory = buildSalvageSourceInventory(sources, query);
     const rows = Object.values(inventory.categories).flat();
     const selection = selectCandidateRows(rows, query);
-    const candidates = selection.selected
+    const candidates = selection.all
         .map(({ row, relevance }) => candidateFromRow(task.id, row, relevance))
         .sort((left, right) => left.candidateId.localeCompare(right.candidateId, 'en'));
     const baseScan = canonicalize(options.baseScan ?? {});
@@ -337,6 +390,12 @@ export function buildSalvageReport(task, sources = {}, options = {}) {
         hashes: inventory.hashes,
         sha256: inventory.sha256,
     } : inventory;
+    const censusSnapshot = {
+        sourceSnapshotSha256: options.sourceSnapshot?.sha256 ?? null,
+        counts: inventory.counts,
+        inventorySha256: inventory.sha256,
+    };
+    censusSnapshot.sha256 = hashObject(censusSnapshot);
     return {
         schema: SCHEMA,
         task: { id: task.id, description: task.description, sha256: query.sha256 },
@@ -345,6 +404,7 @@ export function buildSalvageReport(task, sources = {}, options = {}) {
         baseScanSha256: hashObject(baseScan),
         query,
         sourceSnapshot: options.sourceSnapshot ?? null,
+        censusSnapshot,
         inventory: reportInventory,
         candidateSelection: selection.metadata,
         candidates,
@@ -374,8 +434,20 @@ export function validateSalvageReport(report, expected = {}) {
     validateSha('Task hash', report?.task?.sha256, errors);
     validateSha('Base scan hash', report?.baseScanSha256, errors);
     validateSha('Inventory hash', report?.inventory?.sha256, errors);
+    validateSha('Census snapshot hash', report?.censusSnapshot?.sha256, errors);
 
     if (report?.baseScanSha256 !== hashObject(report?.baseScan ?? {})) errors.push('Base scan hash does not match report inputs');
+    const censusSnapshot = report?.censusSnapshot;
+    if (censusSnapshot?.sha256 !== hashObject({
+        sourceSnapshotSha256: censusSnapshot?.sourceSnapshotSha256 ?? null,
+        counts: censusSnapshot?.counts,
+        inventorySha256: censusSnapshot?.inventorySha256,
+    })) errors.push('Census snapshot hash does not match its recorded inputs');
+    if (canonicalSalvageJson(censusSnapshot?.counts) !== canonicalSalvageJson(report?.inventory?.counts)
+        || censusSnapshot?.inventorySha256 !== report?.inventory?.sha256
+        || censusSnapshot?.sourceSnapshotSha256 !== (report?.sourceSnapshot?.sha256 ?? null)) {
+        errors.push('Census snapshot does not match the report inventory and source snapshot');
+    }
     const inventory = report?.inventory;
     const expectedInventory = expected.sources
         ? buildSalvageSourceInventory(expected.sources, tokenizeSalvageTask(expected.task ?? report.task))
@@ -396,7 +468,7 @@ export function validateSalvageReport(report, expected = {}) {
         if (report?.task?.id && report?.task?.description) {
             const query = tokenizeSalvageTask(report.task);
             const selection = selectCandidateRows(Object.values(categories).flat(), query);
-            const expectedCandidates = selection.selected
+            const expectedCandidates = selection.all
                 .map(({ row, relevance }) => candidateFromRow(report.task.id, row, relevance))
                 .map(candidate => candidate.candidateId)
                 .sort((left, right) => left.localeCompare(right, 'en'));
@@ -404,7 +476,7 @@ export function validateSalvageReport(report, expected = {}) {
                 .map(candidate => candidate.candidateId)
                 .sort((left, right) => left.localeCompare(right, 'en'));
             if (canonicalSalvageJson(actualCandidates) !== canonicalSalvageJson(expectedCandidates)) {
-                errors.push('Candidate set does not match the deterministic ranked review queue');
+                errors.push('Candidate set does not match the complete relevant-candidate manifest');
             }
             if (canonicalSalvageJson(report.candidateSelection) !== canonicalSalvageJson(selection.metadata)) {
                 errors.push('Candidate selection metadata does not account for the complete ranked source set');

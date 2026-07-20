@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -5,9 +6,12 @@ import {
     buildPlan,
     buildProductionLedger,
     bindProofToClaim,
+    canonicalJson,
     checkpointIntegrityErrors,
     changedFilesWithinOwnership,
     createWorkOrder,
+    minimalReviewEnvironment,
+    ownerApprovalPayload,
     parseBacklog,
     progressSummary,
     proofTemplate,
@@ -17,8 +21,10 @@ import {
     reuseReportPinErrors,
     sha256,
     taskDefinitionSha256,
+    taskCompleteForWorkflow,
     updateBacklogCheckbox,
     validateGateAttestation,
+    validateApprovalAttestation,
     validateProof,
     validateReviewAttestation,
     validateWorkflow,
@@ -27,6 +33,65 @@ import {
 const repoRoot = path.resolve(__dirname, '../..');
 const backlogPath = path.join(repoRoot, 'docs/academy/BACKLOG.md');
 const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config/academy-production-workflow.json'), 'utf8'));
+const requiredReviewPolicy = {
+    id: config.requiredReviewProvider,
+    ...config.reviewProviders[config.requiredReviewProvider],
+};
+
+function nativeFableSession(sessionId: string) {
+    return {
+        providerId: requiredReviewPolicy.id,
+        executable: {
+            command: requiredReviewPolicy.executable,
+            realpath: `/opt/node_modules/@anthropic-ai/claude-code/bin/claude.exe`,
+            sha256: requiredReviewPolicy.executableSha256,
+            packageName: requiredReviewPolicy.packageName,
+            packageVersion: requiredReviewPolicy.packageVersion,
+        },
+        nativeResult: {
+            type: 'result', subtype: 'success', isError: false, sessionId,
+            uuid: `native-${sessionId}`, models: [requiredReviewPolicy.model],
+            model: requiredReviewPolicy.model,
+        },
+        invocation: {
+            args: requiredReviewPolicy.args,
+            environmentKeys: ['ANTHROPIC_API_KEY'],
+        },
+        serviceProvenance: {
+            status: 'unresolved',
+            reason: 'CLI output has no cryptographic service-provider attestation.',
+        },
+    };
+}
+
+function signedApproval(task: ReturnType<typeof parseBacklog>[number], overrides: Record<string, any> = {}) {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+    const evidence = { path: '@workflow-state/evidence/owner.txt', sha256: '9'.repeat(64) };
+    const policy = {
+        purpose: 'academy-production-promotion',
+        allowedOwnerIds: ['heru'],
+        maxValidityMinutes: 30,
+        publicKeys: [{
+            ownerId: 'heru', keyId: 'test-owner-key', algorithm: 'Ed25519',
+            publicKeyJwk: publicKey.export({ format: 'jwk' }),
+        }],
+    };
+    const approval = {
+        schema: 'yomu-academy.owner-approval/v2', taskId: task.id, requirement: 'owner',
+        purpose: policy.purpose, decision: 'approve', owner: { id: 'heru' },
+        claimToken: 'claim-1', headCommit: 'a'.repeat(40), backlogSha256: 'b'.repeat(64),
+        taskDefinitionSha256: taskDefinitionSha256(task), issuedAt: '2026-07-20T00:00:00.000Z',
+        expiresAt: '2026-07-20T00:20:00.000Z', nonce: 'owner-nonce-1234567890', evidence,
+        summary: 'Approved this exact production promotion.',
+        signature: { algorithm: 'Ed25519', keyId: 'test-owner-key', value: '' },
+        ...overrides,
+    };
+    approval.signature = {
+        ...approval.signature,
+        value: crypto.sign(null, Buffer.from(canonicalJson(ownerApprovalPayload(task, 'owner', approval))), privateKey).toString('base64'),
+    };
+    return { approval, policy, evidence, privateKey };
+}
 
 describe('Academy production workflow', () => {
     it('parses and validates the canonical backlog as one acyclic task graph', () => {
@@ -48,6 +113,18 @@ describe('Academy production workflow', () => {
         expect(tasks.find(task => task.id === 'PLAT-003')?.requirements).toEqual(['owner']);
     });
 
+    it('rejects a substituted Claude package version or executable digest', () => {
+        const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
+        const weakened = structuredClone(config);
+        weakened.reviewProviders['claude-fable'].packageVersion = '99.0.0';
+        weakened.reviewProviders['claude-fable'].executableSha256 = '0'.repeat(64);
+
+        expect(validateWorkflow(tasks, weakened).errors).toEqual(expect.arrayContaining([
+            'Review provider claude-fable must use fixed packageVersion 2.1.215',
+            'Review provider claude-fable must use fixed executableSha256 90608b5c5ab504e96e77365cea6203d046e291d59b2bb42cf28dcb2ccdf9dd58',
+        ]));
+    });
+
     it('reports literal canonical completion without converting it to an effort claim', () => {
         const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
         expect(progressSummary(tasks)).toMatchObject({ complete: 20, total: 126, percent: 15.9 });
@@ -62,17 +139,75 @@ describe('Academy production workflow', () => {
         proof.reuseAudit.status = 'pass';
         for (const gate of tasks[0].gates) proof.gates[gate].status = 'pass';
         const ledger = buildProductionLedger(tasks, config, { claims: [{
-            taskId: 'GOV-001', token: 'claim-1', status: 'checkpointed', expiresAt: '2099-01-01T00:00:00.000Z',
+            taskId: 'GOV-001', token: 'claim-1', status: 'verified', expiresAt: '2099-01-01T00:00:00.000Z',
         }], promotions: [{
-            taskId: 'GOV-001', status: 'checkpointed', proofSha256: 'f'.repeat(64),
-        }] }, { 'GOV-001': { proof, sha256: 'f'.repeat(64) } }, [{ id: 'story-chapter-sources', count: 48 }], {
+            taskId: 'GOV-001', claimToken: 'claim-1', status: 'verified', userVisible: false, proofSha256: 'f'.repeat(64),
+            taskDefinitionSha256: taskDefinitionSha256(tasks[0]), evidenceManifestSha256: 'e'.repeat(64),
+        }] }, { 'GOV-001': {
+            proof, sha256: 'f'.repeat(64), evidenceManifestSha256: 'e'.repeat(64), checkpointValid: true, valid: true,
+        } }, [{ id: 'story-chapter-sources', count: 48 }], {
             generatedAt: '2026-07-20T00:00:00.000Z', headCommit: 'a'.repeat(40), backlogSha256: sha256(markdown),
         });
 
         expect(ledger.progress).toMatchObject({ complete: 1, total: 2, percent: 50 });
         expect(ledger.evidenceStates).toMatchObject({ audited: 1, implemented: 1, learnerReachable: 1, qaVerified: 1, deployed: 1 });
         expect(ledger.routeCounts).toEqual([{ id: 'story-chapter-sources', count: 48 }]);
-        expect(ledger.tasks[0]).toMatchObject({ canonicalComplete: true, promotion: 'checkpointed', deployed: true });
+        expect(ledger.tasks[0]).toMatchObject({ canonicalComplete: true, promotion: 'verified', deployed: true });
+    });
+
+    it('never converts a checked backlog box into canonical progress by itself', () => {
+        const tasks = parseBacklog('- [x] **GOV-001** Checked only. **Deps:** none. **Proof:** `C`.\n', config);
+        const ledger = buildProductionLedger(tasks, config, {}, {}, [], { generatedAt: '2026-07-20T00:00:00.000Z' });
+        expect(ledger.progress).toMatchObject({ complete: 0, total: 1, percent: 0 });
+        expect(ledger.tasks[0]).toMatchObject({ backlogChecked: true, canonicalComplete: false, implemented: false });
+    });
+
+    it('keeps awaiting-release user-visible work open, incomplete, and not deployed', () => {
+        const markdown = '- [x] **PLAT-001** Release feature. **Deps:** none. **Proof:** `C`,`D`.\n';
+        const [task] = parseBacklog(markdown, config);
+        const proof = proofTemplate(task, config, 'base');
+        proof.claimToken = 'claim-release';
+        proof.submittedAt = '2026-07-20T00:00:00.000Z';
+        proof.reuseAudit.status = 'pass';
+        proof.gates.C.status = 'pass';
+        proof.gates.D.status = 'pass';
+        const proofEntry = {
+            proof, sha256: 'a'.repeat(64), evidenceManifestSha256: 'b'.repeat(64),
+            checkpointValid: true, valid: true,
+        };
+        const promotion = {
+            taskId: task.id, claimToken: 'claim-release', status: 'awaiting-release', userVisible: true,
+            proofSha256: proofEntry.sha256, evidenceManifestSha256: proofEntry.evidenceManifestSha256,
+            taskDefinitionSha256: taskDefinitionSha256(task),
+        };
+        const claim = { taskId: task.id, token: 'claim-release', status: 'awaiting-release' };
+        const awaitingState = { claims: [claim], promotions: [promotion] };
+        const awaiting = buildProductionLedger([task], config, awaitingState,
+            { [task.id]: proofEntry }, [], { generatedAt: '2026-07-20T00:01:00.000Z' });
+        expect(awaiting.progress).toMatchObject({ complete: 0, total: 1, percent: 0 });
+        expect(awaiting.tasks[0]).toMatchObject({ canonicalComplete: false, deployed: false, promotion: 'awaiting-release' });
+        expect(taskCompleteForWorkflow(task, awaitingState)).toBe(false);
+
+        promotion.status = 'released';
+        claim.status = 'released';
+        const releasedState = { claims: [claim], promotions: [promotion] };
+        const released = buildProductionLedger([task], config, releasedState,
+            { [task.id]: proofEntry }, [], { generatedAt: '2026-07-20T00:02:00.000Z' });
+        expect(released.progress).toMatchObject({ complete: 1, total: 1, percent: 100 });
+        expect(released.tasks[0]).toMatchObject({ canonicalComplete: true, deployed: true, promotion: 'released' });
+        expect(taskCompleteForWorkflow(task, releasedState)).toBe(true);
+    });
+
+    it('blocks dependents while a checked task awaits release without scheduling the promoted task again', () => {
+        const tasks = parseBacklog(`- [x] **GOV-001** Release governance. **Deps:** none. **Proof:** \`C\`.\n- [ ] **OPS-001** Depend on release. **Deps:** \`GOV-001\`. **Proof:** \`C\`.\n`);
+        const state = {
+            claims: [],
+            promotions: [{ taskId: 'GOV-001', userVisible: true, status: 'awaiting-release' }],
+        };
+
+        expect(buildPlan(tasks, config, state).selected).toEqual([]);
+        state.promotions[0].status = 'released';
+        expect(buildPlan(tasks, config, state).selected.map(row => row.id)).toContain('OPS-001');
     });
 
     it('does not let expired or cross-task claims inflate production evidence', () => {
@@ -117,29 +252,46 @@ describe('Academy production workflow', () => {
         const session = {
             schema: 'yomu-academy.external-review-session/v1', recordedBy: 'academy-production-workflow',
             taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit: 'a'.repeat(40),
-            owner: 'codex-main', reviewerId: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol',
+            owner: 'codex-main', reviewerId: 'claude-fable', model: requiredReviewPolicy.model,
             sessionId: 'agent-1', exitCode: 0, verdict: 'ship', captureToken: 'capture-1', prompt, response,
             reviewPayloadSha256: '',
+            ...nativeFableSession('agent-1'),
         };
         const registration = {
             taskId: task.id, headCommit: 'a'.repeat(40), sessionId: 'agent-1', captureToken: 'capture-1',
             path: sessionEvidence.path, sha256: sessionEvidence.sha256,
+            providerId: requiredReviewPolicy.id,
+            executableSha256: requiredReviewPolicy.executableSha256,
+            nativeResultUuid: 'native-agent-1',
+            nativeModel: requiredReviewPolicy.model,
         };
         const review = {
             schema: 'yomu-academy.review-attestation/v1', taskId: task.id, verdict: 'ship',
             headCommit: 'a'.repeat(40), taskDefinitionSha256: taskDefinitionSha256(task),
             issuedAt: '2026-07-20T00:00:00.000Z', summary: 'No release blockers remain.',
-            reviewer: { id: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol', sessionId: 'agent-1', independentFrom: 'codex-main', sessionEvidence },
+            reviewer: { id: 'claude-fable', model: requiredReviewPolicy.model, sessionId: 'agent-1', independentFrom: 'codex-main', sessionEvidence, serviceProvenance: 'unresolved' },
             scope: ['scripts/academy-production-workflow.mjs'], findings: [],
         };
         session.reviewPayloadSha256 = reviewPayloadSha256(review);
         const reviewContext = {
-            headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent', strict: true,
+            headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'claude-fable', strict: true,
+            requiredReviewPolicy,
             reviewSessions: new Map([[sessionEvidence.path, session]]),
             trustedReviewSessions: new Map([[sessionEvidence.path, registration]]),
             evidenceHashes: new Map([[sessionEvidence.path, sessionEvidence.sha256], [prompt.path, prompt.sha256], [response.path, response.sha256]]),
         };
         expect(validateReviewAttestation(task, review, reviewContext)).toEqual([]);
+        const substitutedSession = structuredClone(session);
+        substitutedSession.nativeResult.models = ['claude-opus-4-8'];
+        substitutedSession.nativeResult.model = 'claude-opus-4-8';
+        expect(validateReviewAttestation(task, review, {
+            ...reviewContext,
+            reviewSessions: new Map([[sessionEvidence.path, substitutedSession]]),
+        })).toContain('External review session lacks verifiable native Fable result identity');
+        expect(validateReviewAttestation(task, {
+            ...review,
+            reviewer: { ...review.reviewer, model: 'gpt-5.6-sol' },
+        }, reviewContext)).toContain('Independent review must be produced by required provider claude-fable');
         expect(validateReviewAttestation(task, { ...review, verdict: 'block' }, reviewContext))
             .toContain('Independent review verdict is not ship');
         expect(validateReviewAttestation(task, review, { ...reviewContext, trustedReviewSessions: new Map() }))
@@ -191,21 +343,26 @@ describe('Academy production workflow', () => {
             headCommit, taskDefinitionSha256: taskDefinitionSha256(task),
             issuedAt: '2026-07-20T00:00:00.000Z', summary: 'No release blockers remain.',
             reviewer: {
-                id: reviewer, provider: 'anthropic-claude-code', model: 'fable', sessionId: 'session-1',
-                independentFrom: owner, sessionEvidence,
+                id: reviewer, model: requiredReviewPolicy.model, sessionId: 'session-1',
+                independentFrom: owner, sessionEvidence, serviceProvenance: 'unresolved',
             },
             scope: ['scripts/academy-production-workflow.mjs'], findings: [],
         };
         const session = {
             schema: 'yomu-academy.external-review-session/v1', recordedBy: 'academy-production-workflow',
             taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit,
-            owner, reviewerId: reviewer, provider: 'anthropic-claude-code', model: 'fable',
+            owner, reviewerId: reviewer, model: requiredReviewPolicy.model,
             sessionId: 'session-1', exitCode: 0, verdict: 'ship', captureToken: 'capture-1', prompt, response,
             reviewPayloadSha256: reviewPayloadSha256(review),
+            ...nativeFableSession('session-1'),
         };
         const registration = {
             taskId: task.id, headCommit, sessionId: 'session-1', captureToken: 'capture-1',
             path: sessionEvidence.path, sha256: sessionEvidence.sha256,
+            providerId: requiredReviewPolicy.id,
+            executableSha256: requiredReviewPolicy.executableSha256,
+            nativeResultUuid: 'native-session-1',
+            nativeModel: requiredReviewPolicy.model,
         };
         const proof = proofTemplate(task, config, 'base');
         Object.assign(proof, {
@@ -232,6 +389,7 @@ describe('Academy production workflow', () => {
             trustedReviewSessions: new Map([[sessionEvidence.path, registration]]),
             trustedGateProducers: config.trustedGateProducers, reuseReportErrors: [], userVisible: false,
             taskDefinitionSha256: taskDefinitionSha256(task),
+            requiredReviewPolicy,
         };
         expect(validateProof(task, proof, sha256(markdown), context)).toEqual([]);
         expect(validateProof(task, proof, sha256(markdown), {
@@ -240,18 +398,92 @@ describe('Academy production workflow', () => {
     });
 
     it('pins the exact promoted backlog and proof through checkpoint retries', () => {
-        const promotion = { proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64), evidenceManifestSha256: 'c'.repeat(64) };
+        const promotion = {
+            proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64),
+            evidenceManifestSha256: 'c'.repeat(64), taskDefinitionSha256: 'd'.repeat(64),
+        };
         expect(checkpointIntegrityErrors(promotion, {
-            proofSha256: 'a'.repeat(64), backlogSha256: 'b'.repeat(64), preparedBacklogSha256: 'b'.repeat(64), evidenceManifestSha256: 'c'.repeat(64),
+            proofSha256: 'a'.repeat(64), backlogSha256: 'b'.repeat(64), preparedBacklogSha256: 'b'.repeat(64),
+            evidenceManifestSha256: 'c'.repeat(64), taskDefinitionSha256: 'd'.repeat(64),
         })).toEqual([]);
         expect(checkpointIntegrityErrors(promotion, {
-            proofSha256: 'c'.repeat(64), backlogSha256: 'd'.repeat(64), preparedBacklogSha256: 'e'.repeat(64), evidenceManifestSha256: 'f'.repeat(64),
+            proofSha256: 'c'.repeat(64), backlogSha256: 'd'.repeat(64), preparedBacklogSha256: 'e'.repeat(64),
+            evidenceManifestSha256: 'f'.repeat(64), taskDefinitionSha256: 'e'.repeat(64),
         })).toEqual(expect.arrayContaining([
             'Promotion proof changed after verification',
             'Canonical backlog differs from the exact promoted checkbox result',
             'Prepared checkpoint commit contains an unexpected backlog',
             'Promotion evidence changed after verification',
+            'Promotion targets a stale task definition',
         ]));
+    });
+
+    it('requires a detached owner signature bound to task, purpose, expiry, nonce, and evidence', () => {
+        const task = parseBacklog('- [ ] **PLAT-003** Deploy. **Deps:** none. **Proof:** `C`,`owner`.')[0];
+        const { approval, policy, evidence } = signedApproval(task);
+        const approvalReference = { path: '@workflow-state/evidence/approval.json', sha256: '8'.repeat(64) };
+        const registration = {
+            nonce: approval.nonce, taskId: task.id, requirement: 'owner', keyId: approval.signature.keyId,
+            evidenceSha256: evidence.sha256, path: approvalReference.path, sha256: approvalReference.sha256,
+        };
+        const context = {
+            policy,
+            claimToken: 'claim-1',
+            headCommit: 'a'.repeat(40),
+            backlogSha256: 'b'.repeat(64),
+            nowMs: Date.parse('2026-07-20T00:10:00.000Z'),
+            evidenceHashes: new Map([[evidence.path, evidence.sha256]]),
+        };
+        expect(validateApprovalAttestation(task, 'owner', approval, context)).toEqual([]);
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, summary: 'forged', decision: 'note' }, context))
+            .toContain('Requirement owner approval signature is invalid');
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, taskId: 'OTHER-001' }, context))
+            .toContain('Requirement owner approval belongs to another task');
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, purpose: 'other' }, context))
+            .toContain('Requirement owner approval has the wrong purpose');
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, evidence: { ...evidence, sha256: '0'.repeat(64) } }, context))
+            .toContain('Requirement owner approval signature is invalid');
+        const signedWrongEvidence = signedApproval(task, { evidence: { ...evidence, sha256: '0'.repeat(64) } }).approval;
+        expect(validateApprovalAttestation(task, 'owner', signedWrongEvidence, context))
+            .toContain('Requirement owner approval evidence hash mismatch');
+        expect(validateApprovalAttestation(task, 'owner', approval, { ...context, nowMs: Date.parse('2026-07-20T00:21:00.000Z') }))
+            .toContain('Requirement owner approval has expired');
+        const future = signedApproval(task, {
+            issuedAt: '2026-07-20T01:00:00.000Z', expiresAt: '2026-07-20T01:20:00.000Z',
+        }).approval;
+        expect(validateApprovalAttestation(task, 'owner', future, context))
+            .toContain('Requirement owner approval was issued in the future');
+        expect(validateApprovalAttestation(task, 'owner', approval, {
+            ...context, strict: true, approvalReference, approvalNonces: new Map(),
+        })).toContain('Requirement owner approval nonce is not registered to this exact attestation');
+        expect(validateApprovalAttestation(task, 'owner', approval, {
+            ...context, strict: true, approvalReference, approvalNonces: new Map([[approval.nonce, registration]]),
+        })).toEqual([]);
+        const otherKeyPolicy = { ...policy, publicKeys: [{ ...policy.publicKeys[0], keyId: 'other-key' }] };
+        expect(validateApprovalAttestation(task, 'owner', approval, { ...context, policy: otherKeyPolicy }))
+            .toContain('Requirement owner approval does not use an authorized owner key');
+    });
+
+    it('strips ambient providers, base URLs, plugins, hooks, MCP, and user settings from review env', () => {
+        expect(minimalReviewEnvironment(requiredReviewPolicy, {
+            ANTHROPIC_API_KEY: 'explicit', LANG: 'en_GB.UTF-8', HOME: '/host-home',
+            ANTHROPIC_BASE_URL: 'https://evil.invalid', CLAUDE_CONFIG_DIR: '/tmp/settings',
+            CLAUDE_CODE_USE_BEDROCK: '1', AWS_ACCESS_KEY_ID: 'ambient', MCP_CONFIG: 'ambient',
+            PLUGIN_PATH: 'ambient', HOOKS: 'ambient', PATH: '/ambient/bin',
+        })).toEqual({ ANTHROPIC_API_KEY: 'explicit', LANG: 'en_GB.UTF-8' });
+        expect(requiredReviewPolicy.args).toEqual(expect.arrayContaining([
+            '--bare', '--safe-mode', '--strict-mcp-config', '--setting-sources', '', '--no-session-persistence',
+        ]));
+    });
+
+    it('rejects owner private key material in workflow configuration', () => {
+        const weakened = structuredClone(config);
+        weakened.approvalPolicies.owner.publicKeys[0].publicKeyJwk.d = 'private-material-is-forbidden';
+        const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), weakened);
+
+        expect(validateWorkflow(tasks, weakened).errors).toContain(
+            'Owner approval key heru-github-ed25519-2026-07 must not contain private key material',
+        );
     });
 
     it('gives governance, platform, and visual lanes their real production ownership', () => {

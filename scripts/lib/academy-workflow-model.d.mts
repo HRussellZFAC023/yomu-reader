@@ -25,8 +25,10 @@ export function resolveConfinedFile(
     candidate: string,
     roots: string[],
 ): { absolute: string; root: string; realRoot: string };
+export function canonicalizeReservationPath(repoRoot: string, candidate: string): string;
 export function validateWorkflow(tasks: WorkflowTask[], config: Record<string, unknown>): { errors: string[]; warnings: string[] };
 export function buildPlan(tasks: WorkflowTask[], config: Record<string, unknown>, state?: Record<string, unknown>, now?: Date): WorkflowPlan;
+export function taskCompleteForWorkflow(task: WorkflowTask, state?: Record<string, any>): boolean;
 export function progressSummary(tasks: WorkflowTask[]): Record<string, unknown>;
 export function buildProductionLedger(
     tasks: WorkflowTask[],
@@ -47,6 +49,22 @@ export function validateReviewAttestation(
     attestation: Record<string, any>,
     context?: Record<string, any>,
 ): string[];
+export function validateApprovalAttestation(
+    task: WorkflowTask,
+    requirement: string,
+    attestation: Record<string, any>,
+    context?: Record<string, any>,
+): string[];
+export function ownerApprovalPayload(
+    task: WorkflowTask,
+    requirement: string,
+    attestation: Record<string, any>,
+): Record<string, any>;
+export function canonicalJson(value: unknown): string;
+export function minimalReviewEnvironment(
+    provider: Record<string, any>,
+    source?: Record<string, string | undefined>,
+): Record<string, string>;
 export function reviewPayloadSha256(attestation: Record<string, any>): string;
 export function checkpointIntegrityErrors(
     promotion: Record<string, any>,
