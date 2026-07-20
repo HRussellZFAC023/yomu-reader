@@ -373,7 +373,10 @@ export function buildProductionLedger(tasks, config, state = {}, proofs = {}, ro
     const latestPromotion = new Map();
     for (const promotion of state.promotions ?? []) latestPromotion.set(promotion.taskId, promotion);
     const rows = tasks.map(task => {
-        const candidateProof = proofs[task.id] ?? null;
+        const proofEntry = proofs[task.id] ?? null;
+        const candidateProof = proofEntry?.proof ?? proofEntry;
+        const candidateProofSha256 = proofEntry?.proof ? proofEntry.sha256 : metadata.proofSha256?.[task.id];
+        const promotion = latestPromotion.get(task.id) ?? null;
         const proofClaim = (state.claims ?? []).find(claim => (
             claim.taskId === task.id
             && claim.token === candidateProof?.claimToken
@@ -381,8 +384,9 @@ export function buildProductionLedger(tasks, config, state = {}, proofs = {}, ro
         ));
         const liveActiveProof = proofClaim?.status === 'active'
             && Date.parse(proofClaim.expiresAt) > generatedAt.getTime();
-        const proof = (liveActiveProof || proofClaim?.status === 'checkpointed') ? candidateProof : null;
-        const promotion = latestPromotion.get(task.id) ?? null;
+        const promotionPinsProof = /^[a-f0-9]{64}$/u.test(candidateProofSha256 ?? '')
+            && promotion?.proofSha256 === candidateProofSha256;
+        const proof = (liveActiveProof || proofClaim?.status === 'checkpointed') && promotionPinsProof ? candidateProof : null;
         const gates = Object.fromEntries(task.gates.map(gate => [gate, proofGateStatus(proof, gate)]));
         const qualityGates = task.gates.filter(gate => gate === 'T' || gate === 'Q');
         return {

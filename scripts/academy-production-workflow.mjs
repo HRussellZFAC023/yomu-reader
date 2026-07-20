@@ -219,7 +219,10 @@ function proofLedgerRows(tasks) {
         const candidate = proofFile(task.id);
         if (!fs.existsSync(candidate)) return [];
         try {
-            return [[task.id, readJson(candidate)]];
+            return [[task.id, {
+                proof: readJson(candidate),
+                sha256: sha256(fs.readFileSync(candidate)),
+            }]];
         } catch {
             return [];
         }

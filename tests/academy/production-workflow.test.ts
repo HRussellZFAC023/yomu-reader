@@ -63,8 +63,8 @@ describe('Academy production workflow', () => {
         const ledger = buildProductionLedger(tasks, config, { claims: [{
             taskId: 'GOV-001', token: 'claim-1', status: 'checkpointed', expiresAt: '2099-01-01T00:00:00.000Z',
         }], promotions: [{
-            taskId: 'GOV-001', status: 'checkpointed',
-        }] }, { 'GOV-001': proof }, [{ id: 'story-chapter-sources', count: 48 }], {
+            taskId: 'GOV-001', status: 'checkpointed', proofSha256: 'f'.repeat(64),
+        }] }, { 'GOV-001': { proof, sha256: 'f'.repeat(64) } }, [{ id: 'story-chapter-sources', count: 48 }], {
             generatedAt: '2026-07-20T00:00:00.000Z', headCommit: 'a'.repeat(40), backlogSha256: sha256(markdown),
         });
 
