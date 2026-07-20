@@ -64,6 +64,23 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word::after{content:none!important}');
     });
 
+    it('carries ruby geometry in the critical subset so shadow-root and pre-fallback ruby never wedge', () => {
+        // The shared shadow sheet and the pre-fallback inline sheet both use this
+        // subset. Without ruby-align the base of a wide reading (技術/ぎじゅつ)
+        // fell back to the initial space-around and split apart; without the furi
+        // rule the reading rendered at full body size.
+        const css = initialReaderCss('');
+
+        expect(css).toContain('.jpdb-reader-word ruby{');
+        expect(css).toContain('ruby-align:center!important');
+        expect(css).toContain('ruby-position:over!important');
+        expect(css).toContain('.jpdb-reader-furi{font-size:.58em');
+        expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
+        // `-webkit-ruby-align` never existed in any engine and only parse-fails;
+        // it must not reappear in the critical subset.
+        expect(css).not.toContain('-webkit-ruby-align');
+    });
+
     it('uses the full reader CSS when the userscript resource is available', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });

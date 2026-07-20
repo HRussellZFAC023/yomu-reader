@@ -41,7 +41,31 @@ a[href] .jpdb-reader-word{-webkit-touch-callout:none}.jpdb-reader-word{--yi:.08e
 ${criticalWordCss()}
 .jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word{text-decoration-color:var(--yu,#0000)!important}
 .jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word::after{content:none!important}
+${criticalRubyCss()}
 `.trim();
+
+// Ruby geometry MUST live in the critical subset, not only the full sheet.
+// Document CSS never crosses a shadow boundary, so the shared shadow sheet is
+// seeded with this subset (setShadowReaderCss(initialReaderCss(...))), and the
+// subset is also what renders every word until the async full-sheet fallback
+// resolves — or permanently when a CSP/offline blocks that fetch. Without these
+// rules, ruby in a shadow root (or before the fallback lands) fell back to the
+// browser's initial `ruby-align: space-around`, wedging a wide reading's base
+// apart (the 技 術 gap the reader watches for in its own subtitle overlay) and
+// sizing furigana at full body size. Mirrors the essential declarations in
+// styles/reader-words-ocr.css; the full sheet still layers status/pitch/detached
+// treatments on top.
+function criticalRubyCss(): string {
+    return [
+        '.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}',
+        '.jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}',
+        '.jpdb-reader-ruby-base{display:inline}',
+        '.jpdb-reader-word rp{display:none}',
+        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:none;text-decoration:none!important}',
+        '.jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}',
+        '.jpdb-reader-furi{font-size:.58em;font-weight:700;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}',
+    ].join('\n');
+}
 
 export function initialReaderCss(css = READER_CSS): string {
     return readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css;

@@ -8,6 +8,7 @@ import {
     OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
     setCustomElementUpgradeHook,
     setShadowRootScanHook,
+    type ShadowRootDiscoveryCause,
     sweepDisconnectedShadowRoots,
     wakeShadowHostPoll,
     watchPotentialOpenShadowRootHost,
@@ -326,6 +327,50 @@ describe('shadow scan registry', () => {
             dispose();
             vi.useRealTimers();
         }
+    });
+
+    it('discovers a declarative-shadow-DOM open root the parser materialized (no attachShadow, no bridge event)', () => {
+        // A <template shadowrootmode="open"> root is created by the HTML parser,
+        // not by a scripted attachShadow() call, so the page-realm attachShadow
+        // bridge never fires for it and no OPEN_SHADOW_ROOT_DISCOVERY_EVENT is
+        // dispatched. Discovery must therefore come from the generic walk/poll.
+        // jsdom cannot parse declarative shadow DOM, so we model a parser-built
+        // root: attach it directly and NEVER dispatch the bridge event; with the
+        // discovery bridge installed we assert the root is still found — by the
+        // fragment walk ('scan'), never by an 'attached' bridge event.
+        const discovered: Array<{ root: ShadowRoot; cause: ShadowRootDiscoveryCause }> = [];
+        setShadowRootScanHook((root, cause) => discovered.push({ root, cause }));
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+
+        const host = document.createElement('div');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>参加</button>';
+        document.body.append(host);
+
+        collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, includePassiveInteractions: true, minLength: 1 });
+
+        expect(discovered.map(entry => entry.root)).toContain(root);
+        expect(discovered.some(entry => entry.root === root && entry.cause === 'attached')).toBe(false);
+        expect(discovered.find(entry => entry.root === root)?.cause).toBe('scan');
+    });
+
+    it('registers a pre-existing declarative-shadow-DOM root immediately from the host poll path', () => {
+        // watchPotentialOpenShadowRootHost is the poll entry point; a DSD root
+        // already hangs off host.shadowRoot at parse time, so the poll must note
+        // it on first sight rather than waiting for an attachShadow that will
+        // never be called.
+        const discovered: Array<{ root: ShadowRoot; cause: ShadowRootDiscoveryCause }> = [];
+        setShadowRootScanHook((root, cause) => discovered.push({ root, cause }));
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+
+        const host = document.createElement('div');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>参加</button>';
+        document.body.append(host);
+
+        expect(watchPotentialOpenShadowRootHost(host)).toBe(root);
+        expect(discovered.map(entry => entry.root)).toContain(root);
+        expect(discovered.some(entry => entry.root === root && entry.cause === 'attached')).toBe(false);
     });
 
     it('reference-counts discovery installs and stops fallback polling after cleanup', async () => {

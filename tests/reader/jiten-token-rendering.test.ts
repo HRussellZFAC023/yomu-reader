@@ -128,6 +128,73 @@ describe('Jiten token rendering', () => {
     });
 });
 
+// The scan/subtitle render path (renderTokensToHtml) must segment-pair furigana
+// exactly per the rubies the dictionary attests: one <ruby> base per per-position
+// reading, and a single whole-run base when only a merged reading exists. This is
+// the invariant that both fixes the 技 術 wedge (a per-kanji run never stretches a
+// base under a wider whole-word reading) AND protects the 1.6.245 trailing-kanji
+// binding — a merged run is NEVER guessed apart (jukujikun, or a server that only
+// sends 技術[ぎじゅつ]).
+describe('scan-word furigana segment pairing', () => {
+    function rubyToken(surface: string, rubies: JPDBToken['rubies'], reading: string): JPDBToken {
+        return {
+            card: { ...jitenCard('young'), spelling: surface, reading, wordWithReading: null },
+            start: 0,
+            end: surface.length,
+            length: surface.length,
+            rubies,
+            pitchClass: 'unknown',
+            sentence: surface,
+        };
+    }
+
+    function renderedRuby(surface: string, token: JPDBToken): { bases: (string | null)[]; readings: (string | null)[] } {
+        document.body.innerHTML = renderTokensToHtml(surface, [token], { ...JITEN_SETTINGS, furiganaMode: 'all' });
+        return {
+            bases: [...document.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.textContent),
+            readings: [...document.querySelectorAll('rt')].map(rt => rt.textContent),
+        };
+    }
+
+    it('renders per-position kanji rubies as one paired base+rt each (no wedged run)', () => {
+        // 技[ぎ]術[じゅつ]: dictionary evidence exists for each kanji, so each kanji
+        // carries its own reading and neither base is stretched under ぎじゅつ.
+        const token = rubyToken('技術', [
+            { text: 'ぎ', start: 0, end: 1, length: 1 },
+            { text: 'じゅつ', start: 1, end: 2, length: 1 },
+        ], 'ぎじゅつ');
+
+        expect(renderedRuby('技術', token)).toEqual({ bases: ['技', '術'], readings: ['ぎ', 'じゅつ'] });
+    });
+
+    it('keeps a merged adjacent-kanji reading as one whole-run base (never a guessed split)', () => {
+        // Only a whole-run reading is attested (no per-kanji evidence). Splitting
+        // it would be a guess — the exact class of bug that duplicated kana in
+        // reference injectors — so the run stays one base under one rt.
+        const token = rubyToken('技術', [{ text: 'ぎじゅつ', start: 0, end: 2, length: 2 }], 'ぎじゅつ');
+
+        expect(renderedRuby('技術', token)).toEqual({ bases: ['技術'], readings: ['ぎじゅつ'] });
+    });
+
+    it('keeps a jukujikun reading spanning the run as one base', () => {
+        // 昨日/きのう has no per-kanji decomposition; the reading spans the run.
+        const token = rubyToken('昨日', [{ text: 'きのう', start: 0, end: 2, length: 2 }], 'きのう');
+
+        expect(renderedRuby('昨日', token)).toEqual({ bases: ['昨日'], readings: ['きのう'] });
+    });
+
+    it('binds interleaved-kana kanji rubies to their own kanji (並べ替え stays paired)', () => {
+        // Guards the 1.6.245 trailing-kanji-run fix through the scan path too:
+        // 並[なら]…替[か] must not spill kana onto the wrong kanji.
+        const token = rubyToken('並べ替え', [
+            { text: 'なら', start: 0, end: 1, length: 1 },
+            { text: 'か', start: 2, end: 3, length: 1 },
+        ], 'ならべかえ');
+
+        expect(renderedRuby('並べ替え', token)).toEqual({ bases: ['並', '替'], readings: ['なら', 'か'] });
+    });
+});
+
 function renderJitenToken(surface: string, state: CardState, settings: Partial<ReaderSettings>, cardOverrides: Partial<JPDBCard> = {}): string {
     return renderTokensToHtml(surface, [jitenToken(surface, state, cardOverrides)], { ...JITEN_SETTINGS, ...settings });
 }

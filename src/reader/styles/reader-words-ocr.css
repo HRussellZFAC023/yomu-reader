@@ -854,11 +854,22 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word ruby {
   position: static !important;
   display: ruby !important;
-  /* iPadOS/Safari WebKit ignores the UNPREFIXED ruby-align and falls back to
-     its space-around default: when the reading is wider than the base it wedges
-     the base characters apart (技 術 intra-word gap, iPad 2026-07-20). The
-     -webkit- alias forces the centred distribution WebKit actually honours. */
-  -webkit-ruby-align: center !important;
+  /* CSS Ruby's initial ruby-align is space-around, which distributes the base
+     glyphs to fill a wider annotation — that is the 技 術 intra-word gap seen on
+     iPad (2026-07-20) when the reading is wider than the base. `ruby-align:
+     center` overrides it. The property is UNPREFIXED-only: no engine ever
+     shipped `-webkit-ruby-align` (it silently parse-fails), and WebKit added
+     unprefixed ruby-align in Safari 18.2 — so this reaches the reported iPad
+     (>=18.2) but is inert on older WebKit, where there is no ruby-align at all.
+     The engine-independent guarantee is structural: when the dictionary attests
+     a per-kanji reading, the token is emitted as SEGMENT-PAIRED ruby (one rt per
+     kanji, e.g. 技[ぎ]術[じゅつ]) so no base is ever stretched under a wider
+     whole-word reading. A genuinely merged reading with no per-position evidence
+     (jukujikun 昨日/きのう, or a server that only sends 技術[ぎじゅつ]) keeps the
+     whole-run rt and relies on ruby-align alone — never a guessed split. The
+     critical inline subset carries these ruby rules too so they still reach ruby
+     rendered before the full sheet loads and inside shadow roots (see
+     CRITICAL_READER_CSS in styles/index.ts). */
   ruby-align: center !important;
   ruby-position: over !important;
   line-height: 1;
@@ -1039,9 +1050,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   white-space: nowrap;
   pointer-events: none;
   text-decoration: none !important;
-  /* -webkit- alias first: WebKit drops the unprefixed property and would
-     space-around the base under a wider reading (see the ruby rule above). */
-  -webkit-ruby-align: center;
+  /* Unprefixed only — `-webkit-ruby-align` never existed in any engine and just
+     parse-fails; see the .jpdb-reader-word ruby rule above for why center beats
+     the space-around default that wedges a wide reading's base apart. */
   ruby-align: center;
   line-height: 1;
   text-align: center;
