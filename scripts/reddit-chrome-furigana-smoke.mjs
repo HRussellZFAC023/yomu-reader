@@ -466,13 +466,17 @@ async function runEngine(engineName, browser) {
 function startRedditResponsivenessProbe() {
     const state = {
         startedAt: performance.now(),
-        previousFrame: performance.now(),
+        firstFrameAt: null,
+        previousFrame: null,
         frameGaps: [],
         stopped: false,
     };
     window.__yomuRedditResponsivenessProbe = state;
     const frame = now => {
-        state.frameGaps.push(now - state.previousFrame);
+        // The first callback establishes cadence; only gaps between rendered
+        // frames are evidence that reader work starved the frame lane.
+        if (state.previousFrame === null) state.firstFrameAt = performance.now();
+        else state.frameGaps.push(now - state.previousFrame);
         state.previousFrame = now;
         if (!state.stopped) requestAnimationFrame(frame);
     };
@@ -486,6 +490,7 @@ function stopRedditResponsivenessProbe() {
     const percentile = value => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * value))] ?? 0;
     return {
         bootMs: performance.now() - state.startedAt,
+        firstFrameDelayMs: (state.firstFrameAt ?? performance.now()) - state.startedAt,
         frameCount: sorted.length,
         maxFrameGapMs: sorted.at(-1) ?? 0,
         p95FrameGapMs: percentile(0.95),
