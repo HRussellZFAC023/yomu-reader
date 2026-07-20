@@ -13,6 +13,23 @@ export function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function pathIsInside(root, candidate) {
+    const relative = path.relative(root, candidate);
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+export function resolveConfinedFile(candidate, roots) {
+    const lexical = path.resolve(candidate);
+    const root = roots.map(value => path.resolve(value)).find(value => pathIsInside(value, lexical));
+    if (!root) throw new Error(`Path is outside its allowed roots: ${candidate}`);
+    if (!fs.existsSync(lexical) || !fs.statSync(lexical).isFile()) throw new Error(`File does not exist: ${candidate}`);
+    if (fs.lstatSync(lexical).isSymbolicLink()) throw new Error(`File cannot be a symbolic link: ${candidate}`);
+    const realRoot = fs.realpathSync.native(root);
+    const absolute = fs.realpathSync.native(lexical);
+    if (!pathIsInside(realRoot, absolute)) throw new Error(`Path resolves outside its allowed root: ${candidate}`);
+    return { absolute, root, realRoot };
+}
+
 function expandRange(prefix, from, to) {
     const width = Math.max(from.length, to.length);
     const start = Number(from);
@@ -189,6 +206,14 @@ export function validateWorkflow(tasks, config) {
     for (const gate of CANONICAL_GATES) {
         if (!config.proofGates?.[gate]) errors.push(`Proof gate ${gate} has no configured requirement`);
     }
+    const routeIds = new Set();
+    for (const route of config.routeCensus ?? []) {
+        if (!route?.id || routeIds.has(route.id)) errors.push(`Route census has a missing or duplicate id ${route?.id ?? ''}`);
+        routeIds.add(route?.id);
+        if (!['directory-files', 'typescript-object-ids'].includes(route?.kind)) errors.push(`Route census ${route?.id} has unsupported kind ${route?.kind}`);
+        if (!route?.path || path.isAbsolute(route.path) || route.path.split('/').includes('..')) errors.push(`Route census ${route?.id} has unsafe path`);
+        if (!route?.claim?.trim()) errors.push(`Route census ${route?.id} needs an honest claim`);
+    }
     if (config.schema !== 'yomu-academy.production-workflow/v2') errors.push('Unsupported workflow config schema');
     if (config.maxParallel < 1) errors.push('maxParallel must be positive');
     if (!Number.isInteger(config.release?.integrationCapacity) || config.release.integrationCapacity !== 1) {
@@ -326,6 +351,140 @@ export function progressSummary(tasks) {
     return { complete, total, percent: total ? Number((complete / total * 100).toFixed(1)) : 0, byPriority };
 }
 
+function proofGateStatus(proof, gate) {
+    return proof?.gates?.[gate]?.status === 'pass' ? 'pass' : 'unverified';
+}
+
+export function buildProductionLedger(tasks, config, state = {}, proofs = {}, routeCounts = [], metadata = {}) {
+    const active = new Map(activeClaims(state, new Date(metadata.generatedAt ?? Date.now()))
+        .map(claim => [claim.taskId, claim]));
+    const latestPromotion = new Map();
+    for (const promotion of state.promotions ?? []) latestPromotion.set(promotion.taskId, promotion);
+    const rows = tasks.map(task => {
+        const candidateProof = proofs[task.id] ?? null;
+        const proofClaim = (state.claims ?? []).find(claim => claim.token === candidateProof?.claimToken);
+        const proof = ['active', 'checkpointed'].includes(proofClaim?.status) ? candidateProof : null;
+        const promotion = latestPromotion.get(task.id) ?? null;
+        const gates = Object.fromEntries(task.gates.map(gate => [gate, proofGateStatus(proof, gate)]));
+        const qualityGates = task.gates.filter(gate => gate === 'T' || gate === 'Q');
+        return {
+            id: task.id,
+            priority: task.priority,
+            lane: laneForTask(task, config)?.id ?? null,
+            dependencies: task.deps,
+            canonicalComplete: task.complete,
+            claim: active.has(task.id) ? 'active' : 'none',
+            proof: proof?.submittedAt ? 'submitted' : 'none',
+            audited: proof?.reuseAudit?.status === 'pass',
+            implemented: gates.C === 'pass',
+            learnerReachable: gates.R === 'pass',
+            qaVerified: qualityGates.length > 0 && qualityGates.every(gate => gates[gate] === 'pass'),
+            deployed: gates.D === 'pass' && ['checkpointed', 'awaiting-release', 'released'].includes(promotion?.status),
+            gates,
+            promotion: promotion?.status ?? 'none',
+        };
+    });
+    const progress = progressSummary(tasks);
+    const evidenceStates = Object.fromEntries([
+        'audited', 'implemented', 'learnerReachable', 'qaVerified', 'deployed',
+    ].map(key => [key, rows.filter(row => row[key]).length]));
+    return {
+        schema: 'yomu-academy.production-ledger/v1',
+        generatedAt: metadata.generatedAt ?? new Date().toISOString(),
+        headCommit: metadata.headCommit ?? null,
+        backlog: {
+            path: config.canonicalBacklog,
+            sha256: metadata.backlogSha256 ?? null,
+        },
+        progress,
+        evidenceStates,
+        routeCounts,
+        tasks: rows,
+    };
+}
+
+function validIssuedAt(value, errors, label) {
+    if (!value || Number.isNaN(Date.parse(value))) errors.push(`${label} issuedAt must be an ISO date`);
+}
+
+function validArtifactReference(reference) {
+    return Boolean(reference?.path && /^[a-f0-9]{64}$/u.test(reference.sha256 ?? ''));
+}
+
+export function validateGateAttestation(task, gate, attestation, context = {}) {
+    const errors = [];
+    if (attestation?.schema !== 'yomu-academy.gate-attestation/v1') errors.push(`Gate ${gate} attestation has the wrong schema`);
+    if (attestation?.taskId !== task.id) errors.push(`Gate ${gate} attestation belongs to another task`);
+    if (attestation?.gate !== gate) errors.push(`Gate ${gate} attestation names another gate`);
+    if (attestation?.verdict !== 'pass') errors.push(`Gate ${gate} attestation verdict is not pass`);
+    if (context.headCommit && attestation?.headCommit !== context.headCommit) errors.push(`Gate ${gate} attestation targets another HEAD`);
+    validIssuedAt(attestation?.issuedAt, errors, `Gate ${gate} attestation`);
+    if (!attestation?.producer?.id?.trim()) errors.push(`Gate ${gate} attestation needs a producer id`);
+    if (!['agent', 'ci', 'human', 'workflow'].includes(attestation?.producer?.kind)) {
+        errors.push(`Gate ${gate} attestation has an unsupported producer kind`);
+    }
+    if (!attestation?.summary?.trim()) errors.push(`Gate ${gate} attestation needs a summary`);
+    if (!Array.isArray(attestation?.assertions) || attestation.assertions.length === 0) {
+        errors.push(`Gate ${gate} attestation needs at least one assertion`);
+    }
+    for (const assertion of attestation?.assertions ?? []) {
+        if (assertion?.status !== 'pass' || !assertion?.claim?.trim()) {
+            errors.push(`Gate ${gate} attestation contains an unpassed or empty assertion`);
+        }
+        if (!Array.isArray(assertion?.artifacts) || assertion.artifacts.length === 0) {
+            errors.push(`Gate ${gate} assertion needs at least one artifact`);
+        }
+        for (const artifact of assertion?.artifacts ?? []) {
+            if (!validArtifactReference(artifact)) errors.push(`Gate ${gate} assertion has an invalid artifact reference`);
+        }
+    }
+    return errors;
+}
+
+export function validateReviewAttestation(task, attestation, context = {}) {
+    const errors = [];
+    if (attestation?.schema !== 'yomu-academy.review-attestation/v1') errors.push('Independent review attestation has the wrong schema');
+    if (attestation?.taskId !== task.id) errors.push('Independent review attestation belongs to another task');
+    if (attestation?.verdict !== 'ship') errors.push('Independent review verdict is not ship');
+    if (context.headCommit && attestation?.headCommit !== context.headCommit) errors.push('Independent review targets another HEAD');
+    if (attestation?.taskDefinitionSha256 !== taskDefinitionSha256(task)) errors.push('Independent review targets another task definition');
+    validIssuedAt(attestation?.issuedAt, errors, 'Independent review attestation');
+    const reviewer = attestation?.reviewer;
+    if (!reviewer?.id?.trim() || reviewer.id !== context.reviewer) errors.push('Independent review identity does not match the attested reviewer');
+    if (reviewer?.id === context.owner || reviewer?.independentFrom !== context.owner) errors.push('Independent review is not independent from the task owner');
+    if (!reviewer?.provider?.trim() || !reviewer?.model?.trim() || !reviewer?.sessionId?.trim()) {
+        errors.push('Independent review needs provider, model, and session identity');
+    }
+    if (!attestation?.summary?.trim()) errors.push('Independent review needs a summary');
+    if (!Array.isArray(attestation?.scope) || attestation.scope.length === 0) errors.push('Independent review needs an explicit scope');
+    if (!Array.isArray(attestation?.findings)) errors.push('Independent review findings must be an array');
+    for (const finding of attestation?.findings ?? []) {
+        if (!['P0', 'P1', 'P2'].includes(finding?.severity) || !finding?.summary?.trim()) {
+            errors.push('Independent review contains a malformed finding');
+            continue;
+        }
+        if (finding.status !== 'resolved' && finding.status !== 'accepted-risk') {
+            errors.push(`Independent review has an open ${finding.severity} finding`);
+        }
+        if ((finding.severity === 'P0' || finding.severity === 'P1') && finding.status !== 'resolved') {
+            errors.push(`Independent review cannot accept an unresolved ${finding.severity} finding`);
+        }
+    }
+    return errors;
+}
+
+export function checkpointIntegrityErrors(promotion, actual) {
+    const errors = [];
+    if (!/^[a-f0-9]{64}$/u.test(promotion?.proofSha256 ?? '')) errors.push('Promotion has no pinned proof hash');
+    else if (promotion.proofSha256 !== actual.proofSha256) errors.push('Promotion proof changed after verification');
+    if (!/^[a-f0-9]{64}$/u.test(promotion?.expectedBacklogSha256 ?? '')) errors.push('Promotion has no expected backlog hash');
+    else if (promotion.expectedBacklogSha256 !== actual.backlogSha256) errors.push('Canonical backlog differs from the exact promoted checkbox result');
+    if (actual.preparedBacklogSha256 && promotion.expectedBacklogSha256 !== actual.preparedBacklogSha256) {
+        errors.push('Prepared checkpoint commit contains an unexpected backlog');
+    }
+    return errors;
+}
+
 export function proofTemplate(task, config, baseCommit = null) {
     return {
         schema: 'yomu-academy.production-proof/v2',
@@ -444,7 +603,22 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
         const row = proof.gates?.[gate];
         if (row?.status !== 'pass') errors.push(`Gate ${gate} is not passed`);
         if (!Array.isArray(row?.evidence) || row.evidence.length === 0) errors.push(`Gate ${gate} needs evidence`);
-        for (const reference of row?.evidence ?? []) validateEvidenceReference(reference, `Gate ${gate}`, context, errors);
+        for (const reference of row?.evidence ?? []) {
+            validateEvidenceReference(reference, `Gate ${gate}`, context, errors);
+            if (context.strict) {
+                const attestation = context.gateAttestations?.get(reference.path);
+                if (!attestation) {
+                    errors.push(`Gate ${gate} evidence is not a readable gate attestation`);
+                } else {
+                    errors.push(...validateGateAttestation(task, gate, attestation, { headCommit: proof.headCommit }));
+                    for (const assertion of attestation.assertions ?? []) {
+                        for (const artifact of assertion.artifacts ?? []) {
+                            validateEvidenceReference(artifact, `Gate ${gate} assertion artifact`, context, errors);
+                        }
+                    }
+                }
+            }
+        }
         if (gate === 'T' && (!Array.isArray(row?.commands) || row.commands.length === 0)) {
             errors.push('Gate T needs at least one successful command record');
         }
@@ -475,6 +649,18 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
     const ownerIdentity = context.strict ? context.claim?.owner : proof.owner;
     if (proof.independentReview?.reviewer && proof.independentReview.reviewer === ownerIdentity) errors.push('Independent reviewer must differ from owner');
     validateEvidenceReference(proof.independentReview?.evidence, 'Independent review', context, errors);
+    if (context.strict) {
+        const attestation = context.reviewAttestations?.get(proof.independentReview?.evidence?.path);
+        if (!attestation) {
+            errors.push('Independent review evidence is not a readable review attestation');
+        } else {
+            errors.push(...validateReviewAttestation(task, attestation, {
+                headCommit: proof.headCommit,
+                owner: ownerIdentity,
+                reviewer: proof.independentReview?.reviewer,
+            }));
+        }
+    }
     for (const requirement of task.requirements ?? []) {
         const approval = proof.approvals?.[requirement];
         if (approval?.status !== 'pass') errors.push(`Requirement ${requirement} is not passed`);

@@ -8,22 +8,26 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
     buildPlan,
+    buildProductionLedger,
     bindProofToClaim,
     activeClaims,
+    checkpointIntegrityErrors,
     changedFilesWithinOwnership,
     createWorkOrder,
     ensureInside,
     laneForTask,
     parseBacklog,
-    progressSummary,
     proofTemplate,
     readJson,
+    resolveConfinedFile,
     resolveDynamicDependencies,
     reuseReportPinErrors,
     sha256,
     taskDefinitionSha256,
     updateBacklogCheckbox,
+    validateGateAttestation,
     validateProof,
+    validateReviewAttestation,
     validateWorkflow,
 } from './lib/academy-workflow-model.mjs';
 import {
@@ -57,6 +61,7 @@ const integrationLockPath = path.join(stateRoot, '.integration.lock');
 const unreachableCachePath = path.join(stateRoot, 'reuse-index', 'unreachable-commits.json');
 const transcriptCachePath = path.join(stateRoot, 'reuse-index', 'transcripts.json');
 const sourceSnapshotRoot = path.join(stateRoot, 'reuse-index', 'source-snapshots');
+const productionLedgerPath = path.join(stateRoot, 'production-ledger.json');
 
 function load() {
     const markdown = fs.readFileSync(backlogPath, 'utf8');
@@ -169,6 +174,69 @@ function gitSucceeds(...args) {
 
 function cleanStatus() {
     return gitLines('status', '--porcelain=v1', '--untracked-files=all');
+}
+
+function routeCensusRows() {
+    return (config.routeCensus ?? []).map(spec => {
+        const absolute = ensureInside(repoRoot, path.join(repoRoot, spec.path));
+        if (spec.kind === 'directory-files') {
+            if (!fs.statSync(absolute).isDirectory()) throw new Error(`Route census source is not a directory: ${spec.path}`);
+            const pattern = new RegExp(spec.include, 'u');
+            const ids = fs.readdirSync(absolute, { withFileTypes: true })
+                .filter(entry => entry.isFile() && pattern.test(entry.name))
+                .map(entry => entry.name)
+                .sort();
+            return {
+                id: spec.id,
+                kind: spec.kind,
+                count: ids.length,
+                claim: spec.claim,
+                source: { path: spec.path, sha256: sha256(JSON.stringify(ids)) },
+            };
+        }
+        if (spec.kind === 'typescript-object-ids') {
+            const source = fs.readFileSync(absolute, 'utf8');
+            const start = source.indexOf(spec.start);
+            const end = source.indexOf(spec.end, start + spec.start.length);
+            if (start < 0 || end < 0 || end <= start) throw new Error(`Route census markers are missing for ${spec.id}`);
+            const pattern = new RegExp(spec.idPattern, 'gmu');
+            const ids = [...source.slice(start, end).matchAll(pattern)].map(match => match[1]).sort();
+            if (!ids.length || new Set(ids).size !== ids.length) throw new Error(`Route census ${spec.id} has no unique ids`);
+            return {
+                id: spec.id,
+                kind: spec.kind,
+                count: ids.length,
+                claim: spec.claim,
+                source: { path: spec.path, sha256: sha256(source) },
+            };
+        }
+        throw new Error(`Unsupported route census kind ${spec.kind}`);
+    });
+}
+
+function proofLedgerRows(tasks) {
+    return Object.fromEntries(tasks.flatMap(task => {
+        const candidate = proofFile(task.id);
+        if (!fs.existsSync(candidate)) return [];
+        try {
+            return [[task.id, readJson(candidate)]];
+        } catch {
+            return [];
+        }
+    }));
+}
+
+function writeProductionLedger(tasks, markdown, state) {
+    const ledger = buildProductionLedger(tasks, config, state, proofLedgerRows(tasks), routeCensusRows(), {
+        generatedAt: new Date().toISOString(),
+        headCommit: safeHead(),
+        backlogSha256: sha256(markdown),
+    });
+    fs.mkdirSync(stateRoot, { recursive: true });
+    const temporary = `${productionLedgerPath}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, `${JSON.stringify(ledger, null, 2)}\n`);
+    fs.renameSync(temporary, productionLedgerPath);
+    return ledger;
 }
 
 function parseCommitMetadata(output) {
@@ -453,7 +521,7 @@ function readSourceSnapshot(report) {
     if (!reference?.path || !reference?.sha256) throw new Error('Reuse report lacks a hashed source snapshot');
     const actual = evidenceReference(reference.path);
     if (actual.sha256 !== reference.sha256) throw new Error('Reuse source snapshot hash does not match its contents');
-    const snapshotPath = resolveEvidencePath(reference.path);
+    const snapshotPath = secureEvidencePath(reference.path).absolute;
     const snapshot = reference.path.endsWith('.gz')
         ? JSON.parse(gunzipSync(fs.readFileSync(snapshotPath)).toString('utf8'))
         : readJson(snapshotPath);
@@ -552,8 +620,9 @@ function ensureValid(tasks) {
     if (result.errors.length) throw new Error(result.errors.join('\n'));
 }
 
-function printStatus(tasks, state) {
-    const summary = progressSummary(tasks);
+function printStatus(tasks, markdown, state) {
+    const ledger = writeProductionLedger(tasks, markdown, state);
+    const summary = ledger.progress;
     const active = activeClaims(state, new Date());
     console.log(`Academy production: ${summary.complete}/${summary.total} (${summary.percent}%)`);
     for (const [priority, counts] of Object.entries(summary.byPriority)) {
@@ -561,6 +630,9 @@ function printStatus(tasks, state) {
     }
     console.log(`Active claims: ${active.length}`);
     for (const claim of active) console.log(`- ${claim.taskId} -> ${claim.owner} [${claim.lane}]`);
+    console.log('Route census:');
+    for (const route of ledger.routeCounts) console.log(`- ${route.id}: ${route.count} (${route.claim})`);
+    console.log(`Ledger: @workflow-state/${path.relative(stateRoot, productionLedgerPath)}`);
 }
 
 function writePlan(tasks, markdown, state) {
@@ -785,17 +857,17 @@ function resolveEvidencePath(candidate) {
     return absolute;
 }
 
+function secureEvidencePath(candidate) {
+    const lexical = path.isAbsolute(candidate) ? path.resolve(candidate) : resolveEvidencePath(candidate);
+    const confined = resolveConfinedFile(lexical, [stateRoot, repoRoot]);
+    return { ...confined, stateEvidence: confined.root === path.resolve(stateRoot) };
+}
+
 function evidenceReference(candidate) {
-    const absolute = path.isAbsolute(candidate) ? candidate : resolveEvidencePath(candidate);
-    if (!isInside(repoRoot, absolute) && !isInside(stateRoot, absolute)) {
-        throw new Error(`Evidence path is outside the repository and shared workflow state: ${candidate}`);
-    }
-    if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
-        throw new Error(`Evidence file does not exist: ${candidate}`);
-    }
-    const evidencePath = isInside(stateRoot, absolute)
-        ? `@workflow-state/${path.relative(stateRoot, absolute)}`
-        : path.relative(repoRoot, absolute);
+    const { absolute, realRoot, stateEvidence } = secureEvidencePath(candidate);
+    const evidencePath = stateEvidence
+        ? `@workflow-state/${path.relative(realRoot, absolute)}`
+        : path.relative(realRoot, absolute);
     return { path: evidencePath, sha256: sha256(fs.readFileSync(absolute)) };
 }
 
@@ -803,6 +875,15 @@ function attachGateEvidence(tasks, id, gate, candidate) {
     const task = taskById(tasks, id);
     if (!task.gates.includes(gate)) throw new Error(`${id} does not require gate ${gate}`);
     const { target, proof } = readProof(id);
+    const attestation = readJson(secureEvidencePath(candidate).absolute);
+    const errors = validateGateAttestation(task, gate, attestation, { headCommit: safeHead() });
+    for (const assertion of attestation.assertions ?? []) {
+        for (const artifact of assertion.artifacts ?? []) {
+            const actual = evidenceReference(artifact.path);
+            if (actual.sha256 !== artifact.sha256) errors.push(`Gate ${gate} artifact hash mismatch: ${artifact.path}`);
+        }
+    }
+    if (errors.length) throw new Error(errors.join('\n'));
     proof.gates[gate].evidence.push(evidenceReference(candidate));
     writeProof(target, proof);
     console.log(`Attached ${candidate} to ${id}/${gate}`);
@@ -858,7 +939,7 @@ function attestReuse(tasks, state, id, candidate) {
     if (reference.path !== claim.reuseReport?.path || reference.sha256 !== claim.reuseReport?.sha256) {
         throw new Error('Reuse attestation must use the exact report pinned by the active claim');
     }
-    const absolute = resolveEvidencePath(reference.path);
+    const absolute = secureEvidencePath(reference.path).absolute;
     const text = fs.readFileSync(absolute, 'utf8');
     const report = JSON.parse(text);
     const snapshot = readSourceSnapshot(report);
@@ -884,10 +965,17 @@ function attestReuse(tasks, state, id, candidate) {
 }
 
 function attestReview(tasks, id, reviewer, candidate) {
-    taskById(tasks, id);
+    const task = taskById(tasks, id);
     if (!reviewer) throw new Error('attest-review requires --reviewer NAME');
     const { target, proof } = readProof(id);
     if (reviewer === proof.owner) throw new Error('Independent reviewer must differ from task owner');
+    const attestation = readJson(secureEvidencePath(candidate).absolute);
+    const errors = validateReviewAttestation(task, attestation, {
+        headCommit: safeHead(),
+        owner: proof.owner,
+        reviewer,
+    });
+    if (errors.length) throw new Error(errors.join('\n'));
     proof.independentReview = {
         status: 'pass',
         reviewer,
@@ -946,6 +1034,29 @@ function collectEvidence(proof) {
             ...(row.commands ?? []).map(command => command.transcript),
         ]),
     ].filter(Boolean);
+    const gateAttestations = new Map();
+    for (const row of Object.values(proof.gates ?? {})) {
+        for (const reference of row.evidence ?? []) {
+            try {
+                const attestation = readJson(secureEvidencePath(reference.path).absolute);
+                gateAttestations.set(reference.path, attestation);
+                for (const assertion of attestation.assertions ?? []) {
+                    references.push(...(assertion.artifacts ?? []));
+                }
+            } catch {
+                // Strict validation reports unreadable gate attestations.
+            }
+        }
+    }
+    const reviewAttestations = new Map();
+    const reviewReference = proof.independentReview?.evidence;
+    if (reviewReference?.path) {
+        try {
+            reviewAttestations.set(reviewReference.path, readJson(secureEvidencePath(reviewReference.path).absolute));
+        } catch {
+            // Strict validation reports unreadable review attestations.
+        }
+    }
     const hashes = new Map();
     for (const reference of references) {
         try {
@@ -960,12 +1071,12 @@ function collectEvidence(proof) {
         const reference = command.transcript;
         if (!reference?.path) continue;
         try {
-            commandTranscripts.set(reference.path, readJson(resolveEvidencePath(reference.path)));
+            commandTranscripts.set(reference.path, readJson(secureEvidencePath(reference.path).absolute));
         } catch {
             // Validation reports unreadable transcript evidence.
         }
     }
-    return { hashes, commandTranscripts };
+    return { hashes, commandTranscripts, gateAttestations, reviewAttestations };
 }
 
 function strictProofContext(tasks, task, proof, state) {
@@ -981,7 +1092,7 @@ function strictProofContext(tasks, task, proof, state) {
     if (reportPath) {
         try {
             reuseReportErrors.push(...reuseReportPinErrors(claim, proof.reuseAudit.report));
-            const absolute = resolveEvidencePath(reportPath);
+            const absolute = secureEvidencePath(reportPath).absolute;
             const text = fs.readFileSync(absolute, 'utf8');
             const report = JSON.parse(text);
             const snapshot = readSourceSnapshot(report);
@@ -1018,6 +1129,8 @@ function strictProofContext(tasks, task, proof, state) {
         originMainIsAncestor: gitSucceeds('merge-base', '--is-ancestor', 'origin/main', currentHead),
         evidenceHashes: evidence.hashes,
         commandTranscripts: evidence.commandTranscripts,
+        gateAttestations: evidence.gateAttestations,
+        reviewAttestations: evidence.reviewAttestations,
         reuseReportErrors,
         maxProofAgeMs: config.proofMaxAgeMinutes * 60 * 1000,
         maxFutureSkewMs: 5 * 60 * 1000,
@@ -1054,13 +1167,15 @@ function promote(tasks, markdown, state, id, apply) {
     for (const dep of dynamicDeps) {
         if (!taskById(tasks, dep).complete) throw new Error(`${id} release scope still depends on open task ${dep}`);
     }
-    fs.writeFileSync(backlogPath, updateBacklogCheckbox(markdown, id));
+    const promotedBacklog = updateBacklogCheckbox(markdown, id);
+    fs.writeFileSync(backlogPath, promotedBacklog);
     const promotion = {
         taskId: id,
         promotedAt: new Date().toISOString(),
         baseCommit: proof.baseCommit,
         headCommit: proof.headCommit,
         proofSha256: sha256(fs.readFileSync(proofFile(id))),
+        expectedBacklogSha256: sha256(promotedBacklog),
         userVisible: proof.release.userVisible,
         releaseNotes: proof.release.releaseNotes,
         status: 'awaiting-checkpoint',
@@ -1115,6 +1230,21 @@ function isPreparedCheckpointCommit(taskHead) {
     return changed.length === 1 && changed[0] === config.canonicalBacklog;
 }
 
+function backlogShaAtCommit(commit) {
+    return sha256(execFileSync('git', ['show', `${commit}:${config.canonicalBacklog}`], { cwd: repoRoot }));
+}
+
+function assertCheckpointIntegrity(promotion, prepared = false) {
+    const proofPath = proofFile(promotion.taskId);
+    const actual = {
+        proofSha256: sha256(fs.readFileSync(secureEvidencePath(proofPath).absolute)),
+        backlogSha256: sha256(fs.readFileSync(backlogPath)),
+        ...(prepared ? { preparedBacklogSha256: backlogShaAtCommit('HEAD') } : {}),
+    };
+    const errors = checkpointIntegrityErrors(promotion, actual);
+    if (errors.length) throw new Error(errors.join('\n'));
+}
+
 function checkpoint(state, message) {
     const pending = (state.promotions ?? []).filter(row => row.status === 'awaiting-checkpoint');
     if (pending.length !== 1) {
@@ -1128,6 +1258,7 @@ function checkpoint(state, message) {
     const originMainBefore = git('rev-parse', 'origin/main');
     const expectedBase = pending[0].baseCommit;
     let prepared = isPreparedCheckpointCommit(pending[0].headCommit);
+    assertCheckpointIntegrity(pending[0], prepared);
     if (prepared && (
         pending[0].checkpointGateHead !== pending[0].headCommit
         || !pending[0].checkpointGatesPassedAt
@@ -1146,6 +1277,7 @@ function checkpoint(state, message) {
         if (outsideAfterGates.length) {
             throw new Error(`Checkpoint gates changed files outside the backlog:\n${outsideAfterGates.join('\n')}`);
         }
+        assertCheckpointIntegrity(pending[0], false);
         pending[0].checkpointGateHead = pending[0].headCommit;
         pending[0].checkpointGatesPassedAt = new Date().toISOString();
         saveState(state);
@@ -1154,6 +1286,7 @@ function checkpoint(state, message) {
         if (cleanStatus().length) throw new Error('Checkpoint commit left a dirty checkout; refusing to push');
         prepared = true;
     }
+    assertCheckpointIntegrity(pending[0], true);
     if (config.release.pushEveryCheckpoint && !alreadyPushed) git('push', 'origin', 'HEAD:main');
     git('fetch', 'origin', 'main');
     const headCommit = safeHead();
@@ -1273,6 +1406,7 @@ function usage() {
     console.log(`Usage:
   node scripts/academy-production-workflow.mjs validate
   node scripts/academy-production-workflow.mjs status
+  node scripts/academy-production-workflow.mjs ledger
   node scripts/academy-production-workflow.mjs plan
   node scripts/academy-production-workflow.mjs index-unreachable
   node scripts/academy-production-workflow.mjs index-transcripts
@@ -1305,7 +1439,11 @@ try {
         console.log(`Workflow valid: ${tasks.length} canonical tasks, ${config.lanes.length} lanes`);
     } else if (command === 'status') {
         ensureValid(tasks);
-        printStatus(tasks, state);
+        printStatus(tasks, markdown, state);
+    } else if (command === 'ledger') {
+        ensureValid(tasks);
+        const ledger = writeProductionLedger(tasks, markdown, state);
+        console.log(`Wrote ${ledger.tasks.length} task rows and ${ledger.routeCounts.length} route counters -> @workflow-state/${path.relative(stateRoot, productionLedgerPath)}`);
     } else if (command === 'plan') {
         ensureValid(tasks);
         withLock(stateLockPath, () => writePlan(tasks, markdown, loadState()));

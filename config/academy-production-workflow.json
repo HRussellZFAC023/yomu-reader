@@ -40,6 +40,31 @@
       "docs/academy/recovery/RECOVERED-ART-MANIFEST.json"
     ]
   },
+  "routeCensus": [
+    {
+      "id": "lesson-content-files",
+      "kind": "directory-files",
+      "path": "public/academy/content/lessons",
+      "include": "\\.json$",
+      "claim": "Published lesson-content files; this is not a learner-reachability claim."
+    },
+    {
+      "id": "story-chapter-sources",
+      "kind": "directory-files",
+      "path": "src/academy/content/story-sources",
+      "include": "^s[1-4]e[0-9]{2}-.+\\.v2\\.json$",
+      "claim": "Canonical authored chapter sources; runtime reachability is reported separately by proof gate R."
+    },
+    {
+      "id": "world-place-routes",
+      "kind": "typescript-object-ids",
+      "path": "src/academy/domain/world-locations.ts",
+      "start": "const WORLD_PLACES:",
+      "end": "const PLACE_BY_ID",
+      "idPattern": "^ {8}id: '([^']+)'",
+      "claim": "Runtime-registered World place identifiers."
+    }
+  ],
   "sectionPriorities": {
     "Games and varied practice catalogue": "P1",
     "Platform, operations and release": "P0"
@@ -104,7 +129,15 @@
       "capacity": 1,
       "agentClass": "architecture",
       "checkout": "worktree",
-      "ownership": ["docs/academy/**", "scripts/academy-*.mjs", "tests/academy/**"]
+      "ownership": [
+        "config/academy-production-workflow.json",
+        "docs/academy/**",
+        "package.json",
+        "scripts/academy-*.mjs",
+        "scripts/lib/academy-workflow-*.mjs",
+        "scripts/lib/academy-workflow-*.d.mts",
+        "tests/academy/**"
+      ]
     },
     {
       "id": "stability",
@@ -155,7 +188,17 @@
       "capacity": 2,
       "agentClass": "visual-production",
       "checkout": "worktree",
-      "ownership": ["src/academy/ui/**", "src/academy/assets/**", "public/academy/art/**", "docs/academy/art/**", "tests/academy/**"]
+      "ownership": [
+        "src/academy/ui/**",
+        "src/academy/assets.ts",
+        "src/academy/assets/**",
+        "public/academy/art/**",
+        "docs/academy/art/**",
+        "docs/academy/art-review/**",
+        "docs/academy/recovery/**",
+        "scripts/academy-asset-*.mjs",
+        "tests/academy/**"
+      ]
     },
     {
       "id": "games-and-yomu",
@@ -171,7 +214,17 @@
       "capacity": 1,
       "agentClass": "backend-and-security",
       "checkout": "worktree",
-      "ownership": ["src/academy/worker/**", "src/academy/account/**", "wrangler.academy.jsonc", "migrations/**", "tests/academy/**", "docs/academy/**"]
+      "ownership": [
+        "src/academy/worker/**",
+        "src/academy/account/**",
+        "src/academy/access/gateway.ts",
+        "src/academy/app.ts",
+        "workers/yomu-academy/**",
+        "wrangler.academy.jsonc",
+        "migrations/**",
+        "tests/academy/**",
+        "docs/academy/**"
+      ]
     },
     {
       "id": "documentation",

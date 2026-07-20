@@ -1,19 +1,25 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
     buildPlan,
+    buildProductionLedger,
     bindProofToClaim,
+    checkpointIntegrityErrors,
     changedFilesWithinOwnership,
     createWorkOrder,
     parseBacklog,
     progressSummary,
     proofTemplate,
+    resolveConfinedFile,
     resolveDynamicDependencies,
     reuseReportPinErrors,
     sha256,
     taskDefinitionSha256,
     updateBacklogCheckbox,
+    validateGateAttestation,
     validateProof,
+    validateReviewAttestation,
     validateWorkflow,
 } from '../../scripts/lib/academy-workflow-model.mjs';
 
@@ -44,6 +50,93 @@ describe('Academy production workflow', () => {
     it('reports literal canonical completion without converting it to an effort claim', () => {
         const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
         expect(progressSummary(tasks)).toMatchObject({ complete: 20, total: 126, percent: 15.9 });
+    });
+
+    it('derives task states, percentages, and route counts from one production ledger', () => {
+        const markdown = '- [x] **GOV-001** Ledger. **Deps:** none. **Proof:** `C`,`R`,`T`,`O`,`D`.\n- [ ] **QA-001** QA. **Deps:** `GOV-001`. **Proof:** `T`,`Q`.\n';
+        const tasks = parseBacklog(markdown, config);
+        const proof = proofTemplate(tasks[0], config, 'base');
+        proof.claimToken = 'claim-1';
+        proof.submittedAt = new Date().toISOString();
+        proof.reuseAudit.status = 'pass';
+        for (const gate of tasks[0].gates) proof.gates[gate].status = 'pass';
+        const ledger = buildProductionLedger(tasks, config, { claims: [{
+            taskId: 'GOV-001', token: 'claim-1', status: 'checkpointed', expiresAt: '2099-01-01T00:00:00.000Z',
+        }], promotions: [{
+            taskId: 'GOV-001', status: 'checkpointed',
+        }] }, { 'GOV-001': proof }, [{ id: 'story-chapter-sources', count: 48 }], {
+            generatedAt: '2026-07-20T00:00:00.000Z', headCommit: 'a'.repeat(40), backlogSha256: sha256(markdown),
+        });
+
+        expect(ledger.progress).toMatchObject({ complete: 1, total: 2, percent: 50 });
+        expect(ledger.evidenceStates).toMatchObject({ audited: 1, implemented: 1, learnerReachable: 1, qaVerified: 1, deployed: 1 });
+        expect(ledger.routeCounts).toEqual([{ id: 'story-chapter-sources', count: 48 }]);
+        expect(ledger.tasks[0]).toMatchObject({ canonicalComplete: true, promotion: 'checkpointed', deployed: true });
+    });
+
+    it('requires typed passing gate and independent-review attestations', () => {
+        const task = parseBacklog('- [ ] **GOV-001** Ledger. **Deps:** none. **Proof:** `C`,`T`.')[0];
+        const gate = {
+            schema: 'yomu-academy.gate-attestation/v1', taskId: task.id, gate: 'C', verdict: 'pass',
+            headCommit: 'a'.repeat(40), issuedAt: '2026-07-20T00:00:00.000Z',
+            producer: { id: 'codex-main', kind: 'agent' }, summary: 'Canonical implementation inspected.',
+            assertions: [{ status: 'pass', claim: 'The canonical implementation exists.', artifacts: [{
+                path: 'scripts/academy-production-workflow.mjs', sha256: 'b'.repeat(64),
+            }] }],
+        };
+        expect(validateGateAttestation(task, 'C', gate, { headCommit: 'a'.repeat(40) })).toEqual([]);
+        expect(validateGateAttestation(task, 'C', { ...gate, verdict: 'block' }, { headCommit: 'a'.repeat(40) }))
+            .toContain('Gate C attestation verdict is not pass');
+
+        const review = {
+            schema: 'yomu-academy.review-attestation/v1', taskId: task.id, verdict: 'ship',
+            headCommit: 'a'.repeat(40), taskDefinitionSha256: taskDefinitionSha256(task),
+            issuedAt: '2026-07-20T00:00:00.000Z', summary: 'No release blockers remain.',
+            reviewer: { id: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol', sessionId: 'agent-1', independentFrom: 'codex-main' },
+            scope: ['scripts/academy-production-workflow.mjs'], findings: [],
+        };
+        expect(validateReviewAttestation(task, review, { headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent' })).toEqual([]);
+        expect(validateReviewAttestation(task, { ...review, verdict: 'block' }, { headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent' }))
+            .toContain('Independent review verdict is not ship');
+    });
+
+    it('rejects symlinked evidence that resolves outside an allowed root', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'yomu-workflow-root-'));
+        const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'yomu-workflow-outside-'));
+        const outsideFile = path.join(outside, 'evidence.json');
+        fs.writeFileSync(outsideFile, '{}');
+        const link = path.join(root, 'evidence.json');
+        fs.symlinkSync(outsideFile, link);
+        expect(() => resolveConfinedFile(link, [root])).toThrow(/symbolic link|outside/u);
+        fs.rmSync(root, { recursive: true, force: true });
+        fs.rmSync(outside, { recursive: true, force: true });
+    });
+
+    it('pins the exact promoted backlog and proof through checkpoint retries', () => {
+        const promotion = { proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64) };
+        expect(checkpointIntegrityErrors(promotion, {
+            proofSha256: 'a'.repeat(64), backlogSha256: 'b'.repeat(64), preparedBacklogSha256: 'b'.repeat(64),
+        })).toEqual([]);
+        expect(checkpointIntegrityErrors(promotion, {
+            proofSha256: 'c'.repeat(64), backlogSha256: 'd'.repeat(64), preparedBacklogSha256: 'e'.repeat(64),
+        })).toEqual(expect.arrayContaining([
+            'Promotion proof changed after verification',
+            'Canonical backlog differs from the exact promoted checkbox result',
+            'Prepared checkpoint commit contains an unexpected backlog',
+        ]));
+    });
+
+    it('gives governance, platform, and visual lanes their real production ownership', () => {
+        const lane = (id: string) => config.lanes.find((candidate: { id: string }) => candidate.id === id).ownership;
+        expect(changedFilesWithinOwnership([
+            'config/academy-production-workflow.json', 'scripts/lib/academy-workflow-model.mjs', 'package.json',
+        ], lane('governance'))).toEqual([]);
+        expect(changedFilesWithinOwnership([
+            'workers/yomu-academy/src/index.ts', 'src/academy/access/gateway.ts', 'src/academy/app.ts',
+        ], lane('platform'))).toEqual([]);
+        expect(changedFilesWithinOwnership([
+            'src/academy/assets.ts', 'scripts/academy-asset-census.mjs', 'docs/academy/art-review/verdict.json',
+        ], lane('visual'))).toEqual([]);
     });
 
     it('selects only dependency-ready tasks while respecting lane and global capacity', () => {
