@@ -876,7 +876,11 @@ function attachGateEvidence(tasks, id, gate, candidate) {
     if (!task.gates.includes(gate)) throw new Error(`${id} does not require gate ${gate}`);
     const { target, proof } = readProof(id);
     const attestation = readJson(secureEvidencePath(candidate).absolute);
-    const errors = validateGateAttestation(task, gate, attestation, { headCommit: safeHead() });
+    const errors = validateGateAttestation(task, gate, attestation, {
+        headCommit: safeHead(),
+        expectedProducer: proof.owner,
+        trustedGateProducers: config.trustedGateProducers,
+    });
     for (const assertion of attestation.assertions ?? []) {
         for (const artifact of assertion.artifacts ?? []) {
             const actual = evidenceReference(artifact.path);
@@ -964,16 +968,136 @@ function attestReuse(tasks, state, id, candidate) {
     console.log(`Attested exhaustive prior-work audit for ${id}`);
 }
 
+function parseReviewPayload(value) {
+    const text = String(value ?? '').trim()
+        .replace(/^```(?:json)?\s*/u, '')
+        .replace(/\s*```$/u, '');
+    const payload = JSON.parse(text);
+    if (!['ship', 'block'].includes(payload?.verdict)) throw new Error('External reviewer returned no ship/block verdict');
+    if (!payload?.summary?.trim()) throw new Error('External reviewer returned no summary');
+    if (!Array.isArray(payload?.scope) || payload.scope.length === 0) throw new Error('External reviewer returned no review scope');
+    if (!Array.isArray(payload?.findings)) throw new Error('External reviewer findings must be an array');
+    return payload;
+}
+
+function runExternalReview(tasks, id, providerId, promptCandidate) {
+    const task = taskById(tasks, id);
+    const provider = config.reviewProviders?.[providerId];
+    if (!provider) throw new Error(`Unknown trusted review provider: ${providerId}`);
+    const { target, proof } = readProof(id);
+    if (!proof.owner) throw new Error('Claim the task before running its independent review');
+    if (provider.reviewerId === proof.owner) throw new Error('Trusted reviewer identity must differ from the task owner');
+    if (cleanStatus().length) throw new Error('Commit the focused slice and return to a clean checkout before external review');
+    const sourcePrompt = fs.readFileSync(secureEvidencePath(promptCandidate).absolute, 'utf8');
+    const headCommit = safeHead();
+    const reviewRoot = path.join(stateRoot, 'review-sessions', id, `${Date.now()}-${crypto.randomUUID()}`);
+    fs.mkdirSync(reviewRoot, { recursive: true });
+    const promptPath = path.join(reviewRoot, 'prompt.txt');
+    const responsePath = path.join(reviewRoot, 'provider-response.json');
+    const sessionPath = path.join(reviewRoot, 'session.json');
+    const attestationPath = path.join(reviewRoot, 'attestation.json');
+    const outputContract = `\n\nReturn only one JSON object with this exact shape (no prose or fences):\n{\n  "verdict": "ship" | "block",\n  "summary": "concise evidence-based verdict",\n  "scope": ["reviewed file or behavior"],\n  "findings": [{"severity":"P0"|"P1"|"P2","summary":"finding","status":"resolved"|"accepted-risk"}]\n}\nUse verdict "block" whenever any P0/P1 finding is unresolved. Task: ${task.id}. HEAD: ${headCommit}. Task definition SHA-256: ${taskDefinitionSha256(task)}.`;
+    fs.writeFileSync(promptPath, `${sourcePrompt.trim()}${outputContract}\n`);
+    const executable = process.env[provider.executableEnv] || provider.executableDefault;
+    const result = spawnSync(executable, provider.args ?? [], {
+        cwd: repoRoot,
+        input: fs.readFileSync(promptPath),
+        encoding: 'utf8',
+        maxBuffer: config.proofCommandMaxOutputBytes ?? 4 * 1024 * 1024,
+    });
+    fs.writeFileSync(responsePath, result.stdout ?? '');
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`External reviewer exited ${result.status}: ${result.stderr ?? ''}`);
+    const envelope = readJson(responsePath);
+    if (provider.outputFormat !== 'claude-json') throw new Error(`Unsupported review output format: ${provider.outputFormat}`);
+    if (envelope.type !== 'result' || envelope.subtype !== 'success' || envelope.is_error || !envelope.session_id) {
+        throw new Error(`External reviewer did not return a successful session: ${envelope.result ?? 'unknown error'}`);
+    }
+    const payload = parseReviewPayload(envelope.result);
+    const promptReference = evidenceReference(promptPath);
+    const responseReference = evidenceReference(responsePath);
+    const session = {
+        schema: 'yomu-academy.external-review-session/v1',
+        recordedBy: 'academy-production-workflow',
+        taskId: id,
+        taskDefinitionSha256: taskDefinitionSha256(task),
+        headCommit,
+        owner: proof.owner,
+        reviewerId: provider.reviewerId,
+        provider: provider.provider,
+        model: provider.model,
+        sessionId: envelope.session_id,
+        exitCode: result.status,
+        verdict: payload.verdict,
+        issuedAt: new Date().toISOString(),
+        prompt: promptReference,
+        response: responseReference,
+    };
+    fs.writeFileSync(sessionPath, `${JSON.stringify(session, null, 2)}\n`);
+    const sessionReference = evidenceReference(sessionPath);
+    const attestation = {
+        schema: 'yomu-academy.review-attestation/v1',
+        taskId: id,
+        verdict: payload.verdict,
+        headCommit,
+        taskDefinitionSha256: taskDefinitionSha256(task),
+        issuedAt: session.issuedAt,
+        summary: payload.summary,
+        reviewer: {
+            id: provider.reviewerId,
+            provider: provider.provider,
+            model: provider.model,
+            sessionId: envelope.session_id,
+            independentFrom: proof.owner,
+            sessionEvidence: sessionReference,
+        },
+        scope: payload.scope,
+        findings: payload.findings,
+    };
+    fs.writeFileSync(attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+    const errors = validateReviewAttestation(task, attestation, {
+        headCommit,
+        owner: proof.owner,
+        reviewer: provider.reviewerId,
+        strict: true,
+        reviewSessions: new Map([[sessionReference.path, session]]),
+        evidenceHashes: new Map([
+            [sessionReference.path, sessionReference.sha256],
+            [promptReference.path, promptReference.sha256],
+            [responseReference.path, responseReference.sha256],
+        ]),
+    });
+    if (errors.length) throw new Error(errors.join('\n'));
+    proof.independentReview = {
+        status: 'pass',
+        reviewer: provider.reviewerId,
+        evidence: evidenceReference(attestationPath),
+        findingsResolved: payload.findings.filter(finding => finding.status === 'resolved').map(finding => finding.summary),
+    };
+    writeProof(target, proof);
+    console.log(`Captured trusted ${providerId} review session ${envelope.session_id} for ${id}`);
+}
+
 function attestReview(tasks, id, reviewer, candidate) {
     const task = taskById(tasks, id);
     if (!reviewer) throw new Error('attest-review requires --reviewer NAME');
     const { target, proof } = readProof(id);
     if (reviewer === proof.owner) throw new Error('Independent reviewer must differ from task owner');
     const attestation = readJson(secureEvidencePath(candidate).absolute);
+    const sessionReference = attestation?.reviewer?.sessionEvidence;
+    const session = sessionReference?.path ? readJson(secureEvidencePath(sessionReference.path).absolute) : null;
+    const evidenceHashes = new Map();
+    for (const reference of [sessionReference, session?.prompt, session?.response].filter(Boolean)) {
+        const actual = evidenceReference(reference.path);
+        evidenceHashes.set(reference.path, actual.sha256);
+    }
     const errors = validateReviewAttestation(task, attestation, {
         headCommit: safeHead(),
         owner: proof.owner,
         reviewer,
+        strict: true,
+        reviewSessions: new Map(sessionReference?.path ? [[sessionReference.path, session]] : []),
+        evidenceHashes,
     });
     if (errors.length) throw new Error(errors.join('\n'));
     proof.independentReview = {
@@ -1049,10 +1173,24 @@ function collectEvidence(proof) {
         }
     }
     const reviewAttestations = new Map();
+    const reviewSessions = new Map();
     const reviewReference = proof.independentReview?.evidence;
     if (reviewReference?.path) {
         try {
-            reviewAttestations.set(reviewReference.path, readJson(secureEvidencePath(reviewReference.path).absolute));
+            const attestation = readJson(secureEvidencePath(reviewReference.path).absolute);
+            reviewAttestations.set(reviewReference.path, attestation);
+            const sessionReference = attestation?.reviewer?.sessionEvidence;
+            if (sessionReference?.path) {
+                references.push(sessionReference);
+                try {
+                    const session = readJson(secureEvidencePath(sessionReference.path).absolute);
+                    reviewSessions.set(sessionReference.path, session);
+                    if (session.prompt) references.push(session.prompt);
+                    if (session.response) references.push(session.response);
+                } catch {
+                    // Strict validation reports unreadable external review sessions.
+                }
+            }
         } catch {
             // Strict validation reports unreadable review attestations.
         }
@@ -1076,7 +1214,14 @@ function collectEvidence(proof) {
             // Validation reports unreadable transcript evidence.
         }
     }
-    return { hashes, commandTranscripts, gateAttestations, reviewAttestations };
+    return { hashes, commandTranscripts, gateAttestations, reviewAttestations, reviewSessions };
+}
+
+function evidenceManifestSha256(proof) {
+    const entries = [...collectEvidence(proof).hashes.entries()]
+        .sort(([left], [right]) => left.localeCompare(right, 'en'))
+        .map(([pathName, digest]) => ({ path: pathName, sha256: digest }));
+    return sha256(`${JSON.stringify(entries)}\n`);
 }
 
 function strictProofContext(tasks, task, proof, state) {
@@ -1131,6 +1276,8 @@ function strictProofContext(tasks, task, proof, state) {
         commandTranscripts: evidence.commandTranscripts,
         gateAttestations: evidence.gateAttestations,
         reviewAttestations: evidence.reviewAttestations,
+        reviewSessions: evidence.reviewSessions,
+        trustedGateProducers: config.trustedGateProducers,
         reuseReportErrors,
         maxProofAgeMs: config.proofMaxAgeMinutes * 60 * 1000,
         maxFutureSkewMs: 5 * 60 * 1000,
@@ -1175,6 +1322,7 @@ function promote(tasks, markdown, state, id, apply) {
         baseCommit: proof.baseCommit,
         headCommit: proof.headCommit,
         proofSha256: sha256(fs.readFileSync(proofFile(id))),
+        evidenceManifestSha256: evidenceManifestSha256(proof),
         expectedBacklogSha256: sha256(promotedBacklog),
         userVisible: proof.release.userVisible,
         releaseNotes: proof.release.releaseNotes,
@@ -1236,8 +1384,10 @@ function backlogShaAtCommit(commit) {
 
 function assertCheckpointIntegrity(promotion, prepared = false) {
     const proofPath = proofFile(promotion.taskId);
+    const proof = readJson(secureEvidencePath(proofPath).absolute);
     const actual = {
         proofSha256: sha256(fs.readFileSync(secureEvidencePath(proofPath).absolute)),
+        evidenceManifestSha256: evidenceManifestSha256(proof),
         backlogSha256: sha256(fs.readFileSync(backlogPath)),
         ...(prepared ? { preparedBacklogSha256: backlogShaAtCommit('HEAD') } : {}),
     };
@@ -1418,6 +1568,7 @@ function usage() {
   node scripts/academy-production-workflow.mjs attach-evidence TASK GATE FILE
   node scripts/academy-production-workflow.mjs run-proof TASK GATE -- COMMAND [ARGS...]
   node scripts/academy-production-workflow.mjs attest-reuse TASK FILE
+  node scripts/academy-production-workflow.mjs run-review TASK --provider claude-fable --prompt FILE
   node scripts/academy-production-workflow.mjs attest-review TASK --reviewer NAME FILE
   node scripts/academy-production-workflow.mjs attest-approval TASK REQUIREMENT FILE
   node scripts/academy-production-workflow.mjs seal-proof TASK --summary TEXT
@@ -1504,6 +1655,16 @@ try {
         const reviewerIndex = flags.indexOf('--reviewer');
         const evidence = flags.find((value, index) => index !== reviewerIndex && index !== reviewerIndex + 1 && !value.startsWith('--'));
         withLock(stateLockPath, () => attestReview(tasks, id, reviewerIndex >= 0 ? flags[reviewerIndex + 1] : null, evidence));
+    } else if (command === 'run-review') {
+        ensureValid(tasks);
+        const providerIndex = flags.indexOf('--provider');
+        const promptIndex = flags.indexOf('--prompt');
+        withLock(stateLockPath, () => runExternalReview(
+            tasks,
+            id,
+            providerIndex >= 0 ? flags[providerIndex + 1] : null,
+            promptIndex >= 0 ? flags[promptIndex + 1] : null,
+        ));
     } else if (command === 'attest-approval') {
         ensureValid(tasks);
         withLock(stateLockPath, () => attestApproval(tasks, id, flags[0], flags[1]));

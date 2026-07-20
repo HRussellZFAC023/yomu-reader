@@ -6,6 +6,21 @@
   "claimTtlHours": 12,
   "proofMaxAgeMinutes": 120,
   "proofCommandMaxOutputBytes": 4194304,
+  "reviewProviders": {
+    "claude-fable": {
+      "provider": "anthropic",
+      "reviewerId": "claude-fable",
+      "executableEnv": "YOMU_CLAUDE_BIN",
+      "executableDefault": "claude",
+      "args": ["-p", "--model", "fable", "--permission-mode", "plan", "--output-format", "json"],
+      "model": "fable",
+      "outputFormat": "claude-json"
+    }
+  },
+  "trustedGateProducers": {
+    "workflow": ["academy-production-workflow"],
+    "ci": ["github-actions"]
+  },
   "externalRoots": {
     "japaneseLibrary": {
       "env": "YOMU_JAPANESE_ROOT",
@@ -190,6 +205,7 @@
       "checkout": "worktree",
       "ownership": [
         "src/academy/ui/**",
+        "src/academy/styles/**",
         "src/academy/assets.ts",
         "src/academy/assets/**",
         "public/academy/art/**",
@@ -217,8 +233,12 @@
       "ownership": [
         "src/academy/worker/**",
         "src/academy/account/**",
+        "src/academy/access/donation-checkout.ts",
+        "src/academy/access/donation-claim.ts",
         "src/academy/access/gateway.ts",
+        "src/academy/access/local-qa.ts",
         "src/academy/app.ts",
+        "src/academy/ui/access-screen.ts",
         "workers/yomu-academy/**",
         "wrangler.academy.jsonc",
         "migrations/**",

@@ -206,6 +206,17 @@ export function validateWorkflow(tasks, config) {
     for (const gate of CANONICAL_GATES) {
         if (!config.proofGates?.[gate]) errors.push(`Proof gate ${gate} has no configured requirement`);
     }
+    for (const [id, provider] of Object.entries(config.reviewProviders ?? {})) {
+        if (!provider?.provider || !provider?.reviewerId || !provider?.model) errors.push(`Review provider ${id} has incomplete identity`);
+        if (!provider?.executableEnv || !provider?.executableDefault) errors.push(`Review provider ${id} has no executable boundary`);
+        if (!Array.isArray(provider?.args) || provider.args.length === 0) errors.push(`Review provider ${id} has no fixed invocation`);
+        if (provider?.outputFormat !== 'claude-json') errors.push(`Review provider ${id} has unsupported output format ${provider?.outputFormat}`);
+    }
+    for (const kind of ['workflow', 'ci']) {
+        if (!Array.isArray(config.trustedGateProducers?.[kind]) || config.trustedGateProducers[kind].length === 0) {
+            errors.push(`Trusted gate producers for ${kind} are not configured`);
+        }
+    }
     const routeIds = new Set();
     for (const route of config.routeCensus ?? []) {
         if (!route?.id || routeIds.has(route.id)) errors.push(`Route census has a missing or duplicate id ${route?.id ?? ''}`);
@@ -356,14 +367,21 @@ function proofGateStatus(proof, gate) {
 }
 
 export function buildProductionLedger(tasks, config, state = {}, proofs = {}, routeCounts = [], metadata = {}) {
-    const active = new Map(activeClaims(state, new Date(metadata.generatedAt ?? Date.now()))
+    const generatedAt = new Date(metadata.generatedAt ?? Date.now());
+    const active = new Map(activeClaims(state, generatedAt)
         .map(claim => [claim.taskId, claim]));
     const latestPromotion = new Map();
     for (const promotion of state.promotions ?? []) latestPromotion.set(promotion.taskId, promotion);
     const rows = tasks.map(task => {
         const candidateProof = proofs[task.id] ?? null;
-        const proofClaim = (state.claims ?? []).find(claim => claim.token === candidateProof?.claimToken);
-        const proof = ['active', 'checkpointed'].includes(proofClaim?.status) ? candidateProof : null;
+        const proofClaim = (state.claims ?? []).find(claim => (
+            claim.taskId === task.id
+            && claim.token === candidateProof?.claimToken
+            && candidateProof?.taskId === task.id
+        ));
+        const liveActiveProof = proofClaim?.status === 'active'
+            && Date.parse(proofClaim.expiresAt) > generatedAt.getTime();
+        const proof = (liveActiveProof || proofClaim?.status === 'checkpointed') ? candidateProof : null;
         const promotion = latestPromotion.get(task.id) ?? null;
         const gates = Object.fromEntries(task.gates.map(gate => [gate, proofGateStatus(proof, gate)]));
         const qualityGates = task.gates.filter(gate => gate === 'T' || gate === 'Q');
@@ -423,6 +441,15 @@ export function validateGateAttestation(task, gate, attestation, context = {}) {
     if (!['agent', 'ci', 'human', 'workflow'].includes(attestation?.producer?.kind)) {
         errors.push(`Gate ${gate} attestation has an unsupported producer kind`);
     }
+    const expectedProducer = context.expectedProducer;
+    const trustedForKind = context.trustedGateProducers?.[attestation?.producer?.kind] ?? [];
+    if (attestation?.producer?.kind === 'agent' || attestation?.producer?.kind === 'human') {
+        if (!expectedProducer || attestation?.producer?.id !== expectedProducer) {
+            errors.push(`Gate ${gate} attestation producer is not the task owner`);
+        }
+    } else if (!trustedForKind.includes(attestation?.producer?.id)) {
+        errors.push(`Gate ${gate} attestation producer is not trusted for ${attestation?.producer?.kind}`);
+    }
     if (!attestation?.summary?.trim()) errors.push(`Gate ${gate} attestation needs a summary`);
     if (!Array.isArray(attestation?.assertions) || attestation.assertions.length === 0) {
         errors.push(`Gate ${gate} attestation needs at least one assertion`);
@@ -455,6 +482,35 @@ export function validateReviewAttestation(task, attestation, context = {}) {
     if (!reviewer?.provider?.trim() || !reviewer?.model?.trim() || !reviewer?.sessionId?.trim()) {
         errors.push('Independent review needs provider, model, and session identity');
     }
+    const sessionReference = reviewer?.sessionEvidence;
+    if (!validArtifactReference(sessionReference)) {
+        errors.push('Independent review needs a hash-bound external session record');
+    }
+    const session = sessionReference?.path ? context.reviewSessions?.get(sessionReference.path) : null;
+    if (!session) {
+        errors.push('Independent review external session record is missing or unreadable');
+    } else {
+        if (session.schema !== 'yomu-academy.external-review-session/v1') errors.push('External review session has the wrong schema');
+        if (session.recordedBy !== 'academy-production-workflow') errors.push('External review session was not captured by the workflow');
+        if (session.taskId !== task.id || session.headCommit !== attestation?.headCommit) errors.push('External review session targets another task or HEAD');
+        if (session.taskDefinitionSha256 !== taskDefinitionSha256(task)) errors.push('External review session targets another task definition');
+        if (session.owner !== context.owner || session.reviewerId !== reviewer?.id) errors.push('External review session identities do not match the claim');
+        if (session.provider !== reviewer?.provider || session.model !== reviewer?.model || session.sessionId !== reviewer?.sessionId) {
+            errors.push('External review session provider identity does not match the attestation');
+        }
+        if (session.exitCode !== 0 || session.verdict !== 'ship') errors.push('External review session does not prove a successful SHIP review');
+        if (!validArtifactReference(session.prompt) || !validArtifactReference(session.response)) {
+            errors.push('External review session needs hash-bound prompt and response artifacts');
+        }
+        if (context.strict) {
+            const actualSessionHash = context.evidenceHashes?.get(sessionReference.path);
+            if (actualSessionHash !== sessionReference.sha256) errors.push('External review session record hash mismatch');
+            for (const [label, reference] of [['prompt', session.prompt], ['response', session.response]]) {
+                const actual = context.evidenceHashes?.get(reference?.path);
+                if (!actual || actual !== reference?.sha256) errors.push(`External review ${label} artifact hash mismatch`);
+            }
+        }
+    }
     if (!attestation?.summary?.trim()) errors.push('Independent review needs a summary');
     if (!Array.isArray(attestation?.scope) || attestation.scope.length === 0) errors.push('Independent review needs an explicit scope');
     if (!Array.isArray(attestation?.findings)) errors.push('Independent review findings must be an array');
@@ -482,6 +538,8 @@ export function checkpointIntegrityErrors(promotion, actual) {
     if (actual.preparedBacklogSha256 && promotion.expectedBacklogSha256 !== actual.preparedBacklogSha256) {
         errors.push('Prepared checkpoint commit contains an unexpected backlog');
     }
+    if (!/^[a-f0-9]{64}$/u.test(promotion?.evidenceManifestSha256 ?? '')) errors.push('Promotion has no pinned evidence manifest hash');
+    else if (promotion.evidenceManifestSha256 !== actual.evidenceManifestSha256) errors.push('Promotion evidence changed after verification');
     return errors;
 }
 
@@ -596,6 +654,7 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
         if (unreserved.length) errors.push(`Changed files were not exclusively reserved by this claim: ${unreserved.join(', ')}`);
         if (!context.originMainIsAncestor) errors.push('Current HEAD is not based on current origin/main');
     }
+    const ownerIdentity = context.strict ? context.claim?.owner : proof.owner;
     if (proof.reuseAudit?.status !== 'pass') errors.push('Prior-work reuse audit has not passed');
     validateEvidenceReference(proof.reuseAudit?.report, 'Prior-work reuse report', context, errors);
     if (context.strict && context.reuseReportErrors?.length) errors.push(...context.reuseReportErrors);
@@ -610,7 +669,11 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
                 if (!attestation) {
                     errors.push(`Gate ${gate} evidence is not a readable gate attestation`);
                 } else {
-                    errors.push(...validateGateAttestation(task, gate, attestation, { headCommit: proof.headCommit }));
+                    errors.push(...validateGateAttestation(task, gate, attestation, {
+                        headCommit: proof.headCommit,
+                        expectedProducer: ownerIdentity ?? proof.owner,
+                        trustedGateProducers: context.trustedGateProducers,
+                    }));
                     for (const assertion of attestation.assertions ?? []) {
                         for (const artifact of assertion.artifacts ?? []) {
                             validateEvidenceReference(artifact, `Gate ${gate} assertion artifact`, context, errors);
@@ -646,7 +709,6 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
     }
     if (proof.independentReview?.status !== 'pass') errors.push('Independent review has not passed');
     if (!proof.independentReview?.reviewer) errors.push('Independent reviewer is required');
-    const ownerIdentity = context.strict ? context.claim?.owner : proof.owner;
     if (proof.independentReview?.reviewer && proof.independentReview.reviewer === ownerIdentity) errors.push('Independent reviewer must differ from owner');
     validateEvidenceReference(proof.independentReview?.evidence, 'Independent review', context, errors);
     if (context.strict) {
@@ -658,6 +720,9 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
                 headCommit: proof.headCommit,
                 owner: ownerIdentity,
                 reviewer: proof.independentReview?.reviewer,
+                strict: true,
+                evidenceHashes: context.evidenceHashes,
+                reviewSessions: context.reviewSessions,
             }));
         }
     }

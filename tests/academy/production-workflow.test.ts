@@ -74,6 +74,27 @@ describe('Academy production workflow', () => {
         expect(ledger.tasks[0]).toMatchObject({ canonicalComplete: true, promotion: 'checkpointed', deployed: true });
     });
 
+    it('does not let expired or cross-task claims inflate production evidence', () => {
+        const markdown = '- [ ] **GOV-001** Ledger. **Deps:** none. **Proof:** `C`,`R`,`T`,`O`,`D`.\n- [ ] **QA-001** QA. **Deps:** none. **Proof:** `C`,`R`,`T`,`O`,`D`.\n';
+        const tasks = parseBacklog(markdown, config);
+        const proof = proofTemplate(tasks[0], config, 'base');
+        proof.claimToken = 'shared-token';
+        proof.submittedAt = '2026-07-19T23:00:00.000Z';
+        proof.reuseAudit.status = 'pass';
+        for (const gate of tasks[0].gates) proof.gates[gate].status = 'pass';
+        const metadata = { generatedAt: '2026-07-20T00:00:00.000Z' };
+
+        const expired = buildProductionLedger(tasks, config, { claims: [{
+            taskId: 'GOV-001', token: 'shared-token', status: 'active', expiresAt: '2026-07-19T23:59:59.000Z',
+        }] }, { 'GOV-001': proof }, [], metadata);
+        expect(expired.tasks[0]).toMatchObject({ audited: false, implemented: false, learnerReachable: false });
+
+        const crossTask = buildProductionLedger(tasks, config, { claims: [{
+            taskId: 'QA-001', token: 'shared-token', status: 'checkpointed', expiresAt: '2099-01-01T00:00:00.000Z',
+        }] }, { 'GOV-001': proof }, [], metadata);
+        expect(crossTask.tasks[0]).toMatchObject({ audited: false, implemented: false, learnerReachable: false });
+    });
+
     it('requires typed passing gate and independent-review attestations', () => {
         const task = parseBacklog('- [ ] **GOV-001** Ledger. **Deps:** none. **Proof:** `C`,`T`.')[0];
         const gate = {
@@ -84,20 +105,42 @@ describe('Academy production workflow', () => {
                 path: 'scripts/academy-production-workflow.mjs', sha256: 'b'.repeat(64),
             }] }],
         };
-        expect(validateGateAttestation(task, 'C', gate, { headCommit: 'a'.repeat(40) })).toEqual([]);
-        expect(validateGateAttestation(task, 'C', { ...gate, verdict: 'block' }, { headCommit: 'a'.repeat(40) }))
+        const gateContext = { headCommit: 'a'.repeat(40), expectedProducer: 'codex-main', trustedGateProducers: config.trustedGateProducers };
+        expect(validateGateAttestation(task, 'C', gate, gateContext)).toEqual([]);
+        expect(validateGateAttestation(task, 'C', { ...gate, verdict: 'block' }, gateContext))
             .toContain('Gate C attestation verdict is not pass');
 
+        const prompt = { path: '@workflow-state/review/prompt.txt', sha256: 'c'.repeat(64) };
+        const response = { path: '@workflow-state/review/response.json', sha256: 'd'.repeat(64) };
+        const sessionEvidence = { path: '@workflow-state/review/session.json', sha256: 'e'.repeat(64) };
+        const session = {
+            schema: 'yomu-academy.external-review-session/v1', recordedBy: 'academy-production-workflow',
+            taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit: 'a'.repeat(40),
+            owner: 'codex-main', reviewerId: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol',
+            sessionId: 'agent-1', exitCode: 0, verdict: 'ship', prompt, response,
+        };
         const review = {
             schema: 'yomu-academy.review-attestation/v1', taskId: task.id, verdict: 'ship',
             headCommit: 'a'.repeat(40), taskDefinitionSha256: taskDefinitionSha256(task),
             issuedAt: '2026-07-20T00:00:00.000Z', summary: 'No release blockers remain.',
-            reviewer: { id: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol', sessionId: 'agent-1', independentFrom: 'codex-main' },
+            reviewer: { id: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol', sessionId: 'agent-1', independentFrom: 'codex-main', sessionEvidence },
             scope: ['scripts/academy-production-workflow.mjs'], findings: [],
         };
-        expect(validateReviewAttestation(task, review, { headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent' })).toEqual([]);
-        expect(validateReviewAttestation(task, { ...review, verdict: 'block' }, { headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent' }))
+        const reviewContext = {
+            headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent', strict: true,
+            reviewSessions: new Map([[sessionEvidence.path, session]]),
+            evidenceHashes: new Map([[sessionEvidence.path, sessionEvidence.sha256], [prompt.path, prompt.sha256], [response.path, response.sha256]]),
+        };
+        expect(validateReviewAttestation(task, review, reviewContext)).toEqual([]);
+        expect(validateReviewAttestation(task, { ...review, verdict: 'block' }, reviewContext))
             .toContain('Independent review verdict is not ship');
+        expect(validateReviewAttestation(task, {
+            ...review,
+            reviewer: { ...review.reviewer, sessionEvidence: undefined, sessionId: 'invented-session' },
+        }, reviewContext)).toEqual(expect.arrayContaining([
+            'Independent review needs a hash-bound external session record',
+            'Independent review external session record is missing or unreadable',
+        ]));
     });
 
     it('rejects symlinked evidence that resolves outside an allowed root', () => {
@@ -113,16 +156,17 @@ describe('Academy production workflow', () => {
     });
 
     it('pins the exact promoted backlog and proof through checkpoint retries', () => {
-        const promotion = { proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64) };
+        const promotion = { proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64), evidenceManifestSha256: 'c'.repeat(64) };
         expect(checkpointIntegrityErrors(promotion, {
-            proofSha256: 'a'.repeat(64), backlogSha256: 'b'.repeat(64), preparedBacklogSha256: 'b'.repeat(64),
+            proofSha256: 'a'.repeat(64), backlogSha256: 'b'.repeat(64), preparedBacklogSha256: 'b'.repeat(64), evidenceManifestSha256: 'c'.repeat(64),
         })).toEqual([]);
         expect(checkpointIntegrityErrors(promotion, {
-            proofSha256: 'c'.repeat(64), backlogSha256: 'd'.repeat(64), preparedBacklogSha256: 'e'.repeat(64),
+            proofSha256: 'c'.repeat(64), backlogSha256: 'd'.repeat(64), preparedBacklogSha256: 'e'.repeat(64), evidenceManifestSha256: 'f'.repeat(64),
         })).toEqual(expect.arrayContaining([
             'Promotion proof changed after verification',
             'Canonical backlog differs from the exact promoted checkbox result',
             'Prepared checkpoint commit contains an unexpected backlog',
+            'Promotion evidence changed after verification',
         ]));
     });
 
@@ -132,10 +176,11 @@ describe('Academy production workflow', () => {
             'config/academy-production-workflow.json', 'scripts/lib/academy-workflow-model.mjs', 'package.json',
         ], lane('governance'))).toEqual([]);
         expect(changedFilesWithinOwnership([
-            'workers/yomu-academy/src/index.ts', 'src/academy/access/gateway.ts', 'src/academy/app.ts',
+            'workers/yomu-academy/src/index.ts', 'src/academy/access/gateway.ts', 'src/academy/access/donation-checkout.ts',
+            'src/academy/access/donation-claim.ts', 'src/academy/access/local-qa.ts', 'src/academy/ui/access-screen.ts', 'src/academy/app.ts',
         ], lane('platform'))).toEqual([]);
         expect(changedFilesWithinOwnership([
-            'src/academy/assets.ts', 'scripts/academy-asset-census.mjs', 'docs/academy/art-review/verdict.json',
+            'src/academy/assets.ts', 'src/academy/styles/world.css', 'scripts/academy-asset-census.mjs', 'docs/academy/art-review/verdict.json',
         ], lane('visual'))).toEqual([]);
     });
 
