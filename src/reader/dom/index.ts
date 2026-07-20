@@ -1,4 +1,5 @@
 import { primaryCardState } from '../cards/state';
+import { cardStateProvenance } from './rendered-word-state';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import {
@@ -6361,6 +6362,7 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.cardState = state;
+    span.dataset.stateProvenance = cardStateProvenance(token.card);
     if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
@@ -6416,7 +6418,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml(state)}"`;
+    const cardState = ` data-card-state="${escapeHtml(state)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';

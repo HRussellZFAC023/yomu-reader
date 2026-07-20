@@ -486,6 +486,28 @@ function eventTargetsInteractiveControl(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
 }
 
+// The Japanese surface a known-state backfill (Cluster I1) should re-parse for a
+// provisional rendered word. Prefer the stored expression; fall back to the
+// rendered glyphs. Non-Japanese surfaces are skipped so the batch never spends a
+// parse slot on punctuation or Latin runs.
+function knownStateBackfillSurface(word: HTMLElement): string {
+    const surface = (word.dataset.expression || readerWordSurfaceText(word)).trim();
+    return surface && HAS_JAPANESE.test(surface) ? surface : '';
+}
+
+// Pick the authenticated Jiten card a re-parse produced for `surface`: the token
+// whose card spelling is the whole surface, else the token anchored at the start,
+// else the first. Only an authoritative, Jiten-referenceable card qualifies —
+// anything provisional or unbacked must not repaint (it would just re-loop).
+function knownStateBackfillCardForSurface(surface: string, tokens: JPDBToken[]): JPDBCard | null {
+    const card = (tokens.find(token => token.card.spelling === surface)
+        ?? tokens.find(token => token.start === 0)
+        ?? tokens[0])?.card;
+    if (!card || card.provisionalState) return null;
+    const wordId = card.jitenWordId ?? card.vid;
+    return Number.isInteger(wordId) && wordId > 0 ? card : null;
+}
+
 // Move `body` by `deltaY` if it can scroll that way; returns true when it consumed the
 // gesture (so the caller claims it and the host/page never act on the leftover).
 function manualScrollReaderBody(body: HTMLElement, deltaY: number): boolean {
@@ -501,6 +523,17 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 // deliberate user resume seconds later is left alone.
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1_500;
+// Authenticated known-state backfill (Cluster I1). Words that fell back to a
+// provisional not-in-deck (public/keyless lane, or a parse timeout) are
+// upgraded with the user's real Jiten SRS state in one batched lookup. Debounced
+// through a single pending timer so repeated scans coalesce and the pipeline
+// reaches zero timers when idle; visibility- and backoff-gated.
+const KNOWN_STATE_BACKFILL_DELAY_MS = 2_000;
+const KNOWN_STATE_BACKFILL_IDLE_TIMEOUT_MS = 5_000;
+// refreshCardStates resolves the whole batch in ONE request; 60 mirrors the
+// "grade 60 visible words in one request" batch its own comment cites.
+const KNOWN_STATE_BACKFILL_BATCH_LIMIT = 60;
+const KNOWN_STATE_BACKFILL_BACKOFF_MS = 60_000;
 // Below Android's ~500ms native long-press threshold so the lookup wins the
 // gesture before the link context menu (which we also suppress) fires.
 const LINK_PRESS_LOOKUP_MS = 450;
@@ -1025,6 +1058,19 @@ export class ReaderApp {
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
     private renderedWordIndexFullyScanned = false;
+    // Known-state backfill (Cluster I1) scheduling + dedupe state. Deduped by
+    // surface (not vid/sid): the words that need this most were parsed by the
+    // LOCAL/segmented fallback and carry negative hash ids, so only a fresh
+    // authenticated surface parse can resolve their real Jiten SRS state.
+    private knownStateBackfillTimer?: number;
+    private knownStateBackfillRunning = false;
+    private knownStateBackfillBackoffUntil = 0;
+    private knownStateBackfillRequestedForUrl = '';
+    private readonly knownStateBackfillRequestedSurfaces = new Set<string>();
+    // Surfaces that resolved to a real authenticated card this URL. A recycler
+    // that re-renders the same text as a fresh provisional word is re-upgraded
+    // from here without a second parse.
+    private readonly knownStateBackfillResolvedCards = new Map<string, JPDBCard>();
     private pitchEnrichmentQueue: JPDBToken[] = [];
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
@@ -1349,6 +1395,7 @@ export class ReaderApp {
     private scheduleStatusWarmups(): void {
         this.scheduleAnkiStatusWarmup();
         this.scheduleBunproWordStateWarmup();
+        this.scheduleReaderKnownStateBackfill();
     }
 
     private scheduleBunproWordStateWarmup(): void {
@@ -1361,6 +1408,10 @@ export class ReaderApp {
     }
 
     private queueBunproWordStateEnrichment(roots: ParentNode[] = [document]): void {
+        // Every token-producing scan funnels through here, so it doubles as the
+        // single post-scan choke point that arms the authenticated known-state
+        // backfill — independent of Bunpro settings, hence before the guard.
+        this.scheduleReaderKnownStateBackfill();
         if (!this.shouldRunBunproWordStateWork()) return;
         void this.applyBunproWordStatesToRoots(roots).catch(error => {
             log.warnOnce('bunpro-word-state-coloring-failed', 'Bunpro word-state coloring failed', error);
@@ -2306,6 +2357,8 @@ export class ReaderApp {
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = false;
         window.clearTimeout(this.asbScanTimer);
+        window.clearTimeout(this.knownStateBackfillTimer);
+        this.knownStateBackfillTimer = undefined;
         window.clearTimeout(this.visiblePageReparseTimer);
         window.clearTimeout(this.jpdbPageEnhanceTimer);
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
@@ -2524,6 +2577,8 @@ export class ReaderApp {
             this.autoScanDebounced = false;
             window.clearTimeout(this.asbScanTimer);
             this.asbScanTimer = undefined;
+            window.clearTimeout(this.knownStateBackfillTimer);
+            this.knownStateBackfillTimer = undefined;
             this.pageScanner.pauseGeometrySweeps();
             return;
         }
@@ -2533,6 +2588,9 @@ export class ReaderApp {
         // content the page swapped in while hidden gets annotated now.
         this.observeAutoScanMutations();
         wakeShadowHostPoll();
+        // The backfill parks itself while hidden (canScheduleKnownStateBackfill);
+        // re-arm it so words scanned while backgrounded still get their state.
+        this.scheduleReaderKnownStateBackfill();
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
     }
 
@@ -9026,20 +9084,197 @@ export class ReaderApp {
     }
 
     private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown'): void {
-        const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            this.renderedAnnotationRoots().forEach(root => {
-                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                    changedRoots.add(word.parentElement ?? word);
-                });
+            // Snapshot the targets before mutating: applyPublicVocabularyToRenderedWord
+            // re-keys the word in renderedWordIndex, so iterating a live index Set
+            // would be unsafe. Union the scanned-root querySelectorAll (light DOM +
+            // scanned shadow roots) with the index registration so a state repaint
+            // ALSO reaches mirror words inside recycled/unscanned shadow roots — the
+            // Anki path already relies on the index for exactly that reach.
+            this.renderedWordsForCardStateRepaint(fallback).forEach(word => {
+                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                changedRoots.add(word.parentElement ?? word);
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
     }
 
+    private renderedWordsForCardStateRepaint(fallback: JPDBCard): HTMLElement[] {
+        const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
+        const words = new Set<HTMLElement>();
+        this.renderedAnnotationRoots().forEach(root => {
+            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
+        });
+        const key = renderedWordCardKey(fallback.vid, fallback.sid);
+        const indexed = this.renderedWordIndex.get(key);
+        if (indexed) {
+            for (const word of indexed) {
+                if (!word.isConnected || renderedWordElementKey(word) !== key) {
+                    indexed.delete(word);
+                    continue;
+                }
+                words.add(word);
+            }
+            if (!indexed.size) this.renderedWordIndex.delete(key);
+        }
+        return [...words];
+    }
+
+    // Cluster I1: SRS status may never arrive for a word that fell back to a
+    // provisional not-in-deck (visible-scan parse timed out to local/segmented,
+    // or a keyless public-jiten lookup carried no authenticated state). Nothing
+    // else backfills it. This is the safety net: one debounced, idle-scheduled,
+    // batched authenticated lookup that upgrades those words with the user's
+    // real Jiten known-state and marks them authoritative so they are never
+    // re-requested. Debounced to a single pending timer, so repeated scans
+    // coalesce and the pipeline still idles to zero timers (respects ccbe1c023).
+    private scheduleReaderKnownStateBackfill(): void {
+        if (this.knownStateBackfillTimer !== undefined) return;
+        if (!this.canScheduleKnownStateBackfill()) return;
+        this.knownStateBackfillTimer = window.setTimeout(() => {
+            this.knownStateBackfillTimer = undefined;
+            if (!this.canScheduleKnownStateBackfill()) return;
+            if (Date.now() < this.knownStateBackfillBackoffUntil) return;
+            const requestIdle = (window as Window & {
+                requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+            }).requestIdleCallback;
+            const run = () => { void this.runReaderKnownStateBackfill(); };
+            if (typeof requestIdle === 'function') requestIdle(run, { timeout: KNOWN_STATE_BACKFILL_IDLE_TIMEOUT_MS });
+            else run();
+        }, KNOWN_STATE_BACKFILL_DELAY_MS);
+    }
+
+    // The backfill only makes sense with an authenticated Jiten session (there is
+    // no SRS state to fetch otherwise), never on a hidden tab (its result would
+    // paint nothing), and never after the app is torn down.
+    private canScheduleKnownStateBackfill(): boolean {
+        return !this.isDestroyed
+            && this.isJitenApiActive()
+            && !(typeof document !== 'undefined' && document.hidden);
+    }
+
+    private async runReaderKnownStateBackfill(): Promise<void> {
+        if (this.knownStateBackfillRunning || !this.canScheduleKnownStateBackfill()) return;
+        if (Date.now() < this.knownStateBackfillBackoffUntil) return;
+        this.resetKnownStateBackfillForUrlIfNeeded();
+        const wordsBySurface = this.collectProvisionalWordsBySurface();
+        if (!wordsBySurface.size) return;
+        // Re-apply already-resolved cards to freshly re-rendered provisional words
+        // (recyclers) with no network; parse only surfaces not yet attempted.
+        const toParse: string[] = [];
+        this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
+            for (const [surface, words] of wordsBySurface) {
+                const cached = this.knownStateBackfillResolvedCards.get(surface);
+                if (cached) {
+                    this.applyKnownStateBackfillCardToWords(cached, words, changedRoots);
+                    continue;
+                }
+                if (this.knownStateBackfillRequestedSurfaces.has(surface)) continue;
+                if (toParse.length < KNOWN_STATE_BACKFILL_BATCH_LIMIT) toParse.push(surface);
+            }
+            changedRoots.forEach(root => refreshReaderWordContrast(root));
+        });
+        if (!toParse.length) return;
+        // Reserve optimistically so a concurrent re-arm cannot double-request the
+        // same surfaces; released only if the authenticated parse throws (a
+        // surface that resolves to no card IS a resolved answer — not-a-word —
+        // and must not be re-requested).
+        toParse.forEach(surface => this.knownStateBackfillRequestedSurfaces.add(surface));
+        this.knownStateBackfillRunning = true;
+        let parsed: JPDBToken[][];
+        try {
+            parsed = await this.jiten.parse(toParse);
+        } catch (error) {
+            toParse.forEach(surface => this.knownStateBackfillRequestedSurfaces.delete(surface));
+            this.knownStateBackfillBackoffUntil = Date.now() + KNOWN_STATE_BACKFILL_BACKOFF_MS;
+            log.warnOnce('known-state-backfill-failed', 'Jiten known-state backfill failed', error);
+            return;
+        } finally {
+            this.knownStateBackfillRunning = false;
+        }
+        if (this.isDestroyed) return;
+        this.applyKnownStateBackfill(toParse, parsed, wordsBySurface);
+    }
+
+    private applyKnownStateBackfill(
+        surfaces: string[],
+        parsed: JPDBToken[][],
+        wordsBySurface: Map<string, HTMLElement[]>,
+    ): void {
+        this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
+            surfaces.forEach((surface, index) => {
+                const card = knownStateBackfillCardForSurface(surface, parsed[index] ?? []);
+                if (!card) return;
+                // A fresh authenticated parse: its state is a real verdict
+                // (including a genuine not-in-deck), so cache it for recyclers and
+                // never re-tag as provisional. The word's identity is upgraded to
+                // the real Jiten ids too, so grading/refresh reach it afterwards.
+                this.knownStateBackfillResolvedCards.set(surface, card);
+                this.applyKnownStateBackfillCardToWords(card, wordsBySurface.get(surface) ?? [], changedRoots);
+            });
+            changedRoots.forEach(root => refreshReaderWordContrast(root));
+        });
+    }
+
+    private applyKnownStateBackfillCardToWords(card: JPDBCard, words: HTMLElement[], changedRoots: Set<ParentNode>): void {
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+        words.forEach(word => {
+            if (!word.isConnected) return;
+            this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+            changedRoots.add(word.parentElement ?? word);
+        });
+    }
+
+    private resetKnownStateBackfillForUrlIfNeeded(): void {
+        if (this.knownStateBackfillRequestedForUrl === location.href) return;
+        this.knownStateBackfillRequestedForUrl = location.href;
+        this.knownStateBackfillRequestedSurfaces.clear();
+        this.knownStateBackfillResolvedCards.clear();
+        this.knownStateBackfillBackoffUntil = 0;
+    }
+
+    // Distinct surfaces of provisional rendered words, each mapped to its live
+    // rendered words (light DOM + scanned shadow roots + the index for recycled
+    // shadow mirrors), capped at the batch limit of DISTINCT surfaces. Surfaces
+    // beyond the cap or words rendered later are caught by the next scan's
+    // re-arm, so the pipeline still idles to zero timers.
+    private collectProvisionalWordsBySurface(): Map<string, HTMLElement[]> {
+        const bySurface = new Map<string, HTMLElement[]>();
+        for (const word of this.provisionalKnownStateWords()) {
+            const surface = knownStateBackfillSurface(word);
+            if (!surface) continue;
+            const existing = bySurface.get(surface);
+            if (existing) {
+                existing.push(word);
+                continue;
+            }
+            if (bySurface.size >= KNOWN_STATE_BACKFILL_BATCH_LIMIT) continue;
+            bySurface.set(surface, [word]);
+        }
+        return bySurface;
+    }
+
+    private provisionalKnownStateWords(): HTMLElement[] {
+        const selector = '.jpdb-reader-word[data-state-provenance="provisional"]';
+        const words = new Set<HTMLElement>();
+        this.renderedAnnotationRoots().forEach(root => {
+            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
+        });
+        // Mirror words inside recycled/unscanned shadow roots live only in the
+        // index; include any that still match the provisional predicate.
+        for (const set of this.renderedWordIndex.values()) {
+            for (const word of set) {
+                if (word.isConnected && word.matches(selector)) words.add(word);
+            }
+        }
+        return [...words];
+    }
+
     private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
+        if (!this.resolvedFallbackVocabularyCache.size) return;
         if (!this.resolvedFallbackVocabularyCache.size) return;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();

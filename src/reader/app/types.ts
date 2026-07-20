@@ -157,6 +157,17 @@ export interface JPDBCard {
     partOfSpeech: string[];
     meanings: JPDBMeaning[];
     cardState: CardState[];
+    // The card's SRS state did NOT come from an authenticated known-state
+    // response: it is the public/keyless-lane (jiten public API), local
+    // dictionary, or segmented-fallback default (always not-in-deck). Rendered
+    // words carry this as data-state-provenance="provisional" so (a) a later
+    // public repaint never DOWNGRADES a word that already carries an
+    // authoritative jpdb/jiten state, and (b) the known-state backfill knows
+    // which words still need an authenticated lookup. Authenticated responses
+    // (jpdb, jiten parse/info/study knownState, Bunpro, Anki) leave this unset,
+    // so a genuine authenticated not-in-deck stays authoritative and is never
+    // re-requested.
+    provisionalState?: boolean;
     pitchAccent: string[];
     // jpdb API due_at (unix seconds): the card's next scheduled review.
     // Sorting due cards ascending reproduces jpdb's exact Learn queue order.

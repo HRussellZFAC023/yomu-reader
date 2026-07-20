@@ -279,6 +279,9 @@ export class ReaderParser {
                 partOfSpeech: [],
             }],
             cardState: ['not-in-deck'],
+            // Local dictionary carries no SRS state: not-in-deck is a default,
+            // not an authenticated verdict, so tag it provisional.
+            provisionalState: true,
             pitchAccent: [],
             wordWithReading: null,
             source: 'local',

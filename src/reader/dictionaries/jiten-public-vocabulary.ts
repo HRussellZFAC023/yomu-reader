@@ -411,6 +411,11 @@ function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fall
             partOfSpeech: stringArray(definition.partsOfSpeech ?? definition.pos),
         })).filter(meaning => meaning.glosses.length),
         cardState: ['not-in-deck'],
+        // Keyless public endpoint: it carries no authenticated SRS state, so the
+        // not-in-deck above is a default, not a verdict. Tagged provisional so a
+        // repaint from this lane cannot downgrade an authoritative word and the
+        // known-state backfill knows to look it up.
+        provisionalState: true,
         pitchAccent: pitchPatterns(payload.pitchAccents, reading),
         wordWithReading: annotatedReading.includes('[') ? annotatedReading : null,
         source: 'jiten',
@@ -433,6 +438,7 @@ function publicJitenParsedCard(word: PublicParseWord, surface: string): JPDBCard
         partOfSpeech: [],
         meanings: [],
         cardState: ['not-in-deck'],
+        provisionalState: true,
         pitchAccent: [],
         wordWithReading: null,
         source: 'jiten',

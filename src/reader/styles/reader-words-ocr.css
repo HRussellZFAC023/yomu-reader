@@ -936,46 +936,74 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   background-image: none !important;
   box-shadow: none !important;
 }
-/* The source glyph stays page-owned, so highlight/text-colour modes cannot
-   safely repaint it from an overlay. Preserve their annotation signal as a
-   quiet underline, while ordinary underline mode uses the same source colour.
-   This also fixes the additive pitch line being accidentally forced
-   transparent after the absolute ::after strip was retired. */
-:is(
-  .jpdb-reader-word-highlight-status,
-  .jpdb-reader-word-underline-status,
-  .jpdb-reader-word-text-status
-) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+/* The source glyph stays page-owned (painted transparent above), so the mirror
+   cannot repaint the base colour. Each status CHANNEL still gets its own
+   affordance instead of every mode collapsing into one thin underline:
+     - UNDERLINE mode paints the source decoration as the mirror word's underline;
+     - HIGHLIGHT mode paints a low-alpha background over the transparent glyph,
+       which reads as a text highlighter without hiding the page's own glyphs;
+     - TEXT mode tints the detached reading (the only glyph the mirror owns).
+   Channel-driven, no per-surface carve-outs, consistent with the owner rule
+   comments above. */
+.jpdb-reader-word-underline-status .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   --jpdb-reader-additive-decoration: var(--jpdb-reader-source-status-decoration, transparent);
 }
-:is(
-  .jpdb-reader-word-highlight-jpdb,
-  .jpdb-reader-word-underline-jpdb,
-  .jpdb-reader-word-text-jpdb
-) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+.jpdb-reader-word-underline-jpdb .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   --jpdb-reader-additive-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
-:is(
-  .jpdb-reader-word-highlight-anki,
-  .jpdb-reader-word-underline-anki,
-  .jpdb-reader-word-text-anki
-) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+.jpdb-reader-word-underline-anki .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   --jpdb-reader-additive-decoration: var(--jpdb-reader-source-anki-decoration, transparent);
 }
-:is(
-  .jpdb-reader-word-highlight-pitch,
-  .jpdb-reader-word-underline-pitch,
-  .jpdb-reader-word-text-pitch
-) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   --jpdb-reader-additive-decoration: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
 }
+/* HIGHLIGHT channel: repaint the background the base transparency rule cleared.
+   --jpdb-reader-word-highlight-source is already set per channel/source on every
+   .jpdb-reader-word, so this reuses the exact translucent tint the non-mirror
+   highlight mode uses. The hover variant outweighs the mirror's hover
+   background-reset (one extra state selector) so the highlight persists on
+   hover, matching non-mirror words. */
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-highlight-pitch
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word,
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-highlight-pitch
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
+  background-image: linear-gradient(
+    var(--jpdb-reader-word-highlight-source, transparent),
+    var(--jpdb-reader-word-highlight-source, transparent)
+  ) !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
+}
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
   color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
+}
+/* TEXT channel: the mirror's base glyph is transparent, so the text-colour mode
+   has nothing to tint EXCEPT the detached reading it owns. Paint it with the
+   same per-source colour a non-mirror word would use for its glyph, so text mode
+   still carries a visible status signal. Higher specificity than the rule above
+   (one extra channel class) so it wins for text mode only. */
+:is(
+  .jpdb-reader-word-text-status,
+  .jpdb-reader-word-text-jpdb,
+  .jpdb-reader-word-text-anki,
+  .jpdb-reader-word-text-pitch
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-word-color-source, inherit)) !important;
 }
 /* A mirrored page word's line box can include ruby leading or a tall host
    control. Anchor pitch lines to the glyphs with native decoration; the

@@ -63,6 +63,9 @@ export function bareFallbackCardFromText(text: string): JPDBCard {
         partOfSpeech: [],
         meanings: [],
         cardState: ['not-in-deck'],
+        // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
+        // placeholder default, so tag it provisional.
+        provisionalState: true,
         pitchAccent: [],
         wordWithReading: null,
         source: 'fallback',

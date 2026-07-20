@@ -142,27 +142,83 @@ export function setRenderedWordPitchComponents(word: HTMLElement, card: JPDBCard
     word.style.setProperty('--jpdb-reader-inline-pitch-gradient', gradient);
 }
 
-export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): void {
+// Does a rendered word's SRS state come from an authenticated known-state
+// source? Stamped alongside dataset.cardState so a repaint can decide whether
+// the incoming card is allowed to change the status channel.
+export type RenderedWordStateProvenance = 'authoritative' | 'provisional';
+
+export interface RenderedWordCardIdentityOptions {
+    // Merge policy for the SRS-status channel (state classes + dataset.cardState
+    // + cardSource + deck membership). Identity (vid/sid/reading/expression/
+    // pitch) always updates so late pitch/furigana lands regardless.
+    //   'auto' (default): derive from the card. A PROVISIONAL card (public/
+    //     keyless jiten, local, segmented — always a default not-in-deck) must
+    //     NOT overwrite a word that already carries an AUTHORITATIVE state:
+    //     the public/pitch hydration cascade repaints with a card that never
+    //     carries authenticated SRS state, and the old unconditional clear+stamp
+    //     silently downgraded a jpdb-known/jiten-learning word to not-in-deck
+    //     the instant pitch enrichment landed ("pitch appears, status vanishes").
+    //   'replace': force the incoming state to win in both directions — used by
+    //     authenticated refreshes (refreshCardStates, review updates, the
+    //     known-state backfill) that legitimately move a word up OR down.
+    statePolicy?: 'auto' | 'replace';
+}
+
+export function cardStateProvenance(card: JPDBCard): RenderedWordStateProvenance {
+    return card.provisionalState === true ? 'provisional' : 'authoritative';
+}
+
+export function setRenderedWordCardIdentity(
+    word: HTMLElement,
+    card: JPDBCard,
+    options: RenderedWordCardIdentityOptions = {},
+): void {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    clearRenderedWordDeckMembershipClasses(word, ['anki']);
+    const preserveState = shouldPreserveAuthoritativeState(word, card, state, options);
+    if (!preserveState) {
+        clearRenderedWordCardStateClasses(word);
+        delete word.dataset.bunproState;
+        clearRenderedWordDeckMembershipClasses(word, ['anki']);
+    }
+    // Identity/pitch always refresh: preserving the status channel must not
+    // block the late reading + pitch the repaint was scheduled to deliver.
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
+    word.dataset.expression = card.spelling;
+    word.dataset.reading = card.reading;
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
+    setRenderedWordPitchComponents(word, card);
+    if (preserveState) return;
     word.dataset.cardSource = source;
     word.dataset.cardId = String(renderedWordCardId(card, source));
     word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
     word.dataset.cardState = state;
-    word.dataset.expression = card.spelling;
-    word.dataset.reading = card.reading;
+    word.dataset.stateProvenance = cardStateProvenance(card);
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-    setRenderedWordPitchAccentPattern(word, card);
-    setRenderedWordPitchComponents(word, card);
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);
+}
+
+// The preserve guard fires only for the exact downgrade the public/pitch lane
+// causes: an unforced repaint whose incoming card is a provisional default
+// not-in-deck landing on a word that already carries an authoritative state.
+// Authenticated cards (provenance authoritative), non-default incoming states,
+// words with no prior authoritative state, and explicit 'replace' callers all
+// take the normal full-replace path so real state changes still apply.
+function shouldPreserveAuthoritativeState(
+    word: HTMLElement,
+    card: JPDBCard,
+    incomingState: string,
+    options: RenderedWordCardIdentityOptions,
+): boolean {
+    return options.statePolicy !== 'replace'
+        && cardStateProvenance(card) === 'provisional'
+        && incomingState === 'not-in-deck'
+        && word.dataset.stateProvenance === 'authoritative'
+        && Boolean(word.dataset.cardState);
 }
 
 /**
@@ -182,12 +238,19 @@ export function applyBunproStateToRenderedWord(word: HTMLElement, state: string 
     }
     if (previous === state) return false;
     if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
-    else word.dataset.bunproPrefillState = word.dataset.cardState ?? '';
+    else {
+        word.dataset.bunproPrefillState = word.dataset.cardState ?? '';
+        word.dataset.bunproPrefillProvenance = word.dataset.stateProvenance ?? '';
+    }
     const source = word.dataset.cardSource ?? 'jpdb';
     word.classList.remove('jpdb-not-in-deck', `${source}-not-in-deck`);
     word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
     word.dataset.cardState = state;
     word.dataset.bunproState = state;
+    // A Bunpro fill is the user's authenticated SRS state: mark it authoritative
+    // so a later provisional public repaint cannot downgrade it, and so the
+    // known-state backfill never re-requests it.
+    word.dataset.stateProvenance = 'authoritative';
     return true;
 }
 
@@ -200,6 +263,13 @@ function clearRenderedWordBunproState(word: HTMLElement): void {
     // a not-in-deck verdict.
     const prefill = word.dataset.bunproPrefillState;
     delete word.dataset.bunproPrefillState;
+    // The pre-fill state was only ever '' or not-in-deck (BUNPRO_FILLABLE), i.e.
+    // provisional; restore that provenance so the word rejoins the backfill pool
+    // and cannot masquerade as an authenticated verdict.
+    const prefillProvenance = word.dataset.bunproPrefillProvenance;
+    delete word.dataset.bunproPrefillProvenance;
+    if (prefillProvenance) word.dataset.stateProvenance = prefillProvenance;
+    else delete word.dataset.stateProvenance;
     const restored = prefill ?? 'not-in-deck';
     if (restored) {
         const source = word.dataset.cardSource ?? 'jpdb';

@@ -135,6 +135,8 @@ function authoredVocabularyToken(
         partOfSpeech: [],
         meanings: [],
         cardState: ['not-in-deck'],
+        // Authored fallback has no SRS backing: not-in-deck is a default.
+        provisionalState: true,
         // Keep the surface pitch on the rendered token, not the fallback card:
         // a pitched fallback card is considered fully enriched and would skip
         // the declared lemma's dictionary/Jiten hydration.

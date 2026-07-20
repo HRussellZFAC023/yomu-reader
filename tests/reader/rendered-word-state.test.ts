@@ -88,6 +88,108 @@ describe('rendered word card identity', () => {
         expect(word.dataset.bunproState).toBeUndefined();
         expect(word.dataset.cardState).toBe('mature');
     });
+
+    // Cluster I0: the public/pitch hydration cascade repaints with a card that
+    // never carries authenticated SRS state. Before the guard it unconditionally
+    // stamped not-in-deck, erasing a real jpdb-known word the instant pitch
+    // landed ("pitch appears, status vanishes").
+    it('does NOT downgrade an authoritative status when a provisional public card repaints it', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-known';
+        word.dataset.vid = '1456360';
+        word.dataset.sid = '3';
+        word.dataset.cardSource = 'jpdb';
+        word.dataset.cardId = '1456360';
+        word.dataset.readingIndex = '3';
+        word.dataset.cardState = 'known';
+        word.dataset.stateProvenance = 'authoritative';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            source: 'jiten',
+            provisionalState: true,
+            cardState: ['not-in-deck'],
+            reading: 'よむ',
+            pitchAccent: ['LH'],
+        }));
+
+        // Status channel preserved.
+        expect(word.dataset.cardState).toBe('known');
+        expect(word.classList.contains('jpdb-known')).toBe(true);
+        expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
+        expect(word.classList.contains('jiten-not-in-deck')).toBe(false);
+        expect(word.dataset.cardSource).toBe('jpdb');
+        expect(word.dataset.stateProvenance).toBe('authoritative');
+        // ...but the late pitch/reading identity still lands.
+        expect(word.dataset.pitchAccent).toBe('LH');
+        expect(word.dataset.reading).toBe('よむ');
+    });
+
+    it('protects a genuine authoritative not-in-deck from a provisional repaint', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jiten-not-in-deck';
+        word.dataset.vid = '1456360';
+        word.dataset.sid = '3';
+        word.dataset.cardSource = 'jiten';
+        word.dataset.cardState = 'not-in-deck';
+        word.dataset.stateProvenance = 'authoritative';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            source: 'jiten',
+            provisionalState: true,
+            cardState: ['not-in-deck'],
+            pitchAccent: ['LHH'],
+        }));
+
+        // Provenance stays authoritative so the backfill never re-requests it.
+        expect(word.dataset.stateProvenance).toBe('authoritative');
+        expect(word.dataset.pitchAccent).toBe('LHH');
+    });
+
+    it('still lets an authenticated card change status in both directions', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-known';
+        word.dataset.vid = '1456360';
+        word.dataset.sid = '3';
+        word.dataset.cardSource = 'jpdb';
+        word.dataset.cardState = 'known';
+        word.dataset.stateProvenance = 'authoritative';
+
+        // Authenticated card (no provisionalState) — a real review moved it down.
+        setRenderedWordCardIdentity(word, renderedWordCard({ source: 'jiten', cardState: ['not-in-deck'] }));
+
+        expect(word.dataset.cardState).toBe('not-in-deck');
+        expect(word.classList.contains('jpdb-known')).toBe(false);
+        expect(word.classList.contains('jiten-not-in-deck')).toBe(true);
+        expect(word.dataset.stateProvenance).toBe('authoritative');
+    });
+
+    it('lets statePolicy replace force a provisional card to overwrite an authoritative state', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-known';
+        word.dataset.cardState = 'known';
+        word.dataset.stateProvenance = 'authoritative';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            source: 'jiten',
+            provisionalState: true,
+            cardState: ['not-in-deck'],
+        }), { statePolicy: 'replace' });
+
+        expect(word.dataset.cardState).toBe('not-in-deck');
+        expect(word.dataset.stateProvenance).toBe('provisional');
+    });
+
+    it('stamps provenance from the card so a first render is classified correctly', () => {
+        const authoritative = document.createElement('span');
+        authoritative.className = 'jpdb-reader-word';
+        setRenderedWordCardIdentity(authoritative, renderedWordCard({ source: 'jiten', cardState: ['learning'] }));
+        expect(authoritative.dataset.stateProvenance).toBe('authoritative');
+
+        const provisional = document.createElement('span');
+        provisional.className = 'jpdb-reader-word';
+        setRenderedWordCardIdentity(provisional, renderedWordCard({ source: 'jiten', provisionalState: true, cardState: ['not-in-deck'] }));
+        expect(provisional.dataset.stateProvenance).toBe('provisional');
+    });
 });
 
 describe('rendered word deck styling parity', () => {
