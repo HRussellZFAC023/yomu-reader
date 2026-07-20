@@ -44,4 +44,14 @@ describe('hosted overflow menus', () => {
         expect(workflow).toContain('YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}');
     });
 
+    it('renders every live donation provider in the README badge row', () => {
+        const readme = readProjectFile('README.md');
+
+        expect(readme).toContain('href="https://support.yomureader.com/donate"');
+        expect(readme).toContain('href="https://patreon.com/yomureader"');
+        expect(readme).toContain('href="https://ko-fi.com/yomureader"');
+        expect(readme).not.toContain('Donation badge release templates');
+        expect(readme).not.toContain('KOFI_CREATOR_URL');
+    });
+
 });
