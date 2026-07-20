@@ -16,14 +16,19 @@ Routes:
   GBP using a daily-cached FX rate, and returns `display: { amount, goal,
   currency, symbol, amountText, goalText, converted }` plus `providers[]` and
   banner copy used by the hosted homepage bar. `cache-control` 5 min.
-- `/donate` creates a Stripe Checkout session and redirects the user there. If Checkout is unavailable, it can redirect to `SUPPORT_STRIPE_PAYMENT_LINK_URL`; without that fallback it returns a clear temporary-unavailable response rather than looping through the support page.
+- `/donate` creates a Stripe Checkout session and redirects the user there. It
+  commits a random HttpOnly browser claim into Checkout as a SHA-256 hash; the
+  same browser returns to `/claim` and receives its single-use Academy code only
+  after the signed paid webhook reaches Academy. If Checkout is unavailable, it
+  can redirect to `SUPPORT_STRIPE_PAYMENT_LINK_URL`; fallback-link payments do
+  not carry this self-claim proof.
 - `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records GBP donations in D1.
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
   storing the running month total in KV.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
-  body). Verified membership updates/revocations are forwarded as Academy
-  state, but only pledge-create receipts increment the running month total in
-  KV; recurring membership notifications are never counted as fresh income.
+  body). The first verified positive active-membership event grants permanent
+  Academy access. Later decline/delete events are audited but never revoke that
+  grant; only pledge-create receipts increment the running month total in KV.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
@@ -73,16 +78,26 @@ npx wrangler deploy --config workers/yomu-support/wrangler.jsonc
 ## Academy payment bridge
 
 The support Worker declares a private `ACADEMY_PAYMENT_INGRESS` Service binding
-to `yomu-academy`. It remains dormant unless the same independent
-`PAYMENT_INGRESS_TOKEN` secret is installed on both Workers. When active, the
+to `yomu-academy`. Install the same independent `PAYMENT_INGRESS_TOKEN` secret
+on both Workers before enabling provider webhooks. Signed payments fail with a
+retryable server error if this bridge is unavailable; support accounting cannot
+silently succeed without the matching Academy grant. When active, the
 support Worker forwards a canonical event only after verifying the provider's
 webhook authentication. Academy ingestion runs before support accounting so a
 failure returns 5xx and asks the provider to retry without double-counting the
 support ledger on that attempt.
 
-Only native provider identifiers cross the binding. Stripe events must contain
-the `yomu_academy_purchase` metadata written by Academy Checkout; ordinary
-support donations remain support-only. Ko-fi uses its message and transaction
-IDs. Patreon is modeled as membership state (active/revoked), never as a cash
-transaction. No payer names, email addresses, bank data, or invite codes are
-forwarded.
+Only native provider identifiers cross the binding. Every verified positive GBP
+Stripe support or Ko-fi donation grants a permanent entitlement; Academy-owned
+Stripe Checkout still has the stronger exact pending-purchase/session/amount
+match. Patreon remains membership state rather than fictional cash receipts,
+but its first positive active event grants the same permanent entitlement.
+Provider cancellation, expiry, or refund notifications never revoke access.
+No payer names, email addresses, bank data, or invite codes are forwarded.
+
+Ko-fi and Patreon do not provide the support site with a same-origin browser
+return secret, so code delivery for those providers remains admin-mediated.
+Their transaction/member identifiers are deliberately not accepted as public
+bearer credentials. PayPal.me is link-only: automatic Academy access requires a
+PayPal REST-app Checkout webhook with cryptographic verification; a browser
+success callback or PayPal.me reference is not sufficient proof.

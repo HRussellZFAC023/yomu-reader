@@ -11,8 +11,8 @@ All commands assume you run them from the repo root with the config flag:
 --config workers/yomu-support/wrangler.jsonc
 ```
 
-The optional Academy bridge is fail-closed and dormant by default. After the
-Academy payment-ingress migration is applied, generate one high-entropy token
+The Academy bridge is fail-closed. Before enabling provider webhooks, apply the
+Academy payment-ingress migrations, generate one high-entropy token,
 and install it as the `PAYMENT_INGRESS_TOKEN` Wrangler secret on both
 `yomu-support` and `yomu-academy`. Never put the token in this file or
 `wrangler.jsonc`. The checked-in `ACADEMY_PAYMENT_INGRESS` Service binding is
@@ -77,8 +77,10 @@ Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
    page, then `npx wrangler deploy --config workers/yomu-support/wrangler.jsonc`.
 
 Notes: Ko-fi posts `application/x-www-form-urlencoded` with a single `data`
-field (JSON). Only **GBP** entries are counted toward the month total; other
-currencies are ignored (they still return `200`).
+field (JSON). Every verified positive **GBP** donation with stable message and
+transaction IDs grants permanent Academy access. Other currencies are ignored
+(they still return `200`). Code delivery remains admin-mediated because Ko-fi
+does not return the donor to Yomu with a secret that can safely prove ownership.
 
 ## 3. Buy Me a Coffee (link only)
 
@@ -99,6 +101,13 @@ one; not required for launch.)
    PayPal donate-button URL).
 2. Edit `wrangler.jsonc` -> `vars.SUPPORT_PROVIDER_PAYPAL_URL` to that URL, then
    deploy. Only `https://` URLs are accepted; anything else stays hidden.
+
+PayPal.me is not connected to a REST-app webhook and therefore cannot produce a
+cryptographically verified Academy grant. Do not treat its return URL, receipt
+number, payer email, or a client-submitted transaction ID as proof. Automatic
+access requires a future PayPal REST-app Checkout integration subscribed to
+`PAYMENT.CAPTURE.COMPLETED`, with PayPal's webhook signature verified before the
+canonical private ingress is called.
 
 ## 5. Patreon (join link + webhook)
 
@@ -124,9 +133,10 @@ one; not required for launch.)
    then deploy.
 
 Notes: Patreon signs the raw body with **HMAC-MD5** in the `X-Patreon-Signature`
-header; the Worker verifies it in constant time. Only pledge-create webhooks
-increment the support income total; membership updates, declines, and deletes
-update Academy membership state without being counted as new receipts. Pledge
+header; the Worker verifies it in constant time. The first positive active
+membership event grants permanent Academy access. Declines and deletes are
+audited but never revoke it. Only pledge-create webhooks increment the support
+income total; other membership updates are not counted as new receipts. Pledge
 amounts are read from
 `data.attributes.amount_cents` (falling back to
 `currently_entitled_amount_cents` / `will_pay_amount_cents`) and treated as

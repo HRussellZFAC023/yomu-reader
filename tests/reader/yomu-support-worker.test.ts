@@ -287,6 +287,7 @@ describe("Yomu support Worker", () => {
   });
 
   it("creates Stripe Checkout sessions server-side and redirects to Stripe", async () => {
+    let checkoutClaimHash = "";
     const stripeFetch = vi.fn(async (_url: string, init: RequestInit) => {
       expect(init.method).toBe("POST");
       expect(new Headers(init.headers).get("authorization")).toBe("Bearer sk_live_secret");
@@ -295,6 +296,11 @@ describe("Yomu support Worker", () => {
       expect(body.get("mode")).toBe("payment");
       expect(body.get("submit_type")).toBe("donate");
       expect(body.get("line_items[0][price_data][unit_amount]")).toBe("750");
+      expect(body.get("success_url")).toBe(
+        "https://support.yomureader.com/claim?session_id={CHECKOUT_SESSION_ID}",
+      );
+      checkoutClaimHash = body.get("metadata[yomu_academy_claim_hash]") ?? "";
+      expect(checkoutClaimHash).toMatch(/^[a-f0-9]{64}$/u);
       return Response.json({ url: "https://checkout.stripe.com/c/session" });
     });
     vi.stubGlobal("fetch", stripeFetch);
@@ -307,7 +313,50 @@ describe("Yomu support Worker", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://checkout.stripe.com/c/session");
+    expect(response.headers.get("set-cookie")).toMatch(
+      /^__Host-yomu_support_claim=[A-Za-z0-9_-]{43}; Path=\/; Secure; HttpOnly; SameSite=Lax; Max-Age=86400$/u,
+    );
+    const claimToken = /__Host-yomu_support_claim=([A-Za-z0-9_-]{43})/u.exec(
+      response.headers.get("set-cookie") ?? "",
+    )?.[1] ?? "";
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(claimToken));
+    expect(Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join(""))
+      .toBe(checkoutClaimHash);
     expect(stripeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("self-claims a verified Stripe donation only with the HttpOnly browser secret", async () => {
+    const claimToken = "a".repeat(43);
+    const academy = mockAcademyIngress(request => {
+      expect(new URL(request.url).pathname).toBe("/academy/internal/payment-claim");
+      expect(request.headers.get("authorization")).toBe("Bearer ingress-secret");
+      return Response.json({ status: "ready", code: "YOMU-PAID-CODE" });
+    });
+    const env = withAcademyIngress({}, academy);
+
+    const missingCookie = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/claim?session_id=cs_live_paid"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    expect(missingCookie.status).toBe(400);
+    expect(academy.fetch).not.toHaveBeenCalled();
+
+    const claimed = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/claim?session_id=cs_live_paid", {
+        headers: { cookie: `__Host-yomu_support_claim=${claimToken}` },
+      }),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    expect(claimed.status).toBe(200);
+    await expect(claimed.text()).resolves.toContain("YOMU-PAID-CODE");
+    expect(claimed.headers.get("set-cookie")).toContain("Max-Age=0");
+    await expect(academy.requests[0]!.json()).resolves.toEqual({
+      provider: "stripe",
+      transactionReference: "cs_live_paid",
+      claimToken,
+    });
   });
 
   it("rejects test Checkout URLs returned to the production support host", async () => {
@@ -327,6 +376,7 @@ describe("Yomu support Worker", () => {
 
   it("records signed Stripe Checkout donation webhooks once and reflects them in status", async () => {
     const db = mockSupportDb();
+    const academy = mockAcademyIngress();
     const timestamp = Math.floor(Date.now() / 1000);
     const payload = JSON.stringify({
       id: "evt_donation_1",
@@ -346,7 +396,7 @@ describe("Yomu support Worker", () => {
       headers: { "stripe-signature": await stripeSignatureHeader(payload, "whsec_test", timestamp) },
       body: payload,
     });
-    const env = { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db };
+    const env = withAcademyIngress({ STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db }, academy);
 
     const first = await SupportWorker.fetch(webhookRequest.clone(), env, { waitUntil: vi.fn() });
     const duplicate = await SupportWorker.fetch(webhookRequest.clone(), env, { waitUntil: vi.fn() });
@@ -360,6 +410,7 @@ describe("Yomu support Worker", () => {
     await expect(first.json()).resolves.toEqual({ received: true, recorded: true });
     expect(duplicate.status).toBe(200);
     expect(db.rows).toHaveLength(1);
+    expect(academy.fetch).toHaveBeenCalledTimes(2);
     await expect(status.json()).resolves.toMatchObject({
       donationsSource: "d1",
       donationsTodayGbp: 7.5,
@@ -444,7 +495,7 @@ describe("Yomu support Worker", () => {
     expect(duplicate).toEqual(first);
   });
 
-  it("keeps ordinary support Stripe donations out of Academy ingestion", async () => {
+  it("forwards an ordinary verified Stripe support donation for permanent Academy access", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const timestamp = Math.floor(Date.now() / 1000);
@@ -461,7 +512,21 @@ describe("Yomu support Worker", () => {
 
     expect(response.status).toBe(200);
     expect(db.rows).toHaveLength(1);
-    expect(academy.fetch).not.toHaveBeenCalled();
+    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    await expect(academy.requests[0]!.json()).resolves.toEqual({
+      schemaVersion: 1,
+      provider: "stripe",
+      eventId: "evt_support_only",
+      eventType: "charge.settled",
+      occurredAt: timestamp * 1000,
+      subject: { kind: "transaction", reference: "cs_live_support" },
+      transaction: {
+        reference: "cs_live_support",
+        sessionReference: "cs_live_support",
+        currency: "gbp",
+        amountMinor: 500,
+      },
+    });
   });
 
   it("returns 5xx and defers support accounting when Academy ingestion fails", async () => {
@@ -537,12 +602,12 @@ describe("Yomu support Worker", () => {
     expect(academy.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("records a Ko-fi webhook with a valid verification token into KV", async () => {
+  it("refuses to count an authenticated Ko-fi donation without stable payment identity", async () => {
     const kv = mockKv();
     const donationPayload = JSON.stringify({
       verification_token: "kofi_secret",
       type: "Donation",
-      amount: "6.00",
+      amount: "1.00",
       currency: "GBP",
     });
     const response = await SupportWorker.fetch(
@@ -551,9 +616,8 @@ describe("Yomu support Worker", () => {
       { waitUntil: vi.fn() },
     );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ received: true, recorded: true });
-    expect(kv.store[`manual:kofi:${monthKey()}`]).toBe("600");
+    expect(response.status).toBe(422);
+    expect(kv.store[`manual:kofi:${monthKey()}`]).toBeUndefined();
   });
 
   it("rejects a Ko-fi webhook with the wrong verification token", async () => {
@@ -577,7 +641,7 @@ describe("Yomu support Worker", () => {
       transaction_id: "transaction-99",
       timestamp: "2026-07-20T01:02:03.000Z",
       type: "Donation",
-      amount: "6.00",
+      amount: "1.00",
       currency: "GBP",
     });
     const env = withAcademyIngress({
@@ -596,12 +660,13 @@ describe("Yomu support Worker", () => {
       eventType: "charge.settled",
       occurredAt: Date.parse("2026-07-20T01:02:03.000Z"),
       subject: { kind: "transaction", reference: "transaction-99" },
-      transaction: { reference: "transaction-99", currency: "gbp", amountMinor: 600 },
+      transaction: { reference: "transaction-99", currency: "gbp", amountMinor: 100 },
     });
     expect(retry).toEqual(first);
+    expect(kv.store[`manual:kofi:${monthKey()}`]).toBe("100");
   });
 
-  it("records a Patreon webhook with a valid HMAC-MD5 signature into KV", async () => {
+  it("refuses to count a signed Patreon event without stable membership identity", async () => {
     const kv = mockKv();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
     const response = await SupportWorker.fetch(
@@ -610,9 +675,8 @@ describe("Yomu support Worker", () => {
       { waitUntil: vi.fn() },
     );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ received: true, recorded: true });
-    expect(kv.store[`manual:patreon:${monthKey()}`]).toBe("500");
+    expect(response.status).toBe(422);
+    expect(kv.store[`manual:patreon:${monthKey()}`]).toBeUndefined();
   });
 
   it("rejects a Patreon webhook with an invalid signature", async () => {
@@ -757,14 +821,14 @@ function mockKv(initial: Record<string, string> = {}) {
 }
 
 function mockAcademyIngress(
-  responder: () => Response = () => Response.json({ received: true, applied: true }),
+  responder: (request: Request) => Response = () => Response.json({ received: true, applied: true }),
 ) {
   const requests: Request[] = [];
   return {
     requests,
     fetch: vi.fn(async (request: Request) => {
       requests.push(request.clone());
-      return responder();
+      return responder(request);
     }),
   };
 }

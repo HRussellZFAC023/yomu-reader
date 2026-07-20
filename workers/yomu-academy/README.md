@@ -17,35 +17,43 @@ credentials and a test webhook forwarder to `POST /academy/api/stripe/webhook`.
 The unit suite covers Checkout creation, signed test webhook fulfilment,
 deterministic code claim, and one-account redemption without those credentials.
 
-### Dormant canonical payment ingress
+### Canonical payment ingress
 
 Migration `0010_payment_ingress.sql` adds separate, HMAC-identified tables for
 provider events, actual settled charges, stable provider subjects, and the
 current Academy entitlement projection. Patreon membership notifications never
 enter the charge ledger. Projection writes and the event idempotency marker are
-one D1 batch, and `occurredAt` prevents an older delivery from resurrecting a
-newer revocation.
+one D1 batch. Migration `0011_permanent_donation_access.sql` widens the old
+GBP 2–500 storage check so every positive whole-minor-unit provider payment can
+be represented without rounding or product-tier gates.
 
 `POST /academy/internal/payment-ingress` is a private Worker-to-Worker contract.
 It requires `Content-Type: application/json` plus `Authorization: Bearer
 <PAYMENT_INGRESS_TOKEN>`; an absent secret fails closed. The v1 body contains
 `provider`, `eventId`, `eventType`, `occurredAt`, and an opaque provider
 `subject`. `charge.settled` adds a real `transaction`; Patreon instead sends
-`membership.active` with an expiry and qualifying tier amount, or
-`membership.revoked`. Exact TypeScript validation lives in
+`membership.active` with provider-cycle evidence and a positive amount, or
+`membership.revoked`. Academy stores accepted grants with no entitlement
+expiry; later Patreon cancellation is an audited no-op and cannot create or
+remove access. Exact TypeScript validation lives in
 `src/payment-ingress.ts`.
 
-This route is intentionally dormant: the support Worker declares the private
-Service binding, but forwarding stays disabled until the independent bearer
-secret is installed on both Workers. No public provider route targets this
-internal path. The existing browser checkout remains test-only. A future Stripe forward must
-reference an Academy-created purchase with the exact Checkout session and
-amount, so the private route cannot turn an arbitrary live receipt into access.
+The support Worker declares the private Service binding, and the independent
+bearer secret must be installed on both Workers before provider webhooks are
+enabled. No public provider route targets this internal path. Academy-owned
+Stripe purchases require their exact pre-created purchase, Checkout session,
+and amount. Ordinary support Stripe sessions use a transaction subject and are
+accepted only after the support Worker has verified Stripe's raw-body HMAC.
 
-Code delivery remains manual and admin-only at
+Code delivery for Ko-fi and Patreon remains manual and admin-only at
 `POST /academy/api/admin/payment-code`. It accepts an existing admin bearer plus
 `{provider, referenceType, reference}` and re-derives the deterministic code;
 provider subject data is never linked to a Google/email identity automatically.
+Stripe support Checkout also has a donor self-claim: the support Worker commits
+a random browser token hash into Checkout metadata, the signed webhook stores
+that commitment, and private `POST /academy/internal/payment-claim` releases the
+code only when the same HttpOnly-cookie token and settled session match. The raw
+token is never stored, logged, or exposed as a client-controlled grant request.
 
 ## Identity ladder
 

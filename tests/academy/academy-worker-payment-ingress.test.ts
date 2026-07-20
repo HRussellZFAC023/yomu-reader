@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { errorResponse } from '../../workers/yomu-academy/src/http';
-import { handleAdminPaymentCode, handlePaymentIngress } from '../../workers/yomu-academy/src/payment-ingress';
+import { handleAdminPaymentCode, handlePaymentClaim, handlePaymentIngress } from '../../workers/yomu-academy/src/payment-ingress';
+import { sha256Hex } from '../../workers/yomu-academy/src/crypto';
 import { entitlementForAccount, requirePaidSessionEntitlement } from '../../workers/yomu-academy/src/entitlements';
-import { handleCreateSession } from '../../workers/yomu-academy/src/sessions';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 import paymentEntrypoint from '../../workers/yomu-academy/src/payment-entrypoint';
@@ -65,17 +65,6 @@ function adminCodeRequest(env: Env, provider: 'kofi' | 'patreon', referenceType:
     });
 }
 
-function sessionRequest(env: Env, code: string): Request {
-    return new Request(`${env.ACADEMY_ORIGIN}/academy/api/session`, {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/json', origin: env.ACADEMY_ORIGIN,
-            'sec-fetch-site': 'same-origin', 'cf-connecting-ip': '203.0.113.20',
-        },
-        body: JSON.stringify({ code }),
-    });
-}
-
 describe('Academy canonical payment ingress', () => {
     it('routes payment calls through the thin production entrypoint and delegates legacy routes', async () => {
         const academy = createSqliteAcademy();
@@ -119,7 +108,14 @@ describe('Academy canonical payment ingress', () => {
         const academy = createSqliteAcademy();
         const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
         try {
-            const accepted = await ingress(env, charge());
+            const onePoundCharge = charge({
+                transaction: {
+                    reference: 'kofi-transaction-001',
+                    currency: 'gbp',
+                    amountMinor: 100,
+                },
+            });
+            const accepted = await ingress(env, onePoundCharge);
             expect(accepted.status).toBe(200);
             expect(await accepted.json()).toEqual({ received: true, applied: true });
             expect(academy.db.rows('SELECT * FROM payment_events')).toHaveLength(1);
@@ -128,15 +124,17 @@ describe('Academy canonical payment ingress', () => {
             expect(academy.db.rows('SELECT * FROM payment_entitlements')).toHaveLength(1);
             expect(academy.db.rows('SELECT * FROM purchases')).toHaveLength(1);
             expect(academy.db.rows('SELECT * FROM invites')).toHaveLength(1);
+            expect(academy.db.rows<{ amount_pence: number }>('SELECT amount_pence FROM purchases')[0]?.amount_pence).toBe(100);
+            expect(academy.db.rows<{ expires_at: number | null }>('SELECT expires_at FROM payment_entitlements')[0]?.expires_at).toBeNull();
 
-            const duplicate = await ingress(env, charge());
+            const duplicate = await ingress(env, onePoundCharge);
             expect(await duplicate.json()).toEqual({ received: true, duplicate: true });
             expect(academy.db.rows('SELECT * FROM payment_events')).toHaveLength(1);
             expect(academy.db.rows('SELECT * FROM payment_transactions')).toHaveLength(1);
 
             // A distinct provider event for the same real transaction is
             // audited once without inventing a second charge.
-            await ingress(env, charge({ eventId: 'message-002', occurredAt: now + 10 }));
+            await ingress(env, { ...onePoundCharge, eventId: 'message-002', occurredAt: now + 10 });
             expect(academy.db.rows('SELECT * FROM payment_events')).toHaveLength(2);
             expect(academy.db.rows('SELECT * FROM payment_transactions')).toHaveLength(1);
 
@@ -195,28 +193,64 @@ describe('Academy canonical payment ingress', () => {
             expect(academy.db.rows<{ status: string }>('SELECT status FROM purchases')[0]?.status).toBe('paid');
             expect(academy.db.rows('SELECT * FROM payment_entitlements')).toHaveLength(1);
             expect(academy.db.rows('SELECT * FROM invites')).toHaveLength(1);
+
+            const claimToken = 'a'.repeat(43);
+            const supportDonation = {
+                schemaVersion: 1,
+                provider: 'stripe',
+                eventId: 'evt-live-support-1',
+                eventType: 'charge.settled',
+                occurredAt: now + 1,
+                subject: { kind: 'transaction', reference: 'cs-live-support-1' },
+                transaction: {
+                    reference: 'cs-live-support-1', sessionReference: 'cs-live-support-1',
+                    claimHash: await sha256Hex(claimToken), currency: 'gbp', amountMinor: 100,
+                },
+            };
+            expect((await ingress(env, supportDonation)).status).toBe(200);
+            await expect((await ingress(env, supportDonation)).json())
+                .resolves.toEqual({ received: true, duplicate: true });
+            expect(academy.db.rows('SELECT * FROM purchases')).toHaveLength(2);
+            expect(academy.db.rows('SELECT * FROM payment_entitlements')).toHaveLength(2);
+            expect(academy.db.rows<{ amount_pence: number }>(
+                'SELECT amount_pence FROM purchases WHERE amount_pence = 100',
+            )).toHaveLength(1);
+
+            const claimRequest = (token: string) => new Request(
+                'https://academy.test/academy/internal/payment-claim',
+                {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', authorization: `Bearer ${ingressToken}` },
+                    body: JSON.stringify({
+                        provider: 'stripe', transactionReference: 'cs-live-support-1', claimToken: token,
+                    }),
+                },
+            );
+            expect((await call(handlePaymentClaim(claimRequest('b'.repeat(43)), env, now + 2))).status).toBe(401);
+            const claimed = await call(handlePaymentClaim(claimRequest(claimToken), env, now + 2));
+            expect(claimed.status).toBe(200);
+            await expect(claimed.json()).resolves.toMatchObject({
+                status: 'ready', code: expect.stringMatching(/^[A-Z0-9-]+$/u),
+            });
         } finally { academy.close(); }
     });
 
-    it('projects Patreon membership state without recording fictional cash transactions and rejects stale resurrection', async () => {
+    it('turns one verified Patreon paid-membership event into permanent access', async () => {
         const academy = createSqliteAcademy();
         const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
         try {
             expect((await ingress(env, membership('active-1', 'membership.active', now))).status).toBe(200);
             expect(academy.db.rows('SELECT * FROM payment_transactions')).toHaveLength(0);
-            expect(academy.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('active');
-            const codeResponse = await call(handleAdminPaymentCode(
-                adminCodeRequest(env, 'patreon', 'subject', 'patreon-member-001'), env, now + 2,
-            ));
-            const { code } = await codeResponse.json() as { code: string };
-            expect((await call(handleCreateSession(sessionRequest(env, code), env, () => now + 2))).status).toBe(200);
+            expect(academy.db.rows<{ state: string; expires_at: number | null }>(
+                'SELECT state, expires_at FROM payment_entitlements',
+            )[0]).toMatchObject({ state: 'active', expires_at: null });
 
             expect((await ingress(env, membership('revoke-1', 'membership.revoked', now + 3_000))).status).toBe(200);
-            expect(academy.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('revoked');
-            expect((await call(handleCreateSession(sessionRequest(env, code), env, () => now + 3_001))).status).toBe(403);
+            expect(academy.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('active');
+            expect(academy.db.rows<{ disposition: string }>(
+                "SELECT disposition FROM payment_events WHERE event_type = 'membership.revoked'",
+            )[0]?.disposition).toBe('irrelevant');
 
-            // Simulate an account which redeemed while the provider grant was
-            // active: an already-issued session must lose authorization too.
             await env.ACADEMY_DB.prepare(
                 'INSERT INTO accounts (id, public_id, google_sub_hash, discriminator, created_at, updated_at) '
                 + "VALUES ('account-1', 'account-public-1', 'google-hash-1', '100001', ?1, ?1)",
@@ -224,61 +258,33 @@ describe('Academy canonical payment ingress', () => {
             await env.ACADEMY_DB.prepare(
                 "UPDATE purchases SET redeemed_by_account_id = 'account-1', redeemed_at = ?1",
             ).bind(now + 1).run();
-            expect(await entitlementForAccount(env, 'account-1', now + 3_001)).toBeNull();
-            expect((await call(handleAdminPaymentCode(
-                adminCodeRequest(env, 'patreon', 'subject', 'patreon-member-001'), env, now + 3_001,
-            ))).status).toBe(409);
             const inviteId = academy.db.rows<{ invite_id: string }>('SELECT invite_id FROM purchases')[0]?.invite_id;
+            const providerExpiry = now + 40 * 24 * 60 * 60_000;
+            expect(await entitlementForAccount(env, 'account-1', providerExpiry + 1)).not.toBeNull();
             await expect(requirePaidSessionEntitlement(env, {
                 public_id: 'existing-session', invite_id: inviteId ?? '', account_id: 'account-1',
-                expires_at: now + 10_000, offline_resume_until: now + 20_000,
-            }, 'account-1', now + 3_001)).rejects.toMatchObject({ status: 403 });
-
-            const late = await ingress(env, membership('late-active', 'membership.active', now + 2_000));
-            expect(late.status).toBe(202);
-            expect(await late.json()).toMatchObject({ applied: false, reason: 'stale' });
-            expect(academy.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('revoked');
-            expect(academy.db.rows('SELECT * FROM payment_transactions')).toHaveLength(0);
-
-            expect((await ingress(env, membership('active-2', 'membership.active', now + 4_000))).status).toBe(200);
-            expect(academy.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('active');
-            const expiresAt = now + 4_000 + 40 * 24 * 60 * 60_000;
-            expect(await entitlementForAccount(env, 'account-1', now + 4_001)).not.toBeNull();
-            await expect(requirePaidSessionEntitlement(env, {
-                public_id: 'existing-session', invite_id: inviteId ?? '', account_id: 'account-1',
-                expires_at: expiresAt + 10_000, offline_resume_until: expiresAt + 20_000,
-            }, 'account-1', now + 4_001)).resolves.toBeUndefined();
-            expect(await entitlementForAccount(env, 'account-1', expiresAt + 1)).toBeNull();
-            await expect(requirePaidSessionEntitlement(env, {
-                public_id: 'existing-session', invite_id: inviteId ?? '', account_id: 'account-1',
-                expires_at: expiresAt + 10_000, offline_resume_until: expiresAt + 20_000,
-            }, 'account-1', expiresAt + 1)).rejects.toMatchObject({ status: 403 });
+                expires_at: providerExpiry + 10_000, offline_resume_until: providerExpiry + 20_000,
+            }, 'account-1', providerExpiry + 1)).resolves.toBeUndefined();
         } finally { academy.close(); }
     });
 
-    it('makes revocation win deterministically when membership events share a timestamp', async () => {
-        const activeFirst = createSqliteAcademy();
-        const activeFirstEnv = { ...activeFirst.env, PAYMENT_INGRESS_TOKEN: ingressToken };
+    it('audits a revocation-only Patreon event without creating access', async () => {
+        const academy = createSqliteAcademy();
+        const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
         try {
-            expect((await ingress(activeFirstEnv, membership('tie-active-first', 'membership.active', now))).status).toBe(200);
-            expect((await ingress(activeFirstEnv, membership('tie-revoke-second', 'membership.revoked', now))).status).toBe(200);
-            expect(activeFirst.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('revoked');
-        } finally { activeFirst.close(); }
-
-        const revokeFirst = createSqliteAcademy();
-        const revokeFirstEnv = { ...revokeFirst.env, PAYMENT_INGRESS_TOKEN: ingressToken };
-        try {
-            expect((await ingress(revokeFirstEnv, membership('tie-revoke-first', 'membership.revoked', now))).status).toBe(200);
-            const active = await ingress(revokeFirstEnv, membership('tie-active-second', 'membership.active', now));
-            expect(active.status).toBe(202);
-            await expect(active.json()).resolves.toEqual({ received: true, applied: false, reason: 'stale' });
-            expect(revokeFirst.db.rows<{ state: string }>('SELECT state FROM payment_entitlements')[0]?.state).toBe('revoked');
-            expect(revokeFirst.db.rows('SELECT * FROM purchases')).toHaveLength(0);
-            expect(revokeFirst.db.rows('SELECT * FROM invites')).toHaveLength(0);
-        } finally { revokeFirst.close(); }
+            const revoked = membership('revoke-only', 'membership.revoked', now);
+            expect((await ingress(env, revoked)).status).toBe(200);
+            await expect((await ingress(env, revoked)).json())
+                .resolves.toEqual({ received: true, duplicate: true });
+            expect(academy.db.rows<{ disposition: string }>('SELECT disposition FROM payment_events')[0]?.disposition)
+                .toBe('irrelevant');
+            expect(academy.db.rows('SELECT * FROM payment_entitlements')).toHaveLength(0);
+            expect(academy.db.rows('SELECT * FROM purchases')).toHaveLength(0);
+            expect(academy.db.rows('SELECT * FROM invites')).toHaveLength(0);
+        } finally { academy.close(); }
     });
 
-    it('caps paid invites at provider expiry and never extends them on repeated admin lookup', async () => {
+    it('keeps the redemption code bounded without expiring the Patreon entitlement', async () => {
         const academy = createSqliteAcademy();
         const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
         const providerExpiry = now + 5 * 24 * 60 * 60_000;
@@ -289,7 +295,9 @@ describe('Academy canonical payment ingress', () => {
         try {
             expect((await ingress(env, active)).status).toBe(200);
             const before = academy.db.rows<{ expires_at: number | null }>('SELECT expires_at FROM invites')[0]?.expires_at;
-            expect(before).toBe(providerExpiry);
+            expect(before).toBe(now + 30 * 24 * 60 * 60_000 + 1);
+            expect(academy.db.rows<{ expires_at: number | null }>('SELECT expires_at FROM payment_entitlements')[0]?.expires_at)
+                .toBeNull();
 
             expect((await call(handleAdminPaymentCode(
                 adminCodeRequest(env, 'patreon', 'subject', 'patreon-member-001'), env, now + 1_000,
@@ -298,7 +306,7 @@ describe('Academy canonical payment ingress', () => {
                 adminCodeRequest(env, 'patreon', 'subject', 'patreon-member-001'), env, now + 2_000,
             ))).status).toBe(200);
             const after = academy.db.rows<{ expires_at: number | null }>('SELECT expires_at FROM invites')[0]?.expires_at;
-            expect(after).toBe(providerExpiry);
+            expect(after).toBe(before);
 
             // An already shorter code remains shorter; lookup never restarts a
             // rolling 30-day window.

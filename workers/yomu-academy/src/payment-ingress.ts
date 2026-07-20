@@ -1,4 +1,4 @@
-import { derivePaidInviteCode, hmacSha256Hex, timingSafeEqual } from './crypto';
+import { derivePaidInviteCode, hmacSha256Hex, sha256Hex, timingSafeEqual } from './crypto';
 import type { Env } from './env';
 import { HttpError, jsonResponse, readJsonBody } from './http';
 import { mintPaidInvite, requireAdmin } from './invites';
@@ -17,6 +17,7 @@ interface IngressEnvelope {
     readonly transaction?: {
         readonly reference: string;
         readonly sessionReference?: string;
+        readonly claimHash?: string;
         readonly currency: 'gbp';
         readonly amountMinor: number;
     };
@@ -58,7 +59,7 @@ export async function handlePaymentIngress(request: Request, env: Env, now: numb
     }
 
     const result = envelope.eventType === 'membership.revoked'
-        ? await applyMembershipRevocation(env, envelope, ids, now)
+        ? await auditMembershipRevocation(env, envelope, ids, now)
         : await applyGrant(env, envelope, ids, now);
     if (result === 'duplicate') return jsonResponse({ received: true, duplicate: true });
     if (result === 'stale') return jsonResponse({ received: true, applied: false, reason: 'stale' }, 202);
@@ -107,6 +108,45 @@ export async function handleAdminPaymentCode(request: Request, env: Env, now: nu
     });
 }
 
+/**
+ * Private claim proxy for the support return page. The raw browser secret is
+ * useful only when its SHA-256 commitment arrived inside a verified payment.
+ */
+export async function handlePaymentClaim(request: Request, env: Env, now: number): Promise<Response> {
+    await requireIngress(request, env);
+    const body = await readJsonBody(request, 2048);
+    if (Object.keys(body).some(key => !['provider', 'transactionReference', 'claimToken'].includes(key))) {
+        throw new HttpError(400, 'Payment claim contains unknown fields.');
+    }
+    if (body.provider !== 'stripe') throw new HttpError(422, 'Unsupported payment claim provider.');
+    const transactionReference = readReference(body.transactionReference);
+    if (typeof body.claimToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(body.claimToken)) {
+        throw new HttpError(400, 'Payment claim token is malformed.');
+    }
+    const transactionHash = await sourceHash(env, 'stripe', 'transaction', transactionReference);
+    let row = await claimableEntitlement(env, 'stripe', transactionHash);
+    if (!row) return jsonResponse({ status: 'pending' }, 202);
+    if (!(await timingSafeEqual(await sha256Hex(body.claimToken), row.claim_hash))) {
+        throw new HttpError(401, 'Payment claim was not accepted.');
+    }
+    if (row.state !== 'active' || row.expires_at !== null) throw new HttpError(409, 'Payment entitlement is not active.');
+    if (row.redeemed_at !== null) throw new HttpError(409, 'Payment entitlement code was already redeemed.');
+    if (!row.invite_id) {
+        await repairInviteProjection(env, row.purchase_id, now);
+        row = await claimableEntitlement(env, 'stripe', transactionHash);
+    }
+    if (!row?.invite_id) throw new HttpError(409, 'Payment entitlement is not ready.');
+    const redeemable = await env.ACADEMY_DB.prepare(
+        'SELECT id FROM invites WHERE id = ?1 AND revoked_at IS NULL AND uses_remaining > 0 '
+        + 'AND (expires_at IS NULL OR expires_at > ?2)',
+    ).bind(row.invite_id, now).first<{ id: string }>();
+    if (!redeemable) throw new HttpError(409, 'Payment entitlement code is no longer redeemable.');
+    return jsonResponse({
+        status: 'ready',
+        code: await derivePaidInviteCode(env.ACADEMY_INVITE_HMAC_KEY, row.purchase_id),
+    });
+}
+
 async function applyGrant(
     env: Env,
     envelope: IngressEnvelope,
@@ -114,9 +154,6 @@ async function applyGrant(
     receivedAt: number,
 ): Promise<'applied' | 'duplicate' | 'stale'> {
     const amount = entitlementAmount(envelope);
-    const expiresAt = envelope.eventType === 'membership.active'
-        ? envelope.entitlement?.expiresAt ?? null
-        : null;
     const transaction = envelope.transaction;
     const statements = [
         env.ACADEMY_DB.prepare(
@@ -146,24 +183,23 @@ async function applyGrant(
         'INSERT OR IGNORE INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
         + "SELECT ?1, ?2, ?3, 'paid', ?4, ?4 "
         + 'WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?5 AND provider_event_hash = ?6) '
-        + 'AND NOT EXISTS (SELECT 1 FROM payment_entitlements WHERE subject_id = ?7 '
-        + "AND (effective_at > ?4 OR (effective_at = ?4 AND state = 'revoked'))) "
-        + "AND ?8 <> 'stripe'",
+        + "AND (?7 <> 'stripe' OR ?8 IS NULL)",
     ).bind(
         ids.purchaseId,
-        await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `payment-claim:${ids.purchaseId}`),
+        envelope.transaction?.claimHash
+            ?? await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `payment-claim:${ids.purchaseId}`),
         amount,
         envelope.occurredAt,
         envelope.provider,
         ids.eventHash,
-        ids.subjectId,
         envelope.provider,
+        envelope.purchaseId ?? null,
     ));
     statements.push(env.ACADEMY_DB.prepare(
         "UPDATE purchases SET status = 'paid', fulfilled_at = COALESCE(fulfilled_at, ?1) "
         + 'WHERE id = ?2 AND amount_pence = ?3 '
-        + "AND (?4 <> 'stripe' OR checkout_session_id = ?5) "
-        + "AND (?4 <> 'stripe' OR status = 'pending') "
+        + "AND ?4 = 'stripe' AND ?7 IS NOT NULL "
+        + 'AND checkout_session_id = ?5 AND status = \'pending\' '
         + 'AND NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?4 AND provider_event_hash = ?6)',
     ).bind(
         envelope.occurredAt,
@@ -172,6 +208,7 @@ async function applyGrant(
         envelope.provider,
         envelope.transaction?.sessionReference ?? null,
         ids.eventHash,
+        envelope.purchaseId ?? null,
     ));
     statements.push(env.ACADEMY_DB.prepare(
         'INSERT INTO payment_entitlements '
@@ -186,7 +223,7 @@ async function applyGrant(
         + "OR (excluded.effective_at = payment_entitlements.effective_at AND payment_entitlements.state = 'active')",
     ).bind(
         ids.entitlementId, envelope.provider, ids.subjectId, ids.purchaseId,
-        envelope.occurredAt, expiresAt, receivedAt, ids.eventHash, ids.transactionId, ids.transactionId,
+        envelope.occurredAt, null, receivedAt, ids.eventHash, ids.transactionId, ids.transactionId,
     ));
     statements.push(eventInsert(env, envelope, ids, receivedAt));
     const results = await env.ACADEMY_DB.batch(statements);
@@ -196,41 +233,42 @@ async function applyGrant(
     return (entitlementResult?.meta.changes ?? 0) > 0 ? 'applied' : 'stale';
 }
 
-async function applyMembershipRevocation(
+/**
+ * Patreon cancellation/decline events remain auditable, but a verified paid
+ * membership grant is permanent and cannot be undone by later provider state.
+ * A revocation-only delivery never creates a purchase or entitlement.
+ */
+async function auditMembershipRevocation(
     env: Env,
     envelope: IngressEnvelope,
     ids: CanonicalIds,
     receivedAt: number,
-): Promise<'applied' | 'duplicate' | 'stale'> {
+): Promise<'applied' | 'duplicate'> {
     const results = await env.ACADEMY_DB.batch([
         env.ACADEMY_DB.prepare(
             'INSERT INTO payment_subjects (id, provider, provider_subject_hash, subject_kind, created_at, updated_at) '
             + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(provider, provider_subject_hash) '
             + 'DO UPDATE SET updated_at = MAX(payment_subjects.updated_at, excluded.updated_at)',
         ).bind(ids.subjectId, envelope.provider, ids.subjectHash, envelope.subject.kind, envelope.occurredAt, receivedAt),
-        env.ACADEMY_DB.prepare(
-            'INSERT INTO payment_entitlements '
-            + '(id, provider, subject_id, purchase_id, state, effective_at, expires_at, updated_at) '
-            + "SELECT ?1, ?2, ?3, NULL, 'revoked', ?4, NULL, ?5 "
-            + 'WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE provider = ?2 AND provider_event_hash = ?6) '
-            + 'ON CONFLICT(subject_id) DO UPDATE SET state = \'revoked\', effective_at = excluded.effective_at, '
-            + 'expires_at = NULL, updated_at = excluded.updated_at '
-            + 'WHERE excluded.effective_at >= payment_entitlements.effective_at',
-        ).bind(ids.entitlementId, envelope.provider, ids.subjectId, envelope.occurredAt, receivedAt, ids.eventHash),
-        eventInsert(env, envelope, ids, receivedAt),
+        eventInsert(env, envelope, ids, receivedAt, 'irrelevant'),
     ]);
-    if ((results[2]?.meta.changes ?? 0) === 0) return 'duplicate';
-    return (results[1]?.meta.changes ?? 0) > 0 ? 'applied' : 'stale';
+    return (results[1]?.meta.changes ?? 0) > 0 ? 'applied' : 'duplicate';
 }
 
-function eventInsert(env: Env, envelope: IngressEnvelope, ids: CanonicalIds, receivedAt: number) {
+function eventInsert(
+    env: Env,
+    envelope: IngressEnvelope,
+    ids: CanonicalIds,
+    receivedAt: number,
+    disposition: 'accepted' | 'irrelevant' = 'accepted',
+) {
     return env.ACADEMY_DB.prepare(
         'INSERT OR IGNORE INTO payment_events '
         + '(id, provider, provider_event_hash, event_type, subject_id, transaction_id, occurred_at, received_at, disposition) '
-        + "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'accepted')",
+        + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)',
     ).bind(
         ids.eventId, envelope.provider, ids.eventHash, envelope.eventType,
-        ids.subjectId, ids.transactionId, envelope.occurredAt, receivedAt,
+        ids.subjectId, ids.transactionId, envelope.occurredAt, receivedAt, disposition,
     );
 }
 
@@ -306,14 +344,16 @@ function parseEnvelope(body: Record<string, unknown>): IngressEnvelope {
     if (eventType === 'membership.active' && (!entitlement || entitlement.expiresAt === null)) {
         throw new HttpError(422, 'Active membership expiry is required.');
     }
-    if (provider === 'stripe' && (
-        eventType !== 'charge.settled'
-        || !purchaseId
-        || subject.kind !== 'academy_purchase'
-        || subject.reference !== purchaseId
-        || !transaction?.sessionReference
-    )) {
-        throw new HttpError(422, 'Stripe ingress must reference an Academy-created purchase.');
+    if (provider === 'stripe') {
+        const academyPurchase = purchaseId !== undefined
+            && subject.kind === 'academy_purchase'
+            && subject.reference === purchaseId;
+        const supportDonation = purchaseId === undefined
+            && subject.kind === 'transaction'
+            && subject.reference === transaction?.reference;
+        if (eventType !== 'charge.settled' || !transaction?.sessionReference || (!academyPurchase && !supportDonation)) {
+            throw new HttpError(422, 'Stripe ingress must reference an exact Academy purchase or verified support transaction.');
+        }
     }
     if (provider === 'kofi' && eventType !== 'charge.settled') throw new HttpError(422, 'Ko-fi ingress accepts charge events only.');
     return { schemaVersion: 1, provider, eventId, eventType, occurredAt, subject, transaction, purchaseId, entitlement };
@@ -336,20 +376,28 @@ function readSubject(value: unknown): IngressEnvelope['subject'] {
 }
 
 function readTransaction(value: unknown): NonNullable<IngressEnvelope['transaction']> {
-    if (!isRecord(value) || Object.keys(value).some(key => !['reference', 'sessionReference', 'currency', 'amountMinor'].includes(key))) {
+    if (!isRecord(value) || Object.keys(value).some(key => !['reference', 'sessionReference', 'claimHash', 'currency', 'amountMinor'].includes(key))) {
         throw new HttpError(400, 'Payment transaction is malformed.');
     }
     if (value.currency !== 'gbp') throw new HttpError(422, 'Only GBP Academy payments are accepted.');
     const amountMinor = value.amountMinor;
-    if (!Number.isSafeInteger(amountMinor) || (amountMinor as number) < 200 || (amountMinor as number) > 50_000) {
-        throw new HttpError(422, 'Payment is outside the Academy entitlement range.');
+    if (!Number.isSafeInteger(amountMinor) || (amountMinor as number) <= 0) {
+        throw new HttpError(422, 'Payment amount must be a positive whole minor-unit value.');
     }
     return {
         reference: readReference(value.reference),
         ...(value.sessionReference === undefined ? {} : { sessionReference: readReference(value.sessionReference) }),
+        ...(value.claimHash === undefined ? {} : { claimHash: readClaimHash(value.claimHash) }),
         currency: 'gbp',
         amountMinor: amountMinor as number,
     };
+}
+
+function readClaimHash(value: unknown): string {
+    if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) {
+        throw new HttpError(400, 'Payment claim commitment is malformed.');
+    }
+    return value;
 }
 
 function readEntitlement(value: unknown, occurredAt: number): NonNullable<IngressEnvelope['entitlement']> {
@@ -359,14 +407,14 @@ function readEntitlement(value: unknown, occurredAt: number): NonNullable<Ingres
     const expiresAt = value.expiresAt === null ? null : readTimestamp(value.expiresAt, 'expiresAt');
     if (expiresAt !== null && expiresAt <= occurredAt) throw new HttpError(422, 'Entitlement expiry must follow the event.');
     const qualifyingAmountMinor = value.qualifyingAmountMinor;
-    if (!Number.isSafeInteger(qualifyingAmountMinor) || (qualifyingAmountMinor as number) < 200 || (qualifyingAmountMinor as number) > 50_000) {
-        throw new HttpError(422, 'Membership is outside the Academy entitlement range.');
+    if (!Number.isSafeInteger(qualifyingAmountMinor) || (qualifyingAmountMinor as number) <= 0) {
+        throw new HttpError(422, 'Membership amount must be a positive whole minor-unit value.');
     }
     return { expiresAt, qualifyingAmountMinor: qualifyingAmountMinor as number };
 }
 
 function entitlementAmount(envelope: IngressEnvelope): number {
-    return envelope.transaction?.amountMinor ?? envelope.entitlement?.qualifyingAmountMinor ?? 200;
+    return envelope.transaction?.amountMinor ?? envelope.entitlement?.qualifyingAmountMinor ?? 1;
 }
 
 function readTimestamp(value: unknown, field: string): number {
@@ -406,6 +454,24 @@ interface EntitlementLookup {
     readonly expires_at: number | null;
     readonly invite_id: string | null;
     readonly redeemed_at: number | null;
+}
+
+interface ClaimableEntitlement extends EntitlementLookup {
+    readonly claim_hash: string;
+    readonly purchase_id: string;
+}
+
+function claimableEntitlement(
+    env: Env,
+    provider: Provider,
+    transactionHash: string,
+): Promise<ClaimableEntitlement | null> {
+    return env.ACADEMY_DB.prepare(
+        'SELECT p.id AS purchase_id, p.claim_hash, p.invite_id, p.redeemed_at, pe.state, pe.expires_at '
+        + 'FROM payment_transactions pt JOIN payment_entitlements pe ON pe.subject_id = pt.subject_id '
+        + 'JOIN purchases p ON p.id = pe.purchase_id '
+        + 'WHERE pt.provider = ?1 AND pt.provider_transaction_hash = ?2',
+    ).bind(provider, transactionHash).first<ClaimableEntitlement>();
 }
 
 function entitlementBySubject(env: Env, provider: Provider, hash: string): Promise<EntitlementLookup | null> {

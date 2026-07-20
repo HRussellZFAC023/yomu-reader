@@ -1,5 +1,6 @@
 import operatingForecast from "../operating-forecast.json";
 import {
+  claimAcademyPayment,
   forwardAcademyPayment,
   stablePatreonEventId,
   type AcademyBridgeEnv,
@@ -23,6 +24,8 @@ const STRIPE_DONATION_EVENT_TYPES = new Set([
   "checkout.session.async_payment_succeeded",
 ]);
 const STATUS_CACHE_SECONDS = 300;
+const SUPPORT_CLAIM_COOKIE = "__Host-yomu_support_claim";
+const SUPPORT_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 // Free, key-less, ECB-backed daily FX rates. GBP base; response shape is
 // { amount, base, date, rates: { USD: number, ... } }. Cached in KV for 24h.
@@ -235,6 +238,9 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   }
   if (url.pathname === "/webhooks/patreon") {
     return handlePatreonWebhook(request, env);
+  }
+  if (url.pathname === "/claim") {
+    return handleDonationClaim(request, env);
   }
 
   if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
@@ -656,16 +662,20 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
   }
 
   const amountMinor = donationAmountMinor(new URL(request.url));
+  const claimToken = randomSupportClaimToken();
+  const claimHash = await sha256Hex(claimToken);
   const body = new URLSearchParams();
   body.set("mode", "payment");
   body.set("submit_type", "donate");
-  body.set("success_url", env.SUPPORT_SUCCESS_URL || `${DEFAULT_SUPPORT_URL}?donation=success`);
+  const supportOrigin = new URL(request.url).origin;
+  body.set("success_url", `${supportOrigin}/claim?session_id={CHECKOUT_SESSION_ID}`);
   body.set("cancel_url", env.SUPPORT_CANCEL_URL || `${DEFAULT_SUPPORT_URL}?donation=cancelled`);
   body.set("line_items[0][quantity]", "1");
   body.set("line_items[0][price_data][currency]", "gbp");
   body.set("line_items[0][price_data][unit_amount]", String(amountMinor));
   body.set("line_items[0][price_data][product_data][name]", "Yomu shared service donation");
   body.set("metadata[yomu_service]", "support");
+  body.set("metadata[yomu_academy_claim_hash]", claimHash);
 
   const response = await fetch(STRIPE_CHECKOUT_SESSIONS_URL, {
     method: "POST",
@@ -689,7 +699,51 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
     }));
     return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
-  return Response.redirect(checkoutUrl, 303);
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: checkoutUrl,
+      "set-cookie": supportClaimCookie(claimToken),
+      "cache-control": "no-store",
+    },
+  });
+}
+
+async function handleDonationClaim(request: Request, env: Env): Promise<Response> {
+  if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
+    return textResponse("Method not allowed.", 405, { allow: "GET, HEAD" });
+  }
+  const sessionId = new URL(request.url).searchParams.get("session_id") ?? "";
+  const claimToken = cookieValue(request, SUPPORT_CLAIM_COOKIE);
+  if (!/^cs_[A-Za-z0-9_-]{3,255}$/u.test(sessionId) || !claimToken) {
+    return textResponse("This donation claim link is incomplete.", 400, { "cache-control": "no-store" });
+  }
+  const response = await claimAcademyPayment(env, {
+    provider: "stripe",
+    transactionReference: sessionId,
+    claimToken,
+  });
+  const payload = await response.json().catch(() => null);
+  if (response.status === 202 && objectRecord(payload)?.status === "pending") {
+    return textResponse("Your payment is still being confirmed. Refresh this page in a moment.", 202, {
+      "cache-control": "no-store",
+      "retry-after": "2",
+    });
+  }
+  const code = stringField(objectRecord(payload), "code");
+  if (response.status !== 200 || !/^[A-Z0-9-]{7,64}$/u.test(code ?? "")) {
+    return textResponse("This donation claim could not be verified.", response.status === 401 ? 401 : 409, {
+      "cache-control": "no-store",
+    });
+  }
+  return new Response(request.method === "HEAD" ? null : `Your permanent Yomu Academy code is: ${code}`, {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "set-cookie": clearSupportClaimCookie(),
+    },
+  });
 }
 
 function donationUnavailableResponse(): Response {
@@ -716,7 +770,9 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   const donation = stripeDonationFromEvent(event, verification.timestamp);
   if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
 
-  await forwardAcademyPayment(env, stripeAcademyEnvelope(event, donation));
+  const academyEnvelope = stripeAcademyEnvelope(event, donation);
+  if (!academyEnvelope) return textResponse("Stripe donation identity is incomplete.", 422);
+  await forwardAcademyPayment(env, academyEnvelope);
   await recordDonationEvent(env.SUPPORT_DB, donation);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
@@ -744,10 +800,17 @@ async function handleKofiWebhook(request: Request, env: Env): Promise<Response> 
     return textResponse("Invalid Ko-fi verification token.", 401);
   }
 
+  const paymentType = (stringField(record, "type") ?? "").toLowerCase();
+  if (paymentType !== "donation" && paymentType !== "subscription") {
+    return jsonResponse(request, { received: true, recorded: false }, 200);
+  }
+
   const amountMinor = gbpMinorFromProviderAmount(record, "amount", "currency");
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  await forwardAcademyPayment(env, kofiAcademyEnvelope(record, amountMinor));
-  await addManualProviderMinor(env, "kofi", utcMonthKey(), amountMinor);
+  const academyEnvelope = kofiAcademyEnvelope(record, amountMinor);
+  if (!academyEnvelope) return textResponse("Ko-fi donation identity is incomplete.", 422);
+  await forwardAcademyPayment(env, academyEnvelope);
+  await addManualProviderEventMinor(env, "kofi", academyEnvelope.eventId, utcMonthKey(), amountMinor);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
@@ -783,13 +846,15 @@ async function handleVerifiedPatreonWebhook(request: Request, env: Env, raw: str
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
   const parsed = parseJson(raw);
-  await forwardAcademyPayment(env, await patreonAcademyEnvelope(trigger, raw, parsed));
+  const academyEnvelope = await patreonAcademyEnvelope(trigger, raw, parsed);
+  if (!academyEnvelope) return textResponse("Patreon membership identity is incomplete.", 422);
+  await forwardAcademyPayment(env, academyEnvelope);
   if (!isPatreonIncomeTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
   const amountMinor = patreonPledgeMinor(parsed);
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  await addManualProviderMinor(env, "patreon", utcMonthKey(), amountMinor);
+  await addManualProviderEventMinor(env, "patreon", academyEnvelope.eventId, utcMonthKey(), amountMinor);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
@@ -818,33 +883,30 @@ function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): A
   const session = objectRecord(data?.object);
   const metadata = objectRecord(session?.metadata);
   const purchaseId = providerReference(metadata?.yomu_academy_purchase);
+  const claimHash = providerClaimHash(metadata?.yomu_academy_claim_hash);
   const eventId = providerReference(donation.id);
   const sessionId = providerReference(donation.stripeSessionId);
   const occurredAt = providerTimestamp(donation.stripeCreatedAt);
-  const references = { purchaseId, eventId, sessionId };
-  if (!hasStripeAcademyReferences(references)) return null;
+  if (!eventId || !sessionId) return null;
   if (occurredAt === null || !isAcademyAmount(donation.amountMinor)) return null;
   return {
     schemaVersion: 1,
     provider: "stripe",
-    eventId: references.eventId,
+    eventId,
     eventType: "charge.settled",
     occurredAt,
-    subject: { kind: "academy_purchase", reference: references.purchaseId },
+    subject: purchaseId
+      ? { kind: "academy_purchase", reference: purchaseId }
+      : { kind: "transaction", reference: sessionId },
     transaction: {
-      reference: references.sessionId,
-      sessionReference: references.sessionId,
+      reference: sessionId,
+      sessionReference: sessionId,
+      ...(claimHash ? { claimHash } : {}),
       currency: "gbp",
       amountMinor: donation.amountMinor,
     },
-    purchaseId: references.purchaseId,
+    ...(purchaseId ? { purchaseId } : {}),
   };
-}
-
-function hasStripeAcademyReferences(
-  references: { purchaseId: string | null; eventId: string | null; sessionId: string | null },
-): references is { purchaseId: string; eventId: string; sessionId: string } {
-  return Object.values(references).every(value => value !== null);
 }
 
 function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: number): AcademyPaymentEnvelope | null {
@@ -970,7 +1032,7 @@ function firstProviderTimestamp(values: readonly unknown[]): number | null {
 }
 
 function isAcademyAmount(amountMinor: number): boolean {
-  return amountMinor >= 200 && amountMinor <= 50_000;
+  return Number.isSafeInteger(amountMinor) && amountMinor > 0;
 }
 
 function providerTimestamp(value: unknown): number | null {
@@ -991,6 +1053,10 @@ function providerReference(value: unknown): string | null {
     && !/[\u0000-\u001f\u007f]/u.test(value)
     ? value
     : null;
+}
+
+function providerClaimHash(value: unknown): string | null {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value) ? value : null;
 }
 
 function isPatreonMembershipTrigger(trigger: string): boolean {
@@ -1054,6 +1120,53 @@ async function hmacSha256Hex(secret: string, value: string): Promise<string> {
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
   return bytesToHex(new Uint8Array(signature));
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function addManualProviderEventMinor(
+  env: Env,
+  provider: "kofi" | "patreon",
+  eventId: string,
+  month: string,
+  amountMinor: number,
+): Promise<void> {
+  if (!env.SUPPORT_KV) return;
+  const marker = `manual-event:${provider}:${await sha256Hex(eventId)}`;
+  if (await env.SUPPORT_KV.get(marker)) return;
+  // Write the replay marker before the aggregate. A retry after an interrupted
+  // write may undercount support progress, but can never double-count income.
+  await env.SUPPORT_KV.put(marker, "1", { expirationTtl: 400 * 24 * 60 * 60 });
+  await addManualProviderMinor(env, provider, month, amountMinor);
+}
+
+function randomSupportClaimToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function supportClaimCookie(token: string): string {
+  return `${SUPPORT_CLAIM_COOKIE}=${token}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${SUPPORT_CLAIM_MAX_AGE_SECONDS}`;
+}
+
+function clearSupportClaimCookie(): string {
+  return `${SUPPORT_CLAIM_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
+
+function cookieValue(request: Request, name: string): string | null {
+  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0 || part.slice(0, separator).trim() !== name) continue;
+    const value = part.slice(separator + 1).trim();
+    return /^[A-Za-z0-9_-]{43}$/u.test(value) ? value : null;
+  }
+  return null;
 }
 
 // Patreon signs webhooks with HMAC-MD5. WebCrypto omits MD5, so this is a
@@ -1192,7 +1305,7 @@ function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): Str
   const stripeSessionId = stringField(session, "id");
   const paymentStatus = stringField(session, "payment_status");
   if (!id || !stripeSessionId || !amountMinor || amountMinor <= 0 || currency !== "gbp") return null;
-  if (paymentStatus && paymentStatus !== "paid" && paymentStatus !== "no_payment_required") return null;
+  if (paymentStatus !== "paid") return null;
   const stripeCreatedAt = numberField(record, "created") ?? receivedTimestamp;
   return {
     id,

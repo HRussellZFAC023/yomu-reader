@@ -12,6 +12,7 @@ export type AcademyPaymentEnvelope =
       readonly transaction: {
         readonly reference: string;
         readonly sessionReference?: string;
+        readonly claimHash?: string;
         readonly currency: "gbp";
         readonly amountMinor: number;
       };
@@ -42,19 +43,25 @@ export interface AcademyBridgeEnv {
   PAYMENT_INGRESS_TOKEN?: string;
 }
 
+export interface AcademyPaymentClaim {
+  readonly provider: "stripe";
+  readonly transactionReference: string;
+  readonly claimToken: string;
+}
+
 /**
- * The bridge is intentionally dormant until both the private Service binding
- * and its independent bearer credential are configured. Provider handlers call
- * this only after authenticating the original webhook.
+ * The bridge fails closed until both the private Service binding and its
+ * independent bearer credential are configured. Provider handlers call this
+ * only after authenticating the original webhook.
  */
 export async function forwardAcademyPayment(
   env: AcademyBridgeEnv,
   envelope: AcademyPaymentEnvelope | null,
-): Promise<"disabled" | "irrelevant" | "accepted"> {
+): Promise<"irrelevant" | "accepted"> {
   if (!envelope) return "irrelevant";
   const service = env.ACADEMY_PAYMENT_INGRESS;
   const token = env.PAYMENT_INGRESS_TOKEN?.trim();
-  if (!service || !token) return "disabled";
+  if (!service || !token) throw new Error("Academy payment ingestion is not configured.");
 
   let response: Response;
   try {
@@ -94,6 +101,24 @@ export async function forwardAcademyPayment(
     reason: response.status === 200 || response.status === 202 ? "invalid-response-body" : "http-error",
   }));
   throw new Error("Academy payment ingestion failed.");
+}
+
+/** Redeem only a browser secret that was committed into a verified payment. */
+export async function claimAcademyPayment(
+  env: AcademyBridgeEnv,
+  claim: AcademyPaymentClaim,
+): Promise<Response> {
+  const service = env.ACADEMY_PAYMENT_INGRESS;
+  const token = env.PAYMENT_INGRESS_TOKEN?.trim();
+  if (!service || !token) throw new Error("Academy payment ingestion is not configured.");
+  return service.fetch(new Request("https://yomu-academy.internal/academy/internal/payment-claim", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(claim),
+  }));
 }
 
 function isAcceptedIngressResult(value: unknown): boolean {
