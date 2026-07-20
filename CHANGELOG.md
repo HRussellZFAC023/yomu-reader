@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.260] - 2026-07-21
+
+### Fixed
+
+- Furigana on clamped title rows no longer appears and then disappears: the layout verdict is now measured after paint, demotes readings only on clear failure evidence, and recovers instead of hiding them permanently.
+- Action labels and titles on YouTube no longer widen or truncate into ellipses: shrinkable single-line rows are detected generically and their readings route through the width-neutral detached lane.
+- Words like 技術 no longer render with a gap between their kanji: furigana pairs per dictionary-attested segment, and the essential ruby styles now reach shadow roots and pages still waiting for the full stylesheet.
+- Compound words paint their pitch underline as soon as any part's accent is known, colouring unknown parts neutrally instead of dropping the whole underline.
+- Underlines and readings over page-owned text now align to the exact glyphs, correcting for leading icons and re-aligning after font swaps, image loads, and rotations.
+- Visible Japanese inside aria-hidden containers such as badges, thumbnails, and metadata rows is now annotated based on what actually paints on screen.
+- Jiten and jpdb status highlighting no longer vanishes when pitch enrichment repaints a word, and words that missed their status receive one batched authenticated backfill.
+- Firefox pages that attach shadow roots no longer break: shadow discovery patches the page realm directly or through an injected page script instead of a cross-realm bridge.
+- The annotation pipeline now reaches zero scheduled timers on hidden or videoless pages, cutting background battery drain.
+
 ## [1.6.259] - 2026-07-20
 
 ### Fixed
