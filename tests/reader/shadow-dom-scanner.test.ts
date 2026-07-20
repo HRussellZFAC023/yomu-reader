@@ -371,6 +371,77 @@ describe('shadow DOM scanner (Phase 1)', () => {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
         }
     });
+
+    it('stops walking an unvisited component-heavy tail once the target budget is full', () => {
+        const saturated = document.createElement('p');
+        saturated.textContent = '先頭';
+        document.body.append(saturated);
+        for (let branchIndex = 0; branchIndex < 80; branchIndex += 1) {
+            const branch = document.createElement('div');
+            let cursor = branch;
+            for (let depth = 0; depth < 130; depth += 1) {
+                const nested = document.createElement('div');
+                cursor.append(nested);
+                cursor = nested;
+            }
+            cursor.append(document.createElement(`yomu-unvisited-tail-${branchIndex}`));
+            document.body.append(branch);
+        }
+
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0, y: 0, width: 240, height: 24, top: 0, right: 240, bottom: 24, left: 0, toJSON: () => ({}),
+        } as DOMRect);
+        const createWalker = vi.spyOn(document, 'createTreeWalker');
+        try {
+            const targets = collectFragmentTextTargetsIn(document.body, 1, true, '', {
+                allowUiText: true,
+                includeUiChrome: true,
+                includePassiveInteractions: true,
+                minLength: 1,
+            });
+
+            expect(targets.map(target => target.text)).toEqual(['先頭']);
+            // A full collection has no capacity for deferred tail targets. The
+            // visible scanner's next bounded continuation pass advances past
+            // the painted head; walking 128 descendants in every untouched
+            // sibling here is discarded work and starves reactive feed input.
+            expect(createWalker).not.toHaveBeenCalled();
+        } finally {
+            createWalker.mockRestore();
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
+    });
+
+    it('reaches a trailing shadow host on the next bounded continuation pass', () => {
+        defineShadowHost('yomu-budget-tail-host', 'open', '<span>後尾内容</span>');
+        const head = document.createElement('p');
+        head.textContent = '先頭内容';
+        document.body.append(head);
+        for (let index = 0; index < 40; index += 1) {
+            const latin = document.createElement('div');
+            latin.textContent = `component shell ${index}`;
+            document.body.append(latin);
+        }
+        document.body.append(document.createElement('yomu-budget-tail-host'));
+
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0, y: 0, width: 240, height: 24, top: 0, right: 240, bottom: 24, left: 0, toJSON: () => ({}),
+        } as DOMRect);
+        try {
+            const first = collectScanTargets(1, 'https://example.com/');
+            expect(first.map(target => target.text)).toEqual(['先頭内容']);
+
+            const continuation = collectScanTargets(1, 'https://example.com/', {
+                skipTargetCount: 1,
+                skipTarget: target => target.text === '先頭内容',
+            });
+            expect(continuation.map(target => target.text)).toEqual(['後尾内容']);
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
+    });
 });
 
 // ISSUE 1/2 (codex round-1): a pending inline light-DOM run must be COMMITTED

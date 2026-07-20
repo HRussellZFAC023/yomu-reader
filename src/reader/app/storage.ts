@@ -80,6 +80,14 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     const getValue = asyncGmGetValue();
     if (getValue) {
         try {
+            const pendingPatch = pendingHostedLocalPatch(key);
+            if (pendingPatch) {
+                const shared = await getValue<unknown | typeof MISSING>(key, MISSING);
+                const sharedRecord = !isMissingSentinel(shared) && isPlainRecord(shared) ? shared : {};
+                const reconciled = { ...sharedRecord, ...pendingPatch } as T;
+                await gmStorageSet(key, reconciled);
+                return reconciled;
+            }
             const value = await getValue<T | typeof MISSING>(key, MISSING);
             if (!isMissingSentinel(value)) return value as T;
             const migrated = localStorageGet<T>(key, MISSING as T);
@@ -93,7 +101,16 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
             debugStorageError('GM storage read failed', key, error);
         }
     }
-    return localStorageGet(key, fallback);
+    const local = localStorageGet<T | typeof MISSING>(key, MISSING);
+    if (!isMissingSentinel(local)) return local as T;
+    // Establish the standalone hosted profile as a comparison baseline before
+    // the user edits it. A later bridge can then persist a field-level patch,
+    // rather than mistaking the entire default-filled settings object for user
+    // intent and overwriting unrelated settings already present in GM storage.
+    if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+        localStorageSet(key, fallback);
+    }
+    return fallback;
 }
 
 export function gmStorageGetSync<T>(key: string, fallback: T): T {
@@ -128,6 +145,7 @@ function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
 // Mirrors SETTINGS_STORAGE_KEY in settings/index.ts; the settings module
 // depends on this one, so the literal cannot be imported from there.
 const HOSTED_SETTINGS_BLOB_KEY = 'jpdb-popup-reader-settings';
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = '__yomuHostedPendingGmPatch';
 
 // A hosted page's localStorage settings copy includes demo-player staging
 // values the docs theme force-writes. Promoting a stranded copy into the
@@ -138,8 +156,49 @@ function sanitizedStrandedLocalValue<T>(key: string, value: T): T {
     if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
     const record = { ...(value as Record<string, unknown>) };
+    delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
     for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
     return record as T;
+}
+
+function pendingHostedLocalPatch(key: string): Record<string, unknown> | undefined {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return undefined;
+    const value = localStorageGet<unknown>(key, undefined);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const patch = (value as Record<string, unknown>)[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+    return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : undefined;
+}
+
+function localFallbackValueForWrite(key: string, value: unknown): unknown {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const current = sanitizedStrandedLocalValue(key, value) as Record<string, unknown>;
+    const previousValue = localStorageGet<unknown>(key, undefined);
+    const previous = isPlainRecord(previousValue)
+        ? sanitizedStrandedLocalValue(key, previousValue) as Record<string, unknown>
+        : undefined;
+    const earlierPatch = isPlainRecord(previousValue)
+        && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD])
+        ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] as Record<string, unknown>
+        : {};
+    // A direct write without a preceding read has no trustworthy baseline.
+    // Leave it as a stranded local blob: settings/index.ts can recover only
+    // its non-default fields later. Marking the full object as a patch would
+    // let default values clobber unrelated, newer GM settings.
+    if (!previous) return value;
+    const changed = changedRecordFields(previous, current);
+    return {
+        ...(value as Record<string, unknown>),
+        [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed },
+    };
+}
+
+function changedRecordFields(previous: Record<string, unknown>, current: Record<string, unknown>): Record<string, unknown> {
+    const changed: Record<string, unknown> = {};
+    for (const [field, value] of Object.entries(current)) {
+        if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+    }
+    return changed;
 }
 
 export async function gmStorageSet(key: string, value: unknown): Promise<void> {
@@ -155,7 +214,7 @@ export async function gmStorageSet(key: string, value: unknown): Promise<void> {
             debugStorageError('GM storage write failed', key, error);
         }
     }
-    localStorageSet(key, value);
+    localStorageSet(key, localFallbackValueForWrite(key, value));
 }
 
 export function gmStorageSetSync(key: string, value: unknown): void {
@@ -171,7 +230,7 @@ export function gmStorageSetSync(key: string, value: unknown): void {
             debugStorageError('GM storage sync write failed', key, error);
         }
     }
-    localStorageSet(key, value);
+    localStorageSet(key, localFallbackValueForWrite(key, value));
 }
 
 export async function gmStorageDelete(key: string): Promise<void> {
@@ -619,6 +678,10 @@ function webStorageHasKey(storage: Storage, key: string): boolean {
 function mirrorManagedValueToHostedStorage(key: string, value: unknown): void {
     if (!shouldMirrorManagedValueToHostedStorage(key)) return;
     localStorageSet(key, value);
+}
+
+export function cacheManagedValueForHostedStartup(key: string, value: unknown): void {
+    mirrorManagedValueToHostedStorage(key, value);
 }
 
 function shouldMirrorManagedValueToHostedStorage(key: string): boolean {

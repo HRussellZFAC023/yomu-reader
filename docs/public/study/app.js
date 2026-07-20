@@ -91,6 +91,7 @@
   const NADESHIKO_URL = "https://nadeshiko.co/";
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
   const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+  const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
   const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
@@ -4142,6 +4143,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
+        const pendingPatch = pendingHostedLocalPatch(key);
+        if (pendingPatch) {
+          const shared = await getValue(key, MISSING);
+          const sharedRecord = !isMissingSentinel(shared) && isPlainRecord$1(shared) ? shared : {};
+          const reconciled = { ...sharedRecord, ...pendingPatch };
+          await gmStorageSet(key, reconciled);
+          return reconciled;
+        }
         const value = await getValue(key, MISSING);
         if (!isMissingSentinel(value)) return value;
         const migrated = localStorageGet(key, MISSING);
@@ -4155,7 +4164,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         debugStorageError("GM storage read failed", key, error);
       }
     }
-    return localStorageGet(key, fallback);
+    const local = localStorageGet(key, MISSING);
+    if (!isMissingSentinel(local)) return local;
+    if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord$1(fallback)) {
+      localStorageSet(key, fallback);
+    }
+    return fallback;
   }
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -4184,12 +4198,42 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { kind: "found", value: promoted };
   }
   const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+  const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
   function sanitizedStrandedLocalValue(key, value) {
     if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
     if (!value || typeof value !== "object" || Array.isArray(value)) return value;
     const record = { ...value };
+    delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
     for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
     return record;
+  }
+  function pendingHostedLocalPatch(key) {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
+    const value = localStorageGet(key, void 0);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
+    const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+    return isPlainRecord$1(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
+  }
+  function localFallbackValueForWrite(key, value) {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const current = sanitizedStrandedLocalValue(key, value);
+    const previousValue = localStorageGet(key, void 0);
+    const previous = isPlainRecord$1(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
+    const earlierPatch = isPlainRecord$1(previousValue) && isPlainRecord$1(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
+    if (!previous) return value;
+    const changed = changedRecordFields(previous, current);
+    return {
+      ...value,
+      [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
+    };
+  }
+  function changedRecordFields(previous, current) {
+    const changed = {};
+    for (const [field, value] of Object.entries(current)) {
+      if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+    }
+    return changed;
   }
   async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
@@ -4202,7 +4246,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         debugStorageError("GM storage write failed", key, error);
       }
     }
-    localStorageSet(key, value);
+    localStorageSet(key, localFallbackValueForWrite(key, value));
   }
   function gmStorageSetSync(key, value) {
     if (typeof GM_setValue === "function") {
@@ -4217,7 +4261,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         debugStorageError("GM storage sync write failed", key, error);
       }
     }
-    localStorageSet(key, value);
+    localStorageSet(key, localFallbackValueForWrite(key, value));
   }
   async function gmStorageDelete(key) {
     const deleteValue = asyncGmDeleteValue();
@@ -4578,6 +4622,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function mirrorManagedValueToHostedStorage(key, value) {
     if (!shouldMirrorManagedValueToHostedStorage(key)) return;
     localStorageSet(key, value);
+  }
+  function cacheManagedValueForHostedStartup(key, value) {
+    mirrorManagedValueToHostedStorage(key, value);
   }
   function shouldMirrorManagedValueToHostedStorage(key) {
     return isManagedStorageKey(key) && isHostedYomuOrigin();
@@ -6188,8 +6235,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
   }
   function markPassiveChromeElement(element2, atomic = false) {
-    element2.dataset.jpdbReaderPassiveChrome = "true";
-    if (atomic) element2.dataset.jpdbReaderPassiveAtomic = "true";
+    if (element2.dataset.jpdbReaderPassiveChrome !== "true") {
+      element2.dataset.jpdbReaderPassiveChrome = "true";
+    }
+    if (atomic && element2.dataset.jpdbReaderPassiveAtomic !== "true") {
+      element2.dataset.jpdbReaderPassiveAtomic = "true";
+    }
     if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
       element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
     }
@@ -6526,7 +6577,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state2 === "interactive-passive";
   }
   function stampDecorationState(host, state2) {
-    host.setAttribute(DECORATION_STATE_ATTRIBUTE, state2);
+    if (host.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state2) {
+      host.setAttribute(DECORATION_STATE_ATTRIBUTE, state2);
+    }
   }
   function decorationStateForWord(word) {
     const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
@@ -8814,6 +8867,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadSettings() {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
+      const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
       let recoveredLegacySettings = false;
@@ -8831,6 +8885,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
       if (recoveredLegacySettings) await persistSettings(settings);
+      else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
+        cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
+      }
       return settings;
     } catch (error) {
       log$J.warn("Settings load failed", { error });
@@ -10424,12 +10481,9 @@ ${spelling}`);
     }
     state2.shadowDepth += 1;
     const shadowChildren = Array.from(shadowRoot.childNodes);
-    for (let index = 0; index < shadowChildren.length; index += 1) {
-      visitFragmentNode(shadowChildren[index], state2, false);
-      if (fragmentCollectionComplete(state2)) {
-        deferBudgetTruncatedChildren(shadowChildren, index + 1);
-        break;
-      }
+    for (const child of shadowChildren) {
+      visitFragmentNode(child, state2, false);
+      if (fragmentCollectionComplete(state2)) break;
     }
     flushFragmentTextTarget(state2);
     state2.shadowDepth -= 1;
@@ -10562,34 +10616,10 @@ ${spelling}`);
     if (isBlock) flushFragmentTextTarget(state2);
   }
   function visitFragmentElementChildren(element2, state2, hasNativeRuby) {
-    const children = Array.from(element2.childNodes);
-    for (let index = 0; index < children.length; index += 1) {
-      visitFragmentNode(children[index], state2, hasNativeRuby);
-      if (fragmentCollectionComplete(state2)) {
-        deferBudgetTruncatedChildren(children, index + 1);
-        break;
-      }
+    for (const child of Array.from(element2.childNodes)) {
+      visitFragmentNode(child, state2, hasNativeRuby);
+      if (fragmentCollectionComplete(state2)) break;
     }
-  }
-  const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
-  function deferBudgetTruncatedChildren(children, fromIndex) {
-    for (let index = fromIndex; index < children.length; index += 1) {
-      const child = children[index];
-      if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
-        deferDepthCappedShadowHost(child);
-      }
-    }
-  }
-  function subtreeMayHostOpenShadowRoot(element2) {
-    if (isPotentialOpenShadowHostElement(element2)) return true;
-    const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node = walker.nextNode(); node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
-      if (isPotentialOpenShadowHostElement(node)) return true;
-    }
-    return walker.nextNode() !== null;
-  }
-  function isPotentialOpenShadowHostElement(element2) {
-    return Boolean(element2.shadowRoot) || element2.localName.includes("-");
   }
   function nextFragmentRubyState(element2, hasNativeRuby) {
     return hasNativeRuby || element2.tagName === "RUBY" || element2.tagName === "RB";
@@ -11476,34 +11506,38 @@ ${spelling}`);
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
     for (const wrapper of detachedRubies) {
-      wrapper.style.setProperty("position", "relative", "important");
-      wrapper.style.setProperty("display", "inline-block", "important");
-      wrapper.style.setProperty("line-height", "1", "important");
-      wrapper.style.setProperty("vertical-align", "baseline", "important");
-      wrapper.style.setProperty("white-space", "nowrap", "important");
+      setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+      setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+      setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+      setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+      setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
     }
     for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-      reading.style.setProperty("position", "absolute", "important");
-      reading.style.setProperty("z-index", "2");
-      reading.style.setProperty("inset-inline-start", "50%");
-      reading.style.setProperty("inset-block-end", "calc(100% + 3px)");
-      reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
-      reading.style.setProperty("width", "max-content");
-      reading.style.setProperty("max-width", "none");
-      reading.style.setProperty("font-size", `${readingFontSize}px`);
-      reading.style.setProperty("font-weight", "700");
-      reading.style.setProperty("line-height", "1", "important");
-      reading.style.setProperty("white-space", "nowrap", "important");
-      reading.style.setProperty("word-break", "keep-all", "important");
-      reading.style.setProperty("overflow-wrap", "normal", "important");
-      reading.style.setProperty("transform", "translateX(-50%)", "important");
-      reading.style.setProperty("pointer-events", "none");
-      reading.style.setProperty("text-decoration", "none", "important");
-      reading.style.setProperty("user-select", "none");
-      reading.style.setProperty("-webkit-user-select", "none");
-      reading.style.removeProperty("color");
-      reading.style.setProperty("-webkit-text-fill-color", "currentColor", "important");
+      setInlineStyleIfChanged(reading, "position", "absolute", "important");
+      setInlineStyleIfChanged(reading, "z-index", "2");
+      setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
+      setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+      setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+      setInlineStyleIfChanged(reading, "width", "max-content");
+      setInlineStyleIfChanged(reading, "max-width", "none");
+      setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+      setInlineStyleIfChanged(reading, "font-weight", "700");
+      setInlineStyleIfChanged(reading, "line-height", "1", "important");
+      setInlineStyleIfChanged(reading, "white-space", "nowrap", "important");
+      setInlineStyleIfChanged(reading, "word-break", "keep-all", "important");
+      setInlineStyleIfChanged(reading, "overflow-wrap", "normal", "important");
+      setInlineStyleIfChanged(reading, "transform", "translateX(-50%)", "important");
+      setInlineStyleIfChanged(reading, "pointer-events", "none");
+      setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+      setInlineStyleIfChanged(reading, "user-select", "none");
+      setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+      if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+      setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
     }
+  }
+  function setInlineStyleIfChanged(element2, property, value, priority = "") {
+    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
+    element2.style.setProperty(property, value, priority);
   }
   const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
   function styleAdditiveMirrorPaint(root) {
@@ -11552,9 +11586,21 @@ ${spelling}`);
   const DETACHED_READING_COLLISION_SLOP = 0.5;
   const DETACHED_READING_CLEARANCE_PX = 3;
   const pendingDetachedReadingSurfaces = /* @__PURE__ */ new Set();
+  const settledDetachedReadingGeometry = /* @__PURE__ */ new WeakMap();
   function detachedReadingCollisionSurface(root) {
     const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
     return composedAncestorElement(owner) ?? owner;
+  }
+  function detachedReadingSurfaceGeometrySignature(root) {
+    const surface = detachedReadingCollisionSurface(root);
+    const elements = [
+      surface,
+      ...queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base")
+    ];
+    return elements.map((element2) => {
+      const rect = element2.getBoundingClientRect();
+      return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element2.className}:${element2.textContent ?? ""}`;
+    }).join("|");
   }
   function exposeDetachedReadingCandidate(reading) {
     delete reading.dataset.yomuDetachedReadingHidden;
@@ -11988,16 +12034,18 @@ ${spelling}`);
   const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
   const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
+  const detachedReadingClipGeometry = /* @__PURE__ */ new WeakMap();
   function isExpandableContentClip(element2) {
     if (element2.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
     if (element2.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
     return element2.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element2.localName);
   }
   function openSafeDetachedReadingClips(element2) {
-    restoreOwnedDetachedReadingClips(element2);
     let current = element2;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
       if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
+      if (detachedReadingClipStyles.has(current) && detachedReadingClipGeometry.get(current) === detachedReadingGeometrySignature(current)) continue;
+      if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
       if (isExpandableContentClip(current)) {
         restoreDetachedReadingClip(current);
         continue;
@@ -12013,12 +12061,6 @@ ${spelling}`);
       const tallSingleLine = !compact2 && rect.height > 0 && rect.height <= DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT && !clamped && measured && detachedBaseContentFits(current);
       if (compact2 && baseFits || tallSingleLine) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
-    }
-  }
-  function restoreOwnedDetachedReadingClips(element2) {
-    let current = element2;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
-      if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
     }
   }
   function openedDetachedReadingChildFits(box) {
@@ -12049,14 +12091,19 @@ ${spelling}`);
         priority: box.style.getPropertyPriority("overflow")
       });
     }
-    box.dataset.yomuDetachedReadingOverflow = "true";
-    box.style.setProperty("overflow", "visible", "important");
+    if (box.dataset.yomuDetachedReadingOverflow !== "true") box.dataset.yomuDetachedReadingOverflow = "true";
+    setInlineStyleIfChanged(box, "overflow", "visible", "important");
     syncDetachedReadingRestVisibility(box);
+    detachedReadingClipGeometry.set(box, detachedReadingGeometrySignature(box));
+  }
+  function detachedReadingGeometrySignature(box) {
+    const rect = box.getBoundingClientRect();
+    return `${box.clientWidth}:${box.clientHeight}:${rect.width}:${rect.height}:${box.className}:${box.textContent ?? ""}`;
   }
   function syncDetachedReadingRestVisibility(box) {
     box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
       if (reading.dataset.yomuDetachedReadingHidden) return;
-      reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+      setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
     });
   }
   function restoreDetachedReadingClip(box) {
@@ -12066,7 +12113,8 @@ ${spelling}`);
       else box.style.removeProperty("overflow");
     }
     detachedReadingClipStyles.delete(box);
-    delete box.dataset.yomuDetachedReadingOverflow;
+    detachedReadingClipGeometry.delete(box);
+    if (box.dataset.yomuDetachedReadingOverflow !== void 0) delete box.dataset.yomuDetachedReadingOverflow;
     syncDetachedReadingRestVisibility(box);
   }
   function detachedBaseContentFits(box) {
@@ -12641,7 +12689,8 @@ ${spelling}`);
   function healLateClipConstrainedStamp(host) {
     const mirror = currentTextMirror(host);
     if (!mirror || mirror.dataset.yomuDetachedReadings !== "true") return;
-    restoreOwnedDetachedReadingClips(host);
+    const geometry = detachedReadingSurfaceGeometrySignature(mirror);
+    if (settledDetachedReadingGeometry.get(host) === geometry) return;
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && !clipRow.dataset.yomuClipConstrained) {
       const decoration = host.closest("[data-yomu-decoration]")?.getAttribute("data-yomu-decoration");
@@ -12650,6 +12699,7 @@ ${spelling}`);
     openSafeDetachedReadingClips(host);
     filterDetachedWordsToClip(mirror, clipRow);
     pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+    settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
   }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -45305,7 +45355,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.255".trim() ? "1.6.255".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.256".trim() ? "1.6.256".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -48369,11 +48419,11 @@ ${spelling}`);
                     <div class="jpdb-reader-help">${escapedUiText(language, "lookupPillsHelp")}</div>
                     ${checkbox("showLookupPillFrequency", text2("showLookupPillFrequency"), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
+                    ${renderRecommendedDictionaries([])}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, "backupMovedHelp")}</div>
@@ -56451,7 +56501,7 @@ ${spelling}`);
     const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
     const yomuCaptionsActive = Boolean(state2.suppressNativeCaptions || state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent));
     if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
-    document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return applyYouTubeNativeTrackModes(state2, yomuCaptionsActive);
   }
   function applyGenericNativeTrackModes(state2, yomuCaptionsActive) {
@@ -56465,15 +56515,19 @@ ${spelling}`);
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
     if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
-    document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
-    document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
+    setDocumentClassState("jpdb-subtitle-yomu-captions-active", false);
     return false;
   }
   function applyYouTubeNativeTrackModes(state2, yomuCaptionsActive) {
     applyYouTubeTextTrackModes(state2);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
-    document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
+    setDocumentClassState("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
+  }
+  function setDocumentClassState(className, enabled) {
+    const root = document.documentElement;
+    if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
   }
   function applyYouTubeTextTrackModes(state2) {
     for (const option of state2.tracks) {
@@ -59604,19 +59658,22 @@ ${spelling}`);
       if (!this.root) return;
       const tracksPanelOpen = settings.subtitlePlayerEnabled && this.panelMode === "tracks" && this.isTranscriptPanelOpen();
       const hidden = !tracksPanelOpen && shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
-      this.root.hidden = hidden;
+      if (this.root.hidden !== hidden) this.root.hidden = hidden;
       if (hidden && this.transcriptPanel) this.hideTranscriptPanelElement({ immediate: true });
-      this.root.classList.toggle("jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
-      this.root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
-      this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
-      this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
-      this.root.classList.toggle("jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
+      setClassState(this.root, "jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
+      setClassState(this.root, "jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
+      setClassState(this.root, "jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
+      setClassState(this.root, "jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
+      setClassState(this.root, "jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
       if (settings.subtitleControlsMode !== "auto") this.setControlsAway(false);
       if (!this.video) {
-        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
-        this.root.classList.add("jpdb-subtitle-video-out-of-view");
+        setClassState(this.root, "jpdb-subtitle-has-video-frame", false);
+        setClassState(this.root, "jpdb-subtitle-compact-video", false);
+        setClassState(this.root, "jpdb-subtitle-video-out-of-view", true);
       }
-      this.transcriptPanel?.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
+      if (this.transcriptPanel) {
+        setClassState(this.transcriptPanel, "jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
+      }
     }
     syncRootStyleSettings(settings) {
       if (!this.root) return;
@@ -60221,7 +60278,8 @@ ${spelling}`);
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
     syncYouTubeMobileBottomSheetState() {
-      document.documentElement.classList.toggle(
+      setClassState(
+        document.documentElement,
         YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
         hasOpenYouTubeMobileBottomSheet()
       );
@@ -60343,8 +60401,9 @@ ${spelling}`);
     alignToVideo() {
       if (!this.root) return;
       if (!this.video) {
-        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
-        this.root.classList.add("jpdb-subtitle-video-out-of-view");
+        setClassState(this.root, "jpdb-subtitle-has-video-frame", false);
+        setClassState(this.root, "jpdb-subtitle-compact-video", false);
+        setClassState(this.root, "jpdb-subtitle-video-out-of-view", true);
         this.lastAlignedVideoRectKey = "";
         this.positionTranscriptPanel();
         return;
@@ -60389,16 +60448,16 @@ ${spelling}`);
     applyVideoLayout(rect) {
       if (!this.root) return;
       const videoVisible = this.isVideoOverlayVisible(rect);
-      this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
-      this.root.classList.toggle("jpdb-subtitle-has-video-frame", videoVisible);
+      setClassState(this.root, "jpdb-subtitle-video-out-of-view", !videoVisible);
+      setClassState(this.root, "jpdb-subtitle-has-video-frame", videoVisible);
       if (!videoVisible) {
-        this.root.classList.remove("jpdb-subtitle-compact-video");
+        setClassState(this.root, "jpdb-subtitle-compact-video", false);
         this.clearVideoInsetForTranscriptPanel();
         this.positionTranscriptPanel();
         return;
       }
       const layout = subtitleOverlayLayout(rect);
-      this.root.classList.toggle("jpdb-subtitle-compact-video", layout.width < 560 || layout.height < 260);
+      setClassState(this.root, "jpdb-subtitle-compact-video", layout.width < 560 || layout.height < 260);
       if (rect.width < 120 || rect.height < 80) {
         applyElementLayout(this.root, {
           left: 0,
@@ -62648,10 +62707,12 @@ ${spelling}`);
     }
     syncControls() {
       const hasLines = this.hasVisibleSubtitleLines();
-      this.root?.classList.toggle("jpdb-subtitle-panel-open", this.isTranscriptPanelOpen());
-      this.root?.classList.toggle("jpdb-subtitle-style-open", this.subtitleStylePanelOpen);
-      this.root?.classList.toggle("jpdb-subtitle-has-lines", hasLines);
-      this.root?.classList.toggle("jpdb-subtitle-has-track", hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
+      if (this.root) {
+        setClassState(this.root, "jpdb-subtitle-panel-open", this.isTranscriptPanelOpen());
+        setClassState(this.root, "jpdb-subtitle-style-open", this.subtitleStylePanelOpen);
+        setClassState(this.root, "jpdb-subtitle-has-lines", hasLines);
+        setClassState(this.root, "jpdb-subtitle-has-track", hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
+      }
       this.syncTranscriptPlacementClass();
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
@@ -62707,7 +62768,10 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const expandedMode = settings.subtitleControlsMode === "always";
       const expand = this.root?.querySelector('[data-action="rail-expand"]');
-      if (expand) expand.setAttribute("aria-expanded", String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || expandedMode));
+      if (expand) {
+        const expanded = String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || expandedMode);
+        if (expand.getAttribute("aria-expanded") !== expanded) expand.setAttribute("aria-expanded", expanded);
+      }
     }
     syncVideoFrameOcrButton() {
       const button2 = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');
@@ -62795,12 +62859,16 @@ ${spelling}`);
     syncTranscriptPlacementClass() {
       if (!this.root) return;
       for (const element2 of [this.root, this.transcriptPanel].filter((item) => Boolean(item))) {
-        element2.classList.toggle("jpdb-subtitle-transcript-right", this.effectiveTranscriptPlacement === "right");
-        element2.classList.toggle("jpdb-subtitle-transcript-left", this.effectiveTranscriptPlacement === "left");
-        element2.classList.toggle("jpdb-subtitle-transcript-bottom", this.effectiveTranscriptPlacement === "bottom");
+        setClassState(element2, "jpdb-subtitle-transcript-right", this.effectiveTranscriptPlacement === "right");
+        setClassState(element2, "jpdb-subtitle-transcript-left", this.effectiveTranscriptPlacement === "left");
+        setClassState(element2, "jpdb-subtitle-transcript-bottom", this.effectiveTranscriptPlacement === "bottom");
       }
-      this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-      if (this.transcriptPanel) this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+      if (this.root.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
+        this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+      }
+      if (this.transcriptPanel && this.transcriptPanel.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
+        this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+      }
       this.syncPanelPlacementButtons();
     }
     syncPanelPlacementButtons() {
@@ -63239,7 +63307,7 @@ ${spelling}`);
       if (!this.root) return;
       const settings = this.options.getSettings();
       const open = this.subtitleStylePanelOpen && settings.subtitleControlsMode !== "hidden";
-      this.root.classList.toggle("jpdb-subtitle-style-open", open);
+      setClassState(this.root, "jpdb-subtitle-style-open", open);
       const button2 = this.root.querySelector('[data-action="style"]');
       if (button2) {
         const label = uiText(settings.interfaceLanguage, "subtitleStyle");
@@ -63969,7 +64037,9 @@ ${spelling}`);
       }, remaining + 20);
     }
     syncTranscriptAutoScrollPausedClass() {
-      this.transcriptPanel?.classList.toggle("jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
+      if (this.transcriptPanel) {
+        setClassState(this.transcriptPanel, "jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
+      }
     }
     isTranscriptAutoScrollPaused() {
       return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptFollowState.isPaused(this.transcriptAutoScrollResumeMs()));
@@ -65224,6 +65294,9 @@ ${spelling}`);
         resizeEventMode: options.resizeEventMode
       });
     }
+  }
+  function setClassState(element2, className, enabled) {
+    if (element2.classList.contains(className) !== enabled) element2.classList.toggle(className, enabled);
   }
   function shouldHonorExplicitYouTubeSideLayout(layout) {
     return layout.margin > 0 && layout.viewportWidth >= 900;
@@ -93058,6 +93131,7 @@ ${entry.url}`),
     "jpdb-pitch-odaka"
   ]);
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
+  const appliedContrastState = /* @__PURE__ */ new WeakMap();
   function refreshReaderWordContrast(root = document) {
     const words = readerWords(root);
     const activeWords = [];
@@ -93095,6 +93169,11 @@ ${entry.url}`),
         continue;
       }
       const isHovered = word.matches(":hover, :focus");
+      const previous = appliedContrastState.get(word);
+      const parentColor = getComputedStyle(word.parentElement ?? word).color;
+      if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
+        continue;
+      }
       if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
         scheduleHoverSettledContrastRefresh(word);
         continue;
@@ -93135,6 +93214,13 @@ ${entry.url}`),
         if (value) word.style.setProperty(name, value, priority);
       });
       applyWordContrastVars(word, activeBackgrounds[i2], measurements[i2]);
+      appliedContrastState.set(word, {
+        background: activeBackgrounds[i2].css,
+        className: word.className,
+        cssText: word.style.cssText,
+        hovered: measurements[i2].hovered,
+        parentColor: measurements[i2].parentFg
+      });
     });
   }
   function measuredWordDecorationColor(style) {
@@ -93305,8 +93391,8 @@ ${entry.url}`),
   function applyReaderTheme(settings, root = document.documentElement) {
     const theme = appliedReaderTheme(settings);
     if (!root) return theme;
-    root.classList.toggle("jpdb-reader-theme-dark", settings.theme === "dark");
-    root.classList.toggle("jpdb-reader-theme-light", settings.theme === "light");
+    toggleClassIfChanged(root, "jpdb-reader-theme-dark", settings.theme === "dark");
+    toggleClassIfChanged(root, "jpdb-reader-theme-light", settings.theme === "light");
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     applyReaderImageTextOverlaySettings(settings, root);
@@ -93315,22 +93401,26 @@ ${entry.url}`),
     applyPopupFontSettings(settings, root);
     const hideGroups = theme.furiganaMode === "known-status" ? new Set(settings.furiganaHiddenStateGroups) : /* @__PURE__ */ new Set();
     for (const group of ["new", "learning", "known", "due", "failed"]) {
-      root.classList.toggle(`yomu-furi-hide-${group}`, hideGroups.has(group));
+      toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
     }
-    root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
-    root.classList.toggle("yomu-furi-hover", theme.furiganaMode === "hover");
-    root.classList.toggle("yomu-word-color-new-only", settings.wordColorStates === "new-only");
+    toggleClassIfChanged(root, "jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
+    toggleClassIfChanged(root, "yomu-furi-hover", theme.furiganaMode === "hover");
+    toggleClassIfChanged(root, "yomu-word-color-new-only", settings.wordColorStates === "new-only");
     const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
     for (const group of ["new", "learning", "known", "due", "failed"]) {
-      root.classList.toggle(`yomu-word-color-hide-${group}`, colorHideGroups.has(group));
+      toggleClassIfChanged(root, `yomu-word-color-hide-${group}`, colorHideGroups.has(group));
     }
-    root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
-    root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
-    root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
+    toggleClassIfChanged(root, "jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
+    toggleClassIfChanged(root, "jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
+    const legacyClasses = ["jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off"].filter((className) => root.classList.contains(className));
+    if (legacyClasses.length) root.classList.remove(...legacyClasses);
     applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
     applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
     guardReaderRootClasses(root);
     return theme;
+  }
+  function toggleClassIfChanged(root, className, enabled) {
+    if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
   }
   let guardedRootClasses = [];
   let readerRootClassObserver = null;
@@ -93441,7 +93531,7 @@ ${entry.url}`),
   function applyReaderColorSourceClasses(root, scope, sources) {
     COLOR_CHANNELS.forEach((channel) => {
       COLOR_SOURCE_CLASSES.forEach((source) => {
-        root.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+        toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
       });
     });
   }
@@ -94965,10 +95055,21 @@ ${rank.detail}` : baseTitle;
     }
     installSettingsStorageSubscription() {
       this.unsubscribeSettingsStorageChanges?.();
-      this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges((settings) => {
+      const unsubscribeStoredChanges = subscribeToSettingsStorageChanges((settings) => {
         if (this.isDestroyed) return;
         void this.applyRemoteSettings(settings);
       });
+      const onStorageBridgeReady = () => {
+        if (this.isDestroyed) return;
+        void loadSettings().then((settings) => {
+          if (!this.isDestroyed) return this.applyRemoteSettings(settings);
+        });
+      };
+      addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+      this.unsubscribeSettingsStorageChanges = () => {
+        unsubscribeStoredChanges();
+        removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+      };
     }
     async applyRemoteSettings(settings) {
       this.settings = settings;

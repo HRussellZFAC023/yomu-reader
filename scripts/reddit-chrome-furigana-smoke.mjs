@@ -291,6 +291,7 @@ async function runEngine(engineName, browser) {
         for (const companionPath of REQUIRED_COMPANION_PATHS) {
             await page.addScriptTag({ path: companionPath });
         }
+        await page.evaluate(startRedditResponsivenessProbe);
         await page.addScriptTag({ path: SCRIPT_PATH });
 
         // Wait for Yomu's initial light-DOM pass, then hydrate the existing
@@ -322,6 +323,15 @@ async function runEngine(engineName, browser) {
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
         ]);
         await page.waitForTimeout(400);
+        const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
+        // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
+        // then prove a static Reddit page stays static: no scan/API churn, no
+        // mirror recreation, and no task/frame starvation behind the puck.
+        await page.waitForTimeout(4_000);
+        const requestsBeforeSteadyState = requests.length;
+        const steadyState = await page.evaluate(profileRedditSteadyState);
+        steadyState.requestDelta = requests.length - requestsBeforeSteadyState;
+        assertRedditPerformance(engineName, responsiveness, steadyState);
 
         // Generic composed-DOM discovery: append the late-join/late-hydrate
         // hosts only AFTER Yomu has booted, then assert both get annotated
@@ -436,11 +446,164 @@ async function runEngine(engineName, browser) {
             videoAvoidance,
             puckDrag,
             mirrorRemovalFallback,
+            performance: {
+                responsiveness,
+                steadyState,
+            },
             ...snapshot,
         };
     } finally {
         await context.close().catch(() => undefined);
     }
+}
+
+function startRedditResponsivenessProbe() {
+    const state = {
+        startedAt: performance.now(),
+        previousFrame: performance.now(),
+        frameGaps: [],
+        stopped: false,
+    };
+    window.__yomuRedditResponsivenessProbe = state;
+    const frame = now => {
+        state.frameGaps.push(now - state.previousFrame);
+        state.previousFrame = now;
+        if (!state.stopped) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+}
+
+function stopRedditResponsivenessProbe() {
+    const state = window.__yomuRedditResponsivenessProbe;
+    state.stopped = true;
+    const sorted = [...state.frameGaps].sort((a, b) => a - b);
+    const percentile = value => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * value))] ?? 0;
+    return {
+        bootMs: performance.now() - state.startedAt,
+        frameCount: sorted.length,
+        maxFrameGapMs: sorted.at(-1) ?? 0,
+        p95FrameGapMs: percentile(0.95),
+    };
+}
+
+async function profileRedditSteadyState() {
+    const stats = {
+        callbacks: 0,
+        records: 0,
+        attributeRecords: 0,
+        characterDataRecords: 0,
+        mutationSamples: [],
+        addedNodes: 0,
+        removedNodes: 0,
+        mirrorAdds: 0,
+        mirrorRemoves: 0,
+        maxTaskGapMs: 0,
+        maxFrameGapMs: 0,
+        maxInputLatencyMs: 0,
+    };
+    const observers = [];
+    const observed = new Set();
+    const nodeMatches = (node, selector) => node instanceof Element
+        && (node.matches(selector) || Boolean(node.querySelector(selector)));
+    const observe = root => {
+        if (observed.has(root)) return;
+        observed.add(root);
+        const observer = new MutationObserver(records => {
+            stats.callbacks += 1;
+            stats.records += records.length;
+            for (const record of records) {
+                if (record.type === 'attributes') stats.attributeRecords += 1;
+                if (record.type === 'characterData') stats.characterDataRecords += 1;
+                if (stats.mutationSamples.length < 12) {
+                    stats.mutationSamples.push({
+                        type: record.type,
+                        attribute: record.attributeName,
+                        oldValue: record.oldValue,
+                        value: record.target instanceof Element && record.attributeName
+                            ? record.target.getAttribute(record.attributeName)
+                            : null,
+                        target: record.target instanceof Element
+                            ? `${record.target.localName}.${record.target.className}`.slice(0, 180)
+                            : '#text',
+                    });
+                }
+                stats.addedNodes += record.addedNodes.length;
+                stats.removedNodes += record.removedNodes.length;
+                for (const node of record.addedNodes) {
+                    if (nodeMatches(node, '.jpdb-reader-text-mirror')) stats.mirrorAdds += 1;
+                }
+                for (const node of record.removedNodes) {
+                    if (nodeMatches(node, '.jpdb-reader-text-mirror')) stats.mirrorRemoves += 1;
+                }
+            }
+        });
+        observer.observe(root, {
+            attributes: true,
+            attributeOldValue: true,
+            characterData: true,
+            childList: true,
+            subtree: true,
+        });
+        observers.push(observer);
+        root.querySelectorAll?.('*').forEach(element => {
+            if (element.shadowRoot) observe(element.shadowRoot);
+        });
+    };
+    observe(document);
+
+    const startedAt = performance.now();
+    let previousTask = startedAt;
+    let previousFrame = startedAt;
+    let stopped = false;
+    const puck = document.querySelector('.jpdb-reader-fab');
+    let expectedInputAt = startedAt + 50;
+    const onInputProbe = event => {
+        if (event.clientX !== -9999) return;
+        event.stopImmediatePropagation();
+        stats.maxInputLatencyMs = Math.max(stats.maxInputLatencyMs, performance.now() - expectedInputAt);
+    };
+    window.addEventListener('pointermove', onInputProbe, { capture: true });
+    const task = () => {
+        const now = performance.now();
+        stats.maxTaskGapMs = Math.max(stats.maxTaskGapMs, now - previousTask);
+        previousTask = now;
+        if (!stopped) setTimeout(task, 16);
+    };
+    const frame = now => {
+        stats.maxFrameGapMs = Math.max(stats.maxFrameGapMs, now - previousFrame);
+        previousFrame = now;
+        if (!stopped) requestAnimationFrame(frame);
+    };
+    const input = () => {
+        puck?.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: -9999, clientY: -9999 }));
+        expectedInputAt = performance.now() + 50;
+        if (!stopped) setTimeout(input, 50);
+    };
+    setTimeout(task, 16);
+    requestAnimationFrame(frame);
+    setTimeout(input, 50);
+    await new Promise(resolve => setTimeout(resolve, 1_200));
+    stopped = true;
+    window.removeEventListener('pointermove', onInputProbe, { capture: true });
+    observers.forEach(observer => observer.disconnect());
+    return stats;
+}
+
+function assertRedditPerformance(engineName, responsiveness, steadyState) {
+    assert(responsiveness.frameCount >= 2,
+        `${engineName}: boot responsiveness probe did not sample frames`, responsiveness);
+    assert(responsiveness.maxFrameGapMs <= 250,
+        `${engineName}: reader boot starved the iPad-shaped frame lane`, responsiveness);
+    assert(steadyState.requestDelta === 0,
+        `${engineName}: a static Reddit fixture kept scheduling parse work`, steadyState);
+    assert(steadyState.records === 0,
+        `${engineName}: a static Reddit fixture kept writing DOM after settling`, steadyState);
+    assert(steadyState.mirrorAdds === 0 && steadyState.mirrorRemoves === 0,
+        `${engineName}: Reddit mirrors were recreated at steady state`, steadyState);
+    assert(steadyState.maxTaskGapMs <= 100 && steadyState.maxFrameGapMs <= 100,
+        `${engineName}: steady-state work can starve puck/input tasks`, steadyState);
+    assert(steadyState.maxInputLatencyMs <= 100,
+        `${engineName}: steady-state work delayed the puck input lane`, steadyState);
 }
 
 function userscriptCompanionPaths(userscriptPath) {

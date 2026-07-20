@@ -48,6 +48,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
     controller: SettingsDialogControllerInstance;
     dismiss: ReturnType<typeof vi.fn>;
     form: HTMLFormElement;
+    refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
 } {
     let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '' };
     const dismiss = vi.fn();
@@ -106,6 +107,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         dependencies,
         dismiss,
         form: document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!,
+        refreshDictionaryStatus,
     };
 }
 
@@ -1450,6 +1452,49 @@ describe('settings dialog dictionary imports', () => {
         document.body.replaceChildren();
         localStorage.clear();
         vi.restoreAllMocks();
+    });
+
+    it('uses the origin-local dictionary summary for the installed button state', async () => {
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [
+                { name: 'Jitendex.org [2026-06-06]', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' },
+            ],
+        };
+        const summary = vi.fn().mockResolvedValue({
+            dictionaries: [],
+            terms: 0,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+        const dialog = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: { summary },
+        });
+
+        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Install');
+        await dialog.refreshDictionaryStatus(dialog.form);
+        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Install');
+        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('No dictionaries imported yet');
+
+        summary.mockResolvedValue({
+            dictionaries: [{
+                title: 'Jitendex.org [2026-06-06]',
+                alias: 'Jitendex',
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+            }],
+            terms: 42,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+        await dialog.refreshDictionaryStatus(dialog.form);
+        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Update');
+        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
     });
 
     it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {

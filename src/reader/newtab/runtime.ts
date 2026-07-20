@@ -12,7 +12,7 @@ import { isPlainReadingRedundantForHeadword } from '../cards/reading-display';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
-import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import { yomuKanjiStudyCompanion, yomuOnboardingController } from '../companions/registry';
 import {
@@ -139,7 +139,7 @@ import {
 import { StudySourceController } from '../study/sources';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
-import { addWindowEventListener } from '../platform/window-events';
+import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { BunproClient } from '../bunpro/bunpro';
@@ -574,10 +574,21 @@ export class NewTabRuntime {
 
     private installSettingsStorageSubscription(): void {
         this.unsubscribeSettingsStorageChanges?.();
-        this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges(settings => {
+        const unsubscribeStoredChanges = subscribeToSettingsStorageChanges(settings => {
             if (this.isDestroyed) return;
             void this.applyRemoteSettings(settings);
         });
+        const onStorageBridgeReady = (): void => {
+            if (this.isDestroyed) return;
+            void loadSettings().then(settings => {
+                if (!this.isDestroyed) return this.applyRemoteSettings(settings);
+            });
+        };
+        addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+        this.unsubscribeSettingsStorageChanges = () => {
+            unsubscribeStoredChanges();
+            removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+        };
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {

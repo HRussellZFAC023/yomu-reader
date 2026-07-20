@@ -9,6 +9,7 @@ import {
     closeServer,
     createSmokePaths,
     jsonHttpResponse,
+    installGmStorageBridgeOnCurrentPage,
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     readJsonBody,
@@ -27,7 +28,8 @@ const {
 const INJECT_USERSCRIPT = process.env.YOMU_HOSTED_SETTINGS_INJECT_USERSCRIPT === '1';
 
 assertBuiltArtifacts([
-    ...(INJECT_USERSCRIPT ? [SCRIPT_PATH, CSS_PATH] : []),
+    SCRIPT_PATH,
+    CSS_PATH,
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
@@ -82,6 +84,10 @@ const SETTINGS = {
     wordTextColorSource: 'pitch',
     enableLogging: Boolean(process.env.SMOKE_DEBUG),
 };
+const GM_STORAGE_PREFIX = '__yomu_hosted_settings_smoke_gm__:';
+const GM_SETTINGS_STORAGE_KEY = `${GM_STORAGE_PREFIX}${YOMU_SETTINGS_KEY}`;
+const STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-bridge-ready';
+const STORAGE_BRIDGE_REQUEST_EVENT = 'yomu-userscript-storage-request';
 
 const server = await startLoopbackServer(serveNewTab, 'Could not bind hosted settings smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
@@ -94,8 +100,12 @@ try {
         viewport: { width: 1180, height: 820 },
         deviceScaleFactor: 1,
     });
-    await context.addInitScript(({ key, settings }) => {
+    await context.addInitScript(({ key, settings, gmKey }) => {
+        const seedMarker = '__yomuHostedSettingsSmokeSeeded';
+        if (sessionStorage.getItem(seedMarker) === 'true') return;
+        sessionStorage.setItem(seedMarker, 'true');
         localStorage.setItem(key, JSON.stringify(settings));
+        localStorage.removeItem(gmKey);
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
             mode: 'search',
             sort: 'random',
@@ -106,7 +116,7 @@ try {
             ankiDeck: '',
             keyHintsDismissed: false,
         }));
-    }, { key: YOMU_SETTINGS_KEY, settings: SETTINGS });
+    }, { key: YOMU_SETTINGS_KEY, settings: SETTINGS, gmKey: GM_SETTINGS_STORAGE_KEY });
 
     const page = await context.newPage();
     if (INJECT_USERSCRIPT) {
@@ -116,6 +126,7 @@ try {
             value: SETTINGS,
             css: readFileSync(CSS_PATH, 'utf8'),
             requestBridgeName: '__yomuHostedSettingsSmokeRequest',
+            storagePrefix: GM_STORAGE_PREFIX,
             initialize: 'ifMissing',
         });
         await page.addInitScript({ path: SCRIPT_PATH });
@@ -245,6 +256,10 @@ try {
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 
+    const durableStorage = INJECT_USERSCRIPT
+        ? { coveredBy: 'preinstalled userscript bridge mode' }
+        : await verifyDurableHostedSettings({ page, requests });
+
     console.log(JSON.stringify({
         ok: true,
         source: INJECT_USERSCRIPT ? 'dist/newtab with dist/yomu.user.js injected' : 'dist/newtab without userscript injection',
@@ -254,6 +269,7 @@ try {
         afterSearch: summarizeSnapshot(afterSearch),
         tabClicks,
         immediateHelpLatencyMs: immediateHelpClick.latencyMs,
+        durableStorage,
         parseRequests: requests
             .filter(request => request.endpoint === 'parse')
             .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定') })),
@@ -264,6 +280,137 @@ try {
     server.server.closeAllConnections?.();
     server.server.closeIdleConnections?.();
     await closeServer(server.server);
+}
+
+async function verifyDurableHostedSettings({ page, requests }) {
+    const startedAt = Date.now();
+    await openSettings(page);
+    const localSave = await page.evaluate(() => {
+        const input = document.querySelector('[data-theme-value]');
+        const toggle = document.querySelector('[data-theme-switch]');
+        const form = document.querySelector('.jpdb-reader-settings');
+        if (!(input instanceof HTMLInputElement) || !(toggle instanceof HTMLButtonElement) || !(form instanceof HTMLFormElement)) {
+            throw new Error('Theme controls were unavailable for the local-only save.');
+        }
+        const previousTheme = input.value;
+        toggle.click();
+        const savedTheme = input.value;
+        form.requestSubmit();
+        return { previousTheme, savedTheme };
+    });
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+    const localOnly = await readStorageState(page);
+    assert(localOnly.local?.theme === localSave.savedTheme,
+        'Hosted settings save did not persist to website localStorage before installation', { localSave, localOnly });
+    assert(localOnly.local?.__yomuHostedPendingGmPatch?.theme === localSave.savedTheme,
+        'Bridge-less hosted save was not marked for later GM promotion', { localSave, localOnly });
+    assert(localOnly.gm === null, 'Local-only settings leaked into the isolated GM namespace before installation', localOnly);
+
+    await page.evaluate(requestEvent => {
+        window.__yomuHostedSettingsBridgeRequests = [];
+        window.addEventListener(requestEvent, event => {
+            let detail = event.detail;
+            if (typeof detail === 'string') {
+                try { detail = JSON.parse(detail); } catch { detail = null; }
+            }
+            if (detail && typeof detail === 'object') window.__yomuHostedSettingsBridgeRequests.push(detail);
+        });
+    }, STORAGE_BRIDGE_REQUEST_EVENT);
+    if (!INJECT_USERSCRIPT) {
+        await page.exposeFunction('__yomuHostedSettingsSmokeRequest', request => mockedUserscriptRequest(request, requests));
+    }
+    await installGmStorageBridgeOnCurrentPage(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: {},
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuHostedSettingsSmokeRequest',
+        storagePrefix: GM_STORAGE_PREFIX,
+        initialize: 'ifMissing',
+    });
+    await page.addScriptTag({ path: SCRIPT_PATH });
+    await page.evaluate(readyEvent => {
+        delete window.GM;
+        delete window.GM_getValue;
+        delete window.GM_setValue;
+        delete window.GM_deleteValue;
+        delete window.GM_listValues;
+        window.dispatchEvent(new CustomEvent(readyEvent));
+    }, STORAGE_BRIDGE_READY_EVENT);
+    await page.waitForFunction(({ key, gmKey }) => {
+        if (document.documentElement.dataset.yomuUserscriptStorageBridge !== 'true') return false;
+        const gm = JSON.parse(localStorage.getItem(gmKey) || 'null');
+        const local = JSON.parse(localStorage.getItem(key) || 'null');
+        return gm?.theme && gm.theme === local?.theme && local?.__yomuHostedPendingGmPatch == null;
+    }, { key: YOMU_SETTINGS_KEY, gmKey: GM_SETTINGS_STORAGE_KEY });
+    const afterPromotion = await readStorageState(page);
+    assert(afterPromotion.gm?.theme === localSave.savedTheme,
+        'Late userscript bridge did not promote the local-only website save into GM storage', { localSave, afterPromotion });
+    assert(afterPromotion.local?.__yomuHostedPendingGmPatch == null,
+        'Successful GM promotion left the website copy marked pending', afterPromotion);
+    const runtimeBridgeRequests = await page.evaluate(key => window.__yomuHostedSettingsBridgeRequests
+        .filter(request => request?.op === 'get' && request?.key === key).length, YOMU_SETTINGS_KEY);
+    assert(runtimeBridgeRequests >= 1,
+        'Late storage bridge did not trigger a settings reload in the running NewTabRuntime', {
+            runtimeBridgeRequests,
+            runtimeMarker: afterPromotion.runtimeMarker,
+            storageBridge: afterPromotion.storageBridge,
+        });
+
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: {},
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuHostedSettingsSmokeRequest',
+        storagePrefix: GM_STORAGE_PREFIX,
+        initialize: 'ifMissing',
+    });
+    await page.addInitScript({ path: SCRIPT_PATH });
+    await page.evaluate(key => localStorage.removeItem(key), YOMU_SETTINGS_KEY);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { state: 'attached', timeout: 15_000 });
+    await page.waitForFunction(theme => document.documentElement.classList.contains(`jpdb-reader-theme-${theme}`), localSave.savedTheme);
+    const afterLocalReset = await readStorageState(page);
+    assert(afterLocalReset.appliedTheme === localSave.savedTheme && afterLocalReset.gm?.theme === localSave.savedTheme,
+        'Clearing website localStorage lost settings that should survive in GM storage', { localSave, afterLocalReset });
+    assert(afterLocalReset.runtimeMarker === 'newtab' && afterLocalReset.storageBridge,
+        'Reloaded hosted NewTabRuntime did not use the userscript storage bridge', afterLocalReset);
+
+    return {
+        elapsedMs: Date.now() - startedAt,
+        savedTheme: localSave.savedTheme,
+        pendingBeforeInstall: localOnly.local?.__yomuHostedPendingGmPatch?.theme === localSave.savedTheme,
+        gmSeparatedFromWebsiteKey: GM_SETTINGS_STORAGE_KEY !== YOMU_SETTINGS_KEY,
+        runtimeBridgeGetRequests: runtimeBridgeRequests,
+        promotedToGm: afterPromotion.gm?.theme === localSave.savedTheme,
+        restoredAfterLocalStorageClear: afterLocalReset.appliedTheme === localSave.savedTheme,
+        storageBridgeAfterReload: afterLocalReset.storageBridge,
+    };
+}
+
+async function openSettings(page) {
+    await page.locator('.jpdb-reader-newtab-more summary').click();
+    await page.locator('[data-newtab-action="settings"]').evaluate(button => {
+        if (!(button instanceof HTMLButtonElement)) throw new Error('Settings menu item is not a button.');
+        button.click();
+    });
+    await page.waitForSelector('.jpdb-reader-settings', { state: 'visible', timeout: 20_000 });
+}
+
+async function readStorageState(page) {
+    return await page.evaluate(({ key, gmKey }) => {
+        const parse = raw => {
+            try { return JSON.parse(raw || 'null'); } catch { return null; }
+        };
+        return {
+            local: parse(localStorage.getItem(key)),
+            gm: parse(localStorage.getItem(gmKey)),
+            runtimeMarker: window.__YOMU_READER_RUNTIME__,
+            storageBridge: document.documentElement.dataset.yomuUserscriptStorageBridge === 'true',
+            appliedTheme: document.documentElement.classList.contains('jpdb-reader-theme-dark')
+                ? 'dark'
+                : document.documentElement.classList.contains('jpdb-reader-theme-light') ? 'light' : '',
+        };
+    }, { key: YOMU_SETTINGS_KEY, gmKey: GM_SETTINGS_STORAGE_KEY });
 }
 
 function mockedUserscriptRequest(request, requestsLog) {

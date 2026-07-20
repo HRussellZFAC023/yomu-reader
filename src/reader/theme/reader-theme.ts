@@ -29,8 +29,8 @@ export interface AppliedReaderTheme {
 export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | null = document.documentElement): AppliedReaderTheme {
     const theme = appliedReaderTheme(settings);
     if (!root) return theme;
-    root.classList.toggle('jpdb-reader-theme-dark', settings.theme === 'dark');
-    root.classList.toggle('jpdb-reader-theme-light', settings.theme === 'light');
+    toggleClassIfChanged(root, 'jpdb-reader-theme-dark', settings.theme === 'dark');
+    toggleClassIfChanged(root, 'jpdb-reader-theme-light', settings.theme === 'light');
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     applyReaderImageTextOverlaySettings(settings, root);
@@ -42,26 +42,32 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     // preview can mirror them on its own container.
     const hideGroups = theme.furiganaMode === 'known-status' ? new Set(settings.furiganaHiddenStateGroups) : new Set<string>();
     for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
-        root.classList.toggle(`yomu-furi-hide-${group}`, hideGroups.has(group));
+        toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
     }
-    root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
-    root.classList.toggle('yomu-furi-hover', theme.furiganaMode === 'hover');
-    root.classList.toggle('yomu-word-color-new-only', settings.wordColorStates === 'new-only');
+    toggleClassIfChanged(root, 'jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
+    toggleClassIfChanged(root, 'yomu-furi-hover', theme.furiganaMode === 'hover');
+    toggleClassIfChanged(root, 'yomu-word-color-new-only', settings.wordColorStates === 'new-only');
     // Per-state colour opt-out (e.g. keep known words uncoloured while others
     // stay coloured). CSS-class driven so the settings preview mirrors it live.
     const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
     for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
-        root.classList.toggle(`yomu-word-color-hide-${group}`, colorHideGroups.has(group));
+        toggleClassIfChanged(root, `yomu-word-color-hide-${group}`, colorHideGroups.has(group));
     }
     // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.
-    root.classList.toggle('jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
+    toggleClassIfChanged(root, 'jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
     // Jiten Reader parity: one-handed reach option for the mobile sheet.
-    root.classList.toggle('jpdb-reader-sheet-close-left', Boolean(settings.sheetCloseButtonOnLeft));
-    root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
+    toggleClassIfChanged(root, 'jpdb-reader-sheet-close-left', Boolean(settings.sheetCloseButtonOnLeft));
+    const legacyClasses = ['jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off']
+        .filter(className => root.classList.contains(className));
+    if (legacyClasses.length) root.classList.remove(...legacyClasses);
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
     guardReaderRootClasses(root);
     return theme;
+}
+
+function toggleClassIfChanged(root: HTMLElement, className: string, enabled: boolean): void {
+    if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
 }
 
 // SPA shells (Discord, ChatGPT, and others) rewrite document.documentElement's
@@ -208,7 +214,7 @@ function readerPitchColors(settings: ReaderSettings): Record<string, { color: st
 function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subtitle', sources: ColorSourceMap): void {
     COLOR_CHANNELS.forEach(channel => {
         COLOR_SOURCE_CLASSES.forEach(source => {
-            root.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+            toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
         });
     });
 }

@@ -122,6 +122,7 @@ let accentSyncBound = false;
 let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
 let hostedSettingsEventPatch: Record<string, any> = {};
+let hostedSharedSettingsWrite: Promise<void> = Promise.resolve();
 // The あ toggle's most recent explicit choice. A reader runtime that boots
 // AFTER the toggle (the toggle itself boots it on docs pages) loads a stale
 // GM-storage settings copy and echoes it back on its first full-settings
@@ -398,6 +399,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Turning annotations off now immediately removes ruby, pitch colouring, and parsed word markup from video captions and the open subtitle transcript while preserving the minimum plain subtitle display. Caption parsing, enrichment, cache updates, and late parse-result repainting remain inert until annotations are turned back on.': '注釈をオフにすると、必要最小限のプレーンな字幕表示を保ったまま、動画字幕と開いている文字起こしからルビ、ピッチ色、解析済み単語マークアップが即座に消えるようになりました。注釈を再びオンにするまで、字幕の解析、補強、キャッシュ更新、遅れて完了した解析結果による再描画も停止します。',
     'Subtitle files and YouTube captions now recover from a brief connection drop, interrupted or partial response, rate limit, server error, or timeout with one bounded retry. Permanent client errors still fail immediately, slowly delivered responses are not duplicated, and already loaded cues remain available without another network request.': '字幕ファイルとYouTube字幕は、短時間の接続切れ、中断または部分レスポンス、レート制限、サーバーエラー、タイムアウトから、1回に限定した再試行で復帰するようになりました。永続的なクライアントエラーはこれまで通り即座に失敗し、遅く届くレスポンは重複要求せず、読み込み済みの字幕は再要求なしで利用できます。',
     'Added the hosted Japanese release-note copy for the resilient subtitle loading update, so the newest changelog remains localized when readers switch the documentation language.': '字幕読み込みの耐障害性向上について、ホスト版ドキュメント用の日本語リリースノートを追加しました。読者がドキュメント言語を切り替えても、最新の変更履歴が日本語のまま表示されます。',
+    'Reddit no longer becomes progressively hot and sluggish after annotation on iPad Safari. A target-budget stop was walking up to 128 descendants in every untouched component branch to queue work that the already-full scan immediately discarded; bounded scans now stop at the budget and the normal continuation advances to later Japanese and open shadow roots without that repeated page-wide tail work.': 'iPad SafariでRedditを注釈した後、端末が次第に熱くなり操作が重くなる問題を修正しました。走査上限に達した後も未処理の各コンポーネント分岐で最大128個の子孫を調べ、満杯の走査が直ちに破棄する作業をキューへ入れていました。上限付き走査は予算地点で停止し、通常の継続処理が後続の日本語と開いたShadow DOMへ進むため、ページ全体の末尾探索を繰り返しません。',
+    'Settings changed on yomureader.com now survive refreshes, site changes, and browser storage resets without creating a competing local profile. The hosted Study runtime adopts a late userscript bridge, website-only changes are recorded as a field-level pending patch and merged once into the newest GM settings, and the resulting GM value is mirrored locally for fast standalone startup. Rapid website theme/language writes are serialized so an older write cannot finish last.': 'yomureader.comで変更した設定が、更新、サイト移動、ブラウザストレージのリセット後も、競合するローカルプロファイルを作らず保持されるようになりました。ホスト版の学習画面は後から利用可能になったユーザースクリプトブリッジを採用し、Webサイトだけで行った変更をフィールド単位の保留パッチとして最新のGM設定へ一度だけ統合します。統合後のGM値は高速な単独起動のためローカルにも複製します。テーマと言語の連続書き込みも直列化し、古い書き込みが最後に完了することを防ぎます。',
+    'The dictionary settings panel no longer claims a recommended local dictionary is installed merely because its cross-site preference exists. Installed and Update states now wait for the current origin\'s live IndexedDB summary, matching whether local entries can actually appear in popovers.': '辞書設定パネルは、サイト間で共有される設定が存在するだけで推奨ローカル辞書をインストール済みと表示しなくなりました。「インストール済み」と「更新」の状態は現在のオリジンのIndexedDB実データ概要を待って決まり、ポップオーバーでローカル項目を実際に表示できる状態と一致します。',
     'Reactive pages such as YouTube, Reddit, Twitch, and live chats now keep their native text intact while Yomu paints a source-preserving annotation layer. Hovering, recycling, or rerendering can no longer leave only coloured bars, and tapping a word resolves from that word\'s original text range instead of opening a neighbour.': 'YouTube、Reddit、Twitch、ライブチャットなどのリアクティブなページで、よむが元の文字を保ったまま注釈レイヤーを描画するようになりました。ホバー、再利用、再描画で色付きの線だけが残ることがなくなり、タップした単語自身の元テキスト範囲から辞書を開くため、隣の単語が開きません。',
     'Late-loaded menus, comments, dropdown choices, and content beyond the initial scan budget continue through the generic scanner. Compact controls keep pitch and lookup even when there is no safe lane for furigana; only the unsafe reading is omitted, preventing adjacent readings and previous lines from overlapping.': '後から読み込まれるメニュー、コメント、ドロップダウン項目、初回スキャン上限より後の内容も汎用スキャナーで継続して処理します。コンパクトな操作部品は、ふりがなを安全に置けない場合でもピッチと辞書操作を保ち、安全でない読みだけを省略して、隣の読みや上の行との重なりを防ぎます。',
     'Composite words retain their per-component pitch colours in source-preserving mirrors, while passive and shadow-root content receives an at-rest pitch signal instead of waiting for a press.': '構成語を持つ複合語は、元文字を保つミラーでも構成語ごとのピッチ色を維持します。また、受動的な要素やShadow DOMの内容にも、押す前からピッチ表示が出るようになりました。',
@@ -3717,14 +3721,14 @@ function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?
 // Read-modify-write against the shared copy so a stale hosted blob never
 // clobbers settings saved elsewhere.
 function propagateSettingsPatchToSharedStorage(patch: Record<string, any>): void {
-    void (async () => {
+    hostedSharedSettingsWrite = hostedSharedSettingsWrite.then(async () => {
         try {
             const shared = await gmStorageGet<Record<string, any> | null>(SETTINGS_STORAGE_KEY, null);
             await gmStorageSet(SETTINGS_STORAGE_KEY, { ...(shared ?? {}), ...patch });
         } catch {
             // Bridge unavailable: the localStorage copy stays authoritative here.
         }
-    })();
+    });
 }
 
 function readStoredThemePreference(): HostedThemePreference {

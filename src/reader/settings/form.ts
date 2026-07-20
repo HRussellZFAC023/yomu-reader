@@ -1098,6 +1098,9 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
+    // Preferences are shared across origins, while imported rows live in this
+    // origin's IndexedDB. Keep installed-only controls empty until the dialog
+    // controller replaces them with the live dictionary summary.
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
@@ -1114,11 +1117,11 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                     <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
                     ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
+                    ${renderRecommendedDictionaries([])}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>

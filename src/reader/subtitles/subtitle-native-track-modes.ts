@@ -32,7 +32,7 @@ export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeO
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || (state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent)));
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
-    document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
 
@@ -50,8 +50,8 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
         if (yomuCaptionsActive) option.track.mode = 'disabled';
     }
     if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
-    document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
-    document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
+    setDocumentClassState('jpdb-subtitle-yomu-captions-active', false);
     return false;
 }
 
@@ -61,8 +61,13 @@ function applyYouTubeNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
 ): boolean {
     applyYouTubeTextTrackModes(state);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
-    document.documentElement.classList.toggle('jpdb-subtitle-yomu-captions-active', hideYouTubeNativeCaptions);
+    setDocumentClassState('jpdb-subtitle-yomu-captions-active', hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
+}
+
+function setDocumentClassState(className: string, enabled: boolean): void {
+    const root = document.documentElement;
+    if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
 }
 
 function applyYouTubeTextTrackModes<T extends SubtitleNativeTrackModeOption>(

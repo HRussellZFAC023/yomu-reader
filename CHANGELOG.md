@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.256] - 2026-07-19
+
+### Fixed
+
+- Reddit no longer becomes progressively hot and sluggish after annotation on iPad Safari. A target-budget stop was walking up to 128 descendants in every untouched component branch to queue work that the already-full scan immediately discarded; bounded scans now stop at the budget and the normal continuation advances to later Japanese and open shadow roots without that repeated page-wide tail work.
+- Settings changed on yomureader.com now survive refreshes, site changes, and browser storage resets without creating a competing local profile. The hosted Study runtime adopts a late userscript bridge, website-only changes are recorded as a field-level pending patch and merged once into the newest GM settings, and the resulting GM value is mirrored locally for fast standalone startup. Rapid website theme/language writes are serialized so an older write cannot finish last.
+- The dictionary settings panel no longer claims a recommended local dictionary is installed merely because its cross-site preference exists. Installed and Update states now wait for the current origin's live IndexedDB summary, matching whether local entries can actually appear in popovers.
+
 ## [1.6.255] - 2026-07-19
 
 ### Changed

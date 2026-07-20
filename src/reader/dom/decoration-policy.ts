@@ -614,8 +614,12 @@ export function applyPassiveChromeMarks(marks: PassiveChromeMark[]): void {
 }
 
 function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
-    element.dataset.jpdbReaderPassiveChrome = 'true';
-    if (atomic) element.dataset.jpdbReaderPassiveAtomic = 'true';
+    if (element.dataset.jpdbReaderPassiveChrome !== 'true') {
+        element.dataset.jpdbReaderPassiveChrome = 'true';
+    }
+    if (atomic && element.dataset.jpdbReaderPassiveAtomic !== 'true') {
+        element.dataset.jpdbReaderPassiveAtomic = 'true';
+    }
     if (element.getAttribute('role') === 'button' && !hasExplicitAccessibleName(element)) {
         element.setAttribute('aria-label', passiveChromeAccessibleLabel(element));
     }
@@ -1137,7 +1141,9 @@ export function decorationSuppressesRuby(state: DecorationState | undefined): bo
 }
 
 export function stampDecorationState(host: HTMLElement, state: DecorationState): void {
-    host.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
+    if (host.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state) {
+        host.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
+    }
 }
 
 export function decorationStateForWord(word: HTMLElement): DecorationState | null {

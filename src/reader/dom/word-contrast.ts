@@ -33,6 +33,13 @@ const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-pitch-odaka',
 ]);
 const pendingHoverContrastRefresh = new WeakSet<HTMLElement>();
+const appliedContrastState = new WeakMap<HTMLElement, {
+    background: string;
+    className: string;
+    cssText: string;
+    hovered: boolean;
+    parentColor: string;
+}>();
 
 interface PageBackground {
     css: string;
@@ -82,6 +89,16 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             continue;
         }
         const isHovered = word.matches(':hover, :focus');
+        const previous = appliedContrastState.get(word);
+        const parentColor = getComputedStyle(word.parentElement ?? word).color;
+        if (previous
+            && previous.background === background.css
+            && previous.className === word.className
+            && previous.cssText === word.style.cssText
+            && previous.hovered === isHovered
+            && previous.parentColor === parentColor) {
+            continue;
+        }
         if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
             scheduleHoverSettledContrastRefresh(word);
             continue;
@@ -127,6 +144,13 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             if (value) word.style.setProperty(name, value, priority);
         });
         applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
+        appliedContrastState.set(word, {
+            background: activeBackgrounds[i].css,
+            className: word.className,
+            cssText: word.style.cssText,
+            hovered: measurements[i].hovered,
+            parentColor: measurements[i].parentFg,
+        });
     });
 }
 

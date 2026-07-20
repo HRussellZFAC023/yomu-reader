@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.255
+// @version 1.6.256
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,13 +11,13 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.b29d4313b3d1.user.js#sha256=sp1DE7PRKHsRbwVZBRPltGKnTueXMjek4QFVevcRGrw=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.e6f97a66bde0.user.js#sha256=5vl6Zr3g7R0V1BqzG0ZMrE4Ywgjsx4VGVT/Y+FZ3UC8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.4a633c717de9.user.js#sha256=SmM8cX3pEcp4vEejssUh8YJIHcrk1myMZ6iLip4dqmo=
+// @require https://yomureader.com/greasyfork/yomu-anki.4b7aa2b22744.user.js#sha256=S3qisidEHKN73+IXvtlElkDr2+tN716qRYR2cY+UeKw=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.d469922ac6b3.user.js#sha256=1GmSKsaz0zAV48302vR4UzUlfdQ6vQEbCI2BJwKDkL8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.f4855b2333cf.user.js#sha256=9IVbIzPPRxoO9k5/Z/3+57g0CM0QZCvFR2TnEDXNbmA=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.0bd3b48bbcc8.user.js#sha256=C9O0i7zIT+xTnrB02EjPJbTi52ZdLCJ31/gmI1+a07M=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.a6c53dc298c8.user.js#sha256=psU9wpjIzzxlyY9uc13Mh68Bz95t0JgxKLYyDFDWrqc=
-// @require https://yomureader.com/greasyfork/yomu-video.dcaba0bd8888.user.js#sha256=3KugvYiIgno+TCFtyOmwqMj4zIwFaF7lHOta8dsJvjk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.8e7f76fdb2a0.user.js#sha256=jn92/bKg5sVhzfpcJ9iw3/yTXm9xz89cMJAIAB59exk=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.393a11ac0fe0.user.js#sha256=OToRrA/gxIpYvTZ9qGu0o5m2/3l8t4HBSIixlw4izpM=
+// @require https://yomureader.com/greasyfork/yomu-video.7d17e13f0d08.user.js#sha256=fRfhPw0Ird5VHoh4g3OqFnh5uyYeE1l/lr9hVvLQJKE=
 // @resource yomuCss  https://yomureader.com/yomu.e5eaf98c5977.css#sha256=5er5jFl3bkocAvqWPd9oebsnxlo5IhEd/FJNBhyAC9g=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -597,8 +597,12 @@ function applyPassiveChromeMarks(marks) {
   for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
 }
 function markPassiveChromeElement(element, atomic = false) {
+  if (element.dataset.jpdbReaderPassiveChrome !== "true") {
   element.dataset.jpdbReaderPassiveChrome = "true";
-  if (atomic) element.dataset.jpdbReaderPassiveAtomic = "true";
+  }
+  if (atomic && element.dataset.jpdbReaderPassiveAtomic !== "true") {
+  element.dataset.jpdbReaderPassiveAtomic = "true";
+  }
   if (element.getAttribute("role") === "button" && !hasExplicitAccessibleName(element)) {
   element.setAttribute("aria-label", passiveChromeAccessibleLabel(element));
   }
@@ -937,7 +941,9 @@ function decorationSuppressesRuby(state) {
   return state === "interactive-passive";
 }
 function stampDecorationState(host, state) {
+  if (host.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state) {
   host.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
+  }
 }
 function decorationStateForWord(word) {
   const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
@@ -2606,6 +2612,14 @@ async function gmStorageGet(key, fallback) {
   const getValue = asyncGmGetValue();
   if (getValue) {
   try {
+    const pendingPatch = pendingHostedLocalPatch(key);
+    if (pendingPatch) {
+      const shared = await getValue(key, MISSING);
+      const sharedRecord = !isMissingSentinel(shared) && isPlainRecord(shared) ? shared : {};
+      const reconciled = { ...sharedRecord, ...pendingPatch };
+      await gmStorageSet(key, reconciled);
+      return reconciled;
+    }
     const value = await getValue(key, MISSING);
     if (!isMissingSentinel(value)) return value;
     const migrated = localStorageGet(key, MISSING);
@@ -2619,7 +2633,12 @@ async function gmStorageGet(key, fallback) {
     debugStorageError("GM storage read failed", key, error);
   }
   }
-  return localStorageGet(key, fallback);
+  const local = localStorageGet(key, MISSING);
+  if (!isMissingSentinel(local)) return local;
+  if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+  localStorageSet(key, fallback);
+  }
+  return fallback;
 }
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -2648,12 +2667,42 @@ function migratedLocalStorageSyncValue(key) {
   return { kind: "found", value: promoted };
 }
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const record = { ...value };
+  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
   return record;
+}
+function pendingHostedLocalPatch(key) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
+  const value = localStorageGet(key, void 0);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
+  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
+}
+function localFallbackValueForWrite(key, value) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const current = sanitizedStrandedLocalValue(key, value);
+  const previousValue = localStorageGet(key, void 0);
+  const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
+  const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
+  if (!previous) return value;
+  const changed = changedRecordFields(previous, current);
+  return {
+  ...value,
+  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
+  };
+}
+function changedRecordFields(previous, current) {
+  const changed = {};
+  for (const [field, value] of Object.entries(current)) {
+  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+  }
+  return changed;
 }
 async function gmStorageSet(key, value) {
   const setValue = asyncGmSetValue();
@@ -2666,7 +2715,7 @@ async function gmStorageSet(key, value) {
     debugStorageError("GM storage write failed", key, error);
   }
   }
-  localStorageSet(key, value);
+  localStorageSet(key, localFallbackValueForWrite(key, value));
 }
 function gmStorageSetSync(key, value) {
   if (typeof GM_setValue === "function") {
@@ -2681,7 +2730,7 @@ function gmStorageSetSync(key, value) {
     debugStorageError("GM storage sync write failed", key, error);
   }
   }
-  localStorageSet(key, value);
+  localStorageSet(key, localFallbackValueForWrite(key, value));
 }
 async function gmStorageDelete(key) {
   const deleteValue = asyncGmDeleteValue();
@@ -2706,6 +2755,9 @@ function gmStorageDeleteSync(key) {
   }
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
+}
+function isPlainRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 async function clearManagedStoredValues() {
   const keys = await allStorageKeys();
@@ -2919,6 +2971,9 @@ function webStorageHasKey(storage, key) {
 function mirrorManagedValueToHostedStorage(key, value) {
   if (!shouldMirrorManagedValueToHostedStorage(key)) return;
   localStorageSet(key, value);
+}
+function cacheManagedValueForHostedStartup(key, value) {
+  mirrorManagedValueToHostedStorage(key, value);
 }
 function shouldMirrorManagedValueToHostedStorage(key) {
   return isManagedStorageKey(key) && isHostedYomuOrigin();
@@ -5124,6 +5179,7 @@ function normalizedOcrEngineInput(value) {
 async function loadSettings() {
   if (settingsResetInProgress) return mergeSettings(null);
   try {
+  const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
   const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   let settings = mergeSettings(currentRecord);
   let recoveredLegacySettings = false;
@@ -5141,6 +5197,9 @@ async function loadSettings() {
     recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
   }
   if (recoveredLegacySettings) await persistSettings(settings);
+  else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
+    cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
+  }
   return settings;
   } catch (error) {
   log$f.warn("Settings load failed", { error });
@@ -6931,12 +6990,9 @@ function visitFragmentShadowRoot(element, state) {
   }
   state.shadowDepth += 1;
   const shadowChildren = Array.from(shadowRoot.childNodes);
-  for (let index = 0; index < shadowChildren.length; index += 1) {
-  visitFragmentNode(shadowChildren[index], state, false);
-  if (fragmentCollectionComplete(state)) {
-    deferBudgetTruncatedChildren(shadowChildren, index + 1);
-    break;
-  }
+  for (const child of shadowChildren) {
+  visitFragmentNode(child, state, false);
+  if (fragmentCollectionComplete(state)) break;
   }
   flushFragmentTextTarget(state);
   state.shadowDepth -= 1;
@@ -7120,34 +7176,10 @@ function flushFragmentBlockBoundary(isBlock, state) {
   if (isBlock) flushFragmentTextTarget(state);
 }
 function visitFragmentElementChildren(element, state, hasNativeRuby) {
-  const children = Array.from(element.childNodes);
-  for (let index = 0; index < children.length; index += 1) {
-  visitFragmentNode(children[index], state, hasNativeRuby);
-  if (fragmentCollectionComplete(state)) {
-    deferBudgetTruncatedChildren(children, index + 1);
-    break;
+  for (const child of Array.from(element.childNodes)) {
+  visitFragmentNode(child, state, hasNativeRuby);
+  if (fragmentCollectionComplete(state)) break;
   }
-  }
-}
-const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
-function deferBudgetTruncatedChildren(children, fromIndex) {
-  for (let index = fromIndex; index < children.length; index += 1) {
-  const child = children[index];
-  if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
-    deferDepthCappedShadowHost(child);
-  }
-  }
-}
-function subtreeMayHostOpenShadowRoot(element) {
-  if (isPotentialOpenShadowHostElement(element)) return true;
-  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
-  for (let inspected = 0, node = walker.nextNode(); node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
-  if (isPotentialOpenShadowHostElement(node)) return true;
-  }
-  return walker.nextNode() !== null;
-}
-function isPotentialOpenShadowHostElement(element) {
-  return Boolean(element.shadowRoot) || element.localName.includes("-");
 }
 function nextFragmentRubyState(element, hasNativeRuby) {
   return hasNativeRuby || element.tagName === "RUBY" || element.tagName === "RB";
@@ -8054,34 +8086,38 @@ function styleDetachedReadingElements(root, host) {
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
   const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
   for (const wrapper of detachedRubies) {
-  wrapper.style.setProperty("position", "relative", "important");
-  wrapper.style.setProperty("display", "inline-block", "important");
-  wrapper.style.setProperty("line-height", "1", "important");
-  wrapper.style.setProperty("vertical-align", "baseline", "important");
-  wrapper.style.setProperty("white-space", "nowrap", "important");
+  setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+  setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+  setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+  setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+  setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
   }
   for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-  reading.style.setProperty("position", "absolute", "important");
-  reading.style.setProperty("z-index", "2");
-  reading.style.setProperty("inset-inline-start", "50%");
-  reading.style.setProperty("inset-block-end", "calc(100% + 3px)");
-  reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
-  reading.style.setProperty("width", "max-content");
-  reading.style.setProperty("max-width", "none");
-  reading.style.setProperty("font-size", `${readingFontSize}px`);
-  reading.style.setProperty("font-weight", "700");
-  reading.style.setProperty("line-height", "1", "important");
-  reading.style.setProperty("white-space", "nowrap", "important");
-  reading.style.setProperty("word-break", "keep-all", "important");
-  reading.style.setProperty("overflow-wrap", "normal", "important");
-  reading.style.setProperty("transform", "translateX(-50%)", "important");
-  reading.style.setProperty("pointer-events", "none");
-  reading.style.setProperty("text-decoration", "none", "important");
-  reading.style.setProperty("user-select", "none");
-  reading.style.setProperty("-webkit-user-select", "none");
-  reading.style.removeProperty("color");
-  reading.style.setProperty("-webkit-text-fill-color", "currentColor", "important");
+  setInlineStyleIfChanged(reading, "position", "absolute", "important");
+  setInlineStyleIfChanged(reading, "z-index", "2");
+  setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
+  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  setInlineStyleIfChanged(reading, "width", "max-content");
+  setInlineStyleIfChanged(reading, "max-width", "none");
+  setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+  setInlineStyleIfChanged(reading, "font-weight", "700");
+  setInlineStyleIfChanged(reading, "line-height", "1", "important");
+  setInlineStyleIfChanged(reading, "white-space", "nowrap", "important");
+  setInlineStyleIfChanged(reading, "word-break", "keep-all", "important");
+  setInlineStyleIfChanged(reading, "overflow-wrap", "normal", "important");
+  setInlineStyleIfChanged(reading, "transform", "translateX(-50%)", "important");
+  setInlineStyleIfChanged(reading, "pointer-events", "none");
+  setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+  setInlineStyleIfChanged(reading, "user-select", "none");
+  setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+  if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+  setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
   }
+}
+function setInlineStyleIfChanged(element, property, value, priority2 = "") {
+  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
+  element.style.setProperty(property, value, priority2);
 }
 const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
 function styleAdditiveMirrorPaint(root) {
@@ -8130,9 +8166,21 @@ function filterDetachedWordsToClip(root, clipRow) {
 const DETACHED_READING_COLLISION_SLOP = 0.5;
 const DETACHED_READING_CLEARANCE_PX = 3;
 const pendingDetachedReadingSurfaces = new Set();
+const settledDetachedReadingGeometry = new WeakMap();
 function detachedReadingCollisionSurface(root) {
   const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
   return composedAncestorElement(owner) ?? owner;
+}
+function detachedReadingSurfaceGeometrySignature(root) {
+  const surface = detachedReadingCollisionSurface(root);
+  const elements = [
+  surface,
+  ...queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base")
+  ];
+  return elements.map((element) => {
+  const rect = element.getBoundingClientRect();
+  return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element.className}:${element.textContent ?? ""}`;
+  }).join("|");
 }
 function exposeDetachedReadingCandidate(reading) {
   delete reading.dataset.yomuDetachedReadingHidden;
@@ -8566,16 +8614,18 @@ const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
 const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
 const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
 const detachedReadingClipStyles = new WeakMap();
+const detachedReadingClipGeometry = new WeakMap();
 function isExpandableContentClip(element) {
   if (element.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
   if (element.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
   return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element.localName);
 }
 function openSafeDetachedReadingClips(element) {
-  restoreOwnedDetachedReadingClips(element);
   let current = element;
   for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
   if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
+  if (detachedReadingClipStyles.has(current) && detachedReadingClipGeometry.get(current) === detachedReadingGeometrySignature(current)) continue;
+  if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
   if (isExpandableContentClip(current)) {
     restoreDetachedReadingClip(current);
     continue;
@@ -8591,12 +8641,6 @@ function openSafeDetachedReadingClips(element) {
   const tallSingleLine = !compact2 && rect.height > 0 && rect.height <= DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT && !clamped && measured && detachedBaseContentFits(current);
   if (compact2 && baseFits || tallSingleLine) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
-  }
-}
-function restoreOwnedDetachedReadingClips(element) {
-  let current = element;
-  for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
-  if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
   }
 }
 function openedDetachedReadingChildFits(box) {
@@ -8627,14 +8671,19 @@ function openDetachedReadingClip(box) {
     priority: box.style.getPropertyPriority("overflow")
   });
   }
-  box.dataset.yomuDetachedReadingOverflow = "true";
-  box.style.setProperty("overflow", "visible", "important");
+  if (box.dataset.yomuDetachedReadingOverflow !== "true") box.dataset.yomuDetachedReadingOverflow = "true";
+  setInlineStyleIfChanged(box, "overflow", "visible", "important");
   syncDetachedReadingRestVisibility(box);
+  detachedReadingClipGeometry.set(box, detachedReadingGeometrySignature(box));
+}
+function detachedReadingGeometrySignature(box) {
+  const rect = box.getBoundingClientRect();
+  return `${box.clientWidth}:${box.clientHeight}:${rect.width}:${rect.height}:${box.className}:${box.textContent ?? ""}`;
 }
 function syncDetachedReadingRestVisibility(box) {
   box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
   if (reading.dataset.yomuDetachedReadingHidden) return;
-  reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   });
 }
 function restoreDetachedReadingClip(box) {
@@ -8644,7 +8693,8 @@ function restoreDetachedReadingClip(box) {
   else box.style.removeProperty("overflow");
   }
   detachedReadingClipStyles.delete(box);
-  delete box.dataset.yomuDetachedReadingOverflow;
+  detachedReadingClipGeometry.delete(box);
+  if (box.dataset.yomuDetachedReadingOverflow !== void 0) delete box.dataset.yomuDetachedReadingOverflow;
   syncDetachedReadingRestVisibility(box);
 }
 function detachedBaseContentFits(box) {
@@ -9243,7 +9293,8 @@ function healTextMirrorPageVisibility() {
 function healLateClipConstrainedStamp(host) {
   const mirror = currentTextMirror(host);
   if (!mirror || mirror.dataset.yomuDetachedReadings !== "true") return;
-  restoreOwnedDetachedReadingClips(host);
+  const geometry = detachedReadingSurfaceGeometrySignature(mirror);
+  if (settledDetachedReadingGeometry.get(host) === geometry) return;
   const clipRow = closestRubyFragileConstrainedRow(host);
   if (clipRow && !clipRow.dataset.yomuClipConstrained) {
   const decoration = host.closest("[data-yomu-decoration]")?.getAttribute("data-yomu-decoration");
@@ -9252,6 +9303,7 @@ function healLateClipConstrainedStamp(host) {
   openSafeDetachedReadingClips(host);
   filterDetachedWordsToClip(mirror, clipRow);
   pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+  settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
 }
 function dispatchTextMirrorStale(host) {
   host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -32904,6 +32956,7 @@ const COLORED_READER_WORD_CLASSES = new Set([
   "jpdb-pitch-odaka"
 ]);
 const pendingHoverContrastRefresh = new WeakSet();
+const appliedContrastState = new WeakMap();
 function refreshReaderWordContrast(root = document) {
   const words = readerWords(root);
   const activeWords = [];
@@ -32941,6 +32994,11 @@ function refreshReaderWordContrast(root = document) {
     continue;
   }
   const isHovered = word.matches(":hover, :focus");
+  const previous = appliedContrastState.get(word);
+  const parentColor = getComputedStyle(word.parentElement ?? word).color;
+  if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
+    continue;
+  }
   if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
     scheduleHoverSettledContrastRefresh(word);
     continue;
@@ -32981,6 +33039,13 @@ function refreshReaderWordContrast(root = document) {
     if (value) word.style.setProperty(name, value, priority2);
   });
   applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
+  appliedContrastState.set(word, {
+    background: activeBackgrounds[i].css,
+    className: word.className,
+    cssText: word.style.cssText,
+    hovered: measurements[i].hovered,
+    parentColor: measurements[i].parentFg
+  });
   });
 }
 function measuredWordDecorationColor(style) {
@@ -33686,8 +33751,8 @@ const READER_THEME_COLORS = READER_THEME_COLOR_TOKENS;
 function applyReaderTheme(settings, root = document.documentElement) {
   const theme = appliedReaderTheme(settings);
   if (!root) return theme;
-  root.classList.toggle("jpdb-reader-theme-dark", settings.theme === "dark");
-  root.classList.toggle("jpdb-reader-theme-light", settings.theme === "light");
+  toggleClassIfChanged(root, "jpdb-reader-theme-dark", settings.theme === "dark");
+  toggleClassIfChanged(root, "jpdb-reader-theme-light", settings.theme === "light");
   applyReaderAccentColor(settings.accentColor, root);
   applyReaderWordColors(settings, root);
   applyReaderImageTextOverlaySettings(settings, root);
@@ -33696,22 +33761,26 @@ function applyReaderTheme(settings, root = document.documentElement) {
   applyPopupFontSettings(settings, root);
   const hideGroups = theme.furiganaMode === "known-status" ? new Set(settings.furiganaHiddenStateGroups) : new Set();
   for (const group of ["new", "learning", "known", "due", "failed"]) {
-  root.classList.toggle(`yomu-furi-hide-${group}`, hideGroups.has(group));
+  toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
   }
-  root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
-  root.classList.toggle("yomu-furi-hover", theme.furiganaMode === "hover");
-  root.classList.toggle("yomu-word-color-new-only", settings.wordColorStates === "new-only");
+  toggleClassIfChanged(root, "jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
+  toggleClassIfChanged(root, "yomu-furi-hover", theme.furiganaMode === "hover");
+  toggleClassIfChanged(root, "yomu-word-color-new-only", settings.wordColorStates === "new-only");
   const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
   for (const group of ["new", "learning", "known", "due", "failed"]) {
-  root.classList.toggle(`yomu-word-color-hide-${group}`, colorHideGroups.has(group));
+  toggleClassIfChanged(root, `yomu-word-color-hide-${group}`, colorHideGroups.has(group));
   }
-  root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
-  root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
-  root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
+  toggleClassIfChanged(root, "jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
+  toggleClassIfChanged(root, "jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
+  const legacyClasses = ["jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off"].filter((className) => root.classList.contains(className));
+  if (legacyClasses.length) root.classList.remove(...legacyClasses);
   applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
   applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
   guardReaderRootClasses(root);
   return theme;
+}
+function toggleClassIfChanged(root, className, enabled) {
+  if (root.classList.contains(className) !== enabled) root.classList.toggle(className, enabled);
 }
 let guardedRootClasses = [];
 let readerRootClassObserver = null;
@@ -33822,7 +33891,7 @@ function readerPitchColors(settings) {
 function applyReaderColorSourceClasses(root, scope, sources) {
   COLOR_CHANNELS.forEach((channel) => {
   COLOR_SOURCE_CLASSES.forEach((source) => {
-    root.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+    toggleClassIfChanged(root, `jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
   });
   });
 }
@@ -34048,8 +34117,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.255"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.255"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.256"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.256"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34169,7 +34238,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.255"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.256"}`;
   } catch {
   return null;
   }
@@ -34727,17 +34796,23 @@ class VisiblePageScanner {
   const settings = this.dependencies.getSettings();
   this.syncClampedRowReadingsMode(settings);
   if (settings.showFurigana && settings.furiganaMode === "all") {
-    document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, "all");
+    if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== "all") {
+      document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, "all");
+    }
     return;
   }
   this.clearPageFuriganaMode();
   }
   syncClampedRowReadingsMode(settings) {
   if (settings.clampedRowReadings === "hover") {
-    document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, "hover");
+    if (document.documentElement.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== "hover") {
+      document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, "hover");
+    }
     return;
   }
-  document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+  if (document.documentElement.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
+    document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+  }
   }
   clearPageFuriganaMode() {
   if (typeof document === "undefined") return;
@@ -36070,8 +36145,12 @@ class ReaderApp {
   }
   applyReaderThemeClasses(theme) {
   const root = document.documentElement;
-  root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
-  root.classList.toggle("jpdb-reader-theme-light", theme === "light");
+  if (root.classList.contains("jpdb-reader-theme-dark") !== (theme === "dark")) {
+    root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
+  }
+  if (root.classList.contains("jpdb-reader-theme-light") !== (theme === "light")) {
+    root.classList.toggle("jpdb-reader-theme-light", theme === "light");
+  }
   }
   handleHostThemeChange(hostTheme) {
   if (this.isDestroyed) return;

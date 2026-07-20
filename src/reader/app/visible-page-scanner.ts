@@ -659,7 +659,9 @@ export class VisiblePageScanner {
         const settings = this.dependencies.getSettings();
         this.syncClampedRowReadingsMode(settings);
         if (settings.showFurigana && settings.furiganaMode === 'all') {
-            document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+            if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== 'all') {
+                document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+            }
             return;
         }
         this.clearPageFuriganaMode();
@@ -670,10 +672,14 @@ export class VisiblePageScanner {
     // (the CSS keys on it, so flipping the setting needs no re-render).
     private syncClampedRowReadingsMode(settings: ReaderSettings): void {
         if (settings.clampedRowReadings === 'hover') {
-            document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
+            if (document.documentElement.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== 'hover') {
+                document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
+            }
             return;
         }
-        document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+        if (document.documentElement.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
+            document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+        }
     }
 
     private clearPageFuriganaMode(): void {

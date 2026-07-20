@@ -629,6 +629,10 @@ export async function addGmStorageBridgeInitScript(page, options) {
     await page.addInitScript(initGmBridge, { ...options, storageEnabled: true });
 }
 
+export async function installGmStorageBridgeOnCurrentPage(page, options) {
+    await page.evaluate(initGmBridge, { ...options, storageEnabled: true });
+}
+
 export async function installUserscriptFixtureBridge(page, {
     requestBridgeName,
     requestHandler,

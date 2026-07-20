@@ -6,7 +6,7 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
 import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
@@ -1599,6 +1599,9 @@ function normalizedOcrEngineInput(value: unknown): string {
 export async function loadSettings(): Promise<ReaderSettings> {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
+        const cacheStandaloneBaseline = isHostedYomuOrigin()
+            && !hasAsyncGmStorageBackend()
+            && localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
         const currentRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
         let settings = mergeSettings(currentRecord);
         let recoveredLegacySettings = false;
@@ -1620,6 +1623,9 @@ export async function loadSettings(): Promise<ReaderSettings> {
         }
 
         if (recoveredLegacySettings) await persistSettings(settings);
+        else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
+            cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
+        }
         return settings;
     } catch (error) {
         log.warn('Settings load failed', { error });

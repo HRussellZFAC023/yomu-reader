@@ -1325,21 +1325,24 @@ export class SubtitlePlayerController {
         if (!this.root) return;
         const tracksPanelOpen = settings.subtitlePlayerEnabled && this.panelMode === 'tracks' && this.isTranscriptPanelOpen();
         const hidden = !tracksPanelOpen && shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
-        this.root.hidden = hidden;
+        if (this.root.hidden !== hidden) this.root.hidden = hidden;
         if (hidden && this.transcriptPanel) this.hideTranscriptPanelElement({ immediate: true });
-        this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
-        this.root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
-        this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
-        this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
-        this.root.classList.toggle('jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
+        setClassState(this.root, 'jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
+        setClassState(this.root, 'jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
+        setClassState(this.root, 'jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
+        setClassState(this.root, 'jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
+        setClassState(this.root, 'jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
         // Leaving auto mode (pinned or hidden) must drop any committed OR
         // pending fully-hidden state so a pin can never inherit a stale hide.
         if (settings.subtitleControlsMode !== 'auto') this.setControlsAway(false);
         if (!this.video) {
-            this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
-            this.root.classList.add('jpdb-subtitle-video-out-of-view');
+            setClassState(this.root, 'jpdb-subtitle-has-video-frame', false);
+            setClassState(this.root, 'jpdb-subtitle-compact-video', false);
+            setClassState(this.root, 'jpdb-subtitle-video-out-of-view', true);
         }
-        this.transcriptPanel?.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
+        if (this.transcriptPanel) {
+            setClassState(this.transcriptPanel, 'jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
+        }
     }
 
     private syncRootStyleSettings(settings: ReaderSettings): void {
@@ -2053,7 +2056,8 @@ export class SubtitlePlayerController {
     }
 
     private syncYouTubeMobileBottomSheetState(): void {
-        document.documentElement.classList.toggle(
+        setClassState(
+            document.documentElement,
             YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
             hasOpenYouTubeMobileBottomSheet(),
         );
@@ -2213,8 +2217,9 @@ export class SubtitlePlayerController {
     private alignToVideo(): void {
         if (!this.root) return;
         if (!this.video) {
-            this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
-            this.root.classList.add('jpdb-subtitle-video-out-of-view');
+            setClassState(this.root, 'jpdb-subtitle-has-video-frame', false);
+            setClassState(this.root, 'jpdb-subtitle-compact-video', false);
+            setClassState(this.root, 'jpdb-subtitle-video-out-of-view', true);
             this.lastAlignedVideoRectKey = '';
             this.positionTranscriptPanel();
             return;
@@ -2273,16 +2278,16 @@ export class SubtitlePlayerController {
     private applyVideoLayout(rect: DOMRect): void {
         if (!this.root) return;
         const videoVisible = this.isVideoOverlayVisible(rect);
-        this.root.classList.toggle('jpdb-subtitle-video-out-of-view', !videoVisible);
-        this.root.classList.toggle('jpdb-subtitle-has-video-frame', videoVisible);
+        setClassState(this.root, 'jpdb-subtitle-video-out-of-view', !videoVisible);
+        setClassState(this.root, 'jpdb-subtitle-has-video-frame', videoVisible);
         if (!videoVisible) {
-            this.root.classList.remove('jpdb-subtitle-compact-video');
+            setClassState(this.root, 'jpdb-subtitle-compact-video', false);
             this.clearVideoInsetForTranscriptPanel();
             this.positionTranscriptPanel();
             return;
         }
         const layout = subtitleOverlayLayout(rect);
-        this.root.classList.toggle('jpdb-subtitle-compact-video', layout.width < 560 || layout.height < 260);
+        setClassState(this.root, 'jpdb-subtitle-compact-video', layout.width < 560 || layout.height < 260);
         if (rect.width < 120 || rect.height < 80) {
             applyElementLayout(this.root, {
                 left: 0,
@@ -5047,10 +5052,12 @@ export class SubtitlePlayerController {
 
     private syncControls(): void {
         const hasLines = this.hasVisibleSubtitleLines();
-        this.root?.classList.toggle('jpdb-subtitle-panel-open', this.isTranscriptPanelOpen());
-        this.root?.classList.toggle('jpdb-subtitle-style-open', this.subtitleStylePanelOpen);
-        this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
-        this.root?.classList.toggle('jpdb-subtitle-has-track', hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
+        if (this.root) {
+            setClassState(this.root, 'jpdb-subtitle-panel-open', this.isTranscriptPanelOpen());
+            setClassState(this.root, 'jpdb-subtitle-style-open', this.subtitleStylePanelOpen);
+            setClassState(this.root, 'jpdb-subtitle-has-lines', hasLines);
+            setClassState(this.root, 'jpdb-subtitle-has-track', hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
+        }
         this.syncTranscriptPlacementClass();
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
@@ -5112,7 +5119,10 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const expandedMode = settings.subtitleControlsMode === 'always';
         const expand = this.root?.querySelector<HTMLButtonElement>('[data-action="rail-expand"]');
-        if (expand) expand.setAttribute('aria-expanded', String(!this.root?.classList.contains('jpdb-subtitle-controls-idle') || expandedMode));
+        if (expand) {
+            const expanded = String(!this.root?.classList.contains('jpdb-subtitle-controls-idle') || expandedMode);
+            if (expand.getAttribute('aria-expanded') !== expanded) expand.setAttribute('aria-expanded', expanded);
+        }
     }
 
     private syncVideoFrameOcrButton(): void {
@@ -5215,12 +5225,16 @@ export class SubtitlePlayerController {
     private syncTranscriptPlacementClass(): void {
         if (!this.root) return;
         for (const element of [this.root, this.transcriptPanel].filter((item): item is HTMLElement => Boolean(item))) {
-            element.classList.toggle('jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
-            element.classList.toggle('jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
-            element.classList.toggle('jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
+            setClassState(element, 'jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
+            setClassState(element, 'jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
+            setClassState(element, 'jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
         }
-        this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-        if (this.transcriptPanel) this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+        if (this.root.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
+            this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+        }
+        if (this.transcriptPanel && this.transcriptPanel.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
+            this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+        }
         this.syncPanelPlacementButtons();
     }
 
@@ -5736,7 +5750,7 @@ export class SubtitlePlayerController {
         if (!this.root) return;
         const settings = this.options.getSettings();
         const open = this.subtitleStylePanelOpen && settings.subtitleControlsMode !== 'hidden';
-        this.root.classList.toggle('jpdb-subtitle-style-open', open);
+        setClassState(this.root, 'jpdb-subtitle-style-open', open);
         const button = this.root.querySelector<HTMLButtonElement>('[data-action="style"]');
         if (button) {
             const label = uiText(settings.interfaceLanguage, 'subtitleStyle');
@@ -6564,7 +6578,9 @@ export class SubtitlePlayerController {
     }
 
     private syncTranscriptAutoScrollPausedClass(): void {
-        this.transcriptPanel?.classList.toggle('jpdb-subtitle-auto-scroll-paused', this.isTranscriptAutoScrollPaused());
+        if (this.transcriptPanel) {
+            setClassState(this.transcriptPanel, 'jpdb-subtitle-auto-scroll-paused', this.isTranscriptAutoScrollPaused());
+        }
     }
 
     private isTranscriptAutoScrollPaused(): boolean {
@@ -8095,6 +8111,10 @@ export class SubtitlePlayerController {
             resizeEventMode: options.resizeEventMode,
         });
     }
+}
+
+function setClassState(element: HTMLElement, className: string, enabled: boolean): void {
+    if (element.classList.contains(className) !== enabled) element.classList.toggle(className, enabled);
 }
 
 function shouldHonorExplicitYouTubeSideLayout(layout: TranscriptPanelLayout): boolean {

@@ -1636,8 +1636,12 @@ export class ReaderApp {
 
     private applyReaderThemeClasses(theme: HostTheme): void {
         const root = document.documentElement;
-        root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
-        root.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+        if (root.classList.contains('jpdb-reader-theme-dark') !== (theme === 'dark')) {
+            root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
+        }
+        if (root.classList.contains('jpdb-reader-theme-light') !== (theme === 'light')) {
+            root.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+        }
     }
 
     private handleHostThemeChange(hostTheme: HostTheme): void {

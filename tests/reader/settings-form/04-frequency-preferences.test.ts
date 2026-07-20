@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { renderLookupPillsEditor } from '../../../src/reader/settings/form';
 import {
     frequencySettings,
     localizeSettingsForm,
@@ -11,14 +12,19 @@ import {
 describe('frequency dictionary preferences', () => {
     registerSettingsFormCleanup();
 
-    it('renders frequency badges and external links in one lookup pill editor', () => {
+    it('waits for live local dictionary evidence before rendering local frequency badges', () => {
         const form = renderSettingsTestForm(frequencySettings);
         const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
 
-        const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
-        const ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value);
+        let rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
+        let ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value);
         expect(ids).toContain('jiten-frequency');
         expect(ids).toContain('jpdb-frequency');
+        expect(ids).not.toContain('frequency-local:BCCWJ');
+
+        editor.innerHTML = renderLookupPillsEditor(frequencySettings);
+        rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
+        ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value);
         expect(ids).toContain('frequency-local:BCCWJ');
         expect(ids).toContain('frequency-local:Jiten');
         expect(ids).toContain('frequency-local:JPDB Freq');
@@ -42,6 +48,7 @@ describe('frequency dictionary preferences', () => {
     it('round-trips local frequency pill toggles and order through form read', () => {
         const form = renderSettingsTestForm(frequencySettings);
         const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
+        editor.innerHTML = renderLookupPillsEditor(frequencySettings);
         const disabledToggle = editor.querySelector<HTMLInputElement>('input[name$=".id"][value="frequency-local:JPDB Freq"]')!
             .closest<HTMLElement>('[data-lookup-link-row]')!
             .querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')!;

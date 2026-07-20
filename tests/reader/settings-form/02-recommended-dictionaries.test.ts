@@ -14,7 +14,7 @@ import {
 describe('recommended dictionary settings buttons', () => {
     registerSettingsFormCleanup();
 
-    it('shows Update for recommended dictionaries already present in saved settings', () => {
+    it('does not claim a recommended dictionary is installed from synced preferences alone', () => {
         const form = renderSettingsTestForm({
             ...DEFAULT_SETTINGS,
             dictionaryPreferences: [
@@ -24,10 +24,10 @@ describe('recommended dictionary settings buttons', () => {
             ],
         });
 
-        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
-        expect(recommendedDictionaryButton(form, 'kanjium-pitch').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Install');
+        expect(recommendedDictionaryButton(form, 'kanjium-pitch').textContent?.trim()).toBe('Install');
         expect(recommendedDictionaryGuideOrNull(form, 'kanjium-pitch')).toBeNull();
-        expect(recommendedDictionaryButton(form, 'jpdbv2-kana').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryButton(form, 'jpdbv2-kana').textContent?.trim()).toBe('Install');
     });
 
     it('shows pitch dictionaries as their own recommended group before frequency dictionaries', () => {
@@ -62,7 +62,7 @@ describe('recommended dictionary settings buttons', () => {
             ],
         });
 
-        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Install');
         expect(recommendedDictionaryButton(form, 'jiten').textContent?.trim()).toBe('Install');
     });
 });

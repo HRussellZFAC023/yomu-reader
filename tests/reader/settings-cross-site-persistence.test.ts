@@ -123,6 +123,83 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         expect(shared.jitenApiKey).toBe('stranded-key');
         expect(shared.subtitleControlsMode).not.toBe('always');
     });
+
+    it('promotes a hosted save made before a late GM bridge and then clears the pending marker', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const standalone = await loadSettings();
+        await saveSettings({ ...standalone, theme: 'dark', lookupOnHover: false, jitenApiKey: 'local-choice' });
+
+        const localBeforeBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
+        expect(localBeforeBridge.__yomuHostedPendingGmPatch).toMatchObject({
+            theme: 'dark',
+            lookupOnHover: false,
+            jitenApiKey: 'local-choice',
+        });
+
+        const store = new Map<string, unknown>([[
+            'jpdb-popup-reader-settings',
+            { onboardingSeen: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' },
+        ]]);
+        installSharedMessageBasedGm(store);
+
+        const reconciled = await loadSettings();
+        expect(reconciled.theme).toBe('dark');
+        expect(reconciled.lookupOnHover).toBe(false);
+        expect(reconciled.jitenApiKey).toBe('local-choice');
+        expect(reconciled.onboardingSeen).toBe(true);
+        expect(reconciled.popupMode).toBe('popover');
+        expect(store.get('jpdb-popup-reader-settings')).toMatchObject({
+            onboardingSeen: true,
+            theme: 'dark',
+            popupMode: 'popover',
+            lookupOnHover: false,
+            jitenApiKey: 'local-choice',
+        });
+        expect(store.get('jpdb-popup-reader-settings')).not.toHaveProperty('__yomuHostedPendingGmPatch');
+
+        const localAfterBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
+        expect(localAfterBridge.__yomuHostedPendingGmPatch).toBeUndefined();
+    });
+
+    it('merges only the pending hosted fields into newer GM changes from another site', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const initialStore = new Map<string, unknown>([[
+            'jpdb-popup-reader-settings',
+            { theme: 'light', popupMode: 'sheet', lookupOnHover: true },
+        ]]);
+        installSharedMessageBasedGm(initialStore);
+        await loadSettings();
+        vi.unstubAllGlobals();
+        vi.stubGlobal('location', hostedLocation);
+
+        const local = await loadSettings();
+        await saveSettings({ ...local, theme: 'dark' });
+
+        const currentStore = new Map<string, unknown>([[
+            'jpdb-popup-reader-settings',
+            { theme: 'light', popupMode: 'popover', lookupOnHover: false },
+        ]]);
+        installSharedMessageBasedGm(currentStore);
+        const reconciled = await loadSettings();
+
+        expect(reconciled.theme).toBe('dark');
+        expect(reconciled.popupMode).toBe('popover');
+        expect(reconciled.lookupOnHover).toBe(false);
+    });
+
+    it('keeps GM settings after the hosted localStorage mirror is cleared', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        const settings = await loadSettings();
+        await saveSettings({ ...settings, theme: 'dark', lookupOnHover: false, jitenApiKey: 'durable-key' });
+
+        localStorage.clear();
+        const reloaded = await loadSettings();
+        expect(reloaded.theme).toBe('dark');
+        expect(reloaded.lookupOnHover).toBe(false);
+        expect(reloaded.jitenApiKey).toBe('durable-key');
+    });
 });
 
 // Until 1.6.140 the YouTube filter notice's "hide" button silently persisted

@@ -1115,12 +1115,9 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // annotated twice.
     state.shadowDepth += 1;
     const shadowChildren = Array.from(shadowRoot.childNodes);
-    for (let index = 0; index < shadowChildren.length; index += 1) {
-        visitFragmentNode(shadowChildren[index], state, false);
-        if (fragmentCollectionComplete(state)) {
-            deferBudgetTruncatedChildren(shadowChildren, index + 1);
-            break;
-        }
+    for (const child of shadowChildren) {
+        visitFragmentNode(child, state, false);
+        if (fragmentCollectionComplete(state)) break;
     }
     flushFragmentTextTarget(state);
     state.shadowDepth -= 1;
@@ -1434,50 +1431,10 @@ function visitFragmentElementChildren(
     state: FragmentTextCollectionState,
     hasNativeRuby: boolean,
 ): void {
-    const children = Array.from(element.childNodes);
-    for (let index = 0; index < children.length; index += 1) {
-        visitFragmentNode(children[index], state, hasNativeRuby);
-        if (fragmentCollectionComplete(state)) {
-            deferBudgetTruncatedChildren(children, index + 1);
-            break;
-        }
+    for (const child of Array.from(element.childNodes)) {
+        visitFragmentNode(child, state, hasNativeRuby);
+        if (fragmentCollectionComplete(state)) break;
     }
-}
-
-// A walk that stops on a full target budget must not silently strand the
-// un-walked remainder: an open shadow host the walk never touches is never
-// registered for observation, so Japanese hydrating inside it can never be
-// annotated by any later pass (large component roots — e.g. feed post shells —
-// hit this before reaching their trailing action bars). Queue the un-walked
-// elements that can host open shadow roots onto the same deferred-continuation
-// lane the depth cap uses; bounded rounds resume there with a fresh budget and
-// re-queue on a repeat truncation, so coverage converges instead of truncating.
-const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
-
-function deferBudgetTruncatedChildren(children: Node[], fromIndex: number): void {
-    for (let index = fromIndex; index < children.length; index += 1) {
-        const child = children[index];
-        if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
-            deferDepthCappedShadowHost(child);
-        }
-    }
-}
-
-function subtreeMayHostOpenShadowRoot(element: HTMLElement): boolean {
-    if (isPotentialOpenShadowHostElement(element)) return true;
-    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node = walker.nextNode();
-        node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT;
-        inspected += 1, node = walker.nextNode()) {
-        if (isPotentialOpenShadowHostElement(node as Element)) return true;
-    }
-    // Lookahead exhausted without a verdict: keep the branch rather than
-    // silently dropping a host deeper than the bound.
-    return walker.nextNode() !== null;
-}
-
-function isPotentialOpenShadowHostElement(element: Element): boolean {
-    return Boolean(element.shadowRoot) || element.localName.includes('-');
 }
 
 function nextFragmentRubyState(element: HTMLElement, hasNativeRuby: boolean): boolean {
@@ -2906,46 +2863,52 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
 
     for (const wrapper of detachedRubies) {
-        wrapper.style.setProperty('position', 'relative', 'important');
-        wrapper.style.setProperty('display', 'inline-block', 'important');
-        wrapper.style.setProperty('line-height', '1', 'important');
-        wrapper.style.setProperty('vertical-align', 'baseline', 'important');
-        wrapper.style.setProperty('white-space', 'nowrap', 'important');
+        setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');
+        setInlineStyleIfChanged(wrapper, 'display', 'inline-block', 'important');
+        setInlineStyleIfChanged(wrapper, 'line-height', '1', 'important');
+        setInlineStyleIfChanged(wrapper, 'vertical-align', 'baseline', 'important');
+        setInlineStyleIfChanged(wrapper, 'white-space', 'nowrap', 'important');
     }
 
     for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
-        reading.style.setProperty('position', 'absolute', 'important');
-        reading.style.setProperty('z-index', '2');
-        reading.style.setProperty('inset-inline-start', '50%');
+        setInlineStyleIfChanged(reading, 'position', 'absolute', 'important');
+        setInlineStyleIfChanged(reading, 'z-index', '2');
+        setInlineStyleIfChanged(reading, 'inset-inline-start', '50%');
         // Leave a visible lane between the kana and its base glyph. WebKit's
         // ruby/font rounding consumes roughly one CSS pixel, so 3px here
         // produces a measured >=2px gap in both Chromium and WebKit.
-        reading.style.setProperty('inset-block-end', 'calc(100% + 3px)');
+        setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 3px)');
         // A reading inside a clip-constrained row whose clip was NOT safely
         // opened (multi-line clamps never open) sits in the fixed inter-line
         // leading and paints over the line above — same at-rest rule as
         // in-place rt, applied here because inline !important is what wins.
-        reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
-        reading.style.setProperty('width', 'max-content');
-        reading.style.setProperty('max-width', 'none');
-        reading.style.setProperty('font-size', `${readingFontSize}px`);
-        reading.style.setProperty('font-weight', '700');
-        reading.style.setProperty('line-height', '1', 'important');
-        reading.style.setProperty('white-space', 'nowrap', 'important');
-        reading.style.setProperty('word-break', 'keep-all', 'important');
-        reading.style.setProperty('overflow-wrap', 'normal', 'important');
-        reading.style.setProperty('transform', 'translateX(-50%)', 'important');
-        reading.style.setProperty('pointer-events', 'none');
-        reading.style.setProperty('text-decoration', 'none', 'important');
-        reading.style.setProperty('user-select', 'none');
-        reading.style.setProperty('-webkit-user-select', 'none');
+        setInlineStyleIfChanged(reading, 'display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+        setInlineStyleIfChanged(reading, 'width', 'max-content');
+        setInlineStyleIfChanged(reading, 'max-width', 'none');
+        setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
+        setInlineStyleIfChanged(reading, 'font-weight', '700');
+        setInlineStyleIfChanged(reading, 'line-height', '1', 'important');
+        setInlineStyleIfChanged(reading, 'white-space', 'nowrap', 'important');
+        setInlineStyleIfChanged(reading, 'word-break', 'keep-all', 'important');
+        setInlineStyleIfChanged(reading, 'overflow-wrap', 'normal', 'important');
+        setInlineStyleIfChanged(reading, 'transform', 'translateX(-50%)', 'important');
+        setInlineStyleIfChanged(reading, 'pointer-events', 'none');
+        setInlineStyleIfChanged(reading, 'text-decoration', 'none', 'important');
+        setInlineStyleIfChanged(reading, 'user-select', 'none');
+        setInlineStyleIfChanged(reading, '-webkit-user-select', 'none');
         // Keep the semantic colour channel inherited from the live page. The
         // additive base glyphs are hidden with text-fill (not color), so a
         // late theme/class change flows through without a JS repaint or a
         // stale mount-time colour snapshot.
-        reading.style.removeProperty('color');
-        reading.style.setProperty('-webkit-text-fill-color', 'currentColor', 'important');
+        if (reading.style.getPropertyValue('color')) reading.style.removeProperty('color');
+        setInlineStyleIfChanged(reading, '-webkit-text-fill-color', 'currentColor', 'important');
     }
+}
+
+function setInlineStyleIfChanged(element: HTMLElement, property: string, value: string, priority = ''): void {
+    if (element.style.getPropertyValue(property) === value
+        && element.style.getPropertyPriority(property) === priority) return;
+    element.style.setProperty(property, value, priority);
 }
 
 type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
@@ -3022,12 +2985,25 @@ function filterDetachedWordsToClip(root: HTMLElement, clipRow: HTMLElement | nul
 const DETACHED_READING_COLLISION_SLOP = 0.5;
 const DETACHED_READING_CLEARANCE_PX = 3;
 const pendingDetachedReadingSurfaces = new Set<HTMLElement>();
+const settledDetachedReadingGeometry = new WeakMap<HTMLElement, string>();
 
 function detachedReadingCollisionSurface(root: HTMLElement): HTMLElement {
     const owner = root.matches(READER_TEXT_MIRROR_SELECTOR)
         ? composedParentElement(root) ?? root
         : root;
     return composedParentElement(owner) ?? owner;
+}
+
+function detachedReadingSurfaceGeometrySignature(root: HTMLElement): string {
+    const surface = detachedReadingCollisionSurface(root);
+    const elements = [
+        surface,
+        ...queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'),
+    ];
+    return elements.map(element => {
+        const rect = element.getBoundingClientRect();
+        return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element.className}:${element.textContent ?? ''}`;
+    }).join('|');
 }
 
 // Candidate-first: every reading — including ones the at-rest default
@@ -3673,6 +3649,7 @@ const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="gr
 // bare expanded region/panel remains protected from overflow opening.
 const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
 const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
+const detachedReadingClipGeometry = new WeakMap<HTMLElement, string>();
 
 // `aria-expanded` identifies the disclosure CONTROL, not the content panel it
 // toggles. Treating that attribute as panel ownership hid otherwise-safe menu
@@ -3698,10 +3675,12 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
     // Always judge against the page-authored clip. Otherwise our own previous
     // overflow:visible wins computed style forever and a safe->unsafe resize
     // can never close again.
-    restoreOwnedDetachedReadingClips(element);
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
         if (!queryAllInAnnotationRoots(current, '.jpdb-reader-detached-furi').length) continue;
+        if (detachedReadingClipStyles.has(current)
+            && detachedReadingClipGeometry.get(current) === detachedReadingGeometrySignature(current)) continue;
+        if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
         // Collapsible descriptions and accordions own their overflow. Opening
         // it for an out-of-flow reading lets annotated paint escape the panel
         // and overlap neighbouring media after expansion.
@@ -3733,13 +3712,6 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
             && detachedBaseContentFits(current);
         if ((compact && baseFits) || tallSingleLine) openDetachedReadingClip(current);
         else restoreDetachedReadingClip(current);
-    }
-}
-
-function restoreOwnedDetachedReadingClips(element: HTMLElement): void {
-    let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
-        if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
     }
 }
 
@@ -3794,11 +3766,17 @@ function openDetachedReadingClip(box: HTMLElement): void {
             priority: box.style.getPropertyPriority('overflow'),
         });
     }
-    box.dataset.yomuDetachedReadingOverflow = 'true';
+    if (box.dataset.yomuDetachedReadingOverflow !== 'true') box.dataset.yomuDetachedReadingOverflow = 'true';
     // Inline is required for open Shadow DOM: document-level Yomu CSS cannot
     // cross the component boundary. The saved value is restored on teardown.
-    box.style.setProperty('overflow', 'visible', 'important');
+    setInlineStyleIfChanged(box, 'overflow', 'visible', 'important');
     syncDetachedReadingRestVisibility(box);
+    detachedReadingClipGeometry.set(box, detachedReadingGeometrySignature(box));
+}
+
+function detachedReadingGeometrySignature(box: HTMLElement): string {
+    const rect = box.getBoundingClientRect();
+    return `${box.clientWidth}:${box.clientHeight}:${rect.width}:${rect.height}:${box.className}:${box.textContent ?? ''}`;
 }
 
 // Styling can run before the open/close verdict lands; re-evaluate the
@@ -3806,7 +3784,7 @@ function openDetachedReadingClip(box: HTMLElement): void {
 function syncDetachedReadingRestVisibility(box: HTMLElement): void {
     box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi').forEach(reading => {
         if (reading.dataset.yomuDetachedReadingHidden) return;
-        reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+        setInlineStyleIfChanged(reading, 'display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
     });
 }
 
@@ -3817,7 +3795,8 @@ function restoreDetachedReadingClip(box: HTMLElement): void {
         else box.style.removeProperty('overflow');
     }
     detachedReadingClipStyles.delete(box);
-    delete box.dataset.yomuDetachedReadingOverflow;
+    detachedReadingClipGeometry.delete(box);
+    if (box.dataset.yomuDetachedReadingOverflow !== undefined) delete box.dataset.yomuDetachedReadingOverflow;
     syncDetachedReadingRestVisibility(box);
 }
 
@@ -4777,7 +4756,8 @@ export function healTextMirrorPageVisibility(): void {
 function healLateClipConstrainedStamp(host: HTMLElement): void {
     const mirror = currentTextMirror(host);
     if (!mirror || mirror.dataset.yomuDetachedReadings !== 'true') return;
-    restoreOwnedDetachedReadingClips(host);
+    const geometry = detachedReadingSurfaceGeometrySignature(mirror);
+    if (settledDetachedReadingGeometry.get(host) === geometry) return;
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && !clipRow.dataset.yomuClipConstrained) {
         const decoration = host.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') as DecorationState | null;
@@ -4788,6 +4768,7 @@ function healLateClipConstrainedStamp(host: HTMLElement): void {
     openSafeDetachedReadingClips(host);
     filterDetachedWordsToClip(mirror, clipRow);
     pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+    settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
