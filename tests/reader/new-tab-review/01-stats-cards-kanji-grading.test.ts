@@ -973,9 +973,9 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
         root.innerHTML = '<div data-newtab-handwriting-candidates></div>';
         document.body.append(root);
         Object.assign(controller as unknown as {
-            state: { mode: string };
+            state: { route: string };
         }, {
-            state: { mode: 'search' },
+            state: { route: 'search' },
         });
         const handwritingInternals = (controller as unknown as { searchController: {
             searchHandwritingGeneration: number;

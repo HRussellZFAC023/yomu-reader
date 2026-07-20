@@ -173,6 +173,10 @@ export class NewTabSearchController {
 
     constructor(private readonly deps: NewTabSearchControllerDeps) {}
 
+    private currentRoute(): 'study' | 'search' | 'stats' {
+        return this.deps.getState().route;
+    }
+
     // --- State bridges used by the controller -----------------------------
 
     get query(): string {
@@ -440,7 +444,7 @@ export class NewTabSearchController {
         window.setTimeout(() => {
             const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             const canFocus = !active || active === document.body || Boolean(active.closest('[data-newtab-action="mode"]'));
-            if (this.deps.getState().mode === 'search' && input.isConnected && canFocus) input.focus();
+            if (this.currentRoute() === 'search' && input.isConnected && canFocus) input.focus();
         }, 0);
     }
 
@@ -579,7 +583,7 @@ export class NewTabSearchController {
             log.warn('Search handwriting geometry failed', error);
             return [];
         });
-        if (!root.isConnected || this.deps.getState().mode !== 'search' || generation !== this.searchHandwritingGeneration) return;
+        if (!root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
         const candidates = uniqueStrings([...recognizedCandidates, ...geometryCandidates]).slice(0, 8);
         const message = candidates.length ? '' : this.deps.text('searchNoHandwritingMatch');
         this.renderSearchHandwritingCandidates(root, candidates, message);
@@ -668,7 +672,7 @@ export class NewTabSearchController {
 
     private isCurrentSearch(root: HTMLElement, generation: number, query: string): boolean {
         return root.isConnected
-            && this.deps.getState().mode === 'search'
+            && this.currentRoute() === 'search'
             && this.searchGeneration === generation
             && normalizeSearchQuery(this.searchQuery) === query;
     }
@@ -1297,11 +1301,11 @@ export class NewTabSearchController {
 
     // --- Popstate / URL ---------------------------------------------------
 
-    handleSearchPopstate(root: HTMLElement, mode: string | null, query: string): boolean {
-        if (mode !== 'search' && this.deps.getState().mode !== 'search') return false;
+    handleSearchPopstate(root: HTMLElement, route: string | null, query: string): boolean {
+        if (route !== 'search' && this.currentRoute() !== 'search') return false;
         this.handlingSearchPopstate = true;
         try {
-            if (this.deps.getState().mode !== 'search') {
+            if (this.currentRoute() !== 'search') {
                 this.deps.enterSearchMode();
                 this.setSearchQuery(root, query);
                 this.renderSearch(root);

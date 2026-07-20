@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "yomu-academy",
-  "main": "workers/yomu-academy/src/index.ts",
+  "main": "workers/yomu-academy/src/payment-entrypoint.ts",
   "compatibility_date": "2026-07-12",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
@@ -24,6 +24,7 @@
       "ACADEMY_INVITE_HMAC_KEY",
       "ACADEMY_RATE_HMAC_KEY",
       "ACADEMY_ADMIN_TOKEN",
+      "PAYMENT_INGRESS_TOKEN",
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
       "GOOGLE_OIDC_CLIENT_ID",

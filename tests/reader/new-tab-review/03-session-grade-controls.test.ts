@@ -785,27 +785,23 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         }
     });
 
-    it('derives kanji study cards from Anki source cards, keeping the Anki linkage (kanji-extraction verify)', () => {
-        const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+    it('keeps Anki source cards intact while the stepper derives their kanji drills', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, newTabStudyDisabledSteps: [] }, {});
         try {
-            const internals = controller as unknown as { kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[] };
+            const internals = controller as unknown as {
+                studySessionForCard(card: JPDBCard, renderAsKanji?: boolean): {
+                    steps: Array<{ kind: string; kanji?: string }>;
+                };
+            };
             const wordCard = newTabTestCard({ vid: -1, sid: -1, rid: 401, ankiCardId: 401, spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' });
-            // RTK-style standalone kanji note stays a standalone kanji card.
             const rtkCard = newTabTestCard({ vid: -2, sid: -2, rid: 402, ankiCardId: 402, spelling: '記', reading: 'き', cardState: ['known'], source: 'anki', reviewSource: 'anki', kanjiKeyword: 'scribe' });
-            const kanjiCards = internals.kanjiStudyCardsFromSourceCards([wordCard, rtkCard]);
+            const wordSession = internals.studySessionForCard(wordCard, false);
+            const rtkSession = internals.studySessionForCard(rtkCard, true);
 
-            expect(kanjiCards.map(card => card.spelling).sort()).toEqual(['暗', '記']);
-            const dark = kanjiCards.find(card => card.spelling === '暗')!;
-            // Word-derived kanji keep the Anki linkage for details/back-nav…
-            expect(dark.ankiCardId).toBe(401);
-            expect(dark.source).toBe('anki');
-            // …but are not themselves gradeable review cards (the Anki card
-            // is the word, not the kanji).
-            expect(dark.reviewSource).toBeUndefined();
-            // The standalone RTK note wins the dedup for 記 and keeps its keyword.
-            const scribe = kanjiCards.find(card => card.spelling === '記')!;
-            expect(scribe.ankiCardId).toBe(402);
-            expect(scribe.kanjiKeyword).toBe('scribe');
+            expect(wordSession.steps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['暗', '記']);
+            expect(rtkSession.steps.filter(step => step.kind === 'kanji-doodle').map(step => step.kanji)).toEqual(['記']);
+            expect(wordCard).toMatchObject({ spelling: '暗記', ankiCardId: 401, source: 'anki', reviewSource: 'anki' });
+            expect(rtkCard).toMatchObject({ spelling: '記', ankiCardId: 402, kanjiKeyword: 'scribe' });
         } finally {
             controller.destroy();
         }
@@ -1195,8 +1191,8 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             expect(showKanjiCard).toHaveBeenCalledTimes(1);
             expect(showKanjiCard.mock.calls[0][1]).toBe('本');
             expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(false);
-            const state = (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state;
-            expect(state.mode).toBe('word');
+            const state = (controller as unknown as { state: { route: string; revealAnswer: boolean } }).state;
+            expect(state.route).toBe('study');
             expect(state.revealAnswer).toBe(true);
         } finally {
             controller.destroy();

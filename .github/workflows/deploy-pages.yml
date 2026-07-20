@@ -82,6 +82,9 @@ jobs:
           YOMU_BING_SITE_VERIFICATION: ${{ secrets.YOMU_BING_SITE_VERIFICATION }}
           YOMU_YANDEX_SITE_VERIFICATION: ${{ secrets.YOMU_YANDEX_SITE_VERIFICATION }}
           YOMU_BAIDU_SITE_VERIFICATION: ${{ secrets.YOMU_BAIDU_SITE_VERIFICATION }}
+          YOMU_PATREON_ENABLED: ${{ vars.YOMU_PATREON_ENABLED }}
+          YOMU_PATREON_URL: ${{ vars.YOMU_PATREON_URL }}
+          YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}
       - run: npm run verify
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

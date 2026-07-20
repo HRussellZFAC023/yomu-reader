@@ -488,18 +488,18 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
-    it('uses keyless fallback material for the Kanji tab instead of rendering the loading empty state', async () => {
-        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+    it('uses keyless fallback material when legacy Kanji state migrates into the shared stepper', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', {
+            newTabStudyDisabledSteps: [],
+        });
         const internals = controller as unknown as {
             state: NewTabRenderedState['state'];
-            kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[];
-            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
         };
         internals.state = { ...internals.state, mode: 'kanji', revealAnswer: true };
 
         try {
             const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
-            expect(internals.kanjiStudyCardsFromSourceCards(result.cards).length).toBeGreaterThan(0);
+            expect(result.cards.length).toBeGreaterThan(0);
 
             await controller.renderPage();
             const prompt = document.querySelector('[data-newtab-prompt] [data-kanji]')?.textContent ?? '';
@@ -523,18 +523,19 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
-    it('uses keyless fallback material for a query-bearing empty dictionary Kanji tab', async () => {
+    it('keeps query-bearing fallback words intact while legacy Kanji state migrates', async () => {
         const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('dictionary');
         const internals = controller as unknown as {
             state: NewTabRenderedState['state'];
-            kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[];
         };
         (controller as unknown as { searchController: { setInitialQuery(query: string): void } }).searchController.setInitialQuery('よむ');
         internals.state = { ...internals.state, mode: 'kanji', revealAnswer: false };
 
         try {
             const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
-            expect(internals.kanjiStudyCardsFromSourceCards(result.cards).length).toBeGreaterThan(0);
+            expect(result.cards.length).toBeGreaterThan(0);
+            const generatedTerms = new Set(fallbackCardFromText.mock.calls.map(([text]) => text));
+            expect(result.cards.every(card => generatedTerms.has(card.spelling))).toBe(true);
         } finally {
             resetNewTabReviewStorage();
         }
@@ -1017,7 +1018,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         });
 
         expect((controller as unknown as { state: unknown }).state).toMatchObject({
-            mode: 'kanji',
+            route: 'study',
             sort: 'frequency',
             filter: 'all',
             source: 'auto',
@@ -1402,6 +1403,156 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
 
         expect(JSON.parse(localStorage.getItem(NEW_TAB_UI_KEY) ?? 'null')).toEqual(standaloneState);
         controller.destroy();
+    });
+
+    it('restores a persisted legacy Listen Shadow session before stripping legacy keys on persist', () => {
+        localStorage.setItem(NEW_TAB_UI_KEY, JSON.stringify({
+            mode: 'listen',
+            listenSubMode: 'shadow',
+            sort: 'random',
+            filter: 'all',
+            source: 'dictionary',
+            revealAnswer: false,
+        }));
+        const card = newTabTestCard({
+            spelling: '読む',
+            reading: 'よむ',
+            sentence: '本を読む。',
+            pitchAccent: ['LH'],
+            source: 'local',
+        });
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary',
+            newTabStudyDisabledSteps: [],
+            immersionKitEnabled: false,
+        }));
+        const root = renderEnabledNewTabRoot(controller);
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            sourceLabel: string;
+            applyWords(root: HTMLElement, preferStoredWord: boolean): void;
+            persistState(): void;
+        };
+        internals.allWords = [card];
+        internals.sourceLabel = 'Dictionaries';
+
+        internals.applyWords(root, false);
+
+        expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('speaking');
+        internals.persistState();
+        const persisted = JSON.parse(localStorage.getItem(NEW_TAB_UI_KEY) ?? 'null') as Record<string, unknown>;
+        expect(persisted.route).toBe('study');
+        expect(persisted).not.toHaveProperty('mode');
+        expect(persisted).not.toHaveProperty('listenSubMode');
+        root.remove();
+        controller.destroy();
+    });
+
+    it('restores a persisted legacy Kanji session at its kanji study step', () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        localStorage.setItem(NEW_TAB_UI_KEY, JSON.stringify({
+            mode: 'kanji',
+            sort: 'random',
+            filter: 'all',
+            source: 'dictionary',
+            revealAnswer: false,
+        }));
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary',
+            newTabStudyDisabledSteps: [],
+            immersionKitEnabled: false,
+        }));
+        const root = renderEnabledNewTabRoot(controller);
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            sourceLabel: string;
+            applyWords(root: HTMLElement, preferStoredWord: boolean): void;
+        };
+        internals.allWords = [card];
+        internals.sourceLabel = 'Dictionaries';
+
+        try {
+            internals.applyWords(root, false);
+
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
+        } finally {
+            restoreCanvas();
+            root.remove();
+            controller.destroy();
+        }
+    });
+
+    it('restores a persisted legacy Recall session at its cloze study step', () => {
+        localStorage.setItem(NEW_TAB_UI_KEY, JSON.stringify({
+            mode: 'recall',
+            sort: 'random',
+            filter: 'all',
+            source: 'dictionary',
+            revealAnswer: false,
+        }));
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。', source: 'local' });
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary',
+            newTabStudyDisabledSteps: [],
+            immersionKitEnabled: false,
+        }));
+        const root = renderEnabledNewTabRoot(controller);
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            sourceLabel: string;
+            applyWords(root: HTMLElement, preferStoredWord: boolean): void;
+        };
+        internals.allWords = [card];
+        internals.sourceLabel = 'Dictionaries';
+
+        internals.applyWords(root, false);
+
+        expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('recall-cloze');
+        root.remove();
+        controller.destroy();
+    });
+
+    it('keeps the hosted Kanji tab mapped to the kanji step in the unified Study route', () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary',
+            newTabStudyDisabledSteps: [],
+            immersionKitEnabled: false,
+        }));
+        const root = renderEnabledNewTabRoot(controller);
+        const kanjiButton = document.createElement('button');
+        kanjiButton.type = 'button';
+        kanjiButton.dataset.newtabAction = 'mode';
+        kanjiButton.dataset.mode = 'kanji';
+        root.querySelector('[data-newtab-action="mode"]')?.parentElement?.append(kanjiButton);
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            sourceLabel: string;
+            applyWords(root: HTMLElement, preferStoredWord: boolean): void;
+            bindRootEvents(root: HTMLElement): void;
+        };
+        internals.allWords = [card];
+        internals.sourceLabel = 'Dictionaries';
+        try {
+            internals.applyWords(root, false);
+            internals.bindRootEvents(root);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
+
+            kanjiButton.click();
+
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
+            expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(true);
+        } finally {
+            restoreCanvas();
+            root.remove();
+            controller.destroy();
+        }
     });
 
     it('fails closed when a reload or foreign history entry carries an unknown opaque token', () => {

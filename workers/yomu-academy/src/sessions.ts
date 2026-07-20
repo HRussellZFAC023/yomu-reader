@@ -125,7 +125,9 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
             + 'WHERE code_hash = ?6 AND revoked_at IS NULL '
             + "AND ((kind = 'seed' AND uses_remaining > 0) OR (kind = 'paid' AND EXISTS "
             + "(SELECT 1 FROM purchases p WHERE p.id = invites.purchase_id AND p.status = 'paid' "
-            + 'AND p.redeemed_at IS NULL))) '
+            + 'AND p.redeemed_at IS NULL AND NOT EXISTS (SELECT 1 FROM payment_entitlements pe '
+            + "WHERE pe.purchase_id = p.id AND (pe.state <> 'active' "
+            + 'OR (pe.expires_at IS NOT NULL AND pe.expires_at <= ?3)))))) '
             + 'AND (expires_at IS NULL OR expires_at > ?3) RETURNING public_id',
         ).bind(await storedTokenHash(env, credential.parts), row.public_id, now, row.expires_at, row.offline_resume_until, codeHash),
         env.ACADEMY_DB.prepare(

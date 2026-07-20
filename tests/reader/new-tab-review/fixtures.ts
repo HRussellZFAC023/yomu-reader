@@ -873,7 +873,9 @@ export function renderSeededNewTabWord(controller: NewTabController, card: JPDBC
         renderWord(root: HTMLElement, card: JPDBCard): void;
         setStudyStepOverrideForCurrentCard(id: string | null): void;
     };
-    internals.setStudyStepOverrideForCurrentCard(options.studyStepId === undefined ? 'word' : options.studyStepId);
+    internals.setStudyStepOverrideForCurrentCard(options.studyStepId === undefined
+        ? options.state?.revealAnswer ? null : 'word'
+        : options.studyStepId);
     internals.renderWord(root, card);
     if (options.bindRootEvents) internals.bindRootEvents(root);
     return root;

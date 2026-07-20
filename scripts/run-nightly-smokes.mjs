@@ -34,6 +34,7 @@ export const NIGHTLY_SMOKES = [
     'smoke:enrichment-concurrency',
     'smoke:grading-provider',
     'smoke:hosted-settings',
+    'smoke:ja-docs-perf',
     'smoke:jiten-keyless-definition',
     'smoke:late-content',
     'smoke:local-dictionary-upgrade',
@@ -58,7 +59,15 @@ function runOne(name) {
             cwd: repoRoot,
             stdio: 'inherit',
             detached: true,
-            env: { ...process.env, YOMU_PLAYWRIGHT_CHANNEL: process.env.YOMU_PLAYWRIGHT_CHANNEL || 'chrome' },
+            env: {
+                ...process.env,
+                // Worktrees can live directly below /tmp, where the generic
+                // workspace fallback points outside the writable checkout.
+                // Keep nightly evidence inside this repository unless the
+                // caller explicitly chooses a shared workspace root.
+                YOMU_WORKSPACE_ROOT: process.env.YOMU_WORKSPACE_ROOT || repoRoot,
+                YOMU_PLAYWRIGHT_CHANNEL: process.env.YOMU_PLAYWRIGHT_CHANNEL || 'chrome',
+            },
         });
         let timedOut = false;
         const timer = setTimeout(() => {

@@ -11,11 +11,19 @@ All commands assume you run them from the repo root with the config flag:
 --config workers/yomu-support/wrangler.jsonc
 ```
 
+The optional Academy bridge is fail-closed and dormant by default. After the
+Academy payment-ingress migration is applied, generate one high-entropy token
+and install it as the `PAYMENT_INGRESS_TOKEN` Wrangler secret on both
+`yomu-support` and `yomu-academy`. Never put the token in this file or
+`wrangler.jsonc`. The checked-in `ACADEMY_PAYMENT_INGRESS` Service binding is
+private Worker-to-Worker transport; the bearer token is a second guard against
+an accidental public route.
+
 ## 0. Prerequisites (once)
 
-Create the KV namespace that stores the FX-rate cache and manual-provider
-month-to-date totals, then paste the returned id into `wrangler.jsonc`
-(`kv_namespaces[0].id`, currently `REPLACE_WITH_SUPPORT_KV_NAMESPACE_ID`):
+The `SUPPORT_KV` namespace that stores the FX-rate cache and manual-provider
+month-to-date totals was created on 2026-07-20 and its id is committed in
+`wrangler.jsonc`. To recreate it in a different Cloudflare account, run:
 
 ```bash
 npx wrangler kv namespace create SUPPORT_KV --config workers/yomu-support/wrangler.jsonc
@@ -116,7 +124,10 @@ one; not required for launch.)
    then deploy.
 
 Notes: Patreon signs the raw body with **HMAC-MD5** in the `X-Patreon-Signature`
-header; the Worker verifies it in constant time. Pledge amounts are read from
+header; the Worker verifies it in constant time. Only pledge-create webhooks
+increment the support income total; membership updates, declines, and deletes
+update Academy membership state without being counted as new receipts. Pledge
+amounts are read from
 `data.attributes.amount_cents` (falling back to
 `currently_entitled_amount_cents` / `will_pay_amount_cents`) and treated as
 GBP-equivalent minor units — keep the Patreon page currency in GBP.

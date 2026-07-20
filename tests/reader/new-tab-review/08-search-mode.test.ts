@@ -1654,9 +1654,9 @@ describe('new tab review — search mode', () => {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=mum',
         });
         const controller = newTabBareController(DEFAULT_SETTINGS);
-        const internals = controller as unknown as { state: { mode: string } };
+        const internals = controller as unknown as { state: { route: string } };
 
-        expect(internals.state.mode).toBe('search');
+        expect(internals.state.route).toBe('search');
         expect((controller as unknown as { searchController: { query: string } }).searchController.query).toBe('mum');
     });
 

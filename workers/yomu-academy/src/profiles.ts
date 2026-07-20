@@ -55,7 +55,7 @@ export async function requireAcademyAccessSession(request: Request, env: Env, no
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
     if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
-    await requirePaidSessionEntitlement(env, session, session.account_id);
+    await requirePaidSessionEntitlement(env, session, session.account_id, now);
     return session;
 }
 

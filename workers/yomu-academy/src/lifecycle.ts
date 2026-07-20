@@ -52,7 +52,7 @@ export async function handleAccountExport(request: Request, env: Env, clock: Clo
         env.ACADEMY_DB.prepare(
             'SELECT study_date FROM study_days WHERE account_id = ?1 ORDER BY study_date',
         ).bind(account.id).all<{ study_date: string }>(),
-        entitlementForAccount(env, account.id),
+        entitlementForAccount(env, account.id, now),
     ]);
     return jsonResponse({
         schemaVersion: 1,

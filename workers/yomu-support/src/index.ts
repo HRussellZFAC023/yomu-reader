@@ -1,4 +1,10 @@
 import operatingForecast from "../operating-forecast.json";
+import {
+  forwardAcademyPayment,
+  stablePatreonEventId,
+  type AcademyBridgeEnv,
+  type AcademyPaymentEnvelope,
+} from "./academy-bridge";
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
@@ -41,7 +47,7 @@ interface KVNamespace {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 }
 
-interface Env {
+interface Env extends AcademyBridgeEnv {
   SUPPORT_DB?: D1Database;
   SUPPORT_KV?: KVNamespace;
   STRIPE_SECRET_KEY?: string;
@@ -710,6 +716,7 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   const donation = stripeDonationFromEvent(event, verification.timestamp);
   if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
 
+  await forwardAcademyPayment(env, stripeAcademyEnvelope(event, donation));
   await recordDonationEvent(env.SUPPORT_DB, donation);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
@@ -739,6 +746,7 @@ async function handleKofiWebhook(request: Request, env: Env): Promise<Response> 
 
   const amountMinor = gbpMinorFromProviderAmount(record, "amount", "currency");
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
+  await forwardAcademyPayment(env, kofiAcademyEnvelope(record, amountMinor));
   await addManualProviderMinor(env, "kofi", utcMonthKey(), amountMinor);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
@@ -761,21 +769,35 @@ async function handlePatreonWebhook(request: Request, env: Env): Promise<Respons
   }
 
   const raw = await request.text();
-  const signature = request.headers.get("x-patreon-signature") ?? "";
-  const expected = await hmacMd5Hex(env.PATREON_WEBHOOK_SECRET, raw);
-  if (!signature || !timingSafeEqualHex(signature.toLowerCase(), expected)) {
+  if (!(await hasValidPatreonSignature(request, env.PATREON_WEBHOOK_SECRET, raw))) {
     logWebhookRejected("patreon");
     return textResponse("Invalid Patreon signature.", 401);
   }
 
+  return handleVerifiedPatreonWebhook(request, env, raw);
+}
+
+async function handleVerifiedPatreonWebhook(request: Request, env: Env, raw: string): Promise<Response> {
   const trigger = request.headers.get("x-patreon-event") ?? "";
-  if (!/^pledges?:|^members:pledge:/i.test(trigger)) {
+  if (!isPatreonMembershipTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
-  const amountMinor = patreonPledgeMinor(parseJson(raw));
+  const parsed = parseJson(raw);
+  await forwardAcademyPayment(env, await patreonAcademyEnvelope(trigger, raw, parsed));
+  if (!isPatreonIncomeTrigger(trigger)) {
+    return jsonResponse(request, { received: true, recorded: false }, 200);
+  }
+  const amountMinor = patreonPledgeMinor(parsed);
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
   await addManualProviderMinor(env, "patreon", utcMonthKey(), amountMinor);
   return jsonResponse(request, { received: true, recorded: true }, 200);
+}
+
+async function hasValidPatreonSignature(request: Request, secret: string, raw: string): Promise<boolean> {
+  const signature = request.headers.get("x-patreon-signature");
+  if (!signature) return false;
+  const expected = await hmacMd5Hex(secret, raw);
+  return timingSafeEqualHex(signature.toLowerCase(), expected);
 }
 
 function patreonPledgeMinor(payload: unknown): number {
@@ -788,6 +810,196 @@ function patreonPledgeMinor(payload: unknown): number {
     ?? numberField(attributes, "currently_entitled_amount_cents")
     ?? numberField(attributes, "will_pay_amount_cents");
   return typeof cents === "number" && cents > 0 ? Math.round(cents) : 0;
+}
+
+function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): AcademyPaymentEnvelope | null {
+  const record = objectRecord(event);
+  const data = objectRecord(record?.data);
+  const session = objectRecord(data?.object);
+  const metadata = objectRecord(session?.metadata);
+  const purchaseId = providerReference(metadata?.yomu_academy_purchase);
+  const eventId = providerReference(donation.id);
+  const sessionId = providerReference(donation.stripeSessionId);
+  const occurredAt = providerTimestamp(donation.stripeCreatedAt);
+  const references = { purchaseId, eventId, sessionId };
+  if (!hasStripeAcademyReferences(references)) return null;
+  if (occurredAt === null || !isAcademyAmount(donation.amountMinor)) return null;
+  return {
+    schemaVersion: 1,
+    provider: "stripe",
+    eventId: references.eventId,
+    eventType: "charge.settled",
+    occurredAt,
+    subject: { kind: "academy_purchase", reference: references.purchaseId },
+    transaction: {
+      reference: references.sessionId,
+      sessionReference: references.sessionId,
+      currency: "gbp",
+      amountMinor: donation.amountMinor,
+    },
+    purchaseId: references.purchaseId,
+  };
+}
+
+function hasStripeAcademyReferences(
+  references: { purchaseId: string | null; eventId: string | null; sessionId: string | null },
+): references is { purchaseId: string; eventId: string; sessionId: string } {
+  return Object.values(references).every(value => value !== null);
+}
+
+function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: number): AcademyPaymentEnvelope | null {
+  if (!isAcademyAmount(amountMinor)) return null;
+  const eventId = providerReference(record.message_id);
+  const transactionId = providerReference(record.transaction_id);
+  const occurredAt = providerTimestamp(record.timestamp);
+  if (!eventId || !transactionId || occurredAt === null) return null;
+  return {
+    schemaVersion: 1,
+    provider: "kofi",
+    eventId,
+    eventType: "charge.settled",
+    occurredAt,
+    subject: { kind: "transaction", reference: transactionId },
+    transaction: { reference: transactionId, currency: "gbp", amountMinor },
+  };
+}
+
+async function patreonAcademyEnvelope(
+  trigger: string,
+  rawBody: string,
+  payload: unknown,
+): Promise<AcademyPaymentEnvelope | null> {
+  const context = patreonContext(payload);
+  if (!context) return null;
+  const eventId = await stablePatreonEventId(trigger, rawBody);
+  if (isPatreonRevocation(trigger, context.status)) {
+    return patreonRevocationEnvelope(eventId, context);
+  }
+  return patreonActiveEnvelope(eventId, context, payload);
+}
+
+interface PatreonContext {
+  readonly attributes: Record<string, unknown>;
+  readonly memberId: string;
+  readonly occurredAt: number;
+  readonly status: string;
+}
+
+function patreonContext(payload: unknown): PatreonContext | null {
+  const record = objectRecord(payload);
+  const data = childRecord(record, "data");
+  const attributes = childRecord(data, "attributes");
+  const memberId = providerReference(fieldValue(data, "id"));
+  const occurredAt = firstProviderTimestamp([
+    fieldValue(attributes, "updated_at"),
+    fieldValue(attributes, "last_charge_date"),
+  ]);
+  if (!memberId || occurredAt === null) return null;
+  return {
+    attributes: attributesOrEmpty(attributes),
+    memberId,
+    occurredAt,
+    status: lowerCaseStringField(attributes, "patron_status"),
+  };
+}
+
+function childRecord(record: Record<string, unknown> | null, key: string): Record<string, unknown> | null {
+  return objectRecord(fieldValue(record, key));
+}
+
+function fieldValue(record: Record<string, unknown> | null, key: string): unknown {
+  if (!record) return undefined;
+  return record[key];
+}
+
+function attributesOrEmpty(attributes: Record<string, unknown> | null): Record<string, unknown> {
+  if (!attributes) return {};
+  return attributes;
+}
+
+function lowerCaseStringField(record: Record<string, unknown> | null, key: string): string {
+  const value = stringField(record, key);
+  if (!value) return "";
+  return value.toLowerCase();
+}
+
+function patreonRevocationEnvelope(eventId: string, context: PatreonContext): AcademyPaymentEnvelope {
+  return {
+    schemaVersion: 1,
+    provider: "patreon",
+    eventId,
+    eventType: "membership.revoked",
+    occurredAt: context.occurredAt,
+    subject: { kind: "member", reference: context.memberId },
+  };
+}
+
+function patreonActiveEnvelope(
+  eventId: string,
+  context: PatreonContext,
+  payload: unknown,
+): AcademyPaymentEnvelope | null {
+  if (context.status !== "active_patron") return null;
+  const qualifyingAmountMinor = patreonPledgeMinor(payload);
+  const expiresAt = providerTimestamp(context.attributes.next_charge_date);
+  if (!isAcademyAmount(qualifyingAmountMinor)) return null;
+  if (expiresAt === null) return null;
+  if (expiresAt <= context.occurredAt) return null;
+  return {
+    schemaVersion: 1,
+    provider: "patreon",
+    eventId,
+    eventType: "membership.active",
+    occurredAt: context.occurredAt,
+    subject: { kind: "member", reference: context.memberId },
+    entitlement: { expiresAt, qualifyingAmountMinor },
+  };
+}
+
+function isPatreonRevocation(trigger: string, status: string): boolean {
+  if (/(?:delete|decline)/i.test(trigger)) return true;
+  return new Set(["former_patron", "declined_patron"]).has(status);
+}
+
+function firstProviderTimestamp(values: readonly unknown[]): number | null {
+  for (const value of values) {
+    const timestamp = providerTimestamp(value);
+    if (timestamp !== null) return timestamp;
+  }
+  return null;
+}
+
+function isAcademyAmount(amountMinor: number): boolean {
+  return amountMinor >= 200 && amountMinor <= 50_000;
+}
+
+function providerTimestamp(value: unknown): number | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const parsed = typeof value === "number" ? value : Date.parse(value);
+  const milliseconds = parsed > 0 && parsed < 10_000_000_000 ? parsed * 1000 : parsed;
+  return Number.isSafeInteger(milliseconds)
+    && milliseconds >= 1_500_000_000_000
+    && milliseconds <= 4_102_444_800_000
+    ? milliseconds
+    : null;
+}
+
+function providerReference(value: unknown): string | null {
+  return typeof value === "string"
+    && value.length >= 3
+    && value.length <= 255
+    && !/[\u0000-\u001f\u007f]/u.test(value)
+    ? value
+    : null;
+}
+
+function isPatreonMembershipTrigger(trigger: string): boolean {
+  return /^(?:pledges?:|members:(?:pledge:)?(?:create|update|delete|decline))/i.test(trigger);
+}
+
+/** Membership state updates are not receipts. Count only pledge creation. */
+function isPatreonIncomeTrigger(trigger: string): boolean {
+  return /^(?:pledges?|members:pledge):create$/iu.test(trigger.trim());
 }
 
 function gbpMinorFromProviderAmount(

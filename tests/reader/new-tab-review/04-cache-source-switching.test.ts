@@ -30,7 +30,6 @@ import {
     newTabJpdbAnkiSourceFixture,
     newTabVisibleWordFixture,
     renderNewTabCardFront,
-    stubKanjiDoodleBrowserApis,
     NewTabController,
     definitionSourceRows,
     waitForExpect,
@@ -38,6 +37,25 @@ import {
 import type {
     JPDBCard,
 } from './fixtures';
+
+function dictionaryBatchOverrides(listRandomTopTerms: () => Promise<Array<ReturnType<typeof newTabLocalDictionaryEntry>>>) {
+    return {
+        parser: {
+            cacheCards: vi.fn(),
+            localCardFromEntry: vi.fn((entry: { expression: string; reading: string }) => newTabTestCard({
+                spelling: entry.expression,
+                reading: entry.reading,
+                source: 'local',
+                reviewSource: 'dictionary',
+            })),
+        } as never,
+        dictionaries: {
+            summary: vi.fn(async () => newTabLocalDictionarySummary()),
+            listRandomTopTerms,
+            listRandomTerms: vi.fn(async () => []),
+        } as never,
+    };
+}
 
 describe('new tab review — cache reuse & source switching', () => {
     registerNewTabReviewCleanup();
@@ -1020,16 +1038,7 @@ describe('new tab review — cache reuse & source switching', () => {
                 newTabSource: 'dictionary',
                 newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
                 immersionKitEnabled: false,
-            }), {
-            parser: {
-                cacheCards: vi.fn(),
-                localCardFromEntry: vi.fn(entry => newTabTestCard({ spelling: entry.expression, reading: entry.reading, source: 'local', reviewSource: 'dictionary' })),
-            } as never,
-            dictionaries: {
-                summary: vi.fn(async () => newTabLocalDictionarySummary()),
-                listRandomTopTerms,
-            } as never,
-        });
+            }), dictionaryBatchOverrides(listRandomTopTerms));
 
         await controller.renderPage();
         expectNewTabPromptText('読む');
@@ -1045,8 +1054,7 @@ describe('new tab review — cache reuse & source switching', () => {
         resetNewTabReviewStorage();
     });
 
-    it('loads more dictionary kanji when kanji navigation reaches the end of the visible queue', async () => {
-        const restoreCanvas = stubKanjiDoodleBrowserApis();
+    it('migrates legacy kanji state into the shared queue and loads the next dictionary word', async () => {
         document.body.replaceChildren();
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
             mode: 'kanji',
@@ -1056,7 +1064,11 @@ describe('new tab review — cache reuse & source switching', () => {
             revealAnswer: false,
         }));
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
-        const listKanjiCharacters = vi.fn(async (limit: number) => limit > 180 ? ['日', '語'] : ['日']);
+        const batches = [
+            [newTabLocalDictionaryEntry('日本', 'にほん', 'Japan')],
+            [newTabLocalDictionaryEntry('語学', 'ごがく', 'language study')],
+        ];
+        const listRandomTopTerms = vi.fn(async () => batches.shift() ?? []);
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -1070,16 +1082,7 @@ describe('new tab review — cache reuse & source switching', () => {
             rtk: {} as never,
             immersionKit: {} as never,
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {
-                cacheCards: vi.fn(),
-                localCardFromEntry: vi.fn(),
-            } as never,
-            dictionaries: {
-                summary: vi.fn(async () => newTabLocalDictionarySummary()),
-                listRandomTopTerms: vi.fn(async () => []),
-                listRandomTerms: vi.fn(async () => []),
-                listKanjiCharacters,
-            } as never,
+            ...dictionaryBatchOverrides(listRandomTopTerms),
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -1090,20 +1093,20 @@ describe('new tab review — cache reuse & source switching', () => {
             await controller.renderPage();
             await waitForExpect(() => {
                 const state = controller as unknown as { visibleWords: JPDBCard[]; index: number };
-                expect(state.visibleWords[state.index]?.spelling).toBe('日');
+                expect(state.visibleWords[state.index]?.spelling).toBe('日本');
             });
 
             showNextNewTabWord(controller);
 
             await waitForExpect(() => {
                 const state = controller as unknown as { visibleWords: JPDBCard[]; index: number };
-                expect(state.visibleWords[state.index]?.spelling).toBe('語');
-                expect(state.visibleWords.map(card => card.spelling)).toEqual(['日', '語']);
+                expect(state.visibleWords[state.index]?.spelling).toBe('語学');
+                expect(state.visibleWords.map(card => card.spelling)).toEqual(['日本', '語学']);
             });
-            expect(listKanjiCharacters).toHaveBeenNthCalledWith(1, 180, DEFAULT_SETTINGS.dictionaryPreferences);
-            expect(listKanjiCharacters).toHaveBeenNthCalledWith(2, 181, DEFAULT_SETTINGS.dictionaryPreferences);
+            expect(listRandomTopTerms).toHaveBeenCalledTimes(2);
+            expect((controller as unknown as { state: object }).state).toMatchObject({ route: 'study', source: 'dictionary' });
+            expect((controller as unknown as { state: object }).state).not.toHaveProperty('mode');
         } finally {
-            restoreCanvas();
             document.body.replaceChildren();
             localStorage.removeItem('jpdb-reader-newtab-ui');
             sessionStorage.removeItem('jpdb-reader-newtab-current-word');

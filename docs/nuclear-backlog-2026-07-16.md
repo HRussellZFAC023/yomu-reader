@@ -127,9 +127,11 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 ## Wave 5 — Architecture epics (the wrong-path corrections; staged, fable-led)
 
-- **NB-40 [fable] NewTabMode dual-substrate collapse** — finish the promised Cycle-2 refactor:
-  study-session stepper becomes the only substrate; delete `NewTabMode`/`listenSubMode` from
-  state.ts and the 6+ reconciliation sites. Enabling step for NB-41. CONFIRMED half-done.
+- **NB-40 [DONE 2026-07-20] NewTabMode dual-substrate collapse** — the study-session
+  stepper is now the only live substrate; persisted state is route-only and
+  `NewTabMode`/`NewTabListenSubMode` are gone. One-shot legacy translation remains only at
+  explicit compatibility boundaries. Full new-tab review passed 384/384, with another 71/71
+  listen/study/type-word assertions and the changed-code Fallow gate green. NB-41 is unblocked.
 - **NB-41 [fable] newtab controller decomposition** — split the 11,129-line class into a thin
   coordinator + per-mode controllers (word/recall/kanji/type/listen/search/stats/browse) over
   an injected NewTabSession store. Includes: collapse the 8 parallel outcome Maps into one
@@ -147,10 +149,9 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
   image-preprocess.ts (luminance/dark-pass), ocr-overlay-geometry.ts, canvas-page-signature.ts,
   ocr-providers.ts. LOC-flat but dissolves the 288KB module; later CanvasFrameManager/
   VideoFrameManager/OcrStatusCards extraction [fable].
-- **NB-45 [fable] SRS provider adapter completion** — finish Cycle-9: uniform
-  {hasCredential, review, refreshState, undo} per provider; collapse the two parallel
-  jpdb/jiten/anki/bunpro/yomu-local ladders in submitReviewTarget/submitQueuedGrade. −120 and
-  ends provider whack-a-mole.
+- **NB-45 [DONE 2026-07-20] SRS provider adapter completion** — Cycle 9 now uses the
+  uniform `{hasCredential, review, refreshState, undo}` provider contract; the parallel
+  jpdb/jiten/anki/bunpro/yomu-local ladders were collapsed in the mainline adapter work.
 - **NB-46 [fable, design first] dom overlay abstraction** — three mirror subsystems share
   lifecycle skeleton (signature dedupe → mount → observe → teardown) with genuinely different
   anchor geometry; extract the shared skeleton only (WeakMap state, dedupe, save/restore),
@@ -163,7 +164,7 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 - **NB-50 [DONE 2026-07-20] smoke triage** — 70 ungated `smoke:`/`e2e:`/`qa:`/`screenshots:`
   scripts triaged against ci.yml / check / smoke:release / smoke:p0 / smoke:layout-regressions.
-  Verdicts: **22 (a)** headless fixture guards → new `smoke:nightly` aggregate
+  Verdicts: **23 (a)** headless fixture guards → new `smoke:nightly` aggregate
   (`scripts/run-nightly-smokes.mjs`) run by `.github/workflows/nightly.yml` (cron + dispatch);
   **38 (b)** live/server/display/perf/enrichment harnesses → `scripts/manual/` + renamed
   `manual:*` + `scripts/manual/README.md`; **10 (c)** redundant per-bug smokes superseded by
@@ -184,8 +185,9 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 ### NB-50 triage table (2026-07-17)
 
-Verdict counts: **22 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,107 LOC deleted,
-24,721 LOC moved to `scripts/manual/`. `smoke:nightly` verified locally 22/22 (runtimes below).
+Verdict counts: **23 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,107 LOC deleted,
+24,721 LOC moved to `scripts/manual/`. The aggregate now also owns the previously ungated
+Japanese-docs annotation performance fixture; its worktree-safe run passed on 2026-07-20.
 
 | script | verdict | reason |
 |---|---|---|
@@ -218,6 +220,7 @@ Verdict counts: **22 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,
 | `smoke:extension-boot -> manual:extension-boot` | (b) manual | Loads the built Chrome extension package (needs build:extension + EXT_DIR). |
 | `smoke:grading-provider` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
 | `smoke:hosted-settings` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:ja-docs-perf` | (a) nightly | Deterministic hosted Japanese-docs annotation/performance fixture; passed headless locally with its artifact root pinned inside the checkout. Wired into smoke:nightly. |
 | `smoke:japanese-sites -> manual:japanese-sites` | (b) manual | Injects into real multilingual sites to verify JA redirects. |
 | `smoke:jiten-keyless-definition` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
 | `smoke:jiten-newtab -> manual:jiten-newtab` | (b) manual | Needs live jiten.moe enrichment for the newtab status. |

@@ -27,6 +27,77 @@ import type {
     JPDBToken,
 } from './fixtures';
 
+interface RevealedStudyInternals {
+    visibleWords: JPDBCard[];
+    index: number;
+    state: { route: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+}
+
+interface ImmersionStudyInternals extends RevealedStudyInternals {
+    bindRootEvents(root: HTMLElement): void;
+    renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
+    performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
+    playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
+    immersionCacheKey(card: JPDBCard): string;
+    immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
+}
+
+function seedRevealedStudyState(internals: RevealedStudyInternals, card: JPDBCard, source = 'dictionary'): void {
+    internals.visibleWords = [card];
+    internals.index = 0;
+    internals.state = {
+        route: 'study',
+        sort: 'random',
+        filter: 'study',
+        source,
+        revealAnswer: true,
+    };
+}
+
+function mountImmersionStudy(controller: NewTabController, card: JPDBCard, examples: ImmersionKitExample[]) {
+    const root = document.createElement('main');
+    const meaning = document.createElement('div');
+    meaning.dataset.newtabMeaning = 'true';
+    root.append(meaning);
+    document.body.append(root);
+    const internals = controller as unknown as ImmersionStudyInternals;
+    seedRevealedStudyState(internals, card);
+    internals.immersionCache.set(internals.immersionCacheKey(card), Promise.resolve(examples));
+    meaning.append(internals.renderNewTabImmersionCard(card, examples, 0));
+    return { root, meaning, internals };
+}
+
+function newImmersionStudyController(options: {
+    settings?: Partial<typeof DEFAULT_SETTINGS>;
+    immersionKit: unknown;
+    parser?: unknown;
+    parseContent?: ConstructorParameters<typeof NewTabController>[0]['parseContent'];
+}): NewTabController {
+    return new NewTabController({
+        getSettings: () => ({ ...DEFAULT_SETTINGS, ...options.settings }),
+        anki: {} as never,
+        jpdb: {} as never,
+        jpdbKanji: {} as never,
+        kanjiVG: {} as never,
+        rtk: {} as never,
+        immersionKit: options.immersionKit as never,
+        jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+        parser: (options.parser ?? {}) as never,
+        dictionaries: {} as never,
+        onSettingsChange: vi.fn(),
+        parseContent: options.parseContent ?? vi.fn(),
+        applyTheme: vi.fn(),
+        showSettings: vi.fn(),
+        dismiss: vi.fn(),
+    });
+}
+
+async function navigateToNextImmersion(internals: ImmersionStudyInternals, root: HTMLElement): Promise<void> {
+    internals.performNewTabImmersionAction(root, root, 'next');
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
 describe('new tab review — Immersion Kit card & doodle strokes', () => {
     registerNewTabReviewCleanup();
 
@@ -282,7 +353,7 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
                 imageUrl: '',
             },
         ];
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false, newTabStudyDisabledSteps: [] }, {
             immersionKit: {
                 search: vi.fn(async () => examples),
                 mediaUrls: vi.fn(() => []),
@@ -297,22 +368,13 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
         body.dataset.newtabKanjiImmersionBody = 'true';
         root.append(body);
         document.body.append(root);
-        const privateController = controller as unknown as {
+        const privateController = controller as unknown as RevealedStudyInternals & {
             renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement;
             performNewTabKanjiImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
-            visibleWords: JPDBCard[];
-            index: number;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            setStudyStepOverrideForCurrentCard(id: string | null): void;
         };
-        privateController.visibleWords = [card];
-        privateController.index = 0;
-        privateController.state = {
-            mode: 'kanji',
-            sort: 'random',
-            filter: 'study',
-            source: 'dictionary',
-            revealAnswer: true,
-        };
+        seedRevealedStudyState(privateController, card);
+        privateController.setStudyStepOverrideForCurrentCard('kanji-doodle:0');
         body.append(privateController.renderNewTabKanjiImmersionCard(card, examples[0]!, 0, examples.length));
 
         try {
@@ -369,62 +431,23 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             return Promise.resolve(`blob:http://localhost/${list[0]?.split('/').pop() ?? 'media'}`);
         });
         const parse = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [newTabSentenceToken(card, text)]));
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
+        const controller = newImmersionStudyController({
+            settings: { immersionKitShowImages: true },
             immersionKit: {
                 mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
                     kind === 'image' ? [`https://media.test/${example.imageFile}`] : [`https://media.test/${example.soundFile}`]
                 )),
                 fetchBlobUrl,
-            } as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            },
             parser: {
                 canParse: () => true,
                 parse,
-            } as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
-            parseContent: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
+            },
         });
-        const root = document.createElement('main');
-        const meaning = document.createElement('div');
-        meaning.dataset.newtabMeaning = 'true';
-        root.append(meaning);
-        document.body.append(root);
-        const privateController = controller as unknown as {
-            renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
-            performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
-            playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
-            immersionCacheKey(card: JPDBCard): string;
-            immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
-            visibleWords: JPDBCard[];
-            index: number;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
-        };
-        privateController.visibleWords = [card];
-        privateController.index = 0;
-        privateController.state = {
-            mode: 'word',
-            sort: 'random',
-            filter: 'study',
-            source: 'dictionary',
-            revealAnswer: true,
-        };
-        privateController.immersionCache.set(privateController.immersionCacheKey(card), Promise.resolve(examples));
-        meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
+        const { root, meaning, internals: privateController } = mountImmersionStudy(controller, card, examples);
 
         try {
-            privateController.performNewTabImmersionAction(root, root, 'next');
-            await Promise.resolve();
-            await Promise.resolve();
+            await navigateToNextImmersion(privateController, root);
 
             await waitForExpect(() => {
                 expect(meaning.textContent).toContain('中学生です。');
@@ -486,53 +509,16 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
                 imageUrl: '',
             },
         ];
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false, immersionKitAutoPlayAudio: false }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
+        const controller = newImmersionStudyController({
+            settings: { immersionKitShowImages: false, immersionKitAutoPlayAudio: false },
             immersionKit: {
                 mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
                     kind === 'image' ? [] : [`https://media.test/${example.soundFile}`]
                 )),
                 fetchBlobUrl: vi.fn(),
-            } as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
-            parseContent: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
+            },
         });
-        const root = document.createElement('main');
-        const meaning = document.createElement('div');
-        meaning.dataset.newtabMeaning = 'true';
-        root.append(meaning);
-        document.body.append(root);
-        const privateController = controller as unknown as {
-            bindRootEvents(root: HTMLElement): void;
-            renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
-            immersionCacheKey(card: JPDBCard): string;
-            immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
-            visibleWords: JPDBCard[];
-            index: number;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
-        };
-        privateController.visibleWords = [card];
-        privateController.index = 0;
-        privateController.state = {
-            mode: 'word',
-            sort: 'random',
-            filter: 'study',
-            source: 'dictionary',
-            revealAnswer: true,
-        };
-        privateController.immersionCache.set(privateController.immersionCacheKey(card), Promise.resolve(examples));
-        meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
+        const { root, meaning, internals: privateController } = mountImmersionStudy(controller, card, examples);
         privateController.bindRootEvents(root);
 
         try {
@@ -592,60 +578,22 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             resolveParse = resolve;
         }));
         const parseContent = vi.fn();
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
+        const controller = newImmersionStudyController({
+            settings: { immersionKitShowImages: false },
             immersionKit: {
                 mediaUrls: vi.fn(() => []),
                 fetchBlobUrl: vi.fn(),
-            } as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            },
             parser: {
                 canParse: () => true,
                 parse,
-            } as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
+            },
             parseContent,
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
         });
-        const root = document.createElement('main');
-        const meaning = document.createElement('div');
-        meaning.dataset.newtabMeaning = 'true';
-        root.append(meaning);
-        document.body.append(root);
-        const privateController = controller as unknown as {
-            renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
-            performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
-            playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
-            immersionCacheKey(card: JPDBCard): string;
-            immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
-            visibleWords: JPDBCard[];
-            index: number;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
-        };
-        privateController.visibleWords = [card];
-        privateController.index = 0;
-        privateController.state = {
-            mode: 'word',
-            sort: 'random',
-            filter: 'study',
-            source: 'dictionary',
-            revealAnswer: true,
-        };
-        privateController.immersionCache.set(privateController.immersionCacheKey(card), Promise.resolve(examples));
-        meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
+        const { root, meaning, internals: privateController } = mountImmersionStudy(controller, card, examples);
 
         try {
-            privateController.performNewTabImmersionAction(root, root, 'next');
-            await Promise.resolve();
-            await Promise.resolve();
+            await navigateToNextImmersion(privateController, root);
 
             expect(meaning.textContent).toContain('中学生です。');
             expect(meaning.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
@@ -1074,14 +1022,7 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             showSettings: vi.fn(),
             dismiss: vi.fn(),
         });
-        (controller as unknown as { visibleWords: JPDBCard[] }).visibleWords = [card];
-        (controller as unknown as { state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean } }).state = {
-            mode: 'word',
-            sort: 'random',
-            filter: 'study',
-            source: 'auto',
-            revealAnswer: true,
-        };
+        seedRevealedStudyState(controller as unknown as RevealedStudyInternals, card, 'auto');
         const root = document.createElement('main');
         const node = (controller as unknown as {
             renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;

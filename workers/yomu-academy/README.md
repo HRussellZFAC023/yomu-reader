@@ -17,6 +17,36 @@ credentials and a test webhook forwarder to `POST /academy/api/stripe/webhook`.
 The unit suite covers Checkout creation, signed test webhook fulfilment,
 deterministic code claim, and one-account redemption without those credentials.
 
+### Dormant canonical payment ingress
+
+Migration `0010_payment_ingress.sql` adds separate, HMAC-identified tables for
+provider events, actual settled charges, stable provider subjects, and the
+current Academy entitlement projection. Patreon membership notifications never
+enter the charge ledger. Projection writes and the event idempotency marker are
+one D1 batch, and `occurredAt` prevents an older delivery from resurrecting a
+newer revocation.
+
+`POST /academy/internal/payment-ingress` is a private Worker-to-Worker contract.
+It requires `Content-Type: application/json` plus `Authorization: Bearer
+<PAYMENT_INGRESS_TOKEN>`; an absent secret fails closed. The v1 body contains
+`provider`, `eventId`, `eventType`, `occurredAt`, and an opaque provider
+`subject`. `charge.settled` adds a real `transaction`; Patreon instead sends
+`membership.active` with an expiry and qualifying tier amount, or
+`membership.revoked`. Exact TypeScript validation lives in
+`src/payment-ingress.ts`.
+
+This route is intentionally dormant: the support Worker declares the private
+Service binding, but forwarding stays disabled until the independent bearer
+secret is installed on both Workers. No public provider route targets this
+internal path. The existing browser checkout remains test-only. A future Stripe forward must
+reference an Academy-created purchase with the exact Checkout session and
+amount, so the private route cannot turn an arbitrary live receipt into access.
+
+Code delivery remains manual and admin-only at
+`POST /academy/api/admin/payment-code`. It accepts an existing admin bearer plus
+`{provider, referenceType, reference}` and re-derives the deterministic code;
+provider subject data is never linked to a Google/email identity automatically.
+
 ## Identity ladder
 
 1. `POST /academy/api/session` exchanges an invite for the existing HttpOnly

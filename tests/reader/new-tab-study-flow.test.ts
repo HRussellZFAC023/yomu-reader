@@ -454,7 +454,7 @@ describe('study flow: composed-of chip drilldown', () => {
             // The studied card stays put: no re-pool, no mode swap, no re-render
             // cascade, no history navigation, page still alive.
             expect(renderSpy).not.toHaveBeenCalled();
-            expect(internals.state.mode).toBe('word');
+            expect(internals.state.route).toBe('study');
             expect(internals.state.revealAnswer).toBe(true);
             expect(root.isConnected).toBe(true);
             expect(pushSpy).not.toHaveBeenCalled();

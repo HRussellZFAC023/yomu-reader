@@ -54,6 +54,7 @@ interface ListenInternals {
     sourceLabel: string;
     reviewCountMode: boolean;
     state: Record<string, unknown>;
+    listenInteractionMode: 'perceive' | 'recall';
     pitchSrs: { item(key: string): PitchSrsItem | undefined; size(): number };
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
@@ -328,7 +329,7 @@ describe('new-tab Listen mode', () => {
             internals.pickListenPosition(2); // wrong -> reveals a verdict in Perceive
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')).not.toBeNull();
             // Switch sub-mode (as the switcher does) and re-render the same card.
-            internals.state.listenSubMode = 'recall';
+            internals.listenInteractionMode = 'recall';
             internals.renderWord(root, internals.visibleWords[0]);
             // The stale Perceive reveal/verdict must not leak into Recall.
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')).toBeNull();

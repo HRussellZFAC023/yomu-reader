@@ -21,7 +21,9 @@ Routes:
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
   storing the running month total in KV.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
-  body), storing the running month total in KV.
+  body). Verified membership updates/revocations are forwarded as Academy
+  state, but only pledge-create receipts increment the running month total in
+  KV; recurring membership notifications are never counted as fresh income.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
@@ -67,3 +69,20 @@ Deploy:
 ```bash
 npx wrangler deploy --config workers/yomu-support/wrangler.jsonc
 ```
+
+## Academy payment bridge
+
+The support Worker declares a private `ACADEMY_PAYMENT_INGRESS` Service binding
+to `yomu-academy`. It remains dormant unless the same independent
+`PAYMENT_INGRESS_TOKEN` secret is installed on both Workers. When active, the
+support Worker forwards a canonical event only after verifying the provider's
+webhook authentication. Academy ingestion runs before support accounting so a
+failure returns 5xx and asks the provider to retry without double-counting the
+support ledger on that attempt.
+
+Only native provider identifiers cross the binding. Stripe events must contain
+the `yomu_academy_purchase` metadata written by Academy Checkout; ordinary
+support donations remain support-only. Ko-fi uses its message and transaction
+IDs. Patreon is modeled as membership state (active/revoked), never as a cash
+transaction. No payer names, email addresses, bank data, or invite codes are
+forwarded.

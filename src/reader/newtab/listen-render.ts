@@ -8,12 +8,12 @@ import {
 } from '../lookup/pitch-accent';
 import { renderPitchGraphSvg, renderPitchVariantGraphs } from '../popup/pitch';
 import type { NewTabCopyKey } from './i18n';
-import type { NewTabListenSubMode } from './state';
 import type { PitchSrsItem } from './pitch-srs';
 import type { SpeakingPitchScore, SpeakingPitchVerdict } from './speaking-score';
 import { speakerIcon } from '../ui/icons';
 
 export type ListenOutcome = 'correct' | 'wrong';
+export type ListenCardSubMode = 'perceive' | 'recall' | 'shadow';
 
 export interface ListenContrastView {
     reading: string;
@@ -24,7 +24,7 @@ export interface ListenContrastView {
 export interface ListenCardView {
     item: PitchSrsItem;
     meaning: string;
-    subMode: NewTabListenSubMode;
+    subMode: ListenCardSubMode;
     revealed: boolean;
     selectedPosition: number | null;
     outcome: ListenOutcome | null;

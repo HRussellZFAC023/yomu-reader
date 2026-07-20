@@ -8,9 +8,10 @@ export { isYomuNewTabUrl } from './url';
 export {
     createNewTabStateChannel,
     loadNewTabUiState,
+    loadNewTabUiStateWithLegacyIntent,
     saveNewTabUiState,
 } from './state';
-export type { NewTabMode, NewTabUiState } from './state';
+export type { LegacyNewTabStudyIntent, LoadedNewTabUiState, NewTabRoute, NewTabUiState } from './state';
 
 export interface NewTabPalette {
     accent: string;

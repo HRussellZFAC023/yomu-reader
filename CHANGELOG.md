@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.257] - 2026-07-20
+
+### Added
+
+- The documentation navbar and README now link to Stripe support, with Patreon and Ko-fi entries ready to appear only after their public pages are verified.
+- Yomu Academy now has a canonical, verified-provider foundation for granting payment entitlements without duplicate events. Provider accounts still need to be connected and published, and ordinary Stripe support donations remain support-only unless Academy owns the checkout.
+
+### Changed
+
+- New-tab learning now uses one Study stepper for recall, kanji, and listening instead of parallel modes, while safely migrating existing listen, kanji, and recall sessions.
+
+### Fixed
+
+- Documentation and release delivery now retry only transient platform failures, and the CI gates cover the shipped layouts, dependencies, nightly smokes, and desktop release assets reliably.
+
 ## [1.6.256] - 2026-07-19
 
 ### Fixed

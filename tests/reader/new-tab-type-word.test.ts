@@ -139,7 +139,6 @@ describe('type-word step sequencing and gating', () => {
         // yields one doodle step per distinct kanji), so this asserts ordering.
         const session = createNewTabStudySession(typeCard({ spelling: '水', reading: 'みず', sentence: '水を飲む。' }), {
             mode: 'word',
-            listenSubMode: 'perceive',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,

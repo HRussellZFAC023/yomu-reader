@@ -4,7 +4,6 @@ import {
     DEFAULT_SETTINGS,
     NEW_TAB_CACHE_KEY,
     newTabTestCard,
-    deferred,
     newTabPromptController,
     renderEnabledNewTabRoot,
     expectOpaqueStudyCardToken,
@@ -797,7 +796,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         expect(visible.map(card => card.spelling)).toEqual(['一番', '二番', '三番']);
     });
 
-    it('expands word cards into separate kanji practice cards in kanji mode', () => {
+    it('keeps Anki words in one queue while the stepper owns kanji practice', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, jpdbMiningEnabled: false, immersionKitEnabled: false }));
         try {
@@ -810,9 +809,9 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 state: { mode: 'kanji', sort: 'random', filter: 'study', source: 'anki', revealAnswer: false },
             });
 
-            expect(visible.map(card => card.spelling)).toEqual(['暗', '記']);
+            expect(visible.map(card => card.spelling)).toEqual(['暗記']);
             expect(visible.every(card => card.source === 'anki')).toBe(true);
-            expect(visible.every(card => card.reviewSource === undefined)).toBe(true);
+            expect(visible.every(card => card.reviewSource === 'anki')).toBe(true);
             expectOpaqueStudyCardToken(root, '暗記');
             expect(root.querySelector('[data-grade]')).toBeNull();
             expect(Array.from(root.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
@@ -822,7 +821,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         }
     });
 
-    it('weaves locked JPDB vocabulary kanji into kanji mode in source order', () => {
+    it('weaves locked JPDB vocabulary kanji into the shared study queue in source order', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, immersionKitEnabled: false }));
         try {
@@ -836,9 +835,10 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
                 state: { mode: 'kanji', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
             });
 
-            expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復', '習']);
+            expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復習']);
             expect(visible.slice(0, 2).every(card => card.sourceCardKey === '35486:1:語彙:ごい')).toBe(true);
-            expect(visible.every(card => card.reviewSource === undefined)).toBe(true);
+            expect(visible.slice(0, 2).every(card => card.reviewSource === undefined)).toBe(true);
+            expect(visible[2]?.reviewSource).toBe('jpdb-api');
             expect(root.querySelector('[data-grade]')).toBeNull();
         } finally {
             restoreCanvas();
@@ -892,7 +892,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             await controller.renderPage();
 
             const visible = (controller as unknown as { visibleWords: JPDBCard[] }).visibleWords;
-            expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復', '習']);
+            expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復習']);
             expect((controller as unknown as { index: number }).index).toBe(0);
             expectOpaqueStudyCardToken(document, locked.spelling, locked.reading);
         } finally {
@@ -1211,7 +1211,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
 
             expect(result.sourceLabel).toBe('JPDB');
             expect(result.reviewCountMode).toBe(true);
-            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読']);
+            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読む']);
             expect(listKanjiCharacters).not.toHaveBeenCalled();
         } finally {
             restoreCanvas();
@@ -1249,10 +1249,8 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         }
     });
 
-    it('applies async kanji details to Anki-derived kanji study cards', async () => {
+    it('keeps Anki-derived words intact when migrating legacy kanji state', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
-        const lookup = deferred<{ kanji: string; keyword: string; meanings: string[]; readings: []; components: []; vocabulary: []; frequencyRank: null }>();
-        const jpdbKanjiLookup = vi.fn(() => lookup.promise);
         const sourceCard = newTabTestCard({
             vid: 38800,
             sid: 1,
@@ -1272,7 +1270,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             immersionKitEnabled: false,
             newTabKanjiAutogradeEnabled: false,
         }, {
-            jpdbKanji: { lookup: jpdbKanjiLookup } as never,
+            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
             kanjiVG: { lookup: vi.fn(async () => null) } as never,
             rtk: { lookup: vi.fn(async () => null) } as never,
             dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
@@ -1292,14 +1290,9 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             });
             (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
 
-            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['難', '波']);
+            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['難波']);
             expectOpaqueStudyCardToken(root, '難波', 'なにわ');
-            expect(newTabPromptText(root)).toBe('難');
-
-            lookup.resolve({ kanji: '難', keyword: 'difficult', meanings: ['difficult'], readings: [], components: [], vocabulary: [], frequencyRank: null });
-            await Promise.resolve();
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('難波');
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('Loading kanji details');
+            expect(newTabPromptText(root)).toBe('難波');
             expect(newTabSourceSelect(root).value).toBe('anki');
         } finally {
             root.remove();

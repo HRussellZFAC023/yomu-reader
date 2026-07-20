@@ -90,13 +90,14 @@ import {
     firstCardMeaning,
     isYomuNewTabUrl,
     kanjiCharacters,
-    loadNewTabUiState,
+    loadNewTabUiStateWithLegacyIntent,
     resolveNewTabBrandAssets,
     saveNewTabUiState,
-    type NewTabMode,
+    type LegacyNewTabStudyIntent,
+    type NewTabRoute,
     type NewTabUiState,
 } from './index';
-import { NEW_TAB_FILTERS, normalizeNewTabUiState, type NewTabListenSubMode } from './state';
+import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
 import {
     planStudyCardHistoryUpdate,
     readStudyCardRoute,
@@ -167,7 +168,6 @@ import {
 import { firstStudySentenceTier, studySentenceTiers } from './study-sentence-source';
 import {
     compactFacts,
-    dictionaryKanjiStudyCard,
     doodlePreviewDataUrl,
     fact,
     fallbackSearchKanjiCard,
@@ -583,18 +583,27 @@ interface NewTabSupportStatus {
 }
 
 const log = Logger.scope('NewTab');
-const NEW_TAB_MODE_NAMES = new Set<string>(['word', 'recall', 'kanji', 'search', 'stats', 'listen']);
+type ListenInteractionMode = 'perceive' | 'recall' | 'shadow';
+interface LegacyStudyTransition {
+    stepId: NewTabStudyStepId | null;
+    listenMode?: Exclude<ListenInteractionMode, 'shadow'>;
+}
+const NEW_TAB_ROUTE_NAMES = new Set<string>(['study', 'word', 'search', 'stats']);
+const LEGACY_STUDY_STEP_IDS: Readonly<Record<string, NewTabStudyStepId>> = {
+    recall: 'recall-cloze',
+    kanji: 'kanji-doodle:0',
+};
 const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-newtab-support-banner-dismissed';
 
-function isNewTabModeName(value: string | undefined | null): value is NewTabMode {
-    return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
+function isNewTabRouteName(value: string | undefined | null): value is NewTabRoute | 'word' {
+    return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
 }
 
-function newTabRouteMode(): NewTabMode | null {
+function newTabRoute(): NewTabRoute | null {
     try {
         const url = new URL(location.href);
         const mode = url.searchParams.get('mode') || url.searchParams.get('view') || url.hash.replace(/^#/u, '');
-        if (isNewTabModeName(mode)) return mode;
+        if (isNewTabRouteName(mode)) return mode === 'word' ? 'study' : mode;
         return newTabRouteSearchQuery(url) ? 'search' : null;
     } catch {
         return null;
@@ -772,8 +781,6 @@ export class NewTabController {
         getSettings: () => this.dependencies.getSettings(),
         shouldRenderCardAsKanji: card => this.shouldRenderCardAsKanji(card),
         cardReviewSource: card => this.cardReviewSource(card),
-        isVocabularyStudyMode: mode => this.isVocabularyStudyMode(mode),
-        pitchSessionPool: options => this.pitchSrs.sessionPool(options),
     });
     // The Search surface (dictionary search + handwriting) lives in its own
     // collaborator; the controller keeps thin delegations and hands the browse
@@ -810,12 +817,13 @@ export class NewTabController {
         renderBrowseInto: root => this.renderBrowseInto(root),
         browseHasProviders: () => this.browsePoolProviders(this.dependencies.getSettings()).length > 0,
         enterSearchMode: () => {
-            this.state = { ...this.state, mode: 'search', revealAnswer: false };
+            this.state = { ...this.state, route: 'search', revealAnswer: false };
             this.persistState();
         },
     });
     private listenItem: PitchSrsItem | null = null;
-    private listenRenderedSubMode: NewTabListenSubMode | null = null;
+    private listenInteractionMode: Exclude<ListenInteractionMode, 'shadow'> = 'perceive';
+    private listenRenderedMode: ListenInteractionMode | null = null;
     private listenSelectedPosition: number | null = null;
     private listenRevealed = false;
     private listenOutcome: ListenOutcome | null = null;
@@ -935,14 +943,16 @@ export class NewTabController {
         });
         this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
         this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
-        const saved = loadNewTabUiState();
-        const routeMode = newTabRouteMode();
-        const routeSearchQuery = routeMode === 'search' ? newTabRouteSearchQueryFromLocation() : '';
+        const loaded = loadNewTabUiStateWithLegacyIntent();
+        const saved = loaded.state;
+        const route = newTabRoute();
+        const routeSearchQuery = route === 'search' ? newTabRouteSearchQueryFromLocation() : '';
         this.state = {
             ...saved,
-            ...(routeMode ? { mode: routeMode } : {}),
+            ...(route ? { route } : {}),
             source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings()),
         };
+        if (!options.initialStudyStepId) this.applyLoadedLegacyStudyIntent(loaded.legacyStudyIntent);
         if (routeSearchQuery) this.searchController.setInitialQuery(routeSearchQuery);
         this.stateChannel = options.surface === 'academy'
             ? { publish: () => {}, close: () => {} }
@@ -1014,11 +1024,11 @@ export class NewTabController {
         this.syncInstallAppButton(root);
         void this.syncSupportBanner(root);
 
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.searchController.renderSearch(root);
             return;
         }
-        if (this.state.mode === 'stats') {
+        if (this.state.route === 'stats') {
             this.renderStats(root);
             void this.loadStatsInto(root);
             return;
@@ -1381,6 +1391,7 @@ export class NewTabController {
     }
 
     private bindRootEvents(root: HTMLElement): void {
+        this.migrateLegacyState(this.visibleWords[this.index]);
         this.rootEventController?.abort();
         const controller = new AbortController();
 
@@ -1463,7 +1474,7 @@ export class NewTabController {
                 if (this.browseSort === 'history' && previousSort !== 'history') this.browseSortDescending = true;
                 this.browsePage = 0;
                 const mount = this.searchResultsMount(root);
-                if (mount && this.state.mode === 'search') this.renderBrowseResults(mount);
+                if (mount && this.state.route === 'search') this.renderBrowseResults(mount);
                 return;
             }
             const filterSelect = target?.closest<HTMLSelectElement>('[data-newtab-filter-select]');
@@ -1483,7 +1494,7 @@ export class NewTabController {
                 return;
             }
             const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
-            if (deckSelect && root.contains(deckSelect) && this.state.mode === 'search') {
+            if (deckSelect && root.contains(deckSelect) && this.state.route === 'search') {
                 this.state = { ...this.state, jpdbDeck: deckSelect.value };
                 this.persistState();
                 this.invalidateBrowsePool();
@@ -1662,14 +1673,14 @@ export class NewTabController {
     }
 
     private handleSearchModeKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): boolean {
-        if (this.state.mode !== 'search') return false;
+        if (this.state.route !== 'search') return false;
         this.searchController.handleSearchKeydown(root, event, target);
         return true;
     }
 
     private handleStudyKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
-        if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-        if (this.state.mode === 'listen' || this.activeStudyStepIsListen()) {
+        if (this.state.route !== 'study') return;
+        if (this.activeStudyStepIsListen()) {
             this.handleListenKeydown(root, event, target);
             return;
         }
@@ -1947,23 +1958,32 @@ export class NewTabController {
     }
 
     private handleRootModeClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
-        if (action === 'mode') {
-            event.preventDefault();
-            const requestedMode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
-            const mode = isNewTabModeName(requestedMode) ? requestedMode : 'word';
-            const step = mode === 'word' ? null : this.studyStepForMode(mode, this.state.listenSubMode);
-            this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
-            this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
-            return true;
-        }
-        if (action === 'listen-submode') {
-            event.preventDefault();
-            const requested = target.closest<HTMLElement>('[data-listen-submode]')?.dataset.listenSubmode;
-            const listenSubMode = requested === 'recall' || requested === 'shadow' ? requested : 'perceive';
-            this.setState({ listenSubMode, revealAnswer: false }, root, { preserveWord: true });
-            return true;
-        }
+        if (action === 'mode') return this.activateRouteFromClick(root, target, event);
+        if (action === 'listen-submode') return this.activateListenStepFromClick(root, target, event);
         return false;
+    }
+
+    private activateRouteFromClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): true {
+        event.preventDefault();
+        const requested = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
+        const route: NewTabRoute = requested === 'search' || requested === 'stats' ? requested : 'study';
+        if (route === 'study') {
+            const step = requested === 'kanji' ? this.studyStepForKind('kanji-doodle') : null;
+            this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
+        }
+        this.setState({ route, revealAnswer: false }, root, { preserveWord: true });
+        return true;
+    }
+
+    private activateListenStepFromClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): true {
+        event.preventDefault();
+        const requested = target.closest<HTMLElement>('[data-listen-submode]')?.dataset.listenSubmode;
+        const mode: ListenInteractionMode = requested === 'recall' || requested === 'shadow' ? requested : 'perceive';
+        if (mode !== 'shadow') this.listenInteractionMode = mode;
+        const step = this.studyStepForKind(mode === 'shadow' ? 'speaking' : 'listen-pitch');
+        this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
+        this.setState({ route: 'study', revealAnswer: false }, root, { preserveWord: true });
+        return true;
     }
 
     private handleRootStudyActionClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
@@ -1985,15 +2005,14 @@ export class NewTabController {
         if (step.kind === 'final-reveal') {
             const card = this.visibleWords[this.index];
             this.studyStepOverride = null;
-            const mode: NewTabMode = card && this.shouldRenderCardAsKanji(card) ? 'kanji' : 'word';
             if (card?.reviewSource === 'jpdb-live' && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
-            this.setState({ mode, revealAnswer: true }, root, { preserveWord: true });
+            this.setState({ route: 'study', revealAnswer: true }, root, { preserveWord: true });
             this.maybeAutoPlayRevealedImmersionAudio(card, true);
             return;
         }
         this.setStudyStepOverrideForCurrentCard(step.id);
         // A kanji-doodle step on a WORD card renders in-session via the step
-        // override — switching state.mode to 'kanji' here jumped to the kanji
+        // override — switching the old queue mode to 'kanji' here jumped to the kanji
         // QUEUE, re-resolving the visible card to a synthetic per-kanji card
         // (owner: pressing Kanji 2 "takes back to old view"). Only real kanji
         // cards study in kanji mode. Listen/Speak steps likewise render
@@ -2001,15 +2020,7 @@ export class NewTabController {
         // queue through the pitch-gated listen tab and dropped cards whose
         // pitch had not enriched yet (the whole flow shape then depended on
         // the review provider).
-        const card = this.visibleWords[this.index];
-        const isListenStep = step.kind === 'listen-pitch' || step.kind === 'speaking';
-        const stayInWordSession = step.kind === 'kanji-doodle' && card && !this.shouldRenderCardAsKanji(card);
-        const sessionMode: NewTabMode = card && this.shouldRenderCardAsKanji(card) ? 'kanji' : 'word';
-        this.setState({
-            mode: isListenStep ? sessionMode : stayInWordSession ? 'word' : step.mode,
-            listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
-            revealAnswer: false,
-        }, root, { preserveWord: true });
+        this.setState({ route: 'study', revealAnswer: false }, root, { preserveWord: true });
     }
 
     private async dismissStudyTour(root: HTMLElement): Promise<void> {
@@ -2036,7 +2047,7 @@ export class NewTabController {
     private navigateStudyStep(direction: PointerNavigationDirection): boolean {
         const root = this.currentRoot();
         const card = this.visibleWords[this.index];
-        if (!root || !card || this.state.mode === 'search' || this.state.mode === 'stats') return false;
+        if (!root || !card || this.state.route === 'search' || this.state.route === 'stats') return false;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
         const activeIndex = session.steps.findIndex(step => step.id === session.activeStep.id);
         if (activeIndex < 0) return false;
@@ -2089,8 +2100,8 @@ export class NewTabController {
         // card whose answer was never shown.
         return Boolean(
             card
-            && this.state.mode !== 'search'
-            && this.state.mode !== 'stats'
+            && this.state.route !== 'search'
+            && this.state.route !== 'stats'
             && this.state.revealAnswer
             && this.isFinalRevealStep(card)
             && this.canReviewCard(card),
@@ -2109,7 +2120,7 @@ export class NewTabController {
     private swipeStartAllowedForStepNavigation(target: HTMLElement | null): boolean {
         if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
         const card = this.visibleWords[this.index];
-        if (!card || this.state.mode === 'search' || this.state.mode === 'stats') return false;
+        if (!card || this.state.route === 'search' || this.state.route === 'stats') return false;
         if (target && isNewTabStudyInteractiveTarget(target)) return false;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
         return session.steps.length > 1;
@@ -2120,7 +2131,7 @@ export class NewTabController {
     }
 
     private handleStudyCardClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): void {
-        if (this.state.mode === 'search') return;
+        if (this.state.route === 'search') return;
         const card = this.visibleWords[this.index];
         if (!card || !this.isFinalRevealStep(card)) return;
         const study = target.closest<HTMLElement>('[data-newtab-study]');
@@ -2202,7 +2213,7 @@ export class NewTabController {
     }
 
     private performParsedWordLookup(root: HTMLElement, request: ParsedWordLookupRequest): void {
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.searchController.selectSearchSuggestion(root, request.expression);
             return;
         }
@@ -2253,7 +2264,7 @@ export class NewTabController {
     }
 
     private promptLookupRequest(root: HTMLElement, target: HTMLElement): PromptLookupRequest | null {
-        if (this.state.mode !== 'word') return null;
+        if (this.state.route !== 'study') return null;
         if (target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR)) return null;
         const prompt = target.closest<HTMLElement>('[data-newtab-prompt]');
         const card = this.visibleWords[this.index];
@@ -2273,7 +2284,7 @@ export class NewTabController {
         const query = cleanNestedLookupValue(link.dataset.dictionaryLookup);
         if (!query) return false;
         consumeNestedLookupEvent(event);
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.searchController.selectSearchSuggestion(root, query);
             return true;
         }
@@ -2297,7 +2308,7 @@ export class NewTabController {
     }
 
     private nestedPreviousNavigationEntry(): PopupNavigationEntry | undefined {
-        if (this.state.mode === 'search') return undefined;
+        if (this.state.route === 'search') return undefined;
         const card = this.visibleWords[this.index];
         return card ? { kind: 'word', card, sentence: sentenceForCard(card) } : undefined;
     }
@@ -2357,7 +2368,7 @@ export class NewTabController {
         const kanji = actionTarget.dataset.kanji ?? '';
         if (!kanji) return false;
         consumeNestedLookupEvent(event);
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.searchController.selectSearchSuggestion(root, kanji);
             return true;
         }
@@ -2381,7 +2392,7 @@ export class NewTabController {
         if (!term) return false;
         const reading = cleanNestedLookupValue(actionTarget.dataset.reading);
         consumeNestedLookupEvent(event);
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.searchController.selectSearchSuggestion(root, term);
             return true;
         }
@@ -2546,7 +2557,7 @@ export class NewTabController {
 
     private maybeAutoPlayRevealedImmersionAudio(card: JPDBCard | undefined, revealed: boolean): void {
         const settings = this.dependencies.getSettings();
-        if (!revealed || !card || !this.isVocabularyStudyMode(this.state.mode)) return;
+        if (!revealed || !card || !this.isVocabularyStudyRoute()) return;
         if (!settings.immersionKitEnabled || !settings.immersionKitAutoPlayAudio) return;
         if (!settings.audioEnabled) return;
         if (!canAttemptAudiblePlayback(true)) return;
@@ -2611,8 +2622,8 @@ export class NewTabController {
             && !usedCachedWords
             && !this.allWords.length
             && this.state.source === 'auto'
-            && this.state.mode !== 'search'
-            && this.state.mode !== 'stats';
+            && this.state.route !== 'search'
+            && this.state.route !== 'stats';
     }
 
     private async applyAutoStudyFallbackPreview(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number): Promise<void> {
@@ -2638,8 +2649,8 @@ export class NewTabController {
         return this.isCurrentLoad(loadGeneration)
             && !this.allWords.length
             && this.state.source === 'auto'
-            && this.state.mode !== 'search'
-            && this.state.mode !== 'stats';
+            && this.state.route !== 'search'
+            && this.state.route !== 'stats';
     }
 
     private async applyLoadedWords(
@@ -2779,7 +2790,7 @@ export class NewTabController {
 
     private async withPortableUrlCard(cards: JPDBCard[]): Promise<JPDBCard[]> {
         const identity = this.portableCardIdentityFromLocation();
-        if (!identity?.spelling || !this.isVocabularyStudyMode(this.state.mode)) return cards;
+        if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
         if (cards.some(card => this.cardMatchesPortableIdentity(card, identity))) return cards;
         const card = await this.lookupPortableUrlCard(identity).catch(error => {
             log.warn('Could not resolve portable study URL card', { identity, error });
@@ -2867,7 +2878,7 @@ export class NewTabController {
     }
 
     private async applyOfflineCacheWhileLoading(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number): Promise<boolean> {
-        if (this.allWords.length || this.state.mode === 'search') return false;
+        if (this.allWords.length || this.state.route === 'search') return false;
         const cached = await this.readOfflineCache();
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length || !this.canPrimeWithOfflineCache(cached.cards)) return false;
         this.applyOfflineWordCacheState(cached);
@@ -2932,7 +2943,7 @@ export class NewTabController {
         this.visibleWords = [];
         this.visiblePoolSignature = '';
         this.index = 0;
-        this.state = { ...this.state, source, mode: 'word', revealAnswer: false };
+        this.state = { ...this.state, source, route: 'study', revealAnswer: false };
         this.persistState();
         this.syncMode(root);
         this.ensureStudySurface(root);
@@ -3192,9 +3203,7 @@ export class NewTabController {
     }
 
     private currentModeStudyCardCount(cards: JPDBCard[]): number {
-        return this.state.mode === 'kanji'
-            ? this.kanjiStudyCardsFromSourceCards(cards).length
-            : cards.length;
+        return cards.length;
     }
 
     private async loadLocalOrBuiltInFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -3496,9 +3505,6 @@ export class NewTabController {
 
             const entries = await this.loadDictionaryFallbackEntries(settings, cardLimit);
             const cards = entries.map(entry => this.dependencies.parser.localCardFromEntry(entry));
-            if (this.state.mode === 'kanji') {
-                cards.push(...await this.loadDictionaryKanjiCards(settings, cards, cardLimit));
-            }
             return {
                 cards,
                 sourceLabel: this.text('dictionary'),
@@ -3579,17 +3585,6 @@ export class NewTabController {
             maxRows: NEW_TAB_DICTIONARY_RANDOM_MAX_ROWS,
             maxMs: NEW_TAB_DICTIONARY_RANDOM_MAX_MS,
         });
-    }
-
-    private async loadDictionaryKanjiCards(settings: ReaderSettings, seedCards: JPDBCard[], limit = NEW_TAB_WORD_LIMIT): Promise<JPDBCard[]> {
-        const cardLimit = Math.max(1, Math.floor(limit));
-        const seeded = new Set(this.kanjiStudyCardsFromSourceCards(seedCards).map(card => card.spelling));
-        const listedKanji = await this.dependencies.dictionaries.listKanjiCharacters?.(cardLimit, settings.dictionaryPreferences)
-            .catch(() => [] as string[]) ?? [];
-        return uniqueStrings(listedKanji)
-            .filter(kanji => !seeded.has(kanji))
-            .slice(0, cardLimit)
-            .map(kanji => dictionaryKanjiStudyCard(kanji));
     }
 
     private async loadJpdbWords(options: { allowPublicFallback?: boolean; timeoutMs?: number; limit?: number } = {}): Promise<NewTabLoadResult> {
@@ -3944,13 +3939,13 @@ export class NewTabController {
 
     private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean; preferredCardKey?: string }): void {
         const preferredCardKey = options.preferredCardKey ?? (options.preserveWord ? this.currentVisibleWordKey() : '');
-        const shouldClearReviewHistory = (patch.mode !== undefined && patch.mode !== this.state.mode)
+        const shouldClearReviewHistory = (patch.route !== undefined && patch.route !== this.state.route)
             || (patch.source !== undefined && patch.source !== this.state.source);
         this.state = { ...this.state, ...patch };
         if (shouldClearReviewHistory) this.clearReviewHistory();
         this.persistState();
         this.syncMode(root);
-        if (this.isStudyCardMode(this.state.mode) && !this.allWords.length) {
+        if (this.state.route === 'study' && !this.allWords.length) {
             this.ensureStudySurface(root);
             void this.loadWordsInto(root, options.preserveWord, { useOfflineCache: true });
             return;
@@ -4085,12 +4080,12 @@ export class NewTabController {
 
     private applyWords(root: HTMLElement, preferStoredWord: boolean, preferredCardKey = '', options: { preserveOrder?: boolean } = {}): void {
         this.syncMode(root);
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.ensureStudySurface(root);
             this.searchController.renderSearch(root);
             return;
         }
-        if (this.state.mode === 'stats') {
+        if (this.state.route === 'stats') {
             this.renderStats(root);
             void this.loadStatsInto(root);
             return;
@@ -4121,16 +4116,8 @@ export class NewTabController {
         return this.studyPool.studyPoolForCurrentMode();
     }
 
-    private isStudyCardMode(mode: NewTabMode): boolean {
-        return mode === 'word' || mode === 'recall' || mode === 'kanji' || mode === 'listen';
-    }
-
-    private isVocabularyStudyMode(mode: NewTabMode): boolean {
-        return mode === 'word' || mode === 'recall';
-    }
-
-    private kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[] {
-        return this.studyPool.kanjiStudyCardsFromSourceCards(cards);
+    private isVocabularyStudyRoute(): boolean {
+        return this.state.route === 'study' && !this.currentCardRendersAsKanji();
     }
 
     private replaceVisibleWordPool(baseWords: JPDBCard[], poolSignature: string, preferredKey = '', preserveOrder = false): void {
@@ -4146,7 +4133,7 @@ export class NewTabController {
     }
 
     private emptyStudyMessageKey(): NewTabCopyKey {
-        if (this.reviewCountMode) return this.state.mode === 'kanji' ? 'noReviewKanjiReady' : 'noReviewWordsReady';
+        if (this.reviewCountMode) return this.currentCardRendersAsKanji() ? 'noReviewKanjiReady' : 'noReviewWordsReady';
         return 'noCards';
     }
 
@@ -4282,7 +4269,7 @@ export class NewTabController {
 
     private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1, source: NavigationExpansionSource): Promise<void> {
         const currentKey = this.currentVisibleWordKey();
-        this.setStatus(root, this.text(this.state.mode === 'kanji' ? 'noKanjiCardsYet' : 'noWordsYet'));
+        this.setStatus(root, this.text(this.currentCardRendersAsKanji() ? 'noKanjiCardsYet' : 'noWordsYet'));
         const promise = this.appendNavigationSupplement(root, direction, currentKey, source);
         this.navigationSupplementPromise = promise;
         try {
@@ -4351,7 +4338,7 @@ export class NewTabController {
     }
 
     private isNavigationExpansionBlockedMode(): boolean {
-        return this.state.mode === 'search' || this.state.mode === 'stats';
+        return this.state.route === 'search' || this.state.route === 'stats';
     }
 
     private dictionaryNavigationExpansionSource(): NavigationExpansionSource | null {
@@ -4387,6 +4374,10 @@ export class NewTabController {
     }
 
     private renderWord(root: HTMLElement, card: JPDBCard): void {
+        // Embedded callers and older persisted fixtures can still inject the
+        // pre-NB-40 mode shape. Translate it before any route-owned side
+        // effects (stored position or URL history), not midway through render.
+        this.migrateLegacyState(card);
         if (this.initialStudyStepIdPending) {
             this.setStudyStepOverrideForCard(card, this.initialStudyStepIdPending);
             this.initialStudyStepIdPending = null;
@@ -4429,10 +4420,9 @@ export class NewTabController {
     }
 
     private studySessionForCard(card: JPDBCard, renderAsKanji = this.shouldRenderCardAsKanji(card)): NewTabStudySession {
+        this.migrateLegacyState(card);
         const settings = this.dependencies.getSettings();
         return createNewTabStudySession(card, {
-            mode: this.state.mode,
-            listenSubMode: this.state.listenSubMode,
             revealAnswer: this.state.revealAnswer,
             renderAsKanji,
             ...this.pinnedStudyPlanInputs(card),
@@ -4440,6 +4430,46 @@ export class NewTabController {
             disabledSteps: settings.newTabStudyDisabledSteps,
             activeStepId: this.studyStepOverrideForCard(card),
         });
+    }
+
+    // One compatibility seam replaces the former mode/step reconciliation
+    // sites. Persisted pre-NB-40 state and older embedded callers may still
+    // provide `mode`/`listenSubMode`; consume those fields once, translate them
+    // to the route plus active step, and keep the live state route-only.
+    private migrateLegacyState(card?: JPDBCard): void {
+        const legacy = this.state as NewTabUiState & { mode?: unknown; listenSubMode?: unknown };
+        if (legacy.mode === undefined) return;
+        const mode = legacy.mode;
+        const listenMode = legacy.listenSubMode;
+        const { mode: _mode, listenSubMode: _listenSubMode, ...current } = legacy;
+        void _mode;
+        void _listenSubMode;
+        this.state = {
+            ...normalizeNewTabUiState(current),
+            route: legacyNewTabRoute(mode),
+        };
+        this.applyLegacyStudyTransition(card, legacyStudyTransition(mode, listenMode));
+    }
+
+    private applyLegacyStudyTransition(card: JPDBCard | undefined, transition: LegacyStudyTransition): void {
+        if (transition.listenMode) this.listenInteractionMode = transition.listenMode;
+        if (!transition.stepId) return;
+        if (card) this.setStudyStepOverrideForCard(card, transition.stepId);
+        else this.initialStudyStepIdPending = transition.stepId;
+    }
+
+    private applyLoadedLegacyStudyIntent(intent: LegacyNewTabStudyIntent | null): void {
+        if (!intent) return;
+        if (intent.kind === 'recall') {
+            this.initialStudyStepIdPending = 'recall-cloze';
+            return;
+        }
+        if (intent.kind === 'kanji') {
+            this.initialStudyStepIdPending = 'kanji-doodle:0';
+            return;
+        }
+        this.listenInteractionMode = intent.interaction === 'recall' ? 'recall' : 'perceive';
+        this.initialStudyStepIdPending = intent.interaction === 'shadow' ? 'speaking' : 'listen-pitch';
     }
 
     // The step plan is PINNED per card at first presentation: async sentence or
@@ -4491,28 +4521,27 @@ export class NewTabController {
     }
 
     private studyStepForId(id: NewTabStudyStepId): NewTabStudyStep | null {
-        const card = this.visibleWords[this.index];
-        if (!card) return null;
-        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-        return session.steps.find(step => step.id === id) ?? null;
+        return this.findStudyStep(step => step.id === id);
     }
 
-    private studyStepForMode(mode: NewTabMode, listenSubMode: NewTabListenSubMode): NewTabStudyStep | null {
+    private studyStepForKind(kind: NewTabStudyStepKind): NewTabStudyStep | null {
+        return this.findStudyStep(step => step.kind === kind);
+    }
+
+    private findStudyStep(matches: (step: NewTabStudyStep) => boolean): NewTabStudyStep | null {
         const card = this.visibleWords[this.index];
         if (!card) return null;
-        const kind = studyStepKindForMode(mode, listenSubMode);
-        if (!kind) return null;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-        return session.steps.find(step => step.kind === kind) ?? null;
+        return session.steps.find(matches) ?? null;
     }
 
     private studyStepRendersKanji(session: NewTabStudySession): boolean {
         return session.activeStep.kind === 'kanji-doodle'
-            || (session.activeStep.kind === 'final-reveal' && session.activeStep.mode === 'kanji');
+            || (session.activeStep.kind === 'final-reveal' && this.currentCardRendersAsKanji());
     }
 
     private wordSessionRendersKanji(): boolean {
-        if (this.state.mode !== 'word') return false;
+        if (this.state.route !== 'study') return false;
         const card = this.visibleWords[this.index];
         if (!card) return false;
         return this.studyStepRendersKanji(this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)));
@@ -4520,7 +4549,7 @@ export class NewTabController {
 
     private renderStudySteps(slot: HTMLElement | null, session: NewTabStudySession): void {
         if (!slot) return;
-        if (session.steps.length <= 1 || this.state.mode === 'search' || this.state.mode === 'stats') {
+        if (session.steps.length <= 1 || this.state.route === 'search' || this.state.route === 'stats') {
             slot.replaceChildren();
             slot.hidden = true;
             return;
@@ -4563,7 +4592,7 @@ export class NewTabController {
     private renderStudyTour(slot: HTMLElement | null, session: NewTabStudySession): void {
         if (!slot) return;
         const settings = this.dependencies.getSettings();
-        const showTour = !settings.newTabStudyTourSeen && this.isStudyCardMode(this.state.mode) && session.steps.length > 1;
+        const showTour = !settings.newTabStudyTourSeen && this.state.route === 'study' && session.steps.length > 1;
         if (showTour) {
             slot.hidden = false;
             slot.dataset.studyTourMode = 'guide';
@@ -4641,16 +4670,16 @@ export class NewTabController {
         // Reset the in-card interaction state on a new card OR a sub-mode switch, so
         // a Perceive pick/reveal never leaks into the Recall/Shadow view of the same word.
         const isNewCard = !this.listenItem || this.listenItem.key !== item.key;
-        const isSubModeChange = this.listenRenderedSubMode !== this.state.listenSubMode;
+        const isSubModeChange = this.listenRenderedMode !== this.activeListenInteractionMode();
         if (isNewCard || isSubModeChange) {
             this.listenItem = item;
-            this.listenRenderedSubMode = this.state.listenSubMode;
+            this.listenRenderedMode = this.activeListenInteractionMode();
             // Restore a prior perceive pick so the pitch selection sticks when the
             // learner steps away and back within the same card (the pick is
             // persisted per card, feeding the single reveal like recall does).
-            const prior = this.state.listenSubMode === 'perceive' ? this.stepState(cardKey(card))?.pitch ?? null : null;
+            const prior = this.activeListenInteractionMode() === 'perceive' ? this.stepState(cardKey(card))?.pitch ?? null : null;
             this.listenSelectedPosition = prior ? prior.position : null;
-            this.listenRevealed = this.state.listenSubMode === 'shadow' || Boolean(prior);
+            this.listenRevealed = this.activeListenInteractionMode() === 'shadow' || Boolean(prior);
             this.listenOutcome = prior ? prior.outcome : null;
             this.listenContrastCard = null;
             this.clearListenSpeakingScore();
@@ -4658,7 +4687,7 @@ export class NewTabController {
             this.listenRecordingUnavailable = false;
         }
         setInnerHtml(prompt, renderListenCard(this.listenCardView(card, item), key => this.text(key)));
-        if ((isNewCard || isSubModeChange) && this.state.listenSubMode === 'perceive' && this.dependencies.playWordAudio) {
+        if ((isNewCard || isSubModeChange) && this.activeListenInteractionMode() === 'perceive' && this.dependencies.playWordAudio) {
             void this.playListenModelAudio();
         }
     }
@@ -4667,7 +4696,7 @@ export class NewTabController {
         return {
             item,
             meaning: firstCardMeaning(card),
-            subMode: this.state.listenSubMode,
+            subMode: this.activeListenInteractionMode(),
             revealed: this.listenRevealed,
             selectedPosition: this.listenSelectedPosition,
             outcome: this.listenOutcome,
@@ -4678,7 +4707,7 @@ export class NewTabController {
             hasRecording: Boolean(this.listenRecordingUrl),
             speakingScore: this.listenSpeakingScore,
             speakingScoring: this.listenSpeakingScoring,
-            micEnabled: this.state.listenSubMode === 'shadow',
+            micEnabled: this.activeListenInteractionMode() === 'shadow',
             micUnavailable: this.listenRecordingUnavailable,
             contrast: this.listenContrastView(),
         };
@@ -4709,18 +4738,27 @@ export class NewTabController {
     private rerenderActiveListen(): void {
         const root = this.listenRootEl();
         const card = this.visibleWords[this.index];
-        if (root && card && (this.state.mode === 'listen' || this.activeStudyStepIsListen())) this.renderWord(root, card);
+        if (root && card && (this.activeStudyStepIsListen())) this.renderWord(root, card);
     }
 
-    // In-session Listen/Speak steps keep state.mode on the word/kanji session
+    // In-session Listen/Speak steps keep the study route and active session
     // (the listen TAB re-pools pitch-eligible cards only); listen interactions
     // and shortcuts key off the active step instead.
     private activeStudyStepIsListen(): boolean {
-        if (!this.isStudyCardMode(this.state.mode)) return false;
-        const card = this.visibleWords[this.index];
-        if (!card) return false;
-        const kind = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+        const kind = this.activeStudyStepKind();
         return kind === 'listen-pitch' || kind === 'speaking';
+    }
+
+    private activeStudyStepKind(): NewTabStudyStepKind | null {
+        if (this.state.route !== 'study') return null;
+        const card = this.visibleWords[this.index];
+        if (!card) return null;
+        return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+    }
+
+    private activeListenInteractionMode(): ListenInteractionMode {
+        const kind = this.activeStudyStepKind();
+        return kind === 'speaking' ? 'shadow' : this.listenInteractionMode;
     }
 
     private handleListenPick(_root: HTMLElement, target: HTMLElement): void {
@@ -4730,7 +4768,7 @@ export class NewTabController {
     }
 
     private pickListenPosition(position: number): void {
-        if (!this.listenItem || this.state.listenSubMode === 'shadow') return;
+        if (!this.listenItem || this.activeListenInteractionMode() === 'shadow') return;
         if (position < 0 || position > splitMorae(this.listenItem.reading).length) return;
         this.listenSelectedPosition = position;
         if (this.listenRevealed) {
@@ -4778,33 +4816,48 @@ export class NewTabController {
     // The contrast-pair shortcut stays local to the error state.
     private handleListenKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
         const settings = this.dependencies.getSettings();
+        if (this.handleListenNavigationKey(event, settings)) return;
+        if (this.handleListenAdvanceKey(root, event, target, settings)) return;
+        if (this.handleListenReplayKey(event, settings)) return;
+        if (this.handleListenPositionKey(event)) return;
+        this.handleListenContrastKey(event);
+    }
+
+    private handleListenNavigationKey(event: KeyboardEvent, settings: ReaderSettings): boolean {
         const direction = this.studyNavigationDirection(event, settings);
-        if (direction) {
-            event.preventDefault();
-            if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
-            return;
-        }
-        if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
-            event.preventDefault();
-            this.dismissKeyHints(root);
-            this.advanceListen(root);
-            return;
-        }
-        if (matchesShortcut(event, settings.shortcuts.playAudio)) {
-            event.preventDefault();
-            void this.playListenModelAudio();
-            return;
-        }
-        const key = event.key;
-        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && this.state.listenSubMode !== 'shadow') {
-            event.preventDefault();
-            this.pickListenPosition(Number(key));
-            return;
-        }
-        if ((key === 'b' || key === 'B') && this.listenContrastCard) {
-            event.preventDefault();
-            void this.playListenContrast();
-        }
+        if (!direction) return false;
+        event.preventDefault();
+        if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
+        return true;
+    }
+
+    private handleListenAdvanceKey(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null, settings: ReaderSettings): boolean {
+        if (!this.matchesStudyRevealShortcut(root, event, target, settings)) return false;
+        event.preventDefault();
+        this.dismissKeyHints(root);
+        this.advanceListen(root);
+        return true;
+    }
+
+    private handleListenReplayKey(event: KeyboardEvent, settings: ReaderSettings): boolean {
+        if (!matchesShortcut(event, settings.shortcuts.playAudio)) return false;
+        event.preventDefault();
+        void this.playListenModelAudio();
+        return true;
+    }
+
+    private handleListenPositionKey(event: KeyboardEvent): boolean {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+        if (!/^[0-9]$/u.test(event.key) || this.activeListenInteractionMode() === 'shadow') return false;
+        event.preventDefault();
+        this.pickListenPosition(Number(event.key));
+        return true;
+    }
+
+    private handleListenContrastKey(event: KeyboardEvent): void {
+        if (event.key.toLowerCase() !== 'b' || !this.listenContrastCard) return;
+        event.preventDefault();
+        void this.playListenContrast();
     }
 
     private async playListenModelAudio(): Promise<void> {
@@ -4839,7 +4892,7 @@ export class NewTabController {
         try {
             const recordingItemKey = this.listenItem?.key ?? '';
             const stream = await mediaDevices.getUserMedia({ audio: true });
-            if (!recordingItemKey || this.listenItem?.key !== recordingItemKey || this.state.listenSubMode !== 'shadow') {
+            if (!recordingItemKey || this.listenItem?.key !== recordingItemKey || this.activeListenInteractionMode() !== 'shadow') {
                 stream.getTracks().forEach(track => track.stop());
                 return;
             }
@@ -4856,7 +4909,7 @@ export class NewTabController {
                 stream.getTracks().forEach(track => track.stop());
                 this.clearListenRecording(); // also nulls listenRecorder + revokes any prior url
                 const blob = chunks.length ? new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }) : null;
-                if (blob && this.listenItem?.key === recordingItemKey && this.state.listenSubMode === 'shadow') {
+                if (blob && this.listenItem?.key === recordingItemKey && this.activeListenInteractionMode() === 'shadow') {
                     this.listenRecordingUrl = URL.createObjectURL(blob);
                     this.listenSpeakingScoring = true;
                     const scoreGeneration = ++this.listenSpeakingScoreGeneration;
@@ -4893,7 +4946,7 @@ export class NewTabController {
         try {
             const item = this.listenItem?.key === itemKey ? this.listenItem : null;
             const score = item ? await scoreSpeakingBlob(blob, item) : null;
-            if (generation !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey || this.state.listenSubMode !== 'shadow') return;
+            if (generation !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey || this.activeListenInteractionMode() !== 'shadow') return;
             this.listenSpeakingScore = score;
             this.listenSpeakingScoring = false;
             // Fold the shadowing verdict into the reveal summary (first attempt
@@ -4954,9 +5007,13 @@ export class NewTabController {
     }
 
     private shouldRenderCardAsKanji(card: JPDBCard): boolean {
-        return this.state.mode === 'kanji'
-            || this.isLiveJpdbKanjiReviewCard(card)
+        return this.isLiveJpdbKanjiReviewCard(card)
             || isKanjiUnlockStudyCard(card);
+    }
+
+    private currentCardRendersAsKanji(): boolean {
+        const card = this.visibleWords[this.index];
+        return Boolean(card && this.shouldRenderCardAsKanji(card));
     }
 
     private isLiveJpdbKanjiReviewCard(card: JPDBCard): boolean {
@@ -5034,7 +5091,7 @@ export class NewTabController {
         // nudge a render when a clock is not active (e.g. just after enqueue).
         const root = this.sessionClockRoot;
         const card = this.visibleWords[this.index];
-        if (root?.isConnected && card && this.isVocabularyStudyMode(this.state.mode)) {
+        if (root?.isConnected && card && this.isVocabularyStudyRoute()) {
             this.renderSessionProgress(this.studySlots(root), card, root);
         }
     }
@@ -5146,7 +5203,7 @@ export class NewTabController {
             this.stopSessionClock();
             return;
         }
-        if (!card || !this.isVocabularyStudyMode(this.state.mode)) return;
+        if (!card || !this.isVocabularyStudyRoute()) return;
         this.renderSessionProgress(this.studySlots(root), card, root);
     }
 
@@ -5667,7 +5724,7 @@ export class NewTabController {
     private appendConnectSrsCta(countSlot: HTMLElement): void {
         // Practice pool with nothing configured = the first-run state; the
         // fallback notice itself only renders for users who DO have sources.
-        if (this.reviewCountMode || !this.isVocabularyStudyMode(this.state.mode)) return;
+        if (this.reviewCountMode || !this.isVocabularyStudyRoute()) return;
         const settings = this.dependencies.getSettings();
         if (settings.yomuLocalSrsEnabled) return;
         if (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled || settings.newTabAnkiEnabled) return;
@@ -6512,7 +6569,7 @@ export class NewTabController {
         return meaning.isConnected
             && meaning.dataset.newtabStudyRevealDetailsRequest === requestId
             && this.state.revealAnswer
-            && this.isVocabularyStudyMode(this.state.mode)
+            && this.isVocabularyStudyRoute()
             && cardKey(this.visibleWords[this.index]) === cardKeyValue;
     }
 
@@ -6628,11 +6685,7 @@ export class NewTabController {
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabStudyToolsRequest = requestId;
         const data = await loadDetails(card).catch(() => null);
-        if (!data
-            || !prompt.isConnected
-            || prompt.dataset.newtabStudyToolsRequest !== requestId
-            || this.state.mode !== 'word'
-            || cardKey(this.visibleWords[this.index]) !== key) return;
+        if (!data || !this.isCurrentWordPromptDetailsRequest(prompt, key, requestId)) return;
         this.markCardOfflineReady(card);
         this.applyLocalStudyReading(card, data);
         if (this.upgradeStudyPlanPitchAvailability(card)) return;
@@ -6641,6 +6694,13 @@ export class NewTabController {
         prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]')
             ?.replaceWith(this.renderWordPromptTools(card, data.metaEntries));
         this.dependencies.installDictionarySourceTracking?.(prompt);
+    }
+
+    private isCurrentWordPromptDetailsRequest(prompt: HTMLElement, key: string, requestId: string): boolean {
+        return prompt.isConnected
+            && prompt.dataset.newtabStudyToolsRequest === requestId
+            && this.state.route === 'study'
+            && cardKey(this.visibleWords[this.index]) === key;
     }
 
     private applyLocalStudyReading(card: JPDBCard, data: CardRenderData): void {
@@ -6824,7 +6884,7 @@ export class NewTabController {
         return prompt.isConnected
             && prompt.dataset.newtabPromptParseRequest === requestId
             && cardKey(this.visibleWords[this.index]) === key
-            && this.state.mode === 'word';
+            && this.state.route === 'study';
     }
 
     private async enrichWordPromptSentence(
@@ -6870,7 +6930,7 @@ export class NewTabController {
         return prompt.isConnected
             && prompt.dataset.newtabSentenceRequest === requestId
             && cardKey(this.visibleWords[this.index]) === key
-            && this.state.mode === 'word';
+            && this.state.route === 'study';
     }
 
     private shouldShowFrontSentence(): boolean {
@@ -7048,7 +7108,7 @@ export class NewTabController {
         return Boolean(examples.length)
             && cardKey(this.visibleWords[this.index]) === key
             && meaning.isConnected
-            && this.isVocabularyStudyMode(this.state.mode)
+            && this.isVocabularyStudyRoute()
             && this.state.revealAnswer;
     }
 
@@ -7091,7 +7151,7 @@ export class NewTabController {
     private canApplyNewTabImmersionParse(root: HTMLElement, key: string): boolean {
         return root.isConnected
             && cardKey(this.visibleWords[this.index]) === key
-            && this.isVocabularyStudyMode(this.state.mode)
+            && this.isVocabularyStudyRoute()
             && this.state.revealAnswer;
     }
 
@@ -7416,7 +7476,7 @@ export class NewTabController {
     }
 
     private isCurrentRevealedWordCard(key: string): boolean {
-        return this.isVocabularyStudyMode(this.state.mode)
+        return this.isVocabularyStudyRoute()
             && this.state.revealAnswer
             && cardKey(this.visibleWords[this.index]) === key;
     }
@@ -7541,7 +7601,7 @@ export class NewTabController {
     }
 
     private shouldPrefetchNewTabImmersion(): boolean {
-        return this.isVocabularyStudyMode(this.state.mode)
+        return this.isVocabularyStudyRoute()
             && this.visibleWords.length > 0
             && this.dependencies.getSettings().immersionKitEnabled
             && typeof this.dependencies.immersionKit?.search === 'function';
@@ -7561,7 +7621,7 @@ export class NewTabController {
 
     private isCurrentImmersionPrefetchGeneration(generation: number): boolean {
         return generation === this.immersionPrefetchGeneration
-            && this.isVocabularyStudyMode(this.state.mode);
+            && this.isVocabularyStudyRoute();
     }
 
     private prefetchNewTabParsedSentence(sentence: string): void {
@@ -7883,7 +7943,7 @@ export class NewTabController {
         const current = this.visibleWords[this.index];
         if (!current) return false;
         const currentKanji = kanjiCharacters(current.spelling)[0] ?? current.spelling[0] ?? '';
-        return this.state.mode === 'kanji'
+        return this.wordSessionRendersKanji()
             && this.state.revealAnswer
             && currentKanji === kanji;
     }
@@ -8469,17 +8529,17 @@ export class NewTabController {
         await this.loadBrowsePool(() => {
             const mount = this.searchResultsMount(root);
             const query = normalizeSearchQuery(this.searchController.query);
-            if (mount?.isConnected && this.state.mode === 'search' && (!query || this.browseScopeActive())) this.renderBrowseResults(mount);
+            if (mount?.isConnected && this.state.route === 'search' && (!query || this.browseScopeActive())) this.renderBrowseResults(mount);
         });
         const mount = this.searchResultsMount(root);
         const query = normalizeSearchQuery(this.searchController.query);
-        if (!mount || !mount.isConnected || this.state.mode !== 'search' || (query && !this.browseScopeActive())) return;
+        if (!mount || !mount.isConnected || this.state.route !== 'search' || (query && !this.browseScopeActive())) return;
         this.renderBrowseResults(mount);
     }
 
     refreshBrowseAfterCardMutation(_card?: JPDBCard): void {
         const root = this.currentRoot();
-        if (!root || this.state.mode !== 'search') return;
+        if (!root || this.state.route !== 'search') return;
         this.invalidateBrowsePool();
         void this.renderBrowseInto(root);
     }
@@ -8631,16 +8691,16 @@ export class NewTabController {
         // full word list (queue order via due_at; sort/filter on top).
         const deck = (this.state.jpdbDeck || '').trim();
         const jitenDeckId = jitenScopedDeckId(deck);
-        if (this.state.mode === 'search' && jitenDeckId !== null) {
+        if (this.state.route === 'search' && jitenDeckId !== null) {
             return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, async () => this.withJitenReviewHistory(await this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT)));
         }
-        if (this.state.mode === 'search' && deck === 'provider:jiten') {
+        if (this.state.route === 'search' && deck === 'provider:jiten') {
             return this.loadScopedBrowsePool('provider:jiten', async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)));
         }
-        if (this.state.mode === 'search' && deck === 'provider:jpdb' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
+        if (this.state.route === 'search' && deck === 'provider:jpdb' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
             return this.loadScopedBrowsePool('provider:jpdb', () => this.dependencies.jpdb.listDeckCards('all', NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []));
         }
-        if (this.state.mode === 'search' && deck && deck !== 'all' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
+        if (this.state.route === 'search' && deck && deck !== 'all' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
             const deckKey = `jpdb-deck:${deck}`;
             if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
             const cards = await this.dependencies.jpdb.listDeckCards(deck, NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []);
@@ -9523,7 +9583,7 @@ export class NewTabController {
         // word's pitch contour as a Listen SRS item (idempotent — never resets an
         // existing schedule), so the Listen deck grows as a byproduct of studying,
         // mirroring how kanji items relate to the vocab you review.
-        if (this.isVocabularyStudyMode(this.state.mode) && grade && !isFailedNewTabGrade(grade)) {
+        if (this.isVocabularyStudyRoute() && grade && !isFailedNewTabGrade(grade)) {
             this.pitchSrs.ensureFromCard(card, Date.now());
         }
         // jpdb-style failed-card loop (community ask): a failed grade keeps
@@ -9822,7 +9882,7 @@ export class NewTabController {
     }
 
     private shouldPrefetchWordPitch(): boolean {
-        return this.isVocabularyStudyMode(this.state.mode)
+        return this.isVocabularyStudyRoute()
             && this.visibleWords.length > 0
             && this.dependencies.getSettings().showPitchAccent;
     }
@@ -9920,23 +9980,21 @@ export class NewTabController {
     }
 
     private syncMode(root: HTMLElement): void {
+        this.migrateLegacyState(this.visibleWords[this.index]);
         this.syncKeyHintVisibility(root);
-        root.classList.toggle('jpdb-reader-newtab-search-mode', this.state.mode === 'search');
-        root.classList.toggle('jpdb-reader-newtab-recall-mode', this.state.mode === 'recall');
-        // A word card's in-session kanji-doodle step keeps state.mode 'word'
-        // (the kanji QUEUE is a different surface) but still needs the
-        // kanji-mode class for the doodle stage CSS.
-        root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji' || this.wordSessionRendersKanji());
-        root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.mode === 'stats');
-        root.classList.toggle('jpdb-reader-newtab-listen-mode', this.state.mode === 'listen' || this.activeStudyStepIsListen());
+        root.classList.toggle('jpdb-reader-newtab-search-mode', this.state.route === 'search');
+        root.classList.toggle('jpdb-reader-newtab-recall-mode', this.activeStudyStepKind() === 'recall-cloze');
+        root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.wordSessionRendersKanji());
+        root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.route === 'stats');
+        root.classList.toggle('jpdb-reader-newtab-listen-mode', this.activeStudyStepIsListen());
         const search = root.querySelector<HTMLElement>('[data-newtab-search]');
-        if (search) search.hidden = this.state.mode !== 'search';
+        if (search) search.hidden = this.state.route !== 'search';
         const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');
-        if (controls) controls.hidden = this.state.mode === 'stats';
-        if (this.state.mode !== 'search') root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
+        if (controls) controls.hidden = this.state.route === 'stats';
+        if (this.state.route !== 'search') root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
         root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="mode"]').forEach(button => {
-            const active = button.dataset.mode === this.state.mode
-                || (button.dataset.mode === 'word' && this.isStudyCardMode(this.state.mode));
+            const active = button.dataset.mode === this.state.route
+                || (button.dataset.mode === 'word' && this.state.route === 'study');
             button.dataset.active = String(active);
             button.setAttribute('aria-pressed', String(active));
         });
@@ -9949,9 +10007,9 @@ export class NewTabController {
     // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
     private syncListenSubModeSwitcher(root: HTMLElement): void {
         const switcher = root.querySelector<HTMLElement>('[data-newtab-listen-submodes]');
-        if (switcher) switcher.hidden = this.state.mode !== 'listen';
+        if (switcher) switcher.hidden = !this.activeStudyStepIsListen();
         root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="listen-submode"]').forEach(button => {
-            const active = button.dataset.listenSubmode === this.state.listenSubMode;
+            const active = button.dataset.listenSubmode === this.activeListenInteractionMode();
             button.dataset.active = String(active);
             button.setAttribute('aria-pressed', String(active));
         });
@@ -9969,7 +10027,7 @@ export class NewTabController {
         const hasProvider = hasJpdbApiCredential(settings)
             || hasJitenApiCredential(settings)
             || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
-        const show = this.isVocabularyStudyMode(this.state.mode) && hasProvider;
+        const show = this.isVocabularyStudyRoute() && hasProvider;
         select.hidden = !show;
         if (!show) return;
         replaceChildrenWith(select, NEW_TAB_FILTERS.map(filter => el('option', {
@@ -9988,11 +10046,11 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         // The Search tab shares the JPDB deck scope (2D reviews: pick a deck,
         // browse all of its words in queue order, type to narrow).
-        if (this.state.mode === 'search') {
+        if (this.state.route === 'search') {
             this.syncSearchDeckSelector(select, settings);
             return;
         }
-        if (!this.isVocabularyStudyMode(this.state.mode)) {
+        if (!this.isVocabularyStudyRoute()) {
             select.hidden = true;
             return;
         }
@@ -10167,7 +10225,7 @@ export class NewTabController {
     }
 
     private currentSessionSignature(): string {
-        return [this.state.source, this.state.mode, this.sourceLabel].join('|');
+        return [this.state.source, this.state.route, this.sourceLabel].join('|');
     }
 
     private readStoredWordKey(): { signature: string; key: string } | null {
@@ -10189,7 +10247,7 @@ export class NewTabController {
     private handlingCardPopstate = false;
 
     private syncCardUrl(card: JPDBCard): void {
-        if (!this.isVocabularyStudyMode(this.state.mode) || typeof history === 'undefined') return;
+        if (!this.isVocabularyStudyRoute() || typeof history === 'undefined') return;
         // Only standalone Study owns its URL. An Academy host remains clean even
         // if a test or future shell happens to mount it on a Study-shaped path.
         if (this.options.host || this.options.surface === 'academy' || !isYomuNewTabUrl(location.href)) return;
@@ -10237,7 +10295,7 @@ export class NewTabController {
     }
 
     private handleCardPopstate(root: HTMLElement): void {
-        if (!this.isVocabularyStudyMode(this.state.mode)) return;
+        if (!this.isVocabularyStudyRoute()) return;
         const key = this.cardKeyFromLocation();
         if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
         const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
@@ -10280,7 +10338,7 @@ export class NewTabController {
     }
 
     private handleLocationPopstate(root: HTMLElement): void {
-        if (this.searchController.handleSearchPopstate(root, newTabRouteMode(), newTabRouteSearchQueryFromLocation())) return;
+        if (this.searchController.handleSearchPopstate(root, newTabRoute(), newTabRouteSearchQueryFromLocation())) return;
         this.handleCardPopstate(root);
     }
 
@@ -10294,6 +10352,18 @@ export class NewTabController {
             // Refresh stability is a convenience; the page still works without storage.
         }
     }
+}
+
+function legacyNewTabRoute(mode: unknown): NewTabRoute {
+    return mode === 'search' || mode === 'stats' ? mode : 'study';
+}
+
+function legacyStudyTransition(mode: unknown, listenMode: unknown): LegacyStudyTransition {
+    if (mode !== 'listen') return { stepId: typeof mode === 'string' ? LEGACY_STUDY_STEP_IDS[mode] ?? null : null };
+    return {
+        stepId: listenMode === 'shadow' ? 'speaking' : 'listen-pitch',
+        listenMode: listenMode === 'recall' ? 'recall' : 'perceive',
+    };
 }
 
 function isPassiveParsedWord(word: HTMLElement): boolean {
@@ -10370,24 +10440,6 @@ function setOptionalText(element: HTMLElement | null, text: string): void {
 
 function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
-}
-
-function isNewTabStudyKeyboardMode(mode: string): boolean {
-    return mode === 'word' || mode === 'recall' || mode === 'kanji' || mode === 'listen';
-}
-
-function studyStepKindForMode(mode: NewTabMode, listenSubMode: NewTabListenSubMode): NewTabStudyStepKind | null {
-    if (mode === 'kanji') return 'kanji-doodle';
-    if (mode === 'recall') return 'recall-cloze';
-    if (mode === 'listen') return listenSubMode === 'shadow' ? 'speaking' : 'listen-pitch';
-    if (mode === 'word') return 'word';
-    return null;
-}
-
-function listenSubModeForStudyStepKind(kind: NewTabStudyStepKind): NewTabListenSubMode | null {
-    if (kind === 'speaking') return 'shadow';
-    if (kind === 'listen-pitch') return 'perceive';
-    return null;
 }
 
 function studyTourCopyKey(kind: NewTabStudyStepKind): NewTabCopyKey {

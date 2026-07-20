@@ -22,6 +22,30 @@ import type {
     JPDBToken,
 } from './fixtures';
 
+function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]): { root: HTMLElement; clicks: string[] } {
+    const root = document.createElement('main');
+    root.className = 'jpdb-reader-newtab';
+    root.dataset.jpdbReaderRoot = 'true';
+    const study = document.createElement('div');
+    study.dataset.newtabStudy = 'true';
+    const clicks: string[] = [];
+    grades.forEach(grade => {
+        const button = document.createElement('button');
+        button.dataset.newtabAction = 'grade';
+        button.dataset.grade = grade;
+        button.addEventListener('click', () => clicks.push(grade));
+        study.append(button);
+    });
+    root.append(study);
+    Object.assign(controller as unknown as { state: { route: string; revealAnswer: boolean }; allWords: unknown[] }, {
+        state: { route: 'study', revealAnswer: true },
+        allWords: [{}],
+    });
+    (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+    document.body.append(root);
+    return { root, clicks };
+}
+
 describe('new tab review — study shortcuts & hosted popup lookups', () => {
     registerNewTabReviewCleanup();
 
@@ -282,26 +306,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
     it('grades revealed cards with the 1..5 digit keys in button order (SH-8, jpdb parity)', () => {
         const controller = newTabPromptController();
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        const study = document.createElement('div');
-        study.dataset.newtabStudy = 'true';
-        const clicks: string[] = [];
-        for (const grade of ['nothing', 'something', 'hard', 'okay', 'easy']) {
-            const button = document.createElement('button');
-            button.dataset.newtabAction = 'grade';
-            button.dataset.grade = grade;
-            button.addEventListener('click', () => clicks.push(grade));
-            study.append(button);
-        }
-        root.append(study);
-        Object.assign(controller as unknown as { state: { mode: string; revealAnswer: boolean } }, {
-            state: { mode: 'word', revealAnswer: true },
-        });
-        (controller as unknown as { allWords: unknown[] }).allWords = [{}];
-        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
-        document.body.append(root);
+        const { root, clicks } = bindKeyboardGradeFixture(controller, ['nothing', 'something', 'hard', 'okay', 'easy']);
 
         try {
             expect(dispatchNewTabKeyboard(root, '4').defaultPrevented).toBe(true);
@@ -309,7 +314,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             expect(clicks).toEqual(['okay', 'nothing']);
 
             // Hidden card front: digits do nothing.
-            (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state.revealAnswer = false;
+            (controller as unknown as { state: { route: string; revealAnswer: boolean } }).state.revealAnswer = false;
             expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(false);
             expect(clicks).toHaveLength(2);
         } finally {
@@ -348,12 +353,12 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             allWords: JPDBCard[];
             visibleWords: JPDBCard[];
             index: number;
-            state: { mode: string; revealAnswer: boolean };
+            state: { route: string; revealAnswer: boolean };
         }, {
             allWords: [card],
             visibleWords: [card],
             index: 0,
-            state: { mode: 'word', revealAnswer: true },
+            state: { route: 'study', revealAnswer: true },
         });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
         document.body.append(root);
@@ -376,26 +381,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
                 gradeOkay: 'G',
             },
         });
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        const study = document.createElement('div');
-        study.dataset.newtabStudy = 'true';
-        const clicks: string[] = [];
-        for (const grade of ['nothing', 'something', 'hard', 'okay', 'easy']) {
-            const button = document.createElement('button');
-            button.dataset.newtabAction = 'grade';
-            button.dataset.grade = grade;
-            button.addEventListener('click', () => clicks.push(grade));
-            study.append(button);
-        }
-        root.append(study);
-        Object.assign(controller as unknown as { state: { mode: string; revealAnswer: boolean } }, {
-            state: { mode: 'word', revealAnswer: true },
-        });
-        (controller as unknown as { allWords: unknown[] }).allWords = [{}];
-        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
-        document.body.append(root);
+        const { root, clicks } = bindKeyboardGradeFixture(controller, ['nothing', 'something', 'hard', 'okay', 'easy']);
 
         try {
             expect(dispatchNewTabKeyboard(root, '4').defaultPrevented).toBe(false);

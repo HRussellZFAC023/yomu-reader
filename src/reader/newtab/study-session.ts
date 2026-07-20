@@ -1,6 +1,5 @@
 import type { JPDBCard } from '../app/types';
 import type { NewTabStudyChallengeStep } from '../app/types';
-import type { NewTabListenSubMode, NewTabMode } from './state';
 
 export type NewTabStudyStepKind =
     | NewTabStudyChallengeStep
@@ -11,7 +10,6 @@ export type NewTabStudyStepId = string;
 export interface NewTabStudyStep {
     id: NewTabStudyStepId;
     kind: NewTabStudyStepKind;
-    mode: NewTabMode;
     label: string;
     gradeable: boolean;
     kanji?: string;
@@ -24,8 +22,8 @@ export interface NewTabStudySession {
 }
 
 export interface NewTabStudySessionOptions {
-    mode: NewTabMode;
-    listenSubMode?: NewTabListenSubMode;
+    /** Ignored source-compatibility input; queue selection no longer affects the step plan. */
+    mode?: string;
     revealAnswer: boolean;
     renderAsKanji: boolean;
     hasRecallCloze: boolean;
@@ -50,7 +48,7 @@ const STUDY_STEP_LABELS: Record<NewTabStudyStepKind, string> = {
 
 export function createNewTabStudySession(card: JPDBCard, options: NewTabStudySessionOptions): NewTabStudySession {
     const steps = mergedStudyStepsForCard(card, options);
-    const activeStep = activeStudyStep(steps, options) ?? steps[0] ?? studyStep('word', 'word');
+    const activeStep = activeStudyStep(steps, options) ?? steps[0] ?? studyStep('word');
     const gradeStep = steps.find(step => step.kind === 'final-reveal') ?? activeStep;
     return { steps, activeStep, gradeStep };
 }
@@ -78,11 +76,11 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
         if (!available.has(kind) || disabled.has(kind)) return [];
         if (kind === 'kanji-doodle') {
             const characters = kanji.length ? kanji : [card.spelling[0] ?? '字'];
-            return characters.map((character, index) => studyStep(kind, studyModeForStep(kind), false, character, index));
+            return characters.map((character, index) => studyStep(kind, false, character, index));
         }
-        return [studyStep(kind, studyModeForStep(kind))];
+        return [studyStep(kind)];
     });
-    steps.push(studyStep('final-reveal', options.renderAsKanji ? 'kanji' : 'word', true));
+    steps.push(studyStep('final-reveal', true));
     return dedupeStudySteps(steps);
 }
 
@@ -90,37 +88,25 @@ function activeStudyStep(steps: NewTabStudyStep[], options: NewTabStudySessionOp
     // A revealed kanji step is the composed-of drilldown from the word back —
     // it must survive the reveal shortcut below, which otherwise collapses
     // every revealed state onto the final-reveal step.
-    if (options.revealAnswer && options.mode === 'kanji' && options.activeStepId) {
+    if (options.revealAnswer && options.activeStepId) {
         const active = steps.find(step => step.id === options.activeStepId);
         if (active?.kind === 'kanji-doodle') return active;
     }
-    if (options.revealAnswer && options.mode !== 'listen') return steps.find(step => step.kind === 'final-reveal') ?? null;
     if (options.activeStepId) {
         const active = steps.find(step => step.id === options.activeStepId || step.kind === options.activeStepId);
         if (active) return active;
     }
-    const modeStep = activeStudyStepForMode(steps, options);
-    if (modeStep) return modeStep;
-    return null;
-}
-
-function activeStudyStepForMode(steps: NewTabStudyStep[], options: NewTabStudySessionOptions): NewTabStudyStep | null {
+    if (options.revealAnswer) return steps.find(step => step.kind === 'final-reveal') ?? null;
     if (options.renderAsKanji) return steps.find(step => step.kind === 'kanji-doodle') ?? null;
-    if (options.mode === 'kanji') return steps.find(step => step.kind === 'kanji-doodle') ?? null;
-    if (options.mode === 'recall') return steps.find(step => step.kind === 'recall-cloze') ?? null;
-    if (options.mode === 'listen') {
-        const kind: NewTabStudyStepKind = options.listenSubMode === 'shadow' ? 'speaking' : 'listen-pitch';
-        return steps.find(step => step.kind === kind) ?? null;
-    }
     return null;
 }
 
-function studyStep(kind: NewTabStudyStepKind, mode: NewTabMode, gradeable = false, kanji?: string, index = 0): NewTabStudyStep {
+function studyStep(kind: NewTabStudyStepKind, gradeable = false, kanji?: string, index = 0): NewTabStudyStep {
     // Step ids are rendered into the DOM so they must remain opaque. The target
     // kanji stays on the in-memory step model; including it in the id exposed
     // the answer before a learner committed their drawing.
     const id = kanji ? `${kind}:${index}` : kind;
-    return { id, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
+    return { id, kind, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
 }
 
 function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrder']): NewTabStudyChallengeStep[] {
@@ -147,15 +133,6 @@ function dedupeChallengeSteps(steps: NewTabStudyChallengeStep[]): NewTabStudyCha
         seen.add(step);
         return true;
     });
-}
-
-function studyModeForStep(kind: NewTabStudyChallengeStep): NewTabMode {
-    if (kind === 'kanji-doodle') return 'kanji';
-    if (kind === 'recall-cloze') return 'recall';
-    if (kind === 'listen-pitch' || kind === 'speaking') return 'listen';
-    // Type-word reproduces the recall cloze word, so it lives in the same
-    // in-session word view (no dedicated queue mode) — like the word step.
-    return 'word';
 }
 
 function dedupeStudySteps(steps: NewTabStudyStep[]): NewTabStudyStep[] {

@@ -18,6 +18,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/HRussellZFAC023/yomu-reader?color=5ea780" alt="License: MIT" /></a>
   <a href="https://github.com/HRussellZFAC023/yomu-reader/stargazers"><img src="https://img.shields.io/github/stars/HRussellZFAC023/yomu-reader?color=5ea780" alt="GitHub stars" /></a>
   <a href="https://discord.gg/jD6NPURewD"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
+  <a href="https://support.yomureader.com/donate"><img src="https://img.shields.io/badge/Donate-Stripe-635BFF?logo=stripe&logoColor=white" alt="Donate to Yomu with Stripe" /></a>
+  <!--
+    Donation badge release templates (intentionally not rendered):
+    - Patreon: after the creator page is published and the website build enables
+      YOMU_PATREON_ENABLED=1, uncomment the badge below.
+      <a href="https://www.patreon.com/yomureader"><img src="https://img.shields.io/badge/Support-Patreon-000000?logo=patreon&logoColor=white" alt="Support Yomu on Patreon" /></a>
+    - Ko-fi: after account creation, replace KOFI_CREATOR_URL with the verified
+      live creator URL and uncomment the badge below.
+      <a href="KOFI_CREATOR_URL"><img src="https://img.shields.io/badge/Support-Ko--fi-FF6433?logo=kofi&logoColor=white" alt="Support Yomu on Ko-fi" /></a>
+  -->
 </p>
 
 <p>
@@ -170,7 +180,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - Documentation: https://yomureader.com/
 - Issues: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: https://discord.gg/jD6NPURewD
-- Donate: https://paypal.me/HenryRussell163
+- Donate by card or wallet: https://support.yomureader.com/donate
 
 If よむ helps you read more Japanese, a star makes it easier for other learners to find.
 

@@ -16,6 +16,11 @@ export interface Env {
     readonly STRIPE_SECRET_KEY: string;
     /** Secret: Stripe webhook signing secret (whsec_…). */
     readonly STRIPE_WEBHOOK_SECRET: string;
+    /**
+     * Secret: bearer credential for the dormant private payment-ingress
+     * contract. Set only when a trusted Worker Service binding is cut over.
+     */
+    readonly PAYMENT_INGRESS_TOKEN?: string;
     /** Secret: Google web OAuth client id. */
     readonly GOOGLE_OIDC_CLIENT_ID: string;
     /** Secret: Google web OAuth client secret. */

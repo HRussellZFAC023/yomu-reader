@@ -7,18 +7,12 @@ const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
 const STATE_CHANNEL_NAME = 'jpdb-reader-newtab-ui';
 
-export type NewTabMode = 'word' | 'recall' | 'kanji' | 'search' | 'stats' | 'listen';
-// Listen mode runs one of three audio-first sub-modes over a single pitch-accent
-// SRS deck: Perceive (hear -> identify the downstep), Recall (retrieve from memory),
-// and Shadow (produce/mimic the contour). All three advance the same scheduled item.
-export type NewTabListenSubMode = 'perceive' | 'recall' | 'shadow';
+export type NewTabRoute = 'study' | 'search' | 'stats';
 export type NewTabSort = 'random' | 'frequency' | 'state';
 export type NewTabFilter = 'all' | 'study' | 'local' | CardState;
 
 export interface NewTabUiState {
-    mode: NewTabMode;
-    // Active Listen sub-mode (persisted so the learner returns to the drill they prefer).
-    listenSubMode: NewTabListenSubMode;
+    route: NewTabRoute;
     sort: NewTabSort;
     filter: NewTabFilter;
     source: NewTabWordSource;
@@ -34,8 +28,7 @@ export interface NewTabUiState {
 
 // fallow-ignore-next-line unused-export
 export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
-    mode: 'word',
-    listenSubMode: 'perceive',
+    route: 'study',
     sort: 'random',
     filter: 'study',
     source: 'auto',
@@ -61,10 +54,21 @@ export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }
     { value: 'local', labelKey: 'dictionary' },
 ];
 
-export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
+type LegacyNewTabUiState = Partial<NewTabUiState> & { mode?: unknown };
+
+export type LegacyNewTabStudyIntent =
+    | { kind: 'recall' }
+    | { kind: 'kanji' }
+    | { kind: 'listen'; interaction: 'perceive' | 'recall' | 'shadow' };
+
+export interface LoadedNewTabUiState {
+    state: NewTabUiState;
+    legacyStudyIntent: LegacyNewTabStudyIntent | null;
+}
+
+export function normalizeNewTabUiState(value: LegacyNewTabUiState | null | undefined): NewTabUiState {
     return {
-        mode: normalizeNewTabMode(value?.mode),
-        listenSubMode: normalizeNewTabListenSubMode(value?.listenSubMode),
+        route: normalizeNewTabRoute(value?.route, value?.mode),
         sort: normalizeNewTabSort(value?.sort),
         filter: normalizeNewTabFilter(value?.filter),
         source: normalizeNewTabSource(value?.source),
@@ -76,10 +80,18 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
 }
 
 export function loadNewTabUiState(): NewTabUiState {
+    return loadNewTabUiStateWithLegacyIntent().state;
+}
+
+export function loadNewTabUiStateWithLegacyIntent(): LoadedNewTabUiState {
     try {
-        return frontFacingNewTabUiState(normalizeNewTabUiState(gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null)));
+        const stored = gmStorageGetSync<(LegacyNewTabUiState & { listenSubMode?: unknown }) | null>(STATE_STORAGE_KEY, null);
+        return {
+            state: frontFacingNewTabUiState(normalizeNewTabUiState(stored)),
+            legacyStudyIntent: legacyStudyIntent(stored?.mode, stored?.listenSubMode),
+        };
     } catch {
-        return { ...DEFAULT_NEW_TAB_UI_STATE };
+        return { state: { ...DEFAULT_NEW_TAB_UI_STATE }, legacyStudyIntent: null };
     }
 }
 
@@ -97,7 +109,7 @@ export function createNewTabStateChannel(onState: (state: NewTabUiState) => void
     let isClosed = false;
     channel.onmessage = event => {
         if (!isPlainRecord(event.data) || event.data.type !== 'state') return;
-        onState(normalizeNewTabUiState(event.data.state as Partial<NewTabUiState>));
+        onState(normalizeNewTabUiState(event.data.state as LegacyNewTabUiState));
     };
     return {
         publish(state) {
@@ -126,12 +138,20 @@ function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
     return { ...state, revealAnswer: false };
 }
 
-function normalizeNewTabMode(value: unknown): NewTabMode {
-    return value === 'recall' || value === 'kanji' || value === 'search' || value === 'stats' || value === 'listen' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+function normalizeNewTabRoute(route: unknown, legacyMode: unknown): NewTabRoute {
+    if (route === 'search' || route === 'stats') return route;
+    if (legacyMode === 'search' || legacyMode === 'stats') return legacyMode;
+    return 'study';
 }
 
-function normalizeNewTabListenSubMode(value: unknown): NewTabListenSubMode {
-    return value === 'recall' || value === 'shadow' ? value : DEFAULT_NEW_TAB_UI_STATE.listenSubMode;
+function legacyStudyIntent(mode: unknown, listenSubMode: unknown): LegacyNewTabStudyIntent | null {
+    if (mode === 'recall') return { kind: 'recall' };
+    if (mode === 'kanji') return { kind: 'kanji' };
+    if (mode !== 'listen') return null;
+    return {
+        kind: 'listen',
+        interaction: listenSubMode === 'recall' || listenSubMode === 'shadow' ? listenSubMode : 'perceive',
+    };
 }
 
 function normalizeNewTabSort(value: unknown): NewTabSort {

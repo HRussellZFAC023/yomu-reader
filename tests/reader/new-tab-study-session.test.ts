@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { JPDBCard } from '../../src/reader/app/types';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
+import { normalizeNewTabUiState } from '../../src/reader/newtab/state';
 
 function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -24,10 +25,18 @@ function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('new-tab study session model', () => {
+    it('migrates legacy modes into route-only persisted state', () => {
+        const search = normalizeNewTabUiState({ mode: 'search' });
+        const listen = normalizeNewTabUiState({ mode: 'listen' });
+
+        expect(search.route).toBe('search');
+        expect(listen.route).toBe('study');
+        expect(search).not.toHaveProperty('mode');
+        expect(listen).not.toHaveProperty('listenSubMode');
+    });
+
     it('expresses the merged learning pipeline with one final grade step', () => {
         const session = createNewTabStudySession(sessionCard(), {
-            mode: 'word',
-            listenSubMode: 'perceive',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
@@ -50,7 +59,6 @@ describe('new-tab study session model', () => {
 
     it('omits listen and speak steps for a kana-only card with no resolved pitch', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
-            mode: 'word',
             revealAnswer: true,
             renderAsKanji: false,
             hasRecallCloze: false,
@@ -64,7 +72,6 @@ describe('new-tab study session model', () => {
 
     it('keeps listen and speak steps for a kana-only card once pitch is available', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: ['LH'] }), {
-            mode: 'word',
             revealAnswer: true,
             renderAsKanji: false,
             hasRecallCloze: false,
@@ -78,8 +85,6 @@ describe('new-tab study session model', () => {
 
     it('does not force live kanji cards back to the kanji step after the learner selects word', () => {
         const session = createNewTabStudySession(sessionCard(), {
-            mode: 'word',
-            listenSubMode: 'perceive',
             revealAnswer: false,
             renderAsKanji: true,
             hasRecallCloze: true,
@@ -93,7 +98,6 @@ describe('new-tab study session model', () => {
 
     it('uses the kanji step when a live kanji card is actually in kanji mode', () => {
         const session = createNewTabStudySession(sessionCard(), {
-            mode: 'kanji',
             revealAnswer: false,
             renderAsKanji: true,
             hasRecallCloze: true,
@@ -105,7 +109,6 @@ describe('new-tab study session model', () => {
 
     it('creates one kanji drawing step for each kanji in a word', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: '図鑑', reading: 'ずかん', sentence: '図鑑を見る。' }), {
-            mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
@@ -120,7 +123,6 @@ describe('new-tab study session model', () => {
 
     it('uses configured order and disabled steps while keeping reveal last', () => {
         const session = createNewTabStudySession(sessionCard(), {
-            mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
@@ -142,7 +144,6 @@ describe('new-tab study session model', () => {
 
     it('honors a disabled word step instead of forcing it back into the flow', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
-            mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,

@@ -35,6 +35,15 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  // Dormant until PAYMENT_INGRESS_TOKEN is installed in this Worker and the
+  // Academy Worker. Requests still require that bearer credential even though
+  // transport uses a private Service binding.
+  "services": [
+    {
+      "binding": "ACADEMY_PAYMENT_INGRESS",
+      "service": "yomu-academy"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "SUPPORT_DB",
@@ -43,15 +52,11 @@
     }
   ],
   // SUPPORT_KV holds the daily FX-rate cache (24h) and month-to-date manual
-  // provider totals written by the Ko-fi / Patreon webhook receivers. Create it
-  // with `npx wrangler kv namespace create SUPPORT_KV --config
-  // workers/yomu-support/wrangler.jsonc` and paste the returned id below before
-  // deploying. Until then the Worker degrades gracefully: FX falls back to a
-  // per-request fetch and manual providers report zero.
+  // provider totals written by the Ko-fi / Patreon webhook receivers.
   "kv_namespaces": [
     {
       "binding": "SUPPORT_KV",
-      "id": "REPLACE_WITH_SUPPORT_KV_NAMESPACE_ID"
+      "id": "8d82282d8e3542a5bc37ef667a8ffe70"
     }
   ]
 }

@@ -371,18 +371,170 @@ describe("Yomu support Worker", () => {
 
   it("rejects Stripe webhooks with invalid signatures before recording", async () => {
     const db = mockSupportDb();
+    const academy = mockAcademyIngress();
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/stripe/webhook", {
         method: "POST",
         headers: { "stripe-signature": "t=100,v1=bad" },
         body: JSON.stringify({ id: "evt_bad" }),
       }),
-      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      {
+        STRIPE_WEBHOOK_SECRET: "whsec_test",
+        SUPPORT_DB: db,
+        ACADEMY_PAYMENT_INGRESS: academy,
+        PAYMENT_INGRESS_TOKEN: "ingress-secret",
+      },
       { waitUntil: vi.fn() },
     );
 
     expect(response.status).toBe(400);
     expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards only securely linked Stripe Academy purchases with stable provider IDs", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const purchaseId = "819f4c92-c7de-46a9-9054-0fed9bb579a6";
+    const payload = JSON.stringify({
+      id: "evt_academy_1",
+      type: "checkout.session.completed",
+      created: timestamp,
+      data: {
+        object: {
+          id: "cs_live_academy_1",
+          payment_intent: "pi_academy_1",
+          amount_total: 750,
+          currency: "gbp",
+          payment_status: "paid",
+          metadata: { yomu_academy_purchase: purchaseId },
+        },
+      },
+    });
+    const request = await signedSupportStripeWebhook(payload, "whsec_test", timestamp);
+    const env = withAcademyIngress({
+      STRIPE_WEBHOOK_SECRET: "whsec_test",
+      SUPPORT_DB: db,
+    }, academy);
+
+    expect((await SupportWorker.fetch(request.clone(), env, { waitUntil: vi.fn() })).status).toBe(200);
+    expect((await SupportWorker.fetch(request.clone(), env, { waitUntil: vi.fn() })).status).toBe(200);
+
+    expect(db.rows).toHaveLength(1);
+    expect(academy.requests).toHaveLength(2);
+    expect(academy.requests[0]!.headers.get("authorization")).toBe("Bearer ingress-secret");
+    const first = await academy.requests[0]!.json();
+    const duplicate = await academy.requests[1]!.json();
+    expect(first).toEqual({
+      schemaVersion: 1,
+      provider: "stripe",
+      eventId: "evt_academy_1",
+      eventType: "charge.settled",
+      occurredAt: timestamp * 1000,
+      subject: { kind: "academy_purchase", reference: purchaseId },
+      transaction: {
+        reference: "cs_live_academy_1",
+        sessionReference: "cs_live_academy_1",
+        currency: "gbp",
+        amountMinor: 750,
+      },
+      purchaseId,
+    });
+    expect(duplicate).toEqual(first);
+  });
+
+  it("keeps ordinary support Stripe donations out of Academy ingestion", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = stripeCheckoutEventPayload({
+      eventId: "evt_support_only",
+      sessionId: "cs_live_support",
+      timestamp,
+    });
+    const response = await fetchWithAcademyIngress(
+      await signedSupportStripeWebhook(payload, "whsec_test", timestamp),
+      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      academy,
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.rows).toHaveLength(1);
+    expect(academy.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 5xx and defers support accounting when Academy ingestion fails", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress(() => new Response("unavailable", { status: 503 }));
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = stripeCheckoutEventPayload({
+      eventId: "evt_retry_academy",
+      sessionId: "cs_live_retry",
+      timestamp,
+      purchaseId: "purchase-retry",
+    });
+    const response = await fetchWithAcademyIngress(
+      await signedSupportStripeWebhook(payload, "whsec_test", timestamp),
+      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      academy,
+    );
+
+    expect(response.status).toBe(500);
+    expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a valid stale Academy result once and emits a distinct structured warning", async () => {
+    const db = mockSupportDb();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const academy = mockAcademyIngress(() => Response.json(
+      { received: true, applied: false, reason: "stale" },
+      { status: 202 },
+    ));
+    const timestamp = Math.floor(Date.now() / 1000);
+    const response = await fetchWithAcademyIngress(
+      await signedSupportStripeWebhook(stripeCheckoutEventPayload({
+        eventId: "evt_stale_academy",
+        sessionId: "cs_live_stale",
+        timestamp,
+        purchaseId: "purchase-stale",
+      }), "whsec_test", timestamp),
+      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      academy,
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.rows).toHaveLength(1);
+    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({
+      event: "yomu_support_academy_ingress_stale",
+      provider: "stripe",
+      status: 202,
+      reason: "stale",
+    });
+    warning.mockRestore();
+  });
+
+  it("rejects malformed success bodies from Academy before support accounting", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress(() => Response.json({ received: true }, { status: 202 }));
+    const timestamp = Math.floor(Date.now() / 1000);
+    const response = await fetchWithAcademyIngress(
+      await signedSupportStripeWebhook(stripeCheckoutEventPayload({
+        eventId: "evt_bad_academy_ack",
+        sessionId: "cs_live_bad_ack",
+        timestamp,
+        purchaseId: "purchase-bad-ack",
+      }), "whsec_test", timestamp),
+      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      academy,
+    );
+
+    expect(response.status).toBe(500);
+    expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("records a Ko-fi webhook with a valid verification token into KV", async () => {
@@ -393,13 +545,8 @@ describe("Yomu support Worker", () => {
       amount: "6.00",
       currency: "GBP",
     });
-    const body = new URLSearchParams({ data: donationPayload }).toString();
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/webhooks/kofi", {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      }),
+      supportKofiWebhook(donationPayload),
       { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
@@ -411,37 +558,54 @@ describe("Yomu support Worker", () => {
 
   it("rejects a Ko-fi webhook with the wrong verification token", async () => {
     const kv = mockKv();
-    const body = new URLSearchParams({
-      data: JSON.stringify({ verification_token: "wrong", amount: "6.00", currency: "GBP" }),
-    }).toString();
-    const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/webhooks/kofi", {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      }),
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({ verification_token: "wrong", amount: "6.00", currency: "GBP" });
+    await expectProviderAuthRejected(
+      supportKofiWebhook(payload),
       { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_KV: kv },
-      { waitUntil: vi.fn() },
+      kv,
+      academy,
     );
+  });
 
-    expect(response.status).toBe(401);
-    expect(Object.keys(kv.store)).toHaveLength(0);
+  it("keeps Ko-fi event and transaction identities separate and retry-stable", async () => {
+    const kv = mockKv();
+    const academy = mockAcademyIngress();
+    const donationPayload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: "message-42",
+      transaction_id: "transaction-99",
+      timestamp: "2026-07-20T01:02:03.000Z",
+      type: "Donation",
+      amount: "6.00",
+      currency: "GBP",
+    });
+    const env = withAcademyIngress({
+      KOFI_WEBHOOK_SECRET: "kofi_secret",
+      SUPPORT_KV: kv,
+    }, academy);
+
+    expect((await SupportWorker.fetch(supportKofiWebhook(donationPayload), env, { waitUntil: vi.fn() })).status).toBe(200);
+    expect((await SupportWorker.fetch(supportKofiWebhook(donationPayload), env, { waitUntil: vi.fn() })).status).toBe(200);
+    const first = await academy.requests[0]!.json();
+    const retry = await academy.requests[1]!.json();
+    expect(first).toEqual({
+      schemaVersion: 1,
+      provider: "kofi",
+      eventId: "message-42",
+      eventType: "charge.settled",
+      occurredAt: Date.parse("2026-07-20T01:02:03.000Z"),
+      subject: { kind: "transaction", reference: "transaction-99" },
+      transaction: { reference: "transaction-99", currency: "gbp", amountMinor: 600 },
+    });
+    expect(retry).toEqual(first);
   });
 
   it("records a Patreon webhook with a valid HMAC-MD5 signature into KV", async () => {
     const kv = mockKv();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
-    const signature = await patreonSignature(payload, "patreon_secret");
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/webhooks/patreon", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-patreon-event": "members:pledge:create",
-          "x-patreon-signature": signature,
-        },
-        body: payload,
-      }),
+      await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret"),
       { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
@@ -453,23 +617,121 @@ describe("Yomu support Worker", () => {
 
   it("rejects a Patreon webhook with an invalid signature", async () => {
     const kv = mockKv();
+    const academy = mockAcademyIngress();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
-    const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/webhooks/patreon", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-patreon-event": "members:pledge:create",
-          "x-patreon-signature": "00000000000000000000000000000000",
-        },
-        body: payload,
-      }),
+    await expectProviderAuthRejected(
+      supportPatreonWebhook(payload, "members:pledge:create", "00000000000000000000000000000000"),
       { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv },
+      kv,
+      academy,
+    );
+  });
+
+  it("forwards Patreon membership state without inventing a cash transaction", async () => {
+    const kv = mockKv();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-123",
+        attributes: {
+          patron_status: "active_patron",
+          currently_entitled_amount_cents: 500,
+          last_charge_date: "2026-07-01T00:00:00.000Z",
+          next_charge_date: "2026-08-01T00:00:00.000Z",
+        },
+      },
+    });
+    const env = withAcademyIngress({
+      PATREON_WEBHOOK_SECRET: "patreon_secret",
+      SUPPORT_KV: kv,
+    }, academy);
+
+    expect((await SupportWorker.fetch(
+      await signedSupportPatreonWebhook(payload, "members:pledge:update", "patreon_secret"),
+      env,
+      { waitUntil: vi.fn() },
+    )).status).toBe(200);
+    expect((await SupportWorker.fetch(
+      await signedSupportPatreonWebhook(payload, "members:pledge:update", "patreon_secret"),
+      env,
+      { waitUntil: vi.fn() },
+    )).status).toBe(200);
+    const first = await academy.requests[0]!.json() as Record<string, unknown>;
+    const retry = await academy.requests[1]!.json();
+    expect(first).toMatchObject({
+      schemaVersion: 1,
+      provider: "patreon",
+      eventType: "membership.active",
+      occurredAt: Date.parse("2026-07-01T00:00:00.000Z"),
+      subject: { kind: "member", reference: "member-123" },
+      entitlement: {
+        expiresAt: Date.parse("2026-08-01T00:00:00.000Z"),
+        qualifyingAmountMinor: 500,
+      },
+    });
+    expect(first.eventId).toMatch(/^patreon_[a-f0-9]{64}$/u);
+    expect(first).not.toHaveProperty("transaction");
+    expect(retry).toEqual(first);
+    expect(Object.keys(kv.store)).toHaveLength(0);
+  });
+
+  it("forwards Patreon revocation state even when there is no cash amount to count", async () => {
+    const kv = mockKv();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-removed",
+        attributes: {
+          patron_status: "former_patron",
+          updated_at: "2026-07-20T03:00:00.000Z",
+          currently_entitled_amount_cents: 500,
+        },
+      },
+    });
+    const response = await SupportWorker.fetch(
+      await signedSupportPatreonWebhook(payload, "members:pledge:delete", "patreon_secret"),
+      withAcademyIngress({
+        PATREON_WEBHOOK_SECRET: "patreon_secret",
+        SUPPORT_KV: kv,
+      }, academy),
       { waitUntil: vi.fn() },
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
     expect(Object.keys(kv.store)).toHaveLength(0);
+    const envelope = await academy.requests[0]!.json() as Record<string, unknown>;
+    expect(envelope).toMatchObject({ provider: "patreon", eventType: "membership.revoked" });
+    expect(envelope).not.toHaveProperty("transaction");
+    expect(envelope).not.toHaveProperty("entitlement");
+  });
+
+  it("forwards Patreon declines as revocations without recording pledge income", async () => {
+    const kv = mockKv();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-declined",
+        attributes: {
+          patron_status: "declined_patron",
+          updated_at: "2026-07-20T04:00:00.000Z",
+          currently_entitled_amount_cents: 500,
+        },
+      },
+    });
+    const response = await SupportWorker.fetch(
+      await signedSupportPatreonWebhook(payload, "members:pledge:decline", "patreon_secret"),
+      withAcademyIngress({ PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_KV: kv }, academy),
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(Object.keys(kv.store)).toHaveLength(0);
+    await expect(academy.requests[0]!.json()).resolves.toMatchObject({
+      provider: "patreon",
+      eventType: "membership.revoked",
+    });
   });
 });
 
@@ -492,6 +754,102 @@ function mockKv(initial: Record<string, string> = {}) {
       store[key] = value;
     },
   };
+}
+
+function mockAcademyIngress(
+  responder: () => Response = () => Response.json({ received: true, applied: true }),
+) {
+  const requests: Request[] = [];
+  return {
+    requests,
+    fetch: vi.fn(async (request: Request) => {
+      requests.push(request.clone());
+      return responder();
+    }),
+  };
+}
+
+function withAcademyIngress<T extends object>(env: T, academy: ReturnType<typeof mockAcademyIngress>) {
+  return {
+    ...env,
+    ACADEMY_PAYMENT_INGRESS: academy,
+    PAYMENT_INGRESS_TOKEN: "ingress-secret",
+  };
+}
+
+function fetchWithAcademyIngress<T extends object>(
+  request: Request,
+  env: T,
+  academy: ReturnType<typeof mockAcademyIngress>,
+): Promise<Response> {
+  return SupportWorker.fetch(request, withAcademyIngress(env, academy), { waitUntil: vi.fn() });
+}
+
+async function expectProviderAuthRejected<T extends object>(
+  request: Request,
+  env: T,
+  kv: ReturnType<typeof mockKv>,
+  academy: ReturnType<typeof mockAcademyIngress>,
+): Promise<void> {
+  const response = await fetchWithAcademyIngress(request, env, academy);
+  expect(response.status).toBe(401);
+  expect(Object.keys(kv.store)).toHaveLength(0);
+  expect(academy.fetch).not.toHaveBeenCalled();
+}
+
+function stripeCheckoutEventPayload(input: {
+  eventId: string;
+  sessionId: string;
+  timestamp: number;
+  purchaseId?: string;
+}): string {
+  const metadata = input.purchaseId ? { metadata: { yomu_academy_purchase: input.purchaseId } } : {};
+  return JSON.stringify({
+    id: input.eventId,
+    type: "checkout.session.completed",
+    created: input.timestamp,
+    data: {
+      object: {
+        id: input.sessionId,
+        amount_total: 500,
+        currency: "gbp",
+        payment_status: "paid",
+        ...metadata,
+      },
+    },
+  });
+}
+
+async function signedSupportStripeWebhook(payload: string, secret: string, timestamp: number): Promise<Request> {
+  return new Request("https://support.yomureader.com/stripe/webhook", {
+    method: "POST",
+    headers: { "stripe-signature": await stripeSignatureHeader(payload, secret, timestamp) },
+    body: payload,
+  });
+}
+
+function supportKofiWebhook(payload: string): Request {
+  return new Request("https://support.yomureader.com/webhooks/kofi", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data: payload }).toString(),
+  });
+}
+
+function supportPatreonWebhook(payload: string, trigger: string, signature: string): Request {
+  return new Request("https://support.yomureader.com/webhooks/patreon", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-patreon-event": trigger,
+      "x-patreon-signature": signature,
+    },
+    body: payload,
+  });
+}
+
+async function signedSupportPatreonWebhook(payload: string, trigger: string, secret: string): Promise<Request> {
+  return supportPatreonWebhook(payload, trigger, await patreonSignature(payload, secret));
 }
 
 type DonationRow = {

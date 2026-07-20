@@ -45354,7 +45354,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.256".trim() ? "1.6.256".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.257".trim() ? "1.6.257".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -77347,8 +77347,7 @@ ${reading}`);
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
-    mode: "word",
-    listenSubMode: "perceive",
+    route: "study",
     sort: "random",
     filter: "study",
     source: "auto",
@@ -77374,8 +77373,7 @@ ${reading}`);
   ];
   function normalizeNewTabUiState(value) {
     return {
-      mode: normalizeNewTabMode(value?.mode),
-      listenSubMode: normalizeNewTabListenSubMode(value?.listenSubMode),
+      route: normalizeNewTabRoute(value?.route, value?.mode),
       sort: normalizeNewTabSort(value?.sort),
       filter: normalizeNewTabFilter(value?.filter),
       source: normalizeNewTabSource(value?.source),
@@ -77385,11 +77383,15 @@ ${reading}`);
       keyHintsDismissed: value?.keyHintsDismissed === true
     };
   }
-  function loadNewTabUiState() {
+  function loadNewTabUiStateWithLegacyIntent() {
     try {
-      return frontFacingNewTabUiState(normalizeNewTabUiState(gmStorageGetSync(STATE_STORAGE_KEY, null)));
+      const stored = gmStorageGetSync(STATE_STORAGE_KEY, null);
+      return {
+        state: frontFacingNewTabUiState(normalizeNewTabUiState(stored)),
+        legacyStudyIntent: legacyStudyIntent(stored?.mode, stored?.listenSubMode)
+      };
     } catch {
-      return { ...DEFAULT_NEW_TAB_UI_STATE };
+      return { state: { ...DEFAULT_NEW_TAB_UI_STATE }, legacyStudyIntent: null };
     }
   }
   function saveNewTabUiState(state2) {
@@ -77432,11 +77434,19 @@ ${reading}`);
   function frontFacingNewTabUiState(state2) {
     return { ...state2, revealAnswer: false };
   }
-  function normalizeNewTabMode(value) {
-    return value === "recall" || value === "kanji" || value === "search" || value === "stats" || value === "listen" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+  function normalizeNewTabRoute(route, legacyMode) {
+    if (route === "search" || route === "stats") return route;
+    if (legacyMode === "search" || legacyMode === "stats") return legacyMode;
+    return "study";
   }
-  function normalizeNewTabListenSubMode(value) {
-    return value === "recall" || value === "shadow" ? value : DEFAULT_NEW_TAB_UI_STATE.listenSubMode;
+  function legacyStudyIntent(mode, listenSubMode) {
+    if (mode === "recall") return { kind: "recall" };
+    if (mode === "kanji") return { kind: "kanji" };
+    if (mode !== "listen") return null;
+    return {
+      kind: "listen",
+      interaction: listenSubMode === "recall" || listenSubMode === "shadow" ? listenSubMode : "perceive"
+    };
   }
   function normalizeNewTabSort(value) {
     return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
@@ -78144,15 +78154,6 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     }
     return summary;
   }
-  function shouldReplaceKanjiStudyCard(card, existing) {
-    const cardPriority = kanjiStudyCardPriority(card);
-    const existingPriority = kanjiStudyCardPriority(existing);
-    if (cardPriority !== existingPriority) return cardPriority < existingPriority;
-    return hasLockedCardState(card) && !hasLockedCardState(existing);
-  }
-  function hasLockedCardState(card) {
-    return card.cardState.includes("locked");
-  }
   function jpdbReviewCardsForNewTab(cards, limit) {
     return markJpdbApiReviewCards(cards).filter(isScheduledStudyCard).slice(0, Math.max(1, limit));
   }
@@ -78206,15 +78207,6 @@ ${newTabCardReading(card)}`;
   }
   function shouldReplaceDedupeWord(card, existing) {
     return !existing || sourcePriority(card) < sourcePriority(existing);
-  }
-  function kanjiStudyCardPriority(card) {
-    if (card.reviewSource === "jpdb-live") return 0;
-    if (isReviewSource(card.reviewSource)) return 1;
-    if (isPositiveJpdbCard(card)) return 2;
-    if (card.source === "jpdb") return 3;
-    if (card.source === "anki") return 4;
-    if (card.source === "local") return 5;
-    return 6;
   }
   function sourcePriority(card) {
     if (card.reviewSource === "jpdb-live") return -1;
@@ -79157,10 +79149,6 @@ ${options.version}`;
   ];
   const newTabKanjiKeyword = (card, fullInfo, rtk, localMeanings) => fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || "";
   const fallbackSearchKanjiCard = (kanji) => kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`kanji:${kanji}`), "fallback");
-  const dictionaryKanjiStudyCard = (kanji) => ({
-    ...kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`dictionary-kanji:${kanji}`), "local"),
-    reviewSource: "dictionary"
-  });
   function kanjiPlaceholderCard(kanji, vid, source) {
     return {
       vid,
@@ -79340,234 +79328,13 @@ ${entry.url}`),
     const stage = canvas.closest(".jpdb-reader-doodle-stage");
     return getComputedStyle(stage ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
   }
-  const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
-  const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
-  const PITCH_HISTORY_LIMIT = 200;
-  const DAY_MS$1 = 864e5;
-  const LAPSE_REDUE_MS = 6e4;
-  const EASE_MIN = 1.3;
-  const EASE_MAX = 2.8;
-  const EASE_DEFAULT = 2.5;
-  function pitchItemKey(reading, pitchNumber) {
-    return `${reading}#${pitchNumber}`;
-  }
-  function isFailGrade(grade) {
-    return grade === "fail" || grade === "nothing" || grade === "something";
-  }
-  function clampEase(ease) {
-    return Math.min(EASE_MAX, Math.max(EASE_MIN, ease));
-  }
-  function schedulePitchItem(item, grade, now) {
-    const next = { ...item, lastGrade: grade, lastReviewAt: now };
-    if (isFailGrade(grade)) {
-      next.reps = 0;
-      next.intervalDays = 0;
-      next.ease = clampEase(item.ease - 0.2);
-      next.lapses = item.lapses + 1;
-      next.due = now + LAPSE_REDUE_MS;
-      return next;
-    }
-    if (grade === "hard") {
-      next.reps = item.reps + 1;
-      next.ease = clampEase(item.ease - 0.05);
-      next.intervalDays = Math.max(1, Math.round(item.intervalDays * 1.2) || 1);
-    } else if (grade === "easy") {
-      next.reps = item.reps + 1;
-      next.ease = clampEase(item.ease + 0.15);
-      const base = next.reps === 1 ? 1 : Math.round(item.intervalDays * next.ease);
-      next.intervalDays = Math.max(1, Math.round(base * 1.3));
-    } else {
-      next.reps = item.reps + 1;
-      next.intervalDays = next.reps === 1 ? 1 : next.reps === 2 ? 3 : Math.max(1, Math.round(item.intervalDays * item.ease));
-    }
-    next.due = now + next.intervalDays * DAY_MS$1;
-    return next;
-  }
-  function createPitchItem(seed) {
-    return {
-      key: pitchItemKey(seed.reading, seed.pitchNumber),
-      reading: seed.reading,
-      pitchNumber: seed.pitchNumber,
-      pattern: seed.pattern,
-      pitchClass: seed.pitchClass,
-      displaySpelling: seed.displaySpelling,
-      due: seed.now,
-      intervalDays: 0,
-      ease: EASE_DEFAULT,
-      reps: 0,
-      lapses: 0,
-      introducedAt: seed.now,
-      unverifiedPitch: seed.unverifiedPitch
-    };
-  }
-  function isPitchItemDue(item, now) {
-    return !item.suspended && item.due <= now;
-  }
-  function selectPitchSessionPool(items, options) {
-    const active = items.filter((item) => !item.suspended);
-    const due = active.filter((item) => item.reps > 0 && item.due <= options.now).sort((a, b) => a.due - b.due);
-    const fresh = active.filter((item) => item.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
-    return [...due, ...fresh];
-  }
-  function pitchAccuracyByClass(history2) {
-    const buckets = /* @__PURE__ */ new Map();
-    for (const entry of history2) {
-      if (!entry.pitchClass) continue;
-      const bucket = buckets.get(entry.pitchClass) ?? { total: 0, correct: 0 };
-      bucket.total += 1;
-      if (entry.correct) bucket.correct += 1;
-      buckets.set(entry.pitchClass, bucket);
-    }
-    return [...buckets.entries()].map(([pitchClass, value]) => ({ pitchClass, ...value }));
-  }
-  function pitchSeedFromCard(card, now) {
-    const reading = cardPronunciationReading(card);
-    if (!reading) return null;
-    const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
-    if (pitchNumber == null) return null;
-    const pattern = contextPitchPattern(card.pitchAccent, reading);
-    return createPitchItem({
-      reading,
-      pitchNumber,
-      pattern,
-      pitchClass: pitchClassNameForPattern(pattern, reading),
-      displaySpelling: card.spelling || reading,
-      now
-    });
-  }
-  class PitchSrsStore {
-    items = /* @__PURE__ */ new Map();
-    history = [];
-    loaded = false;
-    persistItemsHandle;
-    persistHistoryHandle;
-    async load() {
-      if (this.loaded) return;
-      const storedItems = await gmStorageGet(PITCH_ITEMS_KEY, null).catch(() => null);
-      const storedHistory = await gmStorageGet(PITCH_HISTORY_KEY, null).catch(() => null);
-      if (storedItems) {
-        for (const [key, item] of Object.entries(storedItems)) if (item && item.key) this.items.set(key, item);
-      }
-      if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
-      this.loaded = true;
-    }
-    // fallow-ignore-next-line unused-class-member
-    size() {
-      return this.items.size;
-    }
-    // fallow-ignore-next-line unused-class-member
-    item(key) {
-      return this.items.get(key);
-    }
-    allItems() {
-      return [...this.items.values()];
-    }
-    // fallow-ignore-next-line unused-class-member
-    dueCount(now) {
-      let count = 0;
-      for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
-      return count;
-    }
-    sessionPool(options) {
-      return selectPitchSessionPool(this.allItems(), options);
-    }
-    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
-    // never resets its pitch schedule. Returns the (existing or new) item, or null.
-    ensureFromCard(card, now) {
-      const seeded = pitchSeedFromCard(card, now);
-      if (!seeded) return null;
-      const existing = this.items.get(seeded.key);
-      if (existing) return existing;
-      this.items.set(seeded.key, seeded);
-      this.schedulePersistItems();
-      return seeded;
-    }
-    // fallow-ignore-next-line unused-class-member
-    grade(key, grade, subMode, options) {
-      const item = this.items.get(key);
-      if (!item) return null;
-      const updated = schedulePitchItem(item, grade, options.now);
-      this.items.set(key, updated);
-      this.appendHistory({
-        key,
-        at: options.now,
-        grade,
-        subMode,
-        pitchClass: item.pitchClass,
-        correct: options.correct
-      });
-      this.schedulePersistItems();
-      return updated;
-    }
-    // fallow-ignore-next-line unused-class-member
-    accuracyByClass() {
-      return pitchAccuracyByClass(this.history);
-    }
-    appendHistory(entry) {
-      this.history.push(entry);
-      if (this.history.length > PITCH_HISTORY_LIMIT) this.history = this.history.slice(-PITCH_HISTORY_LIMIT);
-      this.schedulePersistHistory();
-    }
-    // Debounced write-behind (mirrors the offline grade-queue discipline): mutate
-    // in-memory immediately, flush to GM storage shortly after so rapid grading
-    // does not thrash storage.
-    schedulePersistItems() {
-      if (this.persistItemsHandle) return;
-      this.persistItemsHandle = setTimeout(() => {
-        this.persistItemsHandle = void 0;
-        void this.flushItems();
-      }, 400);
-    }
-    schedulePersistHistory() {
-      if (this.persistHistoryHandle) return;
-      this.persistHistoryHandle = setTimeout(() => {
-        this.persistHistoryHandle = void 0;
-        void this.flushHistory();
-      }, 400);
-    }
-    // Synchronous flush for teardown / page-close, where the 400ms debounced async
-    // write would be lost. Mirrors the sync GM-storage path used by the UI state.
-    flushSync() {
-      if (managedStateWritesSuppressed()) return;
-      try {
-        if (this.items.size) {
-          const record = {};
-          for (const [key, item] of this.items) record[key] = item;
-          gmStorageSetSync(PITCH_ITEMS_KEY, record);
-        }
-        if (this.history.length) gmStorageSetSync(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT));
-      } catch {
-      }
-    }
-    async flushItems() {
-      if (managedStateWritesSuppressed()) return;
-      if (!this.items.size) {
-        await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => void 0);
-        return;
-      }
-      const record = {};
-      for (const [key, item] of this.items) record[key] = item;
-      await gmStorageSet(PITCH_ITEMS_KEY, record).catch(() => void 0);
-    }
-    async flushHistory() {
-      if (managedStateWritesSuppressed()) return;
-      if (!this.history.length) {
-        await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => void 0);
-        return;
-      }
-      await gmStorageSet(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT)).catch(() => void 0);
-    }
-  }
   class NewTabStudyPool {
     constructor(deps) {
       this.deps = deps;
     }
     studyPoolForCurrentMode() {
       const state2 = this.deps.getState();
-      const cards = this.cardsForCurrentMode(this.deps.getAllWords());
-      if (state2.mode === "listen") {
-        return this.listenStudyPool(cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
-      }
+      const cards = this.deps.getAllWords();
       const filter = state2.filter;
       if (filter === "all") return cards;
       if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
@@ -79581,7 +79348,7 @@ ${entry.url}`),
     // study directly as words. Progression is unaffected either way: card
     // states live at the provider, the toggle only changes queue composition.
     applyKanjiUnlockQueue(pool) {
-      if (!this.deps.isVocabularyStudyMode(this.deps.getState().mode) || !this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
+      if (!this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
       const out = [];
       const seenKanji = /* @__PURE__ */ new Set();
       for (const card of pool) {
@@ -79597,27 +79364,6 @@ ${entry.url}`),
         else out.push(card);
       }
       return out;
-    }
-    cardsForCurrentMode(cards) {
-      return this.deps.getState().mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
-    }
-    kanjiStudyCardsFromSourceCards(cards) {
-      const selected = [];
-      const indexes = /* @__PURE__ */ new Map();
-      for (const card of cards) {
-        for (const kanji of kanjiCharacters$1(card.spelling)) {
-          const candidate = this.kanjiStudyCardFromSourceCard(card, kanji);
-          const existingIndex = indexes.get(kanji);
-          if (existingIndex === void 0) {
-            indexes.set(kanji, selected.length);
-            selected.push(candidate);
-            continue;
-          }
-          const existing = selected[existingIndex];
-          if (existing && shouldReplaceKanjiStudyCard(candidate, existing)) selected[existingIndex] = candidate;
-        }
-      }
-      return selected;
     }
     kanjiStudyCardFromSourceCard(card, kanji) {
       if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
@@ -79643,33 +79389,10 @@ ${entry.url}`),
         fallbackLookupTerms: [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].filter(Boolean)
       });
     }
-    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
-    // style "review what's due"), then append any not-yet-scheduled eligible words.
-    listenStudyPool(eligible) {
-      const now = Date.now();
-      const byKey = /* @__PURE__ */ new Map();
-      for (const card of eligible) {
-        const reading = cardPronunciationReading(card);
-        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
-        if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
-      }
-      const ordered = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const item of this.deps.pitchSessionPool({ now, newItemCap: eligible.length })) {
-        const card = byKey.get(item.key);
-        if (card && !seen.has(item.key)) {
-          ordered.push(card);
-          seen.add(item.key);
-        }
-      }
-      for (const [key, card] of byKey) if (!seen.has(key)) ordered.push(card);
-      return ordered;
-    }
     poolSignature(cards) {
       const state2 = this.deps.getState();
       return [
         state2.source,
-        state2.mode,
         this.deps.getSourceLabel(),
         ...cards.map((card) => cardKey(card))
       ].join("|");
@@ -79688,7 +79411,7 @@ ${entry.url}`),
   };
   const JPDB_SUCCESS_GRADES = /* @__PURE__ */ new Set(["known", "pass", "hard", "easy", "okay"]);
   const JPDB_IGNORED_STATES = /* @__PURE__ */ new Set(["blacklisted", "locked", "redundant"]);
-  const DAY_MS = 864e5;
+  const DAY_MS$1 = 864e5;
   const ANKI_RETENTION_WINDOW_DAYS = 30;
   const ANKI_RETENTION_CARD_LIMIT = 5e3;
   function emptyStatsDashboardSnapshot() {
@@ -79883,7 +79606,7 @@ ${entry.url}`),
     const end = startOfLocalDay$1(today).getTime();
     const out = [];
     for (let offset = days - 1; offset >= 0; offset--) {
-      const date = dateKey(new Date(end - offset * DAY_MS));
+      const date = dateKey(new Date(end - offset * DAY_MS$1));
       out.push(byDate.get(date) ?? emptyDailyPoint(date));
     }
     return out;
@@ -79962,7 +79685,7 @@ ${entry.url}`),
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return 0;
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let streak = 0;
-    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
+    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       streak += 1;
     }
     return streak;
@@ -80129,7 +79852,7 @@ ${entry.url}`),
     const selectedCards = cards.filter((card) => Number.isFinite(Number(card))).slice(0, ANKI_RETENTION_CARD_LIMIT);
     if (!selectedCards.length) return [];
     const reviewsByCard = await api.invoke("getReviewsOfCards", { cards: selectedCards });
-    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS;
+    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS$1;
     const daily = /* @__PURE__ */ new Map();
     for (const reviews of Object.values(reviewsByCard ?? {})) {
       for (const review of reviews ?? []) {
@@ -80226,7 +79949,7 @@ ${entry.url}`),
   function streakStats(points) {
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let current = 0;
-    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
+    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       current += 1;
     }
     let longest = 0;
@@ -80235,7 +79958,7 @@ ${entry.url}`),
     for (const point of points) {
       if (point.reviews <= 0) continue;
       const time = startOfLocalDay$1(/* @__PURE__ */ new Date(`${point.date}T00:00:00`)).getTime();
-      run = previousTime && time - previousTime === DAY_MS ? run + 1 : 1;
+      run = previousTime && time - previousTime === DAY_MS$1 ? run + 1 : 1;
       longest = Math.max(longest, run);
       previousTime = time;
     }
@@ -81232,6 +80955,9 @@ ${entry.url}`),
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
     searchHandwritingShapeCandidateCache = new BoundedMap(NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT);
+    currentRoute() {
+      return this.deps.getState().route;
+    }
     // --- State bridges used by the controller -----------------------------
     get query() {
       return this.searchQuery;
@@ -81463,7 +81189,7 @@ ${entry.url}`),
       window.setTimeout(() => {
         const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const canFocus = !active || active === document.body || Boolean(active.closest('[data-newtab-action="mode"]'));
-        if (this.deps.getState().mode === "search" && input2.isConnected && canFocus) input2.focus();
+        if (this.currentRoute() === "search" && input2.isConnected && canFocus) input2.focus();
       }, 0);
     }
     clearSearch(root) {
@@ -81589,7 +81315,7 @@ ${entry.url}`),
         log$4.warn("Search handwriting geometry failed", error);
         return [];
       });
-      if (!root.isConnected || this.deps.getState().mode !== "search" || generation !== this.searchHandwritingGeneration) return;
+      if (!root.isConnected || this.currentRoute() !== "search" || generation !== this.searchHandwritingGeneration) return;
       const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).slice(0, 8);
       const message = candidates.length ? "" : this.deps.text("searchNoHandwritingMatch");
       this.renderSearchHandwritingCandidates(root, candidates, message);
@@ -81665,7 +81391,7 @@ ${entry.url}`),
       });
     }
     isCurrentSearch(root, generation, query) {
-      return root.isConnected && this.deps.getState().mode === "search" && this.searchGeneration === generation && normalizeSearchQuery(this.searchQuery) === query;
+      return root.isConnected && this.currentRoute() === "search" && this.searchGeneration === generation && normalizeSearchQuery(this.searchQuery) === query;
     }
     async loadSearchResults(query) {
       const settings = this.deps.getDependencies().getSettings();
@@ -82236,11 +81962,11 @@ ${entry.url}`),
       );
     }
     // --- Popstate / URL ---------------------------------------------------
-    handleSearchPopstate(root, mode, query) {
-      if (mode !== "search" && this.deps.getState().mode !== "search") return false;
+    handleSearchPopstate(root, route, query) {
+      if (route !== "search" && this.currentRoute() !== "search") return false;
       this.handlingSearchPopstate = true;
       try {
-        if (this.deps.getState().mode !== "search") {
+        if (this.currentRoute() !== "search") {
           this.deps.enterSearchMode();
           this.setSearchQuery(root, query);
           this.renderSearch(root);
@@ -82830,6 +82556,224 @@ ${entry.url}`),
   function recallClozeTarget(sentence, candidates) {
     return candidates.filter((candidate) => candidate && sentence.includes(candidate)).sort((a, b) => b.length - a.length)[0] ?? "";
   }
+  const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
+  const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
+  const PITCH_HISTORY_LIMIT = 200;
+  const DAY_MS = 864e5;
+  const LAPSE_REDUE_MS = 6e4;
+  const EASE_MIN = 1.3;
+  const EASE_MAX = 2.8;
+  const EASE_DEFAULT = 2.5;
+  function pitchItemKey(reading, pitchNumber) {
+    return `${reading}#${pitchNumber}`;
+  }
+  function isFailGrade(grade) {
+    return grade === "fail" || grade === "nothing" || grade === "something";
+  }
+  function clampEase(ease) {
+    return Math.min(EASE_MAX, Math.max(EASE_MIN, ease));
+  }
+  function schedulePitchItem(item, grade, now) {
+    const next = { ...item, lastGrade: grade, lastReviewAt: now };
+    if (isFailGrade(grade)) {
+      next.reps = 0;
+      next.intervalDays = 0;
+      next.ease = clampEase(item.ease - 0.2);
+      next.lapses = item.lapses + 1;
+      next.due = now + LAPSE_REDUE_MS;
+      return next;
+    }
+    if (grade === "hard") {
+      next.reps = item.reps + 1;
+      next.ease = clampEase(item.ease - 0.05);
+      next.intervalDays = Math.max(1, Math.round(item.intervalDays * 1.2) || 1);
+    } else if (grade === "easy") {
+      next.reps = item.reps + 1;
+      next.ease = clampEase(item.ease + 0.15);
+      const base = next.reps === 1 ? 1 : Math.round(item.intervalDays * next.ease);
+      next.intervalDays = Math.max(1, Math.round(base * 1.3));
+    } else {
+      next.reps = item.reps + 1;
+      next.intervalDays = next.reps === 1 ? 1 : next.reps === 2 ? 3 : Math.max(1, Math.round(item.intervalDays * item.ease));
+    }
+    next.due = now + next.intervalDays * DAY_MS;
+    return next;
+  }
+  function createPitchItem(seed) {
+    return {
+      key: pitchItemKey(seed.reading, seed.pitchNumber),
+      reading: seed.reading,
+      pitchNumber: seed.pitchNumber,
+      pattern: seed.pattern,
+      pitchClass: seed.pitchClass,
+      displaySpelling: seed.displaySpelling,
+      due: seed.now,
+      intervalDays: 0,
+      ease: EASE_DEFAULT,
+      reps: 0,
+      lapses: 0,
+      introducedAt: seed.now,
+      unverifiedPitch: seed.unverifiedPitch
+    };
+  }
+  function isPitchItemDue(item, now) {
+    return !item.suspended && item.due <= now;
+  }
+  function selectPitchSessionPool(items, options) {
+    const active = items.filter((item) => !item.suspended);
+    const due = active.filter((item) => item.reps > 0 && item.due <= options.now).sort((a, b) => a.due - b.due);
+    const fresh = active.filter((item) => item.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
+    return [...due, ...fresh];
+  }
+  function pitchAccuracyByClass(history2) {
+    const buckets = /* @__PURE__ */ new Map();
+    for (const entry of history2) {
+      if (!entry.pitchClass) continue;
+      const bucket = buckets.get(entry.pitchClass) ?? { total: 0, correct: 0 };
+      bucket.total += 1;
+      if (entry.correct) bucket.correct += 1;
+      buckets.set(entry.pitchClass, bucket);
+    }
+    return [...buckets.entries()].map(([pitchClass, value]) => ({ pitchClass, ...value }));
+  }
+  function pitchSeedFromCard(card, now) {
+    const reading = cardPronunciationReading(card);
+    if (!reading) return null;
+    const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+    if (pitchNumber == null) return null;
+    const pattern = contextPitchPattern(card.pitchAccent, reading);
+    return createPitchItem({
+      reading,
+      pitchNumber,
+      pattern,
+      pitchClass: pitchClassNameForPattern(pattern, reading),
+      displaySpelling: card.spelling || reading,
+      now
+    });
+  }
+  class PitchSrsStore {
+    items = /* @__PURE__ */ new Map();
+    history = [];
+    loaded = false;
+    persistItemsHandle;
+    persistHistoryHandle;
+    async load() {
+      if (this.loaded) return;
+      const storedItems = await gmStorageGet(PITCH_ITEMS_KEY, null).catch(() => null);
+      const storedHistory = await gmStorageGet(PITCH_HISTORY_KEY, null).catch(() => null);
+      if (storedItems) {
+        for (const [key, item] of Object.entries(storedItems)) if (item && item.key) this.items.set(key, item);
+      }
+      if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
+      this.loaded = true;
+    }
+    // fallow-ignore-next-line unused-class-member
+    size() {
+      return this.items.size;
+    }
+    // fallow-ignore-next-line unused-class-member
+    item(key) {
+      return this.items.get(key);
+    }
+    allItems() {
+      return [...this.items.values()];
+    }
+    // fallow-ignore-next-line unused-class-member
+    dueCount(now) {
+      let count = 0;
+      for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
+      return count;
+    }
+    sessionPool(options) {
+      return selectPitchSessionPool(this.allItems(), options);
+    }
+    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
+    // never resets its pitch schedule. Returns the (existing or new) item, or null.
+    ensureFromCard(card, now) {
+      const seeded = pitchSeedFromCard(card, now);
+      if (!seeded) return null;
+      const existing = this.items.get(seeded.key);
+      if (existing) return existing;
+      this.items.set(seeded.key, seeded);
+      this.schedulePersistItems();
+      return seeded;
+    }
+    // fallow-ignore-next-line unused-class-member
+    grade(key, grade, subMode, options) {
+      const item = this.items.get(key);
+      if (!item) return null;
+      const updated = schedulePitchItem(item, grade, options.now);
+      this.items.set(key, updated);
+      this.appendHistory({
+        key,
+        at: options.now,
+        grade,
+        subMode,
+        pitchClass: item.pitchClass,
+        correct: options.correct
+      });
+      this.schedulePersistItems();
+      return updated;
+    }
+    // fallow-ignore-next-line unused-class-member
+    accuracyByClass() {
+      return pitchAccuracyByClass(this.history);
+    }
+    appendHistory(entry) {
+      this.history.push(entry);
+      if (this.history.length > PITCH_HISTORY_LIMIT) this.history = this.history.slice(-PITCH_HISTORY_LIMIT);
+      this.schedulePersistHistory();
+    }
+    // Debounced write-behind (mirrors the offline grade-queue discipline): mutate
+    // in-memory immediately, flush to GM storage shortly after so rapid grading
+    // does not thrash storage.
+    schedulePersistItems() {
+      if (this.persistItemsHandle) return;
+      this.persistItemsHandle = setTimeout(() => {
+        this.persistItemsHandle = void 0;
+        void this.flushItems();
+      }, 400);
+    }
+    schedulePersistHistory() {
+      if (this.persistHistoryHandle) return;
+      this.persistHistoryHandle = setTimeout(() => {
+        this.persistHistoryHandle = void 0;
+        void this.flushHistory();
+      }, 400);
+    }
+    // Synchronous flush for teardown / page-close, where the 400ms debounced async
+    // write would be lost. Mirrors the sync GM-storage path used by the UI state.
+    flushSync() {
+      if (managedStateWritesSuppressed()) return;
+      try {
+        if (this.items.size) {
+          const record = {};
+          for (const [key, item] of this.items) record[key] = item;
+          gmStorageSetSync(PITCH_ITEMS_KEY, record);
+        }
+        if (this.history.length) gmStorageSetSync(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT));
+      } catch {
+      }
+    }
+    async flushItems() {
+      if (managedStateWritesSuppressed()) return;
+      if (!this.items.size) {
+        await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => void 0);
+        return;
+      }
+      const record = {};
+      for (const [key, item] of this.items) record[key] = item;
+      await gmStorageSet(PITCH_ITEMS_KEY, record).catch(() => void 0);
+    }
+    async flushHistory() {
+      if (managedStateWritesSuppressed()) return;
+      if (!this.history.length) {
+        await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => void 0);
+        return;
+      }
+      await gmStorageSet(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT)).catch(() => void 0);
+    }
+  }
   const PITCH_CLASS_LABEL_KEYS = {
     heiban: "pitchClassHeiban",
     atamadaka: "pitchClassAtamadaka",
@@ -83145,7 +83089,7 @@ ${entry.url}`),
   };
   function createNewTabStudySession(card, options) {
     const steps = mergedStudyStepsForCard(card, options);
-    const activeStep = activeStudyStep(steps, options) ?? steps[0] ?? studyStep("word", "word");
+    const activeStep = activeStudyStep(steps, options) ?? steps[0] ?? studyStep("word");
     const gradeStep = steps.find((step) => step.kind === "final-reveal") ?? activeStep;
     return { steps, activeStep, gradeStep };
   }
@@ -83166,40 +83110,29 @@ ${entry.url}`),
       if (!available.has(kind) || disabled.has(kind)) return [];
       if (kind === "kanji-doodle") {
         const characters = kanji.length ? kanji : [card.spelling[0] ?? "字"];
-        return characters.map((character, index) => studyStep(kind, studyModeForStep(kind), false, character, index));
+        return characters.map((character, index) => studyStep(kind, false, character, index));
       }
-      return [studyStep(kind, studyModeForStep(kind))];
+      return [studyStep(kind)];
     });
-    steps.push(studyStep("final-reveal", options.renderAsKanji ? "kanji" : "word", true));
+    steps.push(studyStep("final-reveal", true));
     return dedupeStudySteps(steps);
   }
   function activeStudyStep(steps, options) {
-    if (options.revealAnswer && options.mode === "kanji" && options.activeStepId) {
+    if (options.revealAnswer && options.activeStepId) {
       const active = steps.find((step) => step.id === options.activeStepId);
       if (active?.kind === "kanji-doodle") return active;
     }
-    if (options.revealAnswer && options.mode !== "listen") return steps.find((step) => step.kind === "final-reveal") ?? null;
     if (options.activeStepId) {
       const active = steps.find((step) => step.id === options.activeStepId || step.kind === options.activeStepId);
       if (active) return active;
     }
-    const modeStep = activeStudyStepForMode(steps, options);
-    if (modeStep) return modeStep;
-    return null;
-  }
-  function activeStudyStepForMode(steps, options) {
+    if (options.revealAnswer) return steps.find((step) => step.kind === "final-reveal") ?? null;
     if (options.renderAsKanji) return steps.find((step) => step.kind === "kanji-doodle") ?? null;
-    if (options.mode === "kanji") return steps.find((step) => step.kind === "kanji-doodle") ?? null;
-    if (options.mode === "recall") return steps.find((step) => step.kind === "recall-cloze") ?? null;
-    if (options.mode === "listen") {
-      const kind = options.listenSubMode === "shadow" ? "speaking" : "listen-pitch";
-      return steps.find((step) => step.kind === kind) ?? null;
-    }
     return null;
   }
-  function studyStep(kind, mode, gradeable = false, kanji, index = 0) {
+  function studyStep(kind, gradeable = false, kanji, index = 0) {
     const id = kanji ? `${kind}:${index}` : kind;
-    return { id, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
+    return { id, kind, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
   }
   function normalizedChallengeStepOrder(order) {
     const configured = Array.isArray(order) ? order : [];
@@ -83224,12 +83157,6 @@ ${entry.url}`),
       seen.add(step);
       return true;
     });
-  }
-  function studyModeForStep(kind) {
-    if (kind === "kanji-doodle") return "kanji";
-    if (kind === "recall-cloze") return "recall";
-    if (kind === "listen-pitch" || kind === "speaking") return "listen";
-    return "word";
   }
   function dedupeStudySteps(steps) {
     const seen = /* @__PURE__ */ new Set();
@@ -84588,16 +84515,20 @@ ${entry.url}`),
     return getPitchClass(card.pitchAccent, newTabCardReading(card)) || "unknown";
   }
   const log$3 = Logger.scope("NewTab");
-  const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats", "listen"]);
+  const NEW_TAB_ROUTE_NAMES = /* @__PURE__ */ new Set(["study", "word", "search", "stats"]);
+  const LEGACY_STUDY_STEP_IDS = {
+    recall: "recall-cloze",
+    kanji: "kanji-doodle:0"
+  };
   const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
-  function isNewTabModeName(value) {
-    return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
+  function isNewTabRouteName(value) {
+    return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
   }
-  function newTabRouteMode() {
+  function newTabRoute() {
     try {
       const url = new URL(location.href);
       const mode = url.searchParams.get("mode") || url.searchParams.get("view") || url.hash.replace(/^#/u, "");
-      if (isNewTabModeName(mode)) return mode;
+      if (isNewTabRouteName(mode)) return mode === "word" ? "study" : mode;
       return newTabRouteSearchQuery(url) ? "search" : null;
     } catch {
       return null;
@@ -84678,14 +84609,16 @@ ${entry.url}`),
       });
       this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
       this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
-      const saved = loadNewTabUiState();
-      const routeMode = newTabRouteMode();
-      const routeSearchQuery = routeMode === "search" ? newTabRouteSearchQueryFromLocation() : "";
+      const loaded = loadNewTabUiStateWithLegacyIntent();
+      const saved = loaded.state;
+      const route = newTabRoute();
+      const routeSearchQuery = route === "search" ? newTabRouteSearchQueryFromLocation() : "";
       this.state = {
         ...saved,
-        ...routeMode ? { mode: routeMode } : {},
+        ...route ? { route } : {},
         source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings())
       };
+      if (!options.initialStudyStepId) this.applyLoadedLegacyStudyIntent(loaded.legacyStudyIntent);
       if (routeSearchQuery) this.searchController.setInitialQuery(routeSearchQuery);
       this.stateChannel = options.surface === "academy" ? { publish: () => {
       }, close: () => {
@@ -84813,9 +84746,7 @@ ${entry.url}`),
       getAllWords: () => this.allWords,
       getSettings: () => this.dependencies.getSettings(),
       shouldRenderCardAsKanji: (card) => this.shouldRenderCardAsKanji(card),
-      cardReviewSource: (card) => this.cardReviewSource(card),
-      isVocabularyStudyMode: (mode) => this.isVocabularyStudyMode(mode),
-      pitchSessionPool: (options) => this.pitchSrs.sessionPool(options)
+      cardReviewSource: (card) => this.cardReviewSource(card)
     });
     // The Search surface (dictionary search + handwriting) lives in its own
     // collaborator; the controller keeps thin delegations and hands the browse
@@ -84852,12 +84783,13 @@ ${entry.url}`),
       renderBrowseInto: (root) => this.renderBrowseInto(root),
       browseHasProviders: () => this.browsePoolProviders(this.dependencies.getSettings()).length > 0,
       enterSearchMode: () => {
-        this.state = { ...this.state, mode: "search", revealAnswer: false };
+        this.state = { ...this.state, route: "search", revealAnswer: false };
         this.persistState();
       }
     });
     listenItem = null;
-    listenRenderedSubMode = null;
+    listenInteractionMode = "perceive";
+    listenRenderedMode = null;
     listenSelectedPosition = null;
     listenRevealed = false;
     listenOutcome = null;
@@ -84990,11 +84922,11 @@ ${entry.url}`),
       this.syncThemeToggle(root);
       this.syncInstallAppButton(root);
       void this.syncSupportBanner(root);
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.searchController.renderSearch(root);
         return;
       }
-      if (this.state.mode === "stats") {
+      if (this.state.route === "stats") {
         this.renderStats(root);
         void this.loadStatsInto(root);
         return;
@@ -85342,6 +85274,7 @@ ${entry.url}`),
       }, label);
     }
     bindRootEvents(root) {
+      this.migrateLegacyState(this.visibleWords[this.index]);
       this.rootEventController?.abort();
       const controller = new AbortController();
       installReaderControlPointerActivation(root);
@@ -85416,7 +85349,7 @@ ${entry.url}`),
           if (this.browseSort === "history" && previousSort !== "history") this.browseSortDescending = true;
           this.browsePage = 0;
           const mount = this.searchResultsMount(root);
-          if (mount && this.state.mode === "search") this.renderBrowseResults(mount);
+          if (mount && this.state.route === "search") this.renderBrowseResults(mount);
           return;
         }
         const filterSelect = target?.closest("[data-newtab-filter-select]");
@@ -85433,7 +85366,7 @@ ${entry.url}`),
           return;
         }
         const deckSelect2 = target?.closest("[data-newtab-deck-select]");
-        if (deckSelect2 && root.contains(deckSelect2) && this.state.mode === "search") {
+        if (deckSelect2 && root.contains(deckSelect2) && this.state.route === "search") {
           this.state = { ...this.state, jpdbDeck: deckSelect2.value };
           this.persistState();
           this.invalidateBrowsePool();
@@ -85587,13 +85520,13 @@ ${entry.url}`),
       return true;
     }
     handleSearchModeKeydown(root, event, target) {
-      if (this.state.mode !== "search") return false;
+      if (this.state.route !== "search") return false;
       this.searchController.handleSearchKeydown(root, event, target);
       return true;
     }
     handleStudyKeydown(root, event, target) {
-      if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-      if (this.state.mode === "listen" || this.activeStudyStepIsListen()) {
+      if (this.state.route !== "study") return;
+      if (this.activeStudyStepIsListen()) {
         this.handleListenKeydown(root, event, target);
         return;
       }
@@ -85837,23 +85770,30 @@ ${entry.url}`),
       return Boolean(nav.standalone) || typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches;
     }
     handleRootModeClick(root, target, event, action) {
-      if (action === "mode") {
-        event.preventDefault();
-        const requestedMode = target.closest("[data-mode]")?.dataset.mode;
-        const mode = isNewTabModeName(requestedMode) ? requestedMode : "word";
-        const step = mode === "word" ? null : this.studyStepForMode(mode, this.state.listenSubMode);
-        this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
-        this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
-        return true;
-      }
-      if (action === "listen-submode") {
-        event.preventDefault();
-        const requested = target.closest("[data-listen-submode]")?.dataset.listenSubmode;
-        const listenSubMode = requested === "recall" || requested === "shadow" ? requested : "perceive";
-        this.setState({ listenSubMode, revealAnswer: false }, root, { preserveWord: true });
-        return true;
-      }
+      if (action === "mode") return this.activateRouteFromClick(root, target, event);
+      if (action === "listen-submode") return this.activateListenStepFromClick(root, target, event);
       return false;
+    }
+    activateRouteFromClick(root, target, event) {
+      event.preventDefault();
+      const requested = target.closest("[data-mode]")?.dataset.mode;
+      const route = requested === "search" || requested === "stats" ? requested : "study";
+      if (route === "study") {
+        const step = requested === "kanji" ? this.studyStepForKind("kanji-doodle") : null;
+        this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
+      }
+      this.setState({ route, revealAnswer: false }, root, { preserveWord: true });
+      return true;
+    }
+    activateListenStepFromClick(root, target, event) {
+      event.preventDefault();
+      const requested = target.closest("[data-listen-submode]")?.dataset.listenSubmode;
+      const mode = requested === "recall" || requested === "shadow" ? requested : "perceive";
+      if (mode !== "shadow") this.listenInteractionMode = mode;
+      const step = this.studyStepForKind(mode === "shadow" ? "speaking" : "listen-pitch");
+      this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
+      this.setState({ route: "study", revealAnswer: false }, root, { preserveWord: true });
+      return true;
     }
     handleRootStudyActionClick(root, target, event, action) {
       const handler = action ? this.studyClickHandlers[action] : void 0;
@@ -85870,24 +85810,15 @@ ${entry.url}`),
     }
     activateStudyStep(root, step) {
       if (step.kind === "final-reveal") {
-        const card2 = this.visibleWords[this.index];
+        const card = this.visibleWords[this.index];
         this.studyStepOverride = null;
-        const mode = card2 && this.shouldRenderCardAsKanji(card2) ? "kanji" : "word";
-        if (card2?.reviewSource === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
-        this.setState({ mode, revealAnswer: true }, root, { preserveWord: true });
-        this.maybeAutoPlayRevealedImmersionAudio(card2, true);
+        if (card?.reviewSource === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
+        this.setState({ route: "study", revealAnswer: true }, root, { preserveWord: true });
+        this.maybeAutoPlayRevealedImmersionAudio(card, true);
         return;
       }
       this.setStudyStepOverrideForCurrentCard(step.id);
-      const card = this.visibleWords[this.index];
-      const isListenStep = step.kind === "listen-pitch" || step.kind === "speaking";
-      const stayInWordSession = step.kind === "kanji-doodle" && card && !this.shouldRenderCardAsKanji(card);
-      const sessionMode = card && this.shouldRenderCardAsKanji(card) ? "kanji" : "word";
-      this.setState({
-        mode: isListenStep ? sessionMode : stayInWordSession ? "word" : step.mode,
-        listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
-        revealAnswer: false
-      }, root, { preserveWord: true });
+      this.setState({ route: "study", revealAnswer: false }, root, { preserveWord: true });
     }
     async dismissStudyTour(root) {
       const settings = this.dependencies.getSettings();
@@ -85910,7 +85841,7 @@ ${entry.url}`),
     navigateStudyStep(direction) {
       const root = this.currentRoot();
       const card = this.visibleWords[this.index];
-      if (!root || !card || this.state.mode === "search" || this.state.mode === "stats") return false;
+      if (!root || !card || this.state.route === "search" || this.state.route === "stats") return false;
       const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
       const activeIndex = session.steps.findIndex((step) => step.id === session.activeStep.id);
       if (activeIndex < 0) return false;
@@ -85949,7 +85880,7 @@ ${entry.url}`),
       if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
       const card = this.visibleWords[this.index];
       return Boolean(
-        card && this.state.mode !== "search" && this.state.mode !== "stats" && this.state.revealAnswer && this.isFinalRevealStep(card) && this.canReviewCard(card)
+        card && this.state.route !== "search" && this.state.route !== "stats" && this.state.revealAnswer && this.isFinalRevealStep(card) && this.canReviewCard(card)
       );
     }
     // Horizontal step-nav swipes ride the same enablement flag as grade swipes
@@ -85964,7 +85895,7 @@ ${entry.url}`),
     swipeStartAllowedForStepNavigation(target) {
       if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
       const card = this.visibleWords[this.index];
-      if (!card || this.state.mode === "search" || this.state.mode === "stats") return false;
+      if (!card || this.state.route === "search" || this.state.route === "stats") return false;
       if (target && isNewTabStudyInteractiveTarget(target)) return false;
       const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
       return session.steps.length > 1;
@@ -85973,7 +85904,7 @@ ${entry.url}`),
       return target.closest("[data-kanji-action-id]")?.dataset.kanjiActionId ?? "";
     }
     handleStudyCardClick(root, target, event) {
-      if (this.state.mode === "search") return;
+      if (this.state.route === "search") return;
       const card = this.visibleWords[this.index];
       if (!card || !this.isFinalRevealStep(card)) return;
       const study = target.closest("[data-newtab-study]");
@@ -86043,7 +85974,7 @@ ${entry.url}`),
       };
     }
     performParsedWordLookup(root, request) {
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.searchController.selectSearchSuggestion(root, request.expression);
         return;
       }
@@ -86083,7 +86014,7 @@ ${entry.url}`),
       return true;
     }
     promptLookupRequest(root, target) {
-      if (this.state.mode !== "word") return null;
+      if (this.state.route !== "study") return null;
       if (target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR)) return null;
       const prompt = target.closest("[data-newtab-prompt]");
       const card = this.visibleWords[this.index];
@@ -86101,7 +86032,7 @@ ${entry.url}`),
       const query = cleanNestedLookupValue(link.dataset.dictionaryLookup);
       if (!query) return false;
       consumeNestedLookupEvent(event);
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.searchController.selectSearchSuggestion(root, query);
         return true;
       }
@@ -86123,7 +86054,7 @@ ${entry.url}`),
       };
     }
     nestedPreviousNavigationEntry() {
-      if (this.state.mode === "search") return void 0;
+      if (this.state.route === "search") return void 0;
       const card = this.visibleWords[this.index];
       return card ? { kind: "word", card, sentence: sentenceForCard(card) } : void 0;
     }
@@ -86174,7 +86105,7 @@ ${entry.url}`),
       const kanji = actionTarget.dataset.kanji ?? "";
       if (!kanji) return false;
       consumeNestedLookupEvent(event);
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.searchController.selectSearchSuggestion(root, kanji);
         return true;
       }
@@ -86191,7 +86122,7 @@ ${entry.url}`),
       if (!term) return false;
       const reading = cleanNestedLookupValue(actionTarget.dataset.reading);
       consumeNestedLookupEvent(event);
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.searchController.selectSearchSuggestion(root, term);
         return true;
       }
@@ -86331,7 +86262,7 @@ ${entry.url}`),
     }
     maybeAutoPlayRevealedImmersionAudio(card, revealed) {
       const settings = this.dependencies.getSettings();
-      if (!revealed || !card || !this.isVocabularyStudyMode(this.state.mode)) return;
+      if (!revealed || !card || !this.isVocabularyStudyRoute()) return;
       if (!settings.immersionKitEnabled || !settings.immersionKitAutoPlayAudio) return;
       if (!settings.audioEnabled) return;
       if (!canAttemptAudiblePlayback(true)) return;
@@ -86379,7 +86310,7 @@ ${entry.url}`),
       }, NEW_TAB_PUBLIC_FALLBACK_GRACE_MS);
     }
     shouldScheduleAutoStudyFallbackPreview(usedCachedWords, quiet) {
-      return !quiet && !usedCachedWords && !this.allWords.length && this.state.source === "auto" && this.state.mode !== "search" && this.state.mode !== "stats";
+      return !quiet && !usedCachedWords && !this.allWords.length && this.state.source === "auto" && this.state.route !== "search" && this.state.route !== "stats";
     }
     async applyAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration) {
       if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration)) return;
@@ -86400,7 +86331,7 @@ ${entry.url}`),
       );
     }
     shouldApplyAutoStudyFallbackPreview(loadGeneration) {
-      return this.isCurrentLoad(loadGeneration) && !this.allWords.length && this.state.source === "auto" && this.state.mode !== "search" && this.state.mode !== "stats";
+      return this.isCurrentLoad(loadGeneration) && !this.allWords.length && this.state.source === "auto" && this.state.route !== "search" && this.state.route !== "stats";
     }
     async applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, options = {}) {
       const preferredCardKey = this.currentVisibleWordKey();
@@ -86494,7 +86425,7 @@ ${entry.url}`),
     }
     async withPortableUrlCard(cards) {
       const identity = this.portableCardIdentityFromLocation();
-      if (!identity?.spelling || !this.isVocabularyStudyMode(this.state.mode)) return cards;
+      if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
       if (cards.some((card2) => this.cardMatchesPortableIdentity(card2, identity))) return cards;
       const card = await this.lookupPortableUrlCard(identity).catch((error) => {
         log$3.warn("Could not resolve portable study URL card", { identity, error });
@@ -86562,7 +86493,7 @@ ${entry.url}`),
       return card.source === "local" || card.source === "fallback" || card.reviewSource === "dictionary";
     }
     async applyOfflineCacheWhileLoading(root, preferStoredWord, loadGeneration) {
-      if (this.allWords.length || this.state.mode === "search") return false;
+      if (this.allWords.length || this.state.route === "search") return false;
       const cached = await this.readOfflineCache();
       if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length || !this.canPrimeWithOfflineCache(cached.cards)) return false;
       this.applyOfflineWordCacheState(cached);
@@ -86615,7 +86546,7 @@ ${entry.url}`),
       this.visibleWords = [];
       this.visiblePoolSignature = "";
       this.index = 0;
-      this.state = { ...this.state, source, mode: "word", revealAnswer: false };
+      this.state = { ...this.state, source, route: "study", revealAnswer: false };
       this.persistState();
       this.syncMode(root);
       this.ensureStudySurface(root);
@@ -86822,7 +86753,7 @@ ${entry.url}`),
       return this.dependencies.getSettings().newTabSource === "auto" && !this.currentModeStudyCardCount(accumulator.cards) && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     currentModeStudyCardCount(cards) {
-      return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards).length : cards.length;
+      return cards.length;
     }
     async loadLocalOrBuiltInFreshStudyWords(onProgress) {
       const dictionaryResult = await this.loadDictionaryWords(onProgress);
@@ -87084,9 +87015,6 @@ ${entry.url}`),
         }
         const entries2 = await this.loadDictionaryFallbackEntries(settings, cardLimit);
         const cards = entries2.map((entry) => this.dependencies.parser.localCardFromEntry(entry));
-        if (this.state.mode === "kanji") {
-          cards.push(...await this.loadDictionaryKanjiCards(settings, cards, cardLimit));
-        }
         return {
           cards,
           sourceLabel: this.text("dictionary"),
@@ -87149,12 +87077,6 @@ ${entry.url}`),
         maxRows: NEW_TAB_DICTIONARY_RANDOM_MAX_ROWS,
         maxMs: NEW_TAB_DICTIONARY_RANDOM_MAX_MS
       });
-    }
-    async loadDictionaryKanjiCards(settings, seedCards, limit = NEW_TAB_WORD_LIMIT) {
-      const cardLimit = Math.max(1, Math.floor(limit));
-      const seeded = new Set(this.kanjiStudyCardsFromSourceCards(seedCards).map((card) => card.spelling));
-      const listedKanji = await this.dependencies.dictionaries.listKanjiCharacters?.(cardLimit, settings.dictionaryPreferences).catch(() => []) ?? [];
-      return uniqueTrimmedStrings(listedKanji).filter((kanji) => !seeded.has(kanji)).slice(0, cardLimit).map((kanji) => dictionaryKanjiStudyCard(kanji));
     }
     async loadJpdbWords(options = {}) {
       const settings = this.dependencies.getSettings();
@@ -87443,12 +87365,12 @@ ${entry.url}`),
     }
     setState(patch, root, options) {
       const preferredCardKey = options.preferredCardKey ?? (options.preserveWord ? this.currentVisibleWordKey() : "");
-      const shouldClearReviewHistory = patch.mode !== void 0 && patch.mode !== this.state.mode || patch.source !== void 0 && patch.source !== this.state.source;
+      const shouldClearReviewHistory = patch.route !== void 0 && patch.route !== this.state.route || patch.source !== void 0 && patch.source !== this.state.source;
       this.state = { ...this.state, ...patch };
       if (shouldClearReviewHistory) this.clearReviewHistory();
       this.persistState();
       this.syncMode(root);
-      if (this.isStudyCardMode(this.state.mode) && !this.allWords.length) {
+      if (this.state.route === "study" && !this.allWords.length) {
         this.ensureStudySurface(root);
         void this.loadWordsInto(root, options.preserveWord, { useOfflineCache: true });
         return;
@@ -87561,12 +87483,12 @@ ${entry.url}`),
     }
     applyWords(root, preferStoredWord, preferredCardKey = "", options = {}) {
       this.syncMode(root);
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.ensureStudySurface(root);
         this.searchController.renderSearch(root);
         return;
       }
-      if (this.state.mode === "stats") {
+      if (this.state.route === "stats") {
         this.renderStats(root);
         void this.loadStatsInto(root);
         return;
@@ -87594,14 +87516,8 @@ ${entry.url}`),
     studyPoolForCurrentMode() {
       return this.studyPool.studyPoolForCurrentMode();
     }
-    isStudyCardMode(mode) {
-      return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
-    }
-    isVocabularyStudyMode(mode) {
-      return mode === "word" || mode === "recall";
-    }
-    kanjiStudyCardsFromSourceCards(cards) {
-      return this.studyPool.kanjiStudyCardsFromSourceCards(cards);
+    isVocabularyStudyRoute() {
+      return this.state.route === "study" && !this.currentCardRendersAsKanji();
     }
     replaceVisibleWordPool(baseWords, poolSignature, preferredKey = "", preserveOrder = false) {
       this.visibleWords = preserveOrder ? baseWords : promoteCardByKey(baseWords, preferredKey);
@@ -87614,7 +87530,7 @@ ${entry.url}`),
       return false;
     }
     emptyStudyMessageKey() {
-      if (this.reviewCountMode) return this.state.mode === "kanji" ? "noReviewKanjiReady" : "noReviewWordsReady";
+      if (this.reviewCountMode) return this.currentCardRendersAsKanji() ? "noReviewKanjiReady" : "noReviewWordsReady";
       return "noCards";
     }
     newTabPoolSignature(cards) {
@@ -87725,7 +87641,7 @@ ${entry.url}`),
     }
     async loadMoreForNavigation(root, direction, source) {
       const currentKey = this.currentVisibleWordKey();
-      this.setStatus(root, this.text(this.state.mode === "kanji" ? "noKanjiCardsYet" : "noWordsYet"));
+      this.setStatus(root, this.text(this.currentCardRendersAsKanji() ? "noKanjiCardsYet" : "noWordsYet"));
       const promise = this.appendNavigationSupplement(root, direction, currentKey, source);
       this.navigationSupplementPromise = promise;
       try {
@@ -87784,7 +87700,7 @@ ${entry.url}`),
       return Boolean(this.visibleWords.length) && !this.isNavigationExpansionBlockedMode();
     }
     isNavigationExpansionBlockedMode() {
-      return this.state.mode === "search" || this.state.mode === "stats";
+      return this.state.route === "search" || this.state.route === "stats";
     }
     dictionaryNavigationExpansionSource() {
       return this.shouldExpandDictionaryNavigation() ? "dictionary" : null;
@@ -87810,6 +87726,7 @@ ${entry.url}`),
       return this.reviewCountMode ? null : "dictionary";
     }
     renderWord(root, card) {
+      this.migrateLegacyState(card);
       if (this.initialStudyStepIdPending) {
         this.setStudyStepOverrideForCard(card, this.initialStudyStepIdPending);
         this.initialStudyStepIdPending = null;
@@ -87849,10 +87766,9 @@ ${entry.url}`),
       this.prefetchNearbyImmersionExamples(card, prefetchGeneration);
     }
     studySessionForCard(card, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
+      this.migrateLegacyState(card);
       const settings = this.dependencies.getSettings();
       return createNewTabStudySession(card, {
-        mode: this.state.mode,
-        listenSubMode: this.state.listenSubMode,
         revealAnswer: this.state.revealAnswer,
         renderAsKanji,
         ...this.pinnedStudyPlanInputs(card),
@@ -87860,6 +87776,41 @@ ${entry.url}`),
         disabledSteps: settings.newTabStudyDisabledSteps,
         activeStepId: this.studyStepOverrideForCard(card)
       });
+    }
+    // One compatibility seam replaces the former mode/step reconciliation
+    // sites. Persisted pre-NB-40 state and older embedded callers may still
+    // provide `mode`/`listenSubMode`; consume those fields once, translate them
+    // to the route plus active step, and keep the live state route-only.
+    migrateLegacyState(card) {
+      const legacy = this.state;
+      if (legacy.mode === void 0) return;
+      const mode = legacy.mode;
+      const listenMode = legacy.listenSubMode;
+      const { mode: _mode, listenSubMode: _listenSubMode, ...current } = legacy;
+      this.state = {
+        ...normalizeNewTabUiState(current),
+        route: legacyNewTabRoute(mode)
+      };
+      this.applyLegacyStudyTransition(card, legacyStudyTransition(mode, listenMode));
+    }
+    applyLegacyStudyTransition(card, transition) {
+      if (transition.listenMode) this.listenInteractionMode = transition.listenMode;
+      if (!transition.stepId) return;
+      if (card) this.setStudyStepOverrideForCard(card, transition.stepId);
+      else this.initialStudyStepIdPending = transition.stepId;
+    }
+    applyLoadedLegacyStudyIntent(intent) {
+      if (!intent) return;
+      if (intent.kind === "recall") {
+        this.initialStudyStepIdPending = "recall-cloze";
+        return;
+      }
+      if (intent.kind === "kanji") {
+        this.initialStudyStepIdPending = "kanji-doodle:0";
+        return;
+      }
+      this.listenInteractionMode = intent.interaction === "recall" ? "recall" : "perceive";
+      this.initialStudyStepIdPending = intent.interaction === "shadow" ? "speaking" : "listen-pitch";
     }
     // The step plan is PINNED per card at first presentation: async sentence or
     // kanji enrichment must not reshape an on-screen session. Pitch is the sole
@@ -87905,31 +87856,29 @@ ${entry.url}`),
       this.studyStepOverride = card && id ? { cardKey: cardKey(card), id } : null;
     }
     studyStepForId(id) {
-      const card = this.visibleWords[this.index];
-      if (!card) return null;
-      const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-      return session.steps.find((step) => step.id === id) ?? null;
+      return this.findStudyStep((step) => step.id === id);
     }
-    studyStepForMode(mode, listenSubMode) {
+    studyStepForKind(kind) {
+      return this.findStudyStep((step) => step.kind === kind);
+    }
+    findStudyStep(matches) {
       const card = this.visibleWords[this.index];
       if (!card) return null;
-      const kind = studyStepKindForMode(mode, listenSubMode);
-      if (!kind) return null;
       const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-      return session.steps.find((step) => step.kind === kind) ?? null;
+      return session.steps.find(matches) ?? null;
     }
     studyStepRendersKanji(session) {
-      return session.activeStep.kind === "kanji-doodle" || session.activeStep.kind === "final-reveal" && session.activeStep.mode === "kanji";
+      return session.activeStep.kind === "kanji-doodle" || session.activeStep.kind === "final-reveal" && this.currentCardRendersAsKanji();
     }
     wordSessionRendersKanji() {
-      if (this.state.mode !== "word") return false;
+      if (this.state.route !== "study") return false;
       const card = this.visibleWords[this.index];
       if (!card) return false;
       return this.studyStepRendersKanji(this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)));
     }
     renderStudySteps(slot, session) {
       if (!slot) return;
-      if (session.steps.length <= 1 || this.state.mode === "search" || this.state.mode === "stats") {
+      if (session.steps.length <= 1 || this.state.route === "search" || this.state.route === "stats") {
         slot.replaceChildren();
         slot.hidden = true;
         return;
@@ -87971,7 +87920,7 @@ ${entry.url}`),
     renderStudyTour(slot, session) {
       if (!slot) return;
       const settings = this.dependencies.getSettings();
-      const showTour = !settings.newTabStudyTourSeen && this.isStudyCardMode(this.state.mode) && session.steps.length > 1;
+      const showTour = !settings.newTabStudyTourSeen && this.state.route === "study" && session.steps.length > 1;
       if (showTour) {
         slot.hidden = false;
         slot.dataset.studyTourMode = "guide";
@@ -88041,13 +87990,13 @@ ${entry.url}`),
         return;
       }
       const isNewCard = !this.listenItem || this.listenItem.key !== item.key;
-      const isSubModeChange = this.listenRenderedSubMode !== this.state.listenSubMode;
+      const isSubModeChange = this.listenRenderedMode !== this.activeListenInteractionMode();
       if (isNewCard || isSubModeChange) {
         this.listenItem = item;
-        this.listenRenderedSubMode = this.state.listenSubMode;
-        const prior = this.state.listenSubMode === "perceive" ? this.stepState(cardKey(card))?.pitch ?? null : null;
+        this.listenRenderedMode = this.activeListenInteractionMode();
+        const prior = this.activeListenInteractionMode() === "perceive" ? this.stepState(cardKey(card))?.pitch ?? null : null;
         this.listenSelectedPosition = prior ? prior.position : null;
-        this.listenRevealed = this.state.listenSubMode === "shadow" || Boolean(prior);
+        this.listenRevealed = this.activeListenInteractionMode() === "shadow" || Boolean(prior);
         this.listenOutcome = prior ? prior.outcome : null;
         this.listenContrastCard = null;
         this.clearListenSpeakingScore();
@@ -88055,7 +88004,7 @@ ${entry.url}`),
         this.listenRecordingUnavailable = false;
       }
       setInnerHtml(prompt, renderListenCard(this.listenCardView(card, item), (key) => this.text(key)));
-      if ((isNewCard || isSubModeChange) && this.state.listenSubMode === "perceive" && this.dependencies.playWordAudio) {
+      if ((isNewCard || isSubModeChange) && this.activeListenInteractionMode() === "perceive" && this.dependencies.playWordAudio) {
         void this.playListenModelAudio();
       }
     }
@@ -88063,7 +88012,7 @@ ${entry.url}`),
       return {
         item,
         meaning: firstCardMeaning(card),
-        subMode: this.state.listenSubMode,
+        subMode: this.activeListenInteractionMode(),
         revealed: this.listenRevealed,
         selectedPosition: this.listenSelectedPosition,
         outcome: this.listenOutcome,
@@ -88074,7 +88023,7 @@ ${entry.url}`),
         hasRecording: Boolean(this.listenRecordingUrl),
         speakingScore: this.listenSpeakingScore,
         speakingScoring: this.listenSpeakingScoring,
-        micEnabled: this.state.listenSubMode === "shadow",
+        micEnabled: this.activeListenInteractionMode() === "shadow",
         micUnavailable: this.listenRecordingUnavailable,
         contrast: this.listenContrastView()
       };
@@ -88101,17 +88050,24 @@ ${entry.url}`),
     rerenderActiveListen() {
       const root = this.listenRootEl();
       const card = this.visibleWords[this.index];
-      if (root && card && (this.state.mode === "listen" || this.activeStudyStepIsListen())) this.renderWord(root, card);
+      if (root && card && this.activeStudyStepIsListen()) this.renderWord(root, card);
     }
-    // In-session Listen/Speak steps keep state.mode on the word/kanji session
+    // In-session Listen/Speak steps keep the study route and active session
     // (the listen TAB re-pools pitch-eligible cards only); listen interactions
     // and shortcuts key off the active step instead.
     activeStudyStepIsListen() {
-      if (!this.isStudyCardMode(this.state.mode)) return false;
-      const card = this.visibleWords[this.index];
-      if (!card) return false;
-      const kind = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+      const kind = this.activeStudyStepKind();
       return kind === "listen-pitch" || kind === "speaking";
+    }
+    activeStudyStepKind() {
+      if (this.state.route !== "study") return null;
+      const card = this.visibleWords[this.index];
+      if (!card) return null;
+      return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+    }
+    activeListenInteractionMode() {
+      const kind = this.activeStudyStepKind();
+      return kind === "speaking" ? "shadow" : this.listenInteractionMode;
     }
     handleListenPick(_root, target) {
       const raw = target.closest("[data-listen-pos]")?.dataset.listenPos;
@@ -88119,7 +88075,7 @@ ${entry.url}`),
       if (Number.isInteger(position)) this.pickListenPosition(position);
     }
     pickListenPosition(position) {
-      if (!this.listenItem || this.state.listenSubMode === "shadow") return;
+      if (!this.listenItem || this.activeListenInteractionMode() === "shadow") return;
       if (position < 0 || position > splitMorae(this.listenItem.reading).length) return;
       this.listenSelectedPosition = position;
       if (this.listenRevealed) {
@@ -88157,33 +88113,43 @@ ${entry.url}`),
     // The contrast-pair shortcut stays local to the error state.
     handleListenKeydown(root, event, target) {
       const settings = this.dependencies.getSettings();
+      if (this.handleListenNavigationKey(event, settings)) return;
+      if (this.handleListenAdvanceKey(root, event, target, settings)) return;
+      if (this.handleListenReplayKey(event, settings)) return;
+      if (this.handleListenPositionKey(event)) return;
+      this.handleListenContrastKey(event);
+    }
+    handleListenNavigationKey(event, settings) {
       const direction = this.studyNavigationDirection(event, settings);
-      if (direction) {
-        event.preventDefault();
-        if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
-        return;
-      }
-      if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
-        event.preventDefault();
-        this.dismissKeyHints(root);
-        this.advanceListen(root);
-        return;
-      }
-      if (matchesShortcut(event, settings.shortcuts.playAudio)) {
-        event.preventDefault();
-        void this.playListenModelAudio();
-        return;
-      }
-      const key = event.key;
-      if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && this.state.listenSubMode !== "shadow") {
-        event.preventDefault();
-        this.pickListenPosition(Number(key));
-        return;
-      }
-      if ((key === "b" || key === "B") && this.listenContrastCard) {
-        event.preventDefault();
-        void this.playListenContrast();
-      }
+      if (!direction) return false;
+      event.preventDefault();
+      if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
+      return true;
+    }
+    handleListenAdvanceKey(root, event, target, settings) {
+      if (!this.matchesStudyRevealShortcut(root, event, target, settings)) return false;
+      event.preventDefault();
+      this.dismissKeyHints(root);
+      this.advanceListen(root);
+      return true;
+    }
+    handleListenReplayKey(event, settings) {
+      if (!matchesShortcut(event, settings.shortcuts.playAudio)) return false;
+      event.preventDefault();
+      void this.playListenModelAudio();
+      return true;
+    }
+    handleListenPositionKey(event) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+      if (!/^[0-9]$/u.test(event.key) || this.activeListenInteractionMode() === "shadow") return false;
+      event.preventDefault();
+      this.pickListenPosition(Number(event.key));
+      return true;
+    }
+    handleListenContrastKey(event) {
+      if (event.key.toLowerCase() !== "b" || !this.listenContrastCard) return;
+      event.preventDefault();
+      void this.playListenContrast();
     }
     async playListenModelAudio() {
       const generation = this.listenAudioGeneration;
@@ -88213,7 +88179,7 @@ ${entry.url}`),
       try {
         const recordingItemKey = this.listenItem?.key ?? "";
         const stream = await mediaDevices.getUserMedia({ audio: true });
-        if (!recordingItemKey || this.listenItem?.key !== recordingItemKey || this.state.listenSubMode !== "shadow") {
+        if (!recordingItemKey || this.listenItem?.key !== recordingItemKey || this.activeListenInteractionMode() !== "shadow") {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
@@ -88232,7 +88198,7 @@ ${entry.url}`),
           stream.getTracks().forEach((track) => track.stop());
           this.clearListenRecording();
           const blob = chunks2.length ? new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }) : null;
-          if (blob && this.listenItem?.key === recordingItemKey && this.state.listenSubMode === "shadow") {
+          if (blob && this.listenItem?.key === recordingItemKey && this.activeListenInteractionMode() === "shadow") {
             this.listenRecordingUrl = URL.createObjectURL(blob);
             this.listenSpeakingScoring = true;
             const scoreGeneration = ++this.listenSpeakingScoreGeneration;
@@ -88270,7 +88236,7 @@ ${entry.url}`),
       try {
         const item = this.listenItem?.key === itemKey ? this.listenItem : null;
         const score = item ? await scoreSpeakingBlob(blob, item) : null;
-        if (generation !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey || this.state.listenSubMode !== "shadow") return;
+        if (generation !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey || this.activeListenInteractionMode() !== "shadow") return;
         this.listenSpeakingScore = score;
         this.listenSpeakingScoring = false;
         const speakingCard = this.visibleWords[this.index];
@@ -88329,7 +88295,11 @@ ${entry.url}`),
       this.listenSpeakingScoring = false;
     }
     shouldRenderCardAsKanji(card) {
-      return this.state.mode === "kanji" || this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
+      return this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
+    }
+    currentCardRendersAsKanji() {
+      const card = this.visibleWords[this.index];
+      return Boolean(card && this.shouldRenderCardAsKanji(card));
     }
     isLiveJpdbKanjiReviewCard(card) {
       return card.reviewSource === "jpdb-live" && (card.jpdbReviewId?.startsWith("kb,") ?? false);
@@ -88396,7 +88366,7 @@ ${entry.url}`),
     refreshSessionProgressSoon() {
       const root = this.sessionClockRoot;
       const card = this.visibleWords[this.index];
-      if (root?.isConnected && card && this.isVocabularyStudyMode(this.state.mode)) {
+      if (root?.isConnected && card && this.isVocabularyStudyRoute()) {
         this.renderSessionProgress(this.studySlots(root), card, root);
       }
     }
@@ -88500,7 +88470,7 @@ ${entry.url}`),
         this.stopSessionClock();
         return;
       }
-      if (!card || !this.isVocabularyStudyMode(this.state.mode)) return;
+      if (!card || !this.isVocabularyStudyRoute()) return;
       this.renderSessionProgress(this.studySlots(root), card, root);
     }
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
@@ -88889,7 +88859,7 @@ ${entry.url}`),
     // when no SRS source is configured, the fallback notice carries a
     // "Connect" button that opens settings.
     appendConnectSrsCta(countSlot) {
-      if (this.reviewCountMode || !this.isVocabularyStudyMode(this.state.mode)) return;
+      if (this.reviewCountMode || !this.isVocabularyStudyRoute()) return;
       const settings = this.dependencies.getSettings();
       if (settings.yomuLocalSrsEnabled) return;
       if (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled || settings.newTabAnkiEnabled) return;
@@ -89675,7 +89645,7 @@ ${entry.url}`),
       void this.dependencies.parseContent?.(section);
     }
     isCurrentStudyRevealDefinitionRequest(meaning, cardKeyValue, requestId) {
-      return meaning.isConnected && meaning.dataset.newtabStudyRevealDetailsRequest === requestId && this.state.revealAnswer && this.isVocabularyStudyMode(this.state.mode) && cardKey(this.visibleWords[this.index]) === cardKeyValue;
+      return meaning.isConnected && meaning.dataset.newtabStudyRevealDetailsRequest === requestId && this.state.revealAnswer && this.isVocabularyStudyRoute() && cardKey(this.visibleWords[this.index]) === cardKeyValue;
     }
     studyDefinitionSourcesMissing(html) {
       return !html.trim() || html.includes("jpdb-reader-no-definitions");
@@ -89778,7 +89748,7 @@ ${entry.url}`),
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabStudyToolsRequest = requestId;
       const data = await loadDetails(card).catch(() => null);
-      if (!data || !prompt.isConnected || prompt.dataset.newtabStudyToolsRequest !== requestId || this.state.mode !== "word" || cardKey(this.visibleWords[this.index]) !== key) return;
+      if (!data || !this.isCurrentWordPromptDetailsRequest(prompt, key, requestId)) return;
       this.markCardOfflineReady(card);
       this.applyLocalStudyReading(card, data);
       if (this.upgradeStudyPlanPitchAvailability(card)) return;
@@ -89786,6 +89756,9 @@ ${entry.url}`),
       if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state2, currentSentence || card.spelling));
       prompt.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card, data.metaEntries));
       this.dependencies.installDictionarySourceTracking?.(prompt);
+    }
+    isCurrentWordPromptDetailsRequest(prompt, key, requestId) {
+      return prompt.isConnected && prompt.dataset.newtabStudyToolsRequest === requestId && this.state.route === "study" && cardKey(this.visibleWords[this.index]) === key;
     }
     applyLocalStudyReading(card, data) {
       const spelling = card.spelling.trim();
@@ -89930,7 +89903,7 @@ ${entry.url}`),
       this.highlightNewTabParsedWords(sentence, card);
     }
     canApplyNewTabPromptParse(prompt, key, requestId) {
-      return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
+      return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.route === "study";
     }
     async enrichWordPromptSentence(prompt, card, state2, currentSentence) {
       const settings = this.dependencies.getSettings();
@@ -89960,7 +89933,7 @@ ${entry.url}`),
       });
     }
     canApplyFrontSentence(prompt, key, requestId) {
-      return prompt.isConnected && prompt.dataset.newtabSentenceRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
+      return prompt.isConnected && prompt.dataset.newtabSentenceRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.route === "study";
     }
     shouldShowFrontSentence() {
       return this.dependencies.getSettings().newTabFrontSentenceEnabled;
@@ -90102,7 +90075,7 @@ ${entry.url}`),
       return this.state.revealAnswer && Boolean(meaning) && this.dependencies.getSettings().immersionKitEnabled;
     }
     canAppendImmersionExample(meaning, key, examples) {
-      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer;
+      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.isVocabularyStudyRoute() && this.state.revealAnswer;
     }
     renderNewTabImmersionCard(card, examples, index) {
       return this.renderNewTabImmersionCardVariant(card, examples[index], index, examples.length, "word");
@@ -90132,7 +90105,7 @@ ${entry.url}`),
       this.highlightNewTabImmersionTarget(root, card);
     }
     canApplyNewTabImmersionParse(root, key) {
-      return root.isConnected && cardKey(this.visibleWords[this.index]) === key && this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer;
+      return root.isConnected && cardKey(this.visibleWords[this.index]) === key && this.isVocabularyStudyRoute() && this.state.revealAnswer;
     }
     async parseNewTabSentenceElement(sentence, sentenceText, card, isCurrent) {
       const cached = this.cachedParsedNewTabSentenceTokens(sentenceText);
@@ -90402,7 +90375,7 @@ ${entry.url}`),
       await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
     isCurrentRevealedWordCard(key) {
-      return this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
+      return this.isVocabularyStudyRoute() && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
     }
     newTabImmersionAudioSource(example) {
       const urls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
@@ -90503,7 +90476,7 @@ ${entry.url}`),
       }
     }
     shouldPrefetchNewTabImmersion() {
-      return this.isVocabularyStudyMode(this.state.mode) && this.visibleWords.length > 0 && this.dependencies.getSettings().immersionKitEnabled && typeof this.dependencies.immersionKit?.search === "function";
+      return this.isVocabularyStudyRoute() && this.visibleWords.length > 0 && this.dependencies.getSettings().immersionKitEnabled && typeof this.dependencies.immersionKit?.search === "function";
     }
     prefetchNewTabImmersionCard(card, context) {
       void this.loadImmersionExamples(card).then((examples) => {
@@ -90515,7 +90488,7 @@ ${entry.url}`),
       }).catch(() => void 0);
     }
     isCurrentImmersionPrefetchGeneration(generation) {
-      return generation === this.immersionPrefetchGeneration && this.isVocabularyStudyMode(this.state.mode);
+      return generation === this.immersionPrefetchGeneration && this.isVocabularyStudyRoute();
     }
     prefetchNewTabParsedSentence(sentence) {
       const text2 = sentence.trim();
@@ -90784,7 +90757,7 @@ ${entry.url}`),
       const current = this.visibleWords[this.index];
       if (!current) return false;
       const currentKanji = kanjiCharacters$1(current.spelling)[0] ?? current.spelling[0] ?? "";
-      return this.state.mode === "kanji" && this.state.revealAnswer && currentKanji === kanji;
+      return this.wordSessionRendersKanji() && this.state.revealAnswer && currentKanji === kanji;
     }
     canApplyNewTabKanjiImmersion(body, kanji) {
       return body.isConnected && this.isCurrentRevealedKanji(kanji);
@@ -91266,16 +91239,16 @@ ${entry.url}`),
       await this.loadBrowsePool(() => {
         const mount2 = this.searchResultsMount(root);
         const query2 = normalizeSearchQuery(this.searchController.query);
-        if (mount2?.isConnected && this.state.mode === "search" && (!query2 || this.browseScopeActive())) this.renderBrowseResults(mount2);
+        if (mount2?.isConnected && this.state.route === "search" && (!query2 || this.browseScopeActive())) this.renderBrowseResults(mount2);
       });
       const mount = this.searchResultsMount(root);
       const query = normalizeSearchQuery(this.searchController.query);
-      if (!mount || !mount.isConnected || this.state.mode !== "search" || query && !this.browseScopeActive()) return;
+      if (!mount || !mount.isConnected || this.state.route !== "search" || query && !this.browseScopeActive()) return;
       this.renderBrowseResults(mount);
     }
     refreshBrowseAfterCardMutation(_card) {
       const root = this.currentRoot();
-      if (!root || this.state.mode !== "search") return;
+      if (!root || this.state.route !== "search") return;
       this.invalidateBrowsePool();
       void this.renderBrowseInto(root);
     }
@@ -91416,16 +91389,16 @@ ${entry.url}`),
       const settings = this.dependencies.getSettings();
       const deck = (this.state.jpdbDeck || "").trim();
       const jitenDeckId = jitenScopedDeckId(deck);
-      if (this.state.mode === "search" && jitenDeckId !== null) {
+      if (this.state.route === "search" && jitenDeckId !== null) {
         return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, async () => this.withJitenReviewHistory(await this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT)));
       }
-      if (this.state.mode === "search" && deck === "provider:jiten") {
+      if (this.state.route === "search" && deck === "provider:jiten") {
         return this.loadScopedBrowsePool("provider:jiten", async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)));
       }
-      if (this.state.mode === "search" && deck === "provider:jpdb" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
+      if (this.state.route === "search" && deck === "provider:jpdb" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
         return this.loadScopedBrowsePool("provider:jpdb", () => this.dependencies.jpdb.listDeckCards("all", NEW_TAB_BROWSE_DECK_LIMIT).catch(() => []));
       }
-      if (this.state.mode === "search" && deck && deck !== "all" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
+      if (this.state.route === "search" && deck && deck !== "all" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
         const deckKey = `jpdb-deck:${deck}`;
         if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
         const cards2 = await this.dependencies.jpdb.listDeckCards(deck, NEW_TAB_BROWSE_DECK_LIMIT).catch(() => []);
@@ -92140,7 +92113,7 @@ ${entry.url}`),
       const previousIndex = this.index;
       const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
       this.rememberReviewHistoryCard(card);
-      if (this.isVocabularyStudyMode(this.state.mode) && grade && !isFailedNewTabGrade(grade)) {
+      if (this.isVocabularyStudyRoute() && grade && !isFailedNewTabGrade(grade)) {
         this.pitchSrs.ensureFromCard(card, Date.now());
       }
       if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && card.reviewSource !== "bunpro-api") {
@@ -92394,7 +92367,7 @@ ${entry.url}`),
       });
     }
     shouldPrefetchWordPitch() {
-      return this.isVocabularyStudyMode(this.state.mode) && this.visibleWords.length > 0 && this.dependencies.getSettings().showPitchAccent;
+      return this.isVocabularyStudyRoute() && this.visibleWords.length > 0 && this.dependencies.getSettings().showPitchAccent;
     }
     prefetchWordPitch(card) {
       if (!this.shouldEnrichWordPitch(card)) return;
@@ -92475,19 +92448,20 @@ ${entry.url}`),
       return word.dataset.vid === String(card.vid) && word.dataset.sid === String(card.sid) || word.dataset.expression === card.spelling && (!word.dataset.reading || word.dataset.reading === reading);
     }
     syncMode(root) {
+      this.migrateLegacyState(this.visibleWords[this.index]);
       this.syncKeyHintVisibility(root);
-      root.classList.toggle("jpdb-reader-newtab-search-mode", this.state.mode === "search");
-      root.classList.toggle("jpdb-reader-newtab-recall-mode", this.state.mode === "recall");
-      root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji" || this.wordSessionRendersKanji());
-      root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");
-      root.classList.toggle("jpdb-reader-newtab-listen-mode", this.state.mode === "listen" || this.activeStudyStepIsListen());
+      root.classList.toggle("jpdb-reader-newtab-search-mode", this.state.route === "search");
+      root.classList.toggle("jpdb-reader-newtab-recall-mode", this.activeStudyStepKind() === "recall-cloze");
+      root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.wordSessionRendersKanji());
+      root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.route === "stats");
+      root.classList.toggle("jpdb-reader-newtab-listen-mode", this.activeStudyStepIsListen());
       const search = root.querySelector("[data-newtab-search]");
-      if (search) search.hidden = this.state.mode !== "search";
+      if (search) search.hidden = this.state.route !== "search";
       const controls = root.querySelector("[data-newtab-controls]");
-      if (controls) controls.hidden = this.state.mode === "stats";
-      if (this.state.mode !== "search") root.querySelector("[data-newtab-handwriting]")?.remove();
+      if (controls) controls.hidden = this.state.route === "stats";
+      if (this.state.route !== "search") root.querySelector("[data-newtab-handwriting]")?.remove();
       root.querySelectorAll('[data-newtab-action="mode"]').forEach((button2) => {
-        const active = button2.dataset.mode === this.state.mode || button2.dataset.mode === "word" && this.isStudyCardMode(this.state.mode);
+        const active = button2.dataset.mode === this.state.route || button2.dataset.mode === "word" && this.state.route === "study";
         button2.dataset.active = String(active);
         button2.setAttribute("aria-pressed", String(active));
       });
@@ -92499,9 +92473,9 @@ ${entry.url}`),
     // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
     syncListenSubModeSwitcher(root) {
       const switcher = root.querySelector("[data-newtab-listen-submodes]");
-      if (switcher) switcher.hidden = this.state.mode !== "listen";
+      if (switcher) switcher.hidden = !this.activeStudyStepIsListen();
       root.querySelectorAll('[data-newtab-action="listen-submode"]').forEach((button2) => {
-        const active = button2.dataset.listenSubmode === this.state.listenSubMode;
+        const active = button2.dataset.listenSubmode === this.activeListenInteractionMode();
         button2.dataset.active = String(active);
         button2.setAttribute("aria-pressed", String(active));
       });
@@ -92513,7 +92487,7 @@ ${entry.url}`),
       if (!select2) return;
       const settings = this.dependencies.getSettings();
       const hasProvider = hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
-      const show = this.isVocabularyStudyMode(this.state.mode) && hasProvider;
+      const show = this.isVocabularyStudyRoute() && hasProvider;
       select2.hidden = !show;
       if (!show) return;
       replaceChildrenWith(select2, NEW_TAB_FILTERS.map((filter) => el("option", {
@@ -92529,11 +92503,11 @@ ${entry.url}`),
       const select2 = root.querySelector("[data-newtab-deck-select]");
       if (!select2) return;
       const settings = this.dependencies.getSettings();
-      if (this.state.mode === "search") {
+      if (this.state.route === "search") {
         this.syncSearchDeckSelector(select2, settings);
         return;
       }
-      if (!this.isVocabularyStudyMode(this.state.mode)) {
+      if (!this.isVocabularyStudyRoute()) {
         select2.hidden = true;
         return;
       }
@@ -92683,7 +92657,7 @@ ${entry.url}`),
       this.renderPlainStatus(status, message);
     }
     currentSessionSignature() {
-      return [this.state.source, this.state.mode, this.sourceLabel].join("|");
+      return [this.state.source, this.state.route, this.sourceLabel].join("|");
     }
     readStoredWordKey() {
       try {
@@ -92702,7 +92676,7 @@ ${entry.url}`),
     lastSyncedCardRouteSignature = "";
     handlingCardPopstate = false;
     syncCardUrl(card) {
-      if (!this.isVocabularyStudyMode(this.state.mode) || typeof history === "undefined") return;
+      if (!this.isVocabularyStudyRoute() || typeof history === "undefined") return;
       if (this.options.host || this.options.surface === "academy" || !isYomuNewTabUrl(location.href)) return;
       const key = this.cardSelectionKey(card);
       const route = this.studyCardRoute(card, key);
@@ -92741,7 +92715,7 @@ ${entry.url}`),
       return { kind: "portable", key, spelling, reading };
     }
     handleCardPopstate(root) {
-      if (!this.isVocabularyStudyMode(this.state.mode)) return;
+      if (!this.isVocabularyStudyRoute()) return;
       const key = this.cardKeyFromLocation();
       if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
       const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
@@ -92777,7 +92751,7 @@ ${entry.url}`),
       }
     }
     handleLocationPopstate(root) {
-      if (this.searchController.handleSearchPopstate(root, newTabRouteMode(), newTabRouteSearchQueryFromLocation())) return;
+      if (this.searchController.handleSearchPopstate(root, newTabRoute(), newTabRouteSearchQueryFromLocation())) return;
       this.handleCardPopstate(root);
     }
     writeStoredWordKey(card) {
@@ -92789,6 +92763,16 @@ ${entry.url}`),
       } catch {
       }
     }
+  }
+  function legacyNewTabRoute(mode) {
+    return mode === "search" || mode === "stats" ? mode : "study";
+  }
+  function legacyStudyTransition(mode, listenMode) {
+    if (mode !== "listen") return { stepId: typeof mode === "string" ? LEGACY_STUDY_STEP_IDS[mode] ?? null : null };
+    return {
+      stepId: listenMode === "shadow" ? "speaking" : "listen-pitch",
+      listenMode: listenMode === "recall" ? "recall" : "perceive"
+    };
   }
   function isPassiveParsedWord(word) {
     return word.dataset.jpdbReaderPassive === "true";
@@ -92842,21 +92826,6 @@ ${entry.url}`),
   }
   function isNewTabStudyInteractiveTarget(target) {
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
-  }
-  function isNewTabStudyKeyboardMode(mode) {
-    return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
-  }
-  function studyStepKindForMode(mode, listenSubMode) {
-    if (mode === "kanji") return "kanji-doodle";
-    if (mode === "recall") return "recall-cloze";
-    if (mode === "listen") return listenSubMode === "shadow" ? "speaking" : "listen-pitch";
-    if (mode === "word") return "word";
-    return null;
-  }
-  function listenSubModeForStudyStepKind(kind) {
-    if (kind === "speaking") return "shadow";
-    if (kind === "listen-pitch") return "perceive";
-    return null;
   }
   function studyTourCopyKey(kind) {
     if (kind === "kanji-doodle") return "studyTourKanji";
