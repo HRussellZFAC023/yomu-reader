@@ -5912,6 +5912,521 @@ recommendedJiten	Jiten由来の頻度バッジです。
       classes2.add(`${source}-deck-${slug}`);
     });
   }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function normalizePitchPatternsForReading(patterns, reading) {
+    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+  }
+  function pitchLevelsForDisplay(pattern, reading) {
+    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function collectPitchVariants(reading, patterns, max2 = Infinity) {
+    const seen = /* @__PURE__ */ new Set();
+    const variants = [];
+    for (const pattern of patterns) {
+      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+      const position = pitchNumberFromPattern(pattern, reading);
+      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      variants.push({ pattern, position });
+      if (variants.length >= max2) break;
+    }
+    return variants;
+  }
+  function validPitchPositions(reading, patterns) {
+    const positions = /* @__PURE__ */ new Set();
+    for (const variant of collectPitchVariants(reading, patterns)) {
+      if (variant.position != null) positions.add(variant.position);
+    }
+    return positions;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
+    }
+    return null;
+  }
+  function looksLikeCompactHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
+  function assignSentenceInfo(paragraphs, tokens) {
+    paragraphs.forEach((paragraph, index) => {
+      const tokenData = tokens[index] ?? [];
+      const sentences = splitJapaneseSentences$1(paragraph);
+      if (sentences.length === 1) {
+        tokenData.forEach((token) => {
+          token.sentence = sentences[0];
+        });
+        return;
+      }
+      let offset = 0;
+      for (const sentence of sentences) {
+        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+        const relativeStart = paragraph.slice(offset).indexOf(compare);
+        if (relativeStart === -1) {
+          offset += sentence.length;
+          continue;
+        }
+        const start = offset + relativeStart;
+        const end = start + sentence.length;
+        for (const token of tokenData) {
+          if (token.start >= start && token.end <= end) token.sentence = sentence;
+        }
+        offset += sentence.length;
+      }
+    });
+  }
+  function splitJapaneseSentences$1(text2) {
+    const sentences = [];
+    const state2 = { start: 0, quote: null };
+    for (let index = 0; index < text2.length; index++) {
+      index = advanceSentenceSplitter(sentences, text2, state2, index);
+    }
+    const tail = text2.slice(state2.start).trim();
+    if (tail) sentences.push(tail);
+    const nonEmptySentences = sentences.filter(Boolean);
+    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
+    return result;
+  }
+  function advanceSentenceSplitter(sentences, text2, state2, index) {
+    state2.quote = closingQuoteFor(text2[index]) ?? state2.quote;
+    if (state2.quote) return advanceQuotedSentenceSplitter(sentences, text2, state2, index);
+    return advancePunctuationSentenceSplitter(sentences, text2, state2, index);
+  }
+  function advanceQuotedSentenceSplitter(sentences, text2, state2, index) {
+    if (!state2.quote) return index;
+    const boundary = quotedSentenceBoundary(text2, index, state2.quote);
+    if (boundary) Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
+    return index;
+  }
+  function advancePunctuationSentenceSplitter(sentences, text2, state2, index) {
+    const boundary = punctuationSentenceBoundary(text2, index);
+    if (!boundary) return index;
+    Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
+    return boundary.nextIndex;
+  }
+  function pushSentenceBoundary(sentences, text2, start, end) {
+    sentences.push(text2.slice(start, end).trim());
+    return { start: end, quote: null };
+  }
+  function closingQuoteFor(char) {
+    if (char === "「") return "」";
+    if (char === "『") return "』";
+    return null;
+  }
+  function quotedSentenceBoundary(text2, index, quote) {
+    if (text2[index] !== quote) return null;
+    const next = text2[index + 1];
+    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
+  }
+  function punctuationSentenceBoundary(text2, index) {
+    if (!"。！？".includes(text2[index])) return null;
+    const next = text2[index + 1];
+    const includesClosingQuote = next === "」" || next === "』";
+    return {
+      end: includesClosingQuote ? index + 2 : index + 1,
+      nextIndex: includesClosingQuote ? index + 1 : index
+    };
+  }
+  const KANJI_RE$4 = /[\u3400-\u9fff]/u;
+  const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
+    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
+    assignSentenceInfo(paragraphs, tokens);
+    return tokens;
+  }
+  function parseParagraphTokens(paragraph, rawTokens, cards) {
+    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
+  }
+  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
+    const card = cards[vocabularyIndex];
+    const rubies = parseRubies(furigana, position);
+    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
+    const token = {
+      card,
+      start: position,
+      end: position + length,
+      length,
+      rubies,
+      pitchClass: currentPitchClass(card)
+    };
+    assignWordWithReading(token);
+    return token;
+  }
+  function parseRubies(furigana, startOffset) {
+    if (furigana === null) return [];
+    let offset = startOffset;
+    return furigana.flatMap((part) => {
+      if (typeof part === "string") {
+        offset += part.length;
+        return [];
+      }
+      const [base, ruby] = part;
+      const start = offset;
+      const end = offset = start + base.length;
+      return [{ text: ruby, start, end, length: base.length }];
+    });
+  }
+  function currentPitchClass(card) {
+    if (card.partOfSpeech.includes("prt")) return "";
+    return getPitchClass(card.pitchAccent, card.reading);
+  }
+  function assignWordWithReading(token) {
+    const { card, rubies, start: offset } = token;
+    if (!rubies.length) return;
+    const word = Array.from(card.spelling);
+    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
+      const { text: text2, start, length } = rubies[i2];
+      word.splice(start - offset + length, 0, `[${text2}]`);
+    }
+    card.wordWithReading = word.join("");
+  }
+  function repairCardReadingFromRubies(card, surface, rubies, offset) {
+    if (!shouldRepairCardReading(card, surface, rubies)) return;
+    const reading = surfaceReadingFromRubies(surface, rubies, offset);
+    if (!reading || !KANA_RE$1.test(reading)) return;
+    const previousReading = card.reading.trim();
+    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
+      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+      card.pitchAccent = [];
+    }
+    card.reading = reading;
+  }
+  function shouldRepairCardReading(card, surface, rubies) {
+    if (!rubies.length || !surface || card.spelling !== surface) return false;
+    if (!KANJI_RE$4.test(card.spelling)) return false;
+    const reading = card.reading.trim();
+    return !reading || reading === card.spelling || KANA_RE$1.test(reading);
+  }
+  function surfaceReadingFromRubies(surface, rubies, offset) {
+    let reading = "";
+    let cursor = 0;
+    for (const ruby of rubies) {
+      const start = ruby.start - offset;
+      const end = ruby.end - offset;
+      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
+      reading += surface.slice(cursor, start);
+      reading += ruby.text;
+      cursor = end;
+    }
+    reading += surface.slice(cursor);
+    return reading;
+  }
+  function jpdbVocabularyToCards(vocabulary2) {
+    if (!Array.isArray(vocabulary2)) return [];
+    const cards = [];
+    for (const item of vocabulary2) {
+      if (!Array.isArray(item)) continue;
+      const [
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank2,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent,
+        dueAt,
+        sentence
+      ] = item;
+      cards.push({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank: frequencyRank2,
+        partOfSpeech,
+        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+          glosses,
+          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+        })),
+        cardState: normalizeCardStates(cardState),
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
+        wordWithReading: null,
+        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
+        source: "jpdb"
+      });
+    }
+    return cards;
+  }
+  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
+  function tiledPitchComponents(card) {
+    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
+    const components2 = card.pitchComponents ?? [];
+    if (components2.length < 2) return null;
+    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return null;
+    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return null;
+    return components2.map((component) => ({
+      ...component,
+      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
+    }));
+  }
+  function pitchComponentUnderlineGradient(card) {
+    const components2 = tiledPitchComponents(card);
+    if (!components2) return "";
+    if (!components2.some((component) => PITCH_CLASSES$1.has(component.pitchClass))) return "";
+    const lengths = components2.map((component) => Array.from(component.spelling).length);
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    if (!total) return "";
+    let offset = 0;
+    const stops = [];
+    components2.forEach((component, index) => {
+      const start = offset / total * 100;
+      offset += lengths[index] ?? 0;
+      const end = offset / total * 100;
+      const color = PITCH_CLASSES$1.has(component.pitchClass) ? `var(--jpdb-reader-pitch-${component.pitchClass})` : "var(--jpdb-reader-pitch-unknown)";
+      stops.push(`${color} ${formatPercent$2(start)}`, `${color} ${formatPercent$2(end)}`);
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function compact(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function formatPercent$2(value) {
+    return `${Number(value.toFixed(3))}%`;
+  }
+  const RENDERED_WORD_CONTRAST_VARS = [
+    "--jpdb-reader-page-bg",
+    "--jpdb-reader-highlight-backdrop",
+    "--jpdb-reader-word-accessible-color",
+    "--jpdb-reader-word-accessible-highlight",
+    "--jpdb-reader-word-accessible-underline",
+    "--jpdb-reader-word-highlight-text",
+    "--jpdb-reader-word-contrast-shadow"
+  ];
+  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-word-contrast-shadow"
+  );
+  const RENDERED_WORD_CARD_STATES = [
+    "new",
+    "learning",
+    "young",
+    "mature",
+    "known",
+    "mastered",
+    "due",
+    "failed",
+    "locked",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "in-deck",
+    "not-in-deck",
+    "redundant",
+    "frequent",
+    "unparsed"
+  ];
+  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
+  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
+  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
+  function clearRenderedWordAnkiState(word) {
+    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
+  }
+  function setRenderedWordPitchClass(word, pitchClass) {
+    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+    word.dataset.pitchClass = pitchClass;
+    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+  }
+  function setRenderedWordPitchAccentPattern(word, card) {
+    const pitchAccent = card.pitchAccent.join("|");
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+  }
+  function setRenderedWordPitchComponents(word, card) {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) {
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      return;
+    }
+    word.dataset.pitchComponents = "true";
+    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
+  }
+  function cardStateProvenance(card) {
+    return card.provisionalState === true ? "provisional" : "authoritative";
+  }
+  function setRenderedWordCardIdentity(word, card, options = {}) {
+    const source = renderedWordCardSource(card);
+    const state2 = primaryCardState(card.cardState);
+    const preserveState = shouldPreserveAuthoritativeState(word, card, state2, options);
+    if (!preserveState) {
+      clearRenderedWordCardStateClasses(word);
+      delete word.dataset.bunproState;
+      clearRenderedWordDeckMembershipClasses(word, ["anki"]);
+    }
+    word.dataset.vid = String(card.vid);
+    word.dataset.sid = String(card.sid);
+    word.dataset.expression = card.spelling;
+    word.dataset.reading = card.reading;
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
+    setRenderedWordPitchComponents(word, card);
+    if (preserveState) return;
+    word.dataset.cardSource = source;
+    word.dataset.cardId = String(renderedWordCardId(card, source));
+    word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
+    word.dataset.cardState = state2;
+    word.dataset.stateProvenance = cardStateProvenance(card);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state2)) clearRenderedWordMiningInsight(word);
+    word.classList.add(`jpdb-${state2}`);
+    if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
+    applyRenderedWordDeckMembership(word, card);
+  }
+  function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
+    return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
+  }
+  function clearRenderedWordMiningInsight(word) {
+    word.classList.remove("jpdb-reader-i-plus-one");
+    delete word.dataset.miningInsight;
+  }
+  function clearRenderedWordCardStateClasses(word) {
+    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
+  }
+  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
+    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
+    if (preserveSources.length) return;
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+  }
+  function isRenderedWordCardStateClass(className) {
+    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state2) => className === `${prefix}-${state2}`));
+  }
+  function isRenderedWordDeckMembershipClass(className, preserveSources) {
+    if (className === "yomu-deck-member") return false;
+    if (className.startsWith("yomu-deck-")) return true;
+    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
+      if (preserveSources.includes(prefix)) return false;
+      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+    });
+  }
+  function applyRenderedWordDeckMembership(word, card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) {
+      if (!word.classList.contains("anki-deck-member")) {
+        word.classList.remove("yomu-deck-member");
+        delete word.dataset.deckMember;
+        delete word.dataset.deckSource;
+        delete word.dataset.deckNames;
+      }
+      return;
+    }
+    word.classList.add(...cardDeckMembershipClassNames(card));
+    word.dataset.deckMember = "true";
+    word.dataset.deckSource = membership.source;
+    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
+    else delete word.dataset.deckNames;
+  }
+  function renderedWordCardSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function renderedWordCardId(card, source = renderedWordCardSource(card)) {
+    return source === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
+  }
+  function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
+    return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
+  }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff々〆\uff66-\uff9f]/;
   const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
@@ -5955,7 +6470,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isEllipsisTextRow(style) {
     if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
-    return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
+    if (style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box") return true;
+    return style.minWidth === "0px";
   }
   function clipsOverflow(style) {
     return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
@@ -5974,15 +6490,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isVerticalWritingMode(writingMode) {
     return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
   }
-  const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
+  const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2e3;
   const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
   const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
   const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
   let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+  let constrainedRowStyleGeneration = 0;
   function constrainedRowStyleFacts(element2) {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element2);
-    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.facts;
+    if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
     const style = safeComputedStyle(element2);
     const clamped = hasLineClamp(style);
     const ellipsisRow = isEllipsisTextRow(style);
@@ -6003,7 +6520,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       clippedShortRow,
       activelyTruncatedPreview
     };
-    constrainedRowStyleFactMemo.set(element2, { at: now, facts });
+    constrainedRowStyleFactMemo.set(element2, { at: now, gen: constrainedRowStyleGeneration, facts });
     return facts;
   }
   function closestRubyFragileConstrainedRow(element2) {
@@ -6730,7 +7247,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     scannedShadowRootState.set(root, true);
     if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
   }
-  function watchPotentialOpenShadowRootHost(host, includeNativeHost = false) {
+  function watchPotentialOpenShadowRootHost(host) {
     const root = host.shadowRoot;
     if (root) {
       noteShadowRoot(root);
@@ -6738,7 +7255,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const tagName = host.localName.toLowerCase();
     const isCustomElement = tagName.includes("-");
-    if (!includeNativeHost && !isCustomElement) return null;
+    if (!isCustomElement) return null;
     if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
       subscribeToCustomElementUpgrade(tagName);
       return null;
@@ -9043,377 +9560,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function normalizePitchPatternsForReading(patterns, reading) {
-    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-  }
-  function pitchLevelsForDisplay(pattern, reading) {
-    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function collectPitchVariants(reading, patterns, max2 = Infinity) {
-    const seen = /* @__PURE__ */ new Set();
-    const variants = [];
-    for (const pattern of patterns) {
-      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-      const position = pitchNumberFromPattern(pattern, reading);
-      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      variants.push({ pattern, position });
-      if (variants.length >= max2) break;
-    }
-    return variants;
-  }
-  function validPitchPositions(reading, patterns) {
-    const positions = /* @__PURE__ */ new Set();
-    for (const variant of collectPitchVariants(reading, patterns)) {
-      if (variant.position != null) positions.add(variant.position);
-    }
-    return positions;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberForReading(patterns, reading) {
-    if (!reading || !patterns?.length) return null;
-    const pattern = contextPitchPattern(patterns, reading);
-    if (!pattern) return null;
-    return pitchNumberFromPattern(pattern, reading);
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-    if (levels.length > moraCount + 1) return null;
-    for (let position = 0; position <= moraCount; position += 1) {
-      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-      if (levels.every((level, index) => expected[index] === level)) return position;
-    }
-    return null;
-  }
-  function looksLikeCompactHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(moraCount, pitchNumber) {
-    if (!moraCount || pitchNumber == null) return "";
-    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  function assignSentenceInfo(paragraphs, tokens) {
-    paragraphs.forEach((paragraph, index) => {
-      const tokenData = tokens[index] ?? [];
-      const sentences = splitJapaneseSentences$1(paragraph);
-      if (sentences.length === 1) {
-        tokenData.forEach((token) => {
-          token.sentence = sentences[0];
-        });
-        return;
-      }
-      let offset = 0;
-      for (const sentence of sentences) {
-        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-        const relativeStart = paragraph.slice(offset).indexOf(compare);
-        if (relativeStart === -1) {
-          offset += sentence.length;
-          continue;
-        }
-        const start = offset + relativeStart;
-        const end = start + sentence.length;
-        for (const token of tokenData) {
-          if (token.start >= start && token.end <= end) token.sentence = sentence;
-        }
-        offset += sentence.length;
-      }
-    });
-  }
-  function splitJapaneseSentences$1(text2) {
-    const sentences = [];
-    const state2 = { start: 0, quote: null };
-    for (let index = 0; index < text2.length; index++) {
-      index = advanceSentenceSplitter(sentences, text2, state2, index);
-    }
-    const tail = text2.slice(state2.start).trim();
-    if (tail) sentences.push(tail);
-    const nonEmptySentences = sentences.filter(Boolean);
-    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    return result;
-  }
-  function advanceSentenceSplitter(sentences, text2, state2, index) {
-    state2.quote = closingQuoteFor(text2[index]) ?? state2.quote;
-    if (state2.quote) return advanceQuotedSentenceSplitter(sentences, text2, state2, index);
-    return advancePunctuationSentenceSplitter(sentences, text2, state2, index);
-  }
-  function advanceQuotedSentenceSplitter(sentences, text2, state2, index) {
-    if (!state2.quote) return index;
-    const boundary = quotedSentenceBoundary(text2, index, state2.quote);
-    if (boundary) Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
-    return index;
-  }
-  function advancePunctuationSentenceSplitter(sentences, text2, state2, index) {
-    const boundary = punctuationSentenceBoundary(text2, index);
-    if (!boundary) return index;
-    Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
-    return boundary.nextIndex;
-  }
-  function pushSentenceBoundary(sentences, text2, start, end) {
-    sentences.push(text2.slice(start, end).trim());
-    return { start: end, quote: null };
-  }
-  function closingQuoteFor(char) {
-    if (char === "「") return "」";
-    if (char === "『") return "』";
-    return null;
-  }
-  function quotedSentenceBoundary(text2, index, quote) {
-    if (text2[index] !== quote) return null;
-    const next = text2[index + 1];
-    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
-  }
-  function punctuationSentenceBoundary(text2, index) {
-    if (!"。！？".includes(text2[index])) return null;
-    const next = text2[index + 1];
-    const includesClosingQuote = next === "」" || next === "』";
-    return {
-      end: includesClosingQuote ? index + 2 : index + 1,
-      nextIndex: includesClosingQuote ? index + 1 : index
-    };
-  }
-  const KANJI_RE$4 = /[\u3400-\u9fff]/u;
-  const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
-  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
-    assignSentenceInfo(paragraphs, tokens);
-    return tokens;
-  }
-  function parseParagraphTokens(paragraph, rawTokens, cards) {
-    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
-  }
-  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
-    const card = cards[vocabularyIndex];
-    const rubies = parseRubies(furigana, position);
-    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
-    const token = {
-      card,
-      start: position,
-      end: position + length,
-      length,
-      rubies,
-      pitchClass: currentPitchClass(card)
-    };
-    assignWordWithReading(token);
-    return token;
-  }
-  function parseRubies(furigana, startOffset) {
-    if (furigana === null) return [];
-    let offset = startOffset;
-    return furigana.flatMap((part) => {
-      if (typeof part === "string") {
-        offset += part.length;
-        return [];
-      }
-      const [base, ruby] = part;
-      const start = offset;
-      const end = offset = start + base.length;
-      return [{ text: ruby, start, end, length: base.length }];
-    });
-  }
-  function currentPitchClass(card) {
-    if (card.partOfSpeech.includes("prt")) return "";
-    return getPitchClass(card.pitchAccent, card.reading);
-  }
-  function assignWordWithReading(token) {
-    const { card, rubies, start: offset } = token;
-    if (!rubies.length) return;
-    const word = Array.from(card.spelling);
-    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
-      const { text: text2, start, length } = rubies[i2];
-      word.splice(start - offset + length, 0, `[${text2}]`);
-    }
-    card.wordWithReading = word.join("");
-  }
-  function repairCardReadingFromRubies(card, surface, rubies, offset) {
-    if (!shouldRepairCardReading(card, surface, rubies)) return;
-    const reading = surfaceReadingFromRubies(surface, rubies, offset);
-    if (!reading || !KANA_RE$1.test(reading)) return;
-    const previousReading = card.reading.trim();
-    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
-      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-      card.pitchAccent = [];
-    }
-    card.reading = reading;
-  }
-  function shouldRepairCardReading(card, surface, rubies) {
-    if (!rubies.length || !surface || card.spelling !== surface) return false;
-    if (!KANJI_RE$4.test(card.spelling)) return false;
-    const reading = card.reading.trim();
-    return !reading || reading === card.spelling || KANA_RE$1.test(reading);
-  }
-  function surfaceReadingFromRubies(surface, rubies, offset) {
-    let reading = "";
-    let cursor = 0;
-    for (const ruby of rubies) {
-      const start = ruby.start - offset;
-      const end = ruby.end - offset;
-      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
-      reading += surface.slice(cursor, start);
-      reading += ruby.text;
-      cursor = end;
-    }
-    reading += surface.slice(cursor);
-    return reading;
-  }
-  function jpdbVocabularyToCards(vocabulary2) {
-    if (!Array.isArray(vocabulary2)) return [];
-    const cards = [];
-    for (const item of vocabulary2) {
-      if (!Array.isArray(item)) continue;
-      const [
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank2,
-        partOfSpeech,
-        meaningsChunks,
-        meaningsPartOfSpeech,
-        cardState,
-        pitchAccent,
-        dueAt,
-        sentence
-      ] = item;
-      cards.push({
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank: frequencyRank2,
-        partOfSpeech,
-        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
-          glosses,
-          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
-        })),
-        cardState: normalizeCardStates(cardState),
-        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
-        wordWithReading: null,
-        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
-        source: "jpdb"
-      });
-    }
-    return cards;
-  }
-  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
-  function resolvedPitchComponents(card) {
-    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return [];
-    const components2 = card.pitchComponents ?? [];
-    if (components2.length < 2) return [];
-    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return [];
-    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return [];
-    const resolved = components2.map((component) => ({
-      ...component,
-      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
-    }));
-    return resolved.every((component) => PITCH_CLASSES$1.has(component.pitchClass)) ? resolved : [];
-  }
-  function pitchComponentUnderlineGradient(card) {
-    const components2 = resolvedPitchComponents(card);
-    if (!components2.length) return "";
-    const lengths = components2.map((component) => Array.from(component.spelling).length);
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    if (!total) return "";
-    let offset = 0;
-    const stops = [];
-    components2.forEach((component, index) => {
-      const start = offset / total * 100;
-      offset += lengths[index] ?? 0;
-      const end = offset / total * 100;
-      const color = `var(--jpdb-reader-pitch-${component.pitchClass})`;
-      stops.push(`${color} ${formatPercent$2(start)}`, `${color} ${formatPercent$2(end)}`);
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function compact(value) {
-    return value.replace(/\s+/g, "").trim();
-  }
-  function formatPercent$2(value) {
-    return `${Number(value.toFixed(3))}%`;
-  }
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -9819,6 +9965,9 @@ ${spelling}`);
       partOfSpeech: [],
       meanings: [],
       cardState: ["not-in-deck"],
+      // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
+      // placeholder default, so tag it provisional.
+      provisionalState: true,
       pitchAccent: [],
       wordWithReading: null,
       source: "fallback",
@@ -10574,7 +10723,7 @@ ${spelling}`);
     if (isVisibleRect(rect)) return false;
     return !isBoxlessFragmentWrapper(rect) || !hasVisibleJapaneseFragmentDescendant(element2);
   }
-  const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 96;
+  const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 512;
   function isBoxlessFragmentWrapper(rect) {
     return rect.width <= 0 || rect.height <= 0;
   }
@@ -10646,43 +10795,39 @@ ${spelling}`);
     }
     return fragmentSelectorSkipsElement(element2, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
   }
-  const ARIA_HIDDEN_VISUAL_LABEL_SELECTOR = [
-    '[class*="badge" i]',
-    '[class*="chip" i]',
-    '[class*="label" i]',
-    '[class*="pill" i]',
-    '[class*="tag" i]',
-    "[data-badge]",
-    "[data-label]"
-  ].join(",");
-  const ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT = 60;
-  const ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES = 32;
-  const ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH = 360;
-  const ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT = 96;
   function fragmentSelectorSkipsElement(element2, selector, selectorWithoutAriaHidden) {
     if (!safeElementMatches(element2, selector)) return false;
     if (!safeElementMatches(element2, '[aria-hidden="true"]')) return true;
     if (safeElementMatches(element2, selectorWithoutAriaHidden)) return true;
-    return !ariaHiddenSubtreeHasVisibleVisualLabel(element2);
+    return !ariaHiddenSubtreeHasVisibleJapanese(element2);
   }
   function selectorWithoutAriaHiddenToken(selector) {
     return selector.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "[aria-hidden=true]" && entry !== '[aria-hidden="true"]').join(",");
   }
-  function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
+  function ariaHiddenSubtreeHasVisibleJapanese(root) {
     if (!HAS_JAPANESE.test(root.textContent ?? "")) return false;
-    const candidates = [];
-    if (safeElementMatches(root, ARIA_HIDDEN_VISUAL_LABEL_SELECTOR)) candidates.push(root);
-    for (const candidate of Array.from(root.querySelectorAll(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR))) {
-      candidates.push(candidate);
-      if (candidates.length >= ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES) break;
+    if (elementOwnsVisibleJapanese(root)) return true;
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
+      if (elementOwnsVisibleJapanese(node)) return true;
     }
-    return candidates.some(visibleVisualLabel);
+    return false;
   }
-  function visibleVisualLabel(element2) {
-    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text2)) return false;
-    const rect = element2.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element2));
+  function elementOwnsVisibleJapanese(element2) {
+    if (!elementHasOwnJapaneseText(element2)) return false;
+    if (isAriaHiddenAccessibleNameDuplicate(element2)) return false;
+    return isVisible(element2);
+  }
+  function elementHasOwnJapaneseText(element2) {
+    for (const node of Array.from(element2.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE && HAS_JAPANESE.test(node.textContent ?? "")) return true;
+    }
+    return false;
+  }
+  function isAriaHiddenAccessibleNameDuplicate(element2) {
+    if (element2.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR)) return true;
+    const labelled = element2.closest("[aria-label]");
+    return Boolean(labelled && labelled.getAttribute("aria-label")?.trim());
   }
   function isFragmentParagraphBoundary(element2, options) {
     return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isCustomElementTextBoundary(element2) || isParagraphBoundary(element2);
@@ -11478,6 +11623,7 @@ ${spelling}`);
         openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
       }
+      alignAdditiveTextMirrorRun(mirror, host);
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
       rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -11498,6 +11644,69 @@ ${spelling}`);
       word.dataset.yomuSourceStart = String(token.start);
       word.dataset.yomuSourceEnd = String(token.end);
     }
+  }
+  const ADDITIVE_MIRROR_RUN_ALIGN_EPSILON = 1;
+  function alignAdditiveTextMirrorRun(mirror, host) {
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+    const word = mirror.querySelector(
+      ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
+    );
+    if (!word) return;
+    const mirrorLeft = firstFragmentLeft(word.getClientRects());
+    const sourceLeft = hostSourceRunLeft(host, word);
+    if (mirrorLeft === null || sourceLeft === null) return;
+    const residual = sourceLeft - mirrorLeft;
+    if (Math.abs(residual) <= ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) return;
+    const { x: currentX, y } = parseMirrorTranslate(mirror);
+    const nextX = currentX + residual;
+    const parts = [];
+    if (Math.abs(nextX) > ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) parts.push(`translateX(${nextX}px)`);
+    if (y) parts.push(`translateY(${y})`);
+    if (parts.length) mirror.style.setProperty("transform", parts.join(" "));
+    else mirror.style.removeProperty("transform");
+  }
+  function firstFragmentLeft(rects) {
+    let left = null;
+    for (const rect of Array.from(rects)) {
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      if (left === null || rect.left < left) left = rect.left;
+    }
+    return left;
+  }
+  function hostSourceRunLeft(host, word) {
+    const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (end > source.hostText.length) return null;
+    const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
+    const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
+    if (!startBoundary || !endBoundary) return null;
+    const range = host.ownerDocument.createRange();
+    range.setStart(startBoundary.node, startBoundary.offset);
+    range.setEnd(endBoundary.node, endBoundary.offset);
+    return firstFragmentLeft(range.getClientRects());
+  }
+  function parseMirrorTranslate(mirror) {
+    const transform = mirror.style.transform;
+    const xMatch = /translateX\((-?[\d.]+)px\)/.exec(transform);
+    const yMatch = /translateY\(([^)]+)\)/.exec(transform);
+    return {
+      x: xMatch ? Number.parseFloat(xMatch[1]) : 0,
+      y: yMatch ? yMatch[1].trim() : ""
+    };
+  }
+  function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
+    let boundary = null;
+    for (const [node, nodeStart] of nodeOffsets) {
+      const nodeEnd = nodeStart + node.data.length;
+      if (sourceOffset < nodeStart || sourceOffset > nodeEnd) continue;
+      const candidate = { node, offset: sourceOffset - nodeStart };
+      if (side === "start" && sourceOffset < nodeEnd) return candidate;
+      boundary = candidate;
+      if (side === "end" && sourceOffset > nodeStart) return candidate;
+    }
+    return boundary;
   }
   function styleDetachedReadingElements(root, host) {
     const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
@@ -13500,6 +13709,7 @@ ${spelling}`);
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.cardState = state2;
+    span.dataset.stateProvenance = cardStateProvenance(token.card);
     if (showPitchAccent) span.dataset.pitchClass = tokenPitchClass(token);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
@@ -13552,7 +13762,7 @@ ${spelling}`);
     const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml$1(state2)}"`;
+    const cardState = ` data-card-state="${escapeHtml$1(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
     const tokenRange2 = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
@@ -14010,9 +14220,9 @@ ${spelling}`);
     const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
     return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
   }
-  const CLAMP_GROWTH_FAILED_ATTRIBUTE = "data-yomu-clamp-growth";
+  const CLAMP_GROWTH_ATTRIBUTE = "data-yomu-clamp-growth";
   function clampRowGrowthFailed(clipRow) {
-    return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === "failed";
+    return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === "failed";
   }
   const POS_LABELS = {
     abbr: "abbreviation",
@@ -27743,7 +27953,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const characters = Array.from(component.text);
     return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
   }
-  function alignExpressionComponentSegments(card, components2, componentPitches) {
+  function alignExpressionComponentSegments(card, components2, componentPitches, mode = "strict") {
     if (!components2.length) return null;
     const spellingChars = Array.from(card.spelling.trim());
     const readingChars = Array.from(cardPronunciationReading(card));
@@ -27777,16 +27987,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         segments.push({ text: text2, pitch: null });
         continue;
       }
+      if (mode === "permissive") {
+        segments.push({ text: text2, pitch: null });
+        continue;
+      }
       return null;
     }
     skipConnectives();
     if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
     const aligned = segments.filter((segment) => segment.pitch);
-    if (!aligned.length || aligned.length < 2 && !hadSkippedConnective) return null;
+    if (!aligned.length) return null;
+    const meaningfulSpan = mode === "permissive" ? components2.length : aligned.length;
+    if (meaningfulSpan < 2 && !hadSkippedConnective) return null;
     return segments;
   }
   function alignedExpressionComponentPitches(card, components2, componentPitches) {
-    const segments = alignExpressionComponentSegments(card, components2, componentPitches);
+    const segments = alignExpressionComponentSegments(card, components2, componentPitches, "permissive");
     if (!segments) return [];
     return segments.map((segment) => segment.pitch).filter((pitch) => Boolean(pitch));
   }
@@ -33123,6 +33339,9 @@ ${entry.reading}`);
           partOfSpeech: []
         }],
         cardState: ["not-in-deck"],
+        // Local dictionary carries no SRS state: not-in-deck is a default,
+        // not an authenticated verdict, so tag it provisional.
+        provisionalState: true,
         pitchAccent: [],
         wordWithReading: null,
         source: "local"
@@ -59218,6 +59437,16 @@ ${spelling}`);
     currentCue;
     secondaryCue;
     observer;
+    // The document observer runs in one of three modes so an idle subtitle
+    // feature stops paying a busy SPA's mutation cost. 'full' (a video is
+    // bound) watches attributes+childList for fullscreen/bottom-sheet/discovery
+    // work; 'discovery' (enabled, no video yet) watches childList only, purely
+    // to notice a video appearing; 'off' (disabled, no video) installs nothing.
+    observerMode = "off";
+    // init() has wired the runtime signals. Guards the refresh()/bind-driven
+    // re-sync so the install()-only test harness (which never calls init) keeps
+    // its historical no-observer, no-tick behaviour.
+    runtimeSignalsInitialized = false;
     videoResizeObserver;
     subtitleControlRail;
     lastPlayerChromeHidden = false;
@@ -59518,23 +59747,6 @@ ${spelling}`);
       }
       if (!this.install()) return;
       this.syncYouTubeMobileBottomSheetState();
-      this.observer = new MutationObserver((mutations) => {
-        this.syncYouTubeMobileBottomSheetState();
-        if (mutations.every(mutationInsideReaderRoot$1)) return;
-        if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
-          this.fullscreenHost.invalidateHostCache();
-          this.syncFullscreenState();
-          this.scheduleAlignToVideo();
-        }
-        if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
-        this.scheduleDiscoverVideo();
-      });
-      this.observer.observe(body, {
-        attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"],
-        attributes: true,
-        childList: true,
-        subtree: true
-      });
       document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions({ capture: true }));
       document.addEventListener("focusin", (event) => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
       document.addEventListener("focusout", (event) => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
@@ -59559,8 +59771,47 @@ ${spelling}`);
       window.visualViewport?.addEventListener("resize", () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
       window.visualViewport?.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       this.discoverVideo();
-      this.tick();
+      this.syncRuntimeSignals();
+      this.runtimeSignalsInitialized = true;
       log$h.info("Subtitle controller initialized");
+    }
+    // Install the document observer that matches the current runtime state and
+    // (re)start the housekeeping tick if it should run. Idempotent: the mode
+    // guard skips a redundant re-observe and wakeTick no-ops when already
+    // ticking, so refresh() and video bind/unbind can call it freely.
+    syncRuntimeSignals() {
+      if (this.destroyed) return;
+      this.installRuntimeDocumentObserver();
+      this.wakeTick();
+    }
+    installRuntimeDocumentObserver() {
+      const settings = this.options.getSettings();
+      const mode = this.video ? "full" : settings.subtitlePlayerEnabled ? "discovery" : "off";
+      if (mode === this.observerMode) return;
+      this.observer?.disconnect();
+      this.observer = void 0;
+      this.observerMode = mode;
+      const body = document.body;
+      if (mode === "off" || !body) return;
+      const observer = new MutationObserver((mutations) => this.handleRuntimeMutations(mutations));
+      observer.observe(body, mode === "full" ? { attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"], attributes: true, childList: true, subtree: true } : { childList: true, subtree: true });
+      this.observer = observer;
+    }
+    handleRuntimeMutations(mutations) {
+      if (this.destroyed) return;
+      if (!this.video) {
+        if (mutations.some(mutationCouldAffectVideoDiscovery)) this.scheduleDiscoverVideo();
+        return;
+      }
+      this.syncYouTubeMobileBottomSheetState();
+      if (mutations.every(mutationInsideReaderRoot$1)) return;
+      if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
+        this.fullscreenHost.invalidateHostCache();
+        this.syncFullscreenState();
+        this.scheduleAlignToVideo();
+      }
+      if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
+      this.scheduleDiscoverVideo();
     }
     mutationCouldAffectFullscreenState(mutation) {
       if (mutation.type === "childList") return mutationSwapsFullscreenHostCandidate(mutation);
@@ -59600,6 +59851,8 @@ ${spelling}`);
       this.abortController = void 0;
       this.observer?.disconnect();
       this.observer = void 0;
+      this.observerMode = "off";
+      this.runtimeSignalsInitialized = false;
       this.videoResizeObserver?.disconnect();
       this.videoResizeObserver = void 0;
       this.subtitleControlRail?.destroy();
@@ -59639,6 +59892,7 @@ ${spelling}`);
     }
     refresh() {
       if (!this.root) return;
+      if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
       const settings = this.options.getSettings();
       this.syncRootVisibility(settings);
       this.syncTranscriptPlacementClass();
@@ -59825,6 +60079,7 @@ ${spelling}`);
       this.setNativeTrackModes();
       this.render();
       this.syncControls();
+      if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
     }
     useDiscoveredVideoCandidate(candidate) {
       this.bufferingPlayback = void 0;
@@ -59836,6 +60091,7 @@ ${spelling}`);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
       this.alignToVideo();
+      if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
       log$h.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
@@ -60166,10 +60422,22 @@ ${spelling}`);
       if (this.destroyed) return;
       const settings = this.options.getSettings();
       if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
+      if (!this.subtitleRuntimeShouldTick(settings)) {
+        this.tickTimer = void 0;
+        return;
+      }
       this.tickTimer = window.setTimeout(() => {
         this.tickTimer = void 0;
         this.tick();
       }, this.tickDelayMs(settings));
+    }
+    subtitleRuntimeShouldTick(settings) {
+      return settings.subtitlePlayerEnabled || Boolean(this.video);
+    }
+    wakeTick() {
+      if (this.destroyed || this.tickTimer !== void 0) return;
+      if (!this.subtitleRuntimeShouldTick(this.options.getSettings())) return;
+      this.tick();
     }
     // The active cadence is only needed while a video is actually playing;
     // hidden tabs and videoless pages ticking that fast just drains battery.
@@ -71232,139 +71500,6 @@ ${component.reading}`;
       source: "local"
     };
   }
-  const RENDERED_WORD_CONTRAST_VARS = [
-    "--jpdb-reader-page-bg",
-    "--jpdb-reader-highlight-backdrop",
-    "--jpdb-reader-word-accessible-color",
-    "--jpdb-reader-word-accessible-highlight",
-    "--jpdb-reader-word-accessible-underline",
-    "--jpdb-reader-word-highlight-text",
-    "--jpdb-reader-word-contrast-shadow"
-  ];
-  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
-    (name) => name !== "--jpdb-reader-word-contrast-shadow"
-  );
-  const RENDERED_WORD_CARD_STATES = [
-    "new",
-    "learning",
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "failed",
-    "locked",
-    "never-forget",
-    "blacklisted",
-    "suspended",
-    "in-deck",
-    "not-in-deck",
-    "redundant",
-    "frequent",
-    "unparsed"
-  ];
-  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
-  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
-  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
-  function clearRenderedWordAnkiState(word) {
-    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
-    delete word.dataset.ankiState;
-    delete word.dataset.ankiDecks;
-    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
-  }
-  function setRenderedWordPitchClass(word, pitchClass) {
-    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-    word.dataset.pitchClass = pitchClass;
-    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-  }
-  function setRenderedWordPitchAccentPattern(word, card) {
-    const pitchAccent = card.pitchAccent.join("|");
-    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-  }
-  function setRenderedWordPitchComponents(word, card) {
-    const gradient = pitchComponentUnderlineGradient(card);
-    if (!gradient) {
-      delete word.dataset.pitchComponents;
-      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
-      return;
-    }
-    word.dataset.pitchComponents = "true";
-    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
-  }
-  function setRenderedWordCardIdentity(word, card) {
-    const source = renderedWordCardSource(card);
-    const state2 = primaryCardState(card.cardState);
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
-    word.dataset.cardSource = source;
-    word.dataset.cardId = String(renderedWordCardId(card, source));
-    word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
-    word.dataset.cardState = state2;
-    word.dataset.expression = card.spelling;
-    word.dataset.reading = card.reading;
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state2)) clearRenderedWordMiningInsight(word);
-    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-    setRenderedWordPitchAccentPattern(word, card);
-    setRenderedWordPitchComponents(word, card);
-    word.classList.add(`jpdb-${state2}`);
-    if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
-    applyRenderedWordDeckMembership(word, card);
-  }
-  function clearRenderedWordMiningInsight(word) {
-    word.classList.remove("jpdb-reader-i-plus-one");
-    delete word.dataset.miningInsight;
-  }
-  function clearRenderedWordCardStateClasses(word) {
-    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
-  }
-  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
-    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
-    if (preserveSources.length) return;
-    delete word.dataset.deckMember;
-    delete word.dataset.deckSource;
-    delete word.dataset.deckNames;
-  }
-  function isRenderedWordCardStateClass(className) {
-    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state2) => className === `${prefix}-${state2}`));
-  }
-  function isRenderedWordDeckMembershipClass(className, preserveSources) {
-    if (className === "yomu-deck-member") return false;
-    if (className.startsWith("yomu-deck-")) return true;
-    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
-      if (preserveSources.includes(prefix)) return false;
-      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
-    });
-  }
-  function applyRenderedWordDeckMembership(word, card) {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) {
-      if (!word.classList.contains("anki-deck-member")) {
-        word.classList.remove("yomu-deck-member");
-        delete word.dataset.deckMember;
-        delete word.dataset.deckSource;
-        delete word.dataset.deckNames;
-      }
-      return;
-    }
-    word.classList.add(...cardDeckMembershipClassNames(card));
-    word.dataset.deckMember = "true";
-    word.dataset.deckSource = membership.source;
-    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
-    else delete word.dataset.deckNames;
-  }
-  function renderedWordCardSource(card) {
-    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-  }
-  function renderedWordCardId(card, source = renderedWordCardSource(card)) {
-    return source === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-  }
-  function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
-    return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-  }
   function replaceOptionalElement(parent, selector, html, before = null) {
     const existing = parent.querySelector(selector);
     const next = htmlToFirstElement(html);
@@ -75189,6 +75324,11 @@ ${key}`] = { t: now, v: value };
         partOfSpeech: stringArray$1(definition.partsOfSpeech ?? definition.pos)
       })).filter((meaning) => meaning.glosses.length),
       cardState: ["not-in-deck"],
+      // Keyless public endpoint: it carries no authenticated SRS state, so the
+      // not-in-deck above is a default, not a verdict. Tagged provisional so a
+      // repaint from this lane cannot downgrade an authoritative word and the
+      // known-state backfill knows to look it up.
+      provisionalState: true,
       pitchAccent: pitchPatterns(payload.pitchAccents, reading),
       wordWithReading: annotatedReading.includes("[") ? annotatedReading : null,
       source: "jiten",
@@ -75210,6 +75350,7 @@ ${key}`] = { t: now, v: value };
       partOfSpeech: [],
       meanings: [],
       cardState: ["not-in-deck"],
+      provisionalState: true,
       pitchAccent: [],
       wordWithReading: null,
       source: "jiten",

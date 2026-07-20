@@ -9251,6 +9251,13 @@ export class ReaderApp {
                 existing.push(word);
                 continue;
             }
+            // A surface already requested that resolved to NO card stays
+            // provisional forever; letting it occupy a distinct-surface slot
+            // every run would starve surfaces past the cap on pages with many
+            // unresolvable runs. Requested-and-resolved surfaces still collect
+            // (the cached card re-applies to recycled words with no network).
+            if (this.knownStateBackfillRequestedSurfaces.has(surface)
+                && !this.knownStateBackfillResolvedCards.has(surface)) continue;
             if (bySurface.size >= KNOWN_STATE_BACKFILL_BATCH_LIMIT) continue;
             bySurface.set(surface, [word]);
         }
@@ -9274,7 +9281,6 @@ export class ReaderApp {
     }
 
     private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
-        if (!this.resolvedFallbackVocabularyCache.size) return;
         if (!this.resolvedFallbackVocabularyCache.size) return;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
