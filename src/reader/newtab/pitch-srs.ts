@@ -208,19 +208,11 @@ export class PitchSrsStore {
         return this.items.get(key);
     }
 
-    allItems(): PitchSrsItem[] {
-        return [...this.items.values()];
-    }
-
     // fallow-ignore-next-line unused-class-member
     dueCount(now: number): number {
         let count = 0;
         for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
         return count;
-    }
-
-    sessionPool(options: PitchSessionPoolOptions): PitchSrsItem[] {
-        return selectPitchSessionPool(this.allItems(), options);
     }
 
     // Idempotent: only seeds an item that does not exist yet, so re-studying a word

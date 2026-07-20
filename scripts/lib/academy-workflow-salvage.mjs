@@ -215,7 +215,7 @@ function sortBySourceId(rows) {
     return rows.sort((left, right) => left.sourceId.localeCompare(right.sourceId, 'en'));
 }
 
-export function buildSalvageSourceInventory(sources = {}, query) {
+function buildSalvageSourceInventory(sources = {}, query) {
     const categories = {
         documents: indexRecoveryDocuments(sources.documents ?? [], query),
         branches: sortBySourceId((sources.branches ?? []).map(normalizeBranch)),

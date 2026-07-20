@@ -7,7 +7,6 @@ export { cardKey } from '../cards/utils';
 export { isYomuNewTabUrl } from './url';
 export {
     createNewTabStateChannel,
-    loadNewTabUiState,
     loadNewTabUiStateWithLegacyIntent,
     saveNewTabUiState,
 } from './state';

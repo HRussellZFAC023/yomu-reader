@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const CANONICAL_GATES = new Set(['C', 'R', 'T', 'Q', 'S', 'O', 'D']);
-export const CANONICAL_REQUIREMENTS = new Set(['owner']);
+const CANONICAL_GATES = new Set(['C', 'R', 'T', 'Q', 'S', 'O', 'D']);
+const CANONICAL_REQUIREMENTS = new Set(['owner']);
 
 export function sha256(value) {
     return crypto.createHash('sha256').update(value).digest('hex');
@@ -25,7 +25,7 @@ function expandRange(prefix, from, to) {
     ));
 }
 
-export function parseDependencies(value) {
+function parseDependencies(value) {
     if (!value || /^none$/iu.test(value.trim())) return { ids: [], dynamic: null };
 
     const ids = new Set();
@@ -391,7 +391,7 @@ function validateEvidenceReference(reference, label, context, errors) {
     }
 }
 
-export function globToRegExp(glob) {
+function globToRegExp(glob) {
     const escaped = glob.replace(/[.+^${}()|[\]\\]/gu, '\\$&')
         .replace(/\*\*/gu, '\u0000')
         .replace(/\*/gu, '[^/]*')

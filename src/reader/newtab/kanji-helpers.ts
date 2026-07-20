@@ -31,11 +31,6 @@ export const newTabKanjiKeyword = (card: JPDBCard, fullInfo: JpdbKanjiInfo | nul
 export const fallbackSearchKanjiCard = (kanji: string): JPDBCard =>
     kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`kanji:${kanji}`), 'fallback');
 
-export const dictionaryKanjiStudyCard = (kanji: string): JPDBCard => ({
-        ...kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`dictionary-kanji:${kanji}`), 'local'),
-        reviewSource: 'dictionary',
-    });
-
 function kanjiPlaceholderCard(kanji: string, vid: number, source: JPDBCard['source']): JPDBCard {
     return {
         vid,

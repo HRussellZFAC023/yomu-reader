@@ -79,10 +79,6 @@ export function normalizeNewTabUiState(value: LegacyNewTabUiState | null | undef
     };
 }
 
-export function loadNewTabUiState(): NewTabUiState {
-    return loadNewTabUiStateWithLegacyIntent().state;
-}
-
 export function loadNewTabUiStateWithLegacyIntent(): LoadedNewTabUiState {
     try {
         const stored = gmStorageGetSync<(LegacyNewTabUiState & { listenSubMode?: unknown }) | null>(STATE_STORAGE_KEY, null);
