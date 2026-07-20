@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
 import { sha256File } from './helpers/hash-memo';
@@ -26,7 +28,13 @@ interface AssetEntry {
 describe('Academy runtime asset ledger', () => {
     const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8')) as {
         rules: { runtimeRequiresExplicitEntry: boolean };
-        counts: { runtimeAssetHomes: number; runtimeFiles: number; nonRuntimeReviewFiles: number };
+        counts: {
+            runtimeAssetHomes: number;
+            runtimeFiles: number;
+            nonRuntimeReviewFiles: number;
+            nonRuntimeReviewFilesPresent: number;
+            canonicalRecoveryInventoryFiles: number;
+        };
         assets: AssetEntry[];
     };
     const runtimeAssets = ledger.assets.filter(
@@ -61,15 +69,99 @@ describe('Academy runtime asset ledger', () => {
             asset.deliveries?.some(delivery => !delivery.path.endsWith('.json')),
         );
         const visualRuntimeFiles = deliveries.filter(delivery => !delivery.path.endsWith('.json'));
-        const nonRuntimeReviewFiles = ledger.assets
-            .filter(asset => !runtimeAssets.includes(asset) && asset.verdict.includes('review-candidate'))
-            .flatMap(asset => asset.deliveries ?? [])
-            .filter(delivery => fs.existsSync(path.resolve('public', delivery.path.replace(/^\//, ''))));
+        const nonRuntimeReviewDeliveries = ledger.assets.filter(asset => !runtimeAssets.includes(asset) && asset.verdict.includes('review-candidate')).flatMap(asset => asset.deliveries ?? []);
+        const nonRuntimeReviewFilesPresent = nonRuntimeReviewDeliveries.filter(delivery => fs.existsSync(path.resolve('public', delivery.path.replace(/^\//, ''))));
+        const recoveryInventory = ledger.assets.find(asset => asset.id === 'recovered-art-review-collection-v1');
         expect(ledger.counts.runtimeAssetHomes).toBe(visualRuntimeAssets.length);
         expect(ledger.counts.runtimeFiles).toBe(visualRuntimeFiles.length);
-        expect(ledger.counts.nonRuntimeReviewFiles).toBe(nonRuntimeReviewFiles.length);
+        expect(ledger.counts.nonRuntimeReviewFiles).toBe(nonRuntimeReviewDeliveries.length);
+        expect(ledger.counts.nonRuntimeReviewFilesPresent).toBe(nonRuntimeReviewFilesPresent.length);
+        expect(ledger.counts.canonicalRecoveryInventoryFiles).toBe(recoveryInventory?.deliveries?.length);
         expect(fs.readFileSync(path.resolve('docs/public/academy/art/ASSET-USAGE.json'), 'utf8'))
             .toBe(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
+    });
+
+    it('preserves catalog-only recovery inventory across clean-worktree reconciliation and a second run', () => {
+        const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'yomu-art-reconcile-'));
+        try {
+            const publicArt = path.join(fixtureRoot, 'public/academy/art');
+            const hostedArt = path.join(fixtureRoot, 'docs/public/academy/art');
+            const recoveryRoot = path.join(fixtureRoot, 'docs/academy/recovery');
+            fs.mkdirSync(publicArt, { recursive: true });
+            fs.mkdirSync(hostedArt, { recursive: true });
+            fs.mkdirSync(recoveryRoot, { recursive: true });
+            const runtimeBytes = Buffer.from('runtime-art');
+            const missingRecoveryBytes = Buffer.from('catalog-only-recovery-art');
+            const runtimeSha256 = crypto.createHash('sha256').update(runtimeBytes).digest('hex');
+            const recoverySha256 = crypto.createHash('sha256').update(missingRecoveryBytes).digest('hex');
+            fs.writeFileSync(path.join(publicArt, 'runtime.png'), runtimeBytes);
+            const usage = {
+                rules: { directoryApprovalForbidden: true },
+                counts: {
+                    runtimeAssetHomes: 0,
+                    runtimeFiles: 0,
+                    nonRuntimeReviewFiles: 0,
+                    nonRuntimeReviewFilesPresent: 0,
+                    canonicalRecoveryInventoryFiles: 0,
+                },
+                assets: [
+                    {
+                        id: 'runtime',
+                        verdict: 'approved-runtime',
+                        runtimeHome: ['fixture'],
+                        deliveries: [{ path: '/academy/art/runtime.png', sha256: runtimeSha256 }],
+                    },
+                    {
+                        id: 'recovered-art-review-collection-v1',
+                        verdict: 'review-candidate/non-runtime',
+                        runtimeHome: [],
+                        deliveries: [],
+                    },
+                ],
+            };
+            const catalog = {
+                mode: 'catalog-only',
+                canonicalImages: [
+                    { path: 'public/academy/art/runtime.png', sha256: runtimeSha256 },
+                    {
+                        path: 'public/academy/art/_incoming/missing.png',
+                        sha256: recoverySha256,
+                    },
+                ],
+            };
+            fs.writeFileSync(path.join(publicArt, 'ASSET-USAGE.json'), JSON.stringify(usage));
+            fs.writeFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), JSON.stringify(usage));
+            fs.writeFileSync(path.join(recoveryRoot, 'ACADEMY-ART-CATALOG.json'), JSON.stringify(catalog));
+
+            const reconcile = () =>
+                execFileSync(process.execPath, [path.resolve('scripts/reconcile-academy-art-usage.mjs')], {
+                    cwd: path.resolve('.'),
+                    env: {
+                        ...process.env,
+                        ACADEMY_ART_RECONCILE_REPO_ROOT: fixtureRoot,
+                    },
+                    encoding: 'utf8',
+                });
+            reconcile();
+            const first = fs.readFileSync(path.join(publicArt, 'ASSET-USAGE.json'), 'utf8');
+            const reconciled = JSON.parse(first) as typeof ledger;
+            expect(reconciled.counts).toMatchObject({
+                runtimeAssetHomes: 1,
+                runtimeFiles: 1,
+                nonRuntimeReviewFiles: 1,
+                nonRuntimeReviewFilesPresent: 0,
+                canonicalRecoveryInventoryFiles: 1,
+            });
+            expect(reconciled.assets.find(asset => asset.id === 'recovered-art-review-collection-v1')?.deliveries).toEqual([{ path: '/academy/art/_incoming/missing.png', sha256: recoverySha256 }]);
+            expect(fs.existsSync(path.join(publicArt, '_incoming/missing.png'))).toBe(false);
+            expect(fs.readFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
+
+            reconcile();
+            expect(fs.readFileSync(path.join(publicArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
+            expect(fs.readFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
+        } finally {
+            fs.rmSync(fixtureRoot, { recursive: true, force: true });
+        }
     });
 
     it('keeps the recovered Rie thinking sprite as non-runtime review evidence', () => {

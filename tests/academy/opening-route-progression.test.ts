@@ -114,7 +114,7 @@ describe('Academy opening route progression', () => {
             .toBe('Read the board and enter class');
 
         campus.shell.current?.querySelector<HTMLButtonElement>('[data-location="classroom"]')?.click();
-        expect(campus.go).toHaveBeenCalledWith('classroom', { worldVisits: { classroom: 1 } });
+        expect(campus.go).toHaveBeenCalledWith('classroom', { worldVisits: {} });
     });
 
     it('opens the pending Lesson 0 from the classroom instead of skipping to the class path', async () => {
@@ -230,7 +230,7 @@ describe('Academy opening route progression', () => {
         await worldFlow().render('campus', campus.value);
         campus.shell.current?.querySelector<HTMLButtonElement>('[data-location="classroom"]')?.click();
 
-        expect(campus.go).toHaveBeenCalledWith('classroom', { worldVisits: { classroom: 1 } });
+        expect(campus.go).toHaveBeenCalledWith('classroom', { worldVisits: {} });
         expect(campus.go.mock.calls.some(([route]) => route === 'lesson-overview')).toBe(false);
     });
 

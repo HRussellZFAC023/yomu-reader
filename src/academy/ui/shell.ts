@@ -86,6 +86,7 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         // ink-tag ::after), so the portalled hover tooltip would duplicate it.
         const menuLabel = academyText(language, 'utilityMenu');
         utilityToggle.setAttribute('aria-label', menuLabel);
+        utilityToggle.title = menuLabel;
         utilityToggle.dataset.tooltip = menuLabel;
         // Name the destination, so the control answers “where will this take me?”
         // rather than describing the mode that is already active.

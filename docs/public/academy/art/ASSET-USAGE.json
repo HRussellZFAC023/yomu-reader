@@ -22,7 +22,9 @@
     "runtimeFiles": 105,
     "nonRuntimeReviewFiles": 1743,
     "approvedReferenceOnly": 4,
-    "explicitlyRejectedFamilies": 4
+    "explicitlyRejectedFamilies": 4,
+    "nonRuntimeReviewFilesPresent": 9,
+    "canonicalRecoveryInventoryFiles": 1734
   },
   "lessonBindings": [
     {

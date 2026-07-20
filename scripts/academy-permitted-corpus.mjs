@@ -12,6 +12,11 @@ const roots = resolveCorpusRoots();
 
 if (command === 'validate') {
     report(validateCorpusOutputs(roots));
+} else if (command === 'curriculum') {
+    const rawManifest = readJson(`${roots.corpusRoot}/manifest.json`);
+    const curriculum = buildCurriculumCrosswalk(roots, rawManifest);
+    writePair(roots, 'curriculum', curriculum.privateCrosswalk, curriculum.publicCrosswalk);
+    report(validateCorpusOutputs(roots));
 } else if (command === 'build') {
     const moodleLedger = readJson(roots.moodlePrivateLedgerPath);
     const rawManifest = readJson(`${roots.corpusRoot}/manifest.json`);
@@ -25,7 +30,7 @@ if (command === 'validate') {
     writePair(roots, 'media', media.privateCrosswalk, media.publicCrosswalk);
     report(validateCorpusOutputs(roots));
 } else {
-    console.error('Usage: node scripts/academy-permitted-corpus.mjs <build|validate>');
+    console.error('Usage: node scripts/academy-permitted-corpus.mjs <build|curriculum|validate>');
     process.exitCode = 2;
 }
 

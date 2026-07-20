@@ -19,6 +19,19 @@ npm run academy:source:validate
 
 The first command requires the private capture at `resources/yomu-academy/moodle-raw` and the reviewed donor packs. It is resumable by payload hash. Successful archive scans, PDF census records, rendered pages, native image extraction, layout regions, and audio probes are reused.
 
+Clean worktrees validate the committed N3 source catalog without requiring private corpora. The Soya source-wording test is reported as skipped when `ACADEMY_SOYA_ROOT` is not configured; it never counts missing private data as a source-fidelity pass.
+
+Source-fidelity proof uses the strict lane, with every private root explicitly configured:
+
+```bash
+YOMU_JAPANESE_LIBRARY_ROOT=/path/to/Japanese \
+ACADEMY_SOURCE_CORPUS_ROOT=/path/to/moodle-raw \
+ACADEMY_SOYA_ROOT=/path/to/soya-research \
+npm run test:academy:n3-source-fidelity
+```
+
+The strict lane fails when a root is missing, a catalogued path escapes its configured root, a source file is absent, or its size or SHA-256 differs. It also runs the exact Soya wording assertions.
+
 Failed external-tool records are also reused so one corrupt payload cannot repeatedly block the corpus. Retry them explicitly after fixing the cause:
 
 ```bash

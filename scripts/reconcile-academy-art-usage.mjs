@@ -6,10 +6,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 
-const repoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
+const repoRoot = process.env.ACADEMY_ART_RECONCILE_REPO_ROOT
+  ? path.resolve(process.env.ACADEMY_ART_RECONCILE_REPO_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = path.join(repoRoot, "public");
 const artRoot = path.join(publicRoot, "academy/art");
 const usagePath = path.join(artRoot, "ASSET-USAGE.json");
@@ -66,9 +65,20 @@ if (catalog.mode !== "catalog-only") {
   );
 }
 
-const catalogHashes = new Map(
-  catalog.canonicalImages.map((image) => [image.path, image.sha256]),
-);
+const catalogDeliveries = catalog.canonicalImages
+  .map((image) => catalogDelivery(image))
+  .sort((left, right) => left.path.localeCompare(right.path, "en"));
+const catalogHashes = new Map();
+for (const delivery of catalogDeliveries) {
+  if (catalogHashes.has(delivery.path)) {
+    throw new Error(`Duplicate recovery catalog path: ${delivery.path}`);
+  }
+  catalogHashes.set(delivery.path, delivery.sha256);
+  const physicalPath = path.join(publicRoot, delivery.path.replace(/^\//, ""));
+  if (fs.existsSync(physicalPath) && sha256(physicalPath) !== delivery.sha256) {
+    throw new Error(`Recovery catalog hash is stale for ${delivery.path}`);
+  }
+}
 const retainedAssets = usage.assets.filter(
   (asset) => asset.id !== collectionId,
 );
@@ -77,30 +87,37 @@ for (const asset of retainedAssets) {
   for (const delivery of asset.deliveries ?? []) {
     if (accountedPaths.has(delivery.path))
       throw new Error(`Duplicate ledger delivery: ${delivery.path}`);
+    const catalogHash = catalogHashes.get(delivery.path);
+    if (catalogHash && catalogHash !== delivery.sha256) {
+      throw new Error(
+        `Ledger hash conflicts with recovery catalog for ${delivery.path}`,
+      );
+    }
     accountedPaths.add(delivery.path);
   }
 }
 
-const deliveries = walk(artRoot)
+const catalogRecoveryDeliveries = catalogDeliveries.filter(
+  (delivery) => !accountedPaths.has(delivery.path),
+);
+const unaccountedPhysicalDeliveries = walk(artRoot)
   .filter((file) => path.basename(file) !== "ASSET-USAGE.json")
   .map((file) => ({ file, path: deliveryPath(file) }))
-  .filter((delivery) => !accountedPaths.has(delivery.path))
+  .filter(
+    (delivery) =>
+      !accountedPaths.has(delivery.path) && !catalogHashes.has(delivery.path),
+  )
   .map((delivery) => {
     const digest = sha256(delivery.file);
     if (imagePattern.test(delivery.file)) {
-      const catalogKey = path
-        .relative(repoRoot, delivery.file)
-        .split(path.sep)
-        .join("/");
-      if (catalogHashes.get(catalogKey) !== digest) {
-        throw new Error(
-          `Recovery catalog is missing or stale for ${catalogKey}`,
-        );
-      }
+      throw new Error(`Recovery catalog is missing ${delivery.path}`);
     }
     return { path: delivery.path, sha256: digest };
-  })
-  .sort((left, right) => left.path.localeCompare(right.path, "en"));
+  });
+const deliveries = [
+  ...catalogRecoveryDeliveries,
+  ...unaccountedPhysicalDeliveries,
+].sort((left, right) => left.path.localeCompare(right.path, "en"));
 
 const collection = {
   id: collectionId,
@@ -134,16 +151,20 @@ const visualRuntimeFiles = runtimeAssets
   .filter((delivery) => !delivery.path.endsWith(".json"));
 nextUsage.counts.runtimeAssetHomes = visualRuntimeAssets.length;
 nextUsage.counts.runtimeFiles = visualRuntimeFiles.length;
-nextUsage.counts.nonRuntimeReviewFiles = nextUsage.assets
+const nonRuntimeReviewDeliveries = nextUsage.assets
   .filter(
     (asset) =>
       !runtimeAssets.includes(asset) &&
       asset.verdict.includes("review-candidate"),
   )
-  .flatMap((asset) => asset.deliveries ?? [])
-  .filter((delivery) =>
+  .flatMap((asset) => asset.deliveries ?? []);
+nextUsage.counts.nonRuntimeReviewFiles = nonRuntimeReviewDeliveries.length;
+nextUsage.counts.nonRuntimeReviewFilesPresent =
+  nonRuntimeReviewDeliveries.filter((delivery) =>
     fs.existsSync(path.join(publicRoot, delivery.path.replace(/^\//, ""))),
   ).length;
+nextUsage.counts.canonicalRecoveryInventoryFiles =
+  catalogRecoveryDeliveries.length;
 
 const serialized = await format(JSON.stringify(nextUsage), { parser: "json" });
 fs.writeFileSync(usagePath, serialized);
@@ -153,8 +174,11 @@ console.log(
   JSON.stringify(
     {
       collectionId,
-      recoveredReviewFiles: deliveries.length,
+      canonicalRecoveryInventoryFiles:
+        nextUsage.counts.canonicalRecoveryInventoryFiles,
       nonRuntimeReviewFiles: nextUsage.counts.nonRuntimeReviewFiles,
+      nonRuntimeReviewFilesPresent:
+        nextUsage.counts.nonRuntimeReviewFilesPresent,
       totalPublicArtFiles: walk(artRoot).filter(
         (file) => path.basename(file) !== "ASSET-USAGE.json",
       ).length,
@@ -164,3 +188,23 @@ console.log(
     2,
   ),
 );
+
+function catalogDelivery(image) {
+  if (
+    !image ||
+    typeof image.path !== "string" ||
+    typeof image.sha256 !== "string"
+  ) {
+    throw new TypeError("Recovery catalog images require path and sha256.");
+  }
+  const absolutePath = path.resolve(repoRoot, image.path);
+  const relative = path.relative(artRoot, absolutePath);
+  if (
+    relative === "" ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`Recovery catalog path escapes Academy art: ${image.path}`);
+  }
+  return { path: deliveryPath(absolutePath), sha256: image.sha256 };
+}

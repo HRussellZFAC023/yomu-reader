@@ -145,6 +145,9 @@ describe('Academy human interface', () => {
         expect(shellStyles).toMatch(/\.academy-chrome-button\s*\{[^}]*width:\s*100%[^}]*border-radius:\s*5px 10px 6px 8px[^}]*text-align:\s*left/s);
         shell.setLanguage('ja');
         expect(host.querySelector('.academy-presentation-button')?.textContent).toBe('物語ビュー');
+        expect(utilityToggle.getAttribute('aria-label')).toBe('メニュー');
+        expect(utilityToggle.title).toBe('メニュー');
+        expect(utilityToggle.dataset.tooltip).toBe('メニュー');
         const utility = host.querySelector<HTMLDetailsElement>('.academy-utility')!;
         utility.open = true;
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

@@ -14,7 +14,7 @@
       "moodle": {
         "sourceId": "moodle-module:5777762",
         "moduleId": 5777762,
-        "sourceOrdinal": 78,
+        "sourceOrdinal": 79,
         "classOrder": 2
       },
       "minna": {
@@ -44,7 +44,7 @@
       "moodle": {
         "sourceId": "moodle-module:5792908",
         "moduleId": 5792908,
-        "sourceOrdinal": 79,
+        "sourceOrdinal": 80,
         "classOrder": 3
       },
       "minna": {
@@ -74,7 +74,7 @@
       "moodle": {
         "sourceId": "moodle-module:5804931",
         "moduleId": 5804931,
-        "sourceOrdinal": 80,
+        "sourceOrdinal": 81,
         "classOrder": 4
       },
       "minna": {
@@ -104,7 +104,7 @@
       "moodle": {
         "sourceId": "moodle-module:5822243",
         "moduleId": 5822243,
-        "sourceOrdinal": 81,
+        "sourceOrdinal": 82,
         "classOrder": 5
       },
       "minna": {
@@ -134,7 +134,7 @@
       "moodle": {
         "sourceId": "moodle-module:5834212",
         "moduleId": 5834212,
-        "sourceOrdinal": 82,
+        "sourceOrdinal": 83,
         "classOrder": 6
       },
       "minna": {
@@ -164,7 +164,7 @@
       "moodle": {
         "sourceId": "moodle-module:5860335",
         "moduleId": 5860335,
-        "sourceOrdinal": 83,
+        "sourceOrdinal": 84,
         "classOrder": 7
       },
       "minna": {
@@ -194,7 +194,7 @@
       "moodle": {
         "sourceId": "moodle-module:5864904",
         "moduleId": 5864904,
-        "sourceOrdinal": 84,
+        "sourceOrdinal": 85,
         "classOrder": 8
       },
       "minna": {
@@ -224,7 +224,7 @@
       "moodle": {
         "sourceId": "moodle-module:5866381",
         "moduleId": 5866381,
-        "sourceOrdinal": 85,
+        "sourceOrdinal": 86,
         "classOrder": 9
       },
       "minna": {
@@ -254,7 +254,7 @@
       "moodle": {
         "sourceId": "moodle-module:5889535",
         "moduleId": 5889535,
-        "sourceOrdinal": 86,
+        "sourceOrdinal": 87,
         "classOrder": 10
       },
       "minna": {
@@ -284,7 +284,7 @@
       "moodle": {
         "sourceId": "moodle-module:5907552",
         "moduleId": 5907552,
-        "sourceOrdinal": 87,
+        "sourceOrdinal": 88,
         "classOrder": 11
       },
       "minna": {
@@ -314,7 +314,7 @@
       "moodle": {
         "sourceId": "moodle-module:6053028",
         "moduleId": 6053028,
-        "sourceOrdinal": 102,
+        "sourceOrdinal": 103,
         "classOrder": 12
       },
       "minna": {
@@ -344,7 +344,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489594",
         "moduleId": 5489594,
-        "sourceOrdinal": 103,
+        "sourceOrdinal": 104,
         "classOrder": 13
       },
       "minna": {
@@ -374,7 +374,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489595",
         "moduleId": 5489595,
-        "sourceOrdinal": 105,
+        "sourceOrdinal": 106,
         "classOrder": 14
       },
       "minna": {
@@ -404,7 +404,7 @@
       "moodle": {
         "sourceId": "moodle-module:6097314",
         "moduleId": 6097314,
-        "sourceOrdinal": 107,
+        "sourceOrdinal": 108,
         "classOrder": 15
       },
       "minna": {
@@ -434,7 +434,7 @@
       "moodle": {
         "sourceId": "moodle-module:6134871",
         "moduleId": 6134871,
-        "sourceOrdinal": 109,
+        "sourceOrdinal": 110,
         "classOrder": 16
       },
       "minna": {
@@ -464,7 +464,7 @@
       "moodle": {
         "sourceId": "moodle-module:5881257",
         "moduleId": 5881257,
-        "sourceOrdinal": 110,
+        "sourceOrdinal": 111,
         "classOrder": 17
       },
       "minna": {
@@ -494,7 +494,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489600",
         "moduleId": 5489600,
-        "sourceOrdinal": 111,
+        "sourceOrdinal": 112,
         "classOrder": 18
       },
       "minna": {
@@ -524,7 +524,7 @@
       "moodle": {
         "sourceId": "moodle-module:6200250",
         "moduleId": 6200250,
-        "sourceOrdinal": 112,
+        "sourceOrdinal": 113,
         "classOrder": 19
       },
       "minna": {
@@ -554,7 +554,7 @@
       "moodle": {
         "sourceId": "moodle-module:6223185",
         "moduleId": 6223185,
-        "sourceOrdinal": 115,
+        "sourceOrdinal": 116,
         "classOrder": 20
       },
       "minna": {
@@ -584,7 +584,7 @@
       "moodle": {
         "sourceId": "moodle-module:6310077",
         "moduleId": 6310077,
-        "sourceOrdinal": 116,
+        "sourceOrdinal": 117,
         "classOrder": 21
       },
       "minna": {
@@ -616,7 +616,7 @@
       "moodle": {
         "sourceId": "moodle-module:6375062",
         "moduleId": 6375062,
-        "sourceOrdinal": 117,
+        "sourceOrdinal": 118,
         "classOrder": 22
       },
       "minna": {
@@ -646,7 +646,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489603",
         "moduleId": 5489603,
-        "sourceOrdinal": 121,
+        "sourceOrdinal": 122,
         "classOrder": 23
       },
       "minna": {
@@ -673,7 +673,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489604",
         "moduleId": 5489604,
-        "sourceOrdinal": 124,
+        "sourceOrdinal": 125,
         "classOrder": 24
       },
       "minna": {
@@ -700,7 +700,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489605",
         "moduleId": 5489605,
-        "sourceOrdinal": 125,
+        "sourceOrdinal": 126,
         "classOrder": 25
       },
       "minna": {
@@ -727,7 +727,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489606",
         "moduleId": 5489606,
-        "sourceOrdinal": 126,
+        "sourceOrdinal": 127,
         "classOrder": 26
       },
       "minna": {
@@ -754,7 +754,7 @@
       "moodle": {
         "sourceId": "moodle-module:5489607",
         "moduleId": 5489607,
-        "sourceOrdinal": 127,
+        "sourceOrdinal": 128,
         "classOrder": 27
       },
       "minna": {
@@ -781,7 +781,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974649",
         "moduleId": 6974649,
-        "sourceOrdinal": 56,
+        "sourceOrdinal": 57,
         "classOrder": 36
       },
       "minna": {
@@ -806,7 +806,7 @@
       "moodle": {
         "sourceId": "moodle-module:7011918",
         "moduleId": 7011918,
-        "sourceOrdinal": 57,
+        "sourceOrdinal": 58,
         "classOrder": 37
       },
       "minna": {
@@ -836,7 +836,7 @@
       "moodle": {
         "sourceId": "moodle-module:7011919",
         "moduleId": 7011919,
-        "sourceOrdinal": 60,
+        "sourceOrdinal": 61,
         "classOrder": 38
       },
       "minna": {
@@ -861,7 +861,7 @@
       "moodle": {
         "sourceId": "moodle-module:7011920",
         "moduleId": 7011920,
-        "sourceOrdinal": 62,
+        "sourceOrdinal": 63,
         "classOrder": 39
       },
       "minna": {
@@ -886,7 +886,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974651",
         "moduleId": 6974651,
-        "sourceOrdinal": 64,
+        "sourceOrdinal": 65,
         "classOrder": 40
       },
       "minna": {
@@ -911,7 +911,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974652",
         "moduleId": 6974652,
-        "sourceOrdinal": 65,
+        "sourceOrdinal": 66,
         "classOrder": 41
       },
       "minna": {
@@ -936,7 +936,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974653",
         "moduleId": 6974653,
-        "sourceOrdinal": 67,
+        "sourceOrdinal": 68,
         "classOrder": 42
       },
       "minna": {
@@ -961,7 +961,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974656",
         "moduleId": 6974656,
-        "sourceOrdinal": 69,
+        "sourceOrdinal": 70,
         "classOrder": 43
       },
       "minna": {
@@ -986,7 +986,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974657",
         "moduleId": 6974657,
-        "sourceOrdinal": 71,
+        "sourceOrdinal": 72,
         "classOrder": 44
       },
       "minna": {
@@ -1016,7 +1016,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974659",
         "moduleId": 6974659,
-        "sourceOrdinal": 72,
+        "sourceOrdinal": 73,
         "classOrder": 45
       },
       "minna": {
@@ -1046,7 +1046,7 @@
       "moodle": {
         "sourceId": "moodle-module:6974661",
         "moduleId": 6974661,
-        "sourceOrdinal": 73,
+        "sourceOrdinal": 74,
         "classOrder": 46
       },
       "minna": {
@@ -1622,29 +1622,6 @@
       ]
     },
     {
-      "lessonId": "l2-l34",
-      "lessonOrder": 61,
-      "progressionGroup": "level-3-plus",
-      "moodle": {
-        "sourceId": "moodle-module:8121293",
-        "moduleId": 8121293,
-        "sourceOrdinal": 46,
-        "classOrder": 73
-      },
-      "minna": {
-        "sourceId": "japanese-minna:strand",
-        "kind": "strand",
-        "range": null
-      },
-      "genki": null,
-      "enrichmentPolicy": "introduced-prerequisites-only",
-      "status": "gap-declared",
-      "gaps": [
-        "missing-genki-prerequisite-anchor",
-        "moodle-module-reused-by-distinct-lessons"
-      ]
-    },
-    {
       "lessonId": "l2-l36",
       "lessonOrder": 63,
       "progressionGroup": "level-3-plus",
@@ -1667,6 +1644,29 @@
       "status": "gap-declared",
       "gaps": [
         "missing-genki-prerequisite-anchor"
+      ]
+    },
+    {
+      "lessonId": "l2-l34",
+      "lessonOrder": 61,
+      "progressionGroup": "level-3-plus",
+      "moodle": {
+        "sourceId": "moodle-module:8121293",
+        "moduleId": 8121293,
+        "sourceOrdinal": 46,
+        "classOrder": 73
+      },
+      "minna": {
+        "sourceId": "japanese-minna:strand",
+        "kind": "strand",
+        "range": null
+      },
+      "genki": null,
+      "enrichmentPolicy": "introduced-prerequisites-only",
+      "status": "gap-declared",
+      "gaps": [
+        "missing-genki-prerequisite-anchor",
+        "moodle-module-reused-by-distinct-lessons"
       ]
     }
   ],

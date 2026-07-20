@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error Plain-JS corpus tooling is exercised directly.
-import { resolveCorpusRoots, SOURCE_SCOPES } from '../../scripts/academy-source-pipeline/corpus/paths.mjs';
+import * as corpusPaths from '../../scripts/academy-source-pipeline/corpus/paths.mjs';
 // @ts-expect-error Plain-JS corpus tooling is exercised directly.
 import { validateCorpusOutputs } from '../../scripts/academy-source-pipeline/corpus/validate.mjs';
 // @ts-expect-error Plain-JS corpus tooling is exercised directly.
 import { parseVocabularyTable } from '../../scripts/academy-source-pipeline/corpus/vocabulary.mjs';
 
+const { resolveCorpusRoots, SOURCE_SCOPES } = corpusPaths;
 const ROOTS = resolveCorpusRoots();
 
 describe('permitted source corpus', () => {
@@ -38,8 +39,9 @@ describe('permitted source corpus', () => {
         const lessonFiles = fs.readdirSync(ROOTS.lessonsRoot).filter(name => /^\d{3}-l[12]-l\d{2}\.json$/u.test(name));
         expect(crosswalk.lessons).toHaveLength(lessonFiles.length);
         expect(new Set(crosswalk.lessons.map((lesson: any) => lesson.lessonId)).size).toBe(lessonFiles.length);
-        expect(crosswalk.lessons.map((lesson: any) => lesson.lessonOrder))
-            .toEqual([...crosswalk.lessons.map((lesson: any) => lesson.lessonOrder)].sort((a, b) => a - b));
+        const lessonOrders = crosswalk.lessons.map((lesson: any) => lesson.lessonOrder);
+        expect(lessonOrders.every((order: unknown) => Number.isInteger(order) && Number(order) > 0)).toBe(true);
+        expect(new Set(lessonOrders).size).toBe(lessonFiles.length);
         for (const lesson of crosswalk.lessons) {
             expect(lesson.moodle?.sourceId, lesson.lessonId).toMatch(/^moodle-module:\d+$/u);
             expect(lesson.enrichmentPolicy).toBe('introduced-prerequisites-only');
@@ -48,14 +50,23 @@ describe('permitted source corpus', () => {
             if (lesson.status !== 'anchored') expect(lesson.gaps.length).toBeGreaterThan(0);
         }
 
-        const progressionGroups = [...new Set(crosswalk.lessons.map((lesson: any) => lesson.progressionGroup))];
+        const progressionGroups = [
+            ...new Set<string>(crosswalk.lessons.map((lesson: any) => String(lesson.progressionGroup))),
+        ];
         expect(progressionGroups).toEqual(['level-1', 'level-2-plus', 'level-3-2', 'level-3-plus']);
+        const canonicalChronology: Record<string, number[]> = {
+            'level-1': Array.from({ length: 26 }, (_, index) => index + 2),
+            'level-2-plus': Array.from({ length: 11 }, (_, index) => index + 36),
+            'level-3-2': Array.from({ length: 12 }, (_, index) => index + 50),
+            'level-3-plus': Array.from({ length: 12 }, (_, index) => index + 62),
+        };
         for (const progressionGroup of progressionGroups) {
             const chronology = crosswalk.lessons
                 .filter((lesson: any) => lesson.progressionGroup === progressionGroup)
                 .map((lesson: any) => lesson.moodle.classOrder);
-            expect(chronology).toEqual([...chronology].sort((a, b) => a - b));
+            expect(chronology, progressionGroup).toEqual(canonicalChronology[progressionGroup]);
         }
+        expect(crosswalk.lessons.slice(-2).map((lesson: any) => lesson.lessonId)).toEqual(['l2-l36', 'l2-l34']);
     });
 
     it('makes exact vocabulary order/readings/meanings/media a hard gate with honest gaps', () => {

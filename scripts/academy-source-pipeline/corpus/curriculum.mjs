@@ -40,6 +40,7 @@ export function buildCurriculumCrosswalk(roots, rawManifest) {
             gaps,
         };
     });
+    privateLessons.sort(compareCanonicalOrder);
     addSequenceGaps(privateLessons, 'minna');
     addSequenceGaps(privateLessons, 'genki');
     const privateCrosswalk = {
@@ -50,6 +51,17 @@ export function buildCurriculumCrosswalk(roots, rawManifest) {
         summary: summarize(privateLessons),
     };
     return { privateCrosswalk, publicCrosswalk: toPublic(privateCrosswalk) };
+}
+
+function compareCanonicalOrder(left, right) {
+    const leftClassOrder = left.moodle?.classOrder;
+    const rightClassOrder = right.moodle?.classOrder;
+    if (Number.isInteger(leftClassOrder) && Number.isInteger(rightClassOrder)) {
+        return leftClassOrder - rightClassOrder;
+    }
+    if (Number.isInteger(leftClassOrder)) return -1;
+    if (Number.isInteger(rightClassOrder)) return 1;
+    return left.lessonOrder - right.lessonOrder || left.lessonId.localeCompare(right.lessonId, 'en');
 }
 
 function indexModules(manifest) {

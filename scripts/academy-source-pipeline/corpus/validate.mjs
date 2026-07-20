@@ -75,13 +75,15 @@ function checkCoverage(roots, curriculum, vocabulary, violations) {
 }
 
 function checkCurriculumOrder(lessons, violations) {
-    let previousLessonOrder = 0;
-    const classOrdersByGroup = new Map();
+    const lessonOrders = new Set();
+    const classOrderStateByGroup = new Map();
     for (const lesson of lessons) {
-        if (!Number.isInteger(lesson.lessonOrder) || lesson.lessonOrder <= previousLessonOrder) {
-            violations.push(`${lesson.lessonId}: lesson order must be a strictly increasing integer`);
+        if (!Number.isInteger(lesson.lessonOrder) || lesson.lessonOrder <= 0) {
+            violations.push(`${lesson.lessonId}: lesson order must be a positive integer`);
+        } else if (lessonOrders.has(lesson.lessonOrder)) {
+            violations.push(`${lesson.lessonId}: lesson order is duplicated`);
         }
-        previousLessonOrder = Math.max(previousLessonOrder, lesson.lessonOrder ?? 0);
+        lessonOrders.add(lesson.lessonOrder);
 
         const progressionGroup = lesson.progressionGroup;
         const classOrder = lesson.moodle?.classOrder;
@@ -89,12 +91,19 @@ function checkCurriculumOrder(lessons, violations) {
             violations.push(`${lesson.lessonId}: missing progression group or canonical Moodle class order`);
             continue;
         }
-        const classOrders = classOrdersByGroup.get(progressionGroup) ?? new Set();
-        if (classOrders.has(classOrder)) {
+        const state = classOrderStateByGroup.get(progressionGroup) ?? {
+            seen: new Set(),
+            previous: null,
+        };
+        if (state.seen.has(classOrder)) {
             violations.push(`${lesson.lessonId}: canonical class order is duplicated within ${progressionGroup}`);
         }
-        classOrders.add(classOrder);
-        classOrdersByGroup.set(progressionGroup, classOrders);
+        if (state.previous !== null && classOrder <= state.previous) {
+            violations.push(`${lesson.lessonId}: canonical class order regresses within ${progressionGroup}`);
+        }
+        state.seen.add(classOrder);
+        state.previous = classOrder;
+        classOrderStateByGroup.set(progressionGroup, state);
     }
 }
 

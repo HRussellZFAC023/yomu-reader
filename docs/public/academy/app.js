@@ -256835,6 +256835,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const refreshCopy = () => {
       const menuLabel = academyText(language, "utilityMenu");
       utilityToggle.setAttribute("aria-label", menuLabel);
+      utilityToggle.title = menuLabel;
       utilityToggle.dataset.tooltip = menuLabel;
       setCopy(presentation2, language, presentationMode === "course" ? "navPresentationStory" : "navPresentationCourse");
       presentation2.dataset.presentationMode = presentationMode;
@@ -264442,6 +264443,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
