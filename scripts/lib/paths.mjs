@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 export function createYomuPaths(scriptDir = import.meta.dirname) {
     const appRoot = findAppRoot(scriptDir);
-    const workspaceRoot = envPath('YOMU_WORKSPACE_ROOT', path.resolve(appRoot, '..', '..'));
+    const workspaceRoot = envPath('YOMU_WORKSPACE_ROOT', defaultWorkspaceRoot(appRoot));
     const artifactsRoot = envPath('YOMU_ARTIFACTS_ROOT', path.join(workspaceRoot, 'artifacts', 'yomu-reader'));
     const qaArtifactsRoot = envPath('YOMU_QA_ARTIFACTS_ROOT', path.join(workspaceRoot, 'qa-artifacts', 'yomu-reader'));
     const testResultsRoot = envPath('YOMU_TEST_RESULTS_ROOT', path.join(workspaceRoot, 'test-results', 'yomu-reader'));
@@ -28,6 +28,11 @@ export function createYomuPaths(scriptDir = import.meta.dirname) {
         moduleSizesBaselinePath: path.join(artifactsRoot, 'module-sizes-baseline.json'),
         sizeReportDir: path.join(artifactsRoot, 'size-report'),
     };
+}
+
+function defaultWorkspaceRoot(appRoot) {
+    const parent = path.dirname(appRoot);
+    return path.basename(parent) === 'apps' ? path.dirname(parent) : appRoot;
 }
 
 function envPath(name, fallback) {
