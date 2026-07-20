@@ -483,9 +483,18 @@ export class VisiblePageScanner {
         }
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<ScanTextTarget[]> {
+    private async parseAndApplyTargets(
+        targets: ScanTextTarget[],
+        generation: number,
+        scanStartSettings: ReaderSettings,
+        allowTransientReparse = true,
+    ): Promise<ScanTextTarget[]> {
         let cursor = 0;
         const unparsedTargets: ScanTextTarget[] = [];
+        // A target whose batch parse threw twice never actually resolved to "no
+        // Japanese" — bench it and the whole source goes bare for the page. Keep
+        // these apart from settled empties so the tail below can retry them once.
+        const transientTargets: ScanTextTarget[] = [];
         const pending: VisibleScanParseWork[] = [];
         const parseCharBudget = !isNarrowVisibleScanViewport()
             ? VISIBLE_SCAN_PARSE_CHAR_BUDGET
@@ -500,10 +509,15 @@ export class VisiblePageScanner {
                 const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
                 cursor = next.cursor;
                 if (!next.batch.length) continue;
-                pending.push({
+                const work: VisibleScanParseWork = {
                     batch: next.batch,
-                    result: this.parseVisibleScanBatch(next.batch, generation),
-                });
+                    transient: false,
+                    // The callback only fires after this parse settles, long
+                    // after the initializer completes, so referencing `work`
+                    // here is safe (no TDZ hit) and avoids a placeholder promise.
+                    result: this.parseVisibleScanBatch(next.batch, generation, () => { work.transient = true; }),
+                };
+                pending.push(work);
             }
         };
 
@@ -513,17 +527,32 @@ export class VisiblePageScanner {
             const work = pending.shift()!;
             const parsed = await work.result;
             parsed.forEach((tokens, index) => {
-                if (!tokens.length && work.batch[index]) unparsedTargets.push(work.batch[index]);
+                if (tokens.length || !work.batch[index]) return;
+                (work.transient ? transientTargets : unparsedTargets).push(work.batch[index]);
             });
             if (this.isStaleScan(generation)) return unparsedTargets;
             await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
             schedule();
             if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return unparsedTargets;
+        if (allowTransientReparse && transientTargets.length && !this.isStaleScan(generation)) {
+            // Exactly one bounded reparse of only the thrown-twice targets. The
+            // recursion disables further reparses, so a source that keeps
+            // throwing settles into unparsedTargets (and is benched) rather than
+            // looping. A source that recovers here paints on this same scan.
+            const stillUnparsed = await this.parseAndApplyTargets(transientTargets, generation, scanStartSettings, false);
+            return unparsedTargets.concat(stillUnparsed);
+        }
+        // Without a reparse, transient failures fall back to bench semantics so a
+        // persistently broken source cannot re-queue the page forever.
+        return unparsedTargets.concat(transientTargets);
     }
 
-    private async parseVisibleScanBatch(batch: ScanTextTarget[], generation: number): Promise<JPDBToken[][]> {
+    private async parseVisibleScanBatch(
+        batch: ScanTextTarget[],
+        generation: number,
+        onTransientFailure?: () => void,
+    ): Promise<JPDBToken[][]> {
         const paragraphs = batch.map(target => target.text);
         const options = scanParseOptions(this.dependencies.getSettings());
         try {
@@ -539,6 +568,9 @@ export class VisiblePageScanner {
                 return await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
             } catch (fallbackError) {
                 log.warn('Visible page local parse recovery failed; continuing with later batches', fallbackError);
+                // Empty tokens here mean "parse threw", not "settled no Japanese":
+                // flag the batch so the caller reparses it once instead of benching.
+                onTransientFailure?.();
                 return paragraphs.map(() => []);
             }
         }
@@ -899,6 +931,11 @@ function chunkBoundaryBefore(text: string, start: number, hardEnd: number, chunk
 interface VisibleScanParseWork {
     batch: ScanTextTarget[];
     result: Promise<JPDBToken[][]>;
+    // Set when parseVisibleScanBatch exhausted its local retry (parse threw
+    // twice): the empty tokens are a transient failure, not a settled "no
+    // Japanese here", so these targets get one bounded reparse instead of being
+    // benched for the rest of the page.
+    transient: boolean;
 }
 
 function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {

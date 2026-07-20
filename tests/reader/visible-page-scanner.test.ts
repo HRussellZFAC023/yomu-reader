@@ -91,6 +91,32 @@ describe('VisiblePageScanner', () => {
         }
     }, 15000);
 
+    it('reparses a batch whose parse threw twice instead of leaving the source bare', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 10 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: { skipApi?: boolean }) => {
+            // Calls 1 and 2 are the API attempt and its local skipApi retry; both
+            // throw, so the empty result is a transient failure, not a settled
+            // "no Japanese". A settled-empty source would never retry — this one
+            // must, exactly once, and recover on the third call.
+            if (parseJapanese.mock.calls.length <= 2) throw new Error('provider and local parse both down');
+            return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            await vi.waitFor(() => expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(10), { timeout: 10_000 });
+            // API attempt + skipApi retry (both throw) + one bounded reparse.
+            expect(parseJapanese).toHaveBeenCalledTimes(3);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    }, 15_000);
+
     it('continues beyond the collection cap when every attempted batch rejects twice', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 250 }, (_, index) => (

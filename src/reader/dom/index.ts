@@ -48,6 +48,7 @@ import {
     safeElementMatches,
     selectorPairs,
     composedAncestorElement as composedParentElement,
+    YOUTUBE_FEEDBACK_CHROME_SELECTOR,
 } from './decoration-policy';
 
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
@@ -664,7 +665,7 @@ function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visible
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked
         && !isAnnotatableChipControl(blocked)
-        && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
+        && !isVisibleAriaHiddenJapanese(parent, blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
     // Fragile UI text and short centered headings are no longer REJECTED:
     // rejection also removed them from word lookup, leaving display-language
@@ -1340,7 +1341,13 @@ function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: b
         || !hasVisibleJapaneseFragmentDescendant(element);
 }
 
-const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 96;
+// A `display: contents` (or otherwise boxless) wrapper can nest a whole card's
+// worth of chrome — action bars, avatars, metadata rows — ahead of the visible
+// title, so a tight cap pruned wrappers whose first painted Japanese simply sat
+// past the ceiling. The bound only exists to keep an offscreen virtualized tree
+// cheap, and each element visited is an O(1) style/text check, so a generous
+// ceiling still finishes in bounded work while reaching realistic deep titles.
+const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 512;
 
 function isBoxlessFragmentWrapper(rect: DOMRect): boolean {
     return rect.width <= 0 || rect.height <= 0;
@@ -1477,33 +1484,11 @@ function shouldSkipFragmentElement(
     return fragmentSelectorSkipsElement(element, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
 }
 
-// Some frameworks mark an entire clickable thumbnail `aria-hidden=true`
-// because a separate title supplies the accessible name, while still painting
-// a meaningful compact badge/tag inside it (playlist, ranking, live, free,
-// media type, etc.). A blanket aria-hidden skip leaves that visible Japanese
-// unannotated. Relax ONLY the aria-hidden reason when the subtree contains a
-// genuinely visible, compact visual-label box; every other hard skip remains.
-// This is structural and site-neutral, and the bounded candidate list avoids a
-// general hidden-tree scan.
-const ARIA_HIDDEN_VISUAL_LABEL_SELECTOR = [
-    '[class*="badge" i]',
-    '[class*="chip" i]',
-    '[class*="label" i]',
-    '[class*="pill" i]',
-    '[class*="tag" i]',
-    '[data-badge]',
-    '[data-label]',
-].join(',');
-const ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT = 60;
-const ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES = 32;
-const ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH = 360;
-const ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT = 96;
-
 function fragmentSelectorSkipsElement(element: HTMLElement, selector: string, selectorWithoutAriaHidden: string): boolean {
     if (!safeElementMatches(element, selector)) return false;
     if (!safeElementMatches(element, '[aria-hidden="true"]')) return true;
     if (safeElementMatches(element, selectorWithoutAriaHidden)) return true;
-    return !ariaHiddenSubtreeHasVisibleVisualLabel(element);
+    return !ariaHiddenSubtreeHasVisibleJapanese(element);
 }
 
 function selectorWithoutAriaHiddenToken(selector: string): string {
@@ -1514,33 +1499,64 @@ function selectorWithoutAriaHiddenToken(selector: string): string {
         .join(',');
 }
 
-function isVisibleAriaHiddenVisualLabel(parent: HTMLElement, blocked: Element): boolean {
+// aria-hidden hides a subtree from assistive tech, but sites routinely apply it
+// to on-screen content whose accessible name is *duplicated* elsewhere: YouTube
+// and Google wrap a painted video/result title, badge, or metadata row in
+// aria-hidden while a separate label supplies the name. A blanket aria-hidden
+// skip then strands that visible Japanese permanently bare. Rescue it on paint
+// facts alone — a genuinely visible element that itself owns the Japanese text —
+// rather than on the aria contract. Two structural exclusions keep true
+// accessible-name duplicates out (see isAriaHiddenAccessibleNameDuplicate), and
+// an offscreen or display:none duplicate fails isVisible() so it stays skipped.
+function isVisibleAriaHiddenJapanese(parent: HTMLElement, blocked: Element): boolean {
     if (!(blocked instanceof HTMLElement) || !safeElementMatches(blocked, '[aria-hidden="true"]')) return false;
-    if (safeElementMatches(parent, SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)) return false;
-    const label = parent.closest<HTMLElement>(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR);
-    return Boolean(label && blocked.contains(label) && visibleVisualLabel(label));
+    // Only aria-hidden may be the reason this subtree is blocked; any other
+    // structural skip (control, mirror, editable surface) still wins — the
+    // text node's own element carries the Japanese, so test it, not an ancestor.
+    if (safeElementMatches(blocked, SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)) return false;
+    if (parent.closest(SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)) return false;
+    return elementOwnsVisibleJapanese(parent);
 }
 
-function ariaHiddenSubtreeHasVisibleVisualLabel(root: HTMLElement): boolean {
+function ariaHiddenSubtreeHasVisibleJapanese(root: HTMLElement): boolean {
     if (!HAS_JAPANESE.test(root.textContent ?? '')) return false;
-    const candidates: HTMLElement[] = [];
-    if (safeElementMatches(root, ARIA_HIDDEN_VISUAL_LABEL_SELECTOR)) candidates.push(root);
-    for (const candidate of Array.from(root.querySelectorAll<HTMLElement>(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR))) {
-        candidates.push(candidate);
-        if (candidates.length >= ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES) break;
+    if (elementOwnsVisibleJapanese(root)) return true;
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode();
+        node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT;
+        inspected += 1, node = walker.nextNode()) {
+        if (elementOwnsVisibleJapanese(node as HTMLElement)) return true;
     }
-    return candidates.some(visibleVisualLabel);
+    return false;
 }
 
-function visibleVisualLabel(element: HTMLElement): boolean {
-    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!text || compactLength(text) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text)) return false;
-    const rect = element.getBoundingClientRect();
-    return rect.width > 0
-        && rect.height > 0
-        && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH
-        && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT
-        && isVisibleStyle(safeComputedStyle(element));
+// A rescue candidate must PAINT its Japanese: the element carrying the direct
+// Japanese text node is the one that has to be visible, so a visible wrapper
+// around a display:none copy never qualifies on its own.
+function elementOwnsVisibleJapanese(element: HTMLElement): boolean {
+    if (!elementHasOwnJapaneseText(element)) return false;
+    if (isAriaHiddenAccessibleNameDuplicate(element)) return false;
+    return isVisible(element);
+}
+
+function elementHasOwnJapaneseText(element: HTMLElement): boolean {
+    for (const node of Array.from(element.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE && HAS_JAPANESE.test(node.textContent ?? '')) return true;
+    }
+    return false;
+}
+
+// Two structural cases are painted-but-not-content and must stay skipped even
+// when their box reports visible: interaction-feedback shapes carry transient
+// state text (押下中 = "pressing") that is never reading content, and a subtree
+// whose name is already supplied by a labelled ancestor (aria-label) is
+// collected through that ancestor's passive target — painting the hidden copy
+// would double-annotate the same reading (e.g. YouTube's aria-labelled
+// view-count row over its aria-hidden rolling-number spans).
+function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
+    if (element.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR)) return true;
+    const labelled = element.closest<HTMLElement>('[aria-label]');
+    return Boolean(labelled && labelled.getAttribute('aria-label')?.trim());
 }
 
 function isFragmentParagraphBoundary(

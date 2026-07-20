@@ -8680,10 +8680,21 @@ export class ReaderApp {
     // through the paced deferred lane; only a miss that exhausted its retries
     // is negative-cached (and even that expires — see the TTL above).
     private noteFallbackVocabularyMiss(key: string, tokens: JPDBToken[]): void {
+        // A miss recorded while the shared public endpoint is in backoff is
+        // transient: the term was never really looked up (the client short-
+        // circuits to null under backoff, and a timeout is what arms the
+        // backoff in the first place). Counting it would let a run of timeouts
+        // burn the retry budget and negative-cache a word that has a perfectly
+        // good public entry, stranding it reading-less for the whole TTL. Re-pace
+        // it without spending a retry so a real post-backoff lookup decides.
+        if (publicJitenBackoffRemainingMs() > 0) {
+            this.requeueDeferredPublicPitchTokens(tokens);
+            return;
+        }
         const attempts = (this.publicVocabularyMissRetries.get(key) ?? 0) + 1;
         this.publicVocabularyMissRetries.set(key, attempts);
         evictOldestStringKeysWhileOverLimit(this.publicVocabularyMissRetries, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
-        if (attempts <= PUBLIC_VOCABULARY_MISS_RETRY_LIMIT || publicJitenBackoffRemainingMs() > 0) {
+        if (attempts <= PUBLIC_VOCABULARY_MISS_RETRY_LIMIT) {
             this.requeueDeferredPublicPitchTokens(tokens);
             return;
         }

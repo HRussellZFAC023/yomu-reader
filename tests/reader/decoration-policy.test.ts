@@ -291,6 +291,72 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(collectTargets().some(candidate => candidate.text === '非表示ラベル')).toBe(false);
     });
 
+    it('collects a full visible title wrapped in an aria-hidden node named elsewhere', () => {
+        stubYouTube();
+        // YouTube/Google wrap a painted title in aria-hidden while a separate
+        // labelledby node supplies the accessible name. The title is neither a
+        // compact badge nor short, so the paint fact — a visible element owning
+        // the Japanese text — is what must rescue it, not any size/shape limit.
+        document.body.innerHTML = `
+            <a id="lockup" href="/watch?v=jp" aria-labelledby="a11y-title">
+                <div aria-hidden="true">
+                    <span id="title">東京の街を歩きながら日本語を学ぶ長編動画</span>
+                </div>
+            </a>
+            <span id="a11y-title" style="position:absolute;left:-9999px">東京の街を歩きながら日本語を学ぶ長編動画</span>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockRect(title, { width: 260, height: 24 });
+
+        const target = collectTargets().find(candidate => candidate.text === '東京の街を歩きながら日本語を学ぶ長編動画');
+        expect(target).toBeTruthy();
+        expect(target?.passiveInteraction).toBe(true);
+    });
+
+    it('does not collect an aria-hidden copy already named by a labelled ancestor', () => {
+        stubYouTube();
+        // The visible view-count row supplies its own aria-label; the aria-hidden
+        // spans it wraps are duplicates the labelled ancestor already covers, so
+        // painting them would double-annotate the same reading.
+        document.body.innerHTML = `
+            <div id="view-count" aria-label="226 人が視聴中">
+                <yt-formatted-string id="dup" aria-hidden="true">人が視聴中</yt-formatted-string>
+            </div>
+        `;
+        const dup = document.querySelector<HTMLElement>('#dup')!;
+        mockRect(dup, { width: 120, height: 20 });
+
+        expect(collectTargets().some(candidate => candidate.text === '人が視聴中')).toBe(false);
+    });
+
+    it('reaches a visible Japanese title buried past the boxless-wrapper lookahead floor', () => {
+        // A `display: contents` wrapper paints no box of its own, so its title is
+        // rescued only by walking descendants for visible Japanese. Burying the
+        // title behind >96 leading elements used to prune the whole wrapper; the
+        // raised lookahead now reaches it while staying bounded.
+        const wrapper = document.createElement('div');
+        for (let index = 0; index < 120; index += 1) {
+            const filler = document.createElement('span');
+            filler.textContent = '·';
+            wrapper.appendChild(filler);
+        }
+        const title = document.createElement('h3');
+        title.textContent = '深い階層に置かれた日本語のタイトル';
+        wrapper.appendChild(title);
+        document.body.appendChild(wrapper);
+        mockRect(title, { width: 240, height: 24 });
+
+        const targets = collectFragmentTextTargetsIn(document.body, 20, true, '', {
+            allowUiText: true,
+            includeUiChrome: true,
+            includeTabChrome: true,
+            includePassiveInteractions: true,
+            heading: true,
+            minLength: 1,
+        });
+        expect(targets.some(candidate => candidate.text === '深い階層に置かれた日本語のタイトル')).toBe(true);
+    });
+
     it('classifies subscribe buttons as interactive-passive even inside watch metadata', () => {
         stubYouTube();
         document.body.innerHTML = `
