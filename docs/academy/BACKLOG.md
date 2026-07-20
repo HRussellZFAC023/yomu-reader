@@ -1,415 +1,316 @@
 # Yomu Academy production backlog
 
-This is the ordered execution backlog for [`discovery/PRODUCTION-RUNBOOK.md`](discovery/PRODUCTION-RUNBOOK.md). A checkbox closes only with code, tests, browser evidence where applicable, and updated living files.
-
-## Current delivery queue
-
-This queue is the release scheduler. Work below it remains required, but these items are integrated first.
-
-| Priority | Channel | Current deliverable | State |
-| --- | --- | --- | --- |
-| P0 | Release | Mandatory linked account in production; explicit localhost QA bypass | Shipped `735336f27`, `522452c10` |
-| P0 | Golden path | Prove entry -> lesson -> repair/SRS -> story return -> journal/world continuation on desktop and phone | Green through a repaired `l1-l01` attempt, exact SRS card, Stasi memory, classroom return, and visible journal line |
-| P0 | Motivation | Carry meaningful goals, competence feedback, narrative anticipation, relationship/world rewards, return cues, and clean endings across the whole loop | Daily route plus the first lesson-repair-memory slice shipped; cross-surface pass continues |
-| P0 | Curriculum | Ground and expose the next source-faithful lesson slice | Integrated: exact Chapter 36 homework matches |
-| P0 | Activities/audio | Add the next taught-first, hinted, gradable multimodal activity with evidence/SRS | Integrated: Lesson 0 vowel dictation |
-| P0 | Story/world/cast | Make the next first-path encounter and journal unlock distinct and reachable | Integrated: library encounter continuity |
-| P0 | Assets | Replace deprecated/missing art and connect unique world scenes | Integrated: Rie glasses family + 18 place pairs |
-| P1 | Production proof | Google sign-in, refresh/resume, phone layout, online assets, and route return | Queued behind golden path |
-| P1 | Expansion | Continue source integration, story, minigames, quizzes, flashcards, listening, and cast arcs through N1 | Continuous after each proven slice |
-
-### Immediate release sequence
-
-This is the short operational order inside the queue above. The detailed catalogue below remains the complete scope.
-
-- [x] Recover the interrupted Claude story/voice/art sessions, preserve private transcript archives with hashes, and record their exact finished and unfinished outputs.
-- [x] Recover, validate, compile, and list all 48 four-season story chapters; later chapters remain playable while unregistered practice is labelled honestly.
-- [x] Restore the deterministic desktop/phone Browser gate through onboarding, world navigation, Lesson 0, Study, placement, the finite journal, Class, the `l1-l01` source sheet, and its teaching-first seam; self-confirm furigana persistence and remove the journal's duplicated Replay overflow.
-- [x] Prove the real learner golden path in Browser: onboarding → `l1-l01` teaching → committed lapse → earned repair hint → canonical due SRS card → independent correction → inline story memory → classroom return → visible journal line on desktop and phone; the finite journal and furigana checks remain green.
-- [x] Persist authored-week teaching/activity position so leaving after a saved attempt resumes at that activity instead of replaying all lesson notes.
-- [x] Integrate Moodle Lesson 10 as canonical `l3plus-l10`, including its handouts, listening, homework, runtime route, source ledger, and focused reachability tests.
-- [ ] Verify Lessons 1-10 source, handout, listening, homework, and runtime coverage against the Moodle inventory as one release audit.
-- [ ] Finish N3-N1 lesson packages and bind every Season 3-4 practice hook to a real lesson, varied activity, deterministic evidence, and SRS consequence.
-- [ ] Complete the voice roster for all Academy and textbook characters plus narrator/UI/worksheet/minigame lines; naturalness-lock each line before pitch-reviewed Aivis rendering and runtime binding.
-- [ ] Reconcile every existing image with the forthcoming grader JSON, bind provisionally approved candidates, fill only verified scene gaps, and retain rejected/replaced candidates as review history.
-- [x] Wire the deterministic daily learning route and warm return arc into the live Course route from the world; connect due SRS, grounded lessons, relationships, place discovery, visible diegetic payoffs, and one dominant next action without grind rewards.
-- [x] Make Yomu's scheduler queue authoritative for due repair and advance Course/daily recommendations from the learner's selected-band floor and completed class-week evidence, including Lesson 10 → Kanji 7.
-- [x] Complete the learner-motivation pass for the daily route: one clear start, competence cue, warm return without loss, the learner's own reason, relationship/world payoff, and a clean stopping point.
-- [x] Ship the first cross-surface psychological slice: recognize a repaired answer as competence, retain both attempts, schedule the exact repair, turn it into one natural Stasi memory, make that memory visible after returning through the world, and stop repeating the full story header above every assessed question.
-- [ ] Apply the psychological-elements pass across lesson, repair, SRS, story, world, and journal: meaningful learner goals, immediate competence feedback, open-loop narrative anticipation, earned relationship/world payoffs, memorable return cues, and satisfying stopping points. Use adapted IRAE as Intrigue → Rapport → Attraction to the story/learning → Empowerment, with escalating trust and anticipation resolving into learner competence and agency rather than dependency.
-- [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
-- [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
-
-## Stage 0 — clean base
-
-- [x] Fast-forward `main` to current `origin/main` without losing active Reader work.
-- [x] Copy all 18 discovery files to `docs/academy/discovery/`.
-- [x] Create shallow local clones of the six pinned reference engines and verify exact commits.
-- [x] Generate a lossless inventory for Donor A, Donor B, and 14 dormant worktrees.
-- [x] Classify every donor/worktree payload in `SALVAGE-LEDGER.md`.
-- [x] Run the full project check and record exact output.
-- [x] Commit and push Stage 0 artifacts without including protected Reader work (`055bb4eca`).
-
-Acceptance: `main` equals fetched upstream before Academy commits; donor trees are unchanged; discovery, pins, inventories, living files, and initial resource/asset ledgers are reproducible.
-
-## Stage 1 — enrollment vertical slice
-
-- [x] Add a separate Academy Vite entry and route without increasing the readable userscript bundle with curriculum/art payloads.
-- [x] Establish deep interfaces for source library, activity runtime, scene runtime, learner event log, media runtime, and Yomu bridge.
-- [x] Port an abortable scene lifecycle, map navigation model, journal/bonds read model, responsive contract, PWA shell, accessibility harness, SRS adapter, and two-way Doodle card in verified slices.
-- [x] Implement invite-code entry and a local development session adapter; keep production access behind the Cloudflare interface.
-- [x] Implement Rie's fiction note, name/reason capture, and the four approved protagonist choices.
-- [x] Implement three starts: Lesson 0, manual N5–N1 band, or optional evidence-based mock recommendation.
-- [x] Implement plot-preserving midstream bridges with separate curriculum and story state.
-- [x] Implement campus, three lesson forks, one faithful source activity, precise repair, Yomu review event, Aakash unlock, journal replay, audio state, save/reload, and offline resume.
-- [x] Add English and Japanese copy to the canonical translation surface and prove Japanese mode contains no `未翻訳`.
-- [x] Run unit/conformance checks and real-app desktop/phone Browser acceptance after annotations inject.
-
-Acceptance: the full [`discovery/VERTICAL-SLICE.md`](discovery/VERTICAL-SLICE.md) script works at 320px and desktop with one clear action, approved art, intentional audio, stable annotations, and persistent evidence.
-
-Closure: source `371140513`, hosted assets `c5ef4629d`, release-candidate record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green. See [`evidence/stage-1/README.md`](evidence/stage-1/README.md).
-
-## P0 direction correction — before further volume
-
-The Stage 1 closure above remains valid engineering evidence, but user acceptance reopened the product slice. [`DIRECTION-RESET.md`](DIRECTION-RESET.md) is now binding.
-
-- [x] Freeze concurrent implementation and the 42 GB census at resumable boundaries.
-- [x] Reconstruct the product direction from all feedback, Donor A's stronger lesson structure, the real opening source, Yomu workflows, and the original runbook.
-- [x] Generate and record concept boards for the complete first class, VN/source flow, expanded world map, and 42 GB content journey.
-- [x] Receive two low-effort Fable architecture/usability reviews and bind the accepted one-route, Course-view, grounded-lesson, living-paper, and usability corrections.
-- [x] Make learner writes resolve a complete lesson from shipped bytes: typed registry entry, pinned lesson ID/revision/SHA-256, full grounding audit, playable lesson/activity check, source scope, and canonical review allow-list.
-- [x] Resolve grading, instruction, prerequisite, repair, review, and surface-audit references through one definition registry; reject dangling definitions, divergent review identities, and self-asserted answer-concealment claims.
-- [x] Make concealment evidence executable and renderer-bound: exact renderer ID/revision/SHA/source, content-derived answer corpus, pure stored-DOM replay, stale/tamper/entity checks, and fail-closed opaque surfaces.
-- [x] Derive all delivery states for the original 73-stop baseline from the lesson audit: orientation review-blocked, 72 planning-only, zero grounded-playable.
-- [x] Make Source Question denominators obey the same current-route rule: 1 audited, 1 implemented, 0 learner-reachable grounded-playable.
-- [x] Classify and sanitize every legacy ungrounded activity route from current navigation and Back history; remove known legacy provenance, retain reviewed cards with an audit tag, and append-only neutralize their former Academy schedules without deleting Study history.
-- [x] Mount the canonical Reader Study surface inside Academy with living-paper tokens, a real 15-minute countdown, Pause, and route-history Back.
-- [ ] Complete Slice 1: persisted Back history, equal Story/Course presentation hosts, one stable `…` menu, and no dead/duplicate navigation.
-- [ ] Complete Slice 2: collapsed Class spine → Lesson 0 overview → focused activities → repair/return, with no pre-commit answer in the DOM.
-- [ ] Complete Slice 3: one curated library shelf using the existing Yomu video/subtitle player plus one source-PDF view.
-- [ ] Author the complete 60–90 minute Lesson 0: greetings, sound/script, the fourteen-expression survival handout, first sentence frame, useful vocabulary, real listening/reading, matched writing/speaking, transfer, and close.
-- [ ] Make Sound, Text, and Speaking distinct first missions with different early cast/place, activity balance, story result, and adaptive evidence.
-- [ ] Replace the current giveaway choice and unrelated `一` route with one production-quality ten-minute proof drawn from the complete lesson.
-- [ ] Replace centred card pages with full-bleed VN scenes, visible speaker sprites, literal source objects, reactive expressions, and concise living-paper dialogue.
-- [x] Implement reversible native navigation: Japanese signs/doors/paths, compact minimap, `…` safety menu, change lesson, revisit, and end day.
-- [ ] Prove complete annotation/compound support, real paired audio, skill-matched production, repair/return, and no English answer leakage in the actual app at phone/tablet/desktop sizes.
-- [x] Replace the Text route's giveaway card with the first full-bleed VN/source-paper/IME/repair slice and prove it at 390×844 and 1440×900 after Yomu injection.
-- [x] Make Rie and Aakash break the journal paper edge as transparent sprites; keep preview likenesses release-blocked in the asset ledger.
-- [x] Replace the following Aakash direction card with a sprite-led VN production exchange and remove its three-choice grading.
-- [x] Enlarge the Rie journal cutout, use Aakash's transparent sprite instead of the event CG, and prove both in the current app.
-- [x] Enforce canonical cast names, dossier-backed lesson specialties, and peer-rotation thresholds without inventing identities or unsafe likeness swaps.
-- [x] Add Shaun and retain Peter as distinct first-term story/scrapbook characters; keep Shaun's new neutral sprite behind owner/cast-scale review and Peter behind a defensible likeness gate.
-- [x] Pin the original planning-only 73-stop classmate appearance package to real donor topics: 67 source-backed assignments, six review-required gaps, all 19 documented classmates represented, no authored/playable inflation.
-- [ ] Record and pair reviewed authored Lesson 0 speech; the canonical Moodle handout has no source audio and browser TTS is forbidden.
-  - Evidence audit: 0/4 current speech inputs have a release-ready recording. The missing vowel row and learner-turn scripts are repaired; recording, transcript/timecode, consent, and exact binding remain. See `evidence/lesson-zero-audio/REPORT.md`.
-
-### Attempt 3 acceptance findings
-
-- [x] Reconcile the three external reviews against current source and binding product decisions; reject proposals that remove the required fiction note, optional placement route, Course view, or fidelity gate.
-- [ ] Ship one complete grounded Lesson 0 route and one complete grounded class Week; zero-playable remains the release-blocking denominator until both are learner-reachable.
-- [x] Connect a real grounded attempt through `LearnerEvidence.recordActivity` into canonical Yomu SRS, then prove lapse → earned hint → exact repair schedule/card → independent pass → story memory → world/journal return in the real app on desktop and phone.
-- [x] Keep placement answer controls outside automatic lookup/annotation until commitment; native radio selection and the Reader-ignore contract now pass focused tests and fresh 390×844 Browser proof.
-- [x] Ensure canonical Study contains no pre-reveal answer-bearing text or attributes while preserving reveal, grading, statistics, and Academy provenance. Opaque `study-card-N` / indexed Doodle identities preserve in-memory actions and stale guards; the full card key appears only after reveal.
-- [x] Rebase the checkpoint on Yomu 1.6.149, regenerate canonical Study/Academy assets, clear dead-code and line-scoped changed-code maintainability gates, and repair the extension build's stale hosted redirect input.
-- [ ] Extend the same concealment invariant to standalone Study URL hashes without breaking intentional shared-card deep links; Academy's embedded route is already clean.
-- [ ] Make Story and Course presentation choices visibly change the current experience without creating a second curriculum or progress model.
-- [ ] Remove duplicated Reader/Academy navigation and settings from the embedded Study host; retain only the contextual controls needed during a study session.
-- [ ] Prove fresh-code profile isolation, corrupt-checkpoint recovery, live class-code access, menu tab order, focus/contrast, and phone/tablet/desktop layout in Browser.
-
-Acceptance: a Japanese teacher can identify what the learner was taught, practised, produced, transferred, and retained; the learner can always orient or leave; the screen reads as a living class rather than a card dashboard.
-
-## Stage 2 — source pipeline
-
-- [x] Rebuild the occurrence/payload ledger from all 96 Moodle archives and three direct Moodle resources; reconcile 96/916/688 exactly.
-- [x] Rebuild a separate private ledger for all 13,123 regular files in the authorized 42 GB shared Japanese library; retain 15,790 filesystem-entry and 11,081 unique-payload denominators, with 68 overlap hashes recorded only on the library side.
-- [x] Introduce versioned immutable source-item candidates adjacent to, but never conflated with, augmentation; retain the stricter reviewed `SourceQuestion` boundary.
-- [x] Census every unique Moodle PDF page/text box/native image/positioned media/vector region and probe every Moodle audio payload with explicit failure states.
-- [x] Publish and validate the separate shared-library mechanical census without copying source bytes into Git: 89 archive containers (84 censused / five explicit ZIP64 failures), 450 PDFs, and 5,090 media payloads. The cache-only publisher is structurally allowlisted and private-token clean; human source/media review remains open.
-- [x] Migrate all 44 existing packs losslessly in resumable batches; preserve all 879 items and donor claims as review-required candidates.
-- [x] Build the private teacher/editor source-vs-candidate comparison, overlay contact sheets, public privacy boundary, claim guard, and validators.
-
-Acceptance: every payload has a status; every processed document has question/media counts; no image/audio task silently degrades to text.
-
-## Stage 3 — all 74 class stops
-
-- [x] Select the next grounding candidate without inflating delivery: [`l3-2-l04`](evidence/next-grounded-week/REPORT.md) is the smallest closed source surface and remains an explicit no-go pending source-question, locus, media, audio, answer, teaching, production, runtime, and browser proof.
-- [ ] Author and expose every week while preserving all source occurrences/questions.
-- [ ] Add original Minna 24/26 bridges.
-- [ ] Add explanations, faithful solo adaptations, deterministic grading, model-answer gating, and cumulative review.
-- [ ] Project one concept graph into Class, Genki, Minna, JLPT, and JF/CEFR views.
-- [ ] Give every classmate meaningful learning appearances.
-
-Acceptance: 74/74 class stops reachable and 100% audited Moodle source questions faithfully playable; manual-review reasons cannot substitute for activities.
-
-## Stage 4 — Foundation to N1
-
-- [ ] Map all 307 Yomu grammar rules to concept homes.
-- [ ] Author cleared/original N3–N1 input, instruction, guided practice, production, checkpoint, and review.
-- [ ] Audit Soya/official candidates item by item; preserve mechanics when wording/media cannot ship.
-- [ ] Build one assessment model for placement, test-out, timed/untimed mocks, review, calibration, and exposure rotation.
-- [ ] Validate the concept DAG, load, register, skill-specific recommendations, and midstream plot bridges.
-
-Acceptance: every advertised level has four-skill evidence while JLPT receptive and JF/CEFR production claims remain distinct.
-
-## Stage 5 — story and approved art
-
-- [x] Author and validate the complete 48-chapter, four-season finite story through graduation, and compile every chapter into the runtime catalog.
-- [ ] Build New Game Plus, the alumni calendar, and the recurring postgame learning loop on the same finite canon.
-- [ ] Author ten meaningful relationship-journal chapters for every classmate, including recognition, friction, repair, reciprocity, support, shared memory, and an earned enduring bond.
-- [ ] Generate one OpenAI neutral sprite per character, obtain likeness/style approval, then expand expressions/poses.
-- [ ] Complete backgrounds, event CGs, props, worksheet media, unlocks, backlog, auto/read-skip, group chat, radio, transitions, and seasonal states.
-- [ ] Build a resumable main-namespace inventory of the Megami Tensei wiki and convert its mechanic/lore/item patterns into original Academy design prompts without copying names, prose, characters, or lore.
-- [ ] Replace dashboard navigation with fixed campus geography, diegetic doors/paths/journal/phone, spatial transitions, and a compact top-right minimap.
-- [ ] Preserve cosy warm-night classes while adding colourful day/weather/season states; keep Velvet Hour as one discrete special place/event.
-- [ ] Enforce asset home, provenance, mobile composition, and excluded-family validators.
-
-Acceptance: every scene advances learning/relationship/mystery/world; every speaker has approved visible art; every shipped asset has a runtime home.
-
-## Interaction and exploration catalogue
-
-This is the single implementation backlog for varied learning. Every item must bind to a source item, concept, place, story beat, deterministic evidence, SRS consequence, keyboard/touch alternative, and reduced-motion behavior. A reskin alone is not a new activity.
-
-Reference patterns: [KanaDojo](https://github.com/lingdojo/kanadojo) for four-way recognition/input drills (AGPL reference only), [DaKanji](https://github.com/CaptainDario/DaKanji) for drawing-led lookup, [MatchaNovel](https://github.com/HalfstarDev/matchanovel) for VN/minigame composition, [Phaser input examples](https://docs.phaser.io/phaser/concepts/input), [KAPLAY](https://kaplayjs.com/docs/guides/) for compact game plugins, and [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) for review scheduling. Candidate adoptions use [WanaKana](https://github.com/WaniKani/WanaKana) for MIT romaji/kana input and [Hanzi Writer](https://hanziwriter.org/) only after its MIT code and separate character-data licence are recorded; Tatoeba material requires per-item attribution/licence capture. Local DJT, Shinday, Moodle, Soya, Minna, Genki, and Japanese-library sources are the primary permitted content references.
-
-### Kana and first literacy
-
-- [ ] Kana sound gate: hear one mora and open the matching classroom door.
-- [ ] Kana input sprint: type romaji or kana, normalize on submit, and repair confusable pairs.
-- [ ] Kana stroke trace: draw the source stroke order with immediate directional feedback.
-- [ ] Kana constellation: connect glyphs in gojuuon order without a visible chart.
-- [ ] Confusable-pair spotlight: distinguish さ/き, ぬ/め, れ/ね, シ/ツ, and ソ/ン in context.
-- [ ] Kana rhythm lane: adapt Shinday timing so mora land on beats rather than decorative notes.
-- [ ] Kana listening bingo using the exact first-class sound order.
-- [ ] Kana word builder: assemble already-taught glyphs into a pictured word.
-- [ ] Katakana loanword shop: match packaging to its spoken loanword.
-- [ ] Handwritten kana postbox: write a short label, then compare shape and stroke flow.
-- [x] Kana mastery gate: combine source-faithful recognition, listening, typing, and writing; requeue every wrong or revealed item before Lesson 0 completion and seed the shared SRS.
-
-### Source worksheet interactions
-
-- [ ] Living worksheet reveal: preserve the source page and progressively activate one task region at a time.
-- [ ] Image-label drag: reuse every source illustration with its original prompt and answer order.
-- [ ] Source dialogue shadow: play each line, record the learner, compare timing and pitch, then retry.
-- [ ] Source table completion: retain the original rows/columns and grade cells independently.
-- [ ] Source map route: trace the exact route before producing its directions aloud.
-- [ ] Source sequencing strip: reorder original panels or sentences, then explain the sequence.
-- [ ] Source listening note sheet: retain the teacher's visual note-taking scaffold and audio pairing.
-- [ ] Source error-correction pass: mark only the incorrect region before rewriting it.
-- [ ] Source role cards: preserve the paired classroom roles and provide an AI-free solo counterpart.
-- [ ] Source answer-key gate: reveal the teacher key only after attempt and diagnostic feedback.
-- [ ] Worksheet-to-scene pipeline: no worksheet ships as a flat viewer; every source region keeps its item, concept, evidence, media, and answer-key bindings while becoming interactive.
-- [ ] Moodle MP3 living layer: each permitted recording becomes listen, predict, confirm, shadow, and review with the original audio, transcript, captions, and source timing.
-
-### Vocabulary-sheet practice
-
-- [ ] Sensei vocabulary sheet: exact source order, spellings, readings, meanings, pictures, and audio.
-- [ ] Cover-and-recall sheet: fold the meaning column, recall, then uncover one row at a time.
-- [ ] Audio sweep: traverse the sheet in order and flag words that need replay.
-- [ ] Image memory tray: study pictured objects, close the tray, and name what disappeared.
-- [ ] Category sort: move source words into people, places, actions, time, and description groups.
-- [ ] Collocation magnet board: connect words that naturally occur together.
-- [ ] Odd-one-out with a spoken reason rather than a silent tap.
-- [ ] Dictionary detective: choose the sense that fits the lesson sentence.
-- [ ] Word-family tree: connect verb, noun, adjective, kanji, and polite variants.
-- [ ] Vocabulary scavenger hunt across signs and props in the current place.
-
-### Grammar and sentence building
-
-- [ ] Particle plumbing: route は/が/を/に/で/へ through sentence pipes.
-- [ ] Conjugation railway: switch a verb onto tense, polarity, politeness, and register tracks.
-- [ ] Timeline drag: place clauses on before/while/after/already/not-yet axes.
-- [ ] Sentence factory: assemble chunks, hear the result, then type or say it independently.
-- [ ] Register wardrobe: dress one intention for friend, teacher, customer, colleague, and formal writing.
-- [ ] Transformation chain: preserve meaning while moving through plain, polite, negative, past, and te-forms.
-- [ ] Contrast courtroom: defend why one near-synonymous grammar form fits and another does not.
-- [ ] Error clinic: diagnose particle, conjugation, register, and word-order mistakes separately.
-- [ ] Chat reply picker: choose a socially natural response, then explain or record it.
-- [ ] Caption repair: fix grammar in a scene caption before the story can continue.
-- [ ] Constraint writing: produce one sentence using the exact target form and known vocabulary.
-- [ ] Grammar maze: each correct transformation opens a semantically valid route.
-
-### Listening
-
-- [ ] Station announcement: identify platform, destination, time, delay, and transfer.
-- [ ] Cafe order: hear modifications and prepare the correct tray.
-- [ ] Konbini total: hear quantities/prices and select the correct coins or receipt.
-- [ ] Weather forecast: mark place, time, probability, temperature, and advice.
-- [ ] Phone-message reconstruction from partial notes.
-- [ ] Minimal-pair focus with pitch and vowel-length contrasts.
-- [ ] Layered dictation: mora, word boundary, phrase, then full sentence.
-- [ ] Shadowing bar: compare onset, mora timing, pause, and pitch contour.
-- [ ] Listening map courier: follow spoken directions without visible text.
-- [ ] JLPT note-taking drill using exact permitted mock audio and timing.
-- [ ] Radio drama unlock: replay a story scene audio-only, then answer inference questions.
-- [ ] Miku Radio request hour: select a lesson track by understanding a short Japanese introduction.
-- [ ] Embodied listening cues: tap mora timing, point, select, or mime before written recall so listening is not reduced to another text form.
-
-### Speaking and pronunciation
-
-- [ ] Pitch mirror: overlay learner and model contours without claiming phoneme-perfect grading.
-- [ ] Mora timing check for long vowels, gemination, and ん.
-- [ ] Say-to-select: speak the object or destination instead of tapping it.
-- [ ] Rapid response: answer a predictable classroom question within a forgiving time window.
-- [ ] Picture description with staged noun, particle, verb, and detail hints.
-- [ ] Route-giving roleplay with the listener visibly following the instructions.
-- [ ] Counter-service roleplay at the cafe, konbini, ramen shop, hotel, and post office.
-- [ ] Register replay: record the same request for a friend and for Rie-sensei.
-- [ ] Story retell: summarize a completed scene at the learner's current language ladder.
-- [ ] Shadowing duet with alternating character lines.
-- [ ] Read-aloud checkpoint from a source story with private playback and deletion.
-- [ ] Self-introduction evolution from Lesson 0 through N1 professional contexts.
-
-### Kanji
-
-- [ ] Kanji Doodle production before recognition answers appear.
-- [ ] Radical assembly: drag components into position and explain the mnemonic.
-- [ ] Stroke-order relay with forgiving shape but strict sequence evidence.
-- [ ] Sign hunt: find taught kanji in the current place's real signage.
-- [ ] Component family: compare visually related kanji and their semantic signals.
-- [ ] Reading web: connect on/kun readings to lesson vocabulary, not isolated trivia.
-- [ ] Kanji garden: each retained character grows through recognition, reading, writing, and use.
-- [ ] Calligraphy desk: slow deliberate writing with model overlay and pressure-agnostic input.
-- [ ] Kanji boss: repair one recurring error across several contexts, never a health-bar reskin.
-- [ ] Compound forge: combine familiar kanji and infer a new word before reveal.
-- [ ] Kanji origin reveal: animate a verified pictographic/component path into the modern form as a memory cue, then require writing before reading.
-
-### Reading and stories
-
-- [ ] Short source story with paragraph-level reading, translation, audio, and vocabulary controls.
-- [ ] Bilingual folktale ladder: replay the same story at N5, N4, N3, N2, and N1 support levels.
-- [ ] Class group-chat episode with sender voice, register, emoji/stamp meaning, and reply choice.
-- [ ] Menu reading at the ramen shop with ingredients, counters, allergens, and preferences.
-- [ ] Timetable and transfer reading at the station.
-- [ ] Form-reading tasks for hotel, clinic, post office, city hall, and airport.
-- [ ] Manga-panel ordering with dialogue-balloon inference.
-- [ ] News desk: headline, lead, detail, stance, and vocabulary mining.
-- [ ] Literature room: longer permitted Japanese-folder stories with optional annotations.
-- [ ] Mystery evidence board: compare witness wording, time expressions, and certainty.
-- [ ] Subtitle scene study: watch, replay, mine, then retell without subtitles.
-- [ ] Character journal chapter that unlocks only after the relevant real encounter.
-- [ ] i+1 sentence stream: choose the next grounded sentence by known-word coverage and target grammar, preserving source attribution and learner control.
-
-### Writing
-
-- [ ] Name card and first self-introduction using the exact source template.
-- [ ] Private diary entry tied to the day's story and grammar target.
-- [ ] Postcard from a visited place with address and seasonal greeting.
-- [ ] Email register lab: subject, greeting, request, thanks, and closing.
-- [ ] Form completion with realistic Japanese field order and validation.
-- [ ] Photo/event caption using time, place, people, and action.
-- [ ] Group-chat response with casual contractions and repair feedback.
-- [ ] Opinion paragraph with claim, reason, example, counterpoint, and conclusion.
-- [ ] Story continuation constrained by canon and current vocabulary.
-- [ ] Summary compression: rewrite a source paragraph in fewer Japanese words.
-- [ ] Rie's red-pen pass: classify corrections before accepting a model answer.
-- [ ] Portfolio revision: revisit an old response and improve it with newly learned language.
-
-### Place-specific play
-
-- [ ] Classroom command game using 見て・聞いて・書いて・読んでください.
-- [ ] Library shelf challenge: choose an i+1 text from known-word coverage.
-- [ ] Cafe tray assembly from a spoken order.
-- [ ] Konbini shopping-bag drag for counters, prices, and quantities.
-- [ ] Ramen customization with toppings, preferences, counters, and polite requests.
-- [ ] Station transfer board with platform audio and time pressure only where source tasks use it.
-- [ ] Train-home hands-free review with listening and speak-back.
-- [ ] Bookshop recommendation dialogue based on level and interests.
-- [ ] Park weather-description sketchbook across seasons.
-- [ ] Pharmacy symptom matching and safe phrase rehearsal without medical diagnosis.
-- [ ] Post-office parcel form and destination conversation.
-- [ ] Office keigo quick-change with role hierarchy.
-- [ ] Museum audio guide with inference and note-taking.
-- [ ] Shrine/temple etiquette reading and omikuji language.
-- [ ] Hotel/ryokan check-in, room explanation, and problem report.
-- [ ] Airport arrival/departure, customs form, gate change, and lost-item dialogue.
-- [ ] Festival plan: invitations, schedule, food stalls, navigation, and the JLPT mock story arc.
-- [ ] Study-group table: simulate two or three classmates with private information gaps, clarification requests, register changes, and accountable turns.
-- [ ] Travel interludes: transitions carry a short route, sign, announcement, or listening task with an equally complete reduced-motion path.
-
-### Story, replay, and long-term retention
-
-- [ ] Every first visit gets a short canonical character introduction and a reason to return.
-- [ ] Every revisit rotates grounded occupants, dialogue, weather, source task, or reward deterministically.
-- [ ] Bond scenes teach honorific/register evolution rather than only awarding points.
-- [ ] Story backlog, auto, read-skip, log, reading, and translation controls share one VN contract.
-- [ ] Error remix: recurring learner errors return naturally in later dialogue and activities.
-- [ ] Source revisit: every completed worksheet remains browsable and replayable from its place.
-- [ ] New Game Plus raises the language ladder while preserving the finite canon and choices.
-- [ ] Alumni calendar continues rotating lessons, media, events, and review after story graduation.
-- [ ] Daily procedural episodes draw only from grounded concepts, places, cast, and source activities.
-- [ ] Weekly challenge mixes four skills around one source topic rather than four unrelated cards.
-- [ ] JLPT mock events use permitted Soya/reference tests, recommend a starting band, and preserve plot continuity.
-- [ ] Test-out checks remain per skill and concept; they never erase unseen story encounters.
-- [ ] SRS due items become contextual tasks in the current place before falling back to cards.
-- [ ] Mastery stamps require transfer evidence, not mere completion or streaks.
-- [ ] No-guilt return scene gracefully summarizes elapsed story time and rebuilds a manageable queue.
-- [ ] Campus puzzle atlas: original Professor-Layton-density language puzzles are discoverable in places and always bind to grounded concepts rather than generic riddles; the puzzles in the atlas are crossword- or word-search-type, etc.
-- [ ] Case file, missing phone: a fictional loss sends the class through station staff, lost-property language, polite requests, and `〜てしまう`; no real classmate hardship is used.
-- [ ] Case file, ninja night: an apparent ninja encounter teaches whisper register, counters, and on-readings before resolving as festival rehearsal.
-- [ ] Case file, courtyard lights: an apparent alien signal becomes Xingyu's hologram project and teaches observed/reported/inferred language plus technical katakana.
-- [ ] Written-line callbacks: later scenes quote or transform the learner's earlier safe journal lines so choices feel remembered without exposing private text publicly.
-- [ ] Perspective replay: New Game Plus may replay completed episodes through another character's information and a higher language ladder without rewriting canon.
-- [ ] Immersion Hall bridge: story graduation opens an endless i+1 loop of permitted media, source lessons, procedural place events, and real SRS review.
-- [ ] The page you leave: the finite ending is a revisitable capstone, while the calendar, relationships, media, JLPT events, and mastery systems continue indefinitely.
-
-### Daily loop, Reader quests, and humane incentives
-
-- [x] Implement and test the deterministic domain projection for one quiet daily route: due repair, the next grounded lesson, and one optional `n+1` place/bond/immersion encounter, with one primary action and at most three actions total.
-- [x] Present the projected route in Course from the live world, and route its actions into the existing evidence-backed review, lesson, and story flows.
-- [ ] Mirror the route's concise continuation state in the world and journal without creating duplicate progress or navigation.
-- [ ] Make review contextual first: a due word returns in a character exchange, sign, source object, subtitle, or place activity before the library card fallback.
-- [x] Treat a missed day as recovery rather than failure in the daily projection and Course surface: preserve earned memories, retain one clear primary action, and never display a broken-streak or lost-reward message.
-- [ ] Add the factual story-continuity recap and low-energy return queue to the world/journal re-entry scene.
-- [x] Restrict projected incentives to meaningful diegetic outcomes: journal memory, reciprocal bond scene, place discovery, or source unlock; passive toggles, raw minutes, repeated easy items, and grinding do not verify rewards.
-- [ ] Keep canonical story progression evidence-gated and authored; repeated reviews may deepen recall and relationships but cannot grind-open unseen plot.
-- [ ] Add Yomu Reader quests for sustained comprehensible reading, returning to a spaced passage, mining an unknown word and later recalling it, reading with translation hidden, and completing a source-linked article response.
-- [ ] Add Yomu Watch quests for attentive Japanese-subtitle viewing, replaying a difficult line, shadowing it, mining language, and later recalling it; time alone and leaving Japanese-only or immersion-filter toggles enabled do not count.
-- [ ] Let Japanese-only and immersion-filter modes suggest a voluntary challenge with a visible exit; verify learning through a short recall, retell, or transfer response instead of rewarding the setting itself.
-- [ ] Rotate daily routes deterministically by due evidence, learner energy, skill imbalance, known-word coverage, story state, place, and recent repetition so novelty serves learning rather than variable-ratio compulsion.
-- [x] Give the daily Course route one dominant action, stable reading order, restrained motion, and gaze-efficient action/payoff grouping with no competing points, streaks, counters, or badges.
-- [ ] Apply the same visual-attention audit to every active lesson, review, story, and minigame surface at phone, tablet, and desktop sizes.
-- [ ] Add a learner-controlled low-energy route (listen, recognize, one recall) and deep-focus route (lesson, production, transfer) without changing the underlying mastery standard.
-- [ ] Add a transparent weekly reflection showing what became independently usable across reading, listening, speaking, and writing; avoid global/public leaderboards, public streaks, arbitrary XP, and compulsory comparative pressure. The separate opt-in class board may offer private class-relative aggregate views without rewards or loss framing.
-- [x] Expose a privacy-safe JSON answer-check contract for optional LLM feedback: task context, learner response, allowed rubric/evidence, structured verdict, uncertainty, and suggested repair; never send answer keys, private journal text, credentials, or unrelated history. The authenticated Worker boundary rejects unknown/private fields, validates provider output, isolates rate budgets per keyed session, persists no response text, and returns an explicit provider-unavailable result instead of fabricated feedback.
-- [ ] Configure an answer-check provider adapter and complete live privacy, failure, uncertainty, and response-quality acceptance before presenting LLM feedback in the learner UI.
-- [ ] Add a reading-resilience mode that rotates through reviewed Japanese font families at controlled difficulty, records per-font confusion evidence, keeps furigana/zoom available, and never changes the underlying answer or surprise-switches fonts mid-item.
-- [ ] Measure success by retained recall, transfer, returning voluntarily, and reduced support use; do not optimize session length, notification opens, or screen time.
-
-Acceptance: every grounded lesson has at least one source-faithful interaction that is not plain multiple choice or typing; modality choice follows the learning target; vocabulary sheets match the teacher source; and reuse is a tested engine plus distinct content/story behavior, never palette-only variation.
-
-## Stage 6 — audio and immersion
-
-- [ ] Complete `AudioDirector` buses, gesture unlock, crossfade, ducking, visibility handling, cleanup, offline state, and semantic slots.
-- [ ] Finish the owner-approved Persona OST and Shinday SFX semantic-slot map, protected delivery, offline-state reporting, and authored scene/location bindings.
-- [ ] Pair every listening question with audio, transcript, timecodes, shadowing, replay, and captions.
-- [ ] Add pronunciation, listen-back, pitch comparison, diegetic radio, and train-home audio mode.
-
-Acceptance: one source per bus as authored, no overlap/drone/autoplay loop, and no critical uncaptioned audio.
-
-## Stage 7 — Cloudflare access and sync
-
-- [x] Load the Cloudflare, Workers best-practices, and Wrangler skills before commands or implementation.
-- [x] Review/migrate the Worker into focused access, invite, progress, media, Stripe, rate-limit, and crypto modules.
-- [x] Create/verify D1 migrations, R2 integrity manifests, protected range media, anonymous invite sessions, and HMAC-only privacy boundaries.
-- [ ] Complete idempotent learner-event sync and offline merge against the live Worker.
-- [x] Seed `<PRIVATE_CLASS_INVITE>` through the authenticated admin endpoint using available secrets; never store plaintext codes.
-- [x] Verify authenticated/anonymous protected-media HEAD and range behavior; live Royal Days and Shinday playback pass.
-- [x] Add the authenticated, class-isolated leaderboard backend over existing board consent, moderation hiding, Yomu progress snapshots, and synced study days: bounded metric/page queries, deterministic tie ranks, off-page self placement, optional shared avatars, explicit snapshot freshness, and no raw events, answers, failed items, word lists, Google identity, email, client-supplied score, global rank, or competitive reward.
-- [x] Expose that private class board to learners through Profile & Sync with explicit name/listing/avatar controls, class and metric selection, server-owned ranks, off-page self placement, honest snapshot age, responsive keyboard-safe pagination, and no XP, prizes, loss framing, or client-side score calculation.
-- [ ] Verify live logout, expiry, revocation, offline merge, and cross-device link.
-- [x] Activate the owner-authorized live Stripe Checkout path and create one uncharged £2 `cs_live_…` smoke session.
-- [x] Implement signed/idempotent webhook and claim contracts plus the concise generated-code return UX with bounded polling, URL scrubbing, copy, and retry.
-- [ ] Complete one owner-approved real paid webhook→code-claim acceptance transaction.
-
-Acceptance: live anonymous access, authorization, sync, deletion, expiry, and offline recovery smoke pass.
-
-## Stage 8 — release
-
-- [ ] Run typecheck, full tests, Academy conformance, source/media/answer/curriculum/asset/privacy validators, docs build, complexity, bundle, and all browser journeys.
-- [ ] Capture approved real-app desktop/tablet/phone evidence only after annotation injection.
-- [ ] Complete keyboard, screen reader, touch, Apple Pencil, reduced-motion, captions, contrast, offline-upgrade, rollback, and performance acceptance.
-- [ ] Retry mandatory Fable adversarial review; resolve every actionable release issue.
-- [ ] Update README, docs, credits/licenses, changelog, deployment and rollback instructions together.
-- [ ] Push, deploy, create a `v*` release with `yomu.user.js`, verify latest/non-draft, and smoke `<PRIVATE_CLASS_INVITE>` live.
-
-Acceptance: every release gate in the runbook is green, with only the explicit owner likeness/opening wording/physical-device/Stripe decisions left for owner acceptance.
+This is the sole checkbox source of truth for Academy product delivery. Narrative execution lives in [`story/BACKLOG.md`](story/BACKLOG.md) and the Attempt 3 findings live in [`attempt3-adversarial-qa-backlog.md`](attempt3-adversarial-qa-backlog.md), but neither file owns completion state.
+
+## Counting and closure contract
+
+Progress is the literal count of checked canonical IDs divided by all canonical IDs in this file. It is an item-count indicator, not an effort estimate. Historical process steps, research notes, generated files, isolated tests, and unmounted components are excluded from the denominator.
+
+A checkbox may close only when every proof gate named on that item is current:
+
+| Gate | Required evidence |
+| --- | --- |
+| `C` | Production code/content exists in the canonical module or registry; no parallel demo truth. |
+| `R` | A learner can reach it from the real Academy, Reader, Watch, docs, or account route. |
+| `T` | Focused automated tests/validators cover success, failure, persistence, and invariants appropriate to the item. |
+| `Q` | Real-app QA covers the claimed phone/desktop/tablet, keyboard/touch/screen-reader/reduced-motion, and visual state as applicable. Fixtures are not visual proof. |
+| `S` | Source fidelity, copyright/licence, attribution, consent, privacy, and secret boundaries are recorded where applicable. |
+| `O` | Denominators and learner evidence are observable and derived from canonical data, without inferring mastery from views, time, dialogue, or generated assets. |
+| `D` | Hosted assets, Worker/R2/D1 state, docs, release notes, and production smoke agree when the item makes a live claim. |
+
+Dependencies are canonical IDs. `owner` means a decision or physical-device action only the owner can supply. A checked slice is intentionally narrow; it does not close its larger open successor.
+
+## Source reconciliation map
+
+| Promise cluster | Primary recovered/current sources | Canonical IDs |
+| --- | --- | --- |
+| Product direction, living paper, original Persona-like energy, maps, responsive UX | Claude `ba544dcb` 2026-07-11/13; `DIRECTION-RESET.md`; Attempt 3 audit | `VIS-*`, `QA-*`, `WORLD-*` |
+| Voice cast, realistic pitch-aware speech, line splitting, cache and R2 | Claude `72aa7dba` 2026-07-17/18; `provenance/CLAUDE-RECOVERY-20260718.md`; `audio/` | `AUD-*` |
+| Complete source curriculum and no ceiling | Both Claude transcripts; `/Users/heru/Documents/Japanese`; Soya research; source-session/material census and curriculum map | `CUR-*`, `N1P-*` |
+| Forty-eight chapters, bonds, cast, chronology and lesson seams | Claude `72aa7dba`; `story/`; recovery index | `STO-*`, `CAST-*` |
+| Learning psychology, tone and humanization | Both transcripts; `story/TONE-AND-HUMANIZE.md`; `LEARNING-GAME-SYSTEM.md` | `PED-*`, `MET-*` |
+| Reader, Watch, ImmersionKit, OCR, mining and kanji graph | Current Reader/Academy code and first-class depth audit | `XYM-*`, `KAN-*` |
+| Art grader, provisional assets and production art | Claude `ba544dcb` 2026-07-18/19; art ledgers and registries | `ART-*` |
+| Tartarus, Velvet Hour and Twilight Hour | Polyglot research; opening-place contract; external QA ideas; current user ruling | `SYS-001` to `SYS-003` |
+| Accounts, payments, class access, sync, leaderboard and backend | Worker/D1/R2/Stripe code; `INFRA-AUDIO.md`; live proof records | `PLAT-*` |
+| Universe wiki, trailer, Remotion, CI and release | `docs/universe/`; release runbook; current user ruling | `DOC-002`, `REL-*` |
+
+## Verified delivered slices
+
+These are the only completed items. Their wording is bounded to the existing evidence; none implies the corresponding program is finished.
+
+<a id="base-001"></a>
+- [x] **BASE-001** Recover the two interrupted Claude sessions into hashed private provenance, integrate their surviving story/voice/art outputs, and record unfinished work. **Deps:** none. **Proof:** `C,T,S` via `provenance/CLAUDE-RECOVERY-20260718.md`.
+<a id="base-002"></a>
+- [x] **BASE-002** Establish the separate Academy application, canonical domain interfaces, PWA/offline shell, English/Japanese copy surface, and a real enrollment/world/study route outside the userscript bundle. **Deps:** none. **Proof:** `C,R,T,Q` via Stage 1 evidence.
+<a id="base-003"></a>
+- [x] **BASE-003** Build privacy-separated Moodle and authorized Japanese-library censuses, immutable candidate/augmentation ledgers, source-question truth states, and public claim guards without shipping private source bytes. **Deps:** none. **Proof:** `C,T,S,O` via `SOURCE-PIPELINE.md` and source validators.
+<a id="base-004"></a>
+- [x] **BASE-004** Enforce byte-pinned grounded lesson resolution, one definition/review identity, answer concealment, canonical learner evidence, and quarantine of legacy ungrounded writes. **Deps:** `BASE-002`. **Proof:** `C,T,S,O` via grounding, concealment, learner-evidence, and scheduling suites.
+<a id="base-005"></a>
+- [x] **BASE-005** Ship the bounded production access slice: linked account requirement, explicit localhost QA bypass, anonymous invite exchange, HMAC-only stored codes, authenticated protected-media boundary, and live class-code smoke. **Deps:** `BASE-002`. **Proof:** `C,R,T,S,D` in account/access evidence. Full lifecycle remains `PLAT-001`.
+<a id="base-006"></a>
+- [x] **BASE-006** Recover, validate, compile, and expose the 48 four-season story-package drafts through the Story route, while labelling unavailable practice honestly. **Deps:** `BASE-004`. **Proof:** `C,R,T,Q,S,O` in story catalog/route tests and recovery evidence. Editorial and grounding work remains `STO-001` to `STO-004`.
+<a id="base-007"></a>
+- [x] **BASE-007** Remove production metadata from learner-facing fallback scenes and replace the 48-card catalogue with a keyboard-accessible four-season route and Atlas review path. **Deps:** `BASE-006`. **Proof:** `C,R,T,Q` for all 48 routes at phone/desktop with Axe and overflow assertions.
+<a id="base-008"></a>
+- [x] **BASE-008** Replace Lantern Archive's detached `Blank Route` surface with the dialogue-led `The First Sound`: five loci, Rie/Sophie guidance, one action at a time, authored art, deterministic evidence, responsive layout, prose checks, and Axe/browser proof. **Deps:** `BASE-006`. **Proof:** `C,R,T,Q,O`.
+<a id="base-009"></a>
+- [x] **BASE-009** Rebuild the Lesson 0 overview as one living-paper route with one current action, progressive disclosures, and a seven-person attendance strip using the typed asset/authorization registry. **Deps:** `BASE-002`. **Proof:** `C,R,T,Q,S`; this is an overview slice, not a complete Lesson 0.
+<a id="base-010"></a>
+- [x] **BASE-010** Give the World explicit arrival, dialogue, inspect, practice, and travel presentation modes, inert inactive surfaces, a compact move control, and verified phone/desktop focus restoration. **Deps:** `BASE-002`. **Proof:** `C,R,T,Q`; authored world transitions remain `WORLD-001`.
+<a id="base-011"></a>
+- [x] **BASE-011** Rebuild Class Board as a classroom notice sheet with progressive profile controls and semantic private-class leaderboard rows, preserving consent/privacy/network behavior without a dashboard-card composition. **Deps:** `BASE-005`. **Proof:** `C,R,T,Q,S,O`.
+<a id="base-012"></a>
+- [x] **BASE-012** Prove one real golden path: onboarding to `l1-l01` teaching, committed lapse, earned repair, exact due SRS card, independent correction, Stasi memory, classroom return, and visible journal line on phone and desktop. **Deps:** `BASE-004`. **Proof:** `C,R,T,Q,O`; it is one slice, not curriculum-wide coverage.
+<a id="base-013"></a>
+- [x] **BASE-013** Persist authored-week teaching/activity position so a saved attempt resumes at that activity rather than replaying all notes. **Deps:** `BASE-004`. **Proof:** `C,R,T`.
+<a id="base-014"></a>
+- [x] **BASE-014** Integrate Moodle Lesson 10 as `l3plus-l10` with handouts, listening, homework, runtime route, source ledger, and focused reachability tests. **Deps:** `BASE-003`, `BASE-004`. **Proof:** `C,R,T,S,O`; cross-course completeness remains open.
+<a id="base-015"></a>
+- [x] **BASE-015** Publish a machine-verifiable snapshot separating the existing 73-entry planner, 60 authored package/dispatch records, 48 story chapters, configured tracks and support shards without treating any of those as the full Moodle/class-course total or intended curriculum size. The 73 count is explicitly provisional/stale planning data. **Deps:** `BASE-003`. **Proof:** `C,T,O` via `ACADEMY-LESSON-SCOPE-CENSUS-20260719.md` and its test; authoritative source and curriculum counts remain `CUR-013` and `CUR-014`.
+<a id="base-016"></a>
+- [x] **BASE-016** Mount the first deterministic daily route and humane return slice: due repair, next grounded action, optional relationship/place payoff, one dominant action, clean stop, and no grind or loss framing. **Deps:** `BASE-004`. **Proof:** `C,R,T,Q,O`; full psychology and 80-due behavior remain open.
+<a id="base-017"></a>
+- [x] **BASE-017** Make adaptive repair debt concept-specific and bounded, and count distinct concept evidence rather than repeated clicks as breadth. **Deps:** `BASE-004`. **Proof:** `C,T,O`.
+<a id="base-018"></a>
+- [x] **BASE-018** Ship the metadata-only official-link Open Reader pilot with eight reviewed titles, provider credit, stable URLs, furigana/audio review, byte-identical mirrors, and no copied books. **Deps:** `BASE-003`. **Proof:** `C,R,T,S,O`; the reading loop remains `XYM-005`.
+<a id="base-019"></a>
+- [x] **BASE-019** Ship the first contextual Reader-power rung from generic Academy teaching: ImmersionKit examples plus the existing kanji relationship graph, exact return context, and non-mastery exploration evidence. **Deps:** `BASE-004`. **Proof:** `C,R,T,O`; catalogue-wide eligibility remains `XYM-001`.
+<a id="base-020"></a>
+- [x] **BASE-020** Ship a four-line runtime-consumed Aivis learning-voice pilot with exact text/model/style locks, pitch/pause parameters, deterministic Opus cache keys, runtime fallback, and focused playback tests. **Deps:** `BASE-002`. **Proof:** `C,R,T,S,O`; full voice production remains `AUD-001` to `AUD-005`.
+
+## P0 release truth and learner loop
+
+<a id="gov-001"></a>
+- [ ] **GOV-001** Make one generated delivery ledger authoritative for audited, implemented, learner-reachable, QA-verified, and deployed states; derive every percentage and route count from it and fail stale/contradictory claims. **Deps:** `BASE-004`, `BASE-015`. **Proof:** `C,R,T,O,D`.
+<a id="gov-002"></a>
+- [ ] **GOV-002** Classify every substantial Academy/Reader/Watch/story/world/learning system as first-class, embedded, or retire/merge; remove unmounted stubs, parallel progress truths, permanent `unassigned` assets, and disconnected planning shells. **Deps:** `GOV-001`. **Proof:** `C,R,T,S,O` plus a reachability report.
+<a id="cur-001"></a>
+- [ ] **CUR-001** Ship a complete grounded 60-90 minute Lesson 0: zero-kana entry, sound/script, fourteen-expression handout, first sentence frame, useful vocabulary, source-faithful listening/reading, matched writing/speaking, independent transfer, repair, review, close, and real authored audio. **Deps:** `BASE-009`, `BASE-004`, `AUD-008`. **Proof:** `C,R,T,Q,S,O` with no pre-commit answer leakage.
+<a id="cur-002"></a>
+- [ ] **CUR-002** Prove the first three empty-profile actions on phone and desktop: five vowels/mora, name exchange, one `N は N です` relation, no hidden romaji prerequisite, exact repair, delayed recall, and changed-context transfer. **Deps:** `CUR-001`, `N1P-001`. **Proof:** `C,R,T,Q,O`.
+<a id="cur-003"></a>
+- [ ] **CUR-003** Promote one complete class Week through the same grounding contract as Lesson 0, including every required source question/media/answer, teaching, independent production, repair, SRS revisit, reload, and real-route browser proof. **Deps:** `GOV-001`, `BASE-003`, `BASE-004`. **Proof:** `C,R,T,Q,S,O`; `l3-2-l04` remains the named no-go candidate until its blockers close.
+<a id="cur-004"></a>
+- [ ] **CUR-004** Audit Lessons 1-10 against the current Moodle folders for source, handout, worksheet, listening, homework, answer, runtime, evidence, and return coverage; publish exact missing/blocked denominators. **Deps:** `CUR-003`. **Proof:** `C,R,T,Q,S,O`.
+<a id="cur-013"></a>
+- [ ] **CUR-013** Census and reconcile the exact class-course source sessions and material units under `/Users/heru/Documents/Japanese` before setting a source-completion denominator: include root-level files, every nested handout/worksheet/audio/homework/self-study item, all UCL Moodle Level 1 through Level 3+ lesson areas, introductions, kanji/study folders and resource-centre materials; deduplicate session identity without collapsing distinct occurrences or versions, link every unit to provenance/rights, and reconcile disk, private ledger and public privacy-safe counts. Do not invent a final count before this passes. **Deps:** `BASE-003`, `GOV-001`. **Proof:** `C,T,S,O` with reproducible manifests, hashes, hierarchy/session rules and zero unexplained files.
+<a id="cur-014"></a>
+- [ ] **CUR-014** Design and validate the intended Yomu Foundation-to-N1 curriculum as a mapped sequence of at least 200 lessons, extending beyond the finite UCL course with no post-course flatline: every lesson has N+1 prerequisites/confusables, source/original-content status, four-skill intent, SRS entry/exit gates, story/place/cast/activity homes, assessment/repair/transfer and a route into post-N1 domains. The final sequence size follows curriculum design and may exceed 200; it is not inferred from planner or folder counts. **Deps:** `CUR-013`, `N1P-001`, `GOV-001`. **Proof:** `C,R,T,S,O` with a validator-backed map, gap/load analysis and representative end-to-end routes across Foundation, N5, N4, N3, N2 and N1.
+<a id="srs-001"></a>
+- [ ] **SRS-001** Make the canonical SRS expose total due plus stable bounded tranches; prove the 80-due learner sees 12 now/68 remaining, can stop/reload/continue without skip/duplication, and closes the day exactly once. **Deps:** `BASE-016`, `BASE-017`. **Proof:** `C,R,T,Q,O`.
+<a id="ped-001"></a>
+- [ ] **PED-001** Apply the tone/humanize contract to every learner-facing English and Japanese line: concise Rie-like speech, camera/ear-observable narration, natural honorifics, no strategy prose/AI voice/needless eyebrow/repetition, and no unreviewed machine-translated Japanese. **Deps:** `BASE-002`. **Proof:** `C,R,T,Q,S` with visible-copy and Japanese editorial gates.
+<a id="ped-002"></a>
+- [ ] **PED-002** Apply evidence-based learning psychology across lessons/content, repair/SRS, story/world/journal, audio/voice, UI/navigation, Class, Reader and Watch: clear learner purpose, bounded N+1 cognitive load, autonomy, immediate competence feedback, curiosity/open loops, rapport/trust, retrieval/spacing/interleaving, meaningful earned rewards, memorable return cues, no-guilt return and satisfying stopping points. Adapt IRAE as Intrigue -> Rapport -> Attraction to learning/story -> Empowerment, never dependency. **Deps:** `BASE-016`, `PED-001`. **Proof:** `C,R,T,Q,O` across representative journeys.
+<a id="ped-007"></a>
+- [ ] **PED-007** Make psychology an executable production gate, not a prose note: every released lesson, content package, story beat, voiced/audio sequence and UI route must register the purpose/load/autonomy/feedback/open-loop/rapport/reward/return/stop fields it uses, validate their runtime bindings, and emit privacy-safe observations for delayed retention, transfer, support use and voluntary return. Missing, decorative or coercive fields block promotion. **Deps:** `PED-002`, `MET-001`, `GOV-001`. **Proof:** `C,R,T,Q,S,O` at 100% of the release surface registry.
+<a id="ped-003"></a>
+- [ ] **PED-003** Make visual, auditory, and embodied/kinesthetic affordances genuinely available without claiming fixed learning styles; each modality must match the skill, share concepts/evidence, have an accessible equivalent, and lead to later independent use. **Deps:** `CUR-001`, `GOV-002`. **Proof:** `C,R,T,Q,O`.
+<a id="sto-001"></a>
+- [ ] **STO-001** Complete the line-by-line 48-chapter editorial pass for human tone, Japanese naturalness, chronological N+1 growth, character voice contrast, concise UI links, and explicit lesson seams; re-lock lines before scaled voice rendering. **Deps:** `BASE-006`, `PED-001`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sto-002"></a>
+- [ ] **STO-002** Finish the narrative runtime/migration contract: `story-package.v2` parser/loader, independent JSON compiler, 24-to-48 ADR, `curriculumBand` rename, location aliases, relationship manifest, class-thread safety, event-history projection, post-chapter-48 Atlas gate, and graph/callback/consent/language validators. **Deps:** `BASE-006`, `GOV-001`. **Proof:** `C,R,T,S,O`.
+<a id="sto-003"></a>
+- [ ] **STO-003** Replace every pending/descriptive chapter hook with a real grounded lesson/activity/evidence/SRS consequence; cover Chapters 1-24 structured references and N3 Chapters 25-30, N2 Chapters 31-39, and N1 Chapters 40-48 across listening, reading, speaking, writing, and transfer. **Deps:** `STO-002`, `CUR-003`, `CUR-007`. **Proof:** `C,R,T,Q,S,O` for all 48.
+<a id="aud-001"></a>
+- [ ] **AUD-001** Complete a licensed model/style roster for every Academy cast member, every Genki/Minna/other textbook character used, narrator, UI/system, worksheet, minigame, and listening role; document exclusions, attribution, consent, model revision, and fallback. **Deps:** `CAST-001`, `ART-003`. **Proof:** `C,T,S,O` with zero unassigned speaking roles.
+<a id="aud-002"></a>
+- [ ] **AUD-002** Generate a deterministic full speakable-surface census over the 200+ lesson map, all story chapters/bonds, Academy and textbook cast, learner-facing UI/instruction copy, worksheets, minigames, world/NPC interactions, SRS/review, listening/pronunciation work and accessibility narration where appropriate; split utterances into performance-safe lines and report discovered, manifested, naturalness-locked, rendered, encoded, runtime-bound, playback-tested, missing and stale counts separately. The recovered 1,787-row manifest is a partial historical tranche, never the target or denominator. **Deps:** `CUR-014`, `STO-001`, `PED-001`, `AUD-001`. **Proof:** `C,T,S,O` with reproducible discovery rules, stable source identities and no uncensused speakable registry or reachable surface.
+<a id="aud-003"></a>
+- [ ] **AUD-003** Run full Aivis/VOICEVOX-style production: pitch-aware queries, character performance direction, per-line pitch/pause/intonation/speed review, loudness/clipping checks, pronunciation corrections, delegated Codex production acceptance with `humanReviewed: false`, independent audio-capable model review, and deterministic rerendering. **Deps:** `AUD-002`, `AUD-008`. **Proof:** `C,R,T,Q,S,O` with no browser-TTS production voice and no owner-listening dependency.
+<a id="aud-004"></a>
+- [ ] **AUD-004** Complete cache-safe 64 kbps mono Opus production, manifest/hash invalidation, private R2 upload and range delivery, authenticated runtime binding, offline/failure behavior, request de-duplication/backoff, and cache clearing on logout/revocation. **Deps:** `AUD-003`, `PLAT-004`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="aud-005"></a>
+- [ ] **AUD-005** Close full-game voice only at census parity: every required `AUD-002` row is naturalness-locked, assigned to a licensed speaker/model/style, pitch/pause/intonation-reviewed, rendered and Opus-encoded, runtime-bound, and playback-tested for the right speaker/text/model, intelligibility, captions/transcript/timecodes, replay/shadow behavior, mobile controls and accessibility behavior; discovered, manifested, rendered, bound, missing and stale totals reconcile exactly, with zero required missing/stale/silent/duplicated requests. **Deps:** `AUD-004`, `CUR-005`, `STO-005`, `CAST-002`, `WORLD-002`, `GAM-001` to `GAM-012`. **Proof:** `R,T,Q,S,O,D` at 100% of the deterministic speakable-surface census, not 1,787 rows or any fixed tranche.
+<a id="aud-008"></a>
+- [ ] **AUD-008** Establish the per-slice voice production batch contract so a lesson, chapter, game or World beat can ship before global parity: immutable `voiceLineId`, speaker/intent/locale/source revision, required/excluded triage, model/licence lock, deterministic query and render, codec/acoustic checks, delegated Codex acceptance with `humanReviewed: false`, independent review, real runtime playback evidence and stale invalidation. **Deps:** `BASE-020`, `PED-001`. **Proof:** `C,R,T,Q,S,O`; each batch closes only its own reviewed denominator, while `AUD-005` remains the full-game gate.
+<a id="art-001"></a>
+- [ ] **ART-001** Finish the production art grader as one complete image inventory with correct framing, deduplicated variants, search/filter, per-file JSON verdicts, batch family edits, regenerate/replace notes, and no separate hidden incoming queues. Codex owns final visual acceptance. **Deps:** none. **Proof:** `C,R,T,Q,S,O` against the full asset inventory.
+<a id="art-002"></a>
+- [ ] **ART-002** Reconcile every existing/recovered/generated image against production grader JSON; bind only Codex-accepted or explicitly provisional candidates, retain rejected/replaced history, expire `unassigned`, and generate only verified gaps. **Deps:** `ART-001`, `GOV-002`. **Proof:** `C,R,T,S,O` with exact asset hashes, independent vision review and terminal decisions.
+<a id="qa-001"></a>
+- [ ] **QA-001** Re-run the complete Attempt 3 issue corpus on the current app and publish an ID-to-verdict map; close only reproduced fixes, preserve refuted/misdiagnosed findings, and route every surviving lead to one canonical owner. **Deps:** `GOV-001`. **Proof:** `R,T,Q,O` across all reachable routes.
+<a id="qa-002"></a>
+- [ ] **QA-002** Eliminate clipping, wrapping, mid-word ellipsis, occlusion, overlapping controls/panels/focus rings, layout shifts after furigana/pitch injection, and inaccessible primary actions on all phone/tablet/desktop routes. **Deps:** `QA-001`, `VIS-001`. **Proof:** `R,T,Q,O` with zero-overlap/overflow DOM assertions and current screenshots.
+<a id="qa-003"></a>
+- [ ] **QA-003** Correct systemic interaction/state defects from Attempt 3: truthful first-visit order, non-biased choice ordering, persisted lesson/practice progress, no auto-dismissed success, no dictionary interception of answer controls, personalized learner name, stable tab/Back/menu/focus state, one settings surface, and usable journal/world return. **Deps:** `QA-001`, `WORLD-001`, `CUR-003`. **Proof:** `C,R,T,Q,O`.
+<a id="qa-004"></a>
+- [ ] **QA-004** Reconcile portrait/likeness registries and every speaker presentation: no ghost silhouettes, hard-matte crops, wrong/absent active speaker, unapproved face, inconsistent thumbnail framing, or name without an eligible sprite/name-only fallback. **Deps:** `ART-002`, `CAST-001`. **Proof:** `C,R,T,Q,S,O`.
+
+## P1 curriculum, adaptation and measurable learning
+
+<a id="cur-005"></a>
+- [ ] **CUR-005** Author and expose every class-course session/material unit discovered by `CUR-013`, preserving every source occurrence/question/instruction, worksheet layout, MP3, answer, homework, self-study/resource-centre unit and teacher intent through interactive, gradable, solo-capable routes. **Deps:** `CUR-003`, `CUR-013`, `GOV-001`, `AUD-008`. **Proof:** `C,R,T,Q,S,O` at 100% of the authoritative discovered-source denominator; the stale 73-entry planner cannot satisfy this item, and full voice parity remains `AUD-005`.
+<a id="cur-006"></a>
+- [ ] **CUR-006** Project one canonical concept graph into the full discovered class-course chronology, the 200+ Yomu sequence, Genki, Minna no Nihongo, JLPT, JF/CEFR and learner-custom routes; add original Minna 24/26 bridges and retain source-specific textbook character/context provenance without duplicate curricula. **Deps:** `CUR-005`, `CUR-014`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="cur-007"></a>
+- [ ] **CUR-007** Audit and adapt Soya and official candidates item by item for N5-N1 placement, quizzes, listening, reading, speaking and mocks; preserve mechanics when wording/media cannot ship and never infer licence from availability. **Deps:** `BASE-003`. **Proof:** `C,R,T,S,O` with per-item rights/answer/media verdicts.
+<a id="cur-008"></a>
+- [ ] **CUR-008** Map all 307 Yomu grammar rules and source grammar into canonical form/function/register/valency/confusable concept homes used by Class, Story, Reader, Watch, writing, speaking, repair and SRS. **Deps:** `N1P-001`, `CUR-006`. **Proof:** `C,R,T,S,O` with no duplicate review identities.
+<a id="cur-009"></a>
+- [ ] **CUR-009** Complete the zero-to-N4 prerequisite spine: full hiragana and katakana, one-relation first passes, optional enrichment, first kanji, Genki/Minna/class content, four-skill production, repair, story/world use, and spaced return. **Deps:** `CUR-002`, `CUR-005`, `KAN-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="cur-010"></a>
+- [ ] **CUR-010** Complete N3 package families and source acquisition/review across instruction, input, guided/independent practice, four-skill production, calibrated assessment, story hooks, Reader/Watch transfer and SRS. **Deps:** `CUR-007`, `CUR-008`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="cur-011"></a>
+- [ ] **CUR-011** Complete N2 package families with reading/listening depth, quotation/evidence/permission/correspondence/refusal, productive register control, recurring calibrated mocks, story hooks, transfer and retained use. **Deps:** `CUR-010`. **Proof:** `C,R,T,Q,S,O`.
+<a id="cur-012"></a>
+- [ ] **CUR-012** Complete N1 package families with synthesis, ambiguity, mediation, public inquiry and graduation composition across all four skills, recurring mocks, story hooks, transfer and retained use. **Deps:** `CUR-011`. **Proof:** `C,R,T,Q,S,O`.
+<a id="n1p-001"></a>
+- [ ] **N1P-001** Make the universal N+1 frontier executable across recognition, recall, listening, pronunciation, reading, writing, interaction, register and domain knowledge: explicit prerequisites/confusables, exactly one useful novelty, N+0/N+2 rejection, purpose, exit, evidence, SRS consequence and transfer. **Deps:** `BASE-004`, `GOV-002`. **Proof:** `C,R,T,Q,O` across Class, World, Reader and Watch.
+<a id="n1p-002"></a>
+- [ ] **N1P-002** Continue beyond N1 into unrestricted usable Japanese with beginner-safe domain paths for phonology/pitch, pragmatics/register, mimetics, dialects, slang/internet, counters, names/proper nouns, nature, software, medical, legal, business, academic, literary/classical and media-specific language. **Deps:** `CUR-012`, `N1P-001`. **Proof:** `C,R,T,Q,S,O` per domain with no terminal level.
+<a id="n1p-003"></a>
+- [ ] **N1P-003** Balance Nation's four strands over rolling weeks and use activity-specific comprehensibility thresholds, learner interest/energy, skill imbalance and recent repetition to rotate routes without variable-ratio compulsion. **Deps:** `N1P-001`, `SRS-001`. **Proof:** `C,R,T,Q,O`.
+<a id="assess-001"></a>
+- [ ] **ASSESS-001** Build one honest assessment model for optional placement, per-skill test-out, timed/untimed JLPT mocks, calibration, exposure rotation and confidence decay; recommendations remain overridable and never auto-complete story or bonds. **Deps:** `CUR-007`, `N1P-001`. **Proof:** `C,R,T,Q,S,O` with calibrated denominators.
+<a id="ped-004"></a>
+- [ ] **PED-004** Provide learner-controlled low-energy and deep-focus routes, a truthful weekly four-skill reflection, factual no-guilt story recap, and one clean day-close event without lowering the evidence standard. **Deps:** `SRS-001`, `PED-002`. **Proof:** `C,R,T,Q,O`.
+<a id="ped-005"></a>
+- [ ] **PED-005** Make feedback explanatory and post-commit across all activities: concept-specific diagnosis, hint ladder, model-answer gate, free-writing rubric/structural checks, corrective kana contrasts, independent retry, and exact SRS repair. **Deps:** `BASE-004`, `CUR-005`. **Proof:** `C,R,T,Q,O`.
+<a id="ped-006"></a>
+- [ ] **PED-006** Configure the privacy-safe answer-check provider and prove live failure, uncertainty, rubric quality, rate limits and field minimization before any optional LLM feedback appears to learners. **Deps:** `BASE-004`, `PLAT-004`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="met-001"></a>
+- [ ] **MET-001** Measure delayed retention, transfer, time to independent use, support reduction, mobile completion and voluntary return; do not optimize screen time, notification opens, passive minutes, streak pressure or raw session length. **Deps:** `GOV-001`, `N1P-001`. **Proof:** `C,T,S,O` with prespecified success/kill criteria.
+<a id="met-002"></a>
+- [ ] **MET-002** Compare every new first-class learning system against the best ordinary lesson/SRS path, including accessibility/input strata; remove or redesign spectacle that does not improve recall, transfer or route clarity. **Deps:** `MET-001`, `GOV-002`. **Proof:** `C,R,T,Q,O`.
+
+## P1 story, cast, world and presentation
+
+<a id="cast-001"></a>
+- [ ] **CAST-001** Maintain one complete roster and eligibility matrix for all Academy/class characters, every Genki/Minna/textbook guest used, narrator/system roles and protagonist choices; preserve first names, adult/respectful portrayal, consent/withdrawal, source-backed traits, learning jobs and name-only fallbacks. **Deps:** `GOV-002`. **Proof:** `C,R,T,S,O` with zero unnamed/unmapped role.
+<a id="cast-002"></a>
+- [ ] **CAST-002** Give every classmate and textbook character meaningful authored lesson/story/speaking appearances, distinct voice, visible eligible portrait/expression, recurring competence/comedy, and no decorative-roster-only presence. **Deps:** `CAST-001`, `CUR-005`, `STO-003`, `AUD-001`, `ART-003`. **Proof:** `C,R,T,Q,S,O` with per-person denominators.
+<a id="sto-004"></a>
+- [ ] **STO-004** Author relationship progression for every eligible person: ten journal chapters covering recognition, friction, repair, reciprocity, support, shared memory and earned bond; six appointments only for consent-cleared `bond-authored` entries; no affection grind or locked core learning. **Deps:** `CAST-001`, `STO-002`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sto-005"></a>
+- [ ] **STO-005** Build the finite callback/class-thread/message system: seed/echo/transform/payoff budgets, safe fictional messages, changed-meaning callbacks, learner-reason and safe written-line callbacks, voice cards, adjacent-speaker contrast and withdrawal-safe replay. **Deps:** `STO-002`, `STO-004`, `PED-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sto-006"></a>
+- [ ] **STO-006** Bind all 105 scene signatures through one runtime/UI descriptor with deterministic props/hotspots/talk/motion, canonical idempotent events, approved art, semantic SFX, settled replay, reduced-motion parity and browser proof. **Deps:** `STO-002`, `ART-002`, `AUD-006`. **Proof:** `C,R,T,Q,S,O` for 105/105.
+<a id="sto-007"></a>
+- [ ] **STO-007** Curate the original subplot reservoir into grounded episodes: railway-cat/mascot, pub-quiz review, surprise party, konbini/vending-machine gag, lost notebook/phone, ninja-night/festival rehearsal, courtyard-light/hologram, class meals, travel/Japan and bounded future-work opportunities; no copied plot or private hardship. **Deps:** `CAST-001`, `STO-002`, `CUR-006`. **Proof:** `C,R,T,Q,S,O` per shipped subplot.
+<a id="sto-008"></a>
+- [ ] **STO-008** Ship New Game Plus support reduction/perspective variants, post-chapter-48 alumni calendar, first alumni storylet, finite revisitable ending and endless grounded postgame loop without adding canon facts or reopening the Atlas plot. **Deps:** `STO-001` to `STO-006`, `CUR-012`, `N1P-002`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sto-009"></a>
+- [ ] **STO-009** Run copyright similarity, source safety, cast-consent, Japanese editorial, pedagogy and narrative-continuity reviews; prove placement bridges, boundary resumes and replay/remix invariants before publishing the 48-chapter runtime as finished. **Deps:** `STO-001` to `STO-008`. **Proof:** `T,Q,S,O,D`.
+<a id="world-001"></a>
+- [ ] **WORLD-001** Replace destination teleportation with canonical authored World transitions and state: departure, threshold, arrival/re-entry, plot reason, character action/dialogue, bespoke interaction, changed exit and later callback; prove courtyard -> classroom -> Library -> courtyard first. **Deps:** `BASE-010`, `GOV-002`. **Proof:** `C,R,T,Q,O`.
+<a id="world-002"></a>
+- [ ] **WORLD-002** Migrate every exposed open place and remove disconnected locked shells; give each location coherent geography/map, real occupants, source activity, first/revisit variation, seasonal/weather states, music/SFX/silence policy, mobile composition and accessible return. **Deps:** `WORLD-001`, `ART-005`, `AUD-006`. **Proof:** `C,R,T,Q,S,O` from the same place registry.
+<a id="vis-001"></a>
+- [ ] **VIS-001** Establish an original kinetic JRPG/VN visual grammar: bright and warm cinematic storytelling, full-bleed scene art, living paper as objects/reading surfaces, restrained dark transparency, expressive sprites, text reveal and purposeful motion; no copied Persona UI and no card-dashboard composition. **Deps:** `ART-002`. **Proof:** `C,R,T,Q,S` across every primary route.
+<a id="vis-002"></a>
+- [ ] **VIS-002** Complete VN affordances and learner control: backlog/log, auto, read-skip, furigana, translation, pitch, annotation toggles, obvious binary states, stable Japanese-first labels, one menu/settings surface, player portrait selection and consistent keyboard/touch semantics. **Deps:** `VIS-001`, `QA-003`. **Proof:** `C,R,T,Q`.
+<a id="vis-003"></a>
+- [ ] **VIS-003** Make progression legible and diegetic: exact class/source/skill position, flower completion marks, prerequisites, known/uncertain/due states, character/place unlocks, bonds, review return and learner freedom to change route without duplicate progress models. **Deps:** `GOV-001`, `N1P-001`, `STO-004`. **Proof:** `C,R,T,Q,O`.
+<a id="art-003"></a>
+- [ ] **ART-003** Produce and approve coherent neutral portraits/sprites for every Academy and textbook speaking role plus four protagonists; correct likeness/style families before expanding poses/expressions and enforce consent/name-only fallback at runtime. **Deps:** `ART-001`, `CAST-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="art-004"></a>
+- [ ] **ART-004** Complete character performance art: useful expressions, poses, cut-ins, group compositions, relationship images and mobile crops, with active/inactive speaker grammar and no silhouette/initial placeholder on a production speaking beat. **Deps:** `ART-003`, `STO-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="art-005"></a>
+- [ ] **ART-005** Establish the production asset pipeline and complete the backgrounds, maps, event CGs, scene objects, props and seasonal/weather variants required by the canonical World spine; every accepted asset must have a runtime home, alt text and responsive/offline behavior. **Deps:** `ART-002`, `WORLD-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="art-006"></a>
+- [ ] **ART-006** Complete purposeful animation and transitions: doors, paths, paper/worksheet zoom, petals/light, expressions, weather, object changes and scene signatures; every motion reinforces meaning/memory/pacing and has reduced-motion equivalence. **Deps:** `VIS-001`, `ART-005`. **Proof:** `C,R,T,Q,O`.
+- [ ] **ART-007** Close full-game asset parity after the World, lessons, story, worksheets and all game families exist: every reachable scene/role/object/activity has a Codex-accepted asset or intentional accessible text treatment, responsive crops, runtime binding, offline behavior, provenance, and zero stale/unassigned/rejected production references. **Deps:** `ART-004`, `ART-005`, `ART-006`, `WORLD-002`, `GAM-001` to `GAM-012`. **Proof:** `C,R,T,Q,S,O,D` at the canonical runtime denominator.
+<a id="aud-006"></a>
+- [ ] **AUD-006** Complete `AudioDirector` music/ambience/voice/SFX buses, gesture unlock, semantic slots, crossfade, ducking, interruption/visibility cleanup, captions/silence, offline state and no autoplay drone/overlap. **Deps:** `BASE-020`, `PLAT-004`. **Proof:** `C,R,T,Q,S,O`.
+<a id="aud-007"></a>
+- [ ] **AUD-007** Finish the Codex-reviewed music and Shinday SFX production map for locations, story, UI, worksheets and minigames; bind restrained coherent cues with provenance, protected delivery, captions, delegated production QA and licence-safe fallbacks. **Deps:** `AUD-006`, `ART-006`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="doc-002"></a>
+- [ ] **DOC-002** Complete the reachable Yomu Universe wiki for cast, textbook guests, relationships, chronology, locations, institutions, objects, learning concepts and spoiler-safe canon; derive/check it against canonical registries and expand beyond the current seeded pages without exposing private facts. **Deps:** `CAST-001`, `STO-002`, `WORLD-001`. **Proof:** `C,R,T,Q,S,O,D`.
+
+## P1 cross-Yomu and first-class learning systems
+
+<a id="xym-001"></a>
+- [ ] **XYM-001** Extend contextual Reader powers across every eligible class-course and Yomu-authored lesson: unified dictionaries/examples/ImmersionKit sources, i+1 ranking, exact lesson/beat/concept lease, focus return, and no mastery for opening support. **Deps:** `BASE-019`, `N1P-001`. **Proof:** `C,R,T,Q,S,O` at catalogue denominator 100%.
+<a id="xym-002"></a>
+- [ ] **XYM-002** Complete the Reader mining/SRS round trip: preserve source sentence/audio/lesson provenance, explicit learner-selected mine, bounded `mine with a job`, later independent recall, spaced passage return and idempotent privacy-safe import. **Deps:** `XYM-001`, `SRS-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="xym-003"></a>
+- [ ] **XYM-003** Complete OCR/PDF quests from bounded story/place/source objectives: return recognized Japanese and selected language to the originating beat, preserve privacy/provenance, and grade only a learner response grounded in the capture. **Deps:** `XYM-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="xym-004"></a>
+- [ ] **XYM-004** Complete the Watch/subtitle bridge: Japanese-only/immersion-filter challenge, exact cue lease, replay, subtitle response, shadow/listen-back, mine, retell/transfer, later recall and explicit return; passive time/settings never count. **Deps:** `XYM-001`, `AUD-004`, `SRS-001`. **Proof:** `C,R,T,Q,S,O`; its speakable rows enter the global `AUD-005` parity gate.
+<a id="xym-005"></a>
+- [ ] **XYM-005** Turn Open Reader into a first-class extensive-reading loop with level/interest choices, keep/swap/leave states, opaque launch/return/reflection/revisit evidence and provider boundaries; also build a separate licensable Yomu-authored lane for full lookup/mining/audio support. **Deps:** `BASE-018`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="xym-006"></a>
+- [ ] **XYM-006** Add autolexia/corpus trails and primer-to-immersion handoffs: learner-chosen texts, sparse rescue, private curiosity notebook, sentence/audio/story provenance, recurring character book conversations and later transfer. **Deps:** `XYM-002`, `XYM-005`. **Proof:** `C,R,T,Q,S,O`.
+<a id="kan-001"></a>
+- [ ] **KAN-001** Build one Academy/Reader kanji progression and graph: Doodle/KanjiVG production, stroke direction/shape, components, meaning, readings, vocabulary/compounds, confusables, verified origins, signs/story use, lapse repair and delayed recall. **Deps:** `N1P-001`, `XYM-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="skill-001"></a>
+- [ ] **SKILL-001** Make listening a first-class progression from mora/contrast to discourse with source/model audio, conceal/replay/transcript policy, dictation, World/Watch transfer, repair and delayed no-transcript recall. **Deps:** `AUD-004`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`; its speakable rows enter the global `AUD-005` parity gate.
+<a id="skill-002"></a>
+- [ ] **SKILL-002** Make speaking/pronunciation first-class with mora timing, vowel length, devoicing, geminates, moraic nasal and pitch; model audio, private record/listen-back, honest local signal/self-compare, targeted retry, later retell and no false accent claim. **Deps:** `AUD-004`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`; its speakable rows enter the global `AUD-005` parity gate.
+<a id="skill-003"></a>
+- [ ] **SKILL-003** Make writing first-class with plan/draft, concealed response, deterministic structure checks, register-aware rubric, diagnosis, revision, story/relationship use, privacy-safe portfolio and later improvement. **Deps:** `PED-005`, `N1P-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sys-001"></a>
+- [ ] **SYS-001** Build **Tartarus** as a distinct first-class deterministic memory palace: stable tower/room/locus identities, bounded eligible memories, learner/reviewed imagery, pre-feedback retrieval, targeted repair, delayed SRS and outside-context transfer, story/bond/world consequences, production bible, authored rooms, 2D/reduced-motion fallback, mobile/performance budgets and matched-control kill criteria before 3D scale. Returning Stair/Lantern Archive supply lineage, not a replacement product. **Deps:** `N1P-001`, `KAN-001`, `MET-002`, `WORLD-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sys-002"></a>
+- [ ] **SYS-002** Build **Velvet Hour** as its own rare first-class altered-world social-consolidation system: authored threshold, palette/audio/rules, populated after-class scenes, closed-book teach-back, classmate contrast, exact feedback, bond action, delayed review and next-day consequence. Borrowed-Minute material supplies lineage; it may not become Tartarus, Twilight Hour, a generic bonus timer or a reskinned daily route. **Deps:** `PED-002`, `STO-004`, `WORLD-001`, `AUD-007`. **Proof:** `C,R,T,Q,S,O`.
+<a id="sys-003"></a>
+- [ ] **SYS-003** Build **Twilight Hour** as a distinct first-class quiet review/calibration and metacognitive guidance system: entered for a learner request, checkpoint or repeated uncertainty; evidence slips capture prediction, committed answer, error mechanism, concise self-explanation, transparent repair choice and later calibration. Still-Lamp material supplies lineage; it may not become Velvet Hour, Tartarus, another placement engine or a cold due-count screen. **Deps:** `SRS-001`, `PED-002`, `WORLD-001`. **Proof:** `C,R,T,Q,S,O`.
+
+## Games and varied practice catalogue
+
+Every game item closes only when every named activity has distinct authored content and behavior, a source/concept/place/story home, deterministic post-commit evidence, repair/SRS consequence, keyboard/touch/reduced-motion route, and real learner reachability. A palette/reskin or test-only plugin does not count.
+
+<a id="gam-001"></a>
+- [ ] **GAM-001** Kana games: sound gate, input sprint, stroke trace, constellation, confusable spotlight, rhythm lane, listening bingo, word builder, katakana shop, handwritten postbox and four-skill mastery gate. **Deps:** `CUR-009`, `KAN-001`. **Proof:** `C,R,T,Q,S,O` for 11/11.
+<a id="gam-002"></a>
+- [ ] **GAM-002** Living worksheets: progressive reveal, image-label drag, dialogue shadow, table completion, map route, sequencing, listening notes, error correction, role cards, answer-key gate, worksheet-to-scene conversion and Moodle MP3 layer. **Deps:** `CUR-005`, `AUD-004`. **Proof:** `C,R,T,Q,S,O` for 12/12; its speakable rows enter the global `AUD-005` parity gate.
+<a id="gam-003"></a>
+- [ ] **GAM-003** Vocabulary practice: exact Sensei sheet, cover/recall, audio sweep, image tray, category sort, collocation board, reasoned odd-one-out, dictionary detective, word-family tree and place scavenger hunt. **Deps:** `CUR-005`, `XYM-001`. **Proof:** `C,R,T,Q,S,O` for 10/10.
+<a id="gam-004"></a>
+- [ ] **GAM-004** Grammar/sentence games: particle plumbing, conjugation railway, timeline drag, sentence factory, register wardrobe, transformation chain, contrast courtroom, error clinic, chat reply, caption repair, constraint writing and grammar maze. **Deps:** `CUR-008`, `PED-005`. **Proof:** `C,R,T,Q,S,O` for 12/12.
+<a id="gam-005"></a>
+- [ ] **GAM-005** Listening games: station, cafe, konbini, weather, phone reconstruction, minimal pairs, layered dictation, shadowing bar, listening-map courier, JLPT notes, radio drama, Miku request hour and embodied cues. **Deps:** `SKILL-001`, `AUD-004`. **Proof:** `C,R,T,Q,S,O` for 13/13; its speakable rows enter the global `AUD-005` parity gate.
+<a id="gam-006"></a>
+- [ ] **GAM-006** Speaking games: pitch mirror, mora timing, say-to-select, rapid response, picture description, route giving, counter service, register replay, story retell, shadow duet, read aloud and evolving self-introduction. **Deps:** `SKILL-002`, `AUD-004`. **Proof:** `C,R,T,Q,S,O` for 12/12; its speakable rows enter the global `AUD-005` parity gate.
+<a id="gam-007"></a>
+- [ ] **GAM-007** Kanji games: Doodle production, radical assembly, stroke relay, sign hunt, component family, reading web, garden, calligraphy, error boss, compound forge and licensed origin reveal. **Deps:** `KAN-001`. **Proof:** `C,R,T,Q,S,O` for 11/11.
+<a id="gam-008"></a>
+- [ ] **GAM-008** Reading/story games: source story, N5-N1 folktale ladder, class chat, menu/timetable/forms, manga ordering, news desk, literature room, mystery evidence, subtitle study, journal chapter and i+1 sentence stream. **Deps:** `XYM-005`, `STO-003`. **Proof:** `C,R,T,Q,S,O` for 13/13.
+<a id="gam-009"></a>
+- [ ] **GAM-009** Writing games: name card, diary, postcard, email register, forms, captions, group chat, opinion, canon-bounded continuation, summary compression, Rie red-pen classification and portfolio revision. **Deps:** `SKILL-003`. **Proof:** `C,R,T,Q,S,O` for 12/12.
+<a id="gam-010"></a>
+- [ ] **GAM-010** Place play: classroom commands, Library i+1 shelf, cafe tray, konbini bag, ramen order, station transfer, train-home review, bookshop recommendation, park weather, pharmacy-safe phrases, post office, office keigo, museum, shrine/temple, ryokan, airport, festival, study group and travel interludes. **Deps:** `WORLD-002`, `CUR-005`. **Proof:** `C,R,T,Q,S,O` for 19/19.
+<a id="gam-011"></a>
+- [ ] **GAM-011** Story/retention play: grounded first visits/revisits, honorific bond scenes, error remix, source replay, weekly four-skill challenge, contextual due items, transfer stamps, no-guilt return, puzzle atlas, three case files, written callbacks, perspective replay, Immersion Hall and revisitable ending. **Deps:** `STO-003` to `STO-008`, `SRS-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="gam-012"></a>
+- [ ] **GAM-012** Advanced practice rooms: Shadow Walk, Echo then explain, Scriptorium, Translation Mirror, speak-now encounters, pronunciation forge/Sound Fork, Anticipation Booth, Return Wave, Move the Scene, Glyph Foundry, Pattern Arena and optional PAO/link imagery. **Deps:** `SKILL-001` to `SKILL-003`, `KAN-001`, `MET-002`. **Proof:** `C,R,T,Q,S,O` for 12/12.
+
+## Platform, operations and release
+
+<a id="plat-001"></a>
+- [ ] **PLAT-001** Complete account lifecycle: Google sign-in/link, anonymous-to-account migration, refresh/resume, logout, expiry, revocation, corrupt profile recovery, profile isolation, cross-device link, export/delete and account recovery. **Deps:** `BASE-005`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="plat-002"></a>
+- [ ] **PLAT-002** Complete class-code/invite lifecycle: owner generation, single-use/reusable policy, class assignment, expiry/revocation, offline grace, rate limits, no public secrets and live learner/admin smoke. **Deps:** `BASE-005`, `PLAT-001`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="plat-003"></a>
+- [ ] **PLAT-003** Complete one owner-approved real paid Stripe webhook -> invite -> claim acceptance and prove idempotency, retry, amount/session binding, URL scrubbing, cancellation and recovery without storing a reusable code. **Deps:** `PLAT-002`. **Proof:** `C,R,T,Q,S,O,D`, `owner`.
+<a id="plat-004"></a>
+- [ ] **PLAT-004** Complete idempotent learner-event sync and offline conflict merge over the canonical SRS/evidence record; prove cross-device ordering, retry, deletion, privacy minimization and no duplicate mastery/progress system. **Deps:** `PLAT-001`, `BASE-004`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="plat-005"></a>
+- [ ] **PLAT-005** Complete private class operations: consented class membership, assignments/completions, teacher aggregate feedback, opt-out/leave, moderation/hiding, privacy-safe leaderboard metrics and no global competitive rewards or raw answers/recordings/journal/browsing data. **Deps:** `BASE-011`, `PLAT-004`. **Proof:** `C,R,T,Q,S,O,D`.
+<a id="ops-001"></a>
+- [ ] **OPS-001** Remove dead/stale/duplicate Academy code, split long multi-job modules, consolidate registries/adapters, retire test-only alternate runtimes after usage proof, and keep bundle/complexity/dead-code gates green without unrelated Reader regressions. **Deps:** `GOV-002`. **Proof:** `C,R,T,O` plus full project check.
+<a id="ops-002"></a>
+- [ ] **OPS-002** Build focused author/designer tooling for story, lessons, source questions, assets, audio and scene signatures with schema validation, preview against canonical runtime, safe provenance fields and no alternate publish path. **Deps:** `GOV-001`, `OPS-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="ops-003"></a>
+- [ ] **OPS-003** Keep README, Academy docs, beginner install/access guidance, architecture/context/ADRs, source/asset/audio credits, privacy, limitations, changelog, deployment and rollback instructions consistent with generated truth. **Deps:** `GOV-001`. **Proof:** `T,S,O,D`.
+<a id="qa-005"></a>
+- [ ] **QA-005** Complete accessibility acceptance for keyboard, screen reader, touch, Apple Pencil, focus order/restoration, 44 px targets, contrast, captions, reduced motion, no-mic/no-WebGL/no-network equivalents and Japanese annotation semantics. **Deps:** `QA-002`, `VIS-002`. **Proof:** `R,T,Q,O,D`, including physical-device owner gates.
+<a id="qa-006"></a>
+- [ ] **QA-006** Complete performance/resilience acceptance: phone/tablet/desktop budgets, image/audio lazy loading, no blank art pop-in, no layout shift, stable offline/update/rollback, cache/quota failure, bfcache/disposal, long-session memory and route resume. **Deps:** `ART-005`, `AUD-004`, `WORLD-002`. **Proof:** `C,R,T,Q,O,D`.
+<a id="rel-001"></a>
+- [ ] **REL-001** Run the complete release matrix: typecheck, full tests, Academy/source/media/answer/curriculum/asset/privacy/universe validators, docs build, complexity/dead-code, bundle, deterministic QA and all real-app journeys. **Deps:** all P0 items and release-targeted P1 items. **Proof:** `T,Q,S,O` with current logs.
+<a id="rel-002"></a>
+- [ ] **REL-002** Obtain final cross-model adversarial review of the integrated release and resolve every actionable source, learning, story, privacy, accessibility, visual, performance and deployment issue. **Deps:** `REL-001`. **Proof:** `T,Q,S,O` with reviewer verdict and rerun evidence.
+<a id="rel-003"></a>
+- [ ] **REL-003** Produce a truthful 60-90 second Steam-style gameplay-first trailer from real implemented VN/world/learning and a genuinely shipped signature-system/story sequence, with hook/edit arc, captions, approved music/SFX, mobile-readable capture and required codecs/aspect ratios; no mock-only claims. **Deps:** `VIS-001`, `STO-009`, `AUD-007`, `GOV-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="rel-004"></a>
+- [ ] **REL-004** Build a reproducible Remotion product/engineering showcase of the end-to-end journey, curriculum breadth, Reader/Watch/SRS bridges, responsive/accessibility modes and architecture/evidence overlays, generated deterministically from current builds/data with tests and provenance. **Deps:** `GOV-001`, `REL-001`. **Proof:** `C,R,T,Q,S,O`.
+<a id="rel-005"></a>
+- [ ] **REL-005** Push, deploy, publish the `v*` release and `yomu.user.js` asset, verify latest/non-draft status, Pages/Worker/R2/D1 revisions, class-code/account/media/payment smoke and rollback readiness; the pushed HEAD must not suppress deployment. **Deps:** `REL-002`, `OPS-003`, `PLAT-001` to `PLAT-005`. **Proof:** `D,O,S`, `owner` where payment/physical acceptance is required.
+
+## Release-blocking summary
+
+The current product is not complete. The first release path is `GOV-001 -> CUR-001/CUR-003 -> SRS-001 -> PED-001/PED-002/PED-007 -> STO-001/STO-003 -> AUD-001..005 -> ART-001/ART-002 -> QA-001..006 -> REL-001/REL-002/REL-005`. Volume work may proceed only when it does not inflate learner-reachable or release-verified denominators.

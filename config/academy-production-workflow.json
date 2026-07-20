@@ -1,0 +1,185 @@
+{
+  "schema": "yomu-academy.production-workflow/v2",
+  "canonicalBacklog": "docs/academy/BACKLOG.md",
+  "maxParallel": 6,
+  "exclusiveFileReservations": true,
+  "claimTtlHours": 12,
+  "proofMaxAgeMinutes": 120,
+  "proofCommandMaxOutputBytes": 4194304,
+  "externalRoots": {
+    "japaneseLibrary": {
+      "env": "YOMU_JAPANESE_ROOT",
+      "default": "/Users/heru/Documents/Japanese"
+    },
+    "soyaResearch": {
+      "env": "YOMU_SOYA_ROOT",
+      "default": "/Users/heru/Documents/Projects/yomu/references/soya-research"
+    }
+  },
+  "reuse": {
+    "transcriptIndexMaxAgeHours": 24,
+    "transcriptActiveGraceMinutes": 30,
+    "transcriptRoots": {
+      "claude": {
+        "env": "YOMU_CLAUDE_TRANSCRIPTS",
+        "default": "/Users/heru/.claude/projects"
+      },
+      "codex": {
+        "env": "YOMU_CODEX_TRANSCRIPTS",
+        "default": "/Users/heru/.codex/sessions"
+      }
+    },
+    "evidenceFiles": [
+      "docs/academy/SALVAGE-LEDGER.md",
+      "docs/academy/story/SALVAGE-LEDGER.md",
+      "docs/academy/provenance/CLAUDE-RECOVERY-20260718.md",
+      "docs/academy/SESSION-LOG.md",
+      "docs/academy/recovery/PLAYABLE-WEEK-DEPTH-AUDIT.md",
+      "docs/academy/recovery/REMAINING-CURRICULUM-COMPLETION-MATRIX.md",
+      "docs/academy/recovery/ASSET-CARRYOVER.json",
+      "docs/academy/recovery/RECOVERED-ART-MANIFEST.json"
+    ]
+  },
+  "sectionPriorities": {
+    "Games and varied practice catalogue": "P1",
+    "Platform, operations and release": "P0"
+  },
+  "currentFocus": [
+    "GOV-001",
+    "QA-001",
+    "QA-006",
+    "CUR-013",
+    "CUR-014",
+    "N1P-001",
+    "PED-001",
+    "STO-001",
+    "AUD-002",
+    "AUD-003",
+    "PLAT-001",
+    "REL-001"
+  ],
+  "dynamicDependencies": {
+    "REL-001": {
+      "kind": "release-scope",
+      "description": "All open P0 tasks plus P1 tasks explicitly selected for this release must be complete.",
+      "excludePrefixes": ["REL"],
+      "releaseTargetedP1": []
+    }
+  },
+  "proofGates": {
+    "C": "Canonical production code or content exists, with no parallel demo truth.",
+    "R": "The result is reachable through the real product route.",
+    "T": "Focused automated tests and validators pass.",
+    "Q": "Real-app QA covers applicable viewports, inputs, accessibility, and reduced motion.",
+    "S": "Source, licence, attribution, consent, privacy, and secret boundaries are recorded.",
+    "O": "Denominators and learner evidence derive from canonical data.",
+    "D": "Hosted assets, backend state, docs, and production smoke agree."
+  },
+  "release": {
+    "integrationCapacity": 1,
+    "checkpointAfterPromotions": 1,
+    "pushEveryCheckpoint": true,
+    "publishUserVisibleSlices": true,
+    "userVisiblePrefixes": [
+      "CUR", "N1P", "ASSESS", "SKILL", "KAN", "PED", "MET", "SRS", "STO", "CAST",
+      "WORLD", "SYS", "AUD", "ART", "VIS", "GAM", "XYM", "PLAT", "QA", "REL"
+    ],
+    "preCommitCommands": [
+      "git diff --check",
+      "npm run check:quick"
+    ],
+    "preReleaseCommands": [
+      "npm run release:preflight",
+      "npm run gate:academy-release"
+    ],
+    "postPushChecks": [
+      "gh run list --limit 10",
+      "gh run list --workflow 'Deploy Docs' --limit 5"
+    ]
+  },
+  "lanes": [
+    {
+      "id": "governance",
+      "prefixes": ["BASE", "GOV", "OPS"],
+      "capacity": 1,
+      "agentClass": "architecture",
+      "checkout": "worktree",
+      "ownership": ["docs/academy/**", "scripts/academy-*.mjs", "tests/academy/**"]
+    },
+    {
+      "id": "stability",
+      "prefixes": ["QA", "REL"],
+      "capacity": 1,
+      "agentClass": "verification",
+      "checkout": "worktree",
+      "ownership": [
+        "src/**", "tests/**", "scripts/**", ".github/**", "docs/**",
+        "CHANGELOG.md", "package.json", "package-lock.json", "dist/**"
+      ]
+    },
+    {
+      "id": "curriculum",
+      "prefixes": ["CUR", "N1P", "ASSESS", "SKILL", "KAN"],
+      "capacity": 2,
+      "agentClass": "pedagogy-and-code",
+      "checkout": "worktree",
+      "ownership": ["src/academy/content/**", "src/academy/assessment/**", "public/academy/content/**", "scripts/academy-source-*.mjs", "tests/academy/**", "docs/academy/**"]
+    },
+    {
+      "id": "learning-design",
+      "prefixes": ["PED", "MET", "SRS"],
+      "capacity": 1,
+      "agentClass": "learning-science",
+      "checkout": "worktree",
+      "ownership": ["src/academy/**", "tests/academy/**", "docs/academy/**"]
+    },
+    {
+      "id": "story-world",
+      "prefixes": ["STO", "CAST", "WORLD", "SYS"],
+      "capacity": 2,
+      "agentClass": "narrative-and-runtime",
+      "checkout": "worktree",
+      "ownership": ["src/academy/content/story-sources/**", "src/academy/world/**", "src/academy/story/**", "tests/academy/**", "docs/academy/story/**"]
+    },
+    {
+      "id": "audio",
+      "prefixes": ["AUD"],
+      "capacity": 2,
+      "agentClass": "audio-production",
+      "checkout": "worktree",
+      "ownership": ["src/academy/audio/**", "scripts/academy-voice/**", "public/academy/audio/**", "docs/academy/audio/**", "tests/academy/**"]
+    },
+    {
+      "id": "visual",
+      "prefixes": ["ART", "VIS"],
+      "capacity": 2,
+      "agentClass": "visual-production",
+      "checkout": "worktree",
+      "ownership": ["src/academy/ui/**", "src/academy/assets/**", "public/academy/art/**", "docs/academy/art/**", "tests/academy/**"]
+    },
+    {
+      "id": "games-and-yomu",
+      "prefixes": ["GAM", "XYM"],
+      "capacity": 2,
+      "agentClass": "gameplay-integration",
+      "checkout": "worktree",
+      "ownership": ["src/academy/minigames/**", "src/academy/reader-bridge/**", "src/academy/watch/**", "tests/academy/**", "docs/academy/**"]
+    },
+    {
+      "id": "platform",
+      "prefixes": ["PLAT"],
+      "capacity": 1,
+      "agentClass": "backend-and-security",
+      "checkout": "worktree",
+      "ownership": ["src/academy/worker/**", "src/academy/account/**", "wrangler.academy.jsonc", "migrations/**", "tests/academy/**", "docs/academy/**"]
+    },
+    {
+      "id": "documentation",
+      "prefixes": ["DOC"],
+      "capacity": 1,
+      "agentClass": "documentation",
+      "checkout": "worktree",
+      "ownership": ["docs/**", "scripts/check-universe-wiki.mjs", "tests/academy/**"]
+    }
+  ]
+}
