@@ -80,7 +80,16 @@ export function hasLineClamp(style: CSSStyleDeclaration): boolean {
 // exemption here — the row grows with whatever the line box becomes.
 export function isEllipsisTextRow(style: CSSStyleDeclaration): boolean {
     if (!clipsOverflow(style) || !style.textOverflow.includes('ellipsis')) return false;
-    return style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' || style.display === '-webkit-box';
+    if (style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' || style.display === '-webkit-box') return true;
+    // Flex/grid items deliberately allowed to shrink below their content
+    // (min-width:0 — computed 'auto' unless the author set it) ellipsize
+    // HORIZONTALLY under the default white-space too: the track shrinks the
+    // item and text-overflow clips the single line. YouTube's Shorts action
+    // labels (共有/リミックス) are exactly this shape, so without recognizing it
+    // they kept native ruby and the host cropped the ruby-widened base
+    // (共有 → 共…, リミックス → リミック…, iPad 2026-07-20). The base row still can
+    // truncate the widened word, so it is as ruby-fragile as a nowrap row.
+    return style.minWidth === '0px';
 }
 
 function clipsOverflow(style: CSSStyleDeclaration): boolean {

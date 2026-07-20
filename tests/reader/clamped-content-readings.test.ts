@@ -204,6 +204,118 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(row.dataset.yomuClipConstrained).toBe('true');
     });
 
+    it('RECOVERS a growth-failed row whose rt again measurably clears the base', () => {
+        // A transient mis-measure must never retract genuine at-rest furigana
+        // forever. Recovery is SOUND: promotion requires POSITIVE evidence — a
+        // measurable rt clearing above the base (proof the engine grew the line)
+        // — so a stably-ungrowable row (rt hidden by the "true" stamp, no box)
+        // can never be re-promoted only to re-fail.
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="true" data-yomu-clamp-growth="failed" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">東京</span><rt class="jpdb-reader-furi">とうきょう</rt></ruby></span>
+            </div>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 158, height: 58 }) as DOMRect,
+        });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 118, bottom: 138, height: 20 }) as DOMRect,
+        });
+        const rt = row.querySelector<HTMLElement>('rt.jpdb-reader-furi')!;
+        // rt bottom (112) clears above the base top (118): the line grew.
+        Object.defineProperty(rt, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 98, bottom: 112, height: 14 }) as DOMRect,
+        });
+        // Promotions are not counted as new breakages, so the return value is 0.
+        expect(healUngrowableInFlowClampRows(document)).toBe(0);
+        expect(row.dataset.yomuClipConstrained).toBe('content');
+        expect(row.getAttribute('data-yomu-clamp-growth')).toBe('ok');
+    });
+
+    it('does NOT re-promote a stably-ungrowable failed row whose rt is hidden (no box)', () => {
+        // The CSS "true" stamp removes rt from layout, so a demoted row reports
+        // no rt box — the heal must leave it failed rather than oscillate it back
+        // to content on the strength of a base that only looks fine because the
+        // reading is hidden.
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="true" data-yomu-clamp-growth="failed" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">東京</span><rt class="jpdb-reader-furi">とうきょう</rt></ruby></span>
+            </div>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 158, height: 58 }) as DOMRect,
+        });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 118, bottom: 138, height: 20 }) as DOMRect,
+        });
+        // rt left unmocked → zero-height box, the jsdom stand-in for display:none.
+        expect(healUngrowableInFlowClampRows(document)).toBe(0);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.getAttribute('data-yomu-clamp-growth')).toBe('failed');
+    });
+
+    it('demotes a content row whose rt paints down over the base (no line growth)', () => {
+        // E1: the row never gained leading, so the reading has nowhere to go but
+        // down onto the base cap. Base is inside the box, but rt overlaps it.
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">東京</span><rt class="jpdb-reader-furi">とうきょう</rt></ruby></span>
+            </div>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 122, height: 22 }) as DOMRect,
+        });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 102, bottom: 120, height: 18 }) as DOMRect,
+        });
+        const rt = row.querySelector<HTMLElement>('rt.jpdb-reader-furi')!;
+        // rt bottom (116) sits well below base top (102): the reading is painting
+        // over the base rather than clearing above it.
+        Object.defineProperty(rt, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 104, bottom: 116, height: 12 }) as DOMRect,
+        });
+        expect(healUngrowableInFlowClampRows(document)).toBe(1);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.getAttribute('data-yomu-clamp-growth')).toBe('failed');
+    });
+
+    it('demotes a content row whose ruby-widened line overflows the row width', () => {
+        // E2/H2: the widened base cannot rewrap and the row truncates
+        // horizontally (共有 → 共…). scrollWidth clears clientWidth.
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:1;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">共有</span><rt class="jpdb-reader-furi">きょうゆう</rt></ruby></span>
+            </div>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 122, height: 22 }) as DOMRect,
+        });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 102, bottom: 120, height: 18 }) as DOMRect,
+        });
+        Object.defineProperty(row, 'clientWidth', { configurable: true, value: 48 });
+        Object.defineProperty(row, 'scrollWidth', { configurable: true, value: 92 });
+        expect(healUngrowableInFlowClampRows(document)).toBe(1);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+    });
+
+    it('routes a flex-shrink ellipsis label (min-width:0) to detached readings', () => {
+        // H2: YouTube Shorts action labels ellipsize horizontally via a flex
+        // shrink (min-width:0 + overflow:hidden + text-overflow:ellipsis) under
+        // the DEFAULT white-space — no nowrap. Without recognizing that shape
+        // they kept native ruby and the host cropped the widened base.
+        document.body.innerHTML = '<div style="display:flex"><span id="label" style="min-width:0px;overflow:hidden;text-overflow:ellipsis">共有</span></div>';
+        const row = document.querySelector<HTMLElement>('#label')!;
+        applyTokensToScanTarget(fragmentTarget(row, '共有', 'content-ruby'), [token('共有', 0, '共有', 'きょうゆう')], FURI);
+
+        expect(row.querySelector('ruby')).toBeNull();
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('きょうゆう');
+    });
+
     it('vetoes in-flow clamp readings under a fixed-height clipping shell', () => {
         document.body.innerHTML = `
             <div id="shell" style="height:64px;overflow:hidden">

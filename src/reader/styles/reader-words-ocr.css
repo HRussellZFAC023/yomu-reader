@@ -854,6 +854,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word ruby {
   position: static !important;
   display: ruby !important;
+  /* iPadOS/Safari WebKit ignores the UNPREFIXED ruby-align and falls back to
+     its space-around default: when the reading is wider than the base it wedges
+     the base characters apart (技 術 intra-word gap, iPad 2026-07-20). The
+     -webkit- alias forces the centred distribution WebKit actually honours. */
+  -webkit-ruby-align: center !important;
   ruby-align: center !important;
   ruby-position: over !important;
   line-height: 1;
@@ -1006,6 +1011,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   white-space: nowrap;
   pointer-events: none;
   text-decoration: none !important;
+  /* -webkit- alias first: WebKit drops the unprefixed property and would
+     space-around the base under a wider reading (see the ruby rule above). */
+  -webkit-ruby-align: center;
   ruby-align: center;
   line-height: 1;
   text-align: center;

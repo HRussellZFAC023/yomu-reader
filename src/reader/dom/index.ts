@@ -7035,52 +7035,130 @@ const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 // pass only ever grows (previousRubyRoomHeight guard), so it terminates.
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
 
-// Engine guard for the in-flow clamp reading channel: some engine/font
-// combinations (CI's Linux Chrome, observed v1.6.244 Release run) do NOT grow
-// a -webkit-box line-clamp row when rt joins the line box — the base glyphs
-// fall below the clip and only the readings stay visible (the historical
-// only-furigana row). Growth is measured after paint: a "content" row whose
-// FIRST annotated base is no longer inside its own box flips back to the
-// rest-hidden "true" stamp, which removes rt from layout and restores the
-// plain line. Engines that grow correctly (macOS Chromium/WebKit verified)
-// never trip this. Reads complete before the attribute writes.
-const CLAMP_GROWTH_FAILED_ATTRIBUTE = 'data-yomu-clamp-growth';
+// Engine guard for the in-flow clamp reading channel. The apply path stamps a
+// growable clamp row "content" OPTIMISTICALLY (owner rule: readings visible at
+// rest wherever layout can absorb them), then this measured post-paint verdict
+// is the AUTHORITY: some engine/font combinations (CI's Linux Chrome, iPad
+// Safari on height-pinned rows) do NOT grow a -webkit-box line-clamp row when
+// rt joins the line box — the base glyphs fall below the clip, the rt paints
+// OVER the base, or the widened word truncates the row. A row that fails the
+// measured checks flips back to the rest-hidden "true" stamp (removing rt from
+// layout, restoring the plain line; the next re-apply then routes it through
+// the width-neutral detached lane).
+//
+// The verdict is RECOVERABLE, not a permanent sentence, and demotion demands
+// POSITIVE failure evidence. The earlier design demoted on any base drift and
+// then wrote data-yomu-clamp-growth=failed forever, so a single transient
+// mis-measure (a row caught mid-hydration, zero-height, or before its shell
+// settled) retracted genuine at-rest furigana with no path back (A-cluster
+// "furigana appears then disappears" iPad report, 2026-07-20). Two guards fix
+// that: (a) "broken" now requires a clear failure — the base pushed essentially
+// OUT of the row box, rt measurably painting DOWN over the base, or the line
+// overflowing the row width — never a sub-pixel poke; (b) recovery is
+// bidirectional and idempotent — a failed row whose in-flow rt is measurable
+// and clearing the base again is promoted back to "content".
+//
+// Recovery is SOUND, not oscillating: promotion demands a measurable rt that
+// clears the base. A demoted row's rt is removed from layout by CSS
+// (display:none on the "true" stamp), so it reports no box and stays
+// "unmeasurable" — a stably-ungrowable row is therefore never re-promoted only
+// to re-fail. Reads complete before the attribute writes.
+const CLAMP_GROWTH_ATTRIBUTE = 'data-yomu-clamp-growth';
 const CONTENT_CLIP_ROW_SELECTOR = '[data-yomu-clip-constrained="content"]';
+const FAILED_CLAMP_ROW_SELECTOR = `[${CLAMP_GROWTH_ATTRIBUTE}="failed"]`;
+// A base has genuinely left the clip (the readings-only row) once its top sits
+// at or below the row's bottom edge — a small poke over the edge keeps the base
+// mostly visible and stays in-flow (owner rule).
+const CLAMP_ROW_BASE_ESCAPE_PX = 2;
+// rt sub-pixel overlap tolerance: a healthy reading clears above the base cap,
+// so any measurable descent past this into the base is the non-growing engine.
+const CLAMP_ROW_RT_OVERLAP_SLOP_PX = 2;
+// Generous horizontal slop: a wrapping multi-line clamp keeps scrollWidth at
+// clientWidth, so real overflow (an ellipsis label whose widened word cannot
+// wrap) is the only thing that clears this — never narrow-column rounding.
+const CLAMP_ROW_WIDTH_SLOP_PX = 4;
 
-// The verdict must persist: token re-applies recompute the clip stamp, so a
-// healed row would flip straight back to "content" without this mark.
+// The veto consulted at every in-flow decision site (apply-time clip stamp and
+// detached-lane routing): only a measured "failed" keeps a row out of the
+// in-flow channel. A confirmed ("ok") or not-yet-measured row stays eligible.
 function clampRowGrowthFailed(clipRow: HTMLElement): boolean {
-    return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === 'failed';
+    return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === 'failed';
+}
+
+type ClampRowVerdict = 'healthy' | 'broken' | 'unmeasurable';
+
+// Measured post-paint verdict for one in-flow clamp row. "unmeasurable" (no
+// annotated word yet, zero-height row/base, or rt without a box) leaves the
+// row's current stamp untouched, so a row caught before its surface settles is
+// never demoted on no evidence — only re-checked on a later pass.
+function measuredClampRowVerdict(row: HTMLElement): ClampRowVerdict {
+    const word = row.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word');
+    const rt = word?.querySelector<HTMLElement>('rt.jpdb-reader-furi');
+    if (!word || !rt) return 'unmeasurable';
+    const rowRect = row.getBoundingClientRect();
+    if (!rowRect.height) return 'unmeasurable';
+    const base = word.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? word;
+    const baseRect = base.getBoundingClientRect();
+    if (!baseRect.height) return 'unmeasurable';
+    const rtRect = rt.getBoundingClientRect();
+    // FAILURE evidence (any one demotes — none of these needs rt metrics except
+    // the overlap check, which self-guards on rt having a box):
+    // (i) the base has dropped essentially out of the row box: a non-growing
+    //     engine leaves a readings-only row with the base below the clip.
+    const baseEscaped = baseRect.top >= rowRect.bottom - CLAMP_ROW_BASE_ESCAPE_PX
+        || baseRect.bottom <= rowRect.top + CLAMP_ROW_BASE_ESCAPE_PX;
+    // (ii) rt paints DOWN over the base because the line never grew its leading.
+    const rtOverlapsBase = rtRect.height > 0
+        && rtRect.bottom - baseRect.top > CLAMP_ROW_RT_OVERLAP_SLOP_PX;
+    // (iii) the ruby-widened line overflows the row width and the clip truncates
+    //     it (an ellipsis label whose base cannot rewrap: 共有 → 共…).
+    const widthOverflows = row.clientWidth > 0
+        && row.scrollWidth > row.clientWidth + CLAMP_ROW_WIDTH_SLOP_PX;
+    if (baseEscaped || rtOverlapsBase || widthOverflows) return 'broken';
+    // HEALTH is only CONFIRMED with a measurable rt clearing the base — the sole
+    // positive proof the engine grew the line. Without it the row is
+    // "unmeasurable": a demoted row (rt display:none) can never be re-promoted
+    // just because hiding its reading left the base sitting in a plain line.
+    if (rtRect.height > 0 && rtRect.bottom <= baseRect.top + CLAMP_ROW_RT_OVERLAP_SLOP_PX) return 'healthy';
+    return 'unmeasurable';
 }
 
 export function healUngrowableInFlowClampRows(root: ParentNode = document): number {
-    // querySelectorAll never matches the root itself, and per-root apply
-    // passes the annotated row AS the root — include it (and a stamped
+    // Candidates: every optimistic/confirmed in-flow row ("content"), plus rows
+    // a prior pass demoted ("failed") so a genuinely recovered surface can be
+    // promoted back. querySelectorAll never matches the root itself, and per-root
+    // apply passes the annotated row AS the root — include it (and a stamped
     // ancestor) or the one row that matters is the one that is never checked.
     const rows = new Set<HTMLElement>();
     if (root instanceof HTMLElement) {
-        const stampedSelfOrAncestor = root.closest<HTMLElement>(CONTENT_CLIP_ROW_SELECTOR);
-        if (stampedSelfOrAncestor) rows.add(stampedSelfOrAncestor);
+        const selfOrAncestor = root.closest<HTMLElement>(`${CONTENT_CLIP_ROW_SELECTOR},${FAILED_CLAMP_ROW_SELECTOR}`);
+        if (selfOrAncestor) rows.add(selfOrAncestor);
     }
     for (const row of root.querySelectorAll<HTMLElement>(CONTENT_CLIP_ROW_SELECTOR)) rows.add(row);
+    for (const row of root.querySelectorAll<HTMLElement>(FAILED_CLAMP_ROW_SELECTOR)) rows.add(row);
     if (!rows.size) return 0;
-    const broken: HTMLElement[] = [];
+    // Read all geometry first, then write — the sweep must never interleave a
+    // layout read with its own attribute write (forced synchronous reflow).
+    const demote: HTMLElement[] = [];
+    const promote: HTMLElement[] = [];
     for (const row of rows) {
         if (row.classList.contains('jpdb-reader-text-mirror')) continue;
-        const word = row.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word');
-        if (!word || !word.querySelector('rt.jpdb-reader-furi')) continue;
-        const rect = row.getBoundingClientRect();
-        if (!rect.height) continue;
-        const base = word.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? word;
-        const baseRect = base.getBoundingClientRect();
-        if (!baseRect.height) continue;
-        if (baseRect.top < rect.top - 1 || baseRect.bottom > rect.bottom + 1) broken.push(row);
+        const verdict = measuredClampRowVerdict(row);
+        if (verdict === 'broken') {
+            if (!clampRowGrowthFailed(row)) demote.push(row);
+        } else if (verdict === 'healthy' && clampRowGrowthFailed(row)) {
+            promote.push(row);
+        }
     }
-    for (const row of broken) {
-        row.setAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE, 'failed');
+    for (const row of demote) {
+        row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, 'failed');
         row.dataset.yomuClipConstrained = 'true';
     }
-    return broken.length;
+    for (const row of promote) {
+        row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, 'ok');
+        row.dataset.yomuClipConstrained = 'content';
+    }
+    return demote.length;
 }
 
 // A token that wraps across line boxes cannot be underlined by the single
