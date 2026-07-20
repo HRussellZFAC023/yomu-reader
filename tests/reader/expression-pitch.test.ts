@@ -538,14 +538,29 @@ describe('expression component pitch', () => {
         expect(alignedExpressionComponentPitches(card, components, pitches)).toEqual([]);
     });
 
-    it('voids alignment when a content component has no pitch', () => {
+    it('still surfaces the pitched component when a sibling content component has no pitch', () => {
         const card = expressionCard('為すがまま', 'なすがまま');
         const components = [
             { text: '為す', reading: 'なす' },
             { text: 'まま', reading: 'まま' },
         ];
 
-        expect(alignedExpressionComponentPitches(card, components, [{ text: '為す', reading: 'なす', pitch: 'LH' }])).toEqual([]);
+        // まま has no aligned pitch, but each component draws its own isolated
+        // graph, so 為す's accent is honestly shown rather than voiding the set.
+        expect(alignedExpressionComponentPitches(card, components, [{ text: '為す', reading: 'なす', pitch: 'LH' }]))
+            .toEqual([{ text: '為す', reading: 'なす', pitch: 'LH' }]);
+    });
+
+    it('keeps the strict headword span all-or-nothing when a content component has no pitch', () => {
+        const card = expressionCard('為すがまま', 'なすがまま');
+        const components = [
+            { text: '為す', reading: 'なす' },
+            { text: 'まま', reading: 'まま' },
+        ];
+
+        // The headword paints one continuous contour, so a partial set must not
+        // decorate the headword at all (that would misattribute まま's accent).
+        expect(headwordComponentPitchSegments(card, components, [{ text: '為す', reading: 'なす', pitch: 'LH' }])).toEqual([]);
     });
 
     it('renders one labelled mini graph per component', () => {

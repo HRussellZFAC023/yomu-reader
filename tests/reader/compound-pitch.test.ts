@@ -96,12 +96,27 @@ describe('component pitch evidence', () => {
         expect(html).toContain('者数');
     });
 
-    it('does not label partial or reading-misaligned evidence as the compound', () => {
+    it('labels the pitched morpheme of a partial decomposition on its own', () => {
         const card = { spelling: '登録者数', reading: 'とうろくしゃすう', wordWithReading: null };
         const components = [{ text: '登録', reading: 'とうろく' }, { text: '者数', reading: 'しゃすう' }];
         const partial = [{ text: '登録', reading: 'とうろく', pitch: 'LHHHH' }];
 
-        expect(alignedExpressionComponentPitches(card, components, partial)).toEqual([]);
+        // 者数 has no bank entry; 登録's accent still earns its own labelled
+        // graph rather than the whole compound going pitch-less.
+        expect(alignedExpressionComponentPitches(card, components, partial)).toEqual(partial);
+        const html = renderExpressionComponentPitches(alignedExpressionComponentPitches(card, components, partial));
+        expect(html).toContain('登録');
+        expect(html).not.toContain('者数');
+    });
+
+    it('voids the fallback when the components do not reconstruct the reading', () => {
+        const card = { spelling: '登録者数', reading: 'とうろくしゃすう', wordWithReading: null };
+        // 者数 → しゃかず no longer lines up with the card reading after 登録, so
+        // the substrings are misaligned and nothing is labelled even permissively.
+        const components = [{ text: '登録', reading: 'とうろく' }, { text: '者数', reading: 'しゃかず' }];
+        const pitches = [{ text: '登録', reading: 'とうろく', pitch: 'LHHHH' }];
+
+        expect(alignedExpressionComponentPitches(card, components, pitches)).toEqual([]);
         expect(renderExpressionComponentPitches([])).toBe('');
     });
 });

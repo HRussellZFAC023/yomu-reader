@@ -121,7 +121,7 @@ import {
     pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
-import { hasResolvedPitchComponents } from '../lookup/pitch-components';
+import { hasPaintablePitchComponents, hasResolvedPitchComponents } from '../lookup/pitch-components';
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
 import {
@@ -8477,7 +8477,10 @@ export class ReaderApp {
             this.queueSubtitleParsedHtmlRefresh(token.sentence);
             return;
         }
-        if (hasResolvedPitchComponents(card)) {
+        // Paint as soon as ANY morpheme resolves so a partial gradient lands and
+        // then improves; the strict predicate above/at the skip gates keeps the
+        // public-lookup passes filling the remaining morphemes.
+        if (hasPaintablePitchComponents(card)) {
             this.applyPitchComponentsToRenderedWords(card);
             this.queueSubtitleParsedHtmlRefresh(token.sentence);
             return;
@@ -8956,7 +8959,7 @@ export class ReaderApp {
     }
 
     private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document], pitchClass = ''): void {
-        if (!pitchClass && !hasResolvedPitchComponents(card)) return;
+        if (!pitchClass && !hasPaintablePitchComponents(card)) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();

@@ -103,13 +103,22 @@ export interface HeadwordComponentPitchSegment {
 // Aligns the looked-up components against the card's spelling AND reading,
 // tolerating connective kana between and around them: 為すがまま aligns
 // 為す + まま across the が, and 実際は aligns 実際 before the trailing は. A
-// component that fails to match either text or reading in sequence, or a
-// content component with no pitch, still voids the whole alignment — a
-// partially-labelled contour would silently misattribute accents.
+// component that fails to match either text or reading in sequence still voids
+// the whole alignment — the substrings would no longer line up.
+//
+// A content component with NO pitch is treated by `mode`. Strict (headword
+// spans, whole-contour paint) voids the whole alignment, because a
+// partially-labelled contour painted across the headword would silently
+// misattribute accents to the un-pitched spans. Permissive (the labelled
+// mini-graph fallback, where each pitched component draws its OWN isolated
+// graph) keeps the un-pitched component as a null segment so the components
+// that DO have an accent still each render — 賛成票率順 shows 賛成's graph even
+// when 票率順 has no bank entry.
 function alignExpressionComponentSegments(
     card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
     components: ExpressionComponentLookup[],
     componentPitches: ExpressionComponentPitch[],
+    mode: 'strict' | 'permissive' = 'strict',
 ): HeadwordComponentPitchSegment[] | null {
     if (!components.length) return null;
     const spellingChars = Array.from(card.spelling.trim());
@@ -147,32 +156,47 @@ function alignExpressionComponentSegments(
             segments.push({ text, pitch: null });
             continue;
         }
+        if (mode === 'permissive') {
+            segments.push({ text, pitch: null });
+            continue;
+        }
         return null;
     }
     skipConnectives();
     if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
     const aligned = segments.filter(segment => segment.pitch);
+    if (!aligned.length) return null;
     // A single component covering the whole spelling is just the word itself;
     // the whole-word pitch path owns that case. With particles consumed, the
-    // lone content word's accent is genuinely informative (実際は → 実際).
-    if (!aligned.length || (aligned.length < 2 && !hadSkippedConnective)) return null;
+    // lone content word's accent is genuinely informative (実際は → 実際). The
+    // permissive fallback gates on the DECOMPOSITION being real (≥2 components,
+    // or a component plus a trimmed connective) rather than on how many
+    // components happened to carry a pitch, so a compound where only one
+    // morpheme is pitched still surfaces that morpheme's graph.
+    const meaningfulSpan = mode === 'permissive' ? components.length : aligned.length;
+    if (meaningfulSpan < 2 && !hadSkippedConnective) return null;
     return segments;
 }
 
+// The labelled mini-graph fallback: each component that has a pitch draws its
+// own isolated graph, so a partially-pitched decomposition is still worth
+// showing. Permissive alignment keeps the un-pitched components as null
+// segments (dropped by the filter) instead of voiding the whole set.
 export function alignedExpressionComponentPitches(
     card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
     components: ExpressionComponentLookup[],
     componentPitches: ExpressionComponentPitch[],
 ): ExpressionComponentPitch[] {
-    const segments = alignExpressionComponentSegments(card, components, componentPitches);
+    const segments = alignExpressionComponentSegments(card, components, componentPitches, 'permissive');
     if (!segments) return [];
     return segments.map(segment => segment.pitch).filter((pitch): pitch is ExpressionComponentPitch => Boolean(pitch));
 }
 
 // Segments covering the entire headword spelling, for rendering per-component
-// pitch decoration on the headword itself. Returns [] under the exact same
-// all-or-nothing conditions as alignedExpressionComponentPitches (partial or
-// misaligned evidence yields no decoration at all).
+// pitch decoration on the headword itself. Strict by design: a headword span
+// paints one continuous contour, so partial or misaligned evidence yields no
+// decoration at all rather than misattributing accents to un-pitched spans.
+// (The labelled mini-graph fallback tolerates partial evidence instead.)
 export function headwordComponentPitchSegments(
     card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
     components: ExpressionComponentLookup[],
