@@ -13,6 +13,7 @@ import {
     proofTemplate,
     resolveConfinedFile,
     resolveDynamicDependencies,
+    reviewPayloadSha256,
     reuseReportPinErrors,
     sha256,
     taskDefinitionSha256,
@@ -118,6 +119,7 @@ describe('Academy production workflow', () => {
             taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit: 'a'.repeat(40),
             owner: 'codex-main', reviewerId: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol',
             sessionId: 'agent-1', exitCode: 0, verdict: 'ship', captureToken: 'capture-1', prompt, response,
+            reviewPayloadSha256: '',
         };
         const registration = {
             taskId: task.id, headCommit: 'a'.repeat(40), sessionId: 'agent-1', captureToken: 'capture-1',
@@ -130,6 +132,7 @@ describe('Academy production workflow', () => {
             reviewer: { id: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol', sessionId: 'agent-1', independentFrom: 'codex-main', sessionEvidence },
             scope: ['scripts/academy-production-workflow.mjs'], findings: [],
         };
+        session.reviewPayloadSha256 = reviewPayloadSha256(review);
         const reviewContext = {
             headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent', strict: true,
             reviewSessions: new Map([[sessionEvidence.path, session]]),
@@ -141,6 +144,8 @@ describe('Academy production workflow', () => {
             .toContain('Independent review verdict is not ship');
         expect(validateReviewAttestation(task, review, { ...reviewContext, trustedReviewSessions: new Map() }))
             .toContain('External review session is not registered by a trusted workflow capture');
+        expect(validateReviewAttestation(task, { ...review, summary: 'Owner-authored replacement.' }, reviewContext))
+            .toContain('Independent review attestation differs from the captured provider payload');
         expect(validateReviewAttestation(task, {
             ...review,
             reviewer: { ...review.reviewer, sessionEvidence: undefined, sessionId: 'invented-session' },

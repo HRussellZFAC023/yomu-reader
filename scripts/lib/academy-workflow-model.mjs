@@ -433,6 +433,15 @@ function validArtifactReference(reference) {
     return Boolean(reference?.path && /^[a-f0-9]{64}$/u.test(reference.sha256 ?? ''));
 }
 
+export function reviewPayloadSha256(attestation) {
+    return sha256(JSON.stringify({
+        verdict: attestation?.verdict ?? null,
+        summary: attestation?.summary ?? null,
+        scope: attestation?.scope ?? null,
+        findings: attestation?.findings ?? null,
+    }));
+}
+
 export function validateGateAttestation(task, gate, attestation, context = {}) {
     const errors = [];
     if (attestation?.schema !== 'yomu-academy.gate-attestation/v1') errors.push(`Gate ${gate} attestation has the wrong schema`);
@@ -504,6 +513,9 @@ export function validateReviewAttestation(task, attestation, context = {}) {
             errors.push('External review session provider identity does not match the attestation');
         }
         if (session.exitCode !== 0 || session.verdict !== 'ship') errors.push('External review session does not prove a successful SHIP review');
+        if (session.reviewPayloadSha256 !== reviewPayloadSha256(attestation)) {
+            errors.push('Independent review attestation differs from the captured provider payload');
+        }
         if (!registration
             || registration.sha256 !== sessionReference.sha256
             || registration.taskId !== task.id

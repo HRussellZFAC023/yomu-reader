@@ -47,6 +47,7 @@ export function validateReviewAttestation(
     attestation: Record<string, any>,
     context?: Record<string, any>,
 ): string[];
+export function reviewPayloadSha256(attestation: Record<string, any>): string;
 export function checkpointIntegrityErrors(
     promotion: Record<string, any>,
     actual: Record<string, any>,
