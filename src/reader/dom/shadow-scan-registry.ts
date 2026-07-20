@@ -55,10 +55,14 @@ function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void
 
 // Content-world userscripts and page scripts have different JavaScript
 // prototypes in Chromium/WebKit. The page-realm bridge is immediate in the
-// normal case; hosts encountered by the generic DOM walk also get a bounded
-// weak-reference poll so CSP restrictions and captured original methods cannot
-// strand a later open root.
-export function watchPotentialOpenShadowRootHost(host: Element, includeNativeHost = false): ShadowRoot | null {
+// normal case; custom-element hosts encountered by the generic DOM walk also
+// get a bounded weak-reference poll so CSP restrictions and captured original
+// methods cannot strand a later open root. Native (<div>/<span>) hosts are
+// deliberately NOT polled (ccbe1c023): a busy SPA refills that set faster than
+// it drains — a permanent 10Hz timer for hosts that almost never attachShadow —
+// and their genuine late open roots are already covered by the page-realm
+// bridge. An undefined custom element instead subscribes to its whenDefined().
+export function watchPotentialOpenShadowRootHost(host: Element): ShadowRoot | null {
     const root = host.shadowRoot;
     if (root) {
         noteShadowRoot(root, 'scan');
@@ -66,7 +70,7 @@ export function watchPotentialOpenShadowRootHost(host: Element, includeNativeHos
     }
     const tagName = host.localName.toLowerCase();
     const isCustomElement = tagName.includes('-');
-    if (!includeNativeHost && !isCustomElement) return null;
+    if (!isCustomElement) return null;
     if (isCustomElement
         && typeof customElements !== 'undefined'
         && typeof customElements.whenDefined === 'function'

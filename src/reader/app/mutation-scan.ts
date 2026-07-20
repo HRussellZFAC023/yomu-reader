@@ -304,14 +304,14 @@ function probeComposedElement(
     // below; an undefined custom element enrols a bounded whenDefined/poll
     // window for its late attachShadow().
     //
-    // Do NOT enrol native hosts (includeNativeHost stays false): every plain
-    // <div>/<span> a busy SPA mutation burst walks would otherwise join the
-    // 100ms candidate poll, and on a page that never stops mutating (YouTube)
-    // that set is refilled faster than it drains — a permanent 10Hz timer
-    // reading the whole tracked set every tick, for hosts that will almost
-    // never call attachShadow(). A native element that genuinely attaches a
-    // late open root is covered by the page-realm attachShadow bridge, which
-    // needs no polling.
+    // Native hosts are never enrolled into the candidate poll (the registry
+    // enforces this since ccbe1c023): every plain <div>/<span> a busy SPA
+    // mutation burst walks would otherwise join the 100ms candidate poll, and
+    // on a page that never stops mutating (YouTube) that set is refilled faster
+    // than it drains — a permanent 10Hz timer reading the whole tracked set
+    // every tick, for hosts that will almost never call attachShadow(). A
+    // native element that genuinely attaches a late open root is covered by the
+    // page-realm attachShadow bridge, which needs no polling.
     const shadowRoot = element instanceof HTMLElement
         ? watchPotentialOpenShadowRootHost(element)
         : element.shadowRoot;

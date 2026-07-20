@@ -306,9 +306,14 @@ describe('shadow scan registry', () => {
         setShadowRootScanHook(discovered);
         const dispose = installOpenShadowRootDiscovery();
         shadowRootDiscoveryDisposers.push(dispose);
-        const host = document.createElement('div');
+        // A defined custom element with no shadow root yet enrols in the poll
+        // (native hosts are no longer polled since ccbe1c023), so it is the
+        // vehicle for exercising the bounded fallback window.
+        const tag = uniqueUpgradeTag('yomu-bridge-bypass-host');
+        customElements.define(tag, class extends HTMLElement {});
+        const host = document.createElement(tag);
         document.body.append(host);
-        watchPotentialOpenShadowRootHost(host, true);
+        watchPotentialOpenShadowRootHost(host);
 
         try {
             await vi.advanceTimersByTimeAsync(3_500);
@@ -931,12 +936,16 @@ describe('candidate poll idle behaviour', () => {
         vi.useFakeTimers();
         const visibility = stubVisibility('hidden');
         shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
-        const host = document.createElement('div');
+        // A defined custom-element host is a genuine poll candidate; native
+        // hosts are no longer enrolled at all (ccbe1c023).
+        const tag = uniqueUpgradeTag('yomu-hidden-park-host');
+        customElements.define(tag, class extends HTMLElement {});
+        const host = document.createElement(tag);
         document.body.append(host);
 
-        // Explicitly enrol a native host (as the document-start seed path would):
-        // while hidden, scheduling must be suppressed — a true zero-timer idle.
-        watchPotentialOpenShadowRootHost(host, true);
+        // Enrol a candidate while hidden: scheduling must be suppressed — a true
+        // zero-timer idle.
+        watchPotentialOpenShadowRootHost(host);
         expect(vi.getTimerCount()).toBe(0);
 
         // The app's visibilitychange handler re-arms the parked poll on show.
