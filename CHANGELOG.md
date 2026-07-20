@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.259] - 2026-07-20
+
+### Fixed
+
+- Newly replicated local dictionaries now replace existing Jiten or fallback annotations immediately, so installed definitions become the page's parsing source without a reload.
+
 ## [1.6.258] - 2026-07-20
 
 ### Changed

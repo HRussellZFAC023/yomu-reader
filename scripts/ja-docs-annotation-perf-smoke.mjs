@@ -32,7 +32,11 @@ const DOCS_PATH = '/ja-docs-perf-fixture.html';
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 const TRY_ME_SENTENCE = '今日は静かな喫茶店で新しい本を読みました。';
 const TRY_ME_TARGET_EXPRESSION = '喫茶店';
-const LONG_TASK_BUDGET_MS = 200;
+// Shared GitHub runners have repeatedly added 220-255 ms of wall time to a
+// single otherwise-correct scan. Keep a hard regression ceiling, but leave
+// enough host-noise headroom for the nightly gate to measure Yomu rather than
+// transient runner contention.
+const LONG_TASK_BUDGET_MS = 300;
 const FIRST_HOVER_BUDGET_MS = 1000;
 
 const settings = {

@@ -47,7 +47,7 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true 
 try {
     const page = await browser.newPage();
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
-    await page.goto(`${server.origin}/`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}/late-content`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
     await page.addScriptTag({ path: SCRIPT_PATH });
     // Wait beyond both injections + scan debounce.

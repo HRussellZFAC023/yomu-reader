@@ -1256,11 +1256,11 @@ export class ReaderApp {
                 onReplicated: () => {
                     if (this.isDestroyed) return;
                     this.parser.clearLocalCache();
-                    // The initial scan may have annotated with segmenter
-                    // fallback tokens before replication landed; scans skip
-                    // already-wrapped text, so unwrap exactly those words and
-                    // let the rescan re-annotate them from the local store.
-                    unwrapReaderWords(document, { excludeSelector: ':not([data-card-source="fallback"])' });
+                    // The initial scan may have annotated with a remote tier or
+                    // segmenter fallback before replication landed. Scans skip
+                    // already-wrapped text, so unwrap the page annotations and
+                    // let the rescan prefer the newly restored local store.
+                    unwrapReaderWords(document);
                     this.scheduleDictionaryRescan();
                 },
             });

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteDictionaryArchive, listDictionaryArchives, persistDictionaryArchive, readDictionaryArchiveFile } from '../../src/reader/dictionaries/archive-cache';
-import { ensureLocalDictionariesReplicated, type DictionaryReplicationStore } from '../../src/reader/dictionaries/replication';
-import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
+import { ReaderApp } from '../../src/reader/app/main';
+import { registerYomuCompanion } from '../../src/reader/companions/registry';
+import { ensureLocalDictionariesReplicated, type DictionaryReplicationOptions, type DictionaryReplicationStore } from '../../src/reader/dictionaries/replication';
+import { YomitanDictionaryStore, type ImportSummary } from '../../src/reader/dictionaries/yomitan';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 // GM storage shim: the archive cache must round-trip through the userscript
@@ -55,6 +57,9 @@ beforeEach(() => {
 
 afterEach(() => {
     removeGmShim();
+    registerYomuCompanion('localDictionaries', { YomitanDictionaryStore, ensureLocalDictionariesReplicated });
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
 
@@ -87,6 +92,46 @@ describe('dictionary archive cache', () => {
 });
 
 describe('ensureLocalDictionariesReplicated', () => {
+    it('reparses existing remote annotations after restoring a dictionary', async () => {
+        const replicate = vi.fn(async (options: DictionaryReplicationOptions) => {
+            options.onReplicated(['Jitendex.org [2026-06-06]']);
+            return ['Jitendex.org [2026-06-06]'];
+        });
+        registerYomuCompanion('localDictionaries', { YomitanDictionaryStore, ensureLocalDictionariesReplicated: replicate });
+        vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
+            callback({ didTimeout: false, timeRemaining: () => 50 });
+            return 1;
+        });
+
+        document.body.innerHTML = '<p><span class="jpdb-reader-word" data-card-source="jiten">図書館</span>で勉強する。</p>';
+        const app = new ReaderApp() as unknown as {
+            pageHasJapaneseText: boolean;
+            settings: ReaderSettings;
+            parser: { clearLocalCache: () => void };
+            scheduleDictionaryRescan: () => void;
+            scheduleLocalDictionaryReplication: () => void;
+            destroy: () => void;
+        };
+        const clearLocalCache = vi.fn();
+        const scheduleDictionaryRescan = vi.fn();
+        app.pageHasJapaneseText = true;
+        app.settings = settingsWith([{ name: 'Jitendex.org [2026-06-06]', enabled: true }]);
+        app.parser = { clearLocalCache };
+        app.scheduleDictionaryRescan = scheduleDictionaryRescan;
+
+        try {
+            app.scheduleLocalDictionaryReplication();
+            await vi.waitFor(() => expect(replicate).toHaveBeenCalledOnce());
+
+            expect(clearLocalCache).toHaveBeenCalledOnce();
+            expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(0);
+            expect(document.body.textContent).toContain('図書館で勉強する。');
+            expect(scheduleDictionaryRescan).toHaveBeenCalledOnce();
+        } finally {
+            app.destroy();
+        }
+    });
+
     it('imports a settings-listed dictionary the local store lacks', async () => {
         await persistDictionaryArchive({ title: 'Jitendex.org [2026-06-06]', filename: 'jitendex.zip', file: new Blob([new Uint8Array(64)]) });
         const importFile = vi.fn(async () => importSummary('Jitendex.org [2026-06-06]'));

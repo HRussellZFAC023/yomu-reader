@@ -99,7 +99,7 @@ const readerFixtureHtml = `<!doctype html>
   </style>
 </head>
 <body>
-  <main>
+  <main data-yomu-runtime-surface>
     <p>今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。</p>
   </main>
 </body>

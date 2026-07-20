@@ -39,6 +39,7 @@ const COMPANION_PATHS = [
     'yomu-ocr-manga.user.js',
     'yomu-ui-copy.user.js',
     'yomu-settings-surface.user.js',
+    'yomu-bunpro.user.js',
     'yomu-video.user.js',
 ].map(fileName => path.join(DIST, 'greasyfork', fileName));
 
@@ -70,25 +71,25 @@ const SCENARIOS = [
     {
         id: 'keyless-both-on',
         label: 'No API keys, Jiten and JPDB enabled',
-        settings: {},
+        settings: { bunproDefinitionsEnabled: false },
         expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'jiten-key-both-on',
         label: 'Jiten key only, Jiten and JPDB enabled',
-        settings: { jitenApiKey: JITEN_API_KEY },
+        settings: { jitenApiKey: JITEN_API_KEY, bunproDefinitionsEnabled: false },
         expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'jpdb-key-both-on',
         label: 'JPDB key only, Jiten and JPDB enabled',
-        settings: { apiKey: JPDB_API_KEY },
+        settings: { apiKey: JPDB_API_KEY, bunproDefinitionsEnabled: false },
         expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'both-keys-both-on',
         label: 'Jiten and JPDB keys, Jiten and JPDB enabled',
-        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY },
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproDefinitionsEnabled: false },
         expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
@@ -98,15 +99,21 @@ const SCENARIOS = [
         expect: { jpdb: true, jiten: true, bunpro: true },
     },
     {
+        id: 'anonymous-bunpro',
+        label: 'Anonymous Bunpro definitions enabled',
+        settings: { bunproDefinitionsEnabled: true, bunproFrontendApiToken: '', showPitchAccent: true },
+        expect: { jpdb: true, jiten: true, bunpro: true },
+    },
+    {
         id: 'both-keys-jiten-off',
         label: 'Both keys, Jiten dictionary source disabled',
-        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jitenDefinitionsEnabled: false },
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jitenDefinitionsEnabled: false, bunproDefinitionsEnabled: false },
         expect: { jpdb: true, jiten: false, bunpro: false },
     },
     {
         id: 'both-keys-jpdb-off',
         label: 'Both keys, JPDB dictionary source disabled',
-        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jpdbDefinitionsEnabled: false },
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jpdbDefinitionsEnabled: false, bunproDefinitionsEnabled: false },
         expect: { jpdb: false, jiten: true, bunpro: false },
     },
 ];
@@ -305,31 +312,99 @@ async function openSourceCards(root) {
 }
 
 function summarizeSourceDom(node) {
-    const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();
-    const exampleFrame = source => {
-        const group = source?.querySelector('.jpdb-reader-jpdb-examples-group');
+    function clean(value) {
+        return String(value ?? '').replace(/\s+/g, ' ').trim();
+    }
+    function sourceText(source) {
+        return source ? clean(source.textContent) : '';
+    }
+    function queryCount(source, selector) {
+        return source ? source.querySelectorAll(selector).length : 0;
+    }
+    function hasDescendant(source, selector) {
+        return Boolean(source && source.querySelector(selector));
+    }
+    function sourceId(source) {
+        return source.getAttribute('data-source') ?? '';
+    }
+    function sourceTitle(source) {
+        const title = source.querySelector('summary, .jpdb-reader-local-title');
+        return title ? clean(title.textContent) : '';
+    }
+    function exampleFrame(source) {
+        if (!source) return null;
+        const group = source.querySelector('.jpdb-reader-jpdb-examples-group');
         if (!group) return null;
         const style = getComputedStyle(group);
         return {
-            parentClassName: group.parentElement?.className ?? '',
+            parentClassName: group.parentElement ? group.parentElement.className : '',
             borderTopWidth: Number.parseFloat(style.borderTopWidth),
             borderRadius: Number.parseFloat(style.borderTopLeftRadius),
             backgroundColor: style.backgroundColor,
         };
-    };
+    }
+    function bunproFrequencySummary(root) {
+        const pill = root.querySelector('.jpdb-reader-word-pills a[href*="bunpro.jp/search"]');
+        if (!pill) return { bunproFrequencyPillText: '', bunproFrequencyPillTitle: '' };
+        let title = pill.getAttribute('title');
+        if (title === null) title = pill.getAttribute('data-jpdb-reader-native-title');
+        return {
+            bunproFrequencyPillText: clean(pill.textContent),
+            bunproFrequencyPillTitle: clean(title),
+        };
+    }
+    function summarizeBunpro(root, source) {
+        const bunproText = sourceText(source);
+        const common = {
+            bunproText,
+            bunproMeaning: bunproText.includes('review; revision'),
+            bunproReading: bunproText.includes('ふくしゅう'),
+            bunproNuance: bunproText.includes('Study again to strengthen memory'),
+            bunproAcceptedAnswer: bunproText.includes('to review'),
+            bunproLearnerPos: bunproText.includes('noun'),
+            bunproExampleSentence: /毎日.*復習.*する/u.test(bunproText),
+            bunproHasInlineKanaBrackets: /（[ぁ-ゖァ-ヺー・]+）/u.test(bunproText),
+            ...bunproFrequencySummary(root),
+        };
+        if (!source) {
+            return {
+                ...common,
+                bunproRawTags: false,
+                bunproExampleReading: false,
+                bunproExampleAvailability: '',
+                bunproSharedExampleRowCount: 0,
+                bunproExampleFrame: null,
+                bunproImmersionCardCount: 0,
+                bunproParseableRubyCount: 0,
+                bunproExampleAudioButtonCount: 0,
+                hasOpenInBunproButton: false,
+            };
+        }
+        const exampleGroup = source.querySelector('.jpdb-reader-jpdb-examples-group');
+        return {
+            ...common,
+            bunproRawTags: Array.from(source.querySelectorAll('.jpdb-reader-dict-tag'))
+                .some(tag => /^(?:unclassified|n|unc)$/iu.test(clean(tag.textContent))),
+            bunproExampleReading: hasDescendant(source, '.jpdb-reader-jpdb-examples-group rt.jpdb-reader-furi'),
+            bunproExampleAvailability: exampleGroup ? exampleGroup.getAttribute('data-examples-availability') ?? '' : '',
+            bunproSharedExampleRowCount: queryCount(source, '.jpdb-reader-jpdb-examples > .jpdb-reader-jpdb-example'),
+            bunproExampleFrame: exampleFrame(source),
+            bunproImmersionCardCount: queryCount(source, '.jpdb-reader-example-card'),
+            bunproParseableRubyCount: queryCount(source, '.jpdb-reader-local-glossary .jpdb-reader-parseable rt.jpdb-reader-furi'),
+            bunproExampleAudioButtonCount: queryCount(source, '.jpdb-reader-jpdb-example-audio'),
+            hasOpenInBunproButton: hasDescendant(source, 'a[href*="bunpro.jp/vocabs/"]'),
+        };
+    }
     const sourceNodes = Array.from(node.querySelectorAll('.jpdb-reader-source-card'));
-    const sourceIds = sourceNodes.map(source => source.getAttribute('data-source') ?? '').filter(Boolean);
-    const sourceTitles = sourceNodes
-        .map(source => clean(source.querySelector('summary, .jpdb-reader-local-title')?.textContent ?? ''))
-        .filter(Boolean);
+    const sourceIds = sourceNodes.map(sourceId).filter(Boolean);
+    const sourceTitles = sourceNodes.map(sourceTitle).filter(Boolean);
     const jpdb = node.querySelector('[data-source="jpdb"]');
     const jiten = node.querySelector('[data-source="jiten"]');
     const bunpro = node.querySelector('[data-source="bunpro"]');
-    const jpdbText = clean(jpdb?.textContent ?? '');
-    const jitenText = clean(jiten?.textContent ?? '');
-    const bunproText = clean(bunpro?.textContent ?? '');
+    const jpdbText = sourceText(jpdb);
+    const jitenText = sourceText(jiten);
     return {
-        detailText: clean(node.textContent ?? ''),
+        detailText: clean(node.textContent),
         sourceIds,
         sourceTitles,
         hasJpdb: Boolean(jpdb),
@@ -337,41 +412,22 @@ function summarizeSourceDom(node) {
         hasBunpro: Boolean(bunpro),
         jpdbText,
         jitenText,
-        bunproText,
-        bunproMeaning: bunproText.includes('review; revision'),
-        bunproReading: clean(node.textContent ?? '').includes('ふくしゅう'),
-        bunproNuance: bunproText.includes('Study again to strengthen memory'),
-        bunproAcceptedAnswer: bunproText.includes('to review'),
-        bunproLearnerPos: bunproText.includes('noun'),
-        bunproRawTags: Array.from(bunpro?.querySelectorAll('.jpdb-reader-dict-tag') ?? [])
-            .some(tag => /^(?:unclassified|n|unc)$/iu.test(clean(tag.textContent ?? ''))),
-        bunproExampleSentence: /毎日.*復習.*する/u.test(bunproText),
-        bunproExampleReading: Boolean(bunpro?.querySelector('.jpdb-reader-jpdb-examples-group rt.jpdb-reader-furi')),
-        bunproExampleAvailability: bunpro?.querySelector('.jpdb-reader-jpdb-examples-group')?.getAttribute('data-examples-availability') ?? '',
-        bunproSharedExampleRowCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-examples > .jpdb-reader-jpdb-example').length ?? 0,
-        bunproExampleFrame: exampleFrame(bunpro),
-        bunproImmersionCardCount: bunpro?.querySelectorAll('.jpdb-reader-example-card').length ?? 0,
-        bunproParseableRubyCount: bunpro?.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-parseable rt.jpdb-reader-furi').length ?? 0,
-        bunproHasInlineKanaBrackets: /（[ぁ-ゖァ-ヺー・]+）/u.test(bunproText),
-        bunproFrequencyPills: Array.from(node.querySelectorAll('[data-frequency-source="bunpro"]'))
-            .map(pill => clean(pill.textContent ?? '')),
-        bunproExampleAudioButtonCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-example-audio').length ?? 0,
-        hasOpenInBunproButton: Boolean(bunpro?.querySelector('a[href*="bunpro.jp/vocabs/"]')),
+        ...summarizeBunpro(node, bunpro),
         jpdbMeaning: jpdbText.includes('review; revision'),
         jpdbUsedIn: jpdbText.includes('復習会'),
         jpdbComposedOf: jpdbText.includes('again; restore') && jpdbText.includes('learn'),
         jpdbExampleSentence: /毎日.*復習.*する/u.test(jpdbText),
         jpdbExampleFrame: exampleFrame(jpdb),
-        jpdbAudioButtonCount: jpdb?.querySelectorAll('.jpdb-reader-jpdb-example-audio').length ?? 0,
+        jpdbAudioButtonCount: queryCount(jpdb, '.jpdb-reader-jpdb-example-audio'),
         jitenMeaning: jitenText.includes('review; revision'),
         jitenReading: jitenText.includes('ふくしゅう'),
         jitenUsedIn: jitenText.includes('復習会'),
         jitenComposedOf: jitenText.includes('again; restore') && jitenText.includes('learn'),
         jitenExampleSentence: /毎日.*復習.*する/u.test(jitenText),
         jitenExampleFrame: exampleFrame(jiten),
-        jitenAudioButtonCount: jiten?.querySelectorAll('.jpdb-reader-jiten-audio').length ?? 0,
-        hasJitenLocalFallbackCard: Boolean(jiten?.querySelector('.jpdb-reader-jiten-local-definitions, .jpdb-reader-jiten-local-entry')),
-        hasOpenInJitenButton: Boolean(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')) || /Jitenで開く|Open in Jiten/.test(jitenText),
+        jitenAudioButtonCount: queryCount(jiten, '.jpdb-reader-jiten-audio'),
+        hasJitenLocalFallbackCard: hasDescendant(jiten, '.jpdb-reader-jiten-local-definitions, .jpdb-reader-jiten-local-entry'),
+        hasOpenInJitenButton: hasDescendant(jiten, '.jpdb-reader-jiten-external-lookup') || /Jitenで開く|Open in Jiten/.test(jitenText),
     };
 }
 
@@ -381,7 +437,7 @@ function assertSurface(scenario, dom, requests, surface) {
     assertSourcePresence(scenario, dom, surface, expected);
     assertJpdbSurface(scenario, dom, surface, expected, settings);
     assertJitenSurface(scenario, dom, surface, expected);
-    assertBunproSurface(scenario, dom, surface, expected);
+    assertBunproSurface(scenario, dom, surface, expected, settings);
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
     assertRequestAuthState(scenario, surface, surfaceRequests);
@@ -415,32 +471,45 @@ function assertJitenSurface(scenario, dom, surface, expected) {
     assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
 }
 
-function assertBunproSurface(scenario, dom, surface, expected) {
+function assertBunproSurface(scenario, dom, surface, expected, settings) {
     if (!expected.bunpro) return;
     assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
-    assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
     assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
     assert(!dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro vocabulary repeated review answers`, dom);
-    assert(dom.bunproLearnerPos && !dom.bunproRawTags, `${scenario.label} ${surface}: Bunpro source leaked raw tags`, dom);
+    assert(dom.bunproLearnerPos, `${scenario.label} ${surface}: Bunpro source did not render learner-friendly part of speech`, dom);
+    assert(!dom.bunproRawTags, `${scenario.label} ${surface}: Bunpro source leaked raw tags`, dom);
     assert(dom.bunproExampleSentence, `${scenario.label} ${surface}: Bunpro source did not render detail examples`, dom);
-    assert(dom.bunproExampleReading, `${scenario.label} ${surface}: Bunpro example lost its exact upstream reading`, dom);
     assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
-    assert(dom.bunproSharedExampleRowCount >= 1 && dom.bunproImmersionCardCount === 0,
-        `${scenario.label} ${surface}: Bunpro examples did not use the shared Jiten/JPDB row layout`, dom);
-    assert(dom.bunproExampleFrame?.parentClassName.includes('jpdb-reader-jpdb-extras')
-        && dom.bunproExampleFrame.borderTopWidth === 0
-        && dom.bunproExampleFrame.borderRadius === 0,
-    `${scenario.label} ${surface}: Bunpro examples retained a nested card frame`, dom);
-    assert(dom.bunproExampleFrame.backgroundColor === dom.jitenExampleFrame?.backgroundColor
-        && dom.bunproExampleFrame.backgroundColor === dom.jpdbExampleFrame?.backgroundColor,
-    `${scenario.label} ${surface}: Bunpro examples did not match Jiten/JPDB background treatment`, dom);
-    assert(dom.bunproParseableRubyCount >= 1 && !dom.bunproHasInlineKanaBrackets,
-        `${scenario.label} ${surface}: Bunpro Japanese text did not hand furigana ownership to Yomu`, dom);
-    assert(['一般 #178', 'アニメ #793', '小説 #6,182', 'Netflix #778', '辞書 #40,271']
-        .every(label => dom.bunproFrequencyPills.includes(label)),
-    `${scenario.label} ${surface}: Bunpro corpus ranks were not all visible and separately labelled`, dom);
+    assert(dom.bunproSharedExampleRowCount >= 1, `${scenario.label} ${surface}: Bunpro examples did not use the shared Jiten/JPDB row layout`, dom);
+    assert(dom.bunproImmersionCardCount === 0, `${scenario.label} ${surface}: Bunpro examples retained immersion-card markup`, dom);
+    assertBunproExampleFrame(scenario, dom, surface);
+    assert(!dom.bunproHasInlineKanaBrackets, `${scenario.label} ${surface}: Bunpro Japanese text retained inline kana brackets`, dom);
+    assertBunproFrequencyEvidence(scenario, dom, surface);
     assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
     assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
+    if (!settings.bunproFrontendApiToken) return;
+    assert(dom.bunproReading, `${scenario.label} ${surface}: credentialed Bunpro source did not render reading`, dom);
+    assert(dom.bunproExampleReading, `${scenario.label} ${surface}: credentialed Bunpro example lost its exact upstream reading`, dom);
+    assert(dom.bunproParseableRubyCount >= 1, `${scenario.label} ${surface}: credentialed Bunpro Japanese text did not receive Yomu furigana`, dom);
+}
+
+function assertBunproExampleFrame(scenario, dom, surface) {
+    const frame = dom.bunproExampleFrame;
+    assert(frame, `${scenario.label} ${surface}: Bunpro example frame was missing`, dom);
+    assert(frame.parentClassName.includes('jpdb-reader-jpdb-extras'), `${scenario.label} ${surface}: Bunpro examples did not use the shared extras container`, dom);
+    assert(frame.borderTopWidth === 0, `${scenario.label} ${surface}: Bunpro examples retained a top border`, dom);
+    assert(frame.borderRadius === 0, `${scenario.label} ${surface}: Bunpro examples retained rounded corners`, dom);
+    assert(dom.jitenExampleFrame, `${scenario.label} ${surface}: Jiten comparison frame was missing`, dom);
+    assert(dom.jpdbExampleFrame, `${scenario.label} ${surface}: JPDB comparison frame was missing`, dom);
+    assert(frame.backgroundColor === dom.jitenExampleFrame.backgroundColor, `${scenario.label} ${surface}: Bunpro examples did not match Jiten background treatment`, dom);
+    assert(frame.backgroundColor === dom.jpdbExampleFrame.backgroundColor, `${scenario.label} ${surface}: Bunpro examples did not match JPDB background treatment`, dom);
+}
+
+function assertBunproFrequencyEvidence(scenario, dom, surface) {
+    assert(dom.bunproFrequencyPillText.includes('Bunpro #178'), `${scenario.label} ${surface}: Bunpro primary rank was missing`, dom);
+    for (const label of ['一般 #178', 'アニメ #793', '小説 #6,182', 'Netflix #778', '辞書 #40,271']) {
+        assert(dom.bunproFrequencyPillTitle.includes(label), `${scenario.label} ${surface}: Bunpro tooltip omitted ${label}`, dom);
+    }
 }
 
 function sourceExpectation(scenario, surface) {
@@ -451,7 +520,7 @@ function assertRequestAuthState(scenario, surface, requests) {
     const settings = createSettings(scenario.settings);
     assertJpdbRequestAuthState(scenario, surface, requests, settings);
     assertJitenRequestAuthState(scenario, surface, requests, settings);
-    assertBunproRequestAuthState(scenario, surface, requests);
+    assertBunproRequestAuthState(scenario, surface, requests, settings);
 }
 
 function assertJpdbRequestAuthState(scenario, surface, requests, settings) {
@@ -484,20 +553,42 @@ function assertJitenRequestAuthState(scenario, surface, requests, settings) {
     assert(jitenDefinitionRequests.every(request => request.hasAuthorization === Boolean(settings.jitenApiKey)), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
 }
 
-function assertBunproRequestAuthState(scenario, surface, requests) {
+function assertBunproRequestAuthState(scenario, surface, requests, settings) {
     const bunproRequests = requests.filter(request => request.host === 'api.bunpro.jp');
+    const detailRequests = bunproRequests.filter(request => request.path.startsWith('/api/frontend/reviewables/vocab/'));
     if (scenario.expect.bunpro) {
         assert(bunproRequests.some(request => request.path === '/api/frontend/search/reviewables_v1_1'), `${scenario.label} ${surface}: Bunpro search request was not recorded`, bunproRequests);
-        assert(bunproRequests.some(request => request.path.startsWith('/api/frontend/reviewables/vocab/')), `${scenario.label} ${surface}: Bunpro detail request was not recorded`, bunproRequests);
-        assert(bunproRequests.every(request => request.authorizationScheme === 'Bearer'), `${scenario.label} ${surface}: Bunpro auth state was wrong`, bunproRequests);
-        const searches = bunproRequests.filter(request => request.path === '/api/frontend/search/reviewables_v1_1');
-        assert(searches.every(request => request.body?.options?.include_reviews === false
-            && request.body?.options?.include_bookmarks === false
-            && request.body?.options?.include_notes === false),
-        `${scenario.label} ${surface}: Bunpro search requested private review/bookmark/note data`, searches);
+        assert(detailRequests.length >= 1, `${scenario.label} ${surface}: Bunpro detail request was not recorded`, bunproRequests);
     } else {
-        assert(bunproRequests.length === 0, `${scenario.label} ${surface}: Bunpro definition loaded without a token`, bunproRequests);
+        // Frequency ranks use the same anonymous search + detail endpoints as
+        // definition cards. Source absence is asserted from the DOM above;
+        // constrain disabled-mode traffic to those public lookup endpoints.
+        assert(bunproRequests.every(requestIsPublicBunproFrequencyLookup),
+        `${scenario.label} ${surface}: disabled Bunpro definitions made an unexpected request`, bunproRequests);
     }
+    const authenticated = Boolean(settings.bunproFrontendApiToken);
+    assert(bunproRequests.every(request => hasExpectedBunproAuth(request, authenticated)),
+    `${scenario.label} ${surface}: Bunpro auth state was wrong`, bunproRequests);
+    const searches = bunproRequests.filter(request => request.path === '/api/frontend/search/reviewables_v1_1');
+    assert(searches.every(bunproSearchOmitsPrivateData),
+    `${scenario.label} ${surface}: Bunpro search requested private review/bookmark/note data`, searches);
+}
+
+function requestIsPublicBunproFrequencyLookup(request) {
+    return request.path === '/api/frontend/search/reviewables_v1_1'
+        || request.path.startsWith('/api/frontend/reviewables/vocab/');
+}
+
+function hasExpectedBunproAuth(request, authenticated) {
+    if (request.hasAuthorization !== authenticated) return false;
+    if (!authenticated) return true;
+    return request.authorizationScheme === 'Bearer';
+}
+
+function bunproSearchOmitsPrivateData(request) {
+    const options = Object(request.body).options ?? {};
+    return [options.include_reviews, options.include_bookmarks, options.include_notes]
+        .every(value => value === false);
 }
 
 function summarizeRequests(requests) {
