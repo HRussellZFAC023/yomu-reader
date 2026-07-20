@@ -1,8 +1,8 @@
 # CUR-007 N3 mock-listening recovery batch
 
-**Frozen denominator stated before authoring:** **36 candidates**: all 28 items in Soya N3 mock 1 listening plus all 8 items in the official 2009 N3 listening sample. This batch is complete at **36/36**.
+**Frozen denominator stated before authoring:** **36 candidates**: all 28 items in Soya N3 mock 1 listening plus all 8 items in the official 2009 N3 listening sample. The item-level audit is complete at **36/36**.
 
-This is deliberately one coherent N3 batch, not a claim to have reviewed the full Soya corpus. The global Soya question map moves from 2 reviewed records to 29: 28 records are in this batch, one of those was already reviewed, and 27 are newly reviewed. The honest remaining denominator is **458/487**.
+This is one bounded N3 batch, not a claim to have reviewed the full Soya corpus. On 2026-07-20 the test recomputed the global figures from the local question map and source bank: 487 JLPT question-map rows, 2 previously reviewed Soya tasks, 1 overlap with this batch, and 28 audited batch items. The resulting totals are **29/487 reviewed** and **458/487 remaining**.
 
 ## Batch inventory
 
@@ -13,50 +13,53 @@ This is deliberately one coherent N3 batch, not a claim to have reviewed the ful
 | overview comprehension | 3 | 1 | `n3-mock-listening-03-overview` |
 | expression choice and spoken transfer | 4 | 1 | `n3-mock-listening-04-expression` |
 | quick response and spoken transfer | 9 | 2 | `n3-mock-listening-05-response` |
-| **Total** | **28** | **8** | **5 reachable packages** |
+| **Total** | **28** | **8** | **5 learner-route packages** |
 
-The canonical item ledger is `src/academy/content/n3-mock-listening/audit.ts`. Each of its 36 independent records contains the source family, exact portable locator, artifact SHA-256 and item/media SHA-256 where applicable, N3 source skill and function, dated rights evidence, wording verdict, answer availability and verdict, media availability and verdict, adaptation decision and learner skills, learner item, canonical concept, SRS identity, and reachable lesson ID.
+The canonical ledger is `src/academy/content/n3-mock-listening/audit.ts`. Every record has an exact extraction snapshot in its locator, an artifact hash, an item/media hash where applicable, a dated rights verdict, answer and wording verdicts, adaptation policy, canonical concept/SRS identity, and exact learner lesson ID.
 
-The Soya records are `mock1_l_01` through `mock1_l_28`, individually pinned to the source object and MP3 bytes. The official records are `p1-i1`, `p1-i2`, `p2-i1`, `p2-i2`, `p3-i1`, `p4-i1`, `p5-i1`, and `p5-i2`, individually located by question-book page, script page, answer-key item, and the shared official audio hash.
+The Soya census covers every discovered copy of `data/courses/jlpt_n3/mock1_listening.js`: `extracted-src-all` and `extracted-src` are the audited old snapshot (`2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71`); `extracted-src-latest` and `extracted-src-live-all` are the latest snapshot (`db5d2839c0d493d8dfd49f8c8badea430ccc68dad5d5bb09f01d89fdf0e6b8ee`). The old snapshot remains the item-audit authority and is not confused with the latest duplicate.
 
-## Recovery-index decision
+The official root census covers all five files: `N3-mondai.pdf`, `N3-script.pdf`, `N3-seikai.pdf`, root-level `N3-kaitou.pdf`, and `N3Sample.mp3`. Every official item locator pins the question snapshot and carries exact script, answer-key, answer-booklet, and shared-audio companion locators and hashes.
 
-The exhaustive `reuse/CUR-007.json` report was checked before continuing the batch. It has schema `yomu-academy.salvage-audit/v2`, SHA-256 `8ac26be01e9394c9ee8fc74553229dac92f2f5874f295835114598b8fb6648da`, and 308 selected candidates over 16,982 indexed sources. Its exact Soya/listening worktree candidate, `candidate-worktree-efa5ce66063b1e7ea9a19c50` from `source-worktree-284b47eeb09ce33c4bc31aff`, identifies this report, the six-file `n3-mock-listening` module, route/source-bank registration, and focused tests as one recoverable slice. That existing slice was retained and completed instead of opening a competing batch.
+## Rights and reuse policy
 
-The report's underlying caches were also checked. The 5,476-row transcript cache (SHA-256 `ec9f8e9f005ac1762a330b4a26fa1c1ca47842bbd0c7aebaf22481e576e10830`) contained only broad or incomplete discussions outside the recovered slice. The 2,410-row unreachable-commit cache (SHA-256 `ef9770ab6b685abcba514769ed6a735a5e9bc33a43058bd726cd6e61b4214bb1`) contained the already-landed N3 source-opening/listening-source-bank pattern, not another completed mock-listening payload.
+All 28 Soya records remain `blocked-no-redistribution-record`. All 8 official records remain `blocked-publication-use-not-cleared` under the [JLPT site policy](https://www.jlpt.jp/e/policy.html). Private availability and official web availability do not establish publication permission. No source recordings, protected source-specific wording, media, or answer structure ships.
 
-Commit `1234743f` is an ancestor of `origin/main` and remains the source-opening pattern, not a second content denominator. Existing `mock1_l_05` and `mock1_l_10` placement references were also inspected. Both recordings remain quarantined, and only `mock1_l_10` was one of the source bank's two previously selected Soya tasks. Neither prior reference satisfies the full reuse contract by itself. Every audit row therefore records `sourceContentReuse: none` and an item-specific adaptation note; no source wording, distractor, explanation, or media is recovered into learner content.
+`お先に失礼します。` is a conventional formula and is deliberately taught. It is not described as zero overlap: `mock1_l_19` records `sourceContentReuse: conventional-language-only`, the exact phrase, policy, source candidate, and old-snapshot source locator. Its university public-lecture cleanup context, distractors, explanation, and answer structure are independently authored. Other contexts and generic question stems that still matched source phrases were rewritten.
 
-## Rights and adaptation verdicts
+The policy is therefore: no protected source-specific wording, media, or answer structure; conventional language is allowed only with explicit phrase provenance. The source-backed test normalizes punctuation and Unicode, segments phrases, and runs longest-common-phrase comparison per item rather than relying only on whole-string containment. The only retained normalized overlap is the disclosed conventional formula.
 
-All 28 Soya records are `blocked-no-redistribution-record`. Their static answers are available and verified, and their private MP3s are byte-present, but private availability does not establish redistribution permission. Source wording and media are therefore `not-shippable`; each item maps only to an original Yomu mechanic adaptation.
+## Runtime sequence and repair
 
-All 8 official records are `blocked-publication-use-not-cleared`. The official question, script, answer, and audio artifacts are available, but the [JLPT site policy](https://www.jlpt.jp/e/policy.html) protects sample works, warns that third-party rights can be present, and does not clear publication inside this application. The [official N3 sample page](https://www.jlpt.jp/e/samples/sample09.html?mode=pc) is used only to calibrate the five listening formats. No official wording or media ships.
+The five packages are visible on the normal learner Class rail. Route projection preserves `sequence`, `prerequisites`, and `readerSrs.delayedReviewOf`; each sequence has its own n+1 recommendation. Later stops are honestly labelled as recommended-first but optional, with an explicit `Open anyway` override. A manual N3 entry is treated as the first package's placement-equivalent prerequisite, and an attempted predecessor unlocks the next recommendation.
 
-The learner payload is original Yomu Japanese. It preserves task function and difficulty shape without copying source wording, distractors, explanations, or recordings. Runtime modules depend only on the public batch identity and portable candidate IDs; detailed item hashes, media sizes, and rights evidence stay in the audit/test lane and are excluded from the learner bundle. The source bank still reports only **2 selected Soya recordings/tasks**; mechanic adaptations do not inflate licensed-media coverage. The overlap arithmetic counts only the already-selected `mock1_l_10`, so 2 prior reviewed records minus 1 overlap plus 28 completed candidates equals 29 reviewed and 458 remaining.
+Class navigation sends the exact package activity ID. Resume normalization repairs a missing or stale advanced `activityId` to that package's canonical activity instead of falling back to Lesson 0. The route integration test clicks each learner-visible Class stop, checks the intro, advances through teaching, and mounts the exact activity.
 
-## Learning sequence
+Delayed-review seeds from package n are emitted by package n+1 with reason `delayed-review` and a 24-hour `dueAfterMs`. Learner evidence and the canonical local Yomu deck preserve that due time. Current-package learning remains due under the normal immediate schedule; delayed n+1 cards are absent before the future due time and present when it arrives.
 
-The five packages form an ordered n+1 chain. Each begins with two teaching cues before any question, then moves through guided and independent practice. Later packages declare prerequisites and delayed review of earlier concepts. Misses create concept-specific repair seeds; later questions revisit cues after delay and in changed contexts. Expression choice and quick response end with original spoken-production transfer, while every package projects stable review targets into Reader/SRS identities.
+After any lapse, the submitted form is permanently settled. Answers are revealed once, controls stay disabled, repeated form submission cannot emit another evaluation, and the UI enters one bounded repair state. Mastery requires a newly mounted hidden-answer attempt containing changed-context work; persistence records the lapse and later fresh pass as two ordered attempts.
 
 ## C/R/T/S/O proof
 
 | Proof | Evidence |
 | --- | --- |
-| **C - canonical content** | `package.ts` owns 28 original learner items, teaching, sequence, transfer, and SRS projections; `plugin.ts` owns validation, playback, grading, repair, and post-commit reveal. |
-| **R - real reachability** | `advanced-curriculum.ts` exposes all five `advanced:n3-mock-listening-*` lesson IDs in sequence; `minigames/index.ts` registers the activity runtime; `learner-evidence.ts` validates and persists the exact advanced-route attempt and SRS seeds. |
-| **T - tests and validators** | `n3-mock-listening.test.ts` checks all 36 audit records, all 28 source-object, answer, and MP3 verdicts when the research root is present, all four official artifact hashes when the Japanese evidence root is present, no protected wording reuse, Japanese and unique answers, sequence, repair, delayed review, post-commit reveal, and real route/source-bank integration. |
-| **S - source boundaries** | `audit.ts` fails closed per item and records `sourceContentReuse: none`; the source bank records 29 reviewed, 28 mechanic-adapted, 458 remaining, while selected source recordings/tasks remain 2. No machine-specific path, protected wording, media bytes, or inferred licence from this batch enters Git. |
-| **O - observable denominator** | The audit validator fixes 36/36 and the 487-to-458 arithmetic; package provenance exposes exact source-candidate-to-learner-item mappings, and route tests make all five packages observable from canonical curriculum data. |
+| **C - canonical content** | `package.ts` owns 28 learner items, teaching, sequence, changed-context transfer, delayed targets, and SRS projections; `plugin.ts` owns validation, grading, one-shot reveal, and bounded repair. |
+| **R - real reachability** | `world-flow.ts` renders the runtime rail and navigates with an exact activity ID; `contract.ts` and `lesson-flow.ts` normalize advanced identity without a Lesson 0 fallback. |
+| **T - tests and validators** | Focused tests cover all 36 audit rows, four Soya copies, five official root files, normalized phrase overlap, prerequisites/override, future due time, lapse persistence, duplicate reveals, later fresh pass, and Class-to-activity routing. |
+| **S - source boundaries** | Official policy remains restrictive; source recordings and machine paths remain absent; `mock1_l_19` alone discloses conventional-language overlap. |
+| **O - observable denominator** | Local evidence recomputed 36/36 and global 29/487/458; the production browser gate opened all five routes at desktop and mobile widths and wrote its result under `qa-artifacts/n3-mock-listening-browser-proof`. |
 
 ## Verification
 
-- `npm run academy:source:validate`: passed.
-- Focused CUR-007, Japanese, answer, evidence, plugin, catalog, source-bank, worker-answer, and route-flow suite: 58 passed, 4 skipped by existing conditional fixtures.
+- Focused route, repair, prerequisites, schedule, catalog, and local-review suite: **70/70 passed**.
 - `npm run typecheck`: passed.
-- `npm run build:academy:prevalidated`: passed after the 28/28 Academy release lesson gates, with hosted assets synchronized.
-- A production-bundle scan found all 28 Soya item-object hashes, both rights-verdict strings, and 26 of 28 individual MP3 hashes absent from `dist/academy` and `docs/public/academy`. The only matches are the unchanged `mock1_l_05` and `mock1_l_10` recording hashes already present in the placement/source-bank runtime at `HEAD`; this batch introduces no new detailed audit hash or verdict into either bundle.
-- Real-route browser proof reached the first package with teaching before its six questions and reached/submitted the final package at 390 x 844. Before commitment it exposed 0 transcripts, 0 answer keys, and 0 model answers. After commitment it exposed 9 original transcripts, 9 answer keys, and 1 original model answer, persisted exactly one matching attempt plus the `〜なら大丈夫です` and `それなら` SRS cards, and had 0 horizontal overflow.
-- The latest full `npm run test:academy` completed with 1,928 passed, 8 skipped, and six failures: asset-ledger count, one human-UI menu label, the missing N3 source-opening Moodle raw manifest, two opening-route world-visit expectations, and permitted-source chronology. A detached check of those five files on comparison tip `34ee5016c` reproduced exactly 57 passed and the same 6 failures. `origin/main` subsequently advanced through release and generated-asset paths without changing the tested source files. The failures are outside this batch; focused checks for this change pass.
+- `npm run academy:source:validate`: source pipeline, library pipeline, and permitted corpus all passed.
+- `npm run build:academy`: **28/28** release lesson checks passed; production assets built and 26 allowlisted Academy entries synchronized.
+- `npm run qa:academy:n3-listening`: passed at **1440 x 900** and **390 x 844**. Both runs opened all five Class stops by keyboard, verified exact intro/activity identity, reported zero WCAG A/AA Axe violations and zero horizontal overflow, kept a revealed resubmit to one lapse/six reveals, and then recorded a fresh hidden-answer pass.
+- `git diff --check`: passed.
+- Branch-wide `npm run test:academy`: **1,933 passed, 8 skipped, 6 failed** before its isolated second phase. The failures are the inherited asset-ledger count, menu title, missing N3 source-opening raw manifest, two world-visit expectations, and permitted-source chronology; none is in this repair's changed behavior.
+- Detached current-main comparison at `e300a3cc875dc91adf9449f1a14be24991e38dda`: the full two-phase Academy suite passed with **1,966 passed and 9 skipped**. This repair does not absorb those unrelated mainline fixes.
+
+No private audio, protected source content, or machine-specific source path is shipped. Native-speaker/editorial review remains advisable for pragmatic naturalness and distractor quality, especially the independently authored expression-choice scenarios; automated provenance and grading checks cannot replace that judgement.
 
 This report closes only the selected N3 batch. It does not close CUR-007 globally and does not assert N5, N4, N2, or N1 coverage.

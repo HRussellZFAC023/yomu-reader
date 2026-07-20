@@ -23,7 +23,7 @@ const RESPONSE_CONCEPTS = Object.freeze(['speaking:n3-turn-response', 'listening
 
 const ACTION_QUESTIONS = Object.freeze([
     question(1, 'action', 'guided',
-        '文化祭の準備室で、先輩と学生が話しています。席札は並べ終わり、入口の案内も貼ってあります。ただ、受付名簿に一人追加されました。まず新しい名簿を三十部印刷してください。そのあと、マイクを舞台へ運びます。',
+        '文化祭の準備室です。先輩が学生に作業の変更を伝えます。席札は並べ終わり、入口の案内も貼ってあります。ただ、受付名簿に一人追加されました。まず新しい名簿を三十部印刷してください。そのあと、マイクを舞台へ運びます。',
         '学生はまず何をしますか。', 'What will the student do first?',
         [['名簿を印刷する', 'Print the roster'], ['マイクを運ぶ', 'Carry the microphone'], ['案内を貼る', 'Put up the sign'], ['席札を並べる', 'Arrange the name cards']], 0,
         '完了した作業を消し、「まず」の直後にある名簿の印刷を選びます。', 'Eliminate completed work and follow the action immediately after mazu.', 'action-completed-state', ACTION_CONCEPTS[0], 'official-jlpt:n3-2009-listening:p1-i1'),
@@ -57,14 +57,14 @@ const ACTION_QUESTIONS = Object.freeze([
 const POINT_QUESTIONS = Object.freeze([
     question(7, 'point', 'guided',
         '資料室へ来た人が遅れた理由を話しています。電車は時間どおりで、駅からの道にも迷いませんでした。ただ、建物の入口が工事中で、反対側の入口まで回らなければならなかったんです。',
-        '遅れた理由は何ですか。', 'Why was the visitor late?',
+        '到着が遅くなった原因を選んでください。', 'Choose what caused the late arrival.',
         [['電車が遅れたから', 'The train was delayed'], ['道に迷ったから', 'They got lost'], ['反対側の入口へ回ったから', 'They had to use the opposite entrance'], ['資料を忘れたから', 'They forgot the materials']], 2,
         '否定された理由を除き、入口工事による遠回りを選びます。', 'Remove the denied reasons and select the detour caused by entrance work.', 'point-elimination', POINT_CONCEPTS[1], 'official-jlpt:n3-2009-listening:p2-i1'),
     question(8, 'point', 'guided',
-        '学生が自習室を選んだ理由を話しています。新しい部屋ではなく、広さも普通で、料金も少し高めでした。それでも夜九時まで静かに使えることが、一番の決め手になりました。',
-        '自習室を選んだ決め手は何ですか。', 'What was the deciding factor?',
+        '学生が自習室を選んだ理由を話しています。新しい部屋ではなく、広さも普通で、料金も少し高めでした。それでも夜九時まで静かに使えることが、選択を左右しました。',
+        '自習室を選ぶうえで最も重要だった条件は何ですか。', 'Which condition mattered most when choosing the study room?',
         [['新しいこと', 'It is new'], ['広いこと', 'It is spacious'], ['料金が安いこと', 'It is inexpensive'], ['夜まで静かに使えること', 'It is quiet and open late']], 3,
-        '「それでも」の後に示される「一番の決め手」を取ります。', 'Take the deciding factor stated after soredemo.', 'point-deciding-factor', POINT_CONCEPTS[0], 'official-jlpt:n3-2009-listening:p2-i2'),
+        '「それでも」の後に示される、選択を左右した条件を取ります。', 'Take the condition that shaped the choice after soredemo.', 'point-deciding-factor', POINT_CONCEPTS[0], 'official-jlpt:n3-2009-listening:p2-i2'),
     question(9, 'point', 'independent',
         '地域イベントの感想です。スタッフは親切で、参加費も安く、内容も面白かったです。ただ、会場までの案内表示が少なくて、入口を見つけるのに時間がかかりました。',
         '話し手が改善してほしい点は何ですか。', 'What does the speaker want improved?',
@@ -72,7 +72,7 @@ const POINT_QUESTIONS = Object.freeze([
         '肯定的な評価を除き、「ただ」の後の案内表示を選びます。', 'Exclude the positive evaluations and follow the concern after tada.', 'point-contrast', POINT_CONCEPTS[1]),
     question(10, 'point', 'independent',
         '出張の経路を選んだ人が話しています。この電車は少し時間がかかり、窓からの景色も特別ではありません。でも、途中で乗り換えなくてよいので、荷物が多い今日はこの経路にしました。',
-        'この経路を選んだ理由は何ですか。', 'Why did the traveller choose this route?',
+        'この人がこの経路にした最大の要因を選んでください。', 'Choose the main factor behind this route choice.',
         [['最も速いから', 'It is fastest'], ['景色が良いから', 'The scenery is good'], ['乗り換えがないから', 'There is no transfer'], ['荷物を預けられるから', 'Luggage can be checked']], 2,
         '弱点の後にある実用上の利点、乗り換え不要が理由です。', 'The practical advantage after the drawbacks is having no transfer.', 'point-deciding-factor', POINT_CONCEPTS[0]),
     question(11, 'point', 'delayed-revisit',
@@ -107,25 +107,25 @@ const OVERVIEW_QUESTIONS = Object.freeze([
 
 const EXPRESSION_QUESTIONS = Object.freeze([
     question(16, 'expression', 'guided',
-        '先生に、応募メールの日本語を確認してもらいたいです。丁寧に何と言いますか。',
-        '最も適切な表現を選んでください。', 'Choose the most appropriate expression.',
+        '先生に、応募メールの日本語を確認してもらいたいです。先生への頼み方を考えます。',
+        'この依頼に合う発話を選びましょう。', 'Choose the utterance that fits this request.',
         [['このメール、今すぐ直して。', 'Fix this email right now.'], ['恐れ入りますが、このメールを確認していただけないでしょうか。', 'Could you please check this email?'], ['このメールは確認しなくてもいいです。', 'You do not need to check this email.']], 1,
         '負担のある依頼なので、前置きと「いただけないでしょうか」を使います。', 'A preface plus itadakenai deshou ka fits a request that imposes on the listener.', 'expression-request-register', EXPRESSION_CONCEPTS[1], 'official-jlpt:n3-2009-listening:p4-i1'),
     question(17, 'expression', 'independent',
-        '会議中とは知らず、部屋に入って話を止めてしまいました。何と言いますか。',
-        '最も適切な表現を選んでください。', 'Choose the most appropriate expression.',
-        [['会議中とは知らず、失礼しました。', 'I am sorry; I did not realise a meeting was in progress.'], ['会議を始めてください。', 'Please start the meeting.'], ['入ってよかったですね。', 'It was good that I entered.']], 0,
-        '事情を短く示し、「失礼しました」で迷惑を認めます。', 'State the circumstance briefly and acknowledge the interruption with shitsurei shimashita.', 'expression-apology', EXPRESSION_CONCEPTS[0]),
+        'オンライン発表中とは気づかず、共有画面に通知を出してしまいました。発表者にどう声をかけますか。',
+        '迷惑を認める発話を選びましょう。', 'Choose the utterance that acknowledges the interruption.',
+        [['発表中とは気づかず、失礼しました。', 'I am sorry; I did not realise the presentation was in progress.'], ['通知をもう一度出してください。', 'Please show the notification again.'], ['発表が止まってよかったですね。', 'It was good that the presentation stopped.']], 0,
+        '事情を短く示し、「失礼しました」で発表を妨げたことを認めます。', 'State the circumstance briefly and acknowledge interrupting the presentation with shitsurei shimashita.', 'expression-apology', EXPRESSION_CONCEPTS[0]),
     question(18, 'expression', 'delayed-revisit',
-        '急な雨で困っています。同僚の予備の傘を帰りまで借りたいです。何と言いますか。',
-        '最も適切な表現を選んでください。', 'Choose the most appropriate expression.',
-        [['その傘、使います。', 'I will use that umbrella.'], ['もしよければ、帰りまで傘を一本お借りしてもいいでしょうか。', 'If possible, may I borrow an umbrella until I leave?'], ['傘を買ってきてください。', 'Please go buy an umbrella.']], 1,
+        '出先で電池が少なくなりました。同僚の予備の充電器を会議が終わるまで借りたいです。どう頼みますか。',
+        '相手が断れる依頼を選びましょう。', 'Choose the request that leaves room to decline.',
+        [['その充電器、使います。', 'I will use that charger.'], ['もしよければ、会議が終わるまで充電器をお借りしてもいいでしょうか。', 'If possible, may I borrow the charger until the meeting ends?'], ['充電器を買ってきてください。', 'Please go buy a charger.']], 1,
         '相手の都合を残す「もしよければ」と許可を求める形が合います。', 'Moshi yokereba leaves room for the listener, and the permission form fits borrowing.', 'expression-permission', EXPRESSION_CONCEPTS[0]),
     question(19, 'expression', 'changed-context-transfer',
-        '自分の作業が終わり、まだ働いている先輩より先に職場を出ます。何と言いますか。',
-        '最も適切な表現を選んでください。', 'Choose the most appropriate expression.',
-        [['お先に失礼します。', 'Excuse me for leaving before you.'], ['いらっしゃいませ。', 'Welcome.'], ['お待たせしました。', 'Thank you for waiting.']], 0,
-        '職場で先に帰る場面には「お先に失礼します」が定型的に合います。', 'Osaki ni shitsurei shimasu conventionally fits leaving work before colleagues.', 'expression-workplace', EXPRESSION_CONCEPTS[0]),
+        '大学の公開講座の片付け中ですが、終電に間に合うため、残っている運営仲間より先に会場を出ます。仲間に声をかけます。',
+        '共同作業を先に抜ける発話を選びましょう。', 'Choose what to say when leaving shared work before the others.',
+        [['お先に失礼します。', 'Excuse me for leaving before you.'], ['少々お待ちください。', 'Please wait a moment.'], ['お疲れではありません。', 'You are not tired.']], 0,
+        '共同作業を先に抜けるときの定型として「お先に失礼します」が合います。', 'Osaki ni shitsurei shimasu is the conventional formula for leaving shared work before the others.', 'expression-workplace', EXPRESSION_CONCEPTS[0]),
 ]);
 
 const RESPONSE_QUESTIONS = Object.freeze([
@@ -212,52 +212,58 @@ const RESPONSE_PRODUCTION: N3MockListeningProduction = Object.freeze({
     conceptId: RESPONSE_CONCEPTS[0],
 });
 
+const ACTION_REVIEW_TARGETS = Object.freeze([
+    review('n3-mock-listening-01-action', 'state', ACTION_CONCEPTS[0], 'もう〜ました', ['already did ...'], ACTION_QUESTIONS[0].audioText, ['action-completed-state', 'action-remaining-task']),
+    review('n3-mock-listening-01-action', 'priority', ACTION_CONCEPTS[1], 'まず〜、そのあと〜', ['first ..., then ...'], ACTION_QUESTIONS[5].audioText, ['action-sequence', 'action-prerequisite']),
+]);
+const POINT_REVIEW_TARGETS = Object.freeze([
+    review('n3-mock-listening-02-point', 'elimination', POINT_CONCEPTS[1], '〜わけではない', ['it is not that ...'], POINT_QUESTIONS[0].audioText, ['point-elimination', 'point-contrast']),
+    review('n3-mock-listening-02-point', 'factor', POINT_CONCEPTS[0], '一番の決め手', ['the deciding factor'], POINT_QUESTIONS[1].audioText, ['point-deciding-factor', 'point-recommendation', 'point-emphasis']),
+]);
+const OVERVIEW_REVIEW_TARGETS = Object.freeze([
+    review('n3-mock-listening-03-overview', 'thread', OVERVIEW_CONCEPTS[0], '目的・現状・次の判断', ['purpose, current state, next decision'], OVERVIEW_QUESTIONS[0].audioText, ['overview-main-thread', 'overview-purpose']),
+    review('n3-mock-listening-03-overview', 'claim', OVERVIEW_CONCEPTS[1], '鍵は〜です', ['the key is ...'], OVERVIEW_QUESTIONS[2].audioText, ['overview-conclusion']),
+]);
+const EXPRESSION_REVIEW_TARGETS = Object.freeze([
+    review('n3-mock-listening-04-expression', 'request', EXPRESSION_CONCEPTS[1], '恐れ入りますが', ['I am sorry to trouble you, but ...'], EXPRESSION_PRODUCTION.modelAnswer, ['expression-request-register', 'expression-spoken-transfer']),
+    review('n3-mock-listening-04-expression', 'fit', EXPRESSION_CONCEPTS[0], 'お先に失礼します', ['excuse me for leaving before you'], EXPRESSION_QUESTIONS[3].audioText, ['expression-apology', 'expression-permission', 'expression-workplace']),
+]);
+const RESPONSE_REVIEW_TARGETS = Object.freeze([
+    review('n3-mock-listening-05-response', 'turn', RESPONSE_CONCEPTS[0], '〜なら大丈夫です', ['... works for me'], RESPONSE_QUESTIONS[1].audioText, ['response-confirmation', 'response-offer', 'response-correction', 'response-permission', 'response-spoken-transfer']),
+    review('n3-mock-listening-05-response', 'implication', RESPONSE_CONCEPTS[1], 'それなら', ['in that case'], RESPONSE_QUESTIONS[7].audioText, ['response-aspect', 'response-uncertainty', 'response-yet-plan', 'response-implication']),
+]);
+
 const PACKAGES = Object.freeze([
-    packageRecord(1, 'n3-mock-listening-01-action', 'task-comprehension', ACTION_CONCEPTS, ACTION_QUESTIONS, [], undefined,
+    packageRecord(1, 'n3-mock-listening-01-action', 'task-comprehension', ACTION_CONCEPTS, ACTION_QUESTIONS, [], [], undefined,
         [
             teaching('終わったことを消す', 'Remove completed actions', 'もう〜ました／〜てあります', '完了した作業は答えの候補から外します。', 'Remove actions already marked complete.'),
             teaching('順序語を固定する', 'Anchor sequence words', 'まず／そのあと／〜してから', '順序語の前後を一つの線として追います。', 'Follow what comes before and after each sequence cue.'),
         ],
-        [
-            review('n3-mock-listening-01-action', 'state', ACTION_CONCEPTS[0], 'もう〜ました', ['already did ...'], ACTION_QUESTIONS[0].audioText, ['action-completed-state', 'action-remaining-task']),
-            review('n3-mock-listening-01-action', 'priority', ACTION_CONCEPTS[1], 'まず〜、そのあと〜', ['first ..., then ...'], ACTION_QUESTIONS[5].audioText, ['action-sequence', 'action-prerequisite']),
-        ]),
-    packageRecord(2, 'n3-mock-listening-02-point', 'point-comprehension', POINT_CONCEPTS, POINT_QUESTIONS, ACTION_CONCEPTS, 'n3-mock-listening-01-action',
+        ACTION_REVIEW_TARGETS),
+    packageRecord(2, 'n3-mock-listening-02-point', 'point-comprehension', POINT_CONCEPTS, POINT_QUESTIONS, ACTION_CONCEPTS, ACTION_REVIEW_TARGETS, 'n3-mock-listening-01-action',
         [
             teaching('否定された候補を消す', 'Eliminate denied candidates', '〜ではありません／〜わけではない', '会話に出た語でも、否定されたものは根拠になりません。', 'A mentioned option is not evidence when the speaker rejects it.'),
             teaching('評価の中心を取る', 'Find the centre of evaluation', '一番の決め手／特に／ただ', '比較や対比の後に残る一点を取ります。', 'Take the one point left after comparison or contrast.'),
         ],
-        [
-            review('n3-mock-listening-02-point', 'elimination', POINT_CONCEPTS[1], '〜わけではない', ['it is not that ...'], POINT_QUESTIONS[0].audioText, ['point-elimination', 'point-contrast']),
-            review('n3-mock-listening-02-point', 'factor', POINT_CONCEPTS[0], '一番の決め手', ['the deciding factor'], POINT_QUESTIONS[1].audioText, ['point-deciding-factor', 'point-recommendation', 'point-emphasis']),
-        ]),
-    packageRecord(3, 'n3-mock-listening-03-overview', 'overview-comprehension', OVERVIEW_CONCEPTS, OVERVIEW_QUESTIONS, POINT_CONCEPTS, 'n3-mock-listening-02-point',
+        POINT_REVIEW_TARGETS),
+    packageRecord(3, 'n3-mock-listening-03-overview', 'overview-comprehension', OVERVIEW_CONCEPTS, OVERVIEW_QUESTIONS, POINT_CONCEPTS, POINT_REVIEW_TARGETS, 'n3-mock-listening-02-point',
         [
             teaching('詳細を三段に分ける', 'Group details into three moves', '目的→現状→次の判断', '数字や例を取る前に、話の進み方を三段で捉えます。', 'Capture the three-part movement before collecting details.'),
             teaching('最後の主張へ戻る', 'Return to the final claim', '大切なのは〜／鍵は〜', '最後のまとめが、それまでの例を束ねます。', 'The final summary ties the preceding examples together.'),
         ],
-        [
-            review('n3-mock-listening-03-overview', 'thread', OVERVIEW_CONCEPTS[0], '目的・現状・次の判断', ['purpose, current state, next decision'], OVERVIEW_QUESTIONS[0].audioText, ['overview-main-thread', 'overview-purpose']),
-            review('n3-mock-listening-03-overview', 'claim', OVERVIEW_CONCEPTS[1], '鍵は〜です', ['the key is ...'], OVERVIEW_QUESTIONS[2].audioText, ['overview-conclusion']),
-        ]),
-    packageRecord(4, 'n3-mock-listening-04-expression', 'expression-choice', EXPRESSION_CONCEPTS, EXPRESSION_QUESTIONS, OVERVIEW_CONCEPTS, 'n3-mock-listening-03-overview',
+        OVERVIEW_REVIEW_TARGETS),
+    packageRecord(4, 'n3-mock-listening-04-expression', 'expression-choice', EXPRESSION_CONCEPTS, EXPRESSION_QUESTIONS, OVERVIEW_CONCEPTS, OVERVIEW_REVIEW_TARGETS, 'n3-mock-listening-03-overview',
         [
             teaching('相手の負担を先に見る', 'Notice the burden on the listener', '恐れ入りますが／もしよければ', '依頼では、内容だけでなく相手が断れる余地も作ります。', 'A request should leave the listener room to decline.'),
             teaching('場面に合う定型を選ぶ', 'Choose the expression for the setting', '失礼しました／お先に失礼します', '似た謝罪でも、割り込みと退勤では定型が変わります。', 'Related apologies use different conventions for interruption and departure.'),
         ],
-        [
-            review('n3-mock-listening-04-expression', 'request', EXPRESSION_CONCEPTS[1], '恐れ入りますが', ['I am sorry to trouble you, but ...'], EXPRESSION_PRODUCTION.modelAnswer, ['expression-request-register', 'expression-spoken-transfer']),
-            review('n3-mock-listening-04-expression', 'fit', EXPRESSION_CONCEPTS[0], 'お先に失礼します', ['excuse me for leaving before you'], EXPRESSION_QUESTIONS[3].audioText, ['expression-apology', 'expression-permission', 'expression-workplace']),
-        ], EXPRESSION_PRODUCTION),
-    packageRecord(5, 'n3-mock-listening-05-response', 'quick-response', RESPONSE_CONCEPTS, RESPONSE_QUESTIONS, EXPRESSION_CONCEPTS, 'n3-mock-listening-04-expression',
+        EXPRESSION_REVIEW_TARGETS, EXPRESSION_PRODUCTION),
+    packageRecord(5, 'n3-mock-listening-05-response', 'quick-response', RESPONSE_CONCEPTS, RESPONSE_QUESTIONS, EXPRESSION_CONCEPTS, EXPRESSION_REVIEW_TARGETS, 'n3-mock-listening-04-expression',
         [
             teaching('返事の役割を一つに決める', 'Name the reply function', '確認／訂正／許可／提案', '文法を見る前に、相手が何を求めているか決めます。', 'Decide what the speaker needs before inspecting grammar.'),
             teaching('含まれた条件を受ける', 'Act on the implied condition', 'それなら／〜たところです', '直前の情報から、自然な次の一手を選びます。', 'Use the preceding information to choose the natural next move.'),
         ],
-        [
-            review('n3-mock-listening-05-response', 'turn', RESPONSE_CONCEPTS[0], '〜なら大丈夫です', ['... works for me'], RESPONSE_QUESTIONS[1].audioText, ['response-confirmation', 'response-offer', 'response-correction', 'response-permission', 'response-spoken-transfer']),
-            review('n3-mock-listening-05-response', 'implication', RESPONSE_CONCEPTS[1], 'それなら', ['in that case'], RESPONSE_QUESTIONS[7].audioText, ['response-aspect', 'response-uncertainty', 'response-yet-plan', 'response-implication']),
-        ], RESPONSE_PRODUCTION),
+        RESPONSE_REVIEW_TARGETS, RESPONSE_PRODUCTION),
 ]);
 
 export function createN3MockListeningPackage(id: N3MockListeningPackageId): N3MockListeningPackage {
@@ -275,12 +281,17 @@ function packageRecord(
     concepts: readonly string[],
     questions: readonly N3MockListeningQuestion[],
     delayedReviewOf: readonly string[],
+    delayedReviewTargets: readonly N3MockListeningReviewTarget[],
     previousPackageId: N3MockListeningPackageId | undefined,
     teachingPoints: readonly N3MockListeningTeachingPoint[],
     reviewTargets: readonly N3MockListeningReviewTarget[],
     production?: N3MockListeningProduction,
 ): N3MockListeningPackage {
-    const conceptIds = Object.freeze([...new Set([...concepts, ...(production ? [production.conceptId] : [])])]);
+    const conceptIds = Object.freeze([...new Set([
+        ...concepts,
+        ...delayedReviewOf,
+        ...(production ? [production.conceptId] : []),
+    ])]);
     const activity = Object.freeze({
         id: `activity:${id}`,
         kind: 'academy-n3-mock-listening' as const,
@@ -301,9 +312,16 @@ function packageRecord(
             sourceRecord: 'module-local:n3-mock-listening/audit.ts' as const,
             sourceCandidateIds: Object.freeze(questions.map(item => item.sourceCandidateId)),
             officialCalibrationIds: Object.freeze(questions.flatMap(item => item.officialCalibrationId ? [item.officialCalibrationId] : [])),
-            contentAuthorship: 'original-yomu' as const,
-            sourceWordingDelivered: false as const,
+            contentAuthorship: 'original-yomu-with-disclosed-conventional-language' as const,
+            protectedSourceWordingDelivered: false as const,
             sourceMediaDelivered: false as const,
+            conventionalLanguage: id === 'n3-mock-listening-04-expression'
+                ? Object.freeze([Object.freeze({
+                    phrase: 'お先に失礼します',
+                    policy: 'allowed-conventional-formula' as const,
+                    sourceCandidateId: 'soya:n3-mock1:mock1_l_19',
+                })])
+                : Object.freeze([]),
         }),
         payload: Object.freeze({
             mechanic,
@@ -311,6 +329,7 @@ function packageRecord(
             questions: Object.freeze(questions),
             ...(production ? { production } : {}),
             delayedReviewOf: Object.freeze([...delayedReviewOf]),
+            delayedReviewTargets: Object.freeze([...delayedReviewTargets]),
             passScore: 1,
             feedback: feedbackFor(mechanic),
             reviewTargets: Object.freeze(reviewTargets),

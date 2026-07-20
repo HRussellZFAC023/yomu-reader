@@ -27,11 +27,14 @@ export function createYomuLocalReviewService(
         },
         async ingest(seeds) {
             if (!seeds.length) return;
+            const ingestedAt = now();
             await Promise.all(seeds.map(seed => repository.collectAcademyVocabulary({
                 expression: seed.content.expression,
                 reading: seed.content.reading,
                 meanings: seed.content.meanings,
                 sentence: seed.content.sentence,
+                ...(seed.schedule ? { dueAt: ingestedAt + seed.schedule.dueAfterMs } : {}),
+                ...(seed.reason === 'delayed-review' ? { postponeExisting: true } : {}),
                 provenance: {
                     id: reviewSeedProvenanceId(seed),
                     kind: 'review-seed',

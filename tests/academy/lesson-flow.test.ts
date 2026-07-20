@@ -202,6 +202,7 @@ describe('Academy lesson flow', () => {
         const route = context('advanced:n3-pet-housing-01', {
             route: 'source-activity',
             selectedBand: 'n3',
+            activityId: 'activity:n3-pet-housing-immersion',
         });
         const flow = createLessonFlow({
             evidence: {

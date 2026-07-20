@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,7 @@ import {
 } from '../../src/academy/content/n3-mock-listening/package';
 import {
     createN3MockListeningRuntime,
+    N3_MOCK_LISTENING_REVIEW_DELAY_MS,
     n3MockListeningPlugin,
 } from '../../src/academy/content/n3-mock-listening/plugin';
 import {
@@ -22,12 +23,15 @@ import {
     type N3MockListeningResponse,
 } from '../../src/academy/content/n3-mock-listening/types';
 import { ACADEMY_LISTENING_SOURCE_BANK } from '../../src/academy/content/listening/source-bank/listening-source-bank';
-import { createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
+import { createMemoryLearnerEventRepository, projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
 import {
     ADVANCED_CURRICULUM,
+    advancedCurriculumRailForBand,
     advancedPackageIdFromLessonId,
 } from '../../src/academy/content/advanced-curriculum';
+import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
+import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 
 const SOYA_ROOT = process.env.YOMU_SOYA_RESEARCH_ROOT
     ?? path.resolve(process.cwd(), '../yomu/references/soya-research');
@@ -37,7 +41,10 @@ const OFFICIAL_ROOT = process.env.YOMU_JAPANESE_ROOT
 const OFFICIAL_N3_ROOT = path.join(OFFICIAL_ROOT, 'Official Sources/N3 Opening 2026-07-18/JLPT 2009');
 const AUDIT_RECORDS = new Map(CUR007_N3_MOCK_LISTENING_AUDIT.records.map(record => [record.id, record]));
 
-afterEach(() => document.body.replaceChildren());
+afterEach(() => {
+    document.body.replaceChildren();
+    localStorage.clear();
+});
 
 describe('CUR-007 N3 mock-listening recovery batch', () => {
     it('closes the frozen 36-item denominator with per-item fail-closed verdicts', () => {
@@ -54,12 +61,41 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
                 'quick-response': { soya: 9, official: 2 },
             },
         });
+        const sourceMapPath = path.join(SOYA_ROOT, 'listening-question-audio-map.json');
+        if (!existsSync(sourceMapPath)) return;
+        const sourceMap = JSON.parse(readFileSync(sourceMapPath, 'utf8')) as {
+            questions: Array<{ course: string; id: string }>;
+        };
+        const sourceBank = JSON.parse(readFileSync(
+            path.resolve('src/academy/content/listening/source-bank/listening-source-bank.v1.json'),
+            'utf8',
+        )) as { levels: Record<string, { sourceFamily?: string; tasks?: Array<{ sourceQuestionId: string }> }> };
+        const total = sourceMap.questions.filter(question => question.course.startsWith('jlpt_')).length;
+        const reviewedBeforeBatch = Object.values(sourceBank.levels)
+            .filter(level => level.sourceFamily === 'soya')
+            .flatMap(level => level.tasks ?? [])
+            .length;
+        const batchIds = new Set(CUR007_N3_MOCK_LISTENING_AUDIT.records
+            .filter(record => record.sourceFamily === 'soya')
+            .map(record => record.id.split(':').at(-1)!));
+        const overlapWithBatch = Object.values(sourceBank.levels)
+            .filter(level => level.sourceFamily === 'soya')
+            .flatMap(level => level.tasks ?? [])
+            .filter(task => batchIds.has(task.sourceQuestionId))
+            .length;
+        const newlyReviewed = CUR007_N3_MOCK_LISTENING_AUDIT.denominator.soya - overlapWithBatch;
+        const reviewedAfterBatch = reviewedBeforeBatch + newlyReviewed;
         expect(CUR007_N3_MOCK_LISTENING_AUDIT.globalSoyaQuestionMap).toEqual({
-            total: 487,
-            reviewedBeforeBatch: 2,
-            overlapWithBatch: 1,
-            newlyReviewed: 27,
+            total,
+            reviewedBeforeBatch,
+            overlapWithBatch,
+            newlyReviewed,
+            reviewedAfterBatch,
+            remaining: total - reviewedAfterBatch,
+        });
+        expect({ reviewedAfterBatch, total, remaining: total - reviewedAfterBatch }).toEqual({
             reviewedAfterBatch: 29,
+            total: 487,
             remaining: 458,
         });
         for (const record of CUR007_N3_MOCK_LISTENING_AUDIT.records) {
@@ -75,17 +111,44 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             expect(record.reachability.lessonId).toBe(`advanced:${record.adaptation.packageId}`);
             expect(record.canonical.srsIdentity).toMatch(/^srs:cur007:/u);
             expect(record.adaptation.learnerSkills).toContain('listening');
-            expect(record.adaptation).toMatchObject({ sourceContentReuse: 'none' });
             expect(record.adaptation.note.length).toBeGreaterThanOrEqual(20);
         }
+        const conventional = CUR007_N3_MOCK_LISTENING_AUDIT.records
+            .filter(record => record.adaptation.sourceContentReuse !== 'none');
+        expect(conventional).toEqual([expect.objectContaining({
+            id: 'soya:n3-mock1:mock1_l_19',
+            adaptation: expect.objectContaining({
+                sourceContentReuse: 'conventional-language-only',
+                conventionalLanguage: [expect.objectContaining({ phrase: 'お先に失礼します' })],
+            }),
+        })]);
         expect(new Set(CUR007_N3_MOCK_LISTENING_AUDIT.records.map(record => record.canonical.srsIdentity)).size).toBe(28);
     });
 
     it('pins all 28 private Soya source objects and audio payloads when the research root is present', async () => {
         if (!existsSync(SOYA_SOURCE)) return;
         expect(await sha256File(SOYA_SOURCE)).toBe('2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71');
+        const relativeSource = 'data/courses/jlpt_n3/mock1_listening.js';
+        const actualSnapshots = readdirSync(SOYA_ROOT, { withFileTypes: true })
+            .filter(entry => entry.isDirectory())
+            .map(entry => path.join(entry.name, relativeSource))
+            .filter(locator => existsSync(path.join(SOYA_ROOT, locator)))
+            .sort();
+        const auditedSnapshots = CUR007_N3_MOCK_LISTENING_AUDIT.sourceCensus.soyaExtractionSnapshots;
+        expect(actualSnapshots).toEqual(auditedSnapshots
+            .map(artifact => artifact.locator.replace(/^soya-research\//u, ''))
+            .sort());
+        for (const artifact of auditedSnapshots) {
+            const filePath = path.join(SOYA_ROOT, artifact.locator.replace(/^soya-research\//u, ''));
+            expect(await sha256File(filePath), artifact.role).toBe(artifact.sha256);
+        }
+        expect(new Set(auditedSnapshots.map(artifact => artifact.sha256))).toEqual(new Set([
+            '2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71',
+            'db5d2839c0d493d8dfd49f8c8badea430ccc68dad5d5bb09f01d89fdf0e6b8ee',
+        ]));
         const sourceItems = loadExternalSoyaItems();
         const learnerBatch = JSON.stringify(N3_MOCK_LISTENING_PACKAGES);
+        const phraseAudit: Array<{ id: string; overlaps: string[]; disclosed: string[] }> = [];
         expect(sourceItems).toHaveLength(28);
         for (const item of sourceItems) {
             const record = AUDIT_RECORDS.get(`soya:n3-mock1:${item.id}`);
@@ -94,7 +157,7 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             expect(Array.isArray(item.answers), item.id).toBe(true);
             expect(item.answers, item.id).toHaveLength(1);
             expect(answerResolvesToOption(item.answers, item.options), item.id).toBe(true);
-            const audioPath = path.join(SOYA_ROOT, 'audio-public', record!.media.locator);
+            const audioPath = path.join(SOYA_ROOT, record!.media.locator.replace(/^soya-research\//u, ''));
             expect(statSync(audioPath).size, item.id).toBe(record?.media.bytes);
             expect(await sha256File(audioPath), item.id).toBe(record?.media.sha256);
 
@@ -116,12 +179,26 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
                 expect(learnerWording, `${item.id} question: ${value.slice(0, 12)}`).not.toContain(value);
                 expect(learnerBatch, `${item.id} batch: ${value.slice(0, 12)}`).not.toContain(value);
             });
+
+            const phraseOverlaps = normalizedPhraseOverlaps(item, learnerQuestion!);
+            const disclosed = record?.adaptation.conventionalLanguage?.map(overlap => normalizePhrase(overlap.phrase)) ?? [];
+            phraseAudit.push({ id: item.id, overlaps: phraseOverlaps, disclosed });
         }
+        expect(phraseAudit.map(result => ({
+            id: result.id,
+            overlaps: result.overlaps,
+            disclosed: result.disclosed,
+        }))).toEqual(phraseAudit.map(result => ({
+            id: result.id,
+            overlaps: result.disclosed,
+            disclosed: result.disclosed,
+        })));
     }, 30_000);
 
     it('pins the official question, script, answer, and audio artifacts when the Japanese evidence root is present', async () => {
         if (!existsSync(OFFICIAL_N3_ROOT)) return;
         const expected = new Map([
+            ['N3-kaitou.pdf', '0c03f0ae90fef2669ca96f611e4ebeae0823409eb4e504ba4f731fe16d53d12b'],
             ['N3-mondai.pdf', 'ba622e5b3a1d0de40cc390c1abe3aba7928948a3242b88e3afe45b391e8b7444'],
             ['N3-script.pdf', '46d69fb5969fd5e38dc394b23c626139908fc7d0b1eecd97ed9196438cbb8b97'],
             ['N3-seikai.pdf', 'd143b461b95ecc347fe674251aed30ce4eef1a79af4327c9ce0ee6af6f8861d5'],
@@ -130,6 +207,10 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
         for (const [fileName, hash] of expected) {
             expect(await sha256File(path.join(OFFICIAL_N3_ROOT, fileName)), fileName).toBe(hash);
         }
+        expect(readdirSync(OFFICIAL_N3_ROOT).sort()).toEqual([...expected.keys()].sort());
+        expect(CUR007_N3_MOCK_LISTENING_AUDIT.sourceCensus.officialRootArtifacts
+            .map(artifact => [path.basename(artifact.locator), artifact.sha256]).sort())
+            .toEqual([...expected.entries()].sort());
         const officialRecords = CUR007_N3_MOCK_LISTENING_AUDIT.records.filter(record => record.sourceFamily === 'official-jlpt');
         expect(officialRecords).toHaveLength(8);
         officialRecords.forEach(record => {
@@ -139,9 +220,10 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
                 checkedOn: '2026-07-20',
             });
             expect(record.wording.verdict).toBe('not-shippable-format-calibration-only');
-            expect(record.source.companionArtifactSha256).toEqual([
+            expect(record.source.companionArtifacts?.map(artifact => artifact.sha256)).toEqual([
                 expected.get('N3-script.pdf'),
                 expected.get('N3-seikai.pdf'),
+                expected.get('N3-kaitou.pdf'),
                 expected.get('N3Sample.mp3'),
             ]);
         });
@@ -167,8 +249,8 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
         N3_MOCK_LISTENING_PACKAGES.forEach((packageRecord, index) => {
             expect(createN3MockListeningPackage(packageRecord.id)).toBe(packageRecord);
             expect(packageRecord.activity.provenance).toMatchObject({
-                contentAuthorship: 'original-yomu',
-                sourceWordingDelivered: false,
+                contentAuthorship: 'original-yomu-with-disclosed-conventional-language',
+                protectedSourceWordingDelivered: false,
                 sourceMediaDelivered: false,
             });
             expect(packageRecord.activity.payload.teaching).toHaveLength(2);
@@ -242,7 +324,14 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             const response = correctResponse(packageRecord.activity);
             const pass = runtime.evaluate(packageRecord.activity, response);
             expect(pass.result).toMatchObject({ outcome: 'pass', score: 1, errorTags: [] });
-            expect(pass.reviewSeeds.every(seed => seed.reason === 'new-learning')).toBe(true);
+            expect(pass.reviewSeeds.filter(seed => seed.reason !== 'delayed-review')
+                .every(seed => seed.reason === 'new-learning')).toBe(true);
+            expect(pass.reviewSeeds.filter(seed => seed.reason !== 'delayed-review')
+                .every(seed => seed.schedule === undefined)).toBe(true);
+            expect(pass.reviewSeeds.filter(seed => seed.reason === 'delayed-review')
+                .every(seed => seed.schedule?.dueAfterMs === N3_MOCK_LISTENING_REVIEW_DELAY_MS)).toBe(true);
+            expect(pass.reviewSeeds.filter(seed => seed.reason === 'delayed-review').map(seed => seed.conceptId).sort())
+                .toEqual([...packageRecord.activity.payload.delayedReviewOf].sort());
         }
 
         const point = N3_MOCK_LISTENING_PACKAGES[1].activity;
@@ -294,6 +383,139 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             ...evaluation,
             attempt: { ...evaluation.attempt, activityId: 'activity:not-this-package' },
         }, `advanced:${packageRecord.id}`)).rejects.toThrow(/does not match/u);
+    });
+
+    it('projects prerequisites as an n+1 recommendation with a placement equivalent and explicit override', () => {
+        const curriculumEntry = {
+            schemaVersion: 1 as const,
+            eventId: 'entry:n3',
+            at: 1,
+            kind: 'curriculum-entry-chosen' as const,
+            route: 'manual-band' as const,
+            band: 'n3' as const,
+        };
+        const initial = advancedCurriculumRailForBand('n3', projectLearnerRecord([curriculumEntry]))
+            .filter(entry => entry.curriculum.id.startsWith('n3-mock-listening-'));
+        expect(initial.map(entry => entry.state)).toEqual(['recommended', 'gated', 'gated', 'gated', 'gated']);
+        expect(initial[0]?.curriculum).toMatchObject({
+            sequence: { ordinal: 1 },
+            prerequisites: [expect.objectContaining({ conceptId: 'listening:n4-sequence-cues' })],
+            delayedReviewOf: [],
+        });
+        expect(initial[1]?.curriculum).toMatchObject({
+            sequence: { ordinal: 2, previousPackageId: 'n3-mock-listening-01-action' },
+            prerequisites: [expect.objectContaining({ minimumEvidence: 'introduced-and-attempted' })],
+            delayedReviewOf: ['listening:n3-action-state', 'listening:n3-action-priority'],
+        });
+
+        const attempted = projectLearnerRecord([curriculumEntry, {
+            schemaVersion: 1,
+            eventId: 'attempt:first',
+            at: 2,
+            kind: 'attempt-recorded',
+            activityId: N3_MOCK_LISTENING_PACKAGES[0].activity.id,
+            sourceQuestionId: N3_MOCK_LISTENING_PACKAGES[0].activity.sourceQuestionId,
+            conceptIds: N3_MOCK_LISTENING_PACKAGES[0].activity.conceptIds,
+            responseKind: N3_MOCK_LISTENING_PACKAGES[0].activity.responseKind,
+            outcome: 'lapse',
+        }]);
+        const afterAttempt = advancedCurriculumRailForBand('n3', attempted)
+            .filter(entry => entry.curriculum.id.startsWith('n3-mock-listening-'));
+        expect(afterAttempt.map(entry => entry.state)).toEqual(['repair', 'recommended', 'gated', 'gated', 'gated']);
+        expect(advancedCurriculumRailForBand('n3', attempted, true)
+            .filter(entry => entry.curriculum.id.startsWith('n3-mock-listening-'))
+            .every(entry => entry.state !== 'gated')).toBe(true);
+    });
+
+    it('closes a revealed lapse form, persists it once, and permits only a fresh hidden-answer pass', async () => {
+        const packageRecord = N3_MOCK_LISTENING_PACKAGES[0];
+        const runtime = createN3MockListeningRuntime();
+        const repository = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(repository, {
+            async ingest() {},
+            async due() { return []; },
+            async rate() {},
+        });
+        await evidence.initialize();
+        const hostElement = document.createElement('main');
+        const onEvaluation = vi.fn(evaluation => evidence.recordActivity(evaluation, `advanced:${packageRecord.id}`));
+        const mount = () => runtime.mount(packageRecord.activity, {
+            language: 'en',
+            replace(view) { hostElement.replaceChildren(view); },
+            announce() {},
+            registerReadingSurface() { return () => undefined; },
+        }, onEvaluation);
+
+        const first = mount();
+        completeForm(hostElement, packageRecord.activity);
+        const firstQuestion = packageRecord.activity.payload.questions[0];
+        const wrong = firstQuestion.options.find(option => option.id !== firstQuestion.correctOptionId)!;
+        hostElement.querySelector<HTMLInputElement>(`input[name="${firstQuestion.id}"][value="${wrong.id}"]`)!.checked = true;
+        hostElement.querySelector<HTMLFormElement>('form')!.requestSubmit();
+        await vi.waitFor(() => expect(hostElement.querySelector('[data-repair-state="revealed-attempt-closed"]')).not.toBeNull());
+        hostElement.querySelector<HTMLFormElement>('form')!.requestSubmit();
+        await Promise.resolve();
+
+        expect(onEvaluation).toHaveBeenCalledOnce();
+        expect(hostElement.querySelector<HTMLElement>('[data-activity-id]')?.dataset.attemptState).toBe('repair');
+        expect(hostElement.querySelector('form')?.getAttribute('data-answer-assisted')).toBe('true');
+        expect(hostElement.querySelectorAll('[data-answer-key="after-attempt"]')).toHaveLength(6);
+        expect(evidence.projection.activities[packageRecord.activity.id]).toMatchObject({
+            attemptCount: 1,
+            lapseCount: 1,
+            lastOutcome: 'lapse',
+        });
+        first.dispose();
+
+        const fresh = mount();
+        expect(hostElement.querySelector('[data-answer-key]')).toBeNull();
+        expect(hostElement.querySelector<HTMLElement>('[data-activity-id]')?.dataset.attemptState).toBe('answering');
+        completeForm(hostElement, packageRecord.activity);
+        hostElement.querySelector<HTMLFormElement>('form')!.requestSubmit();
+        await vi.waitFor(() => expect(evidence.projection.activities[packageRecord.activity.id]?.lastOutcome).toBe('pass'));
+        expect(evidence.projection.activities[packageRecord.activity.id]).toMatchObject({
+            attemptCount: 2,
+            lapseCount: 1,
+            lastOutcome: 'pass',
+        });
+        fresh.dispose();
+    });
+
+    it('schedules delayed n+1 review cards at a real future due time', async () => {
+        let now = Date.parse('2026-07-20T09:00:00.000Z');
+        const repository = new LocalYomuSrsRepository(() => now);
+        const events = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(
+            events,
+            createYomuLocalReviewService(repository, () => now),
+            undefined,
+            { now: () => now },
+        );
+        const previousPackage = N3_MOCK_LISTENING_PACKAGES[0];
+        const packageRecord = N3_MOCK_LISTENING_PACKAGES[1];
+        const previousEvaluation = createN3MockListeningRuntime().evaluate(
+            previousPackage.activity,
+            correctResponse(previousPackage.activity),
+        );
+        const evaluation = createN3MockListeningRuntime().evaluate(packageRecord.activity, correctResponse(packageRecord.activity));
+        await evidence.initialize();
+        await evidence.recordActivity(previousEvaluation, `advanced:${previousPackage.id}`);
+        expect(await evidence.dueReviews(20)).toHaveLength(previousEvaluation.reviewSeeds.length);
+        await evidence.recordActivity(evaluation, `advanced:${packageRecord.id}`);
+
+        expect(evaluation.reviewSeeds.filter(seed => seed.reason === 'delayed-review').map(seed => seed.conceptId).sort())
+            .toEqual([...packageRecord.activity.payload.delayedReviewOf].sort());
+        const schedules = (await events.readAll()).filter(event => event.kind === 'review-scheduled');
+        const delayedCount = evaluation.reviewSeeds.filter(seed => seed.reason === 'delayed-review').length;
+        const currentCount = evaluation.reviewSeeds.length - delayedCount;
+        expect(schedules).toHaveLength(previousEvaluation.reviewSeeds.length + evaluation.reviewSeeds.length);
+        expect(schedules.filter(event => event.dueAt === now + N3_MOCK_LISTENING_REVIEW_DELAY_MS))
+            .toHaveLength(delayedCount);
+        expect(schedules.filter(event => event.dueAt === now))
+            .toHaveLength(previousEvaluation.reviewSeeds.length + currentCount);
+        expect(await evidence.dueReviews(20)).toHaveLength(currentCount);
+        now += N3_MOCK_LISTENING_REVIEW_DELAY_MS;
+        expect(await evidence.dueReviews(20)).toHaveLength(currentCount + delayedCount);
     });
 
     it('teaches before practice and reveals only original transcripts, answers, and models after commitment', async () => {
@@ -374,6 +596,56 @@ function collectStrings(value: unknown): string[] {
     if (Array.isArray(value)) return value.flatMap(collectStrings);
     if (value && typeof value === 'object') return Object.values(value).flatMap(collectStrings);
     return [];
+}
+
+function normalizedPhraseOverlaps(source: unknown, learner: unknown): string[] {
+    const sourcePhrases = collectStrings(source)
+        .flatMap(phraseSegments)
+        .filter(value => value.length >= 7);
+    const learnerPhrases = collectStrings(learner)
+        .flatMap(phraseSegments)
+        .filter(value => value.length >= 7);
+    const overlaps = new Set<string>();
+    for (const sourcePhrase of sourcePhrases) {
+        for (const learnerPhrase of learnerPhrases) {
+            const overlap = longestCommonPhrase(sourcePhrase, learnerPhrase);
+            if (overlap) overlaps.add(overlap);
+        }
+    }
+    return [...overlaps]
+        .filter(candidate => ![...overlaps].some(other => other !== candidate && other.includes(candidate)))
+        .sort();
+}
+
+function phraseSegments(value: string): string[] {
+    return value.split(/[\s、。！？「」『』（）［］【】…,:;!?]+/u)
+        .map(normalizePhrase)
+        .filter(segment => /[ぁ-んァ-ヶ一-龠]/u.test(segment));
+}
+
+function longestCommonPhrase(source: string, learner: string, minimumLength = 7): string | undefined {
+    const previous = new Array<number>(learner.length + 1).fill(0);
+    let longest = 0;
+    let sourceEnd = 0;
+    for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex++) {
+        for (let learnerIndex = learner.length; learnerIndex >= 1; learnerIndex--) {
+            previous[learnerIndex] = source[sourceIndex - 1] === learner[learnerIndex - 1]
+                ? previous[learnerIndex - 1]! + 1
+                : 0;
+            if (previous[learnerIndex]! > longest) {
+                longest = previous[learnerIndex]!;
+                sourceEnd = sourceIndex;
+            }
+        }
+    }
+    return longest >= minimumLength ? source.slice(sourceEnd - longest, sourceEnd) : undefined;
+}
+
+function normalizePhrase(value: string): string {
+    return value.normalize('NFKC')
+        .replace(/^[0-9]+/u, '')
+        .replace(/[\s\p{P}\p{S}]/gu, '')
+        .toLocaleLowerCase('ja');
 }
 
 function answerResolvesToOption(answers: unknown, options: unknown): boolean {

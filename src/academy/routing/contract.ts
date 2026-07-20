@@ -6,6 +6,10 @@ import { worldLocationTheme } from '../vn/world-location-audio';
 import type { AcademyCheckpoint, AcademyRoute } from '../persistence/indexeddb';
 import type { AcademyNavigation } from '../ui/shell';
 import {
+    advancedPackageIdFromLessonId,
+    resolveAdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
+import {
     ACADEMY_ROUTES,
     academyRouteKind,
     transitionAcademyRoute,
@@ -62,7 +66,15 @@ export function normalizeResumeCheckpoint(
     if (normalized.route === 'band-entry' && !normalized.selectedBand && projection.curriculumEntry?.band) {
         normalized = { ...normalized, selectedBand: projection.curriculumEntry.band, updatedAt: now };
     }
-    if (normalized.route === 'source-activity' && (!normalized.lessonId || !normalized.activityId)) {
+    const advancedPackageId = normalized.route === 'source-activity'
+        ? advancedPackageIdFromLessonId(normalized.lessonId)
+        : undefined;
+    if (advancedPackageId) {
+        const entry = resolveAdvancedCurriculumEntry(advancedPackageId);
+        if (normalized.activityId !== entry.activity.id) {
+            normalized = { ...normalized, lessonId: entry.lessonId, activityId: entry.activity.id, updatedAt: now };
+        }
+    } else if (normalized.route === 'source-activity' && (!normalized.lessonId || !normalized.activityId)) {
         normalized = {
             ...transitionCheckpoint(normalized, { kind: 'replace', route: 'lesson-overview' }, now),
             lessonId: 'lesson:foundation-00',

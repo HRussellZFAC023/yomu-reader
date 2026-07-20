@@ -86,7 +86,7 @@
 
 ### Added
 
-- Yomu Academy now includes a five-stage N3 mock-listening route with original teaching, guided and independent practice, targeted repair, delayed SRS review, changed-context transfer, and speaking prompts. Its 36-item CUR-007 audit records rights, wording, answer, and media decisions item by item while keeping all uncleared source wording and recordings out of the product.
+- Yomu Academy now includes a five-stage N3 mock-listening route with original teaching, guided and independent practice, targeted repair, delayed SRS review, changed-context transfer, and speaking prompts. Its 36-item CUR-007 audit records rights, wording, answer, and media decisions item by item while keeping protected source-specific wording and recordings out of the product and explicitly disclosing conventional-language overlap.
 - The documentation navbar and README now link to Stripe support, with Patreon and Ko-fi entries ready to appear only after their public pages are verified.
 - Yomu Academy now has a canonical, verified-provider foundation for granting payment entitlements without duplicate events. Provider accounts still need to be connected and published, and ordinary Stripe support donations remain support-only unless Academy owns the checkout.
 

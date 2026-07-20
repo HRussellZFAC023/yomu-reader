@@ -113,12 +113,18 @@ export interface AuthoredStoryPracticeEvidence {
     readonly reviewSeed: ReviewSeed;
 }
 
+export interface LearnerEvidenceOptions {
+    readonly now?: () => number;
+}
+
 export function createLearnerEvidence(
     repository: LearnerEventRepository,
     review: ReviewQueueService,
     groundedLessons: GroundedLessonResolver = createGroundedLessonResolver(),
+    options: LearnerEvidenceOptions = {},
 ): LearnerEvidence {
-    return new DefaultLearnerEvidence(createLearnerRecord({ repository }), review, groundedLessons);
+    const now = options.now ?? Date.now;
+    return new DefaultLearnerEvidence(createLearnerRecord({ repository, now }), review, groundedLessons, now);
 }
 
 class DefaultLearnerEvidence implements LearnerEvidence {
@@ -129,6 +135,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
         private readonly record: LearnerRecord,
         private readonly review: ReviewQueueService,
         private readonly groundedLessons: GroundedLessonResolver,
+        private readonly now: () => number,
     ) {}
 
     get projection(): LearnerProjection {
@@ -364,7 +371,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                     eventId: `review-scheduled:story:${practice.activityId}:${practice.reviewSeed.conceptId}`,
                     reviewItemId: itemId,
                     conceptId: practice.reviewSeed.conceptId,
-                    dueAt: Date.now(),
+                    dueAt: this.now(),
                     provenance: { activity: practice.activityId, chapter: practice.chapterId },
                 });
             }
@@ -398,11 +405,14 @@ class DefaultLearnerEvidence implements LearnerEvidence {
     ): Promise<void> {
         if (!seeds.length) return;
         await this.review.ingest(seeds);
+        const scheduledAt = this.now();
         const unscheduled = new Map<string, ReviewSeed>();
         for (const seed of seeds) {
             const itemId = reviewItemId(seed);
             const legacyItemId = `yomu-local:${seed.id}`;
-            if (this.projection.scheduledReviews[itemId] || this.projection.scheduledReviews[legacyItemId]) continue;
+            const scheduleEventId = `review-scheduled:academy:${seed.id}`;
+            const existing = this.projection.scheduledReviews[itemId] ?? this.projection.scheduledReviews[legacyItemId];
+            if (existing && (seed.reason !== 'delayed-review' || existing.eventId === scheduleEventId)) continue;
             unscheduled.set(itemId, unscheduled.get(itemId) ?? seed);
         }
         await this.record.recordMany([...unscheduled].map(([itemId, seed]) => ({
@@ -410,7 +420,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
             eventId: `review-scheduled:academy:${seed.id}`,
             reviewItemId: itemId,
             conceptId: seed.conceptId,
-            dueAt: Date.now(),
+            dueAt: scheduledAt + (seed.schedule?.dueAfterMs ?? 0),
             provenance: provenance(seed),
         })));
     }

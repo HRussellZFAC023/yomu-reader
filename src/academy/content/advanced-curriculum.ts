@@ -1,5 +1,5 @@
 import type { ActivityModel } from '../domain/activity-runtime';
-import type { JlptBand } from '../domain/learner-record';
+import type { JlptBand, LearnerProjection } from '../domain/learner-record';
 import type { LocalizedText } from '../domain/source-library';
 import {
     N3_SOURCE_OPENING_PACKAGE_IDS,
@@ -82,6 +82,25 @@ export interface AdvancedCurriculumEntry<
     readonly packageId: PackageId;
     readonly lessonId: `advanced:${PackageId}`;
     readonly activity: Model;
+    readonly sequence?: Readonly<{
+        ordinal: number;
+        previousPackageId?: AdvancedPackageId;
+    }>;
+    readonly prerequisites: readonly Readonly<{
+        conceptId: string;
+        minimumEvidence: 'introduced-and-attempted';
+        reason: LocalizedText;
+    }>[];
+    readonly delayedReviewOf: readonly string[];
+}
+
+export type AdvancedCurriculumRailState = 'complete' | 'repair' | 'recommended' | 'available' | 'gated';
+
+export interface AdvancedCurriculumRailEntry {
+    readonly curriculum: AdvancedCurriculumEntry;
+    readonly state: AdvancedCurriculumRailState;
+    readonly unmetPrerequisites: AdvancedCurriculumEntry['prerequisites'];
+    readonly overrideRequired: boolean;
 }
 
 const N3_SOURCE_OPENING_PACKAGES = N3_SOURCE_OPENING_PACKAGE_IDS.map(id => createN3SourceOpeningPackage(id));
@@ -225,6 +244,53 @@ export function advancedCurriculumForBand(
         : ADVANCED_CURRICULUM.filter(entry => entry.band === band);
 }
 
+export function advancedCurriculumRailForBand(
+    band: JlptBand | undefined,
+    projection: LearnerProjection,
+    placementOverride = false,
+): readonly AdvancedCurriculumRailEntry[] {
+    const entries = advancedCurriculumForBand(band);
+    const recommendationAssigned = new Set<AdvancedPackageId>();
+    return entries.map(curriculum => {
+        const progress = projection.activities[curriculum.activity.id];
+        const placementEquivalent = curriculum.sequence?.ordinal === 1
+            && projection.curriculumEntry?.band === curriculum.band;
+        const unmetPrerequisites = placementOverride || placementEquivalent
+            ? []
+            : curriculum.prerequisites.filter(prerequisite => !Object.values(projection.activities)
+                .some(activity => activity.attemptCount > 0 && activity.conceptIds.includes(prerequisite.conceptId)));
+        let state: AdvancedCurriculumRailState;
+        if (progress?.lastOutcome === 'pass') state = 'complete';
+        else if (progress) state = 'repair';
+        else if (unmetPrerequisites.length) state = 'gated';
+        else if (curriculum.sequence && !recommendationAssigned.has(sequenceRootId(curriculum, entries))) {
+            state = 'recommended';
+            recommendationAssigned.add(sequenceRootId(curriculum, entries));
+        } else state = 'available';
+        return Object.freeze({
+            curriculum,
+            state,
+            unmetPrerequisites: Object.freeze(unmetPrerequisites),
+            overrideRequired: state === 'gated',
+        });
+    });
+}
+
+function sequenceRootId(
+    entry: AdvancedCurriculumEntry,
+    entries: readonly AdvancedCurriculumEntry[],
+): AdvancedPackageId {
+    let current = entry;
+    const seen = new Set<AdvancedPackageId>();
+    while (current.sequence?.previousPackageId && !seen.has(current.id)) {
+        seen.add(current.id);
+        const previous = entries.find(candidate => candidate.id === current.sequence?.previousPackageId);
+        if (!previous) break;
+        current = previous;
+    }
+    return current.id;
+}
+
 export function resolveAdvancedCurriculumEntry(id: string): AdvancedCurriculumEntry {
     const packageId = id.startsWith('advanced:') ? advancedPackageIdFromLessonId(id) : id;
     const found = ADVANCED_CURRICULUM.find(entry => entry.id === packageId);
@@ -252,13 +318,28 @@ export function isAdvancedLessonId(lessonId: string): lessonId is AdvancedLesson
 
 function entry<PackageId extends AdvancedPackageId, Model extends ActivityModel>(
     band: AdvancedCurriculumBand,
-    packageRecord: Readonly<{ readonly id: string; readonly activity: Model }>,
+    packageRecord: Readonly<{
+        readonly id: string;
+        readonly activity: Model;
+    }>,
     packageId: PackageId,
     metadata: AdvancedCurriculumMetadata,
 ): AdvancedCurriculumEntry<PackageId, Model> {
     if (packageRecord.id !== packageId) {
         throw new TypeError(`Advanced catalog package mismatch: ${packageRecord.id} !== ${packageId}`);
     }
+    const packageMetadata = packageRecord as unknown as Readonly<{
+        sequence?: Readonly<{ ordinal?: number; order?: number; previousPackageId?: string }>;
+        prerequisites?: AdvancedCurriculumEntry['prerequisites'];
+        readerSrs?: Readonly<{ delayedReviewOf?: readonly string[] }>;
+    }>;
+    const ordinal = packageMetadata.sequence?.ordinal ?? packageMetadata.sequence?.order;
+    const sequence = ordinal === undefined ? undefined : Object.freeze({
+        ordinal,
+        ...(packageMetadata.sequence?.previousPackageId
+            ? { previousPackageId: packageMetadata.sequence.previousPackageId as AdvancedPackageId }
+            : {}),
+    });
     return Object.freeze({
         band,
         id: packageId,
@@ -266,6 +347,9 @@ function entry<PackageId extends AdvancedPackageId, Model extends ActivityModel>
         lessonId: advancedLessonId(packageId) as `advanced:${PackageId}`,
         ...metadata,
         activity: packageRecord.activity,
+        ...(sequence ? { sequence } : {}),
+        prerequisites: Object.freeze([...(packageMetadata.prerequisites ?? [])]),
+        delayedReviewOf: Object.freeze([...(packageMetadata.readerSrs?.delayedReviewOf ?? [])]),
     });
 }
 

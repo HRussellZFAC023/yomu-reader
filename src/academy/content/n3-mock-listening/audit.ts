@@ -6,10 +6,29 @@ import type {
 } from './types';
 
 const SOYA_SOURCE_SHA256 = '2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71';
+const SOYA_LATEST_SOURCE_SHA256 = 'db5d2839c0d493d8dfd49f8c8badea430ccc68dad5d5bb09f01d89fdf0e6b8ee';
+const SOYA_SOURCE_SNAPSHOT = 'soya-research/extracted-src-all';
+const OFFICIAL_SOURCE_SNAPSHOT = 'Official Sources/N3 Opening 2026-07-18/JLPT 2009';
 const OFFICIAL_QUESTION_SHA256 = 'ba622e5b3a1d0de40cc390c1abe3aba7928948a3242b88e3afe45b391e8b7444';
 const OFFICIAL_SCRIPT_SHA256 = '46d69fb5969fd5e38dc394b23c626139908fc7d0b1eecd97ed9196438cbb8b97';
 const OFFICIAL_ANSWER_SHA256 = 'd143b461b95ecc347fe674251aed30ce4eef1a79af4327c9ce0ee6af6f8861d5';
+const OFFICIAL_KAITOU_SHA256 = '0c03f0ae90fef2669ca96f611e4ebeae0823409eb4e504ba4f731fe16d53d12b';
 const OFFICIAL_AUDIO_SHA256 = 'c637ea91f6f6e51aa085214712642138d76f6d5590ee6518b8d4d635102be3c0';
+
+const SOYA_SOURCE_CENSUS = Object.freeze([
+    artifact('soya-research/extracted-src-all/data/courses/jlpt_n3/mock1_listening.js', SOYA_SOURCE_SHA256, 'audited-old-snapshot'),
+    artifact('soya-research/extracted-src/data/courses/jlpt_n3/mock1_listening.js', SOYA_SOURCE_SHA256, 'duplicate-old-snapshot'),
+    artifact('soya-research/extracted-src-latest/data/courses/jlpt_n3/mock1_listening.js', SOYA_LATEST_SOURCE_SHA256, 'latest-snapshot'),
+    artifact('soya-research/extracted-src-live-all/data/courses/jlpt_n3/mock1_listening.js', SOYA_LATEST_SOURCE_SHA256, 'duplicate-latest-snapshot'),
+]);
+
+const OFFICIAL_ROOT_CENSUS = Object.freeze([
+    artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-kaitou.pdf`, OFFICIAL_KAITOU_SHA256, 'root-level-answer-booklet'),
+    artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-mondai.pdf`, OFFICIAL_QUESTION_SHA256, 'root-level-question-booklet'),
+    artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-script.pdf`, OFFICIAL_SCRIPT_SHA256, 'root-level-script'),
+    artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-seikai.pdf`, OFFICIAL_ANSWER_SHA256, 'root-level-answer-key'),
+    artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3Sample.mp3`, OFFICIAL_AUDIO_SHA256, 'root-level-audio'),
+]);
 
 const SOYA_LEARNER_CONCEPTS = Object.freeze([
     'listening:n3-action-state',
@@ -90,7 +109,8 @@ const SOYA_RECORDS = SOYA_MEDIA.map((item, index) => {
         id: `soya:n3-mock1:${item.id}`,
         sourceFamily: 'soya' as const,
         source: Object.freeze({
-            locator: `data/courses/jlpt_n3/mock1_listening.js#n3_mock1_listening[id=${item.id}]`,
+            snapshot: SOYA_SOURCE_SNAPSHOT,
+            locator: `${SOYA_SOURCE_SNAPSHOT}/data/courses/jlpt_n3/mock1_listening.js#n3_mock1_listening[id=${item.id}]`,
             artifactSha256: SOYA_SOURCE_SHA256,
             itemSha256: item.itemSha256,
         }),
@@ -114,8 +134,19 @@ const SOYA_RECORDS = SOYA_MEDIA.map((item, index) => {
         }),
         adaptation: Object.freeze({
             decision: 'original-yomu-mechanic-adaptation' as const,
-            note: `For ${item.id}, preserve only the audited listening function; deliver new Yomu wording, distractors, explanation, and browser speech.`,
-            sourceContentReuse: 'none' as const,
+            note: item.id === 'mock1_l_19'
+                ? 'The learner context, distractors, explanation, and answer structure are independently authored. The conventional formula is allowed and disclosed.'
+                : `For ${item.id}, preserve only the audited listening function; deliver new Yomu wording, distractors, explanation, and browser speech.`,
+            sourceContentReuse: item.id === 'mock1_l_19'
+                ? 'conventional-language-only' as const
+                : 'none' as const,
+            ...(item.id === 'mock1_l_19' ? {
+                conventionalLanguage: Object.freeze([Object.freeze({
+                    phrase: 'お先に失礼します',
+                    policy: 'allowed-conventional-formula' as const,
+                    sourceLocator: `${SOYA_SOURCE_SNAPSHOT}/data/courses/jlpt_n3/mock1_listening.js#n3_mock1_listening[id=mock1_l_19].script[1]`,
+                })]),
+            } : {}),
             packageId: placement.packageId,
             learnerItemId: placement.learnerItemId,
             learnerSkills: learnerSkillsFor(placement.mechanic),
@@ -135,9 +166,15 @@ const OFFICIAL_RECORDS = OFFICIAL_ITEMS.map(item => Object.freeze({
     id: `official-jlpt:n3-2009-listening:${item.id}`,
     sourceFamily: 'official-jlpt' as const,
     source: Object.freeze({
-        locator: `N3-mondai.pdf#page=${item.questionPage};N3-script.pdf#page=${item.scriptPage};N3-seikai.pdf#listening-${item.id}`,
+        snapshot: OFFICIAL_SOURCE_SNAPSHOT,
+        locator: `${OFFICIAL_SOURCE_SNAPSHOT}/N3-mondai.pdf#page=${item.questionPage}`,
         artifactSha256: OFFICIAL_QUESTION_SHA256,
-        companionArtifactSha256: Object.freeze([OFFICIAL_SCRIPT_SHA256, OFFICIAL_ANSWER_SHA256, OFFICIAL_AUDIO_SHA256]),
+        companionArtifacts: Object.freeze([
+            artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-script.pdf#page=${item.scriptPage}`, OFFICIAL_SCRIPT_SHA256, 'script-locus'),
+            artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-seikai.pdf#listening-${item.id}`, OFFICIAL_ANSWER_SHA256, 'answer-locus'),
+            artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3-kaitou.pdf#listening-${item.id}`, OFFICIAL_KAITOU_SHA256, 'answer-booklet-locus'),
+            artifact(`${OFFICIAL_SOURCE_SNAPSHOT}/N3Sample.mp3#${item.id}`, OFFICIAL_AUDIO_SHA256, 'shared-audio-locus'),
+        ]),
     }),
     level: 'N3' as const,
     skill: 'listening' as const,
@@ -153,7 +190,7 @@ const OFFICIAL_RECORDS = OFFICIAL_ITEMS.map(item => Object.freeze({
     media: Object.freeze({
         availability: 'available-official-public' as const,
         verdict: 'not-shippable' as const,
-        locator: `N3Sample.mp3#${item.id}`,
+        locator: `${OFFICIAL_SOURCE_SNAPSHOT}/N3Sample.mp3#${item.id}`,
         sha256: OFFICIAL_AUDIO_SHA256,
         bytes: 11570390,
     }),
@@ -176,7 +213,7 @@ const OFFICIAL_RECORDS = OFFICIAL_ITEMS.map(item => Object.freeze({
 }));
 
 export const CUR007_N3_MOCK_LISTENING_AUDIT: Cur007N3BatchAudit = Object.freeze({
-    schema: 'yomu-academy.cur007-n3-audit/v1',
+    schema: 'yomu-academy.cur007-n3-audit/v2',
     batchId: 'cur-007-n3-mock-listening-v1',
     reviewedOn: '2026-07-20',
     denominator: Object.freeze({
@@ -199,6 +236,14 @@ export const CUR007_N3_MOCK_LISTENING_AUDIT: Cur007N3BatchAudit = Object.freeze(
         reviewedAfterBatch: 29,
         remaining: 458,
     }),
+    reusePolicy: Object.freeze({
+        protectedSourceSpecificWordingMediaAnswerStructure: 'none',
+        conventionalLanguage: 'allowed-with-explicit-phrase-provenance',
+    }),
+    sourceCensus: Object.freeze({
+        soyaExtractionSnapshots: SOYA_SOURCE_CENSUS,
+        officialRootArtifacts: OFFICIAL_ROOT_CENSUS,
+    }),
     records: Object.freeze([...SOYA_RECORDS, ...OFFICIAL_RECORDS]),
 });
 
@@ -219,6 +264,12 @@ export function validateCur007N3BatchAudit(audit: Cur007N3BatchAudit = CUR007_N3
         }
     }
     audit.records.forEach(record => validateRecord(record, issues));
+    if (audit.sourceCensus.soyaExtractionSnapshots.length !== 4
+        || new Set(audit.sourceCensus.soyaExtractionSnapshots.map(item => item.sha256)).size !== 2
+        || audit.sourceCensus.officialRootArtifacts.length !== 5
+        || !audit.sourceCensus.officialRootArtifacts.some(item => item.locator.endsWith('/N3-kaitou.pdf'))) {
+        issues.push('The source census must distinguish all old/latest Soya copies and every root-level official artifact.');
+    }
     if (audit.globalSoyaQuestionMap.reviewedBeforeBatch - audit.globalSoyaQuestionMap.overlapWithBatch
         + audit.denominator.soya !== audit.globalSoyaQuestionMap.reviewedAfterBatch
         || audit.globalSoyaQuestionMap.total - audit.globalSoyaQuestionMap.reviewedAfterBatch
@@ -233,7 +284,7 @@ function validateRecord(record: Cur007CandidateAuditRecord, issues: string[]): v
     if (value.includes('/Users/') || value.includes('sourceWording')) issues.push(`${record.id} leaks private or source-content data.`);
     if (!/^[a-f0-9]{64}$/u.test(record.source.artifactSha256)
         || (record.source.itemSha256 !== undefined && !/^[a-f0-9]{64}$/u.test(record.source.itemSha256))
-        || record.source.companionArtifactSha256?.some(hash => !/^[a-f0-9]{64}$/u.test(hash))
+        || record.source.companionArtifacts?.some(item => !/^[a-f0-9]{64}$/u.test(item.sha256) || !item.locator)
         || !/^[a-f0-9]{64}$/u.test(record.media.sha256)) {
         issues.push(`${record.id} has invalid hash evidence.`);
     }
@@ -242,16 +293,38 @@ function validateRecord(record: Cur007CandidateAuditRecord, issues: string[]): v
         || record.skill !== 'listening'
         || record.rights.checkedOn !== CUR007_N3_MOCK_LISTENING_AUDIT.reviewedOn
         || !record.rights.evidenceLocator
-        || record.adaptation.sourceContentReuse !== 'none'
         || record.adaptation.note.length < 20
         || !record.adaptation.learnerSkills.includes('listening')
         || record.reachability.lessonId !== `advanced:${record.adaptation.packageId}`) {
         issues.push(`${record.id} violates the fail-closed delivery contract.`);
     }
+    const conventional = record.adaptation.conventionalLanguage ?? [];
+    if (record.id === 'soya:n3-mock1:mock1_l_19') {
+        if (record.adaptation.sourceContentReuse !== 'conventional-language-only'
+            || conventional.length !== 1
+            || conventional[0]?.phrase !== 'お先に失礼します') {
+            issues.push(`${record.id} must disclose its conventional formula overlap.`);
+        }
+    } else if (record.adaptation.sourceContentReuse !== 'none' || conventional.length) {
+        issues.push(`${record.id} claims unsupported source-content reuse.`);
+    }
+    if (!record.source.locator.startsWith(`${record.source.snapshot}/`)) {
+        issues.push(`${record.id} does not name the exact source snapshot in its locator.`);
+    }
 }
 
 function sourceItem(id: string, itemSha256: string, audioSha256: string, audioBytes: number) {
-    return Object.freeze({ id, itemSha256, audioLocator: `/audio/mock1/${id}.mp3`, audioSha256, audioBytes });
+    return Object.freeze({
+        id,
+        itemSha256,
+        audioLocator: `soya-research/audio-public/audio/mock1/${id}.mp3`,
+        audioSha256,
+        audioBytes,
+    });
+}
+
+function artifact(locator: string, sha256: string, role: string) {
+    return Object.freeze({ locator, sha256, role });
 }
 
 function officialItem(

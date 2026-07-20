@@ -2,7 +2,12 @@ import type { AudioDirector } from '../audio/director';
 import type { AcademySyncClient } from '../account/sync-client';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
 import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
-import { advancedCurriculumForBand, advancedLessonId } from '../content/advanced-curriculum';
+import {
+    advancedCurriculumForBand,
+    advancedCurriculumRailForBand,
+    advancedLessonId,
+    resolveAdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../content/lesson-content-registry';
 import {
     loadLibraryVocabularySheet,
@@ -398,6 +403,11 @@ class WorldFlow implements AcademyRouteFlow {
             characters: projectCharacterDirectory(context.projection),
             selectedBand,
             advancedPackages: advancedCurriculumForBand(selectedBand),
+            advancedRail: advancedCurriculumRailForBand(
+                selectedBand,
+                context.projection,
+                context.checkpoint.placementOverride,
+            ),
             ...(dailyRoute ? { dailyRoute } : {}),
             ...(context.projection.profile?.learningReason
                 ? { learningReason: context.projection.profile.learningReason }
@@ -420,13 +430,15 @@ class WorldFlow implements AcademyRouteFlow {
                 }
                 void context.go('lesson-overview', { lessonId: lesson.lessonId });
             },
-            onOpenAdvanced: packageId => {
+            onOpenAdvanced: (packageId, override) => {
                 this.options.audio?.playSfx?.('menu.confirm');
+                const entry = resolveAdvancedCurriculumEntry(packageId);
                 void context.go('source-activity', {
                     selectedBand,
                     lessonId: advancedLessonId(packageId),
                     sectionId: undefined,
-                    activityId: undefined,
+                    activityId: entry.activity.id,
+                    ...(context.checkpoint.placementOverride || override ? { placementOverride: true } : {}),
                 });
             },
             onOpenDailyAction: action => this.openDailyAction(action, context),

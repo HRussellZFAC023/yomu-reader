@@ -344,6 +344,14 @@ class LessonFlow implements AcademyRouteFlow {
         context.shell.replace(renderLoadingScreen(context.language, navigator.onLine));
         const advancedPackageId = advancedPackageIdFromLessonId(context.checkpoint.lessonId);
         if (advancedPackageId) {
+            const entry = resolveAdvancedCurriculumEntry(advancedPackageId);
+            if (context.checkpoint.activityId !== entry.activity.id) {
+                await context.go('source-activity', {
+                    lessonId: entry.lessonId,
+                    activityId: entry.activity.id,
+                });
+                return;
+            }
             this.renderAdvancedPackage(advancedPackageId, context);
             return;
         }

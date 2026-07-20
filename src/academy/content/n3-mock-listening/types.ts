@@ -77,9 +77,14 @@ export interface N3MockListeningProvenance {
     readonly sourceRecord: 'module-local:n3-mock-listening/audit.ts';
     readonly sourceCandidateIds: readonly string[];
     readonly officialCalibrationIds: readonly string[];
-    readonly contentAuthorship: 'original-yomu';
-    readonly sourceWordingDelivered: false;
+    readonly contentAuthorship: 'original-yomu-with-disclosed-conventional-language';
+    readonly protectedSourceWordingDelivered: false;
     readonly sourceMediaDelivered: false;
+    readonly conventionalLanguage: readonly Readonly<{
+        phrase: string;
+        policy: 'allowed-conventional-formula';
+        sourceCandidateId: string;
+    }>[];
 }
 
 export interface N3MockListeningModel extends ActivityModel {
@@ -92,6 +97,7 @@ export interface N3MockListeningModel extends ActivityModel {
         readonly questions: readonly N3MockListeningQuestion[];
         readonly production?: N3MockListeningProduction;
         readonly delayedReviewOf: readonly string[];
+        readonly delayedReviewTargets: readonly N3MockListeningReviewTarget[];
         readonly passScore: number;
         readonly feedback: {
             readonly pass: FeedbackBlock;
@@ -136,14 +142,21 @@ export type Cur007WordingVerdict =
     | 'not-shippable-format-calibration-only';
 export type Cur007AdaptationDecision = 'original-yomu-mechanic-adaptation' | 'format-calibration-only';
 
+export interface Cur007SourceArtifact {
+    readonly locator: string;
+    readonly sha256: string;
+    readonly role: string;
+}
+
 export interface Cur007CandidateAuditRecord {
     readonly id: string;
     readonly sourceFamily: 'soya' | 'official-jlpt';
     readonly source: {
+        readonly snapshot: string;
         readonly locator: string;
         readonly artifactSha256: string;
         readonly itemSha256?: string;
-        readonly companionArtifactSha256?: readonly string[];
+        readonly companionArtifacts?: readonly Cur007SourceArtifact[];
     };
     readonly level: 'N3';
     readonly skill: 'listening';
@@ -171,7 +184,12 @@ export interface Cur007CandidateAuditRecord {
     readonly adaptation: {
         readonly decision: Cur007AdaptationDecision;
         readonly note: string;
-        readonly sourceContentReuse: 'none';
+        readonly sourceContentReuse: 'none' | 'conventional-language-only';
+        readonly conventionalLanguage?: readonly Readonly<{
+            phrase: string;
+            policy: 'allowed-conventional-formula';
+            sourceLocator: string;
+        }>[];
         readonly packageId: N3MockListeningPackageId;
         readonly learnerItemId: string;
         readonly learnerSkills: readonly ('listening' | 'speaking')[];
@@ -187,7 +205,7 @@ export interface Cur007CandidateAuditRecord {
 }
 
 export interface Cur007N3BatchAudit {
-    readonly schema: 'yomu-academy.cur007-n3-audit/v1';
+    readonly schema: 'yomu-academy.cur007-n3-audit/v2';
     readonly batchId: 'cur-007-n3-mock-listening-v1';
     readonly reviewedOn: '2026-07-20';
     readonly denominator: {
@@ -203,6 +221,14 @@ export interface Cur007N3BatchAudit {
         readonly newlyReviewed: 27;
         readonly reviewedAfterBatch: 29;
         readonly remaining: 458;
+    };
+    readonly reusePolicy: {
+        readonly protectedSourceSpecificWordingMediaAnswerStructure: 'none';
+        readonly conventionalLanguage: 'allowed-with-explicit-phrase-provenance';
+    };
+    readonly sourceCensus: {
+        readonly soyaExtractionSnapshots: readonly Cur007SourceArtifact[];
+        readonly officialRootArtifacts: readonly Cur007SourceArtifact[];
     };
     readonly records: readonly Cur007CandidateAuditRecord[];
 }

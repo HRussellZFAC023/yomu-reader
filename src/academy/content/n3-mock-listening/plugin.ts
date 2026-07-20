@@ -43,6 +43,7 @@ const EXPECTED_QUESTION_COUNTS = Object.freeze({
 } as const);
 
 const EXPECTED_SOURCE_START = Object.freeze([1, 7, 13, 16, 20] as const);
+export const N3_MOCK_LISTENING_REVIEW_DELAY_MS = 24 * 60 * 60 * 1_000;
 const EXPECTED_OFFICIAL_CALIBRATIONS: Readonly<Record<N3MockListeningPackageId, readonly string[]>> = Object.freeze({
     'n3-mock-listening-01-action': Object.freeze(['official-jlpt:n3-2009-listening:p1-i1', 'official-jlpt:n3-2009-listening:p1-i2']),
     'n3-mock-listening-02-point': Object.freeze(['official-jlpt:n3-2009-listening:p2-i1', 'official-jlpt:n3-2009-listening:p2-i2']),
@@ -108,14 +109,26 @@ function gradeN3MockListening(model: N3MockListeningModel, response: N3MockListe
 }
 
 function n3MockListeningReviewSeeds(model: N3MockListeningModel, result: GradeResult): readonly ReviewSeed[] {
-    const targets = result.outcome === 'pass'
+    const currentTargets = result.outcome === 'pass'
         ? model.payload.reviewTargets
         : model.payload.reviewTargets.filter(target => target.repairFor.some(tag => result.errorTags.includes(tag)));
-    return targets.map(target => ({
-        id: target.id,
+    const targets = [
+        ...currentTargets.map(target => ({
+            target,
+            reason: result.outcome === 'pass' ? 'new-learning' as const : 'repair' as const,
+        })),
+        ...(result.outcome === 'pass'
+            ? model.payload.delayedReviewTargets.map(target => ({ target, reason: 'delayed-review' as const }))
+            : []),
+    ];
+    return targets.map(({ target, reason }) => ({
+        id: reason === 'delayed-review' ? `${target.id}:via:${model.provenance.packageId}` : target.id,
         conceptId: target.conceptId,
-        reason: result.outcome === 'pass' ? 'new-learning' : 'repair',
+        reason,
         sourceQuestionId: model.sourceQuestionId,
+        ...(reason === 'delayed-review'
+            ? { schedule: { dueAfterMs: N3_MOCK_LISTENING_REVIEW_DELAY_MS } }
+            : {}),
         content: {
             expression: target.expression,
             ...(target.reading ? { reading: target.reading } : {}),
@@ -137,6 +150,7 @@ function renderN3MockListening(
     root.className = 'academy-activity academy-kit';
     root.dataset.activityId = model.id;
     root.dataset.listeningMechanic = model.payload.mechanic;
+    root.dataset.attemptState = 'answering';
 
     const heading = document.createElement('h2');
     heading.id = `${model.id}-prompt`;
@@ -145,8 +159,8 @@ function renderN3MockListening(
     const mediaNote = document.createElement('p');
     mediaNote.className = 'academy-support';
     mediaNote.textContent = host.language === 'ja'
-        ? 'すべての文とブラウザ音声は、よむが新しく作った練習です。参照元の文・画像・音声は提供しません。'
-        : 'All scripts and browser speech are original Yomu practice; referenced wording, images, and audio are not delivered.';
+        ? '文脈・選択肢・説明とブラウザ音声は、よむが新しく作った練習です。一般的な定型表現は出典を明記して扱い、参照元固有の文・構成・画像・音声は提供しません。'
+        : 'Yomu authors the contexts, choices, explanations, and browser speech. Conventional formulas are disclosed; source-specific wording, answer structure, images, and audio are not delivered.';
     const form = document.createElement('form');
     form.setAttribute('aria-labelledby', heading.id);
     form.append(renderTeaching(model, host, readingDisposers));
@@ -165,10 +179,19 @@ function renderN3MockListening(
     form.append(commit);
     root.append(heading, mediaNote, form, status);
     host.replace(root);
-    root.closest<HTMLElement>('.academy-advanced-lesson-paper')?.scrollTo({ top: 0 });
+    root.closest<HTMLElement>('.academy-advanced-lesson-paper')?.scrollTo?.({ top: 0 });
 
+    let attemptSettled = false;
     form.addEventListener('submit', event => {
         event.preventDefault();
+        if (attemptSettled) {
+            const message = host.language === 'ja'
+                ? '答えを表示したこのフォームは学習用です。新しい非表示の問題で再挑戦してください。'
+                : 'This revealed form is study-only. Use a fresh hidden-answer attempt for mastery.';
+            status.textContent = message;
+            host.announce(message);
+            return;
+        }
         const response = responseFromForm(model, form);
         if (!response) {
             const message = host.language === 'ja' ? 'すべての項目に答えてください。' : 'Answer every item before committing.';
@@ -176,13 +199,21 @@ function renderN3MockListening(
             host.announce(message);
             return;
         }
+        attemptSettled = true;
         setPending(form, true);
         void submit(response).then(evaluation => {
             root.dataset.outcome = evaluation.result.outcome;
             revealAnswers(model, questionCards, production, host, readingDisposers);
             showEvaluation(status, evaluation, host);
-            if (evaluation.result.outcome === 'lapse') setPending(form, false);
+            if (evaluation.result.outcome === 'lapse') {
+                root.dataset.attemptState = 'repair';
+                form.dataset.answerAssisted = 'true';
+                const repair = renderBoundedRepair(host);
+                root.append(repair);
+                repair.focus();
+            } else root.dataset.attemptState = 'complete';
         }).catch(error => {
+            attemptSettled = false;
             setPending(form, false);
             status.textContent = error instanceof Error ? error.message : String(error);
         });
@@ -288,6 +319,7 @@ function revealAnswers(
     disposers: Array<() => void>,
 ): void {
     cards.forEach((card, index) => {
+        if (card.querySelector('[data-answer-key="after-attempt"]')) return;
         const question = model.payload.questions[index];
         const reveal = document.createElement('div');
         reveal.dataset.answerKey = 'after-attempt';
@@ -308,12 +340,28 @@ function revealAnswers(
         reveal.append(transcript, answer, explanation);
         card.append(reveal);
     });
-    if (productionSection && model.payload.production) {
+    if (productionSection && model.payload.production
+        && !productionSection.querySelector('[data-model-answer="after-attempt"]')) {
         const modelAnswer = document.createElement('p');
         modelAnswer.dataset.modelAnswer = 'after-attempt';
         modelAnswer.append(japanese(model.payload.production.modelAnswer));
         productionSection.append(modelAnswer);
     }
+}
+
+function renderBoundedRepair(host: ActivityHost): HTMLElement {
+    const repair = document.createElement('section');
+    repair.className = 'academy-feedback-repair academy-n3-listening-repair';
+    repair.dataset.repairState = 'revealed-attempt-closed';
+    repair.tabIndex = -1;
+    const heading = document.createElement('h3');
+    heading.textContent = host.language === 'ja' ? 'この回答はここで終了です' : 'This attempt ends here';
+    const explanation = document.createElement('p');
+    explanation.textContent = host.language === 'ja'
+        ? '表示された答えは復習に使えますが、このフォームから合格にはなりません。戻って手がかりを確認し、新しい文脈の答えが隠れた問題で再挑戦してください。'
+        : 'Use the revealed answers for repair; this form can no longer produce mastery. Return to the cues, then make a fresh attempt with answers hidden and changed-context work included.';
+    repair.append(heading, explanation);
+    return repair;
 }
 
 function responseFromForm(model: N3MockListeningModel, form: HTMLFormElement): N3MockListeningResponse | undefined {
@@ -362,12 +410,25 @@ function validateProvenance(model: N3MockListeningModel, issues: ValidationIssue
     const provenance = model.provenance;
     if (provenance?.batchId !== N3_MOCK_LISTENING_BATCH_ID
         || provenance.sourceRecord !== 'module-local:n3-mock-listening/audit.ts'
-        || provenance.contentAuthorship !== 'original-yomu'
-        || provenance.sourceWordingDelivered !== false
+        || provenance.contentAuthorship !== 'original-yomu-with-disclosed-conventional-language'
+        || provenance.protectedSourceWordingDelivered !== false
         || provenance.sourceMediaDelivered !== false
         || !N3_MOCK_LISTENING_PACKAGE_IDS.includes(provenance.packageId)) {
         issues.push({ path: 'provenance', message: 'The fail-closed CUR-007 provenance contract is required.' });
         return;
+    }
+    const conventional = provenance.packageId === 'n3-mock-listening-04-expression'
+        ? [{
+            phrase: 'お先に失礼します',
+            policy: 'allowed-conventional-formula',
+            sourceCandidateId: 'soya:n3-mock1:mock1_l_19',
+        }]
+        : [];
+    if (JSON.stringify(provenance.conventionalLanguage) !== JSON.stringify(conventional)) {
+        issues.push({
+            path: 'provenance.conventionalLanguage',
+            message: 'Conventional source overlap must be explicit and item-located.',
+        });
     }
     const expectedSoya = model.payload.questions.map(question => question.sourceCandidateId);
     const expectedOfficial = model.payload.questions.flatMap(question => question.officialCalibrationId ? [question.officialCalibrationId] : []);
@@ -429,6 +490,7 @@ function validateProduction(model: N3MockListeningModel, issues: ValidationIssue
 
 function validateReviewTargets(model: N3MockListeningModel, issues: ValidationIssue[]): void {
     const targets: readonly N3MockListeningReviewTarget[] = model.payload.reviewTargets;
+    const delayedTargets: readonly N3MockListeningReviewTarget[] = model.payload.delayedReviewTargets;
     const tags = new Set([
         ...model.payload.questions.map(question => question.errorTag),
         ...(model.payload.production ? [model.payload.production.errorTag] : []),
@@ -447,6 +509,13 @@ function validateReviewTargets(model: N3MockListeningModel, issues: ValidationIs
     const covered = new Set(targets.flatMap(target => target.repairFor));
     if ([...tags].some(tag => !covered.has(tag))) {
         issues.push({ path: 'payload.reviewTargets', message: 'Every possible lapse must have a targeted repair seed.' });
+    }
+    if (new Set(delayedTargets.map(target => target.conceptId)).size !== model.payload.delayedReviewOf.length
+        || delayedTargets.some(target => !model.payload.delayedReviewOf.includes(target.conceptId))) {
+        issues.push({
+            path: 'payload.delayedReviewTargets',
+            message: 'Every delayed prerequisite Concept needs one concrete future review target.',
+        });
     }
 }
 

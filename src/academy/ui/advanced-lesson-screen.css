@@ -93,6 +93,6 @@
 }
 
 @keyframes academy-advanced-paper-enter {
-    from { opacity: 0; transform: translateY(18px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { transform: translateY(18px); }
+    to { transform: translateY(0); }
 }

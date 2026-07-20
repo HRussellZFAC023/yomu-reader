@@ -4,6 +4,7 @@ import {
     advancedCurriculumForBand,
     type AdvancedCurriculumBand,
     type AdvancedCurriculumEntry,
+    type AdvancedCurriculumRailEntry,
 } from '../content/advanced-curriculum';
 import { ACADEMY_CLASS_EVENTS } from '../content/class-event-catalog';
 import type { ClassWeekCastPlan, ClassWeekCastPlanEntry } from '../content/class-week-cast-plan';
@@ -28,6 +29,7 @@ export interface ClassPathScreenOptions {
     readonly currentOrder: number;
     readonly selectedBand?: JlptBand;
     readonly advancedPackages?: readonly AdvancedCurriculumEntry[];
+    readonly advancedRail?: readonly AdvancedCurriculumRailEntry[];
     readonly playableWeekIds: ReadonlySet<string>;
     readonly completedWeekIds?: ReadonlySet<string>;
     readonly characters?: readonly CharacterDirectoryEntryProjection[];
@@ -35,7 +37,7 @@ export interface ClassPathScreenOptions {
     readonly learningReason?: string;
     readonly onBack: () => void;
     readonly onOpenWeek: (weekId: string) => void;
-    readonly onOpenAdvanced?: (packageId: string) => void;
+    readonly onOpenAdvanced?: (packageId: string, override: boolean) => void;
     readonly onOpenDailyAction?: (action: DailyRouteAction) => void;
 }
 
@@ -111,9 +113,16 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
     path.append(spine);
     const advancedBand = advancedBandForPath(options);
     if (advancedBand) {
-        const packages = (options.advancedPackages ?? advancedCurriculumForBand(advancedBand))
-            .filter(entry => entry.band === advancedBand);
-        if (packages.length) path.append(renderAdvancedRail(packages, advancedBand, options, screen));
+        const railEntries = options.advancedRail
+            ?? (options.advancedPackages ?? advancedCurriculumForBand(advancedBand))
+                .filter(entry => entry.band === advancedBand)
+                .map(curriculum => ({
+                    curriculum,
+                    state: 'available' as const,
+                    unmetPrerequisites: [],
+                    overrideRequired: false,
+                }));
+        if (railEntries.length) path.append(renderAdvancedRail(railEntries, advancedBand, options, screen));
     }
 
     const people = sectionShell('academy-class-path-people', options.language, 'classPathPeople');
@@ -138,7 +147,7 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
 }
 
 function renderAdvancedRail(
-    packages: readonly AdvancedCurriculumEntry[],
+    entries: readonly AdvancedCurriculumRailEntry[],
     band: AdvancedCurriculumBand,
     options: ClassPathScreenOptions,
     screen: HTMLElement,
@@ -154,25 +163,27 @@ function renderAdvancedRail(
     const summary = element('p', 'academy-advanced-rail-summary');
     summary.textContent = options.language === 'ja'
         ? '完了した上級パッケージを、いつでも開き直せます。'
-        : 'Revisit completed advanced packages whenever you are ready.';
+        : 'Follow the recommended order, or open a later package if prior study already covers it.';
     const list = element('ol', 'academy-advanced-rail-list');
-    for (const curriculum of packages) {
+    for (const entry of entries) {
+        const { curriculum } = entry;
         const item = element('li', 'academy-advanced-rail-stop');
         item.dataset.packageId = curriculum.id;
         item.dataset.lessonId = curriculum.lessonId;
+        item.dataset.railState = entry.state;
         const button = element('button', 'academy-advanced-rail-entry');
         button.type = 'button';
         const title = curriculum.title[options.language];
-        const action = options.language === 'ja' ? '開き直す' : 'Revisit';
+        const action = advancedActionLabel(entry.state, options.language);
         button.setAttribute('aria-label', `${action}: ${title}`);
         button.addEventListener('click', () => {
             if (options.onOpenAdvanced) {
-                options.onOpenAdvanced(curriculum.id);
+                options.onOpenAdvanced(curriculum.id, entry.overrideRequired);
                 return;
             }
             screen.dispatchEvent(new CustomEvent('academy:open-advanced', {
                 bubbles: true,
-                detail: { lessonId: curriculum.lessonId, packageId: curriculum.id },
+                detail: { lessonId: curriculum.lessonId, packageId: curriculum.id, override: entry.overrideRequired },
             }));
         });
 
@@ -182,14 +193,44 @@ function renderAdvancedRail(
         titleElement.textContent = title;
         const packageSummary = element('span', 'academy-advanced-rail-copy');
         packageSummary.textContent = curriculum.summary[options.language];
+        const requirement = element('span', 'academy-advanced-rail-requirement');
+        requirement.textContent = advancedRequirementLabel(entry, entries, options.language);
         const revisit = element('span', 'academy-advanced-rail-action');
         revisit.textContent = action;
-        button.append(eyebrow, titleElement, packageSummary, revisit);
+        button.append(eyebrow, titleElement, packageSummary, requirement, revisit);
         item.append(button);
         list.append(item);
     }
     rail.append(heading, summary, list);
     return rail;
+}
+
+function advancedActionLabel(state: AdvancedCurriculumRailEntry['state'], language: AcademyLanguage): string {
+    const labels = {
+        complete: { en: 'Revisit', ja: 'もう一度' },
+        repair: { en: 'Continue repair', ja: '修復を続ける' },
+        recommended: { en: 'Start', ja: '始める' },
+        available: { en: 'Open', ja: '開く' },
+        gated: { en: 'Open anyway', ja: 'このまま開く' },
+    } as const;
+    return labels[state][language];
+}
+
+function advancedRequirementLabel(
+    entry: AdvancedCurriculumRailEntry,
+    entries: readonly AdvancedCurriculumRailEntry[],
+    language: AcademyLanguage,
+): string {
+    if (entry.state === 'complete') return language === 'ja' ? '完了' : 'Completed';
+    if (entry.state === 'repair') return language === 'ja' ? '要復習' : 'Needs a fresh attempt';
+    if (entry.state === 'recommended') return language === 'ja' ? 'おすすめの次の課題' : 'Recommended next';
+    if (!entry.unmetPrerequisites.length) return language === 'ja' ? '順番は任意です' : 'Optional sequence';
+    const previousId = entry.curriculum.sequence?.previousPackageId;
+    const previous = entries.find(candidate => candidate.curriculum.id === previousId)?.curriculum;
+    const label = previous?.title[language] ?? entry.unmetPrerequisites[0]!.reason[language];
+    return language === 'ja'
+        ? `推奨：先に「${label}」を試す（省略可）`
+        : `Recommended first: ${label}. Override is optional.`;
 }
 
 function advancedBandForPath(options: ClassPathScreenOptions): AdvancedCurriculumBand | undefined {
