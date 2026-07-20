@@ -283,9 +283,14 @@ export class VisiblePageScanner {
         if (typeof ResizeObserver === 'function' && document.body) {
             const observer = new ResizeObserver(entries => {
                 const width = entries[entries.length - 1]?.contentRect.width ?? -1;
+                // The observer's mandatory initial callback just reports the
+                // current size — nothing settled, so prime the baseline without
+                // burning a document-wide sweep during boot (it cost a visible
+                // boot frame on the WebKit frame-lane smoke).
+                const priming = this.lastSettleWidth < 0;
                 if (Math.abs(width - this.lastSettleWidth) < 0.5) return;
                 this.lastSettleWidth = width;
-                schedule();
+                if (!priming) schedule();
             });
             observer.observe(document.body);
             this.settleResizeObserver = observer;

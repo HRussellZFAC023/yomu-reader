@@ -209,6 +209,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The floating button steps off an overlapping video immediately on rotation and viewport changes again, scroll flings keep the battery-saving settle delay, and reader boot no longer spends an extra page-wide layout pass.': 'フローティングボタンが、画面回転やビューポート変更の際に重なった動画から即座に退くようになりました。スクロール中は省電力の遅延処理を維持し、リーダー起動時の余分なページ全体レイアウト計算も行いません。',
     'Furigana on clamped title rows no longer appears and then disappears: the layout verdict is now measured after paint, demotes readings only on clear failure evidence, and recovers instead of hiding them permanently.': '行数制限されたタイトル行のふりがなが、表示された後に消えることがなくなりました。レイアウトの判定は描画後に実測され、明確な失敗の証拠がある場合のみ読みを非表示にし、恒久的に隠す代わりに回復します。',
     'Action labels and titles on YouTube no longer widen or truncate into ellipses: shrinkable single-line rows are detected generically and their readings route through the width-neutral detached lane.': 'YouTubeの操作ラベルやタイトルが、幅が広がったり省略記号で切り詰められたりしなくなりました。縮小可能な1行の行を汎用的に検出し、読みを幅に影響しない分離レーンで表示します。',
     'Words like 技術 no longer render with a gap between their kanji: furigana pairs per dictionary-attested segment, and the essential ruby styles now reach shadow roots and pages still waiting for the full stylesheet.': '技術のような単語の漢字の間に隙間ができなくなりました。ふりがなは辞書で裏付けられた区切りごとに対応付けられ、必須のルビスタイルがシャドウルートや完全なスタイルシートの読み込みを待つページにも適用されます。',

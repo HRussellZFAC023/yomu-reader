@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.260
+// @version 1.6.261
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.c059e2ad754d.user.js#sha256=wFnirXVNTSUB3mjC0uDNK6XsWJftmz74GCN8C4I6y84=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f0de21db490e.user.js#sha256=8N4h20kOrOH5uvmZtjP56QJmtkJ+yNFVeh4ry71zCfg=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b095fd682b4b.user.js#sha256=sJX9aCtLtSvm3PqxldDEayS//iJ55ztqVKFv0DDol0A=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.08677cc1825e.user.js#sha256=CGd8wYJexKt00ixRNRxHTcYRPxXNrohWpoZ8ARDM66E=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.53a21bd7779b.user.js#sha256=U6Ib13ebB+4o+ikoRm9iPLvmTMua08l2aZMIdXR8jfU=
 // @require https://yomureader.com/greasyfork/yomu-video.7f54e407f4aa.user.js#sha256=f1TkB/SqJa5kZbaMPW+BEq3cbfZhhfksFyUWFsqqPNs=
 // @resource yomuCss  https://yomureader.com/yomu.e40aa5c48374.css#sha256=5AqlxIN0mvLZL/FcxPSm1HpGX71W9TJyjce/BH3MWJ4=
@@ -23043,18 +23043,24 @@ class FloatingButtonController {
   let settleTimer;
   let frame;
   const recompute = () => {
+    if (frame !== void 0) return;
     frame = requestAnimationFrame(() => {
       frame = void 0;
       applyOverlayPageScale(button);
       if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
     });
   };
+  const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
   const scheduleSettle = () => {
-    if (overlayViewport().pageScale === 1 && !document.querySelector("video")) return;
+    if (!avoidanceCouldChange()) return;
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(recompute, VIDEO_AVOIDANCE_SETTLE_MS);
   };
-  window.addEventListener("resize", scheduleSettle, { passive: true, signal: controller.signal });
+  const handleResize = () => {
+    if (!avoidanceCouldChange()) return;
+    recompute();
+  };
+  window.addEventListener("resize", handleResize, { passive: true, signal: controller.signal });
   window.addEventListener("scroll", scheduleSettle, { passive: true, signal: controller.signal });
   document.addEventListener("fullscreenchange", recompute, { signal: controller.signal });
   controller.signal.addEventListener("abort", () => {
@@ -34260,8 +34266,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.260"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.260"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.261"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.261"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34393,7 +34399,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.260"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.261"}`;
   } catch {
   return null;
   }
@@ -34678,9 +34684,10 @@ class VisiblePageScanner {
   if (typeof ResizeObserver === "function" && document.body) {
     const observer = new ResizeObserver((entries2) => {
       const width = entries2[entries2.length - 1]?.contentRect.width ?? -1;
+      const priming = this.lastSettleWidth < 0;
       if (Math.abs(width - this.lastSettleWidth) < 0.5) return;
       this.lastSettleWidth = width;
-      schedule();
+      if (!priming) schedule();
     });
     observer.observe(document.body);
     this.settleResizeObserver = observer;

@@ -273,27 +273,45 @@ export class FloatingButtonController {
         let settleTimer: number | undefined;
         let frame: number | undefined;
         const recompute = (): void => {
+            // rAF-coalesced: a burst of resize events (window drag-resize) folds
+            // into one layout read per frame instead of stacking callbacks.
+            if (frame !== undefined) return;
             frame = requestAnimationFrame(() => {
                 frame = undefined;
                 applyOverlayPageScale(button);
                 if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
             });
         };
-        // Scroll/resize fire continuously during a fling, and each recompute
-        // reads the puck's box plus every video's box — a forced layout on
-        // every rAF was measurable iPad heat while scrolling. Nothing the puck
-        // must avoid moves mid-fling in a way a single settle recompute cannot
-        // catch, so collapse the stream to the trailing edge. And when the
-        // overlay is unscaled AND the page has no <video> at all there is
-        // nothing to reposition, so skip the layout read entirely — the common
-        // case on a text page. querySelector('video') is a cheap selector match
-        // with no layout, unlike the getBoundingClientRect walk it guards.
+        // When the overlay is unscaled, the page has no <video> at all, and the
+        // puck is not currently displaced by one, there is nothing to reposition
+        // — skip the layout read entirely (the common case on a text page). The
+        // over-video check keeps a puck that WAS avoiding a since-removed video
+        // eligible for the recompute that returns it home. querySelector('video')
+        // is a cheap selector match with no layout, unlike the
+        // getBoundingClientRect walk it guards.
+        const avoidanceCouldChange = (): boolean =>
+            overlayViewport().pageScale !== 1
+            || button.classList.contains('jpdb-reader-fab-over-video')
+            || Boolean(document.querySelector('video'));
+        // Scroll fires continuously during a fling, and each recompute reads the
+        // puck's box plus every video's box — a forced layout on every rAF was
+        // measurable iPad heat while scrolling. Nothing the puck must avoid
+        // moves mid-fling in a way a single settle recompute cannot catch, so
+        // collapse the scroll stream to the trailing edge.
         const scheduleSettle = (): void => {
-            if (overlayViewport().pageScale === 1 && !document.querySelector('video')) return;
+            if (!avoidanceCouldChange()) return;
             window.clearTimeout(settleTimer);
             settleTimer = window.setTimeout(recompute, VIDEO_AVOIDANCE_SETTLE_MS);
         };
-        window.addEventListener('resize', scheduleSettle, { passive: true, signal: controller.signal });
+        // Resize is a discrete layout change (rotation, viewport chrome, split
+        // view), not a per-frame stream like scroll: the puck must mark/clear a
+        // video overlap within a frame of it, so it recomputes immediately
+        // (rAF-coalesced above), never on the settle delay.
+        const handleResize = (): void => {
+            if (!avoidanceCouldChange()) return;
+            recompute();
+        };
+        window.addEventListener('resize', handleResize, { passive: true, signal: controller.signal });
         window.addEventListener('scroll', scheduleSettle, { passive: true, signal: controller.signal });
         // Entering/leaving fullscreen changes the avoidance rules this frame
         // (the puck may need to clear a now-fullscreen video, or return once it

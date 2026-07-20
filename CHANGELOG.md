@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.261] - 2026-07-21
+
+### Fixed
+
+- The floating button steps off an overlapping video immediately on rotation and viewport changes again, scroll flings keep the battery-saving settle delay, and reader boot no longer spends an extra page-wide layout pass.
+
 ## [1.6.260] - 2026-07-21
 
 ### Fixed
