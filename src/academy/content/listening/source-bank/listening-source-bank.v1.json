@@ -8,7 +8,7 @@
     "transcriptReveal": "after-attempt"
   },
   "inventory": {
-    "reviewedOn": "2026-07-18",
+    "reviewedOn": "2026-07-20",
     "inventoryRef": "public/academy/content/audio/source-inventory.v1.json",
     "sourceBankCoverage": {
       "recordings": 5,
@@ -43,7 +43,10 @@
           "duplicateAudioFiles": 7947,
           "jlptQuestionMapRecords": 487,
           "staticCompleteJlptTasks": 386,
-          "n1BrowserTtsFallbackRecords": 30
+          "n1BrowserTtsFallbackRecords": 30,
+          "itemReviewedCandidates": 29,
+          "mechanicAdaptedCandidates": 28,
+          "remainingUnreviewedCandidates": 458
         },
         "selected": {
           "recordings": 2,
@@ -1099,8 +1102,8 @@
     {
       "id": "soya-jlpt-remainder",
       "sourceFamily": "soya",
-      "scope": "485 of 487 JLPT question-map records beyond the selected N3 and N2 items",
-      "reason": "Of 487 JLPT records, 386 have complete static task data and 101 are incomplete or non-static. The two selected items are the only Soya records promoted into this bank; the rest remain inventory candidates pending item-level selection and rights review.",
+      "scope": "458 of 487 JLPT question-map records remain without item-level review after the 28-item N3 mock-listening batch",
+      "reason": "Of 487 JLPT records, 386 have complete static task data and 101 are incomplete or non-static. Twenty-nine records now have item-level review: the prior N2 item plus all 28 N3 mock-one listening items, including the previously selected N3 item. The N3 batch ships only original Yomu mechanic adaptations; the two previously selected recordings remain the only source recordings in the bank, and all unapproved Soya wording and media stay quarantined.",
       "blockedBy": [
         "item-selection-required",
         "rights-review-required"

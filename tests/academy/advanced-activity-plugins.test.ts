@@ -8,11 +8,13 @@ import { N2_EXTENSIVE_READING_PACKAGES } from '../../src/academy/content/n2-exte
 import { N2_POLICY_SCOPE_PACKAGES } from '../../src/academy/content/n2-policy-scope';
 import { N3_SOURCE_OPENING_PACKAGE_IDS, createN3SourceOpeningPackage } from '../../src/academy/content/n3-source-opening/package';
 import { N3_N4_SLEEP_BRIDGE_PACKAGES } from '../../src/academy/content/n3-n4-sleep-bridge';
+import { N3_MOCK_LISTENING_PACKAGES } from '../../src/academy/content/n3-mock-listening';
 import { N3_PET_HOUSING_PACKAGES } from '../../src/academy/content/n3-pet-housing';
 import { ACADEMY_ACTIVITY_PLUGINS, createAcademyActivityRuntime } from '../../src/academy/minigames';
 
 const advancedActivities = [
     ...N3_SOURCE_OPENING_PACKAGE_IDS.map(id => createN3SourceOpeningPackage(id)),
+    ...N3_MOCK_LISTENING_PACKAGES,
     ...N3_N4_SLEEP_BRIDGE_PACKAGES,
     ...N3_PET_HOUSING_PACKAGES,
     ...N2_HOME_LIFE_OPENING_SEQUENCE,

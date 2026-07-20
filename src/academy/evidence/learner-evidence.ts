@@ -9,6 +9,10 @@ import {
     createGroundedLessonResolver,
     type GroundedLessonResolver,
 } from '../content/grounded-lesson-resolver';
+import {
+    isAdvancedLessonId,
+    resolveAdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
 import { getAuthoredWeekRegistration, getCompleteLessonRegistration } from '../content/lesson-content-registry';
 import {
     createLearnerRecord,
@@ -213,6 +217,8 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 if (!authoredWeekOwnsActivity(packageId, evaluation.attempt.activityId)) {
                     throw new TypeError(`Activity ${evaluation.attempt.activityId} does not belong to ${lessonId}.`);
                 }
+            } else if (isAdvancedLessonId(lessonId)) {
+                assertAdvancedEvaluation(evaluation, resolveAdvancedCurriculumEntry(lessonId).activity, lessonId);
             } else {
                 const lesson = await this.groundedLessons.resolve(lessonId);
                 if (lesson.status === 'playable') {
@@ -440,6 +446,28 @@ function assertTrustedSourceEvaluation(
     }
     if (!evaluation.attempt.conceptIds.length) {
         throw new Error(`Trusted-source activity ${evaluation.attempt.activityId} emitted no learning concepts.`);
+    }
+}
+
+function assertAdvancedEvaluation(
+    evaluation: ActivityEvaluation,
+    activity: Readonly<{
+        id: string;
+        sourceQuestionId?: string;
+        conceptIds: readonly string[];
+        responseKind: string;
+    }>,
+    lessonId: string,
+): void {
+    if (evaluation.attempt.activityId !== activity.id
+        || evaluation.attempt.sourceQuestionId !== activity.sourceQuestionId
+        || evaluation.attempt.responseKind !== activity.responseKind
+        || !sameStrings(evaluation.attempt.conceptIds, activity.conceptIds)) {
+        throw new TypeError(`Activity ${evaluation.attempt.activityId} does not match ${lessonId}.`);
+    }
+    if (evaluation.reviewSeeds.some(seed => seed.sourceQuestionId !== activity.sourceQuestionId
+        || !activity.conceptIds.includes(seed.conceptId))) {
+        throw new TypeError(`Activity ${evaluation.attempt.activityId} emitted review evidence outside ${lessonId}.`);
     }
 }
 

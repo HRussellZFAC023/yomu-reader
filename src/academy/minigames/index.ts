@@ -17,6 +17,7 @@ import { n2MovingPriorityListeningPlugin } from '../content/n2-moving-priority-l
 import { n2PolicyScopePlugin } from '../content/n2-policy-scope/plugin';
 import { n2PpoiImpressionPlugin } from '../content/n2-ppoi-impression/plugin';
 import { n3N4SleepBridgePlugin } from '../content/n3-n4-sleep-bridge/plugin';
+import { n3MockListeningPlugin } from '../content/n3-mock-listening/plugin';
 import { n3PetHousingPlugin } from '../content/n3-pet-housing/plugin';
 import { n3SourceOpeningPlugin } from '../content/n3-source-opening/plugin';
 import { createActivityRuntime, type ActivityPlugin, type ActivityRuntime } from '../domain/activity-runtime';
@@ -96,6 +97,7 @@ export const ACADEMY_ACTIVITY_PLUGINS: readonly ActivityPlugin[] = Object.freeze
     n2MovingPriorityListeningPlugin,
     n2PolicyScopePlugin,
     n3SourceOpeningPlugin,
+    n3MockListeningPlugin,
     n3N4SleepBridgePlugin,
     n3PetHousingPlugin,
     adjectiveDescriptionWorkbookPlugin,
