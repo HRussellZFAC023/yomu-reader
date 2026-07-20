@@ -483,8 +483,15 @@ function startRedditResponsivenessProbe() {
     requestAnimationFrame(frame);
 }
 
-function stopRedditResponsivenessProbe() {
+async function stopRedditResponsivenessProbe() {
     const state = window.__yomuRedditResponsivenessProbe;
+    // Playwright's host-side wait can elapse while a cold WebKit renderer is
+    // still finishing reader boot. Give the page itself a bounded chance to
+    // render enough frames for a real cadence measurement before stopping.
+    await Promise.race([
+        new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        new Promise(resolve => setTimeout(resolve, 1_000)),
+    ]);
     state.stopped = true;
     const sorted = [...state.frameGaps].sort((a, b) => a - b);
     const percentile = value => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * value))] ?? 0;
