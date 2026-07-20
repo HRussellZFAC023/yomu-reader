@@ -5,6 +5,7 @@ import {
     isCurrentScanTarget,
     healUngrowableInFlowClampRows,
     makeRoomForRubyInCroppedRows,
+    realignAdditiveTextMirrorRuns,
     refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
     scanTargetRequiresWholeSourceMirror,
@@ -47,6 +48,10 @@ const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1_200;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
+// Coalesce a burst of settle signals (font swaps, resize, reflow) into a single
+// document-wide read-then-write pass. Long enough to ride out a run of resize
+// callbacks, short enough that a webfont swap heals well within a frame budget.
+const VISIBLE_SCAN_SETTLE_REFRESH_DEBOUNCE_MS = 200;
 const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
 const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
@@ -128,6 +133,15 @@ export class VisiblePageScanner {
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
+    // Settle-driven geometry heal (D2): a word can re-wrap and a mirror run can
+    // drift AFTER the post-scan sweep — iOS font boosting, webfont swap/FOUT,
+    // image-load reflow, viewport resize on sites that never auto-rescan. These
+    // signals re-run the same read-then-write sweep once, coalesced.
+    private settleTriggersInstalled = false;
+    private settleRefreshTimer: number | undefined;
+    private settleResizeObserver?: ResizeObserver;
+    private settleSignalAbort?: AbortController;
+    private lastSettleWidth = -1;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
     private makeRoomForRuby(root?: ParentNode): number {
@@ -141,6 +155,12 @@ export class VisiblePageScanner {
         this.asbDrainTimer = undefined;
         window.clearTimeout(this.clampSweepTimer);
         this.clampSweepTimer = undefined;
+        window.clearTimeout(this.settleRefreshTimer);
+        this.settleRefreshTimer = undefined;
+        this.settleResizeObserver?.disconnect();
+        this.settleResizeObserver = undefined;
+        this.settleSignalAbort?.abort();
+        this.settleSignalAbort = undefined;
         this.clearPageFuriganaMode();
     }
 
@@ -180,14 +200,11 @@ export class VisiblePageScanner {
     // hydration settles; rescans re-arm it, so late clamps are always caught.
     private scheduleClampedRubySweep(silent = false): void {
         if (this.destroyed || typeof document === 'undefined') return;
-        const sweep = (): void => {
-            if (this.destroyed || typeof document === 'undefined') return;
-            const adjusted = this.makeRoomForRuby(document);
-            if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
-            const healed = healUngrowableInFlowClampRows(document);
-            if (healed) log.info('Rest-hid in-flow readings on ungrowable clamp rows', { healed });
-            refreshWrappedScanWordUnderlines(document);
-        };
+        // A scan just annotated the page, so the settle signals now have real
+        // geometry to heal; installing here (once) guarantees document.body
+        // exists and avoids arming observers before the first annotation.
+        this.installSettleTriggers();
+        const sweep = (): void => this.runGeometrySettleSweep();
         // Silent auto-scans skip the immediate document-wide pass: apply-time
         // per-root sweeps already covered every changed root, and the delayed
         // sweep below still catches late-hydrating clamps. The synchronous
@@ -196,6 +213,67 @@ export class VisiblePageScanner {
         if (!silent) sweep();
         window.clearTimeout(this.clampSweepTimer);
         this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
+    }
+
+    // The shared read-then-write geometry pass: room-for-ruby, in-flow clamp
+    // heal (bidirectional recovery included), wrapped-word underline re-stamp,
+    // and additive-mirror run re-alignment. Reused by the post-scan sweep and
+    // every settle signal so late reflows converge on the same verdict.
+    private runGeometrySettleSweep(): void {
+        if (this.destroyed || typeof document === 'undefined') return;
+        const adjusted = this.makeRoomForRuby(document);
+        if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
+        const healed = healUngrowableInFlowClampRows(document);
+        if (healed) log.info('Rest-hid in-flow readings on ungrowable clamp rows', { healed });
+        refreshWrappedScanWordUnderlines(document);
+        realignAdditiveTextMirrorRuns(document);
+    }
+
+    // Wire the layout-settle signals that fire with no scan of their own —
+    // idempotent, so a second scan never double-installs. Every listener is
+    // torn down on destroy via the shared AbortController / observer handle.
+    private installSettleTriggers(): void {
+        if (this.settleTriggersInstalled || this.destroyed) return;
+        if (typeof document === 'undefined' || typeof window === 'undefined') return;
+        this.settleTriggersInstalled = true;
+        const controller = new AbortController();
+        this.settleSignalAbort = controller;
+        const schedule = (): void => this.scheduleSettleRefresh();
+        // Webfont load/swap (FOUT) re-flows every annotated line after the
+        // mirror measured against the fallback face: heal once the document
+        // fonts settle and again on every subsequent face load.
+        const fonts = document.fonts;
+        if (fonts) {
+            fonts.ready.then(schedule).catch(() => undefined);
+            fonts.addEventListener?.('loadingdone', schedule, { signal: controller.signal });
+        }
+        // iOS text-size boosting, dynamic-viewport chrome, and rotation resize
+        // the visual viewport with no scan; window resize covers desktop.
+        window.visualViewport?.addEventListener('resize', schedule, { signal: controller.signal });
+        window.addEventListener('resize', schedule, { signal: controller.signal });
+        // One coalesced ResizeObserver on the body catches eventless reflows —
+        // a webfont swap or image load that changes the content-box WIDTH and
+        // re-wraps words / displaces mirror runs. Gate strictly on width: a feed
+        // grows the body's HEIGHT on every scroll without re-wrapping a single
+        // existing line, and reacting to that would revive the document-wide
+        // recalc storm the silent-scan path was built to avoid. The width-gated
+        // sweep is idempotent, so its own reflows never re-trigger it.
+        if (typeof ResizeObserver === 'function' && document.body) {
+            const observer = new ResizeObserver(entries => {
+                const width = entries[entries.length - 1]?.contentRect.width ?? -1;
+                if (Math.abs(width - this.lastSettleWidth) < 0.5) return;
+                this.lastSettleWidth = width;
+                schedule();
+            });
+            observer.observe(document.body);
+            this.settleResizeObserver = observer;
+        }
+    }
+
+    private scheduleSettleRefresh(): void {
+        if (this.destroyed || typeof window === 'undefined') return;
+        window.clearTimeout(this.settleRefreshTimer);
+        this.settleRefreshTimer = window.setTimeout(() => this.runGeometrySettleSweep(), VISIBLE_SCAN_SETTLE_REFRESH_DEBOUNCE_MS);
     }
 
     // asbplayer pre-renders the WHOLE track's cue HTML into its offscreen

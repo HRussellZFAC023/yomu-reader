@@ -2748,6 +2748,12 @@ function mountNonDestructiveTextMirror(
             openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
+        // Correct the mirror's inline offset once it is connected and laid out:
+        // the source run may begin inside the padding box (leading icon sibling,
+        // centred/RTL control), which styleTextMirror's cross-axis-only anchor
+        // leaves uncorrected. Runs at rest before the visibility sync, while the
+        // mirror still inherits the host's visibility and reports real boxes.
+        alignAdditiveTextMirrorRun(mirror, host);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2775,6 +2781,98 @@ function stampMirrorWordSourceRanges(mirror: HTMLElement, tokens: JPDBToken[]): 
         word.dataset.yomuSourceStart = String(token.start);
         word.dataset.yomuSourceEnd = String(token.end);
     }
+}
+
+// styleTextMirror pins the additive mirror to the host's padding-box origin
+// (inset 0 0 auto 0) and corrects only the CROSS axis (vertical centring). The
+// page's own text run, though, need not begin at that inline-start: a flex/grid
+// control with a leading icon sibling, justify-content centring, or RTL flow
+// all shift the real glyphs horizontally. The transparent mirror word then
+// carries its ::after underline and detached readings beside the glyphs it
+// annotates (Reddit 投票 underline sitting under the neighbouring icon,
+// 2026-07-19). Measure the source run's inline-start against the mirror's the
+// same way — a Range over the stamped source nodes vs the mirror's first word —
+// and fold the residual into the mirror's translate. This is layout-structural
+// (leading sibling / alignment / writing direction), never a site profile, and
+// re-runs idempotently on settle: the residual is measured AFTER any prior
+// translateX, so an already-aligned run leaves the transform untouched.
+const ADDITIVE_MIRROR_RUN_ALIGN_EPSILON = 1;
+
+export function alignAdditiveTextMirrorRun(mirror: HTMLElement, host: HTMLElement): void {
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
+    const word = mirror.querySelector<HTMLElement>(
+        '.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]',
+    );
+    if (!word) return;
+    const mirrorLeft = firstFragmentLeft(word.getClientRects());
+    const sourceLeft = hostSourceRunLeft(host, word);
+    if (mirrorLeft === null || sourceLeft === null) return;
+    const residual = sourceLeft - mirrorLeft;
+    // An unshifted run (ordinary prose whose text starts at the content box)
+    // must not acquire a transform, and a re-align must not churn a run already
+    // within a pixel of its source — that keeps this a no-op on the hot path.
+    if (Math.abs(residual) <= ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) return;
+    const { x: currentX, y } = parseMirrorTranslate(mirror);
+    const nextX = currentX + residual;
+    const parts: string[] = [];
+    if (Math.abs(nextX) > ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) parts.push(`translateX(${nextX}px)`);
+    // Preserve the cross-axis correction styleTextMirror may have applied for a
+    // vertically-centred control; the two translations are order-independent.
+    if (y) parts.push(`translateY(${y})`);
+    if (parts.length) mirror.style.setProperty('transform', parts.join(' '));
+    else mirror.style.removeProperty('transform');
+}
+
+// Re-align every additive mirror after a settle signal (fonts.ready/loadingdone,
+// viewport/reflow resize): a webfont swap or reflow can move the source run out
+// from under a mirror whose horizontal offset was measured against the fallback
+// metrics. Shares the read-then-write discipline of the wrapped-underline sweep.
+export function realignAdditiveTextMirrorRuns(root: ParentNode = document): void {
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
+    for (const mirror of root.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror')) {
+        const host = registeredTextMirrorHostFor(mirror);
+        if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
+    }
+}
+
+// The inline-start (leftmost) live edge across a fragment list. Degenerate
+// zero-area rects (range boundaries, collapsed glyphs) are skipped so a
+// boundary rect can never masquerade as the run origin.
+function firstFragmentLeft(rects: DOMRectList | DOMRect[]): number | null {
+    let left: number | null = null;
+    for (const rect of Array.from(rects)) {
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        if (left === null || rect.left < left) left = rect.left;
+    }
+    return left;
+}
+
+// The live inline-start of the page-owned source range for a mirrored word,
+// resolved through the same node-offset walk the hit-test scorer uses so the
+// two measurements are apples-to-apples.
+function hostSourceRunLeft(host: HTMLElement, word: HTMLElement): number | null {
+    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (end > source.hostText.length) return null;
+    const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
+    const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
+    if (!startBoundary || !endBoundary) return null;
+    const range = host.ownerDocument.createRange();
+    range.setStart(startBoundary.node, startBoundary.offset);
+    range.setEnd(endBoundary.node, endBoundary.offset);
+    return firstFragmentLeft(range.getClientRects());
+}
+
+function parseMirrorTranslate(mirror: HTMLElement): { x: number; y: string } {
+    const transform = mirror.style.transform;
+    const xMatch = /translateX\((-?[\d.]+)px\)/.exec(transform);
+    const yMatch = /translateY\(([^)]+)\)/.exec(transform);
+    return {
+        x: xMatch ? Number.parseFloat(xMatch[1]) : 0,
+        y: yMatch ? yMatch[1].trim() : '',
+    };
 }
 
 /**
