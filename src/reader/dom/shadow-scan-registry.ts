@@ -166,29 +166,32 @@ function pollPotentialShadowHosts(): void {
 export function installPageOpenShadowRootDiscoveryBridge(): void {
     const sandbox = globalThis as {
         unsafeWindow?: PageShadowWindow;
-        exportFunction?: <T>(fn: T, scope: object) => T;
     };
     const pageWindow = sandbox.unsafeWindow;
     if (pageWindow) {
-        // A raw sandbox closure defined onto the page's Element.prototype is not
-        // callable from the page realm on Firefox's Xray-wrapped managers: every
-        // page-side attachShadow() then throws "Permission denied to access
-        // object" inside the CALLER. Wallet buttons (Apple Pay, Stripe express
-        // checkout) build their UI via attachShadow in connectedCallback, so the
-        // broken patch silently deleted payment options. Patch directly only in
-        // the same realm; cross-realm needs an exportFunction bridge, otherwise
-        // fall through to the shared-DOM page-realm script.
+        // Patching the page's Element.prototype from the sandbox is only safe in
+        // the same realm. Under Firefox's Xray wrappers it breaks the host page
+        // two ways, and an exportFunction bridge fixes neither: (1) the exported
+        // closure still RUNS in the sandbox compartment, so the { bubbles,
+        // composed } EventInit it builds is a sandbox object and the page-realm
+        // Event binding throws "Permission denied to access property bubbles"
+        // before attachShadow returns — every page caller (Lit createRenderRoot,
+        // Apple Pay / Stripe wallet buttons in connectedCallback) inherits the
+        // throw and its component dies. (2) defineProperty is handed a sandbox
+        // descriptor object the Xray prototype refuses ("Not allowed to define
+        // cross-origin object as property"). So patch directly only when
+        // sameRealm; otherwise fall through to the page-realm <script> below,
+        // whose body runs wholly in the page compartment where every object
+        // involved is a page object. Under strict CSP that injection is refused
+        // and discovery degrades to the bounded potential-host poll — degraded
+        // discovery is acceptable; breaking the host page is not.
         const sameRealm = (pageWindow as unknown as { Object?: unknown }).Object === Object;
-        const exportToPage = !sameRealm && typeof sandbox.exportFunction === 'function'
-            ? sandbox.exportFunction
-            : undefined;
-        if (sameRealm || exportToPage) {
+        if (sameRealm) {
             try {
                 pageOpenShadowRootDiscoveryBootstrap(
                     pageWindow,
                     OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
                     PAGE_SHADOW_DISCOVERY_KEY,
-                    exportToPage,
                 );
                 return;
             } catch {
@@ -211,11 +214,14 @@ export function installPageOpenShadowRootDiscoveryBridge(): void {
     }
 }
 
+// Runs in the page realm on every path that reaches it: called directly when
+// the sandbox shares the page realm, or serialized into a page-realm <script>
+// otherwise. Both closure and EventInit are therefore page objects, which is
+// what keeps `new pageWindow.Event(...)` legal (see the Xray note above).
 function pageOpenShadowRootDiscoveryBootstrap(
     pageWindow: PageShadowWindow,
     eventName: string,
     stateKey: string,
-    exportToPage?: <T>(fn: T, scope: object) => T,
 ): void {
     const state = pageWindow as unknown as Record<string, unknown>;
     if (state[stateKey]) return;
@@ -223,15 +229,13 @@ function pageOpenShadowRootDiscoveryBootstrap(
     const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
     const original = descriptor?.value;
     if (!prototype || !descriptor || typeof original !== 'function') return;
-    let patched = function attachShadow(this: Element, init: ShadowRootInit): ShadowRoot {
+    const patched = function attachShadow(this: Element, init: ShadowRootInit): ShadowRoot {
         const root = original.call(this, init) as ShadowRoot;
         if (root.mode === 'open') {
             this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
         }
         return root;
     };
-    // Cross-realm callers can only invoke a function exported into their realm.
-    if (exportToPage) patched = exportToPage(patched, pageWindow);
     Object.defineProperty(prototype, 'attachShadow', {
         ...descriptor,
         value: patched,
