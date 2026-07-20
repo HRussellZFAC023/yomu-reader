@@ -42,7 +42,7 @@ export interface WorldScreenOptions {
     readonly onClaimStamp: (stampId: string) => void;
     readonly onIntroductionComplete?: (introductionId: string) => void;
     /** Returns false when browser speech is unavailable; the transcript is still shown. */
-    readonly onListen?: (line: string) => Promise<boolean>;
+    readonly onListen?: (line: string, bindingId?: string) => Promise<boolean>;
     readonly onPracticeComplete?: (practiceId: string, stampId: string, evaluation?: ActivityEvaluation) => void;
     readonly audioMuted?: boolean;
     readonly onToggleAudio?: () => boolean;
@@ -105,6 +105,9 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
         screen.dataset.konbiniVisit = String(options.progress.worldVisits?.konbini ?? 0);
     }
     screen.dataset.plate = place.scene;
+    screen.addEventListener('academy:dispose', () => {
+        screen.dataset.academyDisposed = 'true';
+    }, { once: true });
     if (place.composition) screen.dataset.sceneMotif = place.composition.motif;
     screen.append(academyBackgroundPicture(place.scene));
 
@@ -623,7 +626,11 @@ function worldPractice(
             spokenLine.hidden = false;
             repeatButton.disabled = false;
         }
-        void (options.onListen?.(practice.audioLine) ?? Promise.resolve(false)).then(played => {
+        void (options.onListen?.(
+            practice.audioLine,
+            `world-practice:${practice.id}`,
+        ) ?? Promise.resolve(false)).then(played => {
+            if (root.closest<HTMLElement>('.academy-world-screen')?.dataset.academyDisposed === 'true') return;
             if (speakingCue?.dataset.labSpeaking === 'spoken') return;
             status.textContent = played
                 ? options.language === 'ja' ? '音声を再生しました。' : 'Playing the announcement.'

@@ -1,4 +1,5 @@
 import type { AudioDirector } from '../audio/director';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import type { AcademySyncClient } from '../account/sync-client';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
 import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
@@ -181,6 +182,8 @@ class WorldFlow implements AcademyRouteFlow {
         const characters = projectCharacterDirectory(context.projection);
         const lessonContext = await this.classroomWeekContext(place, context);
         let speech: { dispose(): void } | undefined;
+        let listenRequest: AbortController | undefined;
+        let listenGeneration = 0;
         // `context.checkpoint` is a render-time snapshot. Handlers below can fire
         // in sequence within ONE render (arrival dialogue -> practice completion),
         // and a later write based on the stale snapshot would drop introductions
@@ -225,14 +228,30 @@ class WorldFlow implements AcademyRouteFlow {
                     ? context.save(update)
                     : context.go(context.checkpoint.route, update));
             },
-            onListen: async line => {
+            onListen: async (line, bindingId) => {
+                const generation = ++listenGeneration;
+                listenRequest?.abort();
+                speech?.dispose();
+                speech = undefined;
+                const request = new AbortController();
+                listenRequest = request;
                 try {
-                    const next = await this.options.pronunciation.play(line);
-                    speech?.dispose();
+                    const next = bindingId
+                        ? await playLearningVoiceBinding(this.options.pronunciation, bindingId, line, request.signal)
+                        : await this.options.pronunciation.play(line, undefined, request.signal);
+                    if (!next) return false;
+                    if (request.signal.aborted || generation !== listenGeneration) {
+                        next.dispose();
+                        return false;
+                    }
                     speech = next;
                     return true;
                 } catch {
                     return false;
+                } finally {
+                    if (generation === listenGeneration && listenRequest === request && !speech) {
+                        listenRequest = undefined;
+                    }
                 }
             },
             onObjectInteract: () => { this.locationAudio.toggleObject(place); },
@@ -263,7 +282,13 @@ class WorldFlow implements AcademyRouteFlow {
             },
             ...(context.checkpoint.route === 'campus' ? {} : { onBack: () => void context.back() }),
         });
-        screen.addEventListener('academy:dispose', () => speech?.dispose(), { once: true });
+        screen.addEventListener('academy:dispose', () => {
+            listenGeneration += 1;
+            listenRequest?.abort();
+            listenRequest = undefined;
+            speech?.dispose();
+            speech = undefined;
+        }, { once: true });
         context.shell.replace(screen);
         return true;
     }
@@ -485,9 +510,23 @@ class WorldFlow implements AcademyRouteFlow {
         const sheetVocabulary = libraryStudyVocabulary(sheet);
         const syllabusState = due.length ? 'due' : await this.options.evidence.syllabusState?.(sheetVocabulary);
         let speech: { dispose(): void } | undefined;
+        let playRequest: AbortController | undefined;
+        let playGeneration = 0;
         const play = (word: Pick<AcademyStudyVocabulary, 'expression' | 'reading'>) => {
-            void this.options.pronunciation.play(word.expression, word.reading)
-                .then(next => { speech?.dispose(); speech = next; })
+            const generation = ++playGeneration;
+            playRequest?.abort();
+            speech?.dispose();
+            speech = undefined;
+            const request = new AbortController();
+            playRequest = request;
+            void this.options.pronunciation.play(word.expression, word.reading, request.signal)
+                .then(next => {
+                    if (request.signal.aborted || generation !== playGeneration) {
+                        next.dispose();
+                        return;
+                    }
+                    speech = next;
+                })
                 .catch(() => undefined);
         };
         const screen = renderLibraryScreen({
@@ -499,7 +538,13 @@ class WorldFlow implements AcademyRouteFlow {
             onStart: () => void this.startLibraryStudy(context, sheet, sheetVocabulary, play),
             onPlay: play,
         });
-        screen.addEventListener('academy:dispose', () => speech?.dispose(), { once: true });
+        screen.addEventListener('academy:dispose', () => {
+            playGeneration += 1;
+            playRequest?.abort();
+            playRequest = undefined;
+            speech?.dispose();
+            speech = undefined;
+        }, { once: true });
         context.shell.replace(screen);
     }
 

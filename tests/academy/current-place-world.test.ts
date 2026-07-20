@@ -1252,7 +1252,10 @@ describe('Academy current-place world', () => {
         expect(repeat.disabled).toBe(true);
 
         listen.click();
-        await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith('もう一度お願いします。'));
+        await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith(
+            'もう一度お願いします。',
+            'world-practice:lab-classroom-repair',
+        ));
         expect(cue.dataset.labSpeaking).toBe('ready');
         expect(line.hidden).toBe(false);
         expect(line.textContent).toBe('もう一度お願いします。');

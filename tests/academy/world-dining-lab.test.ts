@@ -84,7 +84,10 @@ describe('Student Dining and Language Lab current-place replays', () => {
             .toBe('source-question:classroom-phrase-09');
 
         practice.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
-        await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith('もう一度お願いします。'));
+        await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith(
+            'もう一度お願いします。',
+            'world-practice:lab-classroom-repair',
+        ));
         practice.querySelector<HTMLButtonElement>('.academy-lab-speaking-button')?.click();
         worldChoiceButtonByLabel(practice, 'お願いします')?.click();
 

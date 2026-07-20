@@ -1,0 +1,300 @@
+{
+  "schema": "yomu-academy.learning-voice-production.v1",
+  "batchId": "academy-learning-native-20260720-01",
+  "createdOn": "2026-07-20",
+  "scope": "One native-band production slice: four immutable voice units and five reachable Academy bindings.",
+  "qualityApproval": {
+    "ownerQualityApproved": true,
+    "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
+    "ownerLineByLineReviewed": false,
+    "humanReviewed": false
+  },
+  "render": {
+    "schema": "yomu-academy.learning-voice-render.v1",
+    "engine": {
+      "name": "AivisSpeech Engine",
+      "version": "1.2.0"
+    },
+    "encoder": {
+      "name": "ffmpeg/libopus",
+      "version": "8.1.2",
+      "bitrateKbps": 64,
+      "application": "voip"
+    },
+    "cacheKey": {
+      "algorithm": "sha256",
+      "canonicalization": "python-json-sort-keys-utf8-compact-v1",
+      "includes": [
+        "renderer schema",
+        "engine",
+        "model UUID/version/payload",
+        "style",
+        "Japanese text",
+        "immutable render identity (voice line, speaker, intent, locale, source revision, bindings)",
+        "runtime bindings",
+        "all query and mora overrides",
+        "audio query hash",
+        "encoder"
+      ]
+    }
+  },
+  "triage": {
+    "reviewedRequiredVoiceLineIds": [
+      "lesson-textbook-pair-prompt",
+      "miller-cafe-price",
+      "mary-cafe-order",
+      "rie-lesson-zero-repeat"
+    ],
+    "reviewedExclusions": []
+  },
+  "voiceMappings": [
+    {
+      "mappingId": "narrator-learning-prompts",
+      "speakerId": "narrator",
+      "castLabel": "Academy narrator",
+      "surfaceClasses": [
+        "ui-prompt",
+        "learning-prompt",
+        "lesson-instruction",
+        "minigame-prompt",
+        "worksheet-prompt"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+      "modelName": "らせつん",
+      "modelVersion": "1.0.0",
+      "modelPayloadSha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+      "modelLicense": "ACML-1.0",
+      "styleId": 893625024,
+      "styleName": "標準",
+      "fallback": "worker-tts-then-browser-speech"
+    },
+    {
+      "mappingId": "textbook-miller-dialogue",
+      "speakerId": "textbook-miller",
+      "castLabel": "Miller",
+      "surfaceClasses": [
+        "textbook-dialogue",
+        "world-practice"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+      "modelName": "阿井田 茂",
+      "modelVersion": "1.0.0",
+      "modelPayloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+      "modelLicense": "ACML-1.0",
+      "styleId": 1310138977,
+      "styleName": "Calm",
+      "fallback": "worker-tts-then-browser-speech"
+    },
+    {
+      "mappingId": "textbook-mary-dialogue",
+      "speakerId": "textbook-mary",
+      "castLabel": "Mary",
+      "surfaceClasses": [
+        "textbook-dialogue",
+        "world-practice"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "modelName": "まい",
+      "modelVersion": "1.0.0",
+      "modelPayloadSha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "modelLicense": "ACML-1.0",
+      "styleId": 1431611904,
+      "styleName": "ノーマル",
+      "fallback": "worker-tts-then-browser-speech"
+    },
+    {
+      "mappingId": "rie-learning-dialogue",
+      "speakerId": "rie",
+      "castLabel": "Rie-sensei",
+      "surfaceClasses": [
+        "academy-character",
+        "lesson-dialogue",
+        "minigame-dialogue",
+        "world-practice"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "modelName": "morioki",
+      "modelVersion": "1.0.0",
+      "modelPayloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "modelLicense": "ACML-1.0",
+      "styleId": 497929760,
+      "styleName": "ノーマル",
+      "fallback": "worker-tts-then-browser-speech"
+    }
+  ],
+  "entries": [
+    {
+      "identity": {
+        "voiceLineId": "lesson-textbook-pair-prompt",
+        "speakerId": "narrator",
+        "intent": "Give one calm, bounded classroom instruction before paired speaking practice.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "07d4462d7ea11b73a081590ca76c56e646e602df0caf9beb4fb7e81f19d291ff",
+        "bindingIds": [
+          "lesson-screen:textbook-pair-prompt"
+        ]
+      },
+      "mappingId": "narrator-learning-prompts",
+      "role": "learning-ui",
+      "surface": "lesson-screen",
+      "japanese": "では、教科書の五ページを開いて、二人で話してください。",
+      "bindings": [
+        {
+          "lineId": "lesson-screen:textbook-pair-prompt",
+          "surface": "lesson-screen",
+          "accessibleReplayLabel": {
+            "en": "Replay the textbook pair-work prompt",
+            "ja": "教科書のペア練習の指示をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "da5f6d23702f5f6d0a0516e82f1eb09e00bc96a3c88020d2cf7de5951b5a08d2",
+      "expectedCacheKey": "e67c2987e27491d3e95ed2ba1ae0c468feb545b3c4c8555d3faf842bbf21a9f9",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.02,
+        "intonationScale": 0.95,
+        "volumeScale": 0.8,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.0
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "miller-cafe-price",
+        "speakerId": "textbook-miller",
+        "intent": "Model a concise, matter-of-fact cafe price as a textbook-character speaking turn.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79",
+        "bindingIds": [
+          "world-practice:cafe-coffee-price"
+        ]
+      },
+      "mappingId": "textbook-miller-dialogue",
+      "role": "textbook-character",
+      "surface": "cafe-world",
+      "japanese": "コーヒーは三百円です。",
+      "bindings": [
+        {
+          "lineId": "world-practice:cafe-coffee-price",
+          "surface": "cafe-world",
+          "accessibleReplayLabel": {
+            "en": "Replay Miller's cafe price line",
+            "ja": "ミラーさんのカフェの値段をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "bc254a0fb56730940c5acd12860a92a3bd52de1332795c4541000ffac56fd0a5",
+      "expectedCacheKey": "28b3358c342c6ef950cbc432dd50515635e7d21ecfba8d2a7f0c5e258b3fb2a6",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.03,
+        "intonationScale": 1.0,
+        "volumeScale": 0.8,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.0
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "mary-cafe-order",
+        "speakerId": "textbook-mary",
+        "intent": "Model a clear, polite cafe order with a natural boundary before the request.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "15ad2f7463775fbdafc5675c97f10e88a95205b0b273aec337d24289eb3ade79",
+        "bindingIds": [
+          "world-practice:cafe-coffee-counter"
+        ]
+      },
+      "mappingId": "textbook-mary-dialogue",
+      "role": "textbook-character",
+      "surface": "cafe-world",
+      "japanese": "コーヒーを一つ、お願いします。",
+      "bindings": [
+        {
+          "lineId": "world-practice:cafe-coffee-counter",
+          "surface": "cafe-world",
+          "accessibleReplayLabel": {
+            "en": "Replay Mary's cafe order",
+            "ja": "メアリーさんのカフェの注文をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "c658fc85732ed0c2bb7964a8e0dca7fcf448dbf61c6a22c345644e02f1640e8d",
+      "expectedCacheKey": "def2bf7bca63c5458072dfd381e682479d6cd3019ce6c34cf896c8c68c179c1d",
+      "queryOverrides": {
+        "speedScale": 1.0,
+        "pitchScale": 0.02,
+        "intonationScale": 1.04,
+        "volumeScale": 0.8,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.0
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-lesson-zero-repeat",
+        "speakerId": "rie",
+        "intent": "Give a warm, composed repair phrase that a beginner can replay and immediately use.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+        "bindingIds": [
+          "world-practice:lab-classroom-repair",
+          "world-practice:lab-classroom-repeat"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero",
+      "japanese": "もう一度お願いします。",
+      "bindings": [
+        {
+          "lineId": "world-practice:lab-classroom-repair",
+          "surface": "lab-world",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie's Lesson 0 repair phrase",
+            "ja": "りえ先生のレッスン0の表現をもう一度聞く"
+          }
+        },
+        {
+          "lineId": "world-practice:lab-classroom-repeat",
+          "surface": "lab-world",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie's Lesson 0 repair phrase",
+            "ja": "りえ先生のレッスン0の表現をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "c7be5e0639bc7528a9f51ef7ab0fbc81f337951bc2bb28e1039192673443188b",
+      "expectedCacheKey": "338d8bdd0bbfd0e4beaef3e99608f7e4dc86956f4245cd93555aa44f4b37df55",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": 0.0,
+        "intonationScale": 0.98,
+        "volumeScale": 0.8,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.95
+      },
+      "moraOverrides": []
+    }
+  ]
+}

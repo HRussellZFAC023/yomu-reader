@@ -8,7 +8,7 @@ export interface CafeOrderOptions {
     readonly language: AcademyLanguage;
     readonly practice: WorldPractice;
     readonly stamp: WorldStamp;
-    readonly onListen?: (line: string) => Promise<boolean>;
+    readonly onListen?: (line: string, bindingId?: string) => Promise<boolean>;
     readonly onComplete?: (practiceId: string, stampId: string, evaluation?: ActivityEvaluation) => void;
 }
 
@@ -112,7 +112,11 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
         choices.hidden = false;
         listen.hidden = true;
         choices.focus();
-        void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then(played => {
+        void (options.onListen?.(
+            options.practice.audioLine,
+            `world-practice:${options.practice.id}`,
+        ) ?? Promise.resolve(false)).then(played => {
+            if (root.closest<HTMLElement>('.academy-world-screen')?.dataset.academyDisposed === 'true') return;
             if (root.dataset.cafeOrderState !== 'choosing') return;
             status.textContent = played
                 ? options.language === 'ja' ? '聞こえた内容を注文票に合わせる。' : 'Match what you heard to the order slip.'

@@ -1,0 +1,163 @@
+{
+  "schema": "yomu-academy.learning-voice-model-reviews.v1",
+  "reviewedOn": "2026-07-20",
+  "audioModelReviewed": true,
+  "humanReviewed": false,
+  "policy": {
+    "independentModelFamiliesRequired": 2,
+    "maximumCharacterErrorRate": 0.15,
+    "basis": "Each reviewer must process the actual waveform and independently recover the intended Japanese. Signal, codec, clipping, loudness, and silence are assessed by the separate objective QA gate.",
+    "limitation": "Automated speech recognition does not constitute a human naturalness or accent audition."
+  },
+  "excludedCapabilityChecks": [
+    {
+      "service": "Google Gemini web",
+      "displayedModels": [
+        "3.5 Flash",
+        "3.1 Pro"
+      ],
+      "audioActuallyAuditioned": false,
+      "counted": false,
+      "reason": "The service explicitly returned that it could not analyse the attached waveform."
+    }
+  ],
+  "reviews": [
+    {
+      "reviewer": {
+        "service": "whisper.cpp local inference",
+        "modelFamily": "OpenAI Whisper",
+        "displayedModel": "ggml-base.bin",
+        "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        "independentReviewIndex": 1
+      },
+      "audioActuallyAuditioned": true,
+      "audioModelReviewed": true,
+      "humanReviewed": false,
+      "auditionMethod": "direct local waveform inference",
+      "criteria": [
+        "independent acoustic intelligibility",
+        "Japanese waveform-to-text recovery",
+        "character error rate at or below 0.15"
+      ],
+      "assetSha256s": [
+        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
+      ],
+      "lines": [
+        {
+          "lineId": "lesson-textbook-pair-prompt",
+          "filename": "lesson-textbook-pair-prompt__e67c2987e27491d3.opus",
+          "assetSha256": "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+          "expectedJapanese": "では、教科書の五ページを開いて、二人で話してください。",
+          "heardTranscript": "では、教科書のコページを開いて、二人で話してください。",
+          "normalizedTranscript": "では教科書のコページを開いて二人で話してください",
+          "characterErrorRate": 0.0417,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "miller-cafe-price",
+          "filename": "miller-cafe-price__28b3358c342c6ef9.opus",
+          "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+          "expectedJapanese": "コーヒーは三百円です。",
+          "heardTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "コーヒーは300円です",
+          "characterErrorRate": 0,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "mary-cafe-order",
+          "filename": "mary-cafe-order__def2bf7bca63c545.opus",
+          "assetSha256": "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+          "expectedJapanese": "コーヒーを一つ、お願いします。",
+          "heardTranscript": "コーヒーを一つ お狙いします",
+          "normalizedTranscript": "コーヒーを一つお狙いします",
+          "characterErrorRate": 0.0769,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-repeat",
+          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
+          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "expectedJapanese": "もう一度お願いします。",
+          "heardTranscript": "もう一度お願いします",
+          "normalizedTranscript": "もう一度お願いします",
+          "characterErrorRate": 0,
+          "verdict": "pass"
+        }
+      ],
+      "overallVerdict": "pass",
+      "blockingDefects": []
+    },
+    {
+      "reviewer": {
+        "service": "Vosk local inference",
+        "modelFamily": "Kaldi Vosk Japanese",
+        "displayedModel": "vosk-model-small-ja-0.22",
+        "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+        "independentReviewIndex": 2
+      },
+      "audioActuallyAuditioned": true,
+      "audioModelReviewed": true,
+      "humanReviewed": false,
+      "auditionMethod": "direct local waveform inference",
+      "criteria": [
+        "independent acoustic intelligibility",
+        "Japanese waveform-to-text recovery",
+        "character error rate at or below 0.15"
+      ],
+      "assetSha256s": [
+        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
+      ],
+      "lines": [
+        {
+          "lineId": "lesson-textbook-pair-prompt",
+          "filename": "lesson-textbook-pair-prompt__e67c2987e27491d3.opus",
+          "assetSha256": "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+          "expectedJapanese": "では、教科書の五ページを開いて、二人で話してください。",
+          "heardTranscript": "円 は 教科書 の 後 ページ を 開い て 二人 で 話し て ください",
+          "normalizedTranscript": "円は教科書の後ページを開いて二人で話してください",
+          "characterErrorRate": 0.0833,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "miller-cafe-price",
+          "filename": "miller-cafe-price__28b3358c342c6ef9.opus",
+          "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+          "expectedJapanese": "コーヒーは三百円です。",
+          "heardTranscript": "コーヒー は 三百 円 です",
+          "normalizedTranscript": "コーヒーは300円です",
+          "characterErrorRate": 0,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "mary-cafe-order",
+          "filename": "mary-cafe-order__def2bf7bca63c545.opus",
+          "assetSha256": "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+          "expectedJapanese": "コーヒーを一つ、お願いします。",
+          "heardTranscript": "コーヒー を 一 つ お 願い し ます",
+          "normalizedTranscript": "コーヒーを一つお願いします",
+          "characterErrorRate": 0,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-repeat",
+          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
+          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "expectedJapanese": "もう一度お願いします。",
+          "heardTranscript": "もう 一 度 は 願い し ます",
+          "normalizedTranscript": "もう一度は願いします",
+          "characterErrorRate": 0.1,
+          "verdict": "pass"
+        }
+      ],
+      "overallVerdict": "pass",
+      "blockingDefects": []
+    }
+  ],
+  "overallVerdict": "pass"
+}

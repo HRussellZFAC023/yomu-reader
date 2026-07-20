@@ -96,6 +96,7 @@
 
 ### Added
 
+- Academy now plays four owner-approved, licence-archived native-band Japanese learning voices across the Lesson 0 sound fork, both Cafe practices, and both Language Lab practices; the human review flag remains false. Archived canonical Aivis queries reproduce every query/cache hash and global/local style mapping offline, request-owned playback cancels pending static, worker, and browser fallbacks, and browser proof runs against production-mode bytes identical to the hosted Academy app bundle. Human auditory acceptance and full-corpus voice production remain open.
 - The documentation navbar and README now link to Stripe support, with Patreon and Ko-fi entries ready to appear only after their public pages are verified.
 - Yomu Academy now has a canonical, verified-provider foundation for granting payment entitlements without duplicate events. Provider accounts still need to be connected and published, and ordinary Stripe support donations remain support-only unless Academy owns the checkout.
 

@@ -1,0 +1,294 @@
+{
+  "schema": "yomu-academy.learning-voice-acceptance.v4",
+  "generatedOn": "2026-07-20",
+  "batchId": "academy-learning-native-20260720-01",
+  "ownerQualityApproved": true,
+  "ownerQualityApprovalScope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
+  "ownerLineByLineReviewed": false,
+  "humanReviewed": false,
+  "audioModelReviewed": true,
+  "independentAudioModelReviews": 2,
+  "objectiveQa": {
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers",
+    "whisper": {
+      "modelFile": "ggml-base.bin",
+      "modelSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
+    }
+  },
+  "archivedLicenceEvidence": {
+    "path": "docs/academy/audio/learning-voice-model-evidence.json",
+    "schema": "yomu-academy.learning-voice-model-evidence.v2",
+    "id": "ACML-1.0",
+    "sha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
+    "modelEvidenceSha256": "94edbda755fde05c18bfc2206cdc8493b5886ab69e6f77aaa231306732710d19",
+    "engineStyleSource": {
+      "kind": "AivisSpeech Engine aivm_infos_cache.json",
+      "fileName": "aivm_infos_cache.json",
+      "fileSha256": "8ee2593469ca72fea969bde27c9b76d8c8c4c99f6bcc36d6cc8eaf3f38a9a8a6",
+      "relevantMappingsSha256": "4b3f5aad8bfbc4026326c02531c7d5e7c3f47c55fbfa3798b1d1405286475b8b"
+    }
+  },
+  "archivedQueryEvidence": {
+    "path": "docs/academy/audio/learning-voice-query-evidence.json",
+    "schema": "yomu-academy.learning-voice-query-evidence.v1",
+    "sha256": "9aebd08c46dbf8db1cff34f45dd993438fe332c40e340aa5553481e18c334285",
+    "entries": 4,
+    "styleMappings": 4
+  },
+  "productionContract": {
+    "path": "docs/academy/audio/learning-voice-production.json",
+    "sha256": "7e6db79034b3fffa53f8ad698a1526ed6793527e8695da6598966d1b3bb67a31",
+    "validation": {
+      "validated": 4,
+      "bindings": 5,
+      "nativeBand": 4,
+      "archivedQueries": 4,
+      "ownerQualityApproved": true,
+      "humanReviewed": false
+    }
+  },
+  "historicalModelReviewEvidence": {
+    "path": "docs/academy/audio/learning-voice-model-reviews.json",
+    "count": 2,
+    "independentReviewerFamilies": 2,
+    "passed": true,
+    "requiredForFutureAcceptance": false
+  },
+  "catalogSha256": "2650c8fc97136f0a4651c191ece0d80861315f37af03a602956beb617127625e",
+  "entries": [
+    {
+      "lineId": "lesson-textbook-pair-prompt",
+      "bindingIds": [
+        "lesson-screen:textbook-pair-prompt"
+      ],
+      "intent": "Give one calm, bounded classroom instruction before paired speaking practice.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "07d4462d7ea11b73a081590ca76c56e646e602df0caf9beb4fb7e81f19d291ff",
+      "sourceRevision": "07d4462d7ea11b73a081590ca76c56e646e602df0caf9beb4fb7e81f19d291ff",
+      "audioQuerySha256": "da5f6d23702f5f6d0a0516e82f1eb09e00bc96a3c88020d2cf7de5951b5a08d2",
+      "cacheKey": "e67c2987e27491d3e95ed2ba1ae0c468feb545b3c4c8555d3faf842bbf21a9f9",
+      "assetSha256": "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+      "modelUuid": "9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+      "modelPayloadSha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 5.620042,
+        "integratedLufs": -22,
+        "truePeakDbfs": -2.1,
+        "leadingSeconds": 0.141,
+        "trailingSeconds": 0.198,
+        "longestInteriorSeconds": 0.47
+      },
+      "acousticTranscription": {
+        "status": "passed",
+        "transcript": "では、教科書のコページを開いて、二人で話してください。",
+        "normalizedTranscript": "では教科書のコページを開いて二人で話してください",
+        "characterErrorRate": 0.0417
+      },
+      "checks": {
+        "sourceHash": true,
+        "sourceRevision": true,
+        "nativeBand": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true,
+        "provenance": true,
+        "acousticTranscription": true,
+        "ownerQualityApproval": true,
+        "honestReviewFields": true,
+        "acceptedState": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "miller-cafe-price",
+      "bindingIds": [
+        "world-practice:cafe-coffee-price"
+      ],
+      "intent": "Model a concise, matter-of-fact cafe price as a textbook-character speaking turn.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79",
+      "sourceRevision": "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79",
+      "audioQuerySha256": "bc254a0fb56730940c5acd12860a92a3bd52de1332795c4541000ffac56fd0a5",
+      "cacheKey": "28b3358c342c6ef950cbc432dd50515635e7d21ecfba8d2a7f0c5e258b3fb2a6",
+      "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+      "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+      "modelPayloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.090063,
+        "integratedLufs": -17.1,
+        "truePeakDbfs": -2.1,
+        "leadingSeconds": 0.284,
+        "trailingSeconds": 0.336,
+        "longestInteriorSeconds": 0
+      },
+      "acousticTranscription": {
+        "status": "passed",
+        "transcript": "コーヒーは300円です",
+        "normalizedTranscript": "コーヒーは300円です",
+        "characterErrorRate": 0
+      },
+      "checks": {
+        "sourceHash": true,
+        "sourceRevision": true,
+        "nativeBand": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true,
+        "provenance": true,
+        "acousticTranscription": true,
+        "ownerQualityApproval": true,
+        "honestReviewFields": true,
+        "acceptedState": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "mary-cafe-order",
+      "bindingIds": [
+        "world-practice:cafe-coffee-counter"
+      ],
+      "intent": "Model a clear, polite cafe order with a natural boundary before the request.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "15ad2f7463775fbdafc5675c97f10e88a95205b0b273aec337d24289eb3ade79",
+      "sourceRevision": "15ad2f7463775fbdafc5675c97f10e88a95205b0b273aec337d24289eb3ade79",
+      "audioQuerySha256": "c658fc85732ed0c2bb7964a8e0dca7fcf448dbf61c6a22c345644e02f1640e8d",
+      "cacheKey": "def2bf7bca63c5458072dfd381e682479d6cd3019ce6c34cf896c8c68c179c1d",
+      "assetSha256": "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+      "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "modelPayloadSha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.605542,
+        "integratedLufs": -16.8,
+        "truePeakDbfs": -2.3,
+        "leadingSeconds": 0.104,
+        "trailingSeconds": 0.192,
+        "longestInteriorSeconds": 0.394
+      },
+      "acousticTranscription": {
+        "status": "passed",
+        "transcript": "コーヒーを一つ お狙いします",
+        "normalizedTranscript": "コーヒーを一つお狙いします",
+        "characterErrorRate": 0.0769
+      },
+      "checks": {
+        "sourceHash": true,
+        "sourceRevision": true,
+        "nativeBand": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true,
+        "provenance": true,
+        "acousticTranscription": true,
+        "ownerQualityApproval": true,
+        "honestReviewFields": true,
+        "acceptedState": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-lesson-zero-repeat",
+      "bindingIds": [
+        "world-practice:lab-classroom-repair",
+        "world-practice:lab-classroom-repeat"
+      ],
+      "intent": "Give a warm, composed repair phrase that a beginner can replay and immediately use.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+      "sourceRevision": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+      "audioQuerySha256": "c7be5e0639bc7528a9f51ef7ab0fbc81f337951bc2bb28e1039192673443188b",
+      "cacheKey": "338d8bdd0bbfd0e4beaef3e99608f7e4dc86956f4245cd93555aa44f4b37df55",
+      "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+      "modelUuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "modelPayloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.053583,
+        "integratedLufs": -17,
+        "truePeakDbfs": -1.6,
+        "leadingSeconds": 0.302,
+        "trailingSeconds": 0.353,
+        "longestInteriorSeconds": 0
+      },
+      "acousticTranscription": {
+        "status": "passed",
+        "transcript": "もう一度お願いします",
+        "normalizedTranscript": "もう一度お願いします",
+        "characterErrorRate": 0
+      },
+      "checks": {
+        "sourceHash": true,
+        "sourceRevision": true,
+        "nativeBand": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true,
+        "provenance": true,
+        "acousticTranscription": true,
+        "ownerQualityApproval": true,
+        "honestReviewFields": true,
+        "acceptedState": true
+      },
+      "verdict": "pass"
+    }
+  ],
+  "counts": {
+    "entries": 4,
+    "objectivePassed": 4,
+    "accepted": 4,
+    "nativeBand": 4,
+    "bindings": 5
+  },
+  "complete": true
+}

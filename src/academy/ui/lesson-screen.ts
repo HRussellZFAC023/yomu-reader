@@ -6,6 +6,7 @@ import { createOpeningForkActivity, type LessonFork, type VerticalSliceContent }
 import { createActivityRuntime, type ActivityEvaluation } from '../domain/activity-runtime';
 import type { JlptBand } from '../domain/learner-record';
 import type { Disposable, KanjiWritingModel, PronunciationService } from '../integration/yomu-bridge';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import { copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite, setAcademySpriteExpression } from './sprite';
 
@@ -136,6 +137,9 @@ export function renderSourceActivityScreen(
         completion.replaceChildren(note, directions, next);
     });
     let playback: Disposable | null = null;
+    let playbackRequest: AbortController | null = null;
+    let playbackGeneration = 0;
+    let disposed = false;
     const revealActivity = () => {
         activityHost.hidden = false;
         prelude.classList.add('is-ready');
@@ -146,16 +150,37 @@ export function renderSourceActivityScreen(
         const status = element('span', 'academy-field-error');
         status.setAttribute('role', 'status');
         play.addEventListener('click', () => {
+            const generation = ++playbackGeneration;
+            playbackRequest?.abort();
             playback?.dispose();
+            playback = null;
+            const request = new AbortController();
+            playbackRequest = request;
             play.disabled = true;
             status.textContent = '';
-            void pronunciation.play('では、教科書の五ページを開いて、二人で話してください。').then(active => {
+            const japanese = 'では、教科書の五ページを開いて、二人で話してください。';
+            void playLearningVoiceBinding(
+                pronunciation,
+                'lesson-screen:textbook-pair-prompt',
+                japanese,
+                request.signal,
+            ).then(active => {
+                if (!active) return;
+                if (disposed || request.signal.aborted || generation !== playbackGeneration) {
+                    active.dispose();
+                    return;
+                }
                 playback = active;
                 revealActivity();
             }).catch(() => {
+                if (disposed || request.signal.aborted || generation !== playbackGeneration) return;
                 status.textContent = academyText(language, 'sourceForkAudioUnavailable');
                 revealActivity();
-            }).finally(() => { play.disabled = false; });
+            }).finally(() => {
+                if (disposed || request.signal.aborted || generation !== playbackGeneration) return;
+                playbackRequest = null;
+                play.disabled = false;
+            });
         });
         prelude.append(play, status);
     } else if (fork === 'text') {
@@ -186,7 +211,12 @@ export function renderSourceActivityScreen(
     source.append(line, sourceText);
     content.append(prelude, activityHost, completion, source);
     screen.addEventListener('academy:dispose', () => {
+        disposed = true;
+        playbackGeneration += 1;
+        playbackRequest?.abort();
+        playbackRequest = null;
         playback?.dispose();
+        playback = null;
         controller.dispose();
     }, { once: true });
     return screen;

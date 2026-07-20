@@ -286,6 +286,48 @@ describe('Academy Study route', () => {
         shell.dispose();
     });
 
+    it('aborts pending Library pronunciation and disposes a stale late result on navigation', async () => {
+        let resolvePlayback!: (value: { dispose(): void }) => void;
+        const lateDispose = vi.fn();
+        const play = vi.fn((_term: string, _reading?: string, signal?: AbortSignal) => {
+            expect(signal).toBeInstanceOf(AbortSignal);
+            return new Promise<{ dispose(): void }>(resolve => { resolvePlayback = resolve; });
+        });
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shell = createAcademyShell(host, {
+            language: 'en', onLanguage() {}, onMute() {}, onNavigate() {}, onPresentationMode() {},
+        });
+        const flow = createWorldFlow({
+            evidence: { dueReviews: vi.fn(async () => []) } as never,
+            pronunciation: { play },
+            audio: {} as never,
+        });
+
+        await flow.render('review', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2, route: 'review', routeHistory: [], presentationMode: 'course',
+                seenIntroductions: ['place:library'], updatedAt: 1,
+            },
+            projection: await createLearnerRecord().snapshot(),
+            shell,
+            go: vi.fn(async () => {}),
+            back: vi.fn(async () => {}),
+        });
+
+        host.querySelector<HTMLButtonElement>('.academy-library-sheet-button')?.click();
+        host.querySelector<HTMLButtonElement>('.academy-vocabulary-sheet-audio')?.click();
+        await vi.waitFor(() => expect(play).toHaveBeenCalledOnce());
+        const signal = play.mock.calls[0]?.[2];
+        shell.replace(document.createElement('section'));
+        expect(signal?.aborted).toBe(true);
+
+        resolvePlayback({ dispose: lateDispose });
+        await vi.waitFor(() => expect(lateDispose).toHaveBeenCalledOnce());
+        shell.dispose();
+    });
+
     it('uses the explicitly revisited lesson for the Library sheet and Study syllabus', async () => {
         let mountedContext: AcademyStudyMountContext | undefined;
         const host = document.createElement('div');
