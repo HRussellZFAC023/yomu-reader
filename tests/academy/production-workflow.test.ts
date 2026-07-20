@@ -167,6 +167,78 @@ describe('Academy production workflow', () => {
         fs.rmSync(outside, { recursive: true, force: true });
     });
 
+    it('accepts a strict proof only when its external review session is workflow-registered', () => {
+        const markdown = '- [ ] **GOV-001** Ledger. **Deps:** none. **Proof:** `C`.';
+        const task = parseBacklog(markdown)[0];
+        const headCommit = 'a'.repeat(40);
+        const owner = 'codex-main';
+        const reviewer = 'claude-fable';
+        const reuse = { path: '@workflow-state/reuse.json', sha256: '1'.repeat(64) };
+        const implementation = { path: 'scripts/academy-production-workflow.mjs', sha256: '2'.repeat(64) };
+        const gateEvidence = { path: '@workflow-state/gate.json', sha256: '3'.repeat(64) };
+        const prompt = { path: '@workflow-state/review/prompt.txt', sha256: '4'.repeat(64) };
+        const response = { path: '@workflow-state/review/response.json', sha256: '5'.repeat(64) };
+        const sessionEvidence = { path: '@workflow-state/review/session.json', sha256: '6'.repeat(64) };
+        const reviewEvidence = { path: '@workflow-state/review/attestation.json', sha256: '7'.repeat(64) };
+        const gate = {
+            schema: 'yomu-academy.gate-attestation/v1', taskId: task.id, gate: 'C', verdict: 'pass',
+            headCommit, issuedAt: '2026-07-20T00:00:00.000Z',
+            producer: { id: owner, kind: 'agent' }, summary: 'Implementation inspected.',
+            assertions: [{ status: 'pass', claim: 'The implementation exists.', artifacts: [implementation] }],
+        };
+        const review = {
+            schema: 'yomu-academy.review-attestation/v1', taskId: task.id, verdict: 'ship',
+            headCommit, taskDefinitionSha256: taskDefinitionSha256(task),
+            issuedAt: '2026-07-20T00:00:00.000Z', summary: 'No release blockers remain.',
+            reviewer: {
+                id: reviewer, provider: 'anthropic-claude-code', model: 'fable', sessionId: 'session-1',
+                independentFrom: owner, sessionEvidence,
+            },
+            scope: ['scripts/academy-production-workflow.mjs'], findings: [],
+        };
+        const session = {
+            schema: 'yomu-academy.external-review-session/v1', recordedBy: 'academy-production-workflow',
+            taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit,
+            owner, reviewerId: reviewer, provider: 'anthropic-claude-code', model: 'fable',
+            sessionId: 'session-1', exitCode: 0, verdict: 'ship', captureToken: 'capture-1', prompt, response,
+            reviewPayloadSha256: reviewPayloadSha256(review),
+        };
+        const registration = {
+            taskId: task.id, headCommit, sessionId: 'session-1', captureToken: 'capture-1',
+            path: sessionEvidence.path, sha256: sessionEvidence.sha256,
+        };
+        const proof = proofTemplate(task, config, 'base');
+        Object.assign(proof, {
+            backlogSha256: sha256(markdown), submittedAt: '2026-07-20T00:00:00.000Z',
+            summary: 'Verified governance slice.', owner, headCommit, claimToken: 'token', worktree: repoRoot,
+            changedFiles: [], reuseAudit: { status: 'pass', report: reuse },
+            independentReview: { status: 'pass', reviewer, evidence: reviewEvidence, findingsResolved: [] },
+        });
+        proof.gates.C = { status: 'pass', evidence: [gateEvidence], commands: [] };
+        const evidenceHashes = new Map([
+            [reuse.path, reuse.sha256], [implementation.path, implementation.sha256],
+            [gateEvidence.path, gateEvidence.sha256], [prompt.path, prompt.sha256],
+            [response.path, response.sha256], [sessionEvidence.path, sessionEvidence.sha256],
+            [reviewEvidence.path, reviewEvidence.sha256],
+        ]);
+        const context = {
+            strict: true, nowMs: Date.parse('2026-07-20T00:01:00.000Z'), repoRoot, repoClean: true,
+            currentHead: headCommit, changedFiles: [],
+            claim: { token: 'token', baseCommit: 'base', worktree: repoRoot, owner },
+            ownership: ['scripts/**'], reservedFiles: [], originMainIsAncestor: true,
+            evidenceHashes, commandTranscripts: new Map(), gateAttestations: new Map([[gateEvidence.path, gate]]),
+            reviewAttestations: new Map([[reviewEvidence.path, review]]),
+            reviewSessions: new Map([[sessionEvidence.path, session]]),
+            trustedReviewSessions: new Map([[sessionEvidence.path, registration]]),
+            trustedGateProducers: config.trustedGateProducers, reuseReportErrors: [], userVisible: false,
+            taskDefinitionSha256: taskDefinitionSha256(task),
+        };
+        expect(validateProof(task, proof, sha256(markdown), context)).toEqual([]);
+        expect(validateProof(task, proof, sha256(markdown), {
+            ...context, trustedReviewSessions: new Map(),
+        })).toContain('External review session is not registered by a trusted workflow capture');
+    });
+
     it('pins the exact promoted backlog and proof through checkpoint retries', () => {
         const promotion = { proofSha256: 'a'.repeat(64), expectedBacklogSha256: 'b'.repeat(64), evidenceManifestSha256: 'c'.repeat(64) };
         expect(checkpointIntegrityErrors(promotion, {

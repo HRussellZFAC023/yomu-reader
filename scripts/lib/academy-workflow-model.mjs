@@ -748,6 +748,7 @@ export function validateProof(task, proof, _backlogSha, context = {}) {
                 strict: true,
                 evidenceHashes: context.evidenceHashes,
                 reviewSessions: context.reviewSessions,
+                trustedReviewSessions: context.trustedReviewSessions,
             }));
         }
     }
