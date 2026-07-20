@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e08-last-revision",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-20.3",
   "canonicality": "canon",
   "season": 4,
   "chapter": 44,
@@ -115,7 +115,7 @@
           "activityIds": [
             "activity:s4e08-last-revision-vivid-without-restoring"
           ],
-          "function": "revise-a-public-version-vivid-without-restoring-withdrawn-detail-and-justify-the-editing-rationale-in-n1"
+          "function": "recognise-a-vivid-public-revision-that-restores-no-withdrawn-detail"
         }
       ],
       "recommendedBand": "n1",
@@ -269,7 +269,7 @@
           "id": "node:last-revision:marked-absence",
           "beatId": "beat:last-revision:exit-image",
           "cueId": "cue:plain-tab-beside-the-bare-block",
-          "description": "Stasi sets a plain grey tab beside the bare block. Nothing drawn on it, nothing like the cat. Next to the marker, the empty rectangle stops looking like a dropped stitch and starts looking left open. The class reads the panel again from the top, and no one reaches to fill the gap."
+          "description": "Stasi lowers the matte grey bar by two millimetres and walks back to Jenny's bench. From there the eye lands on the caption's first verb, not the white block. Jenny gives one small nod and returns to her work; the measurement is written on the production copy."
         }
       ],
       "exit": {
@@ -283,9 +283,9 @@
       "locationId": "location:library",
       "timeState": "evening",
       "weatherState": "summer-rain",
-      "goal": "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner does the bounded rewrite and justifies the editing rationale aloud.",
+      "goal": "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner identifies the bounded revision from three visible options.",
       "dramaticQuestion": "Can a line be cut down under a hard constraint and come out sharper instead of plainer?",
-      "learnerNeed": "A bounded rewrite that keeps the vividness, restores no withdrawn detail, and can be defended as editing rationale in N1.",
+      "learnerNeed": "A recognition check where the learner identifies the vivid bounded line that restores no withdrawn detail.",
       "curriculum": {
         "sectionId": "vivid-under-constraint",
         "order": 2
@@ -297,7 +297,7 @@
           "id": "node:last-revision:over-vivid-clause",
           "beatId": "beat:last-revision:regroup-image",
           "cueId": "cue:draft-line-one-clause-too-vivid",
-          "description": "On the board, the draft caption line is pinned up large. One clause in the middle runs bright and certain, and it leans on the very detail the class agreed to withhold. The rest of the line waits around it, and the grey marker sits in its block below."
+          "description": "On the board, the draft is pinned up large: 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 The middle clause leans on the very detail the class agreed to withhold. Beneath it, the bounded candidate is written once: 「この道は、今夜も静かに灯る。」 The grey marker stays in its block below both lines."
         },
         {
           "kind": "line",
@@ -308,14 +308,14 @@
           "attentionTarget": "the middle clause, and how good it feels in the mouth versus whether the sentence needs it",
           "variants": {
             "n2": {
-              "japanese": "ちょっと、声に出して読んでみて。……この一文、耳に残るのはいいんだけど、残りすぎてる。歌みたいに気持ちいい言い方って、たいてい言い切っちゃってるんだよね。そのクセを外しても、まだ立つ?",
-              "reading": "ちょっと、こえにだしてよんでみて。……このいちぶん、みみにのこるのはいいんだけど、のこりすぎてる。うたみたいにきもちいいいいかたって、たいていいいきっちゃってるんだよね。そのクセをはずしても、まだたつ?",
-              "english": "Here — read it out loud. …This sentence sticks in the ear, which is nice, but it sticks too well. A phrasing that feels good like a song usually means you've overstated it. Take that habit out — does it still stand?"
+              "japanese": "まず今の文ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜くよ。『この道は、今夜も静かに灯る。』ほら、最初のほうは、声が真ん中に引っぱられるでしょう。そこは、出さないって決めた話だよね。",
+              "reading": "まずいまのぶんね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬくよ。『このみちは、こんやもしずかにともる。』ほら、さいしょのほうは、こえがまんなかにひっぱられるでしょう。そこは、ださないってきめたはなしだよね。",
+              "english": "First, the line as it stands: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Now without the middle: 'This path shines quietly again tonight.' Hear how the first one pulls the voice into its middle? That is the story we agreed not to publish."
             },
             "n1": {
-              "japanese": "一回、口に出して、歌うみたいに読んでみて。……うん、気持ちいいんだよね、この言い回し。でも“気持ちいい”ときって、たいてい言い切りすぎてるの。試しに、そのひと節を落としてみて——それでも文が立つなら本物。崩れるなら、そこに寄りかかってたってことだよ。",
-              "reading": "いっかい、くちにだして、うたうみたいによんでみて。……うん、きもちいいんだよね、このいいまわし。でも“きもちいい”ときって、たいていいいきりすぎてるの。ためしに、そのひとふしをおとしてみて——それでもぶんがたつならほんもの。くずれるなら、そこによりかかってたってことだよ。",
-              "english": "Read it aloud once, like you're singing it. …Yeah, it feels good, this phrasing. But when it feels that good, you've usually overstated it. Try dropping that one clause — if the sentence still stands, it's real. If it collapses, it was leaning on it."
+              "japanese": "まず草稿ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜いて、『この道は、今夜も静かに灯る。』草稿のほう、真ん中で声がそこへ引っ張られるでしょ。そこが、出さないって決めた話なんだよね。",
+              "reading": "まずそうこうね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬいて、『このみちは、こんやもしずかにともる。』そうこうのほう、まんなかでこえがそこへひっぱられるでしょ。そこが、ださないってきめたはなしなんだよね。",
+              "english": "First, the draft: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Then without the middle: 'This path shines quietly again tonight.' In the draft, the voice gets pulled toward that middle, doesn't it? That is the story we agreed not to publish."
             }
           },
           "support": {
@@ -329,18 +329,18 @@
           "id": "line:last-revision:stasi-three-conditions",
           "beatId": "beat:last-revision:set-conditions",
           "speakerId": "stasi",
-          "intent": "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the rewrite to the learner with an easy way to decline.",
+          "intent": "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the learner a choice among visible revisions with an easy way to decline.",
           "attentionTarget": "the three things that must not move, and the one line the learner is being handed",
           "variants": {
             "n2": {
-              "japanese": "じゃあ、直す前に条件だけ決めよう。色は落とさない——地味にはしない。外したものは、一言も戻さない。印の場所は、そのまま残す。この三つさえ守れば、あとは自由。……この一文の直し、あなたにやってみてほしいんだけど、いい?気が乗らなければ、私がやるよ。",
-              "reading": "じゃあ、なおすまえにじょうけんだけきめよう。いろはおとさない——じみにはしない。はずしたものは、ひとこともどさない。しるしのばしょは、そのままのこす。このみっつさえまもれば、あとはじゆう。……このいちぶんのなおし、あなたにやってみてほしいんだけど、いい?きがのらなければ、わたしがやるよ。",
-              "english": "Okay, before we touch it, let's fix the rules. Don't lose the colour — no retreating into plain. Not one word of what we cut goes back. The marker's place stays where it is. Keep those three and the rest is open. …I'd like you to take the fix on this line — that alright? If you're not up for it, I'll do it."
+              "japanese": "条件は三つ。動詞の色は残す。外した事実は戻さない。灰色の線は動かさない。……この一文、直してみる? 気が乗らなければ、私がやる。",
+              "reading": "じょうけんはみっつ。どうしのいろはのこす。はずしたじじつはもどさない。はいいろのせんはうごかさない。……このいちぶん、なおしてみる? きがのらなければ、わたしがやる。",
+              "english": "Three conditions. Keep the colour in the verb. Don't restore the fact we removed. Don't move the grey bar. …Want to revise this sentence? If you're not feeling it, I'll do it."
             },
             "n1": {
-              "japanese": "直しにかかる前に、動かさないところだけ決めておこうか。鮮やかさは殺さない——地味に逃げない。外したものは、ひと言も戻さない。印の場所は、そのまま。守るのはこの三つだけで、あとはどう組んでもいい。……で、この一文、あなたに直してみてほしいんだ。もちろん、気が乗らなければ私がやる。",
-              "reading": "なおしにかかるまえに、うごかさないところだけきめておこうか。あざやかさはころさない——じみににげない。はずしたものは、ひとこともどさない。しるしのばしょは、そのまま。まもるのはこのみっつだけで、あとはどうくんでもいい。……で、このいちぶん、あなたになおしてみてほしいんだ。もちろん、きがのらなければわたしがやる。",
-              "english": "Before we start cutting, let's just fix what doesn't move. Don't kill the vividness — no escaping into plain. Not one word of what we took out comes back. The marker's place stays put. Only those three are locked; build the rest however you like. …And this line — I'd like you to try the fix. Of course, if you're not feeling it, I'll take it."
+              "japanese": "条件は三つだけ。動詞の鮮やかさは残す。外した事実は戻さない。灰色の線は動かさない。……この一文、直してみる? 気が乗らなければ、私が引き取る。",
+              "reading": "じょうけんはみっつだけ。どうしのあざやかさはのこす。はずしたじじつはもどさない。はいいろのせんはうごかさない。……このいちぶん、なおしてみる? きがのらなければ、わたしがひきとる。",
+              "english": "Only three conditions. Keep the vividness in the verb. Don't restore the fact we removed. Don't move the grey bar. …Want to revise this sentence? If you're not feeling it, I'll take it."
             }
           },
           "support": {
@@ -352,22 +352,22 @@
         {
           "kind": "checkpoint",
           "id": "checkpoint:last-revision:before-rewrite",
-          "beatId": "beat:last-revision:production-attempt",
-          "resume": "Conditions locked and the over-vivid clause identified, the learner takes the rewrite: cut the line so it stays vivid, restore nothing withdrawn, keep the marker's place, and defend the editing choice aloud."
+          "beatId": "beat:last-revision:recognition-check",
+          "resume": "The learner can see both lines: the draft 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 and the bounded candidate 「この道は、今夜も静かに灯る。」 The task is to identify the line that stays vivid without restoring the withdrawn claim."
         },
         {
           "kind": "activity",
           "id": "activity-node:last-revision:revise-vivid-without-restoring",
-          "beatId": "beat:last-revision:production-attempt",
+          "beatId": "beat:last-revision:recognition-check",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "recognition",
             "exerciseId": "activity:s4e08-last-revision-vivid-without-restoring"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e08-last-revision-vivid-without-restoring"
           },
-          "resumeContext": "The learner rewrites the over-vivid clause so the caption line stays vivid, restores no withdrawn detail, and keeps the marker's place, then justifies the cut as editing rationale in N1 (why this form is final under the constraint).",
+          "resumeContext": "The visible draft is 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 Choose the revision that removes the unsupported claim, preserves the vivid final verb, and restores no withdrawn detail.",
           "onReady": "checkpoint:last-revision:after-rewrite",
           "onRepair": "node:last-revision:clause-recut",
           "onDefer": "checkpoint:last-revision:before-rewrite"
@@ -375,15 +375,15 @@
         {
           "kind": "stage",
           "id": "node:last-revision:clause-recut",
-          "beatId": "beat:last-revision:production-repair",
+          "beatId": "beat:last-revision:recognition-repair",
           "cueId": "cue:middle-clause-taken-down-once",
-          "description": "Only the middle clause comes down; the rest of the line stays pinned. The grey marker in the block below does not move while the learner re-cuts the phrasing on the same three conditions."
+          "description": "Compare the middle clauses again. The candidate 「この道は、今夜も静かに灯る。」 keeps the visible image without putting the withdrawn claim back on the wall."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:last-revision:after-rewrite",
-          "beatId": "beat:last-revision:production-response",
-          "resume": "The line is rewritten under the constraint. Stasi reads it back and names why the constrained form is the better one."
+          "beatId": "beat:last-revision:recognition-response",
+          "resume": "The selected line stays inside the constraint. Stasi reads it back and gives her own reason for preferring it."
         },
         {
           "kind": "line",
@@ -394,14 +394,14 @@
           "attentionTarget": "the cut line reading stronger than the draft, and the marker still holding its place below",
           "variants": {
             "n2": {
-              "japanese": "……うん、これでいい。むしろ、前より効いてる。減らしたのに、痩せてないんだよね。戻せない、埋められない——その縛りがあったから、この形になった。地味にならずに、正確になった。",
-              "reading": "……うん、これでいい。むしろ、まえよりきいてる。へらしたのに、やせてないんだよね。もどせない、うめられない——そのしばりがあったから、このかたちになった。じみにならずに、せいかくになった。",
-              "english": "…Yeah, this works. If anything it lands harder than before. We took things out and it didn't get thinner. Couldn't restore, couldn't fill — because of that constraint, it came out this shape. Accurate, without going plain."
+              "japanese": "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えるけど、もう穴には見えない。",
+              "reading": "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえるけど、もうあなにはみえない。",
+              "english": "…Two metres. Yes, 'shines' is the first thing my eye catches. I can see the grey line, but it no longer looks like a hole."
             },
             "n1": {
-              "japanese": "……うん、これだ。減らしたのに、むしろ強くなってる。戻せない、埋められない——その縛りがあったからこそ、この一本にたどり着けたんだと思う。鮮やかさは、一ミリも手放してない。それでいて、嘘は一つも混ざってない。",
-              "reading": "……うん、これだ。へらしたのに、むしろつよくなってる。もどせない、うめられない——そのしばりがあったからこそ、このいっぽんにたどりつけたんだとおもう。あざやかさは、いちミリもてばなしてない。それでいて、うそはひとつもまざってない。",
-              "english": "…Yeah, this is it. We cut it down and it got stronger. Couldn't restore, couldn't fill — it's because of that constraint we reached this single clean line. Didn't give up a millimetre of the vividness. And not one lie slipped in."
+              "japanese": "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えてる。でも、もう穴には見えない。",
+              "reading": "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえてる。でも、もうあなにはみえない。",
+              "english": "…Two metres. Yes, 'shines' is the first thing my eye catches. The grey line is still visible, but it no longer looks like a hole."
             }
           },
           "support": {
@@ -419,14 +419,14 @@
           "attentionTarget": "the whole panel reading as complete despite the kept-out block",
           "variants": {
             "n2": {
-              "japanese": "フレームの外は、外のまま。それで、ちゃんと完成してる。見せてないのに、足りない感じがしない——これがいちばん難しいやつだよ。",
-              "reading": "フレームのそとは、そとのまま。それで、ちゃんとかんせいしてる。みせてないのに、たりないかんじがしない——これがいちばんむずかしいやつだよ。",
-              "english": "What's outside the frame stays outside. And it's finished, properly. We didn't show it, and it doesn't feel like anything's missing — that's the hardest one to pull off."
+              "japanese": "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              "reading": "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              "english": "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             },
             "n1": {
-              "japanese": "映さないと決めたものは、最後まで映さないまま。それで、もう完成なんだよね。隠したのに、欠けて見えない——この“見せずに満たす”が、いちばん厄介で、いちばん効くところ。",
-              "reading": "うつさないときめたものは、さいごまでうつさないまま。それで、もうかんせいなんだよね。かくしたのに、かけてみえない——この“みせずにみたす”が、いちばんやっかいで、いちばんきくところ。",
-              "english": "What we chose not to show stays unshown to the end. And that's it finished. Hidden, and yet it doesn't read as a gap — this 'fill it without showing it' is the trickiest part, and the part that works hardest."
+              "japanese": "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              "reading": "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              "english": "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             }
           },
           "support": {
@@ -444,14 +444,14 @@
           "attentionTarget": "the finished line read end to end, checking nothing collapses",
           "variants": {
             "n2": {
-              "japanese": "最後にもう一回、歌ってみるね。……うん、落ちない。ちゃんと立ってる。よし、これで出せる。",
-              "reading": "さいごにもういっかい、うたってみるね。……うん、おちない。ちゃんとたってる。よし、これでだせる。",
-              "english": "Let me sing it through one more time. …Yeah, nothing drops. It stands. Good — we can put this out."
+              "japanese": "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              "reading": "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              "english": "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             },
             "n1": {
-              "japanese": "じゃ、しめに一回だけ歌ってみる。……ん、大丈夫、どこも落ちない。最後までちゃんと立ってる。——これ、出せるね。",
-              "reading": "じゃ、しめにいっかいだけうたってみる。……ん、だいじょうぶ、どこもおちない。さいごまでちゃんとたってる。——これ、だせるね。",
-              "english": "Okay, one last sing-through to close. …Mm, it's fine, nothing drops anywhere. It stands all the way to the end. —We can put this out."
+              "japanese": "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              "reading": "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              "english": "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             }
           },
           "support": {
@@ -465,7 +465,7 @@
           "id": "node:last-revision:tom-hands-over",
           "beatId": "beat:last-revision:exit-image",
           "cueId": "cue:paper-cat-boxed-marker-handed-on",
-          "description": "Tom closes the box on the paper cat and slides the grey marker and a half-page of method notes across the table to Stasi. The mascot is set down for good; the marker and the next turn go to someone else to run. The finished panel stands with its one place kept open and unfilled."
+          "description": "Stasi steps back two metres, Ruparna checks the crop from the side, and Xingyu reads the finished caption once. Tom closes the paper cat in its box and slides the grey marker across the table. Each person leaves one tested action behind before the panel goes into its rain cover."
         }
       ],
       "exit": {

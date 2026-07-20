@@ -30,8 +30,18 @@ function cursor(sceneId: string, nodeId: string, choices: Readonly<Record<string
         sceneId,
         nodeId,
         choices,
-        storyOnlyActivityIds: [],
     } satisfies StoryCursor);
+}
+
+function episodeCursor(
+    episodeId: string,
+    sceneId: string,
+    nodeId: string,
+    choices: Readonly<Record<string, string>> = {},
+): string {
+    const arc = loadStoryRuntime().playableArc(episodeId);
+    if (!arc) throw new Error(`Missing story arc ${episodeId}.`);
+    return serializeStoryCursor({ version: 1, arcId: arc.id, sceneId, nodeId, choices });
 }
 
 describe('Academy Story screen', () => {
@@ -174,10 +184,14 @@ describe('Academy Story screen', () => {
         const { screen } = render(cursor(
             'scene:blank-atlas:mission-text',
             'line:blank-atlas:sophie-two-gaps',
-        ), { openingArcMode: 'canonical', onSceneEncounter });
+        ), {
+            openingArcMode: 'canonical',
+            onSceneEncounter,
+            activityOutcomes: passedActivityOutcomes('s1e01-the-blank-atlas'),
+        });
 
         advance(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only')?.click();
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')?.click();
         advance(screen);
         await vi.waitFor(() => expect(onSceneEncounter).toHaveBeenCalledWith(
             'scene:blank-atlas:mission-text', ['sophie', 'ruparna'],
@@ -191,10 +205,11 @@ describe('Academy Story screen', () => {
             openingArcMode: 'canonical',
             onSceneEncounter,
             onCompleteEpisode: vi.fn(async () => undefined),
+            activityOutcomes: passedActivityOutcomes('s1e01-the-blank-atlas'),
         });
 
         advance(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only')?.click();
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')?.click();
         advance(screen);
         await vi.waitFor(() => expect(onSceneEncounter).toHaveBeenCalledWith(
             'scene:blank-atlas:close', ['rie'],
@@ -217,7 +232,9 @@ describe('Academy Story screen', () => {
     });
 
     it('continues from Season 2 into the fully authored N3 season', async () => {
-        const finale = render('s1e24-lanterns-return');
+        const finale = render('s1e24-lanterns-return', {
+            activityOutcomes: passedActivityOutcomes('s1e24-lanterns-return'),
+        });
         await finishAuthoredArc(finale.screen);
         finale.screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
         expect(finale.actions.onOpenReviewCalendar).not.toHaveBeenCalled();
@@ -236,7 +253,119 @@ describe('Academy Story screen', () => {
         expect(activity.dataset.activityRegistered).toBe('false');
         expect(activity.querySelector('.academy-story-open-activity')).toBeNull();
         expect(activity.textContent).toContain('Practice is being prepared.');
-        expect(activity.querySelector('.academy-story-activity-story-only')).not.toBeNull();
+        expect(activity.querySelector('.academy-story-activity-story-only')).toBeNull();
+        expect(activity.querySelector('.academy-story-activity-continue')).toBeNull();
+    });
+
+    it('renders and records every recovered Season 4 transfer through the story UI', async () => {
+        const cases = [
+            ['s4e02-map-of-claims', 'activity:s4e02-map-of-claims-evidence-map', 'source-bounded'],
+            ['s4e04-three-true-versions', 'activity:s4e04-three-true-versions-synthesis', 'three-vantages'],
+            ['s4e05-left-unsaid', 'activity:s4e05-left-unsaid-trim-the-line', 'stop-at-blank'],
+            ['s4e06-open-question', 'activity:s4e06-open-question-reframe-premise', 'reframe-question'],
+            ['s4e07-journey-not-everyone-takes', 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures', 'side-by-side'],
+            ['s4e08-last-revision', 'activity:s4e08-last-revision-vivid-without-restoring', 'vivid-bounded'],
+        ] as const;
+
+        for (const [episodeId, activityId, correctOptionId] of cases) {
+            const onCompleteStoryPractice = vi.fn(async () => undefined);
+            const { screen } = render(episodeId, { selectedBand: 'n1', onCompleteStoryPractice });
+            advanceTo(screen, `[data-activity-id="${activityId}"]`);
+            const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+            expect(activity.dataset.activityRegistered, episodeId).toBe('true');
+            expect(activity.querySelector('.academy-story-activity-story-only'), episodeId).toBeNull();
+            const correct = activity.querySelector<HTMLButtonElement>(`[data-story-practice-option="${correctOptionId}"]`)!;
+            const incorrect = [...activity.querySelectorAll<HTMLButtonElement>('[data-story-practice-option]')]
+                .find(option => option !== correct)!;
+            incorrect.click();
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'lapse'));
+            await vi.waitFor(() => expect(correct.disabled).toBe(false));
+            correct.click();
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'pass'));
+        }
+    });
+
+    it('reloads on Mira\'s supported line and carries her into canonical attendee evidence', async () => {
+        const episodeId = 's4e07-journey-not-everyone-takes';
+        const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
+        const onArcSceneEncounter = vi.fn(async () => undefined);
+        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const { screen } = render(episodeCursor(
+            episodeId,
+            'scene:journey:non-comparative-futures',
+            'message:journey:mira-returns',
+        ), {
+            selectedBand: 'n1',
+            arcModeForEpisode: () => 'canonical',
+            activityOutcomes: { [activityId]: 'pass' },
+            onArcSceneEncounter,
+            onCompleteStoryPractice,
+        });
+        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id]')!;
+
+        expect(arc.dataset.storyArcId).toBe(`arc:${episodeId}`);
+        expect(arc.dataset.storyScene).toBe('scene:journey:non-comparative-futures');
+        expect(arc.dataset.storyMoment).toBe('line');
+        expect(screen.textContent).toContain('同じチャットなのに、予定表はばらばらだね');
+
+        advance(screen);
+        expect(screen.textContent).toContain('二十分だけ復習をまた始める');
+        advance(screen);
+        expect(screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)?.dataset.activityGate).toBe('passed');
+        expect(screen.querySelector('[data-story-practice-option]')).toBeNull();
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
+        advance(screen, 3);
+
+        await vi.waitFor(() => expect(onArcSceneEncounter).toHaveBeenCalledWith(
+            episodeId,
+            'scene:journey:non-comparative-futures',
+            expect.arrayContaining(['aakash', 'mira', 'alex']),
+        ));
+        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
+    });
+
+    it('continues a replay from existing passed evidence without forcing another inline attempt', () => {
+        const episodeId = 's4e04-three-true-versions';
+        const activityId = 'activity:s4e04-three-true-versions-synthesis';
+        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const { screen } = render(episodeCursor(
+            episodeId,
+            'scene:three-versions:one-synthesis',
+            'activity-node:three-versions:synthesize',
+        ), {
+            arcModeForEpisode: () => 'chronological-replay',
+            activityOutcomes: { [activityId]: 'pass' },
+            onCompleteStoryPractice,
+        });
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.dataset.activityGate).toBe('passed');
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        activity.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
+        expect(screen.querySelector(`[data-activity-id="${activityId}"]`)).toBeNull();
+        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
+    });
+
+    it('continues a placement-equivalent replay without creating practice evidence', () => {
+        const episodeId = 's4e05-left-unsaid';
+        const activityId = 'activity:s4e05-left-unsaid-trim-the-line';
+        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const { screen } = render(episodeCursor(
+            episodeId,
+            'scene:left-unsaid:the-line-that-says-too-much',
+            'activity-node:left-unsaid:trim-the-line',
+        ), {
+            arcModeForEpisode: () => 'chronological-replay',
+            onCompleteStoryPractice,
+        });
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.dataset.activityGate).toBe('placement-equivalent');
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        activity.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
+        expect(screen.querySelector(`[data-activity-id="${activityId}"]`)).toBeNull();
+        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
     });
 
     it('renders the verified Season 3-4 event art instead of leaving generated files orphaned', () => {
@@ -254,7 +383,9 @@ describe('Academy Story screen', () => {
     });
 
     it('returns to the episode list only after the authored graduation chapter', async () => {
-        const { screen, actions } = render('s4e12-next-page');
+        const { screen, actions } = render('s4e12-next-page', {
+            activityOutcomes: passedActivityOutcomes('s4e12-next-page'),
+        });
         await finishAuthoredArc(screen);
         screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
 
@@ -285,15 +416,20 @@ async function finishAuthoredArc(screen: HTMLElement): Promise<void> {
     for (let guard = 0; guard < 300; guard += 1) {
         if (screen.querySelector('.academy-story-next')) return;
         const choice = screen.querySelector<HTMLButtonElement>('[data-story-option-id]');
-        const pending = screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only');
         const completePractice = screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue');
         const next = screen.querySelector<HTMLButtonElement>('.academy-vn-primary-action');
-        const action = choice ?? pending ?? completePractice ?? next;
+        const action = choice ?? completePractice ?? next;
         if (!action) throw new Error(`Story stalled at ${screen.dataset.storyMoment ?? 'unknown moment'}.`);
         action.click();
         await Promise.resolve();
     }
     throw new Error('Story did not reach its completion action.');
+}
+
+function passedActivityOutcomes(episodeId: string): Readonly<Record<string, 'pass'>> {
+    const arc = loadStoryRuntime().playableArc(episodeId);
+    if (!arc) throw new Error(`Missing story arc ${episodeId}.`);
+    return Object.fromEntries(arc.curriculum.activities.map(activity => [activity.exerciseId, 'pass' as const]));
 }
 
 function storyWithLearnerLine(): StoryRuntime {

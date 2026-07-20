@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e04-three-true-versions",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-20.3",
   "canonicality": "canon",
   "season": 4,
   "chapter": 40,
@@ -9,7 +9,7 @@
     "en": "Three True Versions",
     "ja": "三つとも本当"
   },
-  "synopsis": "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner binds the three into one synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.",
+  "synopsis": "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner identifies the synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -62,7 +62,7 @@
       "anyOfEvidence": [
         {
           "kind": "transfer-function",
-          "function": "synthesize-three-accounts-into-compatible-truths-with-embedded-quotation"
+          "function": "recognise-a-synthesis-that-keeps-three-attributed-accounts-compatible"
         }
       ],
       "recommendedBand": "n2",
@@ -93,7 +93,7 @@
           "id": "node:three-versions:first-page-and-notes",
           "beatId": "beat:three-versions:arrival-image",
           "cueId": "cue:first-page-three-accounts",
-          "description": "The atlas lies open to its first page in the summer-evening light. Three notes have been set beside it about that one page's beginning: a card copied from the former learner's letter, the class's number-notebook open to its earliest entry, and a blank card where Rie is about to add hers. The three do not say the same thing."
+          "description": "Three transparent sheets disagree before anyone speaks. One shows Rie's blank template, one the route already present when the former learner received it, and one the class's page accumulating marks. A desk fan lifts their corners; Jodi pins each with a different coloured clip beside the atlas's first page."
         },
         {
           "kind": "line",
@@ -104,19 +104,19 @@
           "attentionTarget": "the three notes laid along the first page, none of them matching",
           "variants": {
             "n3": {
-              "japanese": "ねえ、これ。同じ最初のページの話なのに、三人とも書いてることが違うのよね。……不思議。私、こういうの、あんまり困らないの。",
-              "reading": "ねえ、これ。おなじさいしょのページのはなしなのに、さんにんともかいてることがちがうのよね。……ふしぎ。わたし、こういうの、あんまりこまらないの。",
-              "english": "Look at this. It's all about the same first page, and yet all three of them wrote something different. …Funny. This kind of thing, it doesn't really trouble me."
+              "japanese": "重ねる前は、三枚がけんかして見えるわね。白紙、道が一本、ずっと増えている。……まず、『いつ見たか』のクリップをそろえてみない?",
+              "reading": "かさねるまえは、さんまいがけんかしてみえるわね。はくし、みちがいっぽん、ずっとふえている。……まず、『いつみたか』のクリップをそろえてみない?",
+              "english": "Before we layer them, the three sheets look as if they're quarrelling: blank page, one route, always growing. …Shall we first line up the clips that say when each person saw it?"
             },
             "n2": {
-              "japanese": "ねえ、見て。同じ「最初のページ」の話をしてるはずなのに、三人とも中身が食い違ってるのよね。……でも私、こういうのって、あんまり動じないの。昔から、そうなの。",
-              "reading": "ねえ、みて。おなじ「さいしょのページ」のはなしをしてるはずなのに、さんにんともなかみがくいちがってるのよね。……でもわたし、こういうのって、あんまりどうじないの。むかしから、そうなの。",
-              "english": "Look. They should all be talking about the same \"first page,\" and yet the three don't line up. …But this sort of thing doesn't unsettle me much. It's been that way a long time."
+              "japanese": "重ねる前は、三枚がけんかして見えるわね。白紙だった、道が一本あった、ずっと増えていた。……まず、それぞれの『いつ見たか』をクリップに書いて、端をそろえてみない?",
+              "reading": "かさねるまえは、さんまいがけんかしてみえるわね。はくしだった、みちがいっぽんあった、ずっとふえていた。……まず、それぞれの『いつみたか』をクリップにかいて、はしをそろえてみない?",
+              "english": "Before we layer them, the three sheets look as if they're quarrelling: it was blank, it had one route, it kept growing. …First, shall we write when each person saw it on the clips and line up the edges?"
             },
             "n1": {
-              "japanese": "ねえ、これ、見て。三人とも「最初のページ」の話をしているはずなのに、言っていることがまるで揃わないの。……おかしいでしょう。でも私、こういう食い違いって、昔からあまり怖くないのよ。どれかを消さなきゃ、って気に、ならないの。",
-              "reading": "ねえ、これ、みて。さんにんとも「さいしょのページ」のはなしをしているはずなのに、いっていることがまるでそろわないの。……おかしいでしょう。でもわたし、こういうくいちがいって、むかしからあまりこわくないのよ。どれかをけさなきゃ、ってきに、ならないの。",
-              "english": "Look at this. All three are supposed to be describing the \"first page,\" and yet what they say doesn't match at all. …Strange, isn't it. But a mismatch like this has never really frightened me. I don't get the urge to cross one of them out."
+              "japanese": "重ねる前は、三枚がけんかして見えるわね。白紙だった、道が一本あった、絶えず増えていた。……まず、それぞれの『いつ、どこから見たか』をクリップに書いて、端をそろえてみましょうよ。",
+              "reading": "かさねるまえは、さんまいがけんかしてみえるわね。はくしだった、みちがいっぽんあった、たえずふえていた。……まず、それぞれの『いつ、どこからみたか』をクリップにかいて、はしをそろえてみましょうよ。",
+              "english": "Before we layer them, the three sheets look as if they're quarrelling: it was blank, it had one route, it never stopped growing. …First, let's write when and from where each person saw it on the clips, then line up the edges."
             }
           },
           "support": {
@@ -134,19 +134,19 @@
           "attentionTarget": "her own blank card, and the edge of the page she can actually remember",
           "variants": {
             "n3": {
-              "japanese": "私が話せるのは、私が見たところだけ。……私の記憶だと、いちばん最初は、まだ何も描いてない白いページだったの。でも、それが全部だったかは、私にもわからない。",
-              "reading": "わたしがはなせるのは、わたしがみたところだけ。……わたしのきおくだと、いちばんさいしょは、まだなにもかいてないしろいページだったの。でも、それがぜんぶだったかは、わたしにもわからない。",
-              "english": "All I can speak to is the part I saw. …As I remember it, at the very start it was a white page with nothing drawn on it yet. But whether that was the whole of it, even I don't know."
+              "japanese": "私は、白い紙を渡したところから覚えてる。その前は見てないの。だからクリップには、『私が渡した時』って書いて。",
+              "reading": "わたしは、しろいかみをわたしたところからおぼえてる。そのまえはみてないの。だからクリップには、『わたしがわたしたとき』ってかいて。",
+              "english": "My memory begins when I handed over a white sheet. I didn't see before that. So write 'when I handed it over' on my clip."
             },
             "n2": {
-              "japanese": "私が言えるのは、私の見た範囲のことだけなんです。……私の記憶では、最初はまだ何も引かれていない、白いページだった。ただ、それが本当に「最初の最初」だったのかは、私には確かめようがなくて。",
-              "reading": "わたしがいえるのは、わたしのみたはんいのことだけなんです。……わたしのきおくでは、さいしょはまだなにもひかれていない、しろいページだった。ただ、それがほんとうに「さいしょのさいしょ」だったのかは、わたしにはたしかめようがなくて。",
-              "english": "All I can state is what fell within what I saw. …In my memory, at first it was a white page with nothing drawn on it yet. Only, whether that was really the very beginning, I've no way to verify."
+              "japanese": "私の記憶は、何も引かれていない白い紙を渡したところからです。それより前は見ていません。だからクリップには、『私が渡した時』と書いてください。",
+              "reading": "わたしのきおくは、なにもひかれていないしろいかみをわたしたところからです。それよりまえはみていません。だからクリップには、『わたしがわたしたとき』とかいてください。",
+              "english": "My memory begins when I handed over a white sheet with nothing drawn on it. I did not see before that. So please write 'when I handed it over' on my clip."
             },
             "n1": {
-              "japanese": "私が言えるのは、あくまで私の目が届いた範囲のことだけで。……私の覚えている限りでは、最初はまだ一本も引かれていない、真っ白なページだったんです。ただ、それが「いちばん最初」だと言い切ることは、私にはできない。私より前を、私は見ていないので。",
-              "reading": "わたしがいえるのは、あくまでわたしのめがとどいたはんいのことだけで。……わたしのおぼえているかぎりでは、さいしょはまだいっぽんもひかれていない、まっしろなページだったんです。ただ、それが「いちばんさいしょ」だといいきることは、わたしにはできない。わたしよりまえを、わたしはみていないので。",
-              "english": "All I can speak to is strictly what my own eyes reached. …As far as I remember, at first it was a pure-white page without a single line drawn. But I can't declare that to be \"the very first.\" I never saw what came before me."
+              "japanese": "私の記憶は、まだ一本も引かれていない白い紙を渡した時点からです。それ以前は見ていません。ですからクリップには、『私が渡した時』とだけ書いてください。",
+              "reading": "わたしのきおくは、まだいっぽんもひかれていないしろいかみをわたしたじてんからです。それいぜんはみていません。ですからクリップには、『わたしがわたしたとき』とだけかいてください。",
+              "english": "My memory begins at the point when I handed over a white sheet without a single line drawn. I did not see what preceded it. So on my clip, please write only: 'when I handed it over.'"
             }
           },
           "support": {
@@ -160,7 +160,7 @@
           "id": "node:three-versions:other-two-accounts",
           "beatId": "beat:three-versions:obstruction",
           "cueId": "cue:three-accounts-side-by-side",
-          "description": "The other two cards are read out and set beside Rie's. By the former learner's letter, when they arrived a single route was already drawn, and they added to it and left room. By the class's own number-notebook, the page was a thing always being added to, with no clear first hand. Blank page, a route already there, a page that never stopped growing. Three accounts of one beginning, and nothing on the table says which came first."
+          "description": "Jodi labels the second clip 'when the former learner received it' and the third 'when this class began counting.' The three transparent sheets still show different page states, but they no longer pretend to describe the same instant. The interval between Rie's handoff and the letter remains unwitnessed."
         },
         {
           "kind": "line",
@@ -244,19 +244,19 @@
           "attentionTarget": "the two-tense pair she once wrote, and the three cards standing where she once kept two",
           "variants": {
             "n3": {
-              "japanese": "私ね、昔から同じことをしてきたの。一つの場所に、「昔はこうだった」と「今はこう」って、二つ書いて、どっちも消さない。あれと同じよ、これ。ただ、今日は三つ。",
-              "reading": "わたしね、むかしからおなじことをしてきたの。ひとつのばしょに、「むかしはこうだった」と「いまはこう」って、ふたつかいて、どっちもけさない。あれとおなじよ、これ。ただ、きょうはみっつ。",
-              "english": "You know, I've done the same thing for years. For one place, I'd write two, \"it used to be this\" and \"now it's that,\" and cross out neither. This is the same. Only, today it's three."
+              "japanese": "前の二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚。透明なら、重ねても消えないでしょう。",
+              "reading": "まえのにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまい。とうめいなら、かさねてもきえないでしょう。",
+              "english": "Bring out the earlier two as well: \"it used to be this\" and \"now it's that.\" Today we add one more sheet. When they're transparent, layering them doesn't erase them, see."
             },
             "n2": {
-              "japanese": "私、ずっと同じやり方をしてきたのよ。一つの場所に、「昔はこうだった」と「今はこう」って二つ並べて、どっちも消さないでおく。……これも、それと変わらないの。二つが三つになっただけ。",
-              "reading": "わたし、ずっとおなじやりかたをしてきたのよ。ひとつのばしょに、「むかしはこうだった」と「いまはこう」ってふたつならべて、どっちもけさないでおく。……これも、それとかわらないの。ふたつがみっつになっただけ。",
-              "english": "I've been doing the same thing all along, you know. For one place, I'd set two side by side, \"it used to be this\" and \"now it's that,\" and leave neither crossed out. …This is no different. Two just became three."
+              "japanese": "前に作った二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚増えただけ。透明なら、重ねても前の線は消えないでしょう。",
+              "reading": "まえにつくったにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまいふえただけ。とうめいなら、かさねてもまえのせんはきえないでしょう。",
+              "english": "Bring out the two sheets we made before: \"it used to be this\" and \"now it's that.\" Today there is simply one more. When they're transparent, the earlier lines don't disappear when you layer them, see."
             },
             "n1": {
-              "japanese": "私ね、ずっと同じことをしてきただけなのよ。一つの場所に、「昔はこうだった」と「今はこう」と、二つ書いて、どちらも消さずに残しておく。……これも、それと何も変わらないの。ただ、二つが三つになった。それだけのことなのよ。",
-              "reading": "わたしね、ずっとおなじことをしてきただけなのよ。ひとつのばしょに、「むかしはこうだった」と「いまはこう」と、ふたつかいて、どちらもけさずにのこしておく。……これも、それとなにもかわらないの。ただ、ふたつがみっつになった。それだけのことなのよ。",
-              "english": "You know, I've only ever done the same thing. For one place, I'd write two, \"it used to be this\" and \"now it's that,\" and keep both without crossing either out. …This is no different at all. Two simply became three. That's all it is."
+              "japanese": "前に作った二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚増えただけよ。透明なら、重ねても、それまでの線は一本も消えないでしょう。",
+              "reading": "まえにつくったにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまいふえただけよ。とうめいなら、かさねても、それまでのせんはいっぽんもきえないでしょう。",
+              "english": "Bring out the two sheets we made before: \"it used to be this\" and \"now it's that.\" Today there is simply one more. When they're transparent, not one of the earlier lines disappears when you layer them, see."
             }
           },
           "support": {
@@ -279,7 +279,7 @@
       "weatherState": "summer-dusk",
       "goal": "Turn three kept accounts into one synthesis that says why all three can be true without flattening any speaker, and leave the beginning plural with no omniscient correction.",
       "dramaticQuestion": "Can one sentence hold three clashing accounts as compatible truths without shrinking any of them into a footnote?",
-      "learnerNeed": "An integrated production where the learner binds three vantage accounts into a single synthesis using embedded quotation while preserving every voice and marking what no one saw.",
+      "learnerNeed": "A recognition check where the learner identifies the synthesis that attributes all three accounts and leaves the unwitnessed interval open.",
       "curriculum": {
         "sectionId": "one-synthesis-that-keeps-three",
         "order": 2
@@ -291,7 +291,7 @@
           "id": "node:three-versions:cards-in-a-row",
           "beatId": "beat:three-versions:regroup-image",
           "cueId": "cue:three-cards-along-first-page",
-          "description": "The three account-cards are laid in a row along the first page, each with a small note of who saw it and from when. Between them the middle span stays blank, the stretch no card can vouch for. Rie sets her own card down no larger than the other two."
+          "description": "The three transparent sheets are clipped to one backing page, each headed by its speaker and entry point. The unwitnessed interval is marked only on the margin, not drawn through. Rie swaps her oversized teacher clip for one the same size as the others."
         },
         {
           "kind": "line",
@@ -302,19 +302,19 @@
           "attentionTarget": "her own card among the three, kept the same size as the others",
           "variants": {
             "n3": {
-              "japanese": "一つだけ、お願い。私の話も、その中の一つにしておいてね。私が先生だから本当、っていうのは、なし。他の二つと、同じ大きさで。",
-              "reading": "ひとつだけ、おねがい。わたしのはなしも、そのなかのひとつにしておいてね。わたしがせんせいだからほんとう、っていうのは、なし。ほかのふたつと、おなじおおきさで。",
-              "english": "One thing, please. Keep my account as just one of them too. \"It's true because I'm the teacher,\" none of that. The same size as the other two."
+              "japanese": "私の見出しも、『先生の記録』じゃなくて『私が渡した時』にしてね。文字の大きさも、他の二つと同じで。",
+              "reading": "わたしのみだしも、『せんせいのきろく』じゃなくて『わたしがわたしたとき』にしてね。もじのおおきさも、ほかのふたつとおなじで。",
+              "english": "For my heading too, use 'when I handed it over,' not 'the teacher's record.' And set it in the same size type as the other two."
             },
             "n2": {
-              "japanese": "一つだけ、お願いしてもいい?私の話も、あくまでそのうちの一つにしておいて。「先生が言うんだから」で大きくしないで。他の二つと、同じ扱いでいいの。",
-              "reading": "ひとつだけ、おねがいしてもいい?わたしのはなしも、あくまでそのうちのひとつにしておいて。「せんせいがいうんだから」でおおきくしないで。ほかのふたつと、おなじあつかいでいいの。",
-              "english": "May I ask one thing? Keep my account as just one among them. Don't enlarge it with \"well, the teacher says so.\" The same treatment as the other two is fine."
+              "japanese": "一つだけお願い。私の見出しも、『先生の記録』ではなく『私が渡した時』にしてね。文字の大きさも、他の二つと同じでいいの。",
+              "reading": "ひとつだけおねがい。わたしのみだしも、『せんせいのきろく』ではなく『わたしがわたしたとき』にしてね。もじのおおきさも、ほかのふたつとおなじでいいの。",
+              "english": "One request. For my heading too, use 'when I handed it over,' not 'the teacher's record.' The same size type as the other two is fine."
             },
             "n1": {
-              "japanese": "一つだけ、お願いしてもいいかしら。私の話も、あくまで数ある中の一つ、という扱いにしておいてね。「先生が言うのだから確かだ」で、そこだけ大きくしないで。……私が請け合えるのは、私の見た分だけ。他の二つと、同じ重さでいいの。",
-              "reading": "ひとつだけ、おねがいしてもいいかしら。わたしのはなしも、あくまでかずあるなかのひとつ、というあつかいにしておいてね。「せんせいがいうのだからたしかだ」で、そこだけおおきくしないで。……わたしがうけあえるのは、わたしのみたぶんだけ。ほかのふたつと、おなじおもさでいいの。",
-              "english": "May I ask just one thing? Keep my account, too, as merely one among several. Don't let \"the teacher says so, so it's certain\" swell that one part alone. …What I can vouch for is only my share of what I saw. The same weight as the other two is fine."
+              "japanese": "一つだけお願いしてもいいかしら。私の見出しも、『先生の記録』ではなく『私が渡した時』にしてね。肩書きで重くせず、文字の大きさも他の二つと同じに。",
+              "reading": "ひとつだけおねがいしてもいいかしら。わたしのみだしも、『せんせいのきろく』ではなく『わたしがわたしたとき』にしてね。かたがきでおもくせず、もじのおおきさもほかのふたつとおなじに。",
+              "english": "May I ask one thing? For my heading too, use 'when I handed it over,' not 'the teacher's record.' Don't add weight with my title, and set it in the same size type as the other two."
             }
           },
           "support": {
@@ -356,22 +356,22 @@
         {
           "kind": "checkpoint",
           "id": "checkpoint:three-versions:before-synthesis",
-          "beatId": "beat:three-versions:production-attempt",
-          "resume": "The three cards stay in their row with the middle span blank. The learner steps in to bind all three into one synthesis that keeps every voice, using embedded quotation, ranking none and correcting none."
+          "beatId": "beat:three-versions:recognition-check",
+          "resume": "The three cards stay in their row with the middle span blank. The learner identifies the synthesis that keeps each account attributed and leaves that interval unknown."
         },
         {
           "kind": "activity",
           "id": "activity-node:three-versions:synthesize",
-          "beatId": "beat:three-versions:production-attempt",
+          "beatId": "beat:three-versions:recognition-check",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "recognition",
             "exerciseId": "activity:s4e04-three-true-versions-synthesis"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e04-three-true-versions-synthesis"
           },
-          "resumeContext": "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. The learner produces one synthesis using embedded quotation — 「〜によれば」「〜とのこと」「〜という」 — that attributes each account to its vantage point and says why all three hold at once, ranking none as the real beginning and marking the unwitnessed middle span as unknown.",
+          "resumeContext": "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. Choose the synthesis that attributes each account with 「〜によれば」「〜とのこと」「〜という」 and leaves the unwitnessed middle span unknown.",
           "onReady": "checkpoint:three-versions:after-synthesis",
           "onRepair": "node:three-versions:synthesis-repair",
           "onDefer": "checkpoint:three-versions:before-synthesis"
@@ -379,15 +379,15 @@
         {
           "kind": "stage",
           "id": "node:three-versions:synthesis-repair",
-          "beatId": "beat:three-versions:production-repair",
+          "beatId": "beat:three-versions:recognition-repair",
           "cueId": "cue:one-voice-flattened-restored",
-          "description": "The synthesis holds except at one clause, where one account lost its vantage note and got folded into the other two. Only that clause comes back for another pass. The attributions already balanced stay as they are, and the blank middle span stays blank."
+          "description": "One option folds an account into the other two by dropping its vantage note. Compare that clause again; the blank middle span stays blank."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:three-versions:after-synthesis",
-          "beatId": "beat:three-versions:production-response",
-          "resume": "The three accounts now sit inside one sentence, each attributed, none ranked. Jodi reads it back and sees all three still standing."
+          "beatId": "beat:three-versions:recognition-response",
+          "resume": "The selected sentence keeps all three accounts attributed and the unwitnessed interval open. Jodi reads it back and sees all three still standing."
         },
         {
           "kind": "line",
@@ -428,19 +428,19 @@
           "attentionTarget": "the still-blank span between the cards, and the page waiting ahead",
           "variants": {
             "n3": {
-              "japanese": "ありがとう。……正直、私も、全部は知らないの。私の分は残しておく。知らないところは、そのまま空けておく。それを埋めるのは、たぶん、まだ先。",
-              "reading": "ありがとう。……しょうじき、わたしも、ぜんぶはしらないの。わたしのぶんはのこしておく。しらないところは、そのままあけておく。それをうめるのは、たぶん、まださき。",
-              "english": "Thank you. …Honestly, I don't know all of it either. I'll leave my share. The parts I don't know, I'll leave open as they are. Filling those in, that's probably still ahead of us."
+              "japanese": "ありがとう。じゃあ、三枚を重ねたまま、最初から読んでみよう。……真ん中だけ明るく残るね。明日、ナナコさんに後ろで聞いてもらえないかな。この話を知らない耳で、一度試したいの。",
+              "reading": "ありがとう。じゃあ、さんまいをかさねたまま、さいしょからよんでみよう。……まんなかだけあかるくのこるね。あした、ナナコさんにうしろできいてもらえないかな。このはなしをしらないみみで、いちどためしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …Only the middle stays bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             "n2": {
-              "japanese": "ありがとう。……正直に言うと、私にも、全部はわからないの。私が請け合える分だけ、そこに残す。見ていない「あいだ」は、無理に埋めないで、空けたままにしておく。そこを埋める話は、たぶん、もう少し先ね。",
-              "reading": "ありがとう。……しょうじきにいうと、わたしにも、ぜんぶはわからないの。わたしがうけあえるぶんだけ、そこにのこす。みていない「あいだ」は、むりにうめないで、あけたままにしておく。そこをうめるはなしは、たぶん、もうすこしさきね。",
-              "english": "Thank you. …Honestly, I don't know all of it either. Only the part I can vouch for, I'll leave there. The \"in-between\" I didn't see, I'll leave open rather than force it shut. The talk of filling that in, that's probably a little further ahead."
+              "japanese": "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              "reading": "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             "n1": {
-              "japanese": "ありがとう。……正直に言えば、私にだって、全部がわかっているわけじゃないの。私が請け合える分だけを、そこに残しておく。自分の目が届かなかった「あいだ」は、無理に埋めずに、空けたまま渡す。……そこにいつか誰が何を書くのかは、まだ、決めなくていい話。",
-              "reading": "ありがとう。……しょうじきにいえば、わたしにだって、ぜんぶがわかっているわけじゃないの。わたしがうけあえるぶんだけを、そこにのこしておく。じぶんのめがとどかなかった「あいだ」は、むりにうめずに、あけたままわたす。……そこにいつかだれがなにをかくのかは、まだ、きめなくていいはなし。",
-              "english": "Thank you. …Honestly, it isn't as though even I understand all of it. Only the part I can vouch for, I'll leave there. The \"in-between\" my own eyes never reached, I'll hand it on, left open rather than forced shut. …Who writes what there someday, that's something we don't have to decide yet."
+              "japanese": "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              "reading": "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             }
           },
           "support": {
@@ -454,7 +454,7 @@
           "id": "node:three-versions:page-stays-plural",
           "beatId": "beat:three-versions:exit-image",
           "cueId": "cue:one-synthesis-three-cards-kept",
-          "description": "The first page now carries one synthesis, with the three account-cards still set beneath it in their row, each keeping its vantage note. The middle span stays blank, marked unknown. Nothing is crossed out, and no line has been added to say which beginning was the real one."
+          "description": "Jodi clips all three transparent sheets to the rehearsal stand at once. Rie reads the synthesis from the back row; the unwitnessed middle remains a bright gap instead of disappearing. A second back-row chair is pulled out for tomorrow, with Nanako's name on the visitor slip."
         }
       ],
       "exit": {
@@ -499,7 +499,7 @@
       "id": "outcome:three-versions:transfer-return",
       "kind": "curriculum-return",
       "activityId": "activity:s4e04-three-true-versions-synthesis",
-      "description": "Synthesize-three-accounts-into-compatible-truths-with-embedded-quotation evidence returns through the unregistered N1 transfer activity; the story emits no lesson-completion command."
+      "description": "Recognition of a synthesis that keeps three attributed accounts compatible returns through the chapter's selected-response activity; the story emits no lesson-completion command."
     }
   ],
   "replay": {

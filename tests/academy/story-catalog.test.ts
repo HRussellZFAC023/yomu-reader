@@ -82,6 +82,18 @@ describe('Academy story chapter catalog', () => {
         expect(byId.get('s3e01-after-the-applause')).toMatchObject({
             season: 3, chapter: 25, grounded: false,
         });
+        for (const id of [
+            's4e02-map-of-claims',
+            's4e04-three-true-versions',
+            's4e05-left-unsaid',
+            's4e06-open-question',
+            's4e07-journey-not-everyone-takes',
+            's4e08-last-revision',
+        ]) {
+            expect(byId.get(id), id).toMatchObject({ season: 4, grounded: true, playable: true });
+            expect(loadStoryRuntime().playableArc(id)?.curriculum.activities.every(activity => activity.registered), id)
+                .toBe(true);
+        }
         expect(byId.get('s4e12-next-page')).toMatchObject({
             season: 4, chapter: 48, grounded: false,
         });
@@ -137,7 +149,11 @@ describe('Academy story chapter catalog', () => {
         expect(() => compileStoryPackage(doctored)).toThrow(/Unknown story location alias/);
     });
 
-    it('rejects duplicate ids, dangling graph references, and undeclared speakers', () => {
+    it('rejects unsupported node kinds, duplicate ids, dangling graph references, and undeclared speakers', () => {
+        const unsupported = mutableChapter('s1e02-margin-map.v2.json');
+        (unsupported.scenes[0]!.nodes[0]! as { kind: string }).kind = 'message';
+        expect(() => compileStoryPackage(unsupported)).toThrow(/unsupported kind message/);
+
         const duplicated = mutableChapter('s1e02-margin-map.v2.json');
         duplicated.scenes[1]!.id = duplicated.scenes[0]!.id;
         expect(() => compileStoryPackage(duplicated)).toThrow(/duplicate graph addresses/);

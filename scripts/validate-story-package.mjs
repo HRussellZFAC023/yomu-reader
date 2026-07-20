@@ -5,7 +5,7 @@
 // Usage: node scripts/validate-story-package.mjs <file.v2.json> [more...]
 import { readFileSync } from 'node:fs';
 
-const NODE_KINDS = new Set(['line', 'message', 'narration', 'choice', 'activity', 'command', 'stage', 'checkpoint']);
+const NODE_KINDS = new Set(['line', 'narration', 'choice', 'activity', 'command', 'stage', 'checkpoint']);
 const BANDS = ['foundation', 'n5', 'n4', 'n3', 'n2', 'n1', 'ngPlus'];
 
 function validate(path) {
@@ -68,7 +68,7 @@ function validate(path) {
     for (const n of nodes) {
       add(n.id); nodeIds.add(n.id);
       if (!NODE_KINDS.has(n.kind)) E(`node ${n.id}: unknown kind ${n.kind}`);
-      if (n.kind === 'line' || n.kind === 'message') {
+      if (n.kind === 'line') {
         if (!n.speakerId) E(`line ${n.id}: missing speakerId`);
         else if (n.speakerId !== 'learner') speakers.add(n.speakerId);
         const variants = n.variants || {};
@@ -120,7 +120,7 @@ function validate(path) {
     // exit.next may target a scene OR an in-scene node (s1e01 exits into choice:blank-atlas:mission).
     if (sc.exit && sc.exit.next !== null && !nodeAndScene.has(sc.exit.next)) E(`scene ${sc.id}: exit.next -> unknown ${sc.exit.next}`);
     // per-scene ensemble cap: 1 lead + <=2 supports = <=3 distinct speakers (warning)
-    const sceneSpeakers = new Set((sc.nodes || []).filter((n) => (n.kind === 'line' || n.kind === 'message') && n.speakerId && n.speakerId !== 'learner').map((n) => n.speakerId));
+    const sceneSpeakers = new Set((sc.nodes || []).filter((n) => n.kind === 'line' && n.speakerId && n.speakerId !== 'learner').map((n) => n.speakerId));
     if (sceneSpeakers.size > 3) W(`scene ${sc.id}: ${sceneSpeakers.size} distinct speakers (ensemble cap is 3)`);
   }
 

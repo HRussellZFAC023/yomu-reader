@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e06-open-question",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-20.3",
   "canonicality": "canon",
   "season": 4,
   "chapter": 42,
@@ -9,7 +9,7 @@
     "en": "The Open Question",
     "ja": "開いたままの問い"
   },
-  "synopsis": "The finished atlas needs one name in an archive card's single author field, and the class has deadlocked over which. From the chair no one thought to check, Peter asks whether finishing it requires naming a single owner at all, or whether the demand for one name is itself the wrong frame. The learner builds the counterfactual that dismantles the premise, the class rejects it, and the record is closed as layered stewardship with the author field deliberately left open.",
+  "synopsis": "A rehearsal sentence stops at one blank author name even though the atlas passed through many hands. From the chair by the window, Peter asks whether the sentence is wrong rather than any of the names. The learner identifies the counterfactual response that tests that premise; Sophie rewrites the spoken introduction around traceable contributions, and the class tries it from the stage before turning to the next blank cue: what each person will do after the final night.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -62,7 +62,7 @@
         {
           "kind": "content-family",
           "family": "n1-argument-structure-counterfactuals",
-          "function": "challenge-a-false-premise-without-flattening-the-speaker"
+          "function": "recognise-a-counterfactual-that-challenges-a-false-premise-without-flattening-the-speaker"
         }
       ],
       "recommendedBand": "n2",
@@ -79,9 +79,9 @@
       "locationId": "location:classroom",
       "timeState": "evening",
       "weatherState": "summer-late-light",
-      "goal": "Meet the class deadlocked over one owner name for the finished atlas and reach the point where the demand for a single name is itself in question.",
-      "dramaticQuestion": "When a form asks for one owner, does the class pick a name, or question whether one owner was ever required?",
-      "learnerNeed": "A frame-shifting counterfactual that challenges the single-owner premise without contradicting or blaming anyone in the room.",
+      "goal": "Stop a first-page rehearsal at the sentence demanding one maker, and reach the point where the sentence itself becomes the thing to revise.",
+      "dramaticQuestion": "When the spoken introduction leaves room for one name, does the class pick someone or question the line?",
+      "learnerNeed": "A recognition check where the learner identifies the frame-shifting counterfactual that challenges the single-owner premise without blaming anyone in the room.",
       "curriculum": {
         "sectionId": "question-the-premise",
         "order": 1
@@ -92,31 +92,31 @@
           "kind": "stage",
           "id": "node:open-question:blank-author-field",
           "beatId": "beat:open-question:arrival-image",
-          "cueId": "cue:archive-card-one-empty-field",
-          "description": "The finished atlas lies closed on the long table. Beside it, an archive card with one empty field: 「作者」. The board behind carries a column of names, each written and then crossed out. By the window, the chair no one thought to check is not empty; Peter sits in it, notebook shut on his knee."
+          "cueId": "cue:rehearsal-card-one-empty-line",
+          "description": "The projector holds on the rehearsal line 「このアトラスを作ったのは、＿＿です」. On the board, Sophie's first attempt at the blank has become a row of crossed-out names. The atlas lies open on the lectern. By the window, the chair no one thought to check is occupied after all; Peter watches with his notebook shut on one knee."
         },
         {
           "kind": "line",
           "id": "line:open-question:sophie-deadlock",
           "beatId": "beat:open-question:host-want",
           "speakerId": "sophie",
-          "intent": "Lay out the deadlock precisely: several people added parts, the archive form wants one author name, and she is uneasy but leaning toward filling it because the form demands it.",
-          "attentionTarget": "the single empty author field and the crossed-out names",
+          "intent": "Stop the rehearsal where its one-name sentence erases a different contributor whichever name she tries.",
+          "attentionTarget": "the spoken blank and the crossed-out names beneath it",
           "variants": {
             "n3": {
-              "japanese": "このカードの『作者』の欄、一つしか枠がないんですよね。名前を一人だけ書けって。…でも、道を足した人も、キャプションを直した人も、みんな違うでしょう。一人に決めるの、気が進まないんだけど…欄が一人分しかないなら、埋めるしかないのかな。",
-              "reading": "このカードの『さくしゃ』のらん、ひとつしかわくがないんですよね。なまえをひとりだけかけって。…でも、みちをたしたひとも、キャプションをなおしたひとも、みんなちがうでしょう。ひとりにきめるの、きがすすまないんだけど…らんがひとりぶんしかないなら、うめるしかないのかな。",
-              "english": "This card's 'author' field only has one box. Write just one name, it says. But the person who added a route, the person who fixed a caption, they're all different. I don't want to settle on one, but if there's only room for one, maybe we have to fill it."
+              "japanese": "また、ここで止まる。『このアトラスを作ったのは、＿＿です』。一人入れると、道を足した人か、文を直した人が消える。空けたままだと読めないし。",
+              "reading": "また、ここでとまる。『このアトラスをつくったのは、＿＿です』。ひとりいれると、みちをたしたひとか、ぶんをなおしたひとがきえる。あけたままだとよめないし。",
+              "english": "We stop here again. 'The person who made this atlas was __.' Put one name in, and either the person who added the route or the person who revised the text disappears. Leave it blank, and the line cannot be read."
             },
             "n2": {
-              "japanese": "登録カードの『作者』の欄、ここ、枠が一つしかないんですよね。名前を一人だけ入れてくれ、って言われてて。…でも、道を足した人も、あとからキャプションを直した人も、みんな別々でしょう。誰か一人に決めるのは、正直あんまり気が進まないんだけど…様式が一人分しかないなら、結局どこかで埋めるしかないのかな、って。",
-              "reading": "とうろくカードの『さくしゃ』のらん、ここ、わくがひとつしかないんですよね。なまえをひとりだけいれてくれ、っていわれてて。…でも、みちをたしたひとも、あとからキャプションをなおしたひとも、みんなべつべつでしょう。だれかひとりにきめるのは、しょうじきあんまりきがすすまないんだけど…ようしきがひとりぶんしかないなら、けっきょくどこかでうめるしかないのかな、って。",
-              "english": "The 'author' field on the registration card, there's only one box here. They've told us to put in just one name. But the person who added a route, the person who fixed a caption later, they're all different people. Honestly I don't much want to settle on one person, but if the form only has room for one, I suppose in the end we just fill it in somewhere."
+              "japanese": "また、ここで止まるんです。『このアトラスを作ったのは、＿＿です』。一人入れると、道を足した人か、後で文を直した人が消える。かといって、空欄のまま舞台では読めない。",
+              "reading": "また、ここでとまるんです。『このアトラスをつくったのは、＿＿です』。ひとりいれると、みちをたしたひとか、あとでぶんをなおしたひとがきえる。かといって、くうらんのままぶたいではよめない。",
+              "english": "We stop here again. 'The person who made this atlas was __.' Put one name in, and either the person who added the route or the person who later revised the text disappears. But we cannot read a blank aloud on stage."
             },
             "n1": {
-              "japanese": "登録カードの『作者』欄、ここ、枠が一つしか用意されてないんですよね。名前は一名だけ、と。…でも実際は、道を引いた人も、後からキャプションに手を入れた人もいて、寄与はてんでばらばらで。誰か一人に絞るのは、正直なところあまり気が進まない。ただ、様式が一名分しか取ってないとなると、結局はどこかで埋めるしかないのかな、と。",
-              "reading": "とうろくカードの『さくしゃ』らん、ここ、わくがひとつしかよういされてないんですよね。なまえはいちめいだけ、と。…でもじっさいは、みちをひいたひとも、あとからキャプションにてをいれたひともいて、きよはてんでばらばらで。だれかひとりにしぼるのは、しょうじきなところあまりきがすすまない。ただ、ようしきがいちめいぶんしかとってないとなると、けっきょくはどこかでうめるしかないのかな、と。",
-              "english": "The 'author' field here, there's only one box provided. One name, they say. But in reality there's the person who drew a route, the person who later touched up a caption; the contributions are all over the place. I honestly don't much want to narrow it to one person. Only, if the form has room for just one name, then in the end I suppose we just fill it in somewhere."
+              "japanese": "また、ここで止まるんです。『このアトラスを作ったのは、＿＿です』。誰か一人を入れると、道を引いた人か、後で文を直した人が消える。だからといって、空欄のまま舞台で読むわけにもいかない。",
+              "reading": "また、ここでとまるんです。『このアトラスをつくったのは、＿＿です』。だれかひとりをいれると、みちをひいたひとか、あとでぶんをなおしたひとがきえる。だからといって、くうらんのままぶたいでよむわけにもいかない。",
+              "english": "We stop here again. 'The person who made this atlas was __.' Put one person in, and either the route maker or the later editor disappears. Yet we cannot read a blank aloud on stage."
             }
           },
           "support": {
@@ -131,17 +131,17 @@
           "beatId": "beat:open-question:obstruction",
           "speakerId": "peter",
           "intent": "From the overlooked seat, question the premise rather than contradict anyone: use a counterfactual and premise-framing to ask whether finishing the atlas ever required a single owner at all.",
-          "attentionTarget": "the assumption that the field must hold exactly one name",
+          "attentionTarget": "the sentence before the blank, which no one has tried changing",
           "variants": {
             "n2": {
-              "japanese": "あの…一つ、いいですか。そもそも、この地図を『仕上げる』のに、作者を一人に決める必要って、本当にあるんでしょうか。仮に、誰も名前を残していなかったとしても、これはこれで完成してましたよね。だとすると…埋めなきゃいけないのは、名前じゃなくて、『欄が一つしかない』っていう、その前提のほうかもしれません。",
-              "reading": "あの…ひとつ、いいですか。そもそも、このちずを『しあげる』のに、さくしゃをひとりにきめるひつようって、ほんとうにあるんでしょうか。かりに、だれもなまえをのこしていなかったとしても、これはこれでかんせいしてましたよね。だとすると…うめなきゃいけないのは、なまえじゃなくて、『らんがひとつしかない』っていう、そのぜんていのほうかもしれません。",
-              "english": "Sorry, may I say one thing? To begin with, do we really need to decide on a single author in order to 'finish' this map? Even supposing no one had left a name at all, it would still have been complete, wouldn't it. In which case, what needs filling in may not be the name, but the premise itself, that there's only one box."
+              "japanese": "あの……その文、要りますか。もし名前が一つも残ってなくても、アトラスはここにあるし、みんなで作ってきたことも変わらない。なら、合ってないのは名前じゃなくて、文のほうかも。",
+              "reading": "あの……そのぶん、いりますか。もしなまえがひとつものこってなくても、アトラスはここにあるし、みんなでつくってきたこともかわらない。なら、あってないのはなまえじゃなくて、ぶんのほうかも。",
+              "english": "Um… do we need that sentence? Even if no names had survived, the atlas would still be here, and the way everyone made it would not change. Perhaps the sentence is wrong, not the names."
             },
             "n1": {
-              "japanese": "…すみません、一つだけ。そもそもの話なんですが、この地図を『仕上げる』ために、作者を一人に決めなければならない、というのは…本当にそうなんでしょうか。仮に、誰一人名前を残していなかったとしても、これはこれで完成していたはずで。だとすれば、埋めるべきなのは名前のほうじゃなくて…『欄が一つしかない』という、その前提のほうなのかもしれません。",
-              "reading": "…すみません、ひとつだけ。そもそものはなしなんですが、このちずを『しあげる』ために、さくしゃをひとりにきめなければならない、というのは…ほんとうにそうなんでしょうか。かりに、だれひとりなまえをのこしていなかったとしても、これはこれでかんせいしていたはずで。だとすれば、うめるべきなのはなまえのほうじゃなくて…『らんがひとつしかない』という、そのぜんていのほうなのかもしれません。",
-              "english": "Sorry, just one thing. Going back to the start of it, the idea that we must settle on a single author to 'finish' this map, is that actually so? Even if not one person had left a name, it would still have been complete. In which case, what we ought to fill in isn't the name, it's the premise that there's only one box."
+              "japanese": "……一つだけ。その文、本当に要りますか。仮に、誰一人名前を残していなかったとしても、これはこれで完成していたはずで。だとしたら、合っていないのは名前じゃなくて、文のほうかもしれません。",
+              "reading": "……ひとつだけ。そのぶん、ほんとうにいりますか。かりに、だれひとりなまえをのこしていなかったとしても、これはこれでかんせいしていたはずで。だとしたら、あっていないのはなまえじゃなくて、ぶんのほうかもしれません。",
+              "english": "…One thing. Do we actually need that sentence? Even if nobody had left a name, the atlas would still have been complete. Perhaps the sentence is wrong, not the names."
             }
           },
           "support": {
@@ -159,19 +159,19 @@
           "attentionTarget": "the demand for one name, now visible as an assumption rather than a rule",
           "variants": {
             "n3": {
-              "japanese": "…あ、そっか。誰も『一人にして』なんて言ってないんだ。カードにその欄があるってだけで。…その前提のほう、一回ちゃんと疑ったほうがいいかも。",
-              "reading": "…あ、そっか。だれも『ひとりにして』なんていってないんだ。カードにそのらんがあるってだけで。…そのぜんていのほう、いっかいちゃんとうたがったほうがいいかも。",
-              "english": "Oh. Right. Nobody actually said 'make it one person.' It's just that the card has that field. Maybe it's the premise we should be questioning, properly, for once."
+              "japanese": "……あ。名前を探してたけど、直すのは文のほう? 『誰が作った』じゃなくて、『何を、誰から受け取った』なら言える。",
+              "reading": "……あ。なまえをさがしてたけど、なおすのはぶんのほう? 『だれがつくった』じゃなくて、『なにを、だれからうけとった』ならいえる。",
+              "english": "…Oh. I've been looking for a name, but the sentence is what needs changing? We cannot say 'who made it,' but we can say what came from whom."
             },
             "n2": {
-              "japanese": "…あ。そうか。誰も『一人にしろ』なんて決めてないんだ。カードにそう書く欄があるってだけで。…その前提、一回ちゃんと疑ってみたほうがいいかもしれない。",
-              "reading": "…あ。そうか。だれも『ひとりにしろ』なんてきめてないんだ。カードにそうかくらんがあるってだけで。…そのぜんてい、いっかいちゃんとうたがってみたほうがいいかもしれない。",
-              "english": "Oh. I see. Nobody decided it has to be one person. It's just that the card has a box for writing one. Maybe that premise is the thing we ought to question, properly, once."
+              "japanese": "……あ。ずっと名前を探してたけど、直すのは文のほうなんだ。『誰が作った』じゃなくて、『何を、誰から受け取った』なら、今ある資料で言える。",
+              "reading": "……あ。ずっとなまえをさがしてたけど、なおすのはぶんのほうなんだ。『だれがつくった』じゃなくて、『なにを、だれからうけとった』なら、いまあるしりょうでいえる。",
+              "english": "…Oh. I've been looking for a name, but the sentence is what needs changing. We cannot say 'who made it,' but the evidence does let us say what came from whom."
             },
             "n1": {
-              "japanese": "…あ。言われてみれば、そうですね。『一人にしろ』なんて、そもそも誰も言ってない。ただ、カードにそういう欄が一つあるっていう、それだけの話で。…疑うべきは、そっちの前提のほうだったのかもしれない。",
-              "reading": "…あ。いわれてみれば、そうですね。『ひとりにしろ』なんて、そもそもだれもいってない。ただ、カードにそういうらんがひとつあるっていう、それだけのはなしで。…うたがうべきは、そっちのぜんていのほうだったのかもしれない。",
-              "english": "Oh. Now that you say it, yes. Nobody ever said 'make it one person' in the first place. It's only that the card happens to have one such box. The thing to question was that premise, all along, maybe."
+              "japanese": "……あ。名前を探し続けてたけど、直すのは文のほうなんですね。『誰が作った』ではなく、『何を、誰から受け取った』なら、資料の範囲で言える。",
+              "reading": "……あ。なまえをさがしつづけてたけど、なおすのはぶんのほうなんですね。『だれがつくった』ではなく、『なにを、だれからうけとった』なら、しりょうのはんいでいえる。",
+              "english": "…Oh. I've kept looking for a name, but the sentence is what needs changing. We cannot say 'who made it'; we can say what came from whom, within the evidence we have."
             }
           },
           "support": {
@@ -184,21 +184,21 @@
           "kind": "checkpoint",
           "id": "checkpoint:open-question:before-reframe",
           "beatId": "beat:open-question:reframe-attempt",
-          "resume": "The 「作者」 field stays blank, one name demanded and none agreed. The learner steps in to question the premise itself, building in careful register the counterfactual and the frame-shift that ask whether a single owner is needed at all, without contradicting anyone in the room."
+          "resume": "The projected sentence still stops at one blank name. The learner identifies the counterfactual response that challenges the sentence rather than anyone named on the board."
         },
         {
           "kind": "activity",
           "id": "activity-node:open-question:reframe-premise",
           "beatId": "beat:open-question:reframe-attempt",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "recognition",
             "exerciseId": "activity:s4e06-open-question-reframe-premise"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e06-open-question-reframe-premise"
           },
-          "resumeContext": "The archive card offers a single 「作者」 field and a demand for one name. From the deadlock, the learner builds the reframing move: a counterfactual (had no one signed it, it would still have been finished — 〜ていなかったら / 〜としたら) and a premise-frame (そもそも / 〜という前提) that question whether finishing requires one owner at all. The argument challenges the frame, not any person in the room.",
+          "resumeContext": "The rehearsal line says 「このアトラスを作ったのは、＿＿です」 even though routes, captions, and photographs came from different hands. Choose the response that uses a counterfactual and そもそも to question the one-owner sentence without dismissing anyone in the room.",
           "onReady": "checkpoint:open-question:after-reframe",
           "onRepair": "node:open-question:premise-repair",
           "onDefer": "checkpoint:open-question:before-reframe"
@@ -208,13 +208,13 @@
           "id": "node:open-question:premise-repair",
           "beatId": "beat:open-question:reframe-repair",
           "cueId": "cue:premise-bracketed-on-board",
-          "description": "On the board, the crossed-out names stay crossed out. Above them someone has bracketed the word 「作者」 itself and drawn a question mark. Only the assumption that went unquestioned, that the field must hold one name, waits circled for another pass."
+          "description": "The crossed-out names stay on the board. On the projector, a bracket now begins before 「このアトラスを作ったのは」 and ends after the blank. No name is circled; the sentence itself waits for another pass."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:open-question:after-reframe",
           "beatId": "beat:open-question:reframe-response",
-          "resume": "The premise is out in the open now, bracketed on the board rather than obeyed. Peter looks at it and names what just happened."
+          "resume": "The selected response puts the premise in question. Peter looks at the bracketed sentence and names what changed."
         },
         {
           "kind": "line",
@@ -225,19 +225,19 @@
           "attentionTarget": "the shifted question, and the ease it lets back into the room",
           "variants": {
             "n3": {
-              "japanese": "そう、それです。…反対してるわけじゃないんですよ。問いを一つずらしただけで。『誰の名前か』じゃなくて、『そもそも一人分いるのか』。…人を否定しないで、枠のほうを問い直す。それだけで、楽になる。",
-              "reading": "そう、それです。…はんたいしてるわけじゃないんですよ。といをひとつずらしただけで。『だれのなまえか』じゃなくて、『そもそもひとりぶんいるのか』。…ひとをひていしないで、わくのほうをといなおす。それだけで、らくになる。",
-              "english": "Yes, that. I'm not disagreeing with anyone. I just shifted the question by one. Not 'whose name,' but 'do we need one at all.' Question the box, not the person. That alone makes it easier."
+              "japanese": "そう、それです。名前を消すんじゃなくて、空欄の前から直す。……消しゴム、まだ残ってますね。",
+              "reading": "そう、それです。なまえをけすんじゃなくて、くうらんのまえからなおす。……けしゴム、まだのこってますね。",
+              "english": "Yes, that's it. Don't erase a name; revise from before the blank. …We still have some eraser left."
             },
             "n2": {
-              "japanese": "そう、それです。…別に、反対してるわけじゃないんですよ。ただ、問いを一つずらしただけで。『誰の名前を入れるか』じゃなくて、『そもそも一人分の名前が要るのか』。…否定しないで、枠のほうを問い直す。これで、ずいぶん楽になりましたね。",
-              "reading": "そう、それです。…べつに、はんたいしてるわけじゃないんですよ。ただ、といをひとつずらしただけで。『だれのなまえをいれるか』じゃなくて、『そもそもひとりぶんのなまえがいるのか』。…ひていしないで、わくのほうをといなおす。これで、ずいぶんらくになりましたね。",
-              "english": "Yes, that. I'm not disagreeing with anyone, mind. I only shifted the question by one. Not 'whose name goes in,' but 'do we need a single name at all.' Questioning the box instead of contradicting a person. That's made things a good deal easier, hasn't it."
+              "japanese": "そう、それです。名前を消すんじゃなくて、空欄の前から書き直す。……消しゴム、まだずいぶん残ってますね。",
+              "reading": "そう、それです。なまえをけすんじゃなくて、くうらんのまえからかきなおす。……けしゴム、まだずいぶんのこってますね。",
+              "english": "Yes, that's it. Don't erase a name; rewrite from before the blank. …We have quite a lot of eraser left."
             },
             "n1": {
-              "japanese": "ええ、それです。…誰かを否定しているわけじゃ、まったくないんですよ。ただ、問いを一つ、横にずらしただけで。『誰の名前を入れるか』ではなく、『そもそも、一人分の名前というものが要るのか』。…相手を打ち消さずに、枠のほうを問い直す。それだけで、ずいぶん風通しがよくなる。",
-              "reading": "ええ、それです。…だれかをひていしているわけじゃ、まったくないんですよ。ただ、といをひとつ、よこにずらしただけで。『だれのなまえをいれるか』ではなく、『そもそも、ひとりぶんのなまえというものがいるのか』。…あいてをうちけさずに、わくのほうをといなおす。それだけで、ずいぶんかぜとおしがよくなる。",
-              "english": "Yes, that. I'm not negating anyone, not in the least. I only nudged the question sideways by one. Not 'whose name goes in' but 'do we even need a single name to begin with.' Re-asking the box, rather than cancelling a person. That alone lets a good deal of air back into the room."
+              "japanese": "ええ、それです。名前を消すんじゃなくて、空欄の前から書き直す。……これなら、消しゴムもまだ残りますね。",
+              "reading": "ええ、それです。なまえをけすんじゃなくて、くうらんのまえからかきなおす。……これなら、けしゴムもまだのこりますね。",
+              "english": "Yes, that's it. Don't erase a name; rewrite from before the blank. …This way, we even have some eraser left."
             }
           },
           "support": {
@@ -251,7 +251,7 @@
           "id": "node:open-question:splendid",
           "beatId": "beat:open-question:changed-image",
           "cueId": "cue:field-blank-notebook-shut",
-          "description": "The archive card's single field stays blank. Peter opens his notebook a finger's width, then closes it again, and says, quietly and in English, the way he always does when something lands, one word: 'Splendid.'"
+          "description": "Sophie strikes through the projected sentence, leaving every name on the board alone. Peter opens his notebook a finger's width, sees she has already begun the new line, and closes it again. 'Splendid,' he says, quietly enough that the projector fan nearly takes it."
         }
       ],
       "exit": {
@@ -265,9 +265,9 @@
       "locationId": "location:classroom",
       "timeState": "evening",
       "weatherState": "summer-late-light",
-      "goal": "Decide how the record holds the atlas's authorship once the single-owner premise is rejected, and close the atlas without inventing an owner.",
-      "dramaticQuestion": "Can a record be more accurate for keeping the author field open than for forcing one name into it?",
-      "learnerNeed": "A stance on whether the record names layered stewardship or leaves the owner field open by design.",
+      "goal": "Write and perform a replacement introduction that keeps contributions traceable without inventing one maker, then turn the rehearsal toward the futures waiting after the final night.",
+      "dramaticQuestion": "Will the new line still make sense from the back row when one early contribution remains unknown?",
+      "learnerNeed": "A stance on how the spoken introduction names several kinds of contribution and preserves the part no source can assign.",
       "curriculum": {
         "sectionId": "record-without-one-owner",
         "order": 2
@@ -278,31 +278,31 @@
           "kind": "stage",
           "id": "node:open-question:record-card-open",
           "beatId": "beat:open-question:regroup-image",
-          "cueId": "cue:archive-card-open-between-them",
-          "description": "The archive card sits open between Sophie and Peter, its 「作者」 field still bare. Sophie uncaps a pen; Peter has turned to a fresh page but written nothing on it yet."
+          "cueId": "cue:rehearsal-card-between-them",
+          "description": "A strip of paper covers the old sentence on the rehearsal script. Sophie writes a new opening above it while Peter moves to the back row. Beside the lectern, three source cards wait under the headings 道, 文章, and 写真; one early route still has no name."
         },
         {
           "kind": "line",
           "id": "line:open-question:sophie-record-want",
           "beatId": "beat:open-question:record-want",
           "speakerId": "sophie",
-          "intent": "Reframe how the record should read: record what actually happened rather than one author, tracing who added what as far as it holds and leaving the untraceable parts unfilled instead of inventing them.",
-          "attentionTarget": "the author field as something to rewrite rather than fill",
+          "intent": "Offer a replacement stage line that follows routes, text, and photographs back as far as the sources allow, then stops honestly.",
+          "attentionTarget": "the new spoken line and the three source cards beside it",
           "variants": {
             "n3": {
-              "japanese": "じゃあ、この欄、書き方を変えましょう。『作者一名』じゃなくて、実際にあったとおりに書く。誰が何を足したか、分かる範囲で。分からないところは、そのまま残して。",
-              "reading": "じゃあ、このらん、かきかたをかえましょう。『さくしゃいちめい』じゃなくて、じっさいにあったとおりにかく。だれがなにをたしたか、わかるはんいで。わからないところは、そのままのこして。",
-              "english": "Then let's change how this field is written. Not 'one author,' write it the way it actually happened. Who added what, as far as we can tell. Where we can't tell, leave it as is."
+              "japanese": "こうしよう。『このアトラスは、何人もの手を通ってきました。道、文、写真の出どころは、横のカードでたどれます。分からない線は、分からないまま残しています。』……後ろまで届くか、読んでみるね。",
+              "reading": "こうしよう。『このアトラスは、なんにんものてをとおってきました。みち、ぶん、しゃしんのでどころは、よこのカードでたどれます。わからないせんは、わからないままのこしています。』……うしろまでとどくか、よんでみるね。",
+              "english": "Try this. 'This atlas passed through many hands. The routes, text, and photographs can be traced on the cards beside it. Lines we cannot identify remain unidentified.' …I'll read it and see whether it reaches the back."
             },
             "n2": {
-              "japanese": "じゃあ、この欄、書き方ごと変えましょうか。『作者一名』って形じゃなくて…実際にあったとおりに記録する。誰が何を足したのか、分かる範囲で。分からないところは、無理に埋めずに、そのまま残しておく。",
-              "reading": "じゃあ、このらん、かきかたごとかえましょうか。『さくしゃいちめい』ってかたちじゃなくて…じっさいにあったとおりにきろくする。だれがなにをたしたのか、わかるはんいで。わからないところは、むりにうめずに、そのままのこしておく。",
-              "english": "Then shall we change the whole way this field is written? Not the 'one author' format, record it the way it actually was. Who added what, as far as we can trace. The parts we can't, leave unfilled rather than force them, and keep them as they are."
+              "japanese": "こうしましょう。『このアトラスは、何人もの手を通ってきました。道、文章、写真の出どころは、横のカードからたどれます。分からない線は、分からないまま残しています。』……後ろまで届くか、舞台から読んでみますね。",
+              "reading": "こうしましょう。『このアトラスは、なんにんものてをとおってきました。みち、ぶんしょう、しゃしんのでどころは、よこのカードからたどれます。わからないせんは、わからないままのこしています。』……うしろまでとどくか、ぶたいからよんでみますね。",
+              "english": "Try this. 'This atlas passed through many hands. The routes, text, and photographs can be traced through the cards beside it. Lines we cannot identify remain unidentified.' …I'll read it from the stage and see whether it reaches the back."
             },
             "n1": {
-              "japanese": "なら、この欄、書き方ごと変えてしまいましょう。『作者、一名』という形じゃなくて…実際にそうだった通りに記録する。誰が何を加えたのか、たどれる範囲で。たどりきれないところは、無理に埋めずに、そのまま残しておく。",
-              "reading": "なら、このらん、かきかたごとかえてしまいましょう。『さくしゃ、いちめい』というかたちじゃなくて…じっさいにそうだったとおりにきろくする。だれがなにをくわえたのか、たどれるはんいで。たどりきれないところは、むりにうめずに、そのままのこしておく。",
-              "english": "Then let's change the very way this field is written. Not the 'author: one name' format, record it exactly as it was. Who added what, as far as we can follow it. What we can't fully follow, we leave unfilled rather than force, and keep as it stands."
+              "japanese": "では、こうします。『このアトラスは、何人もの手を通ってきました。道、文章、写真の出どころは、横のカードからたどれます。分からない線は、分からないまま残しています。』……舞台から読んで、後ろでどう聞こえるか確かめましょう。",
+              "reading": "では、こうします。『このアトラスは、なんにんものてをとおってきました。みち、ぶんしょう、しゃしんのでどころは、よこのカードからたどれます。わからないせんは、わからないままのこしています。』……ぶたいからよんで、うしろでどうきこえるかたしかめましょう。",
+              "english": "Then this is the line. 'This atlas passed through many hands. The routes, text, and photographs can be traced through the cards beside it. Lines we cannot identify remain unidentified.' …Let's read it from the stage and hear how it lands at the back."
             }
           },
           "support": {
@@ -315,15 +315,15 @@
           "kind": "choice",
           "id": "choice:open-question:how-to-record",
           "beatId": "beat:open-question:record-stance",
-          "question": "How should the record name the atlas's authorship?",
+          "question": "How should the stage introduction hold the atlas's many makers?",
           "options": [
             {
               "id": "option:open-question:layered-stewardship",
-              "action": "Record it as layered stewardship: list who added what, as far as it can be traced, and mark the parts no one can claim as unassigned.",
+              "action": "Let the source cards name who added each route, passage, or photograph, and leave the early route visibly unknown.",
               "japaneseByBand": {
-                "n3": "『作者』を一人に決めないで、関わった人を、足したものと一緒に並べて書きましょう。誰のか分からないところは、『未確定』のまま残して。",
-                "n2": "『作者』は一人に決めないで、関わった人を、足したものごとに並べて書きましょう。誰のものとも決めきれない部分は、『未確定』のまま残して。",
-                "n1": "『作者』を一人に絞るのはやめて、関わった人それぞれを、加えたものと一緒に並べて記録しましょう。どうしても誰のものとも定めきれない箇所は、無理に割り当てず、『未確定』のまま残す。"
+                "n3": "横のカードに、誰が何を足したか並べよう。最初の道だけは、名前を入れないで『分からない』のままにする。",
+                "n2": "横のカードに、誰がどの道や文章を足したか並べましょう。最初の道だけは、無理に名前を入れず『分からない』と残す。",
+                "n1": "横のカードで、誰がどの道や文章を足したか追えるようにしよう。最初の道だけは、名前を作らず『分からない』と残す。"
               },
               "records": [
                 "stance",
@@ -333,11 +333,11 @@
             },
             {
               "id": "option:open-question:open-field-pointer",
-              "action": "Leave the single-owner field open on purpose and point it to the contributors' terms, so the record states 'no single author' by design.",
+              "action": "Say plainly that no one person made it, then invite the audience to follow each visible contribution on the cards.",
               "japaneseByBand": {
-                "n3": "一人分の欄は、わざと空けておきましょう。代わりに、寄稿者の取り決めのページに印をつけて、『作者は一人じゃない』って残す。",
-                "n2": "一人分の欄は、あえて空けたままにしましょう。代わりに、寄稿者の取り決めのページに印をつけて、『単独の作者はいない』ってことを、そのまま記録に残す。",
-                "n1": "一名分の欄は、あえて埋めずに空けておきましょう。代わりに寄稿者の取り決めのほうへ印を送って、『単独の作者は存在しない』ということ自体を、記録として残す。"
+                "n3": "最初に『一人で作ったものではありません』と言ってから、横のカードを一枚ずつ見せよう。",
+                "n2": "最初に『一人で作ったものではありません』とはっきり言って、横のカードを一枚ずつたどってもらいましょう。",
+                "n1": "最初に『一人で作ったものではありません』と言い切ってから、横のカードを一枚ずつたどってもらおう。"
               },
               "records": [
                 "stance",
@@ -352,25 +352,25 @@
           "kind": "checkpoint",
           "id": "checkpoint:open-question:before-record",
           "beatId": "beat:open-question:record-attempt",
-          "resume": "The learner has chosen how the record will hold the atlas's authorship without a single owner. Sophie writes it, and Peter tests it against the one case that would have gone wrong."
+          "resume": "The learner has chosen how the introduction and source cards work together. Sophie reads the new line from the stage while Peter tests the one early route that still has no name."
         },
         {
           "kind": "line",
           "id": "line:open-question:peter-counterfactual",
           "beatId": "beat:open-question:repair",
           "speakerId": "peter",
-          "intent": "Seal the reframing with the counterfactual that proves it: had they forced one name, the finished record would be less accurate than the open one, so leaving the question open is the more accurate answer.",
-          "attentionTarget": "the version that would have gone wrong if one name had been forced in",
+          "intent": "Test the revised introduction from the back row, ask about the unnamed first route, and notice that an honest stop works better than a quick false answer.",
+          "attentionTarget": "the early-route card where Sophie's answer stops at 'we don't know'",
           "variants": {
             "n2": {
-              "japanese": "もし、あそこで無理に一人の名前を入れていたとしたら…この地図、たぶん今より不正確になってたと思うんです。完成はしても、嘘が一つ混じる。…だったら、『作者は一人じゃない』っていう問いを、開いたまま残しておくほうが、よっぽど正確ですよね。答えを一つに決めないことが、答えになる。そういうことも、あるんだと思います。",
-              "reading": "もし、あそこでむりにひとりのなまえをいれていたとしたら…このちず、たぶんいまよりふせいかくになってたとおもうんです。かんせいはしても、うそがひとつまじる。…だったら、『さくしゃはひとりじゃない』っていうといを、ひらいたままのこしておくほうが、よっぽどせいかくですよね。こたえをひとつにきめないことが、こたえになる。そういうことも、あるんだとおもいます。",
-              "english": "If, back there, we'd forced a single name in, this map would probably have come out less accurate than it is now. Finished, yes, but with one lie folded in. So leaving the question 'the author isn't one person' open, as it stands, is far more accurate, isn't it. Not deciding on a single answer can itself be the answer. That happens too, I think."
+              "japanese": "後ろからでも分かりました。道はこの人、文章はこの人。最初の道だけは『分からない』で止まった。……もし一人の名前を入れてたら、そこだけ早く答えて、間違ってましたね。",
+              "reading": "うしろからでもわかりました。みちはこのひと、ぶんしょうはこのひと。さいしょのみちだけは『わからない』でとまった。……もしひとりのなまえをいれてたら、そこだけはやくこたえて、まちがってましたね。",
+              "english": "It made sense from the back. This route goes to one person, that passage to another. Only the first route stopped at 'we don't know.' …If we had put one name in, we would have answered that bit quickly and wrongly."
             },
             "n1": {
-              "japanese": "仮に、あそこで無理にでも一人の名前を入れていたとしたら…この地図は、今よりむしろ不正確なものになっていたはずなんです。仕上がりはしても、そこに嘘が一つ紛れ込む。…それなら、『作者は一人ではない』という問いを、開いたまま残しておくほうが、はるかに正確で。答えを一つに定めないこと自体が、一つの答えになる。そういうことも、あるんだと思うんです。",
-              "reading": "かりに、あそこでむりにでもひとりのなまえをいれていたとしたら…このちずは、いまよりむしろふせいかくなものになっていたはずなんです。しあがりはしても、そこにうそがひとつまぎれこむ。…それなら、『さくしゃはひとりではない』というといを、ひらいたままのこしておくほうが、はるかにせいかくで。こたえをひとつにさだめないことじたいが、ひとつのこたえになる。そういうことも、あるんだとおもうんです。",
-              "english": "Suppose we had forced one name in back there, this map would, if anything, have ended up less accurate than it is now. Finished, but with a single lie slipped in. So keeping the question 'the author is not one person' held open is far more accurate. Not fixing on a single answer is itself an answer. That happens too, I believe."
+              "japanese": "後ろからでも追えました。道はこの人、文章はこの人。最初の道だけは『分からない』で止まった。……仮に一人の名前を入れていたら、そこだけ答えは早くて、間違ってましたね。",
+              "reading": "うしろからでもおえました。みちはこのひと、ぶんしょうはこのひと。さいしょのみちだけは『わからない』でとまった。……かりにひとりのなまえをいれていたら、そこだけこたえははやくて、まちがってましたね。",
+              "english": "I could follow it from the back. This route goes to one person, that passage to another. Only the first route stopped at 'we don't know.' …Had we put in one name, the answer there would have been quicker and wrong."
             }
           },
           "support": {
@@ -384,23 +384,23 @@
           "id": "line:open-question:sophie-closes",
           "beatId": "beat:open-question:changed-action",
           "speakerId": "sophie",
-          "intent": "Agree and record it, connecting the open field to how the atlas was always built in layers, so recording uncertainty rather than inventing ownership is what lets the class close the work.",
-          "attentionTarget": "the record now matching how the atlas was actually made",
+          "intent": "Run the revised line once more and hear it clear the old blank without hiding the unknown route.",
+          "attentionTarget": "the first-page introduction reaching the back row without stopping at a name",
           "variants": {
             "n3": {
-              "japanese": "うん。…この地図、もともとそうやって出来たんですよね。一人じゃなくて、みんなで少しずつ重ねて。じゃあ、記録もそうする。無理に一人の名前でまとめない。…これで、閉じられます。",
-              "reading": "うん。…このちず、もともとそうやってできたんですよね。ひとりじゃなくて、みんなですこしずつかさねて。じゃあ、きろくもそうする。むりにひとりのなまえでまとめない。…これで、とじられます。",
-              "english": "Yeah. This map was made that way from the start, wasn't it. Not one person, everyone, layering it a little at a time. So the record does the same. We don't force it together under one name. With this, we can close it."
+              "japanese": "じゃ、もう一回。『このアトラスは、何人もの手を通ってきました』。……今度は止まらなかった。分からない線も、そのまま残ってる。",
+              "reading": "じゃ、もういっかい。『このアトラスは、なんにんものてをとおってきました』。……こんどはとまらなかった。わからないせんも、そのままのこってる。",
+              "english": "Once more. 'This atlas passed through many hands.' …This time the line did not stop. And the unidentified route is still unidentified."
             },
             "n2": {
-              "japanese": "うん。…考えてみれば、この地図、最初からそうやって出来てきたんですよね。誰か一人が全部やったわけじゃなくて、いろんな人が少しずつ重ねて。じゃあ記録も、それに合わせる。無理に一人の名前で締めない。…これで、ようやく閉じられますね。",
-              "reading": "うん。…かんがえてみれば、このちず、さいしょからそうやってできてきたんですよね。だれかひとりがぜんぶやったわけじゃなくて、いろんなひとがすこしずつかさねて。じゃあきろくも、それにあわせる。むりにひとりのなまえでしめない。…これで、ようやくとじられますね。",
-              "english": "Yeah. Come to think of it, this map was built that way from the beginning. Not one person doing all of it, all sorts of people, layering it a little at a time. So the record matches that. We don't seal it shut under one name. With this, we can finally close it."
+              "japanese": "じゃあ、もう一度。『このアトラスは、何人もの手を通ってきました』。……今度は、名前のところで止まらなかった。分からない線も、分からないまま残せてる。",
+              "reading": "じゃあ、もういちど。『このアトラスは、なんにんものてをとおってきました』。……こんどは、なまえのところでとまらなかった。わからないせんも、わからないままのこせてる。",
+              "english": "Again. 'This atlas passed through many hands.' …This time we did not stop at a name. And the unidentified route remained honestly unidentified."
             },
             "n1": {
-              "japanese": "ええ。…そもそも、この地図自体、最初からそうやって重なって出来たものですし。誰か一人が全部を担ったわけじゃない、何人もが少しずつ、層にして。だったら記録のほうも、それに合わせるのが筋で。無理に一人の名前でまとめてしまわない。…これで、ようやく閉じられますね。",
-              "reading": "ええ。…そもそも、このちずじたい、さいしょからそうやってかさなってできたものですし。だれかひとりがぜんぶをになったわけじゃない、なんにんもがすこしずつ、そうにして。だったらきろくのほうも、それにあわせるのがすじで。むりにひとりのなまえでまとめてしまわない。…これで、ようやくとじられますね。",
-              "english": "Yes. The map itself was made this way from the start, layer over layer. Not one person carrying all of it, many people, a little each, in layers. So it stands to reason the record should match. We don't gather it up under one forced name. With this, we can finally close it."
+              "japanese": "では、もう一度。『このアトラスは、何人もの手を通ってきました』。……今度は、名前のところで止まらなかった。分からない線も、分からないまま残せてる。",
+              "reading": "では、もういちど。『このアトラスは、なんにんものてをとおってきました』。……こんどは、なまえのところでとまらなかった。わからないせんも、わからないままのこせてる。",
+              "english": "Once more. 'This atlas passed through many hands.' …This time we did not stop at a name. And the unidentified route remained honestly unidentified."
             }
           },
           "support": {
@@ -414,18 +414,18 @@
           "id": "line:open-question:peter-open-on-purpose",
           "beatId": "beat:open-question:exit-line",
           "speakerId": "peter",
-          "intent": "Leave the field open on purpose and name it as the class's answer: keeping a question open, as a question, is a legitimate way to finish, and it carries his whole method forward toward graduation.",
-          "attentionTarget": "the empty field, kept empty as a deliberate answer",
+          "intent": "Turn the rehearsal page and point to the next genuinely open question: what each person will do after the final public night.",
+          "attentionTarget": "the next cue card, headed 'after this night,' with Alex's line still blank",
           "variants": {
             "n2": {
-              "japanese": "じゃあ、欄は空けたまま、ということで。…埋めない、っていうのが、僕らの出した答え。それでいいんです。…問いは、問いのまま置いておく。それも、一つの仕上げ方ですから。",
-              "reading": "じゃあ、らんはあけたまま、ということで。…うめない、っていうのが、ぼくらのだしたこたえ。それでいいんです。…といは、といのままおいておく。それも、ひとつのしあげかたですから。",
-              "english": "Then, the field stays open. Not filling it in is the answer we've arrived at. And that's fine. A question, left as a question. That's one way to finish a thing too."
+              "japanese": "通じました。……次のカード、空いてますね。『この夜のあと、どこへ』。アレックスのところだけ、まだ何もない。これは明日、本人に聞きましょう。",
+              "reading": "つうじました。……つぎのカード、あいてますね。『このよるのあと、どこへ』。アレックスのところだけ、まだなにもない。これはあした、ほんにんにききましょう。",
+              "english": "It made sense. …The next cue card is blank: 'Where after this night?' There is still nothing beside Alex. Let's ask him tomorrow."
             },
             "n1": {
-              "japanese": "では、欄は空けたまま、ということで。…埋めない、というのが、僕らの出した答え。それでいい。…問いは、問いのまま置いておく。それだって、立派な仕上げ方の一つですから。",
-              "reading": "では、らんはあけたまま、ということで。…うめない、というのが、ぼくらのだしたこたえ。それでいい。…といは、といのままおいておく。それだって、りっぱなしあげかたのひとつですから。",
-              "english": "So, the field stays open. Not filling it in is the answer we've reached. And that's fine. A question left as a question. That, too, is a perfectly good way to finish something."
+              "japanese": "通じました。……でも、次のカードが空いてますね。『この夜のあと、どこへ』。アレックスのところだけ、まだ何もない。これは明日、本人に聞きましょう。",
+              "reading": "つうじました。……でも、つぎのカードがあいてますね。『このよるのあと、どこへ』。アレックスのところだけ、まだなにもない。これはあした、ほんにんにききましょう。",
+              "english": "It made sense. …But the next cue card is blank: 'Where after this night?' There is still nothing beside Alex. Let's ask him tomorrow."
             }
           },
           "support": {
@@ -439,7 +439,7 @@
           "id": "node:open-question:field-left-open",
           "beatId": "beat:open-question:exit-image",
           "cueId": "cue:author-field-open-mark-to-terms",
-          "description": "The card's author field stays open, a small mark beside it pointing to the contributors' terms. The atlas is closed. On the sill by the window seat, Peter's notebook lies shut again, the decisive question of the evening having come, as it turned out, from the chair nobody checked."
+          "description": "Sophie clips the revised opening over the old one and runs it once without stopping. Peter turns the rehearsal page. The next card reads AFTER THIS NIGHT; Alex's name sits beneath it with no arrow, date, or destination. A cafe receipt is tucked under the corner for tomorrow."
         }
       ],
       "exit": {
@@ -464,14 +464,14 @@
       },
       "useNumber": 3,
       "maximumUses": 5,
-      "optionalFallback": "A quiet classmate asks whether the finished work needs one named owner at all, and the class settles on recording layered contribution instead of choosing a single name."
+      "optionalFallback": "A quiet classmate asks whether the first-page introduction needs one named maker at all, and the class rewrites the spoken line around the contributions it can actually trace."
     }
   ],
   "outcomes": [
     {
       "id": "outcome:open-question:reject-false-premise",
       "kind": "story",
-      "description": "The class rejects the demand for a single atlas owner as the wrong frame and records the authorship as layered stewardship (or leaves the owner field open by design, pointing to the contributors' terms), which lets the finished atlas be closed without inventing an owner."
+      "description": "The class rejects the one-maker sentence, replaces it with a spoken introduction that traces routes, text, and photographs without inventing an owner, and tests the revision from the back row. The next rehearsal cue now asks where each person will go after the final night, with Alex's line still blank."
     },
     {
       "id": "outcome:open-question:peter-return",
@@ -485,7 +485,7 @@
       "id": "outcome:open-question:transfer-return",
       "kind": "curriculum-return",
       "family": "n1-argument-structure-counterfactuals",
-      "description": "Challenge-a-false-premise-without-flattening-the-speaker evidence returns through the chapter's transfer activity; the story emits no lesson-completion command."
+      "description": "Recognition of a counterfactual that challenges the false premise without flattening the speaker returns through the chapter's selected-response activity; the story emits no lesson-completion command."
     }
   ],
   "replay": {
@@ -505,6 +505,6 @@
       "hide-english",
       "replay-reframe-premise"
     ],
-    "withdrawnContentFallback": "Use the same premise-reframing and no-single-owner record beats with neutral nameplates and a generic quiet reviewer who asks whether finishing the shared work requires naming one owner, then records layered stewardship instead."
+    "withdrawnContentFallback": "Use the same premise-reframing with neutral nameplates and a generic quiet reviewer who asks whether the first-page introduction needs one maker, then tests a spoken line that keeps every traceable contribution and the unknown route visible."
   }
 }

@@ -173,7 +173,6 @@ describe('Academy lesson flow', () => {
             sceneId: 'scene:opening',
             nodeId: 'activity:lesson-zero',
             choices: {},
-            storyOnlyActivityIds: [],
         });
         const route = context('lesson:foundation-00', {
             route: 'source-activity',

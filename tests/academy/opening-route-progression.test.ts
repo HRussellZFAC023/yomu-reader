@@ -266,7 +266,6 @@ describe('Academy opening route progression', () => {
             sceneId: 'scene:blank-atlas:close',
             nodeId: 'node:blank-atlas:one-light-room',
             choices: {},
-            storyOnlyActivityIds: [],
         });
         const enrollment = enrollmentHarness();
         const result = routeContext('placement-result', [PROFILE_EVENT, placement('n2')], {

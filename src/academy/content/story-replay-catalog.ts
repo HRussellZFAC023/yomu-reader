@@ -1,6 +1,6 @@
 import type { ReviewSeed } from '../domain/activity-runtime';
 import type { ReplaySceneDefinition } from '../domain/story-replay-projection';
-import type { N3StoryPractice } from './n3-story-practice';
+import type { StoryPractice } from './n3-story-practice';
 
 /**
  * Replay registration is deliberately narrower than canon. Each entry names a
@@ -59,11 +59,11 @@ export const STORY_REPLAY_SCENES: readonly ReplaySceneDefinition[] = Object.free
 ]);
 
 /**
- * A story practice earns its place in Yomu's actual SRS queue from the same
- * authored answer the learner just proved. The replay catalog owns this
+ * A passed selected response seeds the answer the learner recognized into
+ * Yomu's actual SRS queue. The replay catalog owns this
  * bridge so story practice never needs a parallel, in-memory scheduler.
  */
-export function storyReplayReviewSeed(practice: N3StoryPractice): ReviewSeed {
+export function storyReplayReviewSeed(practice: StoryPractice): ReviewSeed {
     const answer = practice.options.find(option => option.id === practice.correctOptionId);
     if (!answer) throw new TypeError(`Story practice ${practice.activityId} has no correct answer.`);
     const conceptId = practice.conceptIds[0];

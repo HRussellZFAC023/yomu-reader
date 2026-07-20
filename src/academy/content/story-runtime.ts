@@ -2,7 +2,7 @@ import seasonOneSource from './story-sources/season-one-fiction.json';
 import openingArrivalSource from './story-sources/opening-arrival-bridge.v2.json';
 import blankAtlasSource from './story-sources/s1e01-the-blank-atlas.v2.json';
 import { N3_STORY_EPISODES, n3StoryArcForEpisode } from './n3-story-batch';
-import { n3StoryPractice } from './n3-story-practice';
+import { storyPractice } from './n3-story-practice';
 import { AUTHORED_STORY_CHAPTER_SOURCES } from './story-chapter-sources';
 import { getAcademyCastMember } from '../domain/cast-registry';
 import { isWorldPlaceId, type WorldPlaceId } from '../domain/world-locations';
@@ -42,6 +42,16 @@ export interface StoryReviewDayTemplate {
 }
 
 export type StoryArcNodeKind = 'activity' | 'checkpoint' | 'choice' | 'command' | 'line' | 'narration' | 'stage';
+
+const STORY_ARC_NODE_KINDS: ReadonlySet<string> = new Set<StoryArcNodeKind>([
+    'activity',
+    'checkpoint',
+    'choice',
+    'command',
+    'line',
+    'narration',
+    'stage',
+]);
 
 export interface StoryLineVariant {
     readonly japanese: string;
@@ -766,6 +776,9 @@ function validateStoryPackageSource(source: StoryPackageSource): void {
     });
     const declaredCast = new Set(source.cast.map(use => use.castId));
     source.scenes.flatMap(scene => scene.nodes).forEach(node => {
+        if (!STORY_ARC_NODE_KINDS.has(node.kind)) {
+            throw new TypeError(`Node ${node.id} in ${source.id} has unsupported kind ${String(node.kind)}.`);
+        }
         if (node.speakerId && node.speakerId !== 'learner' && !declaredCast.has(node.speakerId)) {
             throw new TypeError(`Speaker ${node.speakerId} is not declared in ${source.id}'s cast.`);
         }
@@ -854,9 +867,9 @@ export function compileStoryPackage(source: StoryPackageSource): StoryPlayableAr
 }
 
 function storyExerciseRegistered(exerciseId: string): boolean {
-    // The N3 practice map is the only registered in-bundle story exercise source
-    // today; opening-arc activities are grounded separately against Lesson 0.
-    return Boolean(n3StoryPractice(exerciseId));
+    // Opening-arc activities are grounded separately against Lesson 0. Later
+    // authored transfers resolve through the in-bundle story-practice catalog.
+    return Boolean(storyPractice(exerciseId));
 }
 
 function arcIsGrounded(arc: StoryPlayableArc): boolean {

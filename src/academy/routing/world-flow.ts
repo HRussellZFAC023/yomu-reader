@@ -12,7 +12,7 @@ import {
 } from '../content/library-vocabulary-sheet';
 import { serializeStoryCursor } from '../content/story-runner';
 import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
-import { n3StoryPractice } from '../content/n3-story-practice';
+import { storyPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
 import type { JlptBand } from '../domain/learner-record';
 import { canonicalGroundedReviewKey } from '../domain/review-identity';
@@ -157,7 +157,7 @@ class WorldFlow implements AcademyRouteFlow {
                 selectedFork: storyForkForActivity(activityId),
             }),
             onCompleteStoryPractice: (activityId, outcome) => {
-                const practice = n3StoryPractice(activityId);
+                const practice = storyPractice(activityId);
                 if (!practice) throw new Error(`Unknown authored story practice: ${activityId}`);
                 return this.options.evidence.recordAuthoredStoryPractice({
                     ...practice,
@@ -800,8 +800,11 @@ function storyActivityOutcomes(
     const outcomes: Record<string, 'pass' | 'lapse'> = Object.fromEntries(Object.values(projection.activities)
         .map(activity => [activity.activityId, activity.lastOutcome]));
     events.forEach(event => {
-        if (event.kind === 'learning-evidence-recorded' && event.modeId === 'authored-story-n3') {
-            outcomes[event.activityId] = event.outcome;
+        if (event.kind === 'learning-evidence-recorded'
+            && (event.modeId === 'authored-story-practice' || event.modeId === 'authored-story-n3')) {
+            outcomes[event.activityId] = outcomes[event.activityId] === 'pass' || event.outcome === 'pass'
+                ? 'pass'
+                : 'lapse';
         }
     });
     return outcomes;
