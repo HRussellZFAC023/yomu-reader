@@ -983,7 +983,7 @@ function parseReviewPayload(value) {
     return payload;
 }
 
-function runExternalReview(tasks, id, providerId, promptCandidate) {
+function runExternalReview(tasks, state, id, providerId, promptCandidate) {
     const task = taskById(tasks, id);
     const provider = config.reviewProviders?.[providerId];
     if (!provider) throw new Error(`Unknown trusted review provider: ${providerId}`);
@@ -1019,6 +1019,7 @@ function runExternalReview(tasks, id, providerId, promptCandidate) {
     const payload = parseReviewPayload(envelope.result);
     const promptReference = evidenceReference(promptPath);
     const responseReference = evidenceReference(responsePath);
+    const captureToken = crypto.randomUUID();
     const session = {
         schema: 'yomu-academy.external-review-session/v1',
         recordedBy: 'academy-production-workflow',
@@ -1032,6 +1033,7 @@ function runExternalReview(tasks, id, providerId, promptCandidate) {
         sessionId: envelope.session_id,
         exitCode: result.status,
         verdict: payload.verdict,
+        captureToken,
         issuedAt: new Date().toISOString(),
         prompt: promptReference,
         response: responseReference,
@@ -1058,12 +1060,22 @@ function runExternalReview(tasks, id, providerId, promptCandidate) {
         findings: payload.findings,
     };
     fs.writeFileSync(attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+    const registration = {
+        taskId: id,
+        headCommit,
+        sessionId: envelope.session_id,
+        captureToken,
+        path: sessionReference.path,
+        sha256: sessionReference.sha256,
+        capturedAt: session.issuedAt,
+    };
     const errors = validateReviewAttestation(task, attestation, {
         headCommit,
         owner: proof.owner,
         reviewer: provider.reviewerId,
         strict: true,
         reviewSessions: new Map([[sessionReference.path, session]]),
+        trustedReviewSessions: new Map([[sessionReference.path, registration]]),
         evidenceHashes: new Map([
             [sessionReference.path, sessionReference.sha256],
             [promptReference.path, promptReference.sha256],
@@ -1071,6 +1083,9 @@ function runExternalReview(tasks, id, providerId, promptCandidate) {
         ]),
     });
     if (errors.length) throw new Error(errors.join('\n'));
+    state.reviewSessions ??= [];
+    state.reviewSessions.push(registration);
+    saveState(state);
     proof.independentReview = {
         status: 'pass',
         reviewer: provider.reviewerId,
@@ -1081,7 +1096,7 @@ function runExternalReview(tasks, id, providerId, promptCandidate) {
     console.log(`Captured trusted ${providerId} review session ${envelope.session_id} for ${id}`);
 }
 
-function attestReview(tasks, id, reviewer, candidate) {
+function attestReview(tasks, state, id, reviewer, candidate) {
     const task = taskById(tasks, id);
     if (!reviewer) throw new Error('attest-review requires --reviewer NAME');
     const { target, proof } = readProof(id);
@@ -1094,12 +1109,16 @@ function attestReview(tasks, id, reviewer, candidate) {
         const actual = evidenceReference(reference.path);
         evidenceHashes.set(reference.path, actual.sha256);
     }
+    const registration = (state.reviewSessions ?? []).find(row => (
+        row.path === sessionReference?.path && row.sha256 === sessionReference?.sha256
+    ));
     const errors = validateReviewAttestation(task, attestation, {
         headCommit: safeHead(),
         owner: proof.owner,
         reviewer,
         strict: true,
         reviewSessions: new Map(sessionReference?.path ? [[sessionReference.path, session]] : []),
+        trustedReviewSessions: new Map(registration ? [[registration.path, registration]] : []),
         evidenceHashes,
     });
     if (errors.length) throw new Error(errors.join('\n'));
@@ -1280,6 +1299,7 @@ function strictProofContext(tasks, task, proof, state) {
         gateAttestations: evidence.gateAttestations,
         reviewAttestations: evidence.reviewAttestations,
         reviewSessions: evidence.reviewSessions,
+        trustedReviewSessions: new Map((state.reviewSessions ?? []).map(row => [row.path, row])),
         trustedGateProducers: config.trustedGateProducers,
         reuseReportErrors,
         maxProofAgeMs: config.proofMaxAgeMinutes * 60 * 1000,
@@ -1657,13 +1677,14 @@ try {
         ensureValid(tasks);
         const reviewerIndex = flags.indexOf('--reviewer');
         const evidence = flags.find((value, index) => index !== reviewerIndex && index !== reviewerIndex + 1 && !value.startsWith('--'));
-        withLock(stateLockPath, () => attestReview(tasks, id, reviewerIndex >= 0 ? flags[reviewerIndex + 1] : null, evidence));
+        withLock(stateLockPath, () => attestReview(tasks, loadState(), id, reviewerIndex >= 0 ? flags[reviewerIndex + 1] : null, evidence));
     } else if (command === 'run-review') {
         ensureValid(tasks);
         const providerIndex = flags.indexOf('--provider');
         const promptIndex = flags.indexOf('--prompt');
         withLock(stateLockPath, () => runExternalReview(
             tasks,
+            loadState(),
             id,
             providerIndex >= 0 ? flags[providerIndex + 1] : null,
             promptIndex >= 0 ? flags[promptIndex + 1] : null,

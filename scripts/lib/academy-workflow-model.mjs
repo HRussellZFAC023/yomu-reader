@@ -491,6 +491,7 @@ export function validateReviewAttestation(task, attestation, context = {}) {
         errors.push('Independent review needs a hash-bound external session record');
     }
     const session = sessionReference?.path ? context.reviewSessions?.get(sessionReference.path) : null;
+    const registration = sessionReference?.path ? context.trustedReviewSessions?.get(sessionReference.path) : null;
     if (!session) {
         errors.push('Independent review external session record is missing or unreadable');
     } else {
@@ -503,6 +504,14 @@ export function validateReviewAttestation(task, attestation, context = {}) {
             errors.push('External review session provider identity does not match the attestation');
         }
         if (session.exitCode !== 0 || session.verdict !== 'ship') errors.push('External review session does not prove a successful SHIP review');
+        if (!registration
+            || registration.sha256 !== sessionReference.sha256
+            || registration.taskId !== task.id
+            || registration.headCommit !== attestation?.headCommit
+            || registration.sessionId !== reviewer?.sessionId
+            || registration.captureToken !== session.captureToken) {
+            errors.push('External review session is not registered by a trusted workflow capture');
+        }
         if (!validArtifactReference(session.prompt) || !validArtifactReference(session.response)) {
             errors.push('External review session needs hash-bound prompt and response artifacts');
         }

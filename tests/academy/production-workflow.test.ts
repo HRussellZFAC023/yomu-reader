@@ -117,7 +117,11 @@ describe('Academy production workflow', () => {
             schema: 'yomu-academy.external-review-session/v1', recordedBy: 'academy-production-workflow',
             taskId: task.id, taskDefinitionSha256: taskDefinitionSha256(task), headCommit: 'a'.repeat(40),
             owner: 'codex-main', reviewerId: 'review-agent', provider: 'openai', model: 'gpt-5.6-sol',
-            sessionId: 'agent-1', exitCode: 0, verdict: 'ship', prompt, response,
+            sessionId: 'agent-1', exitCode: 0, verdict: 'ship', captureToken: 'capture-1', prompt, response,
+        };
+        const registration = {
+            taskId: task.id, headCommit: 'a'.repeat(40), sessionId: 'agent-1', captureToken: 'capture-1',
+            path: sessionEvidence.path, sha256: sessionEvidence.sha256,
         };
         const review = {
             schema: 'yomu-academy.review-attestation/v1', taskId: task.id, verdict: 'ship',
@@ -129,11 +133,14 @@ describe('Academy production workflow', () => {
         const reviewContext = {
             headCommit: 'a'.repeat(40), owner: 'codex-main', reviewer: 'review-agent', strict: true,
             reviewSessions: new Map([[sessionEvidence.path, session]]),
+            trustedReviewSessions: new Map([[sessionEvidence.path, registration]]),
             evidenceHashes: new Map([[sessionEvidence.path, sessionEvidence.sha256], [prompt.path, prompt.sha256], [response.path, response.sha256]]),
         };
         expect(validateReviewAttestation(task, review, reviewContext)).toEqual([]);
         expect(validateReviewAttestation(task, { ...review, verdict: 'block' }, reviewContext))
             .toContain('Independent review verdict is not ship');
+        expect(validateReviewAttestation(task, review, { ...reviewContext, trustedReviewSessions: new Map() }))
+            .toContain('External review session is not registered by a trusted workflow capture');
         expect(validateReviewAttestation(task, {
             ...review,
             reviewer: { ...review.reviewer, sessionEvidence: undefined, sessionId: 'invented-session' },
