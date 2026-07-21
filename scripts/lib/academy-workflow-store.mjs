@@ -19,11 +19,14 @@ function matchesSnapshot(actual, expected) {
 }
 
 function fsyncDirectory(directoryPath) {
-    const descriptor = fs.openSync(directoryPath, 'r');
+    let descriptor;
     try {
+        descriptor = fs.openSync(directoryPath, 'r');
         fs.fsyncSync(descriptor);
+    } catch (error) {
+        if (!['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'EBADF', 'EISDIR', 'EPERM'].includes(error?.code)) throw error;
     } finally {
-        fs.closeSync(descriptor);
+        if (descriptor !== undefined) fs.closeSync(descriptor);
     }
 }
 
@@ -59,7 +62,7 @@ function journalPath(stateRoot) {
     return path.join(stateRoot, 'prepared-transition.json');
 }
 
-function writeSnapshot(target, value) {
+export function writeSnapshot(target, value) {
     if (!value.exists) {
         removeFileDurably(target);
         return;
@@ -87,16 +90,17 @@ export function inspectFileTransition(stateRoot) {
         const actual = snapshot(file.path);
         const state = matchesSnapshot(actual, file.before)
             ? 'before'
-            : matchesSnapshot(actual, file.after) ? 'after' : 'unknown';
+            : file.after && matchesSnapshot(actual, file.after) ? 'after' : 'unknown';
         return { path: file.path, state, actual, before: file.before, after: file.after };
     });
     const unknown = files.filter(file => file.state === 'unknown');
+    const rollbackOnly = journal.mode === 'rollback-only';
     return {
-        status: unknown.length ? 'ambiguous' : 'recoverable',
+        status: rollbackOnly ? 'recoverable' : (unknown.length ? 'ambiguous' : 'recoverable'),
         journalPath: target,
         journal,
         files,
-        recommended: unknown.length ? null : (files.some(file => file.state === 'after') ? 'roll-forward' : 'rollback'),
+        recommended: rollbackOnly ? 'rollback' : (unknown.length ? null : (files.some(file => file.state === 'after') ? 'roll-forward' : 'rollback')),
     };
 }
 
@@ -106,7 +110,7 @@ export function recoverFileTransition(stateRoot, mode = 'auto') {
     if (inspection.status === 'invalid-journal') {
         throw new Error(`Workflow recovery journal is unreadable: ${inspection.error}. Restore a valid journal backup, then run recovery-status and recover; normal workflow commands remain blocked.`);
     }
-    const action = mode === 'auto' ? inspection.recommended : mode;
+    const action = inspection.journal.mode === 'rollback-only' ? 'rollback' : (mode === 'auto' ? inspection.recommended : mode);
     if (!['rollback', 'roll-forward'].includes(action)) {
         const unknown = inspection.files.filter(file => file.state === 'unknown').map(file => file.path);
         throw new Error(`Workflow transition ${inspection.journal.id} has externally changed files: ${unknown.join(', ')}. Run recover --rollback or recover --roll-forward after inspecting recovery-status.`);
@@ -174,4 +178,34 @@ export function commitFileTransition(stateRoot, kind, writes, metadata = {}) {
     removeFileDurably(journalPath(stateRoot));
     injectCrash(kind, 'after-complete');
     return journal;
+}
+
+export function beginRollbackTransition(stateRoot, kind, targets, metadata = {}) {
+    if (!kind?.trim()) throw new TypeError('Workflow transitions require a kind');
+    if (!Array.isArray(targets) || !targets.length) throw new TypeError('Rollback transitions require at least one target');
+    const existing = inspectFileTransition(stateRoot);
+    if (existing.status !== 'clean') throw new Error(`Workflow recovery is required before ${kind}; run recovery-status, then recover.`);
+    const paths = [...new Set(targets.map(target => path.resolve(target)))];
+    const journal = {
+        schema: JOURNAL_SCHEMA,
+        id: crypto.randomUUID(),
+        kind,
+        mode: 'rollback-only',
+        createdAt: new Date().toISOString(),
+        metadata,
+        files: paths.map(target => ({ path: target, before: snapshot(target), after: null })),
+    };
+    fs.mkdirSync(stateRoot, { recursive: true });
+    writeFileDurably(journalPath(stateRoot), `${JSON.stringify(journal, null, 2)}\n`);
+    injectCrash(kind, 'after-intent');
+    return journal;
+}
+
+export function completeRollbackTransition(stateRoot, journal) {
+    const inspection = inspectFileTransition(stateRoot);
+    if (inspection.status === 'clean') throw new Error(`Rollback transition ${journal?.id ?? ''} is not active`);
+    if (inspection.journal?.id !== journal?.id || inspection.journal?.mode !== 'rollback-only') {
+        throw new Error('A different workflow transition replaced the active rollback journal');
+    }
+    removeFileDurably(inspection.journalPath);
 }

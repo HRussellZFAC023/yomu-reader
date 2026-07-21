@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import {
     buildPlan,
     buildProductionLedger,
@@ -29,24 +30,44 @@ import {
     validateReviewAttestation,
     validateWorkflow,
 } from '../../scripts/lib/academy-workflow-model.mjs';
+import {
+    trustBindings,
+    validateGovernanceTrustStore,
+} from '../../scripts/lib/academy-workflow-trust.mjs';
 
 const repoRoot = path.resolve(__dirname, '../..');
 const backlogPath = path.join(repoRoot, 'docs/academy/BACKLOG.md');
 const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config/academy-production-workflow.json'), 'utf8'));
+const trustedReviewTool = {
+    id: 'claude-code-fable', command: 'claude', versionArgs: ['--version'], versionPattern: '^(\\d+\\.\\d+\\.\\d+)',
+    installations: [{
+        version: '2.1.216', sha256: 'd'.repeat(64),
+        realpathSuffixes: ['/node_modules/@anthropic-ai/claude-code/bin/claude.exe'],
+    }],
+};
 const requiredReviewPolicy = {
     id: config.requiredReviewProvider,
     ...config.reviewProviders[config.requiredReviewProvider],
+    args: [
+        '-p', '--model', 'claude-fable-5', '--permission-mode', 'plan', '--output-format', 'json',
+        '--bare', '--safe-mode', '--disable-slash-commands', '--strict-mcp-config',
+        '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--no-session-persistence',
+        '--no-chrome', '--tools', 'Read,Grep,Glob',
+    ],
+    outputFormat: 'claude-json',
+    allowedEnvironment: ['ANTHROPIC_API_KEY', 'LANG'],
+    tool: trustedReviewTool,
 };
 
 function nativeFableSession(sessionId: string) {
     return {
         providerId: requiredReviewPolicy.id,
         executable: {
-            command: requiredReviewPolicy.executable,
+            command: trustedReviewTool.command,
             realpath: `/opt/node_modules/@anthropic-ai/claude-code/bin/claude.exe`,
-            sha256: requiredReviewPolicy.executableSha256,
-            packageName: requiredReviewPolicy.packageName,
-            packageVersion: requiredReviewPolicy.packageVersion,
+            sha256: trustedReviewTool.installations[0].sha256,
+            version: trustedReviewTool.installations[0].version,
+            trustId: trustedReviewTool.id,
         },
         nativeResult: {
             type: 'result', subtype: 'success', isError: false, sessionId,
@@ -71,17 +92,24 @@ function signedApproval(task: ReturnType<typeof parseBacklog>[number], overrides
         purpose: 'academy-production-promotion',
         allowedOwnerIds: ['heru'],
         maxValidityMinutes: 30,
-        publicKeys: [{
+        trustStoreRevision: 7,
+        keys: [{
             ownerId: 'heru', keyId: 'test-owner-key', algorithm: 'Ed25519',
             publicKeyJwk: publicKey.export({ format: 'jwk' }),
+            activatedAt: '2026-07-01T00:00:00.000Z', expiresAt: '2027-07-01T00:00:00.000Z',
+            revokedAt: null, successorKeyId: null,
         }],
     };
     const approval = {
-        schema: 'yomu-academy.owner-approval/v2', taskId: task.id, requirement: 'owner',
+        schema: 'yomu-academy.owner-approval/v3', revision: 1, trustStoreRevision: 7,
+        taskId: task.id, requirement: 'owner',
         purpose: policy.purpose, decision: 'approve', owner: { id: 'heru' },
-        claimToken: 'claim-1', headCommit: 'a'.repeat(40), backlogSha256: 'b'.repeat(64),
-        taskDefinitionSha256: taskDefinitionSha256(task), issuedAt: '2026-07-20T00:00:00.000Z',
+        claimToken: 'claim-1', headCommit: 'a'.repeat(40),
         expiresAt: '2026-07-20T00:20:00.000Z', nonce: 'owner-nonce-1234567890', evidence,
+        issuedAt: '2026-07-20T00:00:00.000Z',
+        contentHashes: {
+            taskDefinitionSha256: taskDefinitionSha256(task), backlogSha256: 'b'.repeat(64), evidenceSha256: evidence.sha256,
+        },
         summary: 'Approved this exact production promotion.',
         signature: { algorithm: 'Ed25519', keyId: 'test-owner-key', value: '' },
         ...overrides,
@@ -113,16 +141,18 @@ describe('Academy production workflow', () => {
         expect(tasks.find(task => task.id === 'PLAT-003')?.requirements).toEqual(['owner']);
     });
 
-    it('rejects a substituted Claude package version or executable digest', () => {
+    it('keeps executable versions and digests out of candidate configuration', () => {
         const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
         const weakened = structuredClone(config);
         weakened.reviewProviders['claude-fable'].packageVersion = '99.0.0';
         weakened.reviewProviders['claude-fable'].executableSha256 = '0'.repeat(64);
 
         expect(validateWorkflow(tasks, weakened).errors).toEqual(expect.arrayContaining([
-            'Review provider claude-fable must use fixed packageVersion 2.1.215',
-            'Review provider claude-fable must use fixed executableSha256 90608b5c5ab504e96e77365cea6203d046e291d59b2bb42cf28dcb2ccdf9dd58',
+            'Review provider claude-fable cannot define candidate-controlled packageVersion',
+            'Review provider claude-fable cannot define candidate-controlled executableSha256',
         ]));
+        expect(config.reviewProviders['claude-fable']).not.toHaveProperty('packageVersion');
+        expect(config.reviewProviders['claude-fable']).not.toHaveProperty('executableSha256');
     });
 
     it('reports literal canonical completion without converting it to an effort claim', () => {
@@ -160,6 +190,65 @@ describe('Academy production workflow', () => {
         const ledger = buildProductionLedger(tasks, config, {}, {}, [], { generatedAt: '2026-07-20T00:00:00.000Z' });
         expect(ledger.progress).toMatchObject({ complete: 0, total: 1, percent: 0 });
         expect(ledger.tasks[0]).toMatchObject({ backlogChecked: true, canonicalComplete: false, implemented: false });
+    });
+
+    it('rejects checked work whose implementation exists only on another Git ref', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'yomu-branch-only-proof-'));
+        const runGit = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+        try {
+            runGit('init', '--initial-branch=main');
+            runGit('config', 'user.name', 'Workflow Test');
+            runGit('config', 'user.email', 'workflow@example.invalid');
+            fs.writeFileSync(path.join(root, 'README.md'), 'canonical\n');
+            runGit('add', '.');
+            runGit('commit', '-m', 'canonical main');
+            runGit('switch', '-c', 'recovered-implementation');
+            fs.mkdirSync(path.join(root, 'src/academy'), { recursive: true });
+            fs.writeFileSync(path.join(root, 'src/academy/recovered.ts'), 'export const recovered = true;\n');
+            runGit('add', '.');
+            runGit('commit', '-m', 'branch-only implementation');
+            const branchOnlyCommit = runGit('rev-parse', 'HEAD');
+            runGit('switch', 'main');
+            expect(fs.existsSync(path.join(root, 'src/academy/recovered.ts'))).toBe(false);
+            expect(runGit('cat-file', '-e', 'recovered-implementation:src/academy/recovered.ts')).toBe('');
+
+            const markdown = '- [x] **BASE-999** Branch-only result. **Deps:** none. **Proof:** `C`,`R`,`D`.\n';
+            const [task] = parseBacklog(markdown, config);
+            const proof = proofTemplate(task, config, runGit('rev-parse', 'main'));
+            Object.assign(proof, {
+                claimToken: 'branch-only-claim', headCommit: branchOnlyCommit,
+                submittedAt: '2026-07-20T00:00:00.000Z', summary: 'Referenced branch-only implementation.',
+            });
+            proof.reuseAudit.status = 'pass';
+            for (const gate of task.gates) proof.gates[gate].status = 'pass';
+            let checkpointReachable = true;
+            try {
+                runGit('merge-base', '--is-ancestor', branchOnlyCommit, 'main');
+            } catch {
+                checkpointReachable = false;
+            }
+            const proofSha256 = 'f'.repeat(64);
+            const evidenceManifestSha256 = 'e'.repeat(64);
+            const state = {
+                claims: [{ taskId: task.id, token: proof.claimToken, status: 'verified', expiresAt: '2099-01-01T00:00:00.000Z' }],
+                promotions: [{
+                    taskId: task.id, claimToken: proof.claimToken, status: 'verified', userVisible: false,
+                    headCommit: branchOnlyCommit, checkpointCommit: branchOnlyCommit,
+                    proofSha256, evidenceManifestSha256, taskDefinitionSha256: taskDefinitionSha256(task),
+                }],
+            };
+            const ledger = buildProductionLedger([task], config, state, { [task.id]: {
+                proof, sha256: proofSha256, evidenceManifestSha256, checkpointValid: checkpointReachable, valid: true,
+            } }, [], {
+                generatedAt: '2026-07-20T00:00:00.000Z', backlogSha256: sha256(markdown),
+            });
+            expect(checkpointReachable).toBe(false);
+            expect(taskCompleteForWorkflow(task, {})).toBe(false);
+            expect(ledger.progress).toMatchObject({ complete: 0, total: 1, percent: 0 });
+            expect(ledger.tasks[0]).toMatchObject({ backlogChecked: true, canonicalComplete: false, learnerReachable: false, deployed: false });
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
     });
 
     it('keeps awaiting-release user-visible work open, incomplete, and not deployed', () => {
@@ -261,7 +350,7 @@ describe('Academy production workflow', () => {
             taskId: task.id, headCommit: 'a'.repeat(40), sessionId: 'agent-1', captureToken: 'capture-1',
             path: sessionEvidence.path, sha256: sessionEvidence.sha256,
             providerId: requiredReviewPolicy.id,
-            executableSha256: requiredReviewPolicy.executableSha256,
+            executableSha256: trustedReviewTool.installations[0].sha256,
             nativeResultUuid: 'native-agent-1',
             nativeModel: requiredReviewPolicy.model,
         };
@@ -360,7 +449,7 @@ describe('Academy production workflow', () => {
             taskId: task.id, headCommit, sessionId: 'session-1', captureToken: 'capture-1',
             path: sessionEvidence.path, sha256: sessionEvidence.sha256,
             providerId: requiredReviewPolicy.id,
-            executableSha256: requiredReviewPolicy.executableSha256,
+            executableSha256: trustedReviewTool.installations[0].sha256,
             nativeResultUuid: 'native-session-1',
             nativeModel: requiredReviewPolicy.model,
         };
@@ -424,6 +513,9 @@ describe('Academy production workflow', () => {
         const approvalReference = { path: '@workflow-state/evidence/approval.json', sha256: '8'.repeat(64) };
         const registration = {
             nonce: approval.nonce, taskId: task.id, requirement: 'owner', keyId: approval.signature.keyId,
+            algorithm: approval.signature.algorithm, revision: approval.revision, trustStoreRevision: approval.trustStoreRevision,
+            claimToken: approval.claimToken, headCommit: approval.headCommit,
+            contentHashesSha256: sha256(canonicalJson(approval.contentHashes)),
             evidenceSha256: evidence.sha256, path: approvalReference.path, sha256: approvalReference.sha256,
         };
         const context = {
@@ -441,8 +533,10 @@ describe('Academy production workflow', () => {
             .toContain('Requirement owner approval belongs to another task');
         expect(validateApprovalAttestation(task, 'owner', { ...approval, purpose: 'other' }, context))
             .toContain('Requirement owner approval has the wrong purpose');
-        expect(validateApprovalAttestation(task, 'owner', { ...approval, evidence: { ...evidence, sha256: '0'.repeat(64) } }, context))
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, revision: 2 }, context))
             .toContain('Requirement owner approval signature is invalid');
+        expect(validateApprovalAttestation(task, 'owner', { ...approval, evidence: { ...evidence, sha256: '0'.repeat(64) } }, context))
+            .toContain('Requirement owner approval content hashes do not bind its evidence');
         const signedWrongEvidence = signedApproval(task, { evidence: { ...evidence, sha256: '0'.repeat(64) } }).approval;
         expect(validateApprovalAttestation(task, 'owner', signedWrongEvidence, context))
             .toContain('Requirement owner approval evidence hash mismatch');
@@ -459,9 +553,18 @@ describe('Academy production workflow', () => {
         expect(validateApprovalAttestation(task, 'owner', approval, {
             ...context, strict: true, approvalReference, approvalNonces: new Map([[approval.nonce, registration]]),
         })).toEqual([]);
-        const otherKeyPolicy = { ...policy, publicKeys: [{ ...policy.publicKeys[0], keyId: 'other-key' }] };
+        const otherKeyPolicy = { ...policy, keys: [{ ...policy.keys[0], keyId: 'other-key' }] };
         expect(validateApprovalAttestation(task, 'owner', approval, { ...context, policy: otherKeyPolicy }))
             .toContain('Requirement owner approval does not use an authorized owner key');
+        const revokedPolicy = { ...policy, keys: [{ ...policy.keys[0], revokedAt: '2026-07-20T00:05:00.000Z', successorKeyId: 'next-key' }] };
+        expect(validateApprovalAttestation(task, 'owner', approval, { ...context, policy: revokedPolicy }))
+            .toContain('Requirement owner approval key is revoked');
+        const notActivePolicy = { ...policy, keys: [{ ...policy.keys[0], activatedAt: '2026-07-20T00:05:00.000Z' }] };
+        expect(validateApprovalAttestation(task, 'owner', approval, { ...context, policy: notActivePolicy }))
+            .toContain('Requirement owner approval key was not active when issued');
+        const expiredKeyPolicy = { ...policy, keys: [{ ...policy.keys[0], expiresAt: '2026-07-20T00:09:00.000Z' }] };
+        expect(validateApprovalAttestation(task, 'owner', approval, { ...context, policy: expiredKeyPolicy }))
+            .toContain('Requirement owner approval key has expired');
     });
 
     it('strips ambient providers, base URLs, plugins, hooks, MCP, and user settings from review env', () => {
@@ -476,14 +579,76 @@ describe('Academy production workflow', () => {
         ]));
     });
 
-    it('rejects owner private key material in workflow configuration', () => {
+    it('rejects owner private key material in the external trust store', () => {
         const weakened = structuredClone(config);
-        weakened.approvalPolicies.owner.publicKeys[0].publicKeyJwk.d = 'private-material-is-forbidden';
+        weakened.approvalPolicies.owner.publicKeys = [{ keyId: 'candidate-key' }];
         const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), weakened);
+        expect(validateWorkflow(tasks, weakened).errors).toContain('Owner approval cannot define candidate-controlled publicKeys');
 
-        expect(validateWorkflow(tasks, weakened).errors).toContain(
-            'Owner approval key heru-github-ed25519-2026-07 must not contain private key material',
-        );
+        const { publicKey } = crypto.generateKeyPairSync('ed25519');
+        const trustStore = {
+            schema: 'yomu-academy.governance-trust/v1', revision: 1, issuedAt: '2026-07-20T00:00:00.000Z',
+            ownerKeys: [{
+                keyId: 'candidate-key', ownerId: 'heru', algorithm: 'Ed25519',
+                publicKeyJwk: { ...publicKey.export({ format: 'jwk' }), d: 'private-material-is-forbidden' },
+                activatedAt: '2026-07-01T00:00:00.000Z', expiresAt: '2027-07-01T00:00:00.000Z', revokedAt: null, successorKeyId: null,
+            }],
+            approvalPolicies: [{ id: 'owner', purpose: 'academy-production-promotion', allowedOwnerIds: ['heru'], activeKeyIds: ['candidate-key'] }],
+            tools: [], reviewProviders: [], githubPolicies: [],
+        };
+        expect(validateGovernanceTrustStore(trustStore)).toContain('Owner key candidate-key contains private key material');
+    });
+
+    it('rejects candidate key substitution and ambiguous external authority policies', () => {
+        const substituted = structuredClone(config);
+        substituted.approvalPolicies.owner.requiredKeyIds = ['attacker-key'];
+        const trustStore = {
+            revision: 1,
+            ownerKeys: [],
+            approvalPolicies: [{
+                id: 'academy-production-owner', purpose: 'academy-production-promotion', allowedOwnerIds: ['heru'],
+                activeKeyIds: ['heru-github-ed25519-2026-07'], maxValidityMinutes: 30,
+            }],
+            reviewProviders: [{
+                id: 'claude-fable', reviewerId: 'claude-fable', model: 'claude-fable-5',
+                toolId: 'claude-code-fable', serviceProvenance: 'unresolved',
+            }],
+            githubPolicies: [{ id: 'yomu-reader-production' }],
+        };
+        expect(() => trustBindings(substituted, trustStore)).toThrow('Candidate owner key references do not match the externally active key set');
+        trustStore.approvalPolicies.push({ ...trustStore.approvalPolicies[0], id: 'weaker-policy' });
+        expect(() => trustBindings(config, trustStore)).toThrow('exactly one Academy production approval policy');
+    });
+
+    it('requires explicit, acyclic owner-key successor rotation', () => {
+        const key = (keyId: string, activatedAt: string, successorKeyId: string | null) => {
+            const { publicKey } = crypto.generateKeyPairSync('ed25519');
+            return {
+                keyId, ownerId: 'heru', algorithm: 'Ed25519', publicKeyJwk: publicKey.export({ format: 'jwk' }),
+                activatedAt, expiresAt: '2029-01-01T00:00:00.000Z', revokedAt: null, successorKeyId,
+            };
+        };
+        const oldKey = key('owner-2026', '2026-01-01T00:00:00.000Z', 'owner-2027');
+        const newKey = key('owner-2027', '2027-01-01T00:00:00.000Z', null);
+        const store = {
+            schema: 'yomu-academy.governance-trust/v1', revision: 2, issuedAt: '2026-12-01T00:00:00.000Z',
+            ownerKeys: [oldKey, newKey],
+            approvalPolicies: [{
+                id: 'academy-production-owner', purpose: 'academy-production-promotion', allowedOwnerIds: ['heru'],
+                activeKeyIds: ['owner-2027'], maxValidityMinutes: 30,
+            }],
+            tools: [], reviewProviders: [], githubPolicies: [],
+        };
+        expect(validateGovernanceTrustStore(store)).toEqual([]);
+        const cyclic = structuredClone(store);
+        cyclic.ownerKeys[1].successorKeyId = 'owner-2026';
+        expect(validateGovernanceTrustStore(cyclic)).toEqual(expect.arrayContaining([
+            expect.stringContaining('successor must activate later'),
+            expect.stringContaining('rotation cycle'),
+        ]));
+        const missing = structuredClone(store);
+        missing.ownerKeys[0].successorKeyId = 'missing-key';
+        expect(validateGovernanceTrustStore(missing)).toContain('Owner key owner-2026 names missing successor missing-key');
     });
 
     it('gives governance, platform, and visual lanes their real production ownership', () => {
@@ -503,7 +668,9 @@ describe('Academy production workflow', () => {
     it('selects only dependency-ready tasks while respecting lane and global capacity', () => {
         const markdown = `## P0 release truth\n\n- [x] **BASE-001** Base. **Deps:** none. **Proof:** \`C\`,\`T\`.\n- [ ] **GOV-001** Ledger. **Deps:** \`BASE-001\`. **Proof:** \`C\`,\`T\`,\`O\`.\n- [ ] **OPS-001** Cleanup. **Deps:** \`BASE-001\`. **Proof:** \`C\`,\`T\`.\n- [ ] **CUR-001** Lesson. **Deps:** \`GOV-001\`. **Proof:** \`C\`,\`R\`,\`T\`.\n`;
         const tasks = parseBacklog(markdown);
-        const plan = buildPlan(tasks, { ...config, maxParallel: 2, currentFocus: ['GOV-001'] }, { claims: [] }, new Date('2026-07-19T12:00:00Z'));
+        const plan = buildPlan(tasks, { ...config, maxParallel: 2, currentFocus: ['GOV-001'] }, {
+            claims: [], promotions: [{ taskId: 'BASE-001', status: 'verified', userVisible: false }],
+        }, new Date('2026-07-19T12:00:00Z'));
         expect(plan.selected.map(task => task.id)).toEqual(['GOV-001']);
         expect(plan.readyCount).toBe(2);
         expect(plan.blockedCount).toBe(1);
@@ -632,9 +799,11 @@ describe('Academy production workflow', () => {
 - [ ] **REL-001** Release. **Deps:** all P0 items and release-targeted P1 items. **Proof:** \`T\`.
 `, config);
         expect(resolveDynamicDependencies(tasks[2], tasks, config, {})).toContain('QA-001');
-        expect(buildPlan(tasks, { ...config, currentFocus: [] }, { claims: [] }).selected.map(row => row.id)).toEqual(['QA-001']);
+        const state = { claims: [], promotions: [{ taskId: 'BASE-001', status: 'verified', userVisible: false }] };
+        expect(buildPlan(tasks, { ...config, currentFocus: [] }, state).selected.map(row => row.id)).toEqual(['QA-001']);
         tasks[1].complete = true;
-        expect(buildPlan(tasks, { ...config, currentFocus: [] }, { claims: [] }).selected.map(row => row.id)).toContain('REL-001');
+        state.promotions.push({ taskId: 'QA-001', status: 'verified', userVisible: false });
+        expect(buildPlan(tasks, { ...config, currentFocus: [] }, state).selected.map(row => row.id)).toContain('REL-001');
     });
 
     it('blocks forged strict proof and files outside lane ownership', () => {

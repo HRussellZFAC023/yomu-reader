@@ -10,40 +10,14 @@
   "reviewProviders": {
     "claude-fable": {
       "reviewerId": "claude-fable",
-      "executable": "claude",
-      "executableSha256": "90608b5c5ab504e96e77365cea6203d046e291d59b2bb42cf28dcb2ccdf9dd58",
-      "packageName": "@anthropic-ai/claude-code",
-      "packageVersion": "2.1.215",
-      "realpathSuffix": "/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
-      "args": [
-        "-p", "--model", "claude-fable-5", "--permission-mode", "plan", "--output-format", "json",
-        "--bare", "--safe-mode", "--disable-slash-commands", "--strict-mcp-config",
-        "--mcp-config", "{\"mcpServers\":{}}", "--setting-sources", "", "--no-session-persistence",
-        "--no-chrome", "--tools", "Read,Grep,Glob"
-      ],
+      "toolId": "claude-code-fable",
       "model": "claude-fable-5",
-      "outputFormat": "claude-json",
-      "serviceProvenance": "unresolved",
-      "allowedEnvironment": ["ANTHROPIC_API_KEY", "LANG", "LC_ALL", "TMPDIR"]
+      "serviceProvenance": "unresolved"
     }
   },
   "approvalPolicies": {
     "owner": {
-      "purpose": "academy-production-promotion",
-      "allowedOwnerIds": ["heru"],
-      "maxValidityMinutes": 30,
-      "publicKeys": [
-        {
-          "ownerId": "heru",
-          "keyId": "heru-github-ed25519-2026-07",
-          "algorithm": "Ed25519",
-          "publicKeyJwk": {
-            "kty": "OKP",
-            "crv": "Ed25519",
-            "x": "dGDwksiSAfouTs8s6cY2uBJmyeL9yKfhykLQtjYXaLg"
-          }
-        }
-      ]
+      "requiredKeyIds": ["heru-github-ed25519-2026-07"]
     }
   },
   "trustedGateProducers": {
@@ -62,7 +36,6 @@
   },
   "reuse": {
     "transcriptIndexMaxAgeHours": 24,
-    "transcriptActiveGraceMinutes": 30,
     "transcriptRoots": {
       "claude": {
         "env": "YOMU_CLAUDE_TRANSCRIPTS",
@@ -160,10 +133,6 @@
     "preReleaseCommands": [
       "npm run release:preflight",
       "npm run gate:academy-release"
-    ],
-    "postPushChecks": [
-      "gh run list --commit \"$YOMU_CHECKPOINT_COMMIT\" --limit 20 --json status,conclusion --jq 'length > 0 and all(.[]; .status == \"completed\" and .conclusion == \"success\")' | grep -qx true",
-      "gh run list --workflow 'Deploy Docs' --commit \"$YOMU_CHECKPOINT_COMMIT\" --limit 1 --json status,conclusion --jq 'length == 1 and .[0].status == \"completed\" and .[0].conclusion == \"success\"' | grep -qx true"
     ]
   },
   "lanes": [

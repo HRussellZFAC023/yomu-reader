@@ -20,3 +20,11 @@ export function commitFileTransition(
     writes: Array<{ path: string; value?: string | Uint8Array; remove?: boolean }>,
     metadata?: Record<string, unknown>,
 ): Record<string, any>;
+export function beginRollbackTransition(
+    stateRoot: string,
+    kind: string,
+    targets: string[],
+    metadata?: Record<string, unknown>,
+): Record<string, any>;
+export function completeRollbackTransition(stateRoot: string, journal: Record<string, any>): void;
+export function writeSnapshot(target: string, value: Record<string, any>): void;

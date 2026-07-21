@@ -12,6 +12,7 @@ import {
     bindProofToClaim,
     activeClaims,
     checkpointIntegrityErrors,
+    canonicalJson,
     canonicalizeReservationPath,
     changedFilesWithinOwnership,
     createWorkOrder,
@@ -40,13 +41,23 @@ import {
     validateSalvageReport,
 } from './lib/academy-workflow-salvage.mjs';
 import {
+    beginRollbackTransition,
     commitFileTransition,
+    completeRollbackTransition,
     inspectFileTransition,
     recoverFileTransition,
-    writeFileDurably,
 } from './lib/academy-workflow-store.mjs';
+import {
+    loadGovernanceTrustStore,
+    resolveTrustedTool,
+    trustBindings,
+} from './lib/academy-workflow-trust.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+if (process.env.GIT_WORK_TREE && fs.realpathSync.native(process.env.GIT_WORK_TREE) !== fs.realpathSync.native(repoRoot)) {
+    throw new Error(`GIT_WORK_TREE points outside the workflow checkout: ${process.env.GIT_WORK_TREE}`);
+}
+process.env.GIT_WORK_TREE = repoRoot;
 const configPath = path.join(repoRoot, 'config/academy-production-workflow.json');
 const rawConfig = readJson(configPath);
 const config = {
@@ -61,18 +72,43 @@ const gitCommonDir = path.resolve(repoRoot, execFileSync('git', ['rev-parse', '-
     cwd: repoRoot,
     encoding: 'utf8',
 }).trim());
-const stateRoot = process.env.YOMU_ACADEMY_WORKFLOW_STATE
-    ? path.resolve(process.env.YOMU_ACADEMY_WORKFLOW_STATE)
-    : path.join(gitCommonDir, 'yomu-academy-production-workflow');
+function canonicalPathWithMissingSuffix(candidate) {
+    let existing = path.resolve(candidate);
+    const suffix = [];
+    while (!fs.existsSync(existing)) {
+        const parent = path.dirname(existing);
+        if (parent === existing) break;
+        suffix.unshift(path.basename(existing));
+        existing = parent;
+    }
+    return path.resolve(fs.realpathSync.native(existing), ...suffix);
+}
+
+const defaultStateKey = sha256(fs.realpathSync.native(gitCommonDir)).slice(0, 24);
+const stateRoot = canonicalPathWithMissingSuffix(process.env.YOMU_ACADEMY_WORKFLOW_STATE
+    ? process.env.YOMU_ACADEMY_WORKFLOW_STATE
+    : path.join(os.homedir(), '.local/state/yomu/academy-production-workflow', defaultStateKey));
 const statePath = path.join(stateRoot, 'state.json');
 const proofRoot = path.join(stateRoot, 'proofs');
 const workOrderRoot = path.join(stateRoot, 'work-orders');
-const stateLockPath = path.join(stateRoot, '.state.lock');
-const integrationLockPath = path.join(stateRoot, '.integration.lock');
+const workflowLockPath = path.join(stateRoot, '.workflow.lock');
 const unreachableCachePath = path.join(stateRoot, 'reuse-index', 'unreachable-commits.json');
 const transcriptCachePath = path.join(stateRoot, 'reuse-index', 'transcripts.json');
 const sourceSnapshotRoot = path.join(stateRoot, 'reuse-index', 'source-snapshots');
 const productionLedgerPath = path.join(stateRoot, 'production-ledger.json');
+const gitIndexPath = path.resolve(repoRoot, execFileSync('git', ['rev-parse', '--git-path', 'index'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+}).trim());
+
+function governanceBindings(required = true) {
+    const loaded = loadGovernanceTrustStore(repoRoot, { required });
+    if (!loaded.store || loaded.errors?.length) {
+        if (required) throw new Error(loaded.errors?.join('\n') || 'Governance trust store is unavailable');
+        return { loaded, bindings: null };
+    }
+    return { loaded, bindings: trustBindings(config, loaded.store) };
+}
 
 function load() {
     const markdown = fs.readFileSync(backlogPath, 'utf8');
@@ -99,18 +135,6 @@ function saveState(state, kind = 'state-update') {
     commitFileTransition(stateRoot, kind, [{ path: statePath, value: stateBody(state) }]);
 }
 
-function preparedPromotionInspections(state, markdown) {
-    const backlogSha256 = sha256(markdown);
-    return (state.promotions ?? [])
-        .filter(promotion => promotion.status === 'prepared')
-        .map(promotion => ({
-            promotion,
-            state: backlogSha256 === promotion.expectedBacklogSha256
-                ? 'backlog-written'
-                : backlogSha256 === promotion.sourceBacklogSha256 ? 'backlog-not-written' : 'ambiguous',
-        }));
-}
-
 function printRecoveryStatus() {
     const transition = inspectFileTransition(stateRoot);
     console.log(`File transition: ${transition.status}`);
@@ -119,56 +143,11 @@ function printRecoveryStatus() {
         for (const file of transition.files ?? []) console.log(`  ${file.state}: ${file.path}`);
         if (transition.recommended) console.log(`  automatic action: ${transition.recommended}`);
     }
-    try {
-        const { markdown } = load();
-        const state = loadState();
-        const prepared = preparedPromotionInspections(state, markdown);
-        console.log(`Prepared promotions: ${prepared.length}`);
-        for (const row of prepared) console.log(`- ${row.promotion.taskId}: ${row.state}`);
-    } catch (error) {
-        console.log(`State inspection failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-}
-
-function reconcilePreparedPromotions(state, markdown, mode = 'auto') {
-    const prepared = preparedPromotionInspections(state, markdown);
-    if (!prepared.length) return { state, markdown, changed: false };
-    if (prepared.length > 1) throw new Error('Multiple prepared promotions require operator recovery; run recovery-status');
-    const [{ promotion, state: preparedState }] = prepared;
-    let nextMarkdown = markdown;
-    let nextStatus;
-    if (preparedState === 'backlog-written') nextStatus = 'awaiting-checkpoint';
-    else if (preparedState === 'backlog-not-written') nextStatus = 'interrupted-before-backlog';
-    else if (mode === 'rollback') {
-        const task = parseBacklog(markdown, config).find(row => row.id === promotion.taskId);
-        nextMarkdown = task?.complete ? updateBacklogCheckbox(markdown, promotion.taskId, false) : markdown;
-        nextStatus = 'recovery-rolled-back';
-    } else if (mode === 'roll-forward') {
-        const task = parseBacklog(markdown, config).find(row => row.id === promotion.taskId);
-        nextMarkdown = task?.complete ? markdown : updateBacklogCheckbox(markdown, promotion.taskId, true);
-        nextStatus = 'awaiting-checkpoint';
-    } else {
-        throw new Error(`Prepared promotion ${promotion.taskId} is ambiguous. Run recovery-status, then recover --rollback or recover --roll-forward.`);
-    }
-    promotion.status = nextStatus;
-    promotion.reconciledFrom = preparedState;
-    promotion.reconciledAt = new Date().toISOString();
-    const writes = [{ path: statePath, value: stateBody(state) }];
-    if (nextMarkdown !== markdown) writes.push({ path: backlogPath, value: nextMarkdown });
-    commitFileTransition(stateRoot, 'prepared-promotion-recovery', writes, {
-        taskId: promotion.taskId,
-        action: nextStatus,
-    });
-    return { state, markdown: nextMarkdown, changed: true };
 }
 
 function recoverWorkflow(mode = 'auto') {
     const fileResult = recoverFileTransition(stateRoot, mode);
-    const { markdown } = load();
-    const state = loadState();
-    const promotionResult = reconcilePreparedPromotions(state, markdown, mode);
     console.log(`File recovery: ${fileResult.action}`);
-    console.log(`Prepared-promotion recovery: ${promotionResult.changed ? 'reconciled' : 'none'}`);
 }
 
 function withLock(lockPath, callback) {
@@ -180,7 +159,8 @@ function withLock(lockPath, callback) {
         createdAt: new Date().toISOString(),
     };
     let descriptor;
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    const deadline = Date.now() + 30_000;
+    for (let attempt = 0; Date.now() < deadline; attempt += 1) {
         try {
             descriptor = fs.openSync(lockPath, 'wx', 0o600);
             fs.writeFileSync(descriptor, `${JSON.stringify(owner)}\n`);
@@ -193,7 +173,14 @@ function withLock(lockPath, callback) {
             } catch {
                 // A crashed writer may leave an empty lock; age decides recovery.
             }
-            const ageMs = Date.now() - fs.statSync(lockPath).mtimeMs;
+            let lockStat;
+            try {
+                lockStat = fs.statSync(lockPath);
+            } catch (statError) {
+                if (statError?.code === 'ENOENT') continue;
+                throw statError;
+            }
+            const ageMs = Date.now() - lockStat.mtimeMs;
             let alive = false;
             if (existing?.hostname === os.hostname() && Number.isInteger(existing.pid)) {
                 try {
@@ -206,9 +193,16 @@ function withLock(lockPath, callback) {
             const remotelyFresh = existing?.hostname && existing.hostname !== os.hostname() && ageMs < 60 * 60 * 1000;
             const unreadableFresh = !existing && ageMs < 30_000;
             if (alive || remotelyFresh || unreadableFresh) {
-                throw new Error(`Workflow lock is already held: ${path.basename(lockPath)}`);
+                Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.min(50 + attempt * 10, 250));
+                continue;
             }
-            const before = fs.lstatSync(lockPath);
+            let before;
+            try {
+                before = fs.lstatSync(lockPath);
+            } catch (statError) {
+                if (statError?.code === 'ENOENT') continue;
+                throw statError;
+            }
             const quarantined = `${lockPath}.stale.${crypto.randomUUID()}`;
             try {
                 fs.renameSync(lockPath, quarantined);
@@ -225,9 +219,7 @@ function withLock(lockPath, callback) {
         }
     }
     if (descriptor === undefined) throw new Error(`Unable to acquire workflow lock: ${path.basename(lockPath)}`);
-    try {
-        return callback();
-    } finally {
+    const release = () => {
         fs.closeSync(descriptor);
         try {
             const current = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
@@ -235,7 +227,17 @@ function withLock(lockPath, callback) {
         } catch {
             // Another process cannot legitimately replace a held lock; leave anomalies for stale recovery.
         }
+    };
+    let result;
+    try {
+        result = callback();
+    } catch (error) {
+        release();
+        throw error;
     }
+    if (result && typeof result.then === 'function') return result.finally(release);
+    release();
+    return result;
 }
 
 function taskById(tasks, id) {
@@ -255,6 +257,29 @@ function gitLines(...args) {
 
 function gitSucceeds(...args) {
     return spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).status === 0;
+}
+
+function indexWithPathAtCommit(relativePath, commit) {
+    fs.mkdirSync(stateRoot, { recursive: true });
+    const temporary = path.join(stateRoot, `.index-${process.pid}-${crypto.randomUUID()}`);
+    try {
+        if (fs.existsSync(gitIndexPath)) fs.copyFileSync(gitIndexPath, temporary);
+        else execFileSync('git', ['read-tree', 'HEAD'], { cwd: repoRoot, env: { ...process.env, GIT_INDEX_FILE: temporary } });
+        execFileSync('git', ['restore', '--staged', `--source=${commit}`, '--', relativePath], {
+            cwd: repoRoot,
+            env: { ...process.env, GIT_INDEX_FILE: temporary },
+        });
+        return fs.readFileSync(temporary);
+    } finally {
+        fs.rmSync(temporary, { force: true });
+    }
+}
+
+function injectWorkflowCrash(kind, point) {
+    const requested = process.env.YOMU_ACADEMY_WORKFLOW_CRASH_AT;
+    if (requested !== `${kind}:${point}` && requested !== point) return;
+    process.stderr.write(`Injected workflow crash at ${kind}:${point}\n`);
+    process.exit(86);
 }
 
 function cleanStatus() {
@@ -303,7 +328,8 @@ function routeCensusRows() {
     });
 }
 
-function checkpointRecordValid(promotion) {
+function checkpointRecordValid(promotion, canonicalRemoteFresh) {
+    if (!canonicalRemoteFresh) return false;
     if (!promotion?.checkpointCommit || !promotion?.headCommit) return false;
     try {
         if (git('rev-parse', `${promotion.checkpointCommit}^`) !== promotion.headCommit) return false;
@@ -317,7 +343,7 @@ function checkpointRecordValid(promotion) {
     }
 }
 
-function proofLedgerRows(tasks, state) {
+function proofLedgerRows(tasks, state, canonicalRemoteFresh) {
     const latestPromotion = new Map();
     for (const promotion of state.promotions ?? []) latestPromotion.set(promotion.taskId, promotion);
     return Object.fromEntries(tasks.flatMap(task => {
@@ -329,7 +355,7 @@ function proofLedgerRows(tasks, state) {
                 proof,
                 sha256: sha256(fs.readFileSync(candidate)),
                 evidenceManifestSha256: evidenceManifestSha256(proof),
-                checkpointValid: checkpointRecordValid(latestPromotion.get(task.id)),
+                checkpointValid: checkpointRecordValid(latestPromotion.get(task.id), canonicalRemoteFresh),
                 valid: validateProof(task, proof, '', {
                     taskDefinitionSha256: taskDefinitionSha256(task),
                 }).length === 0,
@@ -341,10 +367,25 @@ function proofLedgerRows(tasks, state) {
 }
 
 function writeProductionLedger(tasks, markdown, state) {
-    const ledger = buildProductionLedger(tasks, config, state, proofLedgerRows(tasks, state), routeCensusRows(), {
+    const refresh = spawnSync('git', ['fetch', '--quiet', 'origin', 'main'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+    });
+    const canonicalBranch = {
+        ref: 'origin/main',
+        fresh: refresh.status === 0,
+        observedAt: new Date().toISOString(),
+        error: refresh.status === 0 ? null : (refresh.stderr || refresh.stdout || `git fetch exited ${refresh.status}`).trim(),
+    };
+    if (!canonicalBranch.fresh) {
+        console.warn(`warning: canonical origin/main could not be refreshed; checked tasks are downgraded: ${canonicalBranch.error}`);
+    }
+    const ledger = buildProductionLedger(tasks, config, state, proofLedgerRows(tasks, state, canonicalBranch.fresh), routeCensusRows(), {
         generatedAt: new Date().toISOString(),
         headCommit: safeHead(),
         backlogSha256: sha256(markdown),
+        canonicalBranch,
     });
     commitFileTransition(stateRoot, 'production-ledger', [{
         path: productionLedgerPath,
@@ -367,6 +408,21 @@ function parseCommitMetadata(output) {
     }
     for (const row of rows) row.changedPaths = [...new Set(row.changedPaths)].sort((a, b) => a.localeCompare(b, 'en'));
     return rows;
+}
+
+function unreachableObjectManifest() {
+    const result = spawnSync('git', ['fsck', '--unreachable', '--no-reflogs', '--full', '--no-progress'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+    });
+    if (result.status !== 0) throw new Error(`git fsck failed: ${result.stderr || result.stdout}`);
+    const objects = (result.stdout ?? '').split(/\r?\n/u)
+        .map(line => /^(?:unreachable|dangling) (blob|commit|tag|tree) ([a-f0-9]{40,64})$/u.exec(line))
+        .filter(Boolean)
+        .map(match => ({ type: match[1], hash: match[2] }))
+        .sort((left, right) => left.type.localeCompare(right.type, 'en') || left.hash.localeCompare(right.hash, 'en'));
+    return { objects, sha256: sha256(JSON.stringify(objects)) };
 }
 
 function reachableCommitMetadata() {
@@ -403,68 +459,46 @@ function transcriptManifest() {
     const roots = transcriptRoots();
     const files = roots.flatMap(root => transcriptFiles(root.path).map(absolute => {
         const stat = fs.statSync(absolute);
-        return { root: root.name, path: absolute, bytes: stat.size, mtimeMs: Math.trunc(stat.mtimeMs) };
+        return {
+            root: root.name,
+            path: fs.realpathSync.native(absolute),
+            bytes: stat.size,
+            mtimeMs: Math.trunc(stat.mtimeMs),
+            sha256: sha256(fs.readFileSync(absolute)),
+        };
     }));
     return {
         roots: roots.map(root => ({ ...root, fileCount: files.filter(file => file.root === root.name).length })),
         files,
-        sha256: sha256(JSON.stringify(files)),
+        sha256: sha256(JSON.stringify(files.map(file => ({ root: file.root, path: file.path, bytes: file.bytes, sha256: file.sha256 })))),
     };
 }
 
-function transcriptSample(absolute, bytes) {
-    const width = 64 * 1024;
-    const descriptor = fs.openSync(absolute, 'r');
-    try {
-        const first = Buffer.alloc(Math.min(width, bytes));
-        fs.readSync(descriptor, first, 0, first.length, 0);
-        const lastSize = Math.min(width, Math.max(0, bytes - first.length));
-        const last = Buffer.alloc(lastSize);
-        if (lastSize) fs.readSync(descriptor, last, 0, lastSize, Math.max(0, bytes - lastSize));
-        return `${first.toString('utf8')}\n__YOMU_SAMPLE_BREAK__\n${last.toString('utf8')}`;
-    } finally {
-        fs.closeSync(descriptor);
-    }
-}
-
-function transcriptLexicalSummary(sample) {
-    const [first = '', last = ''] = sample.split('__YOMU_SAMPLE_BREAK__');
-    const collect = (text, limit) => {
-        const words = text.normalize('NFKC').match(/[\p{L}\p{N}_-]{3,48}/gu) ?? [];
-        const seen = new Set();
-        const result = [];
-        for (const word of words) {
-            const normalized = word.toLocaleLowerCase('en');
-            if (seen.has(normalized)) continue;
-            seen.add(normalized);
-            result.push(normalized);
-            if (result.length >= limit) break;
-        }
-        return result;
-    };
-    return [...new Set([...collect(first, 128), ...collect(last, 128)])].join(' ');
+function transcriptLexicalSummary(text) {
+    const words = text.normalize('NFKC').match(/[\p{L}\p{N}_-]{3,128}/gu) ?? [];
+    return [...new Set(words.map(word => word.toLocaleLowerCase('en')))]
+        .sort((left, right) => left.localeCompare(right, 'en'))
+        .join(' ');
 }
 
 function indexTranscripts() {
     const manifest = transcriptManifest();
     const rows = [];
     for (const file of manifest.files) {
-        const sample = transcriptSample(file.path, file.bytes);
-        if (!/yomu|academy|よむ/iu.test(file.path) && !/yomu|academy|よむ/iu.test(sample)) continue;
-        const compactSample = transcriptLexicalSummary(sample);
+        const content = fs.readFileSync(file.path, 'utf8');
+        const lexicalSummary = transcriptLexicalSummary(content);
         const threadId = path.basename(file.path, '.jsonl');
         rows.push({
             id: threadId,
             threadId,
             path: file.path,
             title: path.basename(path.dirname(file.path)),
-            summary: compactSample,
-            metadata: { bytes: file.bytes, mtimeMs: file.mtimeMs, sampleSha256: sha256(sample) },
+            summary: lexicalSummary,
+            metadata: { bytes: file.bytes, mtimeMs: file.mtimeMs, contentSha256: file.sha256, completeContentScan: true },
         });
     }
-    fs.mkdirSync(path.dirname(transcriptCachePath), { recursive: true });
-    fs.writeFileSync(transcriptCachePath, `${JSON.stringify({
-        schema: 'yomu-academy.transcript-index/v1',
+    commitFileTransition(stateRoot, 'transcript-index', [{ path: transcriptCachePath, value: `${JSON.stringify({
+        schema: 'yomu-academy.transcript-index/v2',
         generatedAt: new Date().toISOString(),
         manifest: {
             roots: manifest.roots,
@@ -473,30 +507,21 @@ function indexTranscripts() {
             files: manifest.files,
         },
         rows,
-    })}\n`);
-    console.log(`Indexed ${rows.length}/${manifest.files.length} Yomu transcript(s) -> ${path.relative(repoRoot, transcriptCachePath)}`);
+    })}\n` }], { manifestSha256: manifest.sha256, fileCount: manifest.files.length });
+    console.log(`Fully indexed ${rows.length} transcript(s) -> ${path.relative(repoRoot, transcriptCachePath)}`);
 }
 
 function transcriptIndexFresh(cache) {
-    if (!cache || cache.schema !== 'yomu-academy.transcript-index/v1') return false;
+    if (!cache || cache.schema !== 'yomu-academy.transcript-index/v2') return false;
     const generatedAt = Date.parse(cache.generatedAt);
     const maxAgeMs = (config.reuse.transcriptIndexMaxAgeHours ?? 24) * 60 * 60 * 1000;
     if (Number.isNaN(generatedAt) || Date.now() - generatedAt > maxAgeMs) return false;
     const cachedFiles = cache.manifest?.files;
     if (!Array.isArray(cachedFiles)) return false;
     const current = transcriptManifest();
-    const currentByPath = new Map(current.files.map(file => [file.path, file]));
-    const cachedByPath = new Map(cachedFiles.map(file => [file.path, file]));
-    const activeCutoff = Date.now() - (config.reuse.transcriptActiveGraceMinutes ?? 30) * 60 * 1000;
-    for (const cached of cachedFiles) {
-        const now = currentByPath.get(cached.path);
-        if (!now || now.bytes < cached.bytes) return false;
-        if ((now.bytes !== cached.bytes || now.mtimeMs !== cached.mtimeMs) && now.mtimeMs < activeCutoff) return false;
-    }
-    for (const file of current.files) {
-        if (!cachedByPath.has(file.path) && file.mtimeMs < activeCutoff) return false;
-    }
-    return true;
+    const identity = files => files.map(file => ({ root: file.root, path: file.path, bytes: file.bytes, sha256: file.sha256 }));
+    return cache.manifest?.sha256 === current.sha256
+        && JSON.stringify(identity(cachedFiles)) === JSON.stringify(identity(current.files));
 }
 
 function reuseSources() {
@@ -601,9 +626,10 @@ function reuseSources() {
         sources,
         scanMeta: {
             danglingCache: danglingCache ? {
-                status: 'cached',
+                status: danglingCache.schema === 'yomu-academy.unreachable-index/v2' ? 'cached' : 'stale',
                 generatedAt: danglingCache.generatedAt,
                 originMain: danglingCache.originMain,
+                objectManifestSha256: danglingCache.objectManifest?.sha256,
                 sha256: sha256(fs.readFileSync(unreachableCachePath)),
             } : { status: 'missing' },
             transcriptCache: transcriptCache ? {
@@ -633,9 +659,7 @@ function persistSourceSnapshot(bundle) {
             throw new Error(`Source snapshot is corrupt: ${path.relative(repoRoot, outputPath)}`);
         }
     } else {
-        const temporary = `${outputPath}.${process.pid}.tmp`;
-        fs.writeFileSync(temporary, compressed);
-        fs.renameSync(temporary, outputPath);
+        commitFileTransition(stateRoot, 'source-snapshot', [{ path: outputPath, value: compressed }], { sha256: digest });
     }
     return {
         originMain: payload.originMain,
@@ -692,22 +716,17 @@ function writeSalvageReport(task, bundle = reuseSources(), snapshot = persistSou
         reuseCount: decided.filter(candidate => candidate.disposition.status === 'reuse').length,
         rejectCount: decided.filter(candidate => candidate.disposition.status === 'reject').length,
     };
-    fs.mkdirSync(outputRoot, { recursive: true });
-    fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+    commitFileTransition(stateRoot, 'salvage-report', [{
+        path: outputPath,
+        value: `${JSON.stringify(report, null, 2)}\n`,
+    }], { taskId: task.id, sourceSnapshotSha256: report.sourceSnapshot.sha256 });
     console.log(`${task.id}: scanned ${report.inventory.counts.total} sources, found ${report.candidates.length} candidate(s) -> ${path.relative(repoRoot, outputPath)}`);
     return { report, outputPath };
 }
 
 function indexUnreachableCommits() {
-    const result = spawnSync('git', ['fsck', '--unreachable', '--no-reflogs', '--full', '--no-progress'], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024,
-    });
-    if (result.status !== 0) throw new Error(`git fsck failed: ${result.stderr || result.stdout}`);
-    const hashes = (result.stdout ?? '').split(/\r?\n/u)
-        .filter(line => /^unreachable commit /u.test(line))
-        .map(line => line.split(/\s+/u).at(-1));
+    const objectManifest = unreachableObjectManifest();
+    const hashes = objectManifest.objects.filter(row => row.type === 'commit').map(row => row.hash);
     const rows = [];
     for (let index = 0; index < hashes.length; index += 200) {
         const batch = hashes.slice(index, index + 200);
@@ -721,18 +740,24 @@ function indexUnreachableCommits() {
         if (output.status !== 0) throw new Error(`Unable to index unreachable commit metadata: ${output.stderr}`);
         rows.push(...parseCommitMetadata(output.stdout));
     }
-    fs.mkdirSync(path.dirname(unreachableCachePath), { recursive: true });
-    fs.writeFileSync(unreachableCachePath, `${JSON.stringify({
-        schema: 'yomu-academy.unreachable-index/v1',
+    commitFileTransition(stateRoot, 'unreachable-index', [{ path: unreachableCachePath, value: `${JSON.stringify({
+        schema: 'yomu-academy.unreachable-index/v2',
         generatedAt: new Date().toISOString(),
         originMain: git('rev-parse', 'origin/main'),
+        objectManifest,
         rows,
-    }, null, 2)}\n`);
+    }, null, 2)}\n` }], { objectManifestSha256: objectManifest.sha256, commitCount: rows.length });
     console.log(`Indexed ${rows.length} unreachable commit(s) -> ${path.relative(repoRoot, unreachableCachePath)}`);
 }
 
 function ensureValid(tasks) {
     const result = validateWorkflow(tasks, config);
+    try {
+        const trust = governanceBindings(false);
+        if (!trust.loaded.store) result.warnings.push(...trust.loaded.errors);
+    } catch (error) {
+        result.errors.push(`External governance trust policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+    }
     for (const [name, spec] of Object.entries(rawConfig.externalRoots ?? {})) {
         if (!spec?.env || !spec?.default) result.errors.push(`External root ${name} needs env and default`);
         if (!fs.existsSync(config.externalRoots[name])) result.warnings.push(`External root ${name} is unavailable: ${config.externalRoots[name]}`);
@@ -769,21 +794,22 @@ function writePlan(tasks, markdown, state) {
     fs.mkdirSync(workOrderRoot, { recursive: true });
     const sources = reuseSources();
     const sourceSnapshot = persistSourceSnapshot(sources);
+    const writes = [];
     for (const task of plan.selected) {
         const salvage = writeSalvageReport(task, sources, sourceSnapshot);
-        fs.writeFileSync(path.join(workOrderRoot, `${task.id}.md`), createWorkOrder(task, config, backlogSha));
+        writes.push({ path: path.join(workOrderRoot, `${task.id}.md`), value: createWorkOrder(task, config, backlogSha) });
         const proofPath = path.join(proofRoot, `${task.id}.json`);
         const existingProof = fs.existsSync(proofPath) ? readJson(proofPath) : null;
         if (!existingProof || existingProof.schema !== 'yomu-academy.production-proof/v2'
             || existingProof.taskDefinitionSha256 !== taskDefinitionSha256(task)) {
-            fs.mkdirSync(proofRoot, { recursive: true });
             const proof = proofTemplate(task, config, safeHead());
             proof.backlogSha256 = backlogSha;
             proof.reuseAudit.report = evidenceReference(salvage.outputPath);
-            fs.writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+            writes.push({ path: proofPath, value: `${JSON.stringify(proof, null, 2)}\n` });
         }
     }
-    fs.writeFileSync(path.join(stateRoot, 'latest-plan.json'), `${JSON.stringify(plan, null, 2)}\n`);
+    writes.push({ path: path.join(stateRoot, 'latest-plan.json'), value: `${JSON.stringify(plan, null, 2)}\n` });
+    commitFileTransition(stateRoot, 'plan-materialization', writes, { selectedTaskIds: plan.selected.map(task => task.id) });
     pruneSourceSnapshots(state, plan.selected.map(task => task.id));
     console.log(`Selected ${plan.selected.length}/${plan.readyCount} ready tasks (${plan.activeClaims.length} active claims):`);
     for (const task of plan.selected) {
@@ -814,14 +840,16 @@ function pruneSourceSnapshots(state = loadState(), selectedTaskIds = []) {
     }
     let removed = 0;
     let bytes = 0;
+    const removals = [];
     for (const entry of fs.readdirSync(sourceSnapshotRoot, { withFileTypes: true })) {
         if (!entry.isFile() || keep.has(entry.name)) continue;
         const target = path.join(sourceSnapshotRoot, entry.name);
         const stat = fs.statSync(target);
-        fs.unlinkSync(target);
+        removals.push({ path: target, remove: true });
         removed += 1;
         bytes += stat.size;
     }
+    if (removals.length) commitFileTransition(stateRoot, 'source-snapshot-prune', removals, { removed, bytes });
     if (removed) console.log(`Pruned ${removed} unreferenced source snapshot(s), ${bytes} byte(s)`);
 }
 
@@ -887,6 +915,14 @@ function assertReuseReady(task) {
     if (!fs.existsSync(unreachableCachePath)
         || report.baseScan?.danglingCache?.sha256 !== sha256(fs.readFileSync(unreachableCachePath))) {
         errors.push('Reuse audit does not match the current unreachable-commit index');
+    } else {
+        const unreachableCache = readJson(unreachableCachePath);
+        const currentObjects = unreachableObjectManifest();
+        if (unreachableCache.schema !== 'yomu-academy.unreachable-index/v2'
+            || unreachableCache.objectManifest?.sha256 !== currentObjects.sha256
+            || report.baseScan?.danglingCache?.objectManifestSha256 !== currentObjects.sha256) {
+            errors.push('Reuse audit does not match a complete current unreachable-object scan');
+        }
     }
     const transcriptCache = fs.existsSync(transcriptCachePath) ? readJson(transcriptCachePath) : null;
     if (!transcriptIndexFresh(transcriptCache)
@@ -933,16 +969,16 @@ function claim(tasks, state, id, owner, requestedPaths) {
         reuseReport,
     };
     state.claims.push(claimRow);
-    saveState(state);
     const orderPath = path.join(workOrderRoot, `${id}.md`);
     const order = createWorkOrder(task, config, sha256(fs.readFileSync(backlogPath, 'utf8')))
         .replace('Owner: unclaimed', `Owner: ${owner}\nClaim token: \`${token}\``);
-    fs.mkdirSync(workOrderRoot, { recursive: true });
-    fs.writeFileSync(orderPath, order);
     const proofPath = path.join(proofRoot, `${id}.json`);
-    fs.mkdirSync(proofRoot, { recursive: true });
     const proof = bindProofToClaim(task, config, sha256(fs.readFileSync(backlogPath, 'utf8')), claimRow);
-    fs.writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+    commitFileTransition(stateRoot, 'claim', [
+        { path: statePath, value: stateBody(state) },
+        { path: orderPath, value: order },
+        { path: proofPath, value: `${JSON.stringify(proof, null, 2)}\n` },
+    ], { taskId: id, token, reservedFiles });
     console.log(`Claimed ${id} for ${owner} in ${selectable.lane.id}; token=${token}`);
 }
 
@@ -981,8 +1017,10 @@ function readProof(id) {
 }
 
 function writeProof(target, proof) {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, `${JSON.stringify(proof, null, 2)}\n`);
+    commitFileTransition(stateRoot, 'proof-update', [{
+        path: target,
+        value: `${JSON.stringify(proof, null, 2)}\n`,
+    }], { taskId: proof.taskId });
 }
 
 function isInside(root, candidate) {
@@ -1011,6 +1049,12 @@ function evidenceReference(candidate) {
         ? `@workflow-state/${path.relative(realRoot, absolute)}`
         : path.relative(realRoot, absolute);
     return { path: evidencePath, sha256: sha256(fs.readFileSync(absolute)) };
+}
+
+function stateValueReference(target, value) {
+    const absolute = ensureInside(stateRoot, path.resolve(target));
+    const bytes = Buffer.isBuffer(value) ? value : Buffer.from(String(value));
+    return { path: `@workflow-state/${path.relative(stateRoot, absolute)}`, sha256: sha256(bytes) };
 }
 
 function attachGateEvidence(tasks, id, gate, candidate) {
@@ -1048,7 +1092,6 @@ function runProofCommand(tasks, id, gate, commandArgs) {
         maxBuffer: config.proofCommandMaxOutputBytes ?? 4 * 1024 * 1024,
     });
     const transcriptRoot = path.join(stateRoot, 'command-transcripts', id);
-    fs.mkdirSync(transcriptRoot, { recursive: true });
     const transcriptPath = path.join(transcriptRoot, `${gate}-${Date.now()}.json`);
     const transcript = {
         schema: 'yomu-academy.command-transcript/v1',
@@ -1063,16 +1106,19 @@ function runProofCommand(tasks, id, gate, commandArgs) {
         stdout: result.stdout ?? '',
         stderr: result.stderr ?? '',
     };
-    fs.writeFileSync(transcriptPath, `${JSON.stringify(transcript, null, 2)}\n`);
+    const transcriptBody = `${JSON.stringify(transcript, null, 2)}\n`;
     const record = {
         command: commandArgs,
         exitCode: transcript.exitCode,
         headCommit,
         recordedBy: 'academy-production-workflow',
-        transcript: evidenceReference(transcriptPath),
+        transcript: stateValueReference(transcriptPath, transcriptBody),
     };
     proof.gates[gate].commands.push(record);
-    writeProof(target, proof);
+    commitFileTransition(stateRoot, 'proof-command', [
+        { path: transcriptPath, value: transcriptBody },
+        { path: target, value: `${JSON.stringify(proof, null, 2)}\n` },
+    ], { taskId: id, gate, exitCode: transcript.exitCode });
     if (transcript.exitCode !== 0) throw new Error(`Proof command failed with exit ${transcript.exitCode}`);
     console.log(`Recorded successful ${id}/${gate} command: ${commandArgs.join(' ')}`);
 }
@@ -1122,34 +1168,6 @@ function parseReviewPayload(value) {
     return payload;
 }
 
-function resolveReviewExecutable(provider) {
-    if (Object.hasOwn(process.env, 'YOMU_CLAUDE_BIN')) {
-        throw new Error('YOMU_CLAUDE_BIN is forbidden; the Fable reviewer executable is policy-pinned');
-    }
-    const selected = execFileSync('/usr/bin/which', [provider.executable], { encoding: 'utf8' }).trim();
-    const realpath = fs.realpathSync.native(selected);
-    const executableSha256 = sha256(fs.readFileSync(realpath));
-    if (!realpath.endsWith(provider.realpathSuffix)) {
-        throw new Error(`Claude Code executable violates the configured realpath policy: ${realpath}`);
-    }
-    if (executableSha256 !== provider.executableSha256) {
-        throw new Error(`Claude Code executable hash mismatch: ${realpath}`);
-    }
-    const packagePath = path.join(path.dirname(path.dirname(realpath)), 'package.json');
-    const packageManifest = readJson(packagePath);
-    if (packageManifest.name !== provider.packageName || packageManifest.version !== provider.packageVersion) {
-        throw new Error('Claude Code package identity does not match the pinned review policy');
-    }
-    return {
-        command: provider.executable,
-        selected,
-        realpath,
-        sha256: executableSha256,
-        packageName: packageManifest.name,
-        packageVersion: packageManifest.version,
-    };
-}
-
 function reviewEnvironment(provider) {
     const env = minimalReviewEnvironment(provider, process.env);
     if (!env.ANTHROPIC_API_KEY) {
@@ -1163,8 +1181,9 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
     if (providerId !== config.requiredReviewProvider) {
         throw new Error(`Independent review must use required provider ${config.requiredReviewProvider}`);
     }
-    const provider = config.reviewProviders?.[providerId];
-    if (!provider) throw new Error(`Unknown trusted review provider: ${providerId}`);
+    const { loaded, bindings } = governanceBindings(true);
+    const provider = bindings.provider;
+    if (provider.id !== providerId) throw new Error(`Unknown trusted review provider: ${providerId}`);
     const { target, proof } = readProof(id);
     if (!proof.owner) throw new Error('Claim the task before running its independent review');
     if (provider.reviewerId === proof.owner) throw new Error('Trusted reviewer identity must differ from the task owner');
@@ -1172,26 +1191,29 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
     const sourcePrompt = fs.readFileSync(secureEvidencePath(promptCandidate).absolute, 'utf8');
     const headCommit = safeHead();
     const reviewRoot = path.join(stateRoot, 'review-sessions', id, `${Date.now()}-${crypto.randomUUID()}`);
-    fs.mkdirSync(reviewRoot, { recursive: true });
     const promptPath = path.join(reviewRoot, 'prompt.txt');
     const responsePath = path.join(reviewRoot, 'provider-response.json');
     const sessionPath = path.join(reviewRoot, 'session.json');
     const attestationPath = path.join(reviewRoot, 'attestation.json');
     const outputContract = `\n\nReturn only one JSON object with this exact shape (no prose or fences):\n{\n  "verdict": "ship" | "block",\n  "summary": "concise evidence-based verdict",\n  "scope": ["reviewed file or behavior"],\n  "findings": [{"severity":"P0"|"P1"|"P2","summary":"finding","status":"resolved"|"accepted-risk"}]\n}\nUse verdict "block" whenever any P0/P1 finding is unresolved. Task: ${task.id}. HEAD: ${headCommit}. Task definition SHA-256: ${taskDefinitionSha256(task)}.`;
-    fs.writeFileSync(promptPath, `${sourcePrompt.trim()}${outputContract}\n`);
-    const executable = resolveReviewExecutable(provider);
+    const promptBody = `${sourcePrompt.trim()}${outputContract}\n`;
+    const executable = resolveTrustedTool(provider.toolId, loaded.store);
     const invocationEnvironment = reviewEnvironment(provider);
     const result = spawnSync(executable.realpath, provider.args ?? [], {
         cwd: repoRoot,
-        input: fs.readFileSync(promptPath),
+        input: promptBody,
         encoding: 'utf8',
         maxBuffer: config.proofCommandMaxOutputBytes ?? 4 * 1024 * 1024,
         env: invocationEnvironment,
     });
-    fs.writeFileSync(responsePath, result.stdout ?? '');
+    const responseBody = result.stdout ?? '';
+    commitFileTransition(stateRoot, 'review-provider-capture', [
+        { path: promptPath, value: promptBody },
+        { path: responsePath, value: responseBody },
+    ], { taskId: id, providerId, exitCode: result.status ?? 1 });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`External reviewer exited ${result.status}: ${result.stderr ?? ''}`);
-    const envelope = readJson(responsePath);
+    const envelope = JSON.parse(responseBody);
     if (provider.outputFormat !== 'claude-json') throw new Error(`Unsupported review output format: ${provider.outputFormat}`);
     if (envelope.type !== 'result' || envelope.subtype !== 'success' || envelope.is_error || !envelope.session_id) {
         throw new Error(`External reviewer did not return a successful session: ${envelope.result ?? 'unknown error'}`);
@@ -1204,8 +1226,8 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
     }
     const [nativeModel] = nativeModels;
     const payload = parseReviewPayload(envelope.result);
-    const promptReference = evidenceReference(promptPath);
-    const responseReference = evidenceReference(responsePath);
+    const promptReference = stateValueReference(promptPath, promptBody);
+    const responseReference = stateValueReference(responsePath, responseBody);
     const captureToken = crypto.randomUUID();
     const session = {
         schema: 'yomu-academy.external-review-session/v1',
@@ -1244,8 +1266,8 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
         prompt: promptReference,
         response: responseReference,
     };
-    fs.writeFileSync(sessionPath, `${JSON.stringify(session, null, 2)}\n`);
-    const sessionReference = evidenceReference(sessionPath);
+    const sessionBody = `${JSON.stringify(session, null, 2)}\n`;
+    const sessionReference = stateValueReference(sessionPath, sessionBody);
     const attestation = {
         schema: 'yomu-academy.review-attestation/v1',
         taskId: id,
@@ -1265,7 +1287,8 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
         scope: payload.scope,
         findings: payload.findings,
     };
-    fs.writeFileSync(attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+    const attestationBody = `${JSON.stringify(attestation, null, 2)}\n`;
+    const attestationReference = stateValueReference(attestationPath, attestationBody);
     const registration = {
         taskId: id,
         headCommit,
@@ -1286,7 +1309,10 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
         strict: true,
         reviewSessions: new Map([[sessionReference.path, session]]),
         trustedReviewSessions: new Map([[sessionReference.path, registration]]),
-        requiredReviewPolicy: { id: providerId, ...provider },
+        requiredReviewPolicy: {
+            ...provider,
+            tool: loaded.store.tools.find(tool => tool.id === provider.toolId),
+        },
         evidenceHashes: new Map([
             [sessionReference.path, sessionReference.sha256],
             [promptReference.path, promptReference.sha256],
@@ -1299,10 +1325,12 @@ function runExternalReview(tasks, state, id, providerId, promptCandidate) {
     proof.independentReview = {
         status: 'pass',
         reviewer: provider.reviewerId,
-        evidence: evidenceReference(attestationPath),
+        evidence: attestationReference,
         findingsResolved: payload.findings.filter(finding => finding.status === 'resolved').map(finding => finding.summary),
     };
     commitFileTransition(stateRoot, 'review-registration', [
+        { path: sessionPath, value: sessionBody },
+        { path: attestationPath, value: attestationBody },
         { path: statePath, value: stateBody(state) },
         { path: target, value: `${JSON.stringify(proof, null, 2)}\n` },
     ], { taskId: id, sessionId: envelope.session_id, nativeModel });
@@ -1325,6 +1353,7 @@ function attestReview(tasks, state, id, reviewer, candidate) {
     const registration = (state.reviewSessions ?? []).find(row => (
         row.path === sessionReference?.path && row.sha256 === sessionReference?.sha256
     ));
+    const { loaded, bindings } = governanceBindings(true);
     const errors = validateReviewAttestation(task, attestation, {
         headCommit: safeHead(),
         owner: proof.owner,
@@ -1333,8 +1362,8 @@ function attestReview(tasks, state, id, reviewer, candidate) {
         reviewSessions: new Map(sessionReference?.path ? [[sessionReference.path, session]] : []),
         trustedReviewSessions: new Map(registration ? [[registration.path, registration]] : []),
         requiredReviewPolicy: {
-            id: config.requiredReviewProvider,
-            ...config.reviewProviders[config.requiredReviewProvider],
+            ...bindings.provider,
+            tool: loaded.store.tools.find(tool => tool.id === bindings.provider.toolId),
         },
         evidenceHashes,
     });
@@ -1360,8 +1389,9 @@ function attestApproval(tasks, state, id, requirement, candidate) {
     const ownerEvidence = attestation?.evidence?.path ? evidenceReference(attestation.evidence.path) : null;
     const reusedNonce = (state.approvalNonces ?? []).find(row => row.nonce === attestation?.nonce);
     if (reusedNonce) throw new Error(`Owner approval nonce was already used by ${reusedNonce.taskId}`);
+    const { bindings } = governanceBindings(true);
     const errors = validateApprovalAttestation(task, requirement, attestation, {
-        policy: config.approvalPolicies?.[requirement],
+        policy: bindings.approval,
         claimToken: proof.claimToken,
         headCommit: safeHead(),
         backlogSha256: proof.backlogSha256,
@@ -1376,6 +1406,12 @@ function attestApproval(tasks, state, id, requirement, candidate) {
         taskId: id,
         requirement,
         keyId: attestation.signature.keyId,
+        algorithm: attestation.signature.algorithm,
+        revision: attestation.revision,
+        trustStoreRevision: attestation.trustStoreRevision,
+        claimToken: attestation.claimToken,
+        headCommit: attestation.headCommit,
+        contentHashesSha256: sha256(canonicalJson(attestation.contentHashes)),
         evidenceSha256: attestation.evidence.sha256,
         path: approvalReference.path,
         sha256: approvalReference.sha256,
@@ -1543,6 +1579,7 @@ function strictProofContext(tasks, task, proof, state) {
             reuseReportErrors = [`Reuse report cannot be read: ${error instanceof Error ? error.message : String(error)}`];
         }
     }
+    const { loaded, bindings } = governanceBindings(true);
     return {
         strict: true,
         repoRoot,
@@ -1562,10 +1599,10 @@ function strictProofContext(tasks, task, proof, state) {
         approvalNonces: new Map((state.approvalNonces ?? []).map(row => [row.nonce, row])),
         trustedReviewSessions: new Map((state.reviewSessions ?? []).map(row => [row.path, row])),
         requiredReviewPolicy: {
-            id: config.requiredReviewProvider,
-            ...config.reviewProviders[config.requiredReviewProvider],
+            ...bindings.provider,
+            tool: loaded.store.tools.find(tool => tool.id === bindings.provider.toolId),
         },
-        approvalPolicies: config.approvalPolicies,
+        approvalPolicies: { owner: bindings.approval },
         trustedGateProducers: config.trustedGateProducers,
         reuseReportErrors,
         maxProofAgeMs: config.proofMaxAgeMinutes * 60 * 1000,
@@ -1591,7 +1628,7 @@ function validateTaskProof(tasks, markdown, id) {
 function promote(tasks, markdown, state, id, apply) {
     const pendingPromotion = (state.promotions ?? []).find(row => (
         row.taskId === id && [
-            'prepared', 'awaiting-checkpoint', 'awaiting-verification', 'failed-verification', 'awaiting-release',
+            'awaiting-checkpoint', 'awaiting-verification', 'failed-verification', 'awaiting-release',
         ].includes(row.status)
     ));
     if (pendingPromotion) {
@@ -1669,7 +1706,7 @@ function releaseChecklist(state) {
         console.log('  run the Release workflow or create/push the next v* tag');
     }
     console.log('\nPost-push:');
-    for (const command of config.release.postPushChecks) console.log(`  ${command}`);
+    console.log('  verify the exact commit and required workflow runs through the external GitHub production policy');
 }
 
 function runConfiguredCommand(command, options = {}) {
@@ -1697,7 +1734,10 @@ function runConfiguredCommand(command, options = {}) {
     };
     let reference = null;
     if (options.outputPath) {
-        writeFileDurably(options.outputPath, `${JSON.stringify(record, null, 2)}\n`);
+        commitFileTransition(stateRoot, 'release-check-transcript', [{
+            path: options.outputPath,
+            value: `${JSON.stringify(record, null, 2)}\n`,
+        }], { command, checkpointCommit: options.checkpointCommit ?? null });
         reference = evidenceReference(options.outputPath);
     }
     if (result.error || result.status !== 0) {
@@ -1708,7 +1748,7 @@ function runConfiguredCommand(command, options = {}) {
     return { record, reference };
 }
 
-function verifyCheckpoint(state, token) {
+async function verifyCheckpoint(state, token) {
     if (!token) throw new Error('verify-checkpoint requires --token CLAIM_TOKEN');
     const matches = (state.promotions ?? []).filter(row => (
         row.claimToken === token && ['awaiting-verification', 'failed-verification'].includes(row.status)
@@ -1717,11 +1757,6 @@ function verifyCheckpoint(state, token) {
     const [promotion] = matches;
     const claim = (state.claims ?? []).find(row => row.taskId === promotion.taskId && row.token === token);
     if (!claim) throw new Error(`Checkpoint claim ${promotion.taskId} is missing`);
-    git('fetch', 'origin', 'main');
-    if (!promotion.checkpointCommit
-        || !gitSucceeds('merge-base', '--is-ancestor', promotion.checkpointCommit, 'origin/main')) {
-        throw new Error('Checkpoint commit is not present on origin/main; post-push verification cannot run');
-    }
     const attempt = {
         attemptId: crypto.randomUUID(),
         startedAt: new Date().toISOString(),
@@ -1733,26 +1768,64 @@ function verifyCheckpoint(state, token) {
     promotion.verificationAttempts ??= [];
     promotion.verificationAttempts.push(attempt);
     saveState(state, 'verification-started');
-    const outputRoot = path.join(stateRoot, 'checkpoint-verification', promotion.promotionId, attempt.attemptId);
     try {
-        for (const [index, command] of config.release.postPushChecks.entries()) {
-            const outputPath = path.join(outputRoot, `${String(index + 1).padStart(2, '0')}.json`);
-            const result = runConfiguredCommand(command, {
-                outputPath,
-                checkpointCommit: promotion.checkpointCommit,
-                environment: { YOMU_CHECKPOINT_COMMIT: promotion.checkpointCommit },
+        git('fetch', 'origin', 'main');
+        if (!promotion.checkpointCommit
+            || !gitSucceeds('merge-base', '--is-ancestor', promotion.checkpointCommit, 'origin/main')) {
+            throw new Error('Checkpoint commit is not present on origin/main; post-push verification cannot run');
+        }
+        const { loaded, bindings } = governanceBindings(true);
+        const policy = bindings.github;
+        const remoteRefs = authoritativeRemoteRefs(policy);
+        const originMain = git('rev-parse', 'origin/main');
+        if (remoteRefs.main !== originMain || originMain !== promotion.checkpointCommit) {
+            throw new Error('HTTPS GitHub main does not match the exact pushed checkpoint commit');
+        }
+        const repositoryPath = `/repos/${policy.repository}`;
+        const commit = await githubRequest(policy, `${repositoryPath}/commits/${promotion.checkpointCommit}`);
+        if (commit.sha !== promotion.checkpointCommit) throw new Error('GitHub API did not resolve the exact checkpoint commit');
+        attempt.checks.push({
+            authority: 'github-api-and-https-refs',
+            status: 'pass',
+            commit: promotion.checkpointCommit,
+            apiUrl: commit.html_url,
+        });
+        for (const workflowPath of policy.checkpointWorkflowPaths) {
+            const workflow = encodeURIComponent(workflowPath);
+            const runs = await githubRequest(policy, `${repositoryPath}/actions/workflows/${workflow}/runs?head_sha=${promotion.checkpointCommit}&status=completed&per_page=20`);
+            const run = runs.workflow_runs?.find(candidate => (
+                candidate.head_sha === promotion.checkpointCommit
+                && candidate.head_branch === 'main'
+                && candidate.status === 'completed'
+                && candidate.conclusion === 'success'
+                && policy.checkpointWorkflowEvents.includes(candidate.event)
+            ));
+            if (!run) throw new Error(`${workflowPath} has no externally verified successful main-branch run for the checkpoint commit`);
+            attempt.checks.push({
+                authority: 'github-api-workflow-run',
+                workflowPath,
+                event: run.event,
+                status: 'pass',
+                runId: run.id,
+                url: run.html_url,
             });
-            attempt.checks.push({ command, status: 'pass', evidence: result.reference });
             saveState(state, 'verification-check-passed');
         }
+        attempt.governanceTrust = { path: loaded.path, sha256: loaded.sha256, revision: loaded.store.revision };
     } catch (error) {
-        const failed = error?.releaseCheck;
-        if (failed) attempt.checks.push({ command: failed.record.command, status: 'fail', evidence: failed.reference });
+        attempt.checks.push({ authority: 'github', status: 'fail', error: error instanceof Error ? error.message : String(error) });
         attempt.status = 'failed';
         attempt.finishedAt = new Date().toISOString();
         promotion.status = 'failed-verification';
         promotion.verificationFailure = error instanceof Error ? error.message : String(error);
         claim.status = 'failed-verification';
+        const checkpointRow = [...(state.checkpoints ?? [])].reverse().find(row => row.promotionId === promotion.promotionId);
+        if (checkpointRow) {
+            checkpointRow.status = 'failed-verification';
+            checkpointRow.recoverable = true;
+            checkpointRow.verificationFailure = promotion.verificationFailure;
+            checkpointRow.failedAt = attempt.finishedAt;
+        }
         saveState(state, 'verification-failed');
         throw new Error(`Post-push verification failed for ${promotion.taskId}; evidence was preserved and verify-checkpoint can retry. ${promotion.verificationFailure}`);
     }
@@ -1766,6 +1839,8 @@ function verifyCheckpoint(state, token) {
     if (checkpointRow) {
         checkpointRow.status = 'verified';
         checkpointRow.verifiedAt = promotion.verifiedAt;
+        delete checkpointRow.recoverable;
+        delete checkpointRow.verificationFailure;
     }
     saveState(state, 'verification-passed');
     console.log(`Post-push verification passed for ${promotion.taskId}`);
@@ -1798,7 +1873,7 @@ function assertCheckpointIntegrity(task, promotion, prepared = false) {
     if (errors.length) throw new Error(errors.join('\n'));
 }
 
-function checkpoint(tasks, state, token, message) {
+async function checkpoint(tasks, state, token, message) {
     if (!token) throw new Error('checkpoint requires --token CLAIM_TOKEN');
     const pending = (state.promotions ?? []).filter(row => row.status === 'awaiting-checkpoint');
     const matchingPromotions = pending.filter(row => row.claimToken === token);
@@ -1849,8 +1924,19 @@ function checkpoint(tasks, state, token, message) {
         promotion.checkpointGateHead = promotion.headCommit;
         promotion.checkpointGatesPassedAt = new Date().toISOString();
         saveState(state);
-        git('add', '--', config.canonicalBacklog);
-        git('commit', '-m', message || `chore(academy): promote ${promotion.taskId}`);
+        const gitJournal = beginRollbackTransition(stateRoot, 'checkpoint-git', [backlogPath, gitIndexPath], {
+            taskId: promotion.taskId,
+            taskHead: promotion.headCommit,
+        });
+        try {
+            git('add', '--', config.canonicalBacklog);
+            injectWorkflowCrash('checkpoint-git', 'after-stage');
+            git('commit', '-m', message || `chore(academy): promote ${promotion.taskId}`);
+            completeRollbackTransition(stateRoot, gitJournal);
+        } catch (error) {
+            recoverFileTransition(stateRoot, 'rollback');
+            throw error;
+        }
         if (cleanStatus().length) throw new Error('Checkpoint commit left a dirty checkout; refusing to push');
         prepared = true;
     }
@@ -1877,7 +1963,7 @@ function checkpoint(tasks, state, token, message) {
     });
     saveState(state, 'checkpoint-awaiting-verification');
     console.log(`Checkpoint pushed at ${headCommit}`);
-    verifyCheckpoint(state, token);
+    await verifyCheckpoint(state, token);
 }
 
 function reopenPromotion(markdown, state, id, token) {
@@ -1900,41 +1986,100 @@ function reopenPromotion(markdown, state, id, token) {
     claim.status = 'cancelled';
     claim.cancelledAt = new Date().toISOString();
     claim.cancelReason = 'promotion-reopened-for-new-base';
+    const restoredIndex = indexWithPathAtCommit(config.canonicalBacklog, promotion.headCommit);
     commitFileTransition(stateRoot, 'reopen-promotion', [
         { path: statePath, value: stateBody(state) },
         { path: backlogPath, value: reopenedBacklog },
+        { path: gitIndexPath, value: restoredIndex },
     ], { promotionId: promotion.promotionId, taskId: id, claimToken: token });
     console.log(`Reopened ${id} and cancelled its stale-base claim; rebase, refresh salvage, claim again, rerun gates/review, reseal, and promote.`);
 }
 
-function recordRelease(state, tag) {
+async function githubRequest(policy, pathname, options = {}) {
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+    if (!token) throw new Error('Authoritative GitHub verification requires GH_TOKEN or GITHUB_TOKEN');
+    const url = new URL(pathname, `${policy.apiBase}/`);
+    if (url.origin !== new URL(policy.apiBase).origin) throw new Error(`GitHub API request escaped the trusted API origin: ${url}`);
+    const response = await fetch(url, {
+        redirect: options.binary ? 'manual' : 'error',
+        headers: {
+            accept: options.binary ? 'application/octet-stream' : 'application/vnd.github+json',
+            authorization: `Bearer ${token}`,
+            'user-agent': 'yomu-academy-production-workflow',
+            'x-github-api-version': '2022-11-28',
+        },
+    });
+    if (options.binary && [301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) throw new Error('GitHub release asset redirect omitted its destination');
+        const downloadUrl = new URL(location);
+        if (downloadUrl.protocol !== 'https:' || !policy.assetDownloadHosts.includes(downloadUrl.hostname)) {
+            throw new Error(`GitHub release asset escaped the externally trusted download hosts: ${downloadUrl.hostname}`);
+        }
+        const downloaded = await fetch(downloadUrl, { redirect: 'error', headers: { 'user-agent': 'yomu-academy-production-workflow' } });
+        if (!downloaded.ok) throw new Error(`GitHub release asset download failed: ${downloaded.status}`);
+        return Buffer.from(await downloaded.arrayBuffer());
+    }
+    if (!response.ok) throw new Error(`GitHub API ${url.pathname} failed: ${response.status}`);
+    return options.binary ? Buffer.from(await response.arrayBuffer()) : response.json();
+}
+
+function authoritativeRemoteRefs(policy, tag) {
+    const configuredRemote = git('remote', 'get-url', 'origin');
+    if (configuredRemote !== policy.remoteUrl) throw new Error('origin URL does not match the externally trusted GitHub repository');
+    const requestedRefs = ['refs/heads/main'];
+    if (tag) requestedRefs.push(`refs/tags/${tag}`, `refs/tags/${tag}^{}`);
+    const output = execFileSync('git', ['ls-remote', policy.remoteUrl, ...requestedRefs], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+    });
+    const refs = new Map(output.trim().split(/\r?\n/u).filter(Boolean).map(line => {
+        const [hash, ref] = line.split(/\s+/u);
+        return [ref, hash];
+    }));
+    return {
+        main: refs.get('refs/heads/main'),
+        tag: tag ? refs.get(`refs/tags/${tag}^{}`) ?? refs.get(`refs/tags/${tag}`) : undefined,
+    };
+}
+
+async function recordRelease(state, tag) {
     if (!tag) throw new Error('record-release requires --tag vX.Y.Z');
     const pending = (state.promotions ?? []).filter(row => row.status === 'awaiting-release');
     if (!pending.length) throw new Error('No user-visible checkpoint is awaiting release');
+    const { loaded, bindings } = governanceBindings(true);
+    const githubPolicy = bindings.github;
+    const ghTool = resolveTrustedTool(githubPolicy.ghToolId, loaded.store);
+    if (!process.env.GH_TOKEN && !process.env.GITHUB_TOKEN) {
+        throw new Error('Authoritative GitHub verification requires GH_TOKEN or GITHUB_TOKEN');
+    }
     for (const command of config.release.preReleaseCommands) runConfiguredCommand(command);
     git('fetch', 'origin', '--tags');
-    const gh = process.env.GH_BIN || 'gh';
-    const release = JSON.parse(execFileSync(gh, [
-        'release', 'view', tag, '--json', 'url,isDraft,isLatest,tagName,targetCommitish,assets',
-    ], { cwd: repoRoot, encoding: 'utf8' }));
-    if (release.isDraft) throw new Error(`${tag} is still a draft`);
-    if (!release.isLatest) throw new Error(`${tag} is not marked as the latest release`);
-    if (!release.assets?.some(asset => asset.name === 'yomu.user.js')) {
+    const repositoryPath = `/repos/${githubPolicy.repository}`;
+    const [release, latest] = await Promise.all([
+        githubRequest(githubPolicy, `${repositoryPath}/releases/tags/${encodeURIComponent(tag)}`),
+        githubRequest(githubPolicy, `${repositoryPath}/releases/latest`),
+    ]);
+    if (release.draft) throw new Error(`${tag} is still a draft`);
+    if (release.prerelease) throw new Error(`${tag} is still a prerelease`);
+    if (latest.id !== release.id || latest.tag_name !== tag) throw new Error(`${tag} is not the authoritative latest release`);
+    if (release.tag_name !== tag) throw new Error('GitHub release resolved another tag');
+    const asset = release.assets?.find(candidate => candidate.name === 'yomu.user.js');
+    if (!asset?.url || asset.state !== 'uploaded') {
         throw new Error(`${tag} does not contain yomu.user.js`);
     }
     const originMain = git('rev-parse', 'origin/main');
     const tagCommit = git('rev-list', '-n', '1', tag);
     if (tagCommit !== originMain) throw new Error('Latest release tag must point at current origin/main');
+    const remoteRefs = authoritativeRemoteRefs(githubPolicy, tag);
+    if (remoteRefs.main !== originMain || remoteRefs.tag !== tagCommit) {
+        throw new Error('HTTPS GitHub refs do not match the locally fetched main and release tag');
+    }
     const releasable = pending.filter(row => gitSucceeds('merge-base', '--is-ancestor', row.checkpointCommit, tagCommit));
     if (!releasable.length) throw new Error('Release tag does not contain any pending checkpoint');
-    const downloadRoot = path.join(stateRoot, 'release-checks', tag);
-    fs.mkdirSync(downloadRoot, { recursive: true });
-    execFileSync(gh, ['release', 'download', tag, '--pattern', 'yomu.user.js', '--dir', downloadRoot, '--clobber'], {
-        cwd: repoRoot,
-        stdio: 'ignore',
-    });
-    const downloadedAsset = path.join(downloadRoot, 'yomu.user.js');
-    const releasedAssetSha256 = sha256(fs.readFileSync(downloadedAsset));
+    const releasedAsset = await githubRequest(githubPolicy, asset.url, { binary: true });
+    const releasedAssetSha256 = sha256(releasedAsset);
     const taggedAssetSha256 = sha256(execFileSync('git', ['show', `${tag}:dist/yomu.user.js`], { cwd: repoRoot }));
     if (releasedAssetSha256 !== taggedAssetSha256) throw new Error('Release asset bytes do not match dist/yomu.user.js at the release tag');
     const releaseVersion = tag.replace(/^v/u, '');
@@ -1942,13 +2087,13 @@ function recordRelease(state, tag) {
     if (!taggedChangelog.includes(`## [${releaseVersion}]`)) {
         throw new Error(`CHANGELOG.md at ${tag} has no ${releaseVersion} release entry`);
     }
-    const deployment = execFileSync(gh, [
-        'run', 'list', '--workflow', 'Deploy Docs', '--commit', tagCommit, '--limit', '1',
-        '--json', 'url,status,conclusion,headSha',
-    ], { cwd: repoRoot, encoding: 'utf8' });
-    const runs = JSON.parse(deployment);
-    if (!runs[0] || runs[0].headSha !== originMain || runs[0].conclusion !== 'success') {
-        throw new Error('Deploy Docs has not succeeded for current origin/main');
+    const workflow = encodeURIComponent(githubPolicy.deploymentWorkflowPath);
+    const runsResponse = await githubRequest(githubPolicy, `${repositoryPath}/actions/workflows/${workflow}/runs?head_sha=${tagCommit}&status=completed&per_page=20`);
+    const deployment = runsResponse.workflow_runs?.find(run => (
+        run.head_sha === tagCommit && run.status === 'completed' && run.conclusion === 'success'
+    ));
+    if (!deployment) {
+        throw new Error(`${githubPolicy.deploymentWorkflowPath} has not authoritatively succeeded for current origin/main`);
     }
     for (const row of releasable) {
         row.status = 'released';
@@ -1964,16 +2109,21 @@ function recordRelease(state, tag) {
     state.releases ??= [];
     state.releases.push({
         tag,
-        url: release.url,
+        url: release.html_url,
         taskIds: releasable.map(row => row.taskId),
         commit: originMain,
         tagCommit,
-        deploymentUrl: runs[0].url,
+        deploymentUrl: deployment.html_url,
+        releaseId: release.id,
+        assetId: asset.id,
+        deploymentRunId: deployment.id,
+        governanceTrust: { path: loaded.path, sha256: loaded.sha256, revision: loaded.store.revision },
+        ghTool,
         assetSha256: releasedAssetSha256,
         recordedAt: new Date().toISOString(),
     });
     saveState(state, 'record-release');
-    console.log(`Recorded verified release ${tag}: ${release.url}`);
+    console.log(`Recorded verified release ${tag}: ${release.html_url}`);
 }
 
 function usage() {
@@ -2010,181 +2160,140 @@ function usage() {
 const [command = 'status', id, ...flags] = process.argv.slice(2);
 
 try {
-    if (command === 'recovery-status') {
-        printRecoveryStatus();
-        process.exit(0);
-    }
-    if (command === 'recover') {
-        const commandFlags = [id, ...flags].filter(Boolean);
-        const mode = commandFlags.includes('--rollback')
-            ? 'rollback'
-            : commandFlags.includes('--roll-forward') ? 'roll-forward' : 'auto';
-        withLock(stateLockPath, () => recoverWorkflow(mode));
-        process.exit(0);
-    }
-    const transition = inspectFileTransition(stateRoot);
-    if (transition.status !== 'clean') {
-        try {
-            withLock(stateLockPath, () => recoverFileTransition(stateRoot, 'auto'));
-        } catch (error) {
-            if (command === 'status') {
-                printRecoveryStatus();
-                console.error(error instanceof Error ? error.message : String(error));
-                process.exit(2);
-            }
-            throw error;
+    await withLock(workflowLockPath, async () => {
+        if (command === 'recovery-status') {
+            printRecoveryStatus();
+            return;
         }
-    }
-    let { markdown, tasks } = load();
-    let state = loadState();
-    if (preparedPromotionInspections(state, markdown).length) {
-        try {
-            withLock(stateLockPath, () => reconcilePreparedPromotions(loadState(), load().markdown, 'auto'));
-            ({ markdown, tasks } = load());
-            state = loadState();
-        } catch (error) {
-            if (command === 'status') {
-                printRecoveryStatus();
-                console.error(error instanceof Error ? error.message : String(error));
-                process.exit(2);
-            }
-            throw error;
+        if (command === 'recover') {
+            const commandFlags = [id, ...flags].filter(Boolean);
+            const mode = commandFlags.includes('--rollback')
+                ? 'rollback'
+                : commandFlags.includes('--roll-forward') ? 'roll-forward' : 'auto';
+            recoverWorkflow(mode);
+            return;
         }
-    }
-    if (command === 'validate') {
-        ensureValid(tasks);
-        console.log(`Workflow valid: ${tasks.length} canonical tasks, ${config.lanes.length} lanes`);
-    } else if (command === 'status') {
-        ensureValid(tasks);
-        printStatus(tasks, markdown, state);
-    } else if (command === 'ledger') {
-        ensureValid(tasks);
-        const ledger = writeProductionLedger(tasks, markdown, state);
-        console.log(`Wrote ${ledger.tasks.length} task rows and ${ledger.routeCounts.length} route counters -> @workflow-state/${path.relative(stateRoot, productionLedgerPath)}`);
-    } else if (command === 'plan') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => writePlan(tasks, markdown, loadState()));
-    } else if (command === 'index-unreachable') {
-        ensureValid(tasks);
-        withLock(stateLockPath, indexUnreachableCommits);
-    } else if (command === 'index-transcripts') {
-        ensureValid(tasks);
-        withLock(stateLockPath, indexTranscripts);
-    } else if (command === 'prune-state') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => {
+        const transition = inspectFileTransition(stateRoot);
+        if (transition.status !== 'clean') {
+            try {
+                recoverFileTransition(stateRoot, 'auto');
+            } catch (error) {
+                if (command === 'status') {
+                    printRecoveryStatus();
+                    console.error(error instanceof Error ? error.message : String(error));
+                    process.exitCode = 2;
+                    return;
+                }
+                throw error;
+            }
+        }
+        const { markdown, tasks } = load();
+        const state = loadState();
+        if ((state.promotions ?? []).some(row => row.status === 'prepared')) {
+            throw new Error('Legacy prepared promotions are unsupported; recover the file journal or reopen from a canonical awaiting-checkpoint state');
+        }
+        if (command === 'validate') {
+            ensureValid(tasks);
+            console.log(`Workflow valid: ${tasks.length} canonical tasks, ${config.lanes.length} lanes`);
+        } else if (command === 'status') {
+            ensureValid(tasks);
+            printStatus(tasks, markdown, state);
+        } else if (command === 'ledger') {
+            ensureValid(tasks);
+            const ledger = writeProductionLedger(tasks, markdown, state);
+            console.log(`Wrote ${ledger.tasks.length} task rows and ${ledger.routeCounts.length} route counters -> @workflow-state/${path.relative(stateRoot, productionLedgerPath)}`);
+        } else if (command === 'plan') {
+            ensureValid(tasks);
+            writePlan(tasks, markdown, state);
+        } else if (command === 'index-unreachable') {
+            ensureValid(tasks);
+            indexUnreachableCommits();
+        } else if (command === 'index-transcripts') {
+            ensureValid(tasks);
+            indexTranscripts();
+        } else if (command === 'prune-state') {
+            ensureValid(tasks);
             const latestPlanPath = path.join(stateRoot, 'latest-plan.json');
             const selected = fs.existsSync(latestPlanPath)
                 ? (readJson(latestPlanPath).selected ?? []).map(task => task.id)
                 : [];
-            pruneSourceSnapshots(loadState(), selected);
-        });
-    } else if (command === 'salvage') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => {
-            if (activeClaims(loadState(), new Date()).some(claim => claim.taskId === id)) {
+            pruneSourceSnapshots(state, selected);
+        } else if (command === 'salvage') {
+            ensureValid(tasks);
+            if (activeClaims(state, new Date()).some(claim => claim.taskId === id)) {
                 throw new Error(`Cannot regenerate salvage for ${id} while its claim is active; cancel or reopen and claim again`);
             }
             writeSalvageReport(taskById(tasks, id));
-        });
-    } else if (command === 'claim') {
-        ensureValid(tasks);
-        const ownerIndex = flags.indexOf('--owner');
-        const pathsIndex = flags.indexOf('--paths');
-        const requestedPaths = pathsIndex >= 0 ? [flags[pathsIndex + 1]] : [];
-        withLock(stateLockPath, () => claim(
-            tasks,
-            loadState(),
-            id,
-            ownerIndex >= 0 ? flags[ownerIndex + 1] : null,
-            requestedPaths,
-        ));
-    } else if (command === 'renew') {
-        const tokenIndex = flags.indexOf('--token');
-        withLock(stateLockPath, () => renewClaim(loadState(), id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null));
-    } else if (command === 'cancel') {
-        const tokenIndex = flags.indexOf('--token');
-        withLock(stateLockPath, () => cancelClaim(loadState(), id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null));
-    } else if (command === 'attach-evidence') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => attachGateEvidence(tasks, id, flags[0], flags[1]));
-    } else if (command === 'run-proof') {
-        ensureValid(tasks);
-        const separator = flags.indexOf('--');
-        const commandArgs = separator >= 0 ? flags.slice(separator + 1) : flags.slice(1);
-        withLock(stateLockPath, () => runProofCommand(tasks, id, flags[0], commandArgs));
-    } else if (command === 'attest-reuse') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => attestReuse(tasks, loadState(), id, flags[0]));
-    } else if (command === 'attest-review') {
-        ensureValid(tasks);
-        const reviewerIndex = flags.indexOf('--reviewer');
-        const evidence = flags.find((value, index) => index !== reviewerIndex && index !== reviewerIndex + 1 && !value.startsWith('--'));
-        withLock(stateLockPath, () => attestReview(tasks, loadState(), id, reviewerIndex >= 0 ? flags[reviewerIndex + 1] : null, evidence));
-    } else if (command === 'run-review') {
-        ensureValid(tasks);
-        const providerIndex = flags.indexOf('--provider');
-        const promptIndex = flags.indexOf('--prompt');
-        withLock(stateLockPath, () => runExternalReview(
-            tasks,
-            loadState(),
-            id,
-            providerIndex >= 0 ? flags[providerIndex + 1] : null,
-            promptIndex >= 0 ? flags[promptIndex + 1] : null,
-        ));
-    } else if (command === 'attest-approval') {
-        ensureValid(tasks);
-        withLock(stateLockPath, () => attestApproval(tasks, loadState(), id, flags[0], flags[1]));
-    } else if (command === 'seal-proof') {
-        ensureValid(tasks);
-        const summaryIndex = flags.indexOf('--summary');
-        withLock(stateLockPath, () => sealProof(tasks, loadState(), id, summaryIndex >= 0 ? flags[summaryIndex + 1] : null));
-    } else if (command === 'verify-proof') {
-        ensureValid(tasks);
-        validateTaskProof(tasks, markdown, id);
-    } else if (command === 'promote') {
-        ensureValid(tasks);
-        withLock(integrationLockPath, () => withLock(stateLockPath, () => (
-            promote(tasks, markdown, loadState(), id, flags.includes('--apply'))
-        )));
-    } else if (command === 'reopen') {
-        ensureValid(tasks);
-        const tokenIndex = flags.indexOf('--token');
-        withLock(integrationLockPath, () => withLock(stateLockPath, () => (
-            reopenPromotion(markdown, loadState(), id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null)
-        )));
-    } else if (command === 'checkpoint') {
-        ensureValid(tasks);
-        const commandFlags = [id, ...flags].filter(value => value !== undefined);
-        const tokenIndex = commandFlags.indexOf('--token');
-        const messageIndex = commandFlags.indexOf('--message');
-        withLock(integrationLockPath, () => withLock(stateLockPath, () => (
-            checkpoint(
-                tasks,
-                loadState(),
-                tokenIndex >= 0 ? commandFlags[tokenIndex + 1] : null,
-                messageIndex >= 0 ? commandFlags[messageIndex + 1] : null,
-            )
-        )));
-    } else if (command === 'verify-checkpoint') {
-        const commandFlags = [id, ...flags].filter(value => value !== undefined);
-        const tokenIndex = commandFlags.indexOf('--token');
-        withLock(integrationLockPath, () => withLock(stateLockPath, () => (
-            verifyCheckpoint(loadState(), tokenIndex >= 0 ? commandFlags[tokenIndex + 1] : null)
-        )));
-    } else if (command === 'record-release') {
-        const commandFlags = [id, ...flags].filter(value => value !== undefined);
-        const tagIndex = commandFlags.indexOf('--tag');
-        withLock(integrationLockPath, () => withLock(stateLockPath, () => (
-            recordRelease(loadState(), tagIndex >= 0 ? commandFlags[tagIndex + 1] : null)
-        )));
-    } else if (command === 'release-checklist') {
-        ensureValid(tasks);
-        releaseChecklist(state);
-    } else {
-        usage();
-        process.exitCode = 2;
-    }
+        } else if (command === 'claim') {
+            ensureValid(tasks);
+            const ownerIndex = flags.indexOf('--owner');
+            const pathsIndex = flags.indexOf('--paths');
+            claim(tasks, state, id, ownerIndex >= 0 ? flags[ownerIndex + 1] : null, pathsIndex >= 0 ? [flags[pathsIndex + 1]] : []);
+        } else if (command === 'renew') {
+            const tokenIndex = flags.indexOf('--token');
+            renewClaim(state, id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null);
+        } else if (command === 'cancel') {
+            const tokenIndex = flags.indexOf('--token');
+            cancelClaim(state, id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null);
+        } else if (command === 'attach-evidence') {
+            ensureValid(tasks);
+            attachGateEvidence(tasks, id, flags[0], flags[1]);
+        } else if (command === 'run-proof') {
+            ensureValid(tasks);
+            const separator = flags.indexOf('--');
+            runProofCommand(tasks, id, flags[0], separator >= 0 ? flags.slice(separator + 1) : flags.slice(1));
+        } else if (command === 'attest-reuse') {
+            ensureValid(tasks);
+            attestReuse(tasks, state, id, flags[0]);
+        } else if (command === 'attest-review') {
+            ensureValid(tasks);
+            const reviewerIndex = flags.indexOf('--reviewer');
+            const evidence = flags.find((value, index) => index !== reviewerIndex && index !== reviewerIndex + 1 && !value.startsWith('--'));
+            attestReview(tasks, state, id, reviewerIndex >= 0 ? flags[reviewerIndex + 1] : null, evidence);
+        } else if (command === 'run-review') {
+            ensureValid(tasks);
+            const providerIndex = flags.indexOf('--provider');
+            const promptIndex = flags.indexOf('--prompt');
+            runExternalReview(tasks, state, id, providerIndex >= 0 ? flags[providerIndex + 1] : null, promptIndex >= 0 ? flags[promptIndex + 1] : null);
+        } else if (command === 'attest-approval') {
+            ensureValid(tasks);
+            attestApproval(tasks, state, id, flags[0], flags[1]);
+        } else if (command === 'seal-proof') {
+            ensureValid(tasks);
+            const summaryIndex = flags.indexOf('--summary');
+            sealProof(tasks, state, id, summaryIndex >= 0 ? flags[summaryIndex + 1] : null);
+        } else if (command === 'verify-proof') {
+            ensureValid(tasks);
+            validateTaskProof(tasks, markdown, id);
+        } else if (command === 'promote') {
+            ensureValid(tasks);
+            promote(tasks, markdown, state, id, flags.includes('--apply'));
+        } else if (command === 'reopen') {
+            ensureValid(tasks);
+            const tokenIndex = flags.indexOf('--token');
+            reopenPromotion(markdown, state, id, tokenIndex >= 0 ? flags[tokenIndex + 1] : null);
+        } else if (command === 'checkpoint') {
+            ensureValid(tasks);
+            const commandFlags = [id, ...flags].filter(value => value !== undefined);
+            const tokenIndex = commandFlags.indexOf('--token');
+            const messageIndex = commandFlags.indexOf('--message');
+            await checkpoint(tasks, state, tokenIndex >= 0 ? commandFlags[tokenIndex + 1] : null, messageIndex >= 0 ? commandFlags[messageIndex + 1] : null);
+        } else if (command === 'verify-checkpoint') {
+            const commandFlags = [id, ...flags].filter(value => value !== undefined);
+            const tokenIndex = commandFlags.indexOf('--token');
+            await verifyCheckpoint(state, tokenIndex >= 0 ? commandFlags[tokenIndex + 1] : null);
+        } else if (command === 'record-release') {
+            const commandFlags = [id, ...flags].filter(value => value !== undefined);
+            const tagIndex = commandFlags.indexOf('--tag');
+            await recordRelease(state, tagIndex >= 0 ? commandFlags[tagIndex + 1] : null);
+        } else if (command === 'release-checklist') {
+            ensureValid(tasks);
+            releaseChecklist(state);
+        } else {
+            usage();
+            process.exitCode = 2;
+        }
+    });
 } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
