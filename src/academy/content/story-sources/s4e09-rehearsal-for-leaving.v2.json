@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e09-rehearsal-for-leaving",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 45,
@@ -105,7 +105,7 @@
           "id": "node:rehearsal-for-leaving:setup-on-the-desk",
           "beatId": "beat:rehearsal-for-leaving:arrival-image",
           "cueId": "cue:labeled-box-and-run-sheet",
-          "description": "Rehearsal is running at the far end of the room. On the front desk sits a taped-shut cardboard box with a projector inside, a labeled run-sheet clipped to its lid, and a small electric fan pushed to one side. Beside the box, an unlabeled handheld recorder that nobody reaches for."
+          "description": "The projector lights before Henry reaches the front desk. Shaun is already on cue two, following the labelled run-sheet with the adapter taped beside it. Christian's fan turns on low at the back of the room. Henry stops in the aisle with the equipment box still in his hands."
         },
         {
           "kind": "line",
@@ -116,19 +116,19 @@
           "attentionTarget": "the run-sheet clipped to the box lid",
           "variants": {
             "n3": {
-              "japanese": "投影の合図、全部メモにしておきました。順番も、つかない時のことも。だから、僕がいなくても大丈夫だと思います。たぶん。",
-              "reading": "とうえいのあいず、ぜんぶメモにしておきました。じゅんばんも、つかないときのことも。だから、ぼくがいなくてもだいじょうぶだとおもいます。たぶん。",
-              "english": "The projection cues, I wrote them all in a memo. The order, and what to do if one won't light. So it's fine without me. Probably."
+              "japanese": "……もう二番まで行った? 手順書だけで? つかない時の分かれ道も入れてあります。じゃあ僕は、ここで箱を持ったまま見ます。たぶん、そのほうが試験になる。",
+              "reading": "……もうにばんまでいった? てじゅんしょだけで? つかないときのわかれみちもいれてあります。じゃあぼくは、ここではこをもったままみます。たぶん、そのほうがしけんになる。",
+              "english": "…Already at cue two? From the run-sheet alone? I included a branch for when it doesn't light. Then I'll watch from here with the box still in my hands. That's probably a better test."
             },
             "n2": {
-              "japanese": "投影の合図、ぜんぶ手順にまとめておきました。回す順番も、つかない時にどうするかも。だから当日は、僕がいなくても動かせると思います。…たぶん、ですけど。",
-              "reading": "とうえいのあいず、ぜんぶてじゅんにまとめておきました。まわすじゅんばんも、つかないときにどうするかも。だからとうじつは、ぼくがいなくてもうごかせるとおもいます。…たぶん、ですけど。",
-              "english": "The projection cues — I've written all of them up into steps. The order to run them in, and what to do if one won't light. So on the night it'll run without me. …Probably, anyway."
+              "japanese": "……もうキュー二まで進んだんですか。手順書だけで? 光らない場合の分岐も入れてあります。じゃあ僕は、ここで箱を持ったまま見ます。たぶん、そのほうが引き継ぎの試験になるので。",
+              "reading": "……もうキューにまですすんだんですか。てじゅんしょだけで? ひからないばあいのぶんきもいれてあります。じゃあぼくは、ここではこをもったままみます。たぶん、そのほうがひきつぎのしけんになるので。",
+              "english": "…You're already at cue two? From the run-sheet alone? I included a branch for when the light stays dark. Then I'll watch from here with the box still in my hands. That's probably the better handoff test."
             },
             "n1": {
-              "japanese": "投影のキューは、一通り手順書に落としておいたんです。回す順番も、光らなかった場合の対処も。なので当日は、僕がいなくても回せるようにしてあります。…まあ、たぶん、ですが。",
-              "reading": "とうえいのキューは、ひととおりてじゅんしょにおとしておいたんです。まわすじゅんばんも、ひからなかったばあいのたいしょも。なのでとうじつは、ぼくがいなくてもまわせるようにしてあります。…まあ、たぶん、ですが。",
-              "english": "The projection cues, I've got them all down in a run-sheet. The order to run them in, and what to do if one doesn't light. So on the night, it's set up to run without me there. …Well — probably, anyway."
+              "japanese": "……もうキュー二まで進んだんですか。手順書だけで? 不点灯時の分岐も入れてあります。では僕は、ここで箱を持ったまま見ています。そのほうが、たぶん引き継ぎ試験として正しいので。",
+              "reading": "……もうキューにまですすんだんですか。てじゅんしょだけで? ふてんとうじのぶんきもいれてあります。ではぼくは、ここではこをもったままみています。そのほうが、たぶんひきつぎしけんとしてただしいので。",
+              "english": "…You're already at cue two? From the run-sheet alone? I included a branch for failure to light. Then I shall watch from here with the box still in my hands. That is probably the correct way to test the handoff."
             }
           },
           "support": {
@@ -146,19 +146,19 @@
           "attentionTarget": "the small fan pushed to the side of the desk",
           "variants": {
             "n3": {
-              "japanese": "暑くなったら、これ。扇風機、もう試しました。今回は僕がやるんじゃなくて、誰かにやってもらいます。扇風機は、次のクラスに置いていきます。",
-              "reading": "あつくなったら、これ。せんぷうき、もうためしました。こんかいはぼくがやるんじゃなくて、だれかにやってもらいます。せんぷうきは、つぎのクラスにおいていきます。",
-              "english": "If it gets hot, this. The fan, I already tested it. This time I won't do it myself — someone else will. I'll leave the fan for the next class."
+              "japanese": "後ろ、風は強すぎない? 弱と強、両方試した。今日は僕は触らない。温度計が二十八度になったら『弱』。その紙ごと、次のクラスに置いていく。",
+              "reading": "うしろ、かぜはつよすぎない? じゃくときょう、りょうほうためした。きょうはぼくはさわらない。おんどけいがにじゅうはちどになったら『じゃく』。そのかみごと、つぎのクラスにおいていく。",
+              "english": "At the back, is the airflow too strong? I tested both low and high. I won't touch it today. When the thermometer reaches twenty-eight, use 'low.' The fan and that note stay for the next class."
             },
             "n2": {
-              "japanese": "熱がこもったら、これ。扇風機、もう試してあります。今回は僕が回すんじゃなくて、誰かにやってもらおうと思って。これ、次のクラスにも置いていきます。",
-              "reading": "ねつがこもったら、これ。せんぷうき、もうためしてあります。こんかいはぼくがまわすんじゃなくて、だれかにやってもらおうとおもって。これ、つぎのクラスにもおいていきます。",
-              "english": "If the heat builds up, this. The fan — I've already tested it. This time, instead of running it myself, I thought I'd have someone else do it. I'm leaving it for the next class too."
+              "japanese": "後ろ、風は強すぎませんか。弱と強、両方試してあります。今日は僕は触りません。温度計が二十八度になったら『弱』。その手順ごと、次のクラスに置いていきます。",
+              "reading": "うしろ、かぜはつよすぎませんか。じゃくときょう、りょうほうためしてあります。きょうはぼくはさわりません。おんどけいがにじゅうはちどになったら『じゃく』。そのてじゅんごと、つぎのクラスにおいていきます。",
+              "english": "At the back, is the airflow too strong? I've tested both low and high. I won't touch it today. When the thermometer reaches twenty-eight, use 'low.' The fan and that procedure stay for the next class."
             },
             "n1": {
-              "japanese": "部屋がこもってきたら、これで。扇風機のほう、ちゃんと通してありますから。今回は自分で抱えるんじゃなくて、誰かに任せてみようかと。…扇風機は、次のクラスに残していきますよ。",
-              "reading": "へやがこもってきたら、これで。せんぷうきのほう、ちゃんととおしてありますから。こんかいはじぶんでかかえるんじゃなくて、だれかにまかせてみようかと。…せんぷうきは、つぎのクラスにのこしていきますよ。",
-              "english": "If the room gets stuffy, use this. The fan, I've run it through properly, so. This time, rather than carry it myself, I thought I'd hand it to someone. …I'll leave the fan for the next class."
+              "japanese": "後方、風量は強すぎませんか。弱と強、どちらも動作確認済みです。今日は僕は触りません。温度計が二十八度を示したら『弱』。その手順書ごと、次のクラスへ残します。",
+              "reading": "こうほう、ふうりょうはつよすぎませんか。じゃくときょう、どちらもどうさかくにんずみです。きょうはぼくはさわりません。おんどけいがにじゅうはちどをしめしたら『じゃく』。そのてじゅんしょごと、つぎのクラスへのこします。",
+              "english": "At the rear, is the airflow too strong? Both low and high have been tested. I will not touch it today. When the thermometer reads twenty-eight, use 'low.' The fan and its run-sheet remain for the next class."
             }
           },
           "support": {
@@ -176,14 +176,14 @@
           "attentionTarget": "the run-sheet's plain, numbered steps",
           "variants": {
             "n2": {
-              "japanese": "アンジェルが、この計画を誰が見ても分かるように直してくれたんです。だから、僕の頭の中じゃなくて、紙の上で回る。…人がいなくても動くって、たぶんそういうことで。",
-              "reading": "アンジェルが、このけいかくをだれがみてもわかるようになおしてくれたんです。だから、ぼくのあたまのなかじゃなくて、かみのうえでまわる。…ひとがいなくてもうごくって、たぶんそういうことで。",
-              "english": "Angel fixed the plan so anyone can read it. So it runs on paper now, not just inside my head. …Something running even when a person's gone — I think this is what that means."
+              "japanese": "アンジェルが、僕の矢印を番号に直してくれたんです。ショーンは質問なしで二番まで来た。これは、たぶん使える証拠です。今は、途中で手を出さないでおきます。",
+              "reading": "アンジェルが、ぼくのやじるしをばんごうになおしてくれたんです。ショーンはしつもんなしでにばんまできた。これは、たぶんつかえるしょうこです。いまは、とちゅうでてをださないでおきます。",
+              "english": "Angel changed my arrows into numbered steps. Shaun reached cue two without a question. That's probably evidence it works. For now, I won't interfere halfway through."
             },
             "n1": {
-              "japanese": "アンジェルが、この段取りを誰にでも読める形に直してくれて。おかげで、僕の頭の中じゃなく、紙の上だけで回るようになったんです。…誰かがいなくても動くっていうのは、たぶん、こういうことなんでしょうね。",
-              "reading": "アンジェルが、このだんどりをだれにでもよめるかたちになおしてくれて。おかげで、ぼくのあたまのなかじゃなく、かみのうえだけでまわるようになったんです。…だれかがいなくてもうごくっていうのは、たぶん、こういうことなんでしょうね。",
-              "english": "Angel reworked the sequence so anyone can read it. Thanks to that, it runs on the page alone now, not inside my head. …Something that keeps running when a person is gone — I suppose this is what that looks like."
+              "japanese": "アンジェルが、僕の矢印だらけの段取りを番号付きの手順に直してくれたんです。ショーンは質問せずにキュー二まで来た。これは、たぶん実用できる証拠です。今は途中で介入しないでおきます。",
+              "reading": "アンジェルが、ぼくのやじるしだらけのだんどりをばんごうつきのてじゅんになおしてくれたんです。ショーンはしつもんせずにキューにまできた。これは、たぶんじつようできるしょうこです。いまはとちゅうでかいにゅうしないでおきます。",
+              "english": "Angel turned my arrow-covered sequence into numbered steps. Shaun reached cue two without asking a question. That's probably evidence it is usable. For now, I won't intervene halfway through."
             }
           },
           "support": {
@@ -291,7 +291,7 @@
           "id": "node:rehearsal-for-leaving:rehearse-goodbye-open-chair",
           "beatId": "beat:rehearsal-for-leaving:regroup-image",
           "cueId": "cue:goodbye-rehearsal-open-chair",
-          "description": "The class runs the closing of the evening once through, the part where they thank the room and step back. Everyone has taken a seat except one; a beat after the rest, someone pulls out the open chair and turns it toward Shaun."
+          "description": "Shaun calls cue three and the transparent accounts appear one at a time. Henry stays in the back row, the equipment box under his chair. At cue four, Shaun glances once at the run-sheet, changes the reception slide, and continues without looking toward Henry."
         },
         {
           "kind": "line",
@@ -302,14 +302,14 @@
           "attentionTarget": "the run-sheet passing from his hands to the desk",
           "variants": {
             "n2": {
-              "japanese": "本番の日、僕はここにいないかもしれないので。設定は通しておいたので、当日は皆さんで進めていただけますか。何かあったら、手順書の最後に連絡先も書いておきました。",
-              "reading": "ほんばんのひ、ぼくはここにいないかもしれないので。せっていはとおしておいたので、とうじつはみなさんですすめていただけますか。なにかあったら、てじゅんしょのさいごにれんらくさきもかいておきました。",
-              "english": "On the night, I might not be here. I've run the setup through, so — could you all carry it on that day? If anything comes up, I've put a contact at the end of the run-sheet."
+              "japanese": "本番の日、僕はこの教室にはいません。今日は後ろにいるので、ショーンさん、このまま七番まで回していただけますか。読みにくい行があったら、そこで丸をつけてください。",
+              "reading": "ほんばんのひ、ぼくはこのきょうしつにはいません。きょうはうしろにいるので、ショーンさん、このままななばんまでまわしていただけますか。よみにくいぎょうがあったら、そこでまるをつけてください。",
+              "english": "On the night, I won't be in this classroom. Today I'm at the back, so Shaun, would you run through cue seven from here? If any line is hard to follow, circle it where you stop."
             },
             "n1": {
-              "japanese": "当日、僕はもうこの教室にはいない予定なので。設定はこちらで通しておきましたから、あとは皆さんで回していただけますか。何かあった場合の連絡先も、手順書の最後に載せておきました。",
-              "reading": "とうじつ、ぼくはもうこのきょうしつにはいないよていなので。せっていはこちらでとおしておきましたから、あとはみなさんでまわしていただけますか。なにかあったばあいのれんらくさきも、てじゅんしょのさいごにのせておきました。",
-              "english": "On the night, I'm not planning to be in this classroom anymore. I've run the setup through from my end, so — could you all take it from there? I've also put a contact for anything that comes up at the end of the run-sheet."
+              "japanese": "当日、僕はこの教室にはいません。今日は後方にいますから、ショーンさん、このままキュー七まで回していただけますか。読解しにくい手順があれば、その場で丸をつけてください。",
+              "reading": "とうじつ、ぼくはこのきょうしつにはいません。きょうはこうほうにいますから、ショーンさん、このままキューななまでまわしていただけますか。どっかいしにくいてじゅんがあれば、そのばでまるをつけてください。",
+              "english": "On the night, I will not be in this classroom. Today I am at the back, so Shaun, would you run through cue seven from here? If any step is difficult to interpret, circle it on the spot."
             }
           },
           "support": {
@@ -400,14 +400,14 @@
           "attentionTarget": "the run-sheet now on the desk, no longer in his hands",
           "variants": {
             "n2": {
-              "japanese": "じゃあ、これで。当日、これを回していただけますか。…ここまで来たら、もう僕がいてもいなくても同じで。ちゃんと、皆さんのものになってるので。",
-              "reading": "じゃあ、これで。とうじつ、これをまわしていただけますか。…ここまできたら、もうぼくがいてもいなくてもおなじで。ちゃんと、みなさんのものになってるので。",
-              "english": "Then — here. On the night, would you run this? …At this point it's the same whether I'm here or not. It's properly yours now."
+              "japanese": "七番まで、止まりませんでしたね。では当日も、これを回していただけますか。ここから先、僕は操作には触りません。必要なら、手順書のほうを直してください。",
+              "reading": "ななばんまで、とまりませんでしたね。ではとうじつも、これをまわしていただけますか。ここからさき、ぼくはそうさにはさわりません。ひつようなら、てじゅんしょのほうをなおしてください。",
+              "english": "You reached cue seven without stopping. Then would you run it on the night as well? From this point, I won't touch the controls. If something needs changing, revise the run-sheet."
             },
             "n1": {
-              "japanese": "では、お願いします。当日は、これを回していただけますか。…正直、ここまで来たら、僕がいてもいなくても変わらなくて。もう、皆さんの手で回るものになっているので。",
-              "reading": "では、おねがいします。とうじつは、これをまわしていただけますか。…しょうじき、ここまできたら、ぼくがいてもいなくてもかわらなくて。もう、みなさんのてでまわるものになっているので。",
-              "english": "Then — please. On the night, would you run this? …Honestly, at this point it makes no difference whether I'm here. It runs in your hands now."
+              "japanese": "キュー七まで、一度も止まりませんでしたね。では当日も、これを回していただけますか。ここから先、僕は操作には介入しません。必要があれば、手順書の側を修正してください。",
+              "reading": "キューななまで、いちどもとまりませんでしたね。ではとうじつも、これをまわしていただけますか。ここからさき、ぼくはそうさにはかいにゅうしません。ひつようがあれば、てじゅんしょのがわをしゅうせいしてください。",
+              "english": "You reached cue seven without stopping once. Then would you run it on the night as well? From this point, I will not intervene in the operation. If necessary, revise the run-sheet rather than working around it."
             }
           },
           "support": {
@@ -425,14 +425,14 @@
           "attentionTarget": "the reception sign he named",
           "variants": {
             "n2": {
-              "japanese": "はい、預かります。…その受付のところは、僕が見ておきますね。",
-              "reading": "はい、あずかります。…そのうけつけのところは、ぼくがみておきますね。",
-              "english": "Right, I'll take it. …That reception part — I'll keep an eye on it."
+              "japanese": "はい、預かります。受付の張り紙と、投影キュー七つ。次の通しは、電源を切ったところから僕が始めます。",
+              "reading": "はい、あずかります。うけつけのはりがみと、とうえいキューななつ。つぎのとおしは、でんげんをきったところからぼくがはじめます。",
+              "english": "Yes, I'll take it. The reception sign and the seven projection cues. On the next full run, I'll start from power off."
             },
             "n1": {
-              "japanese": "はい、確かに。…受付のあの辺は、僕が見ておきます。それくらいなら、ちゃんと。",
-              "reading": "はい、たしかに。…うけつけのあのへんは、ぼくがみておきます。それくらいなら、ちゃんと。",
-              "english": "Right, got it. …That corner of the reception, I'll watch. That much, at least, properly."
+              "japanese": "はい、引き受けます。受付の張り紙と、投影キュー七つ。次の通し稽古は、電源を落とした状態から僕が始めます。",
+              "reading": "はい、ひきうけます。うけつけのはりがみと、とうえいキューななつ。つぎのとおしげいこは、でんげんをおとしたじょうたいからぼくがはじめます。",
+              "english": "Yes, I'll take it. The reception sign and the seven projection cues. On the next full rehearsal, I'll begin from a powered-down state."
             }
           },
           "support": {
@@ -446,7 +446,7 @@
           "id": "node:rehearsal-for-leaving:fan-set-aside-closing",
           "beatId": "beat:rehearsal-for-leaving:exit-image",
           "cueId": "cue:setup-passed-fan-stays",
-          "description": "The run-sheet stays on the desk, the box beside it with the cable taped on and a label anyone could read. The fan sits apart, kept for the next class. Henry's hands are empty; the setup is where the class can reach it. The recorder is picked up once, held, and set down again, unexplained."
+          "description": "Shaun powers the projector down, waits for the fan to stop, then starts cue one again from a dark screen. Henry remains in the back row with empty hands. The fan's note stays clipped for the next class; the unlabelled recorder is lifted once, held, and set down again."
         }
       ],
       "exit": {

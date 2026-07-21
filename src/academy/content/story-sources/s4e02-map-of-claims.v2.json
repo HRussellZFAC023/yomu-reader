@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e02-map-of-claims",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 38,
@@ -95,7 +95,7 @@
           "id": "node:map-of-claims:table-of-sources",
           "beatId": "beat:map-of-claims:arrival-image",
           "cueId": "cue:three-sources-apart-on-the-table",
-          "description": "The library's long table is cleared to bare wood. Three things sit on it, set well apart: a single handwritten letter, the lower half of it left blank where a question went unanswered; a shallow tray of paper offcuts and ink samples lifted from the old page; a stack of the class's own notes. Sophie's colour-coded notebook is open to a fresh spread beside them."
+          "description": "The library closing bell is forty minutes away. Across the long table, Sophie's coloured tabs already make a confident-looking grid: the former learner's letter, paper and ink samples from the old page, and the class's notes. Two claims in the front row carry the same dark green, though one comes from direct testimony and the other from a mark on paper. Henry has stopped with one finger between them."
         },
         {
           "kind": "line",
@@ -106,19 +106,19 @@
           "attentionTarget": "the three sources laid out and the empty notebook spread waiting for one account",
           "variants": {
             "n3": {
-              "japanese": "材料、そろったよ。あの人の手紙と、紙そのものと、私たちのメモ。これ、今夜のうちに一つの話にまとめちゃおうと思って。もう、だいたい筋は見えてるし。",
-              "reading": "ざいりょう、そろったよ。あのひとのてがみと、かみそのものと、わたしたちのメモ。これ、こんやのうちにひとつのはなしにまとめちゃおうとおもって。もう、だいたいすじはみえてるし。",
-              "english": "We've got the pieces. Her letter, the paper itself, and our own notes. I figured we'd pull it into one story tonight. The shape's more or less there already."
+              "japanese": "閉館まで四十分。手紙、紙、私たちのメモ。今夜、この一枚までは仕上げたい。…濃い緑が『確か』。今のところ、この二枚は同じ色でいいよね。",
+              "reading": "へいかんまでよんじゅっぷん。てがみ、かみ、わたしたちのメモ。こんや、このいちまいまではしあげたい。…こいみどりが『たしか』。いまのところ、このにまいはおなじいろでいいよね。",
+              "english": "Forty minutes to closing. Letter, paper, our notes. I want this sheet finished tonight. …Dark green means 'certain.' These two can share it for now, right?"
             },
             "n2": {
-              "japanese": "材料はひと通りそろったよ。あの人からの返事と、紙そのものと、私たちのメモ。これ、今夜のうちに一本の話にまとめちゃおうかなと思って。大筋はもう見えてる気がするんだよね。",
-              "reading": "ざいりょうはひととおりそろったよ。あのひとからのへんじと、かみそのものと、わたしたちのメモ。これ、こんやのうちにいっぽんのはなしにまとめちゃおうかなとおもって。おおすじはもうみえてるきがするんだよね。",
-              "english": "We've got a full set of pieces now. Her reply, the paper itself, and our own notes. I was thinking we could pull it into one clean account tonight. The broad shape's there already, I think."
+              "japanese": "閉館まで四十分。あの人の返事、紙そのもの、私たちのメモ。今夜、この一枚だけは仕上げたいんだ。…濃い緑を『確実』にしたから、この二枚は同じ色で置けると思って。",
+              "reading": "へいかんまでよんじゅっぷん。あのひとのへんじ、かみそのもの、わたしたちのメモ。こんや、このいちまいだけはしあげたいんだ。…こいみどりを『かくじつ』にしたから、このにまいはおなじいろでおけるとおもって。",
+              "english": "Forty minutes until the library closes. Her reply, the paper itself, our notes. I want this sheet done tonight. …I set dark green to 'established,' so I thought these two could sit in the same colour."
             },
             "n1": {
-              "japanese": "材料は、ひと通りそろったよ。あの人からの返事に、紙そのもの、それに私たちのメモ。これ、今夜のうちに一本の話に落とし込めるかな、と思って。……大筋のほうは、もう見えてる気がするんだよね。",
-              "reading": "ざいりょうは、ひととおりそろったよ。あのひとからのへんじに、かみそのもの、それにわたしたちのメモ。これ、こんやのうちにいっぽんのはなしにおとしこめるかな、とおもって。……おおすじのほうは、もうみえてるきがするんだよね。",
-              "english": "The pieces are all in, more or less. Her reply, the paper itself, and our own notes. I was thinking we might get it down into one account tonight. …The broad shape of it, I feel like I can already see."
+              "japanese": "閉館まで四十分。あの人からの返書、紙そのもの、それに私たちのメモ。せめて今夜、この一枚は仕上げたいと思って。…濃い緑を『確実』にしたから、この二枚は同じ色で置けるかな、と。",
+              "reading": "へいかんまでよんじゅっぷん。あのひとからのへんしょ、かみそのもの、それにわたしたちのメモ。せめてこんや、このいちまいはしあげたいとおもって。…こいみどりを『かくじつ』にしたから、このにまいはおなじいろでおけるかな、と。",
+              "english": "Forty minutes to closing. Her reply, the paper itself, our notes. At least this sheet, tonight. …Dark green means 'established,' so I was going to give both claims the same colour."
             }
           },
           "support": {
@@ -136,14 +136,14 @@
           "attentionTarget": "the gap between what each source can actually support, and the blank half of the letter",
           "variants": {
             "n2": {
-              "japanese": "まとめる前に、一個だけ。この三つ、種類が違うんだよね。手紙は本人が言ったこと、でも一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とは書いてない。ここで著者欄を足したら、それ、こっちが作った話になる。……だから、埋めにいくんじゃなくて、どのくらい確かかを並べる形にしない?",
-              "reading": "まとめるまえに、いっこだけ。このみっつ、しゅるいがちがうんだよね。てがみはほんにんがいったこと、でもいっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはかいてない。ここでちょしゃらんをたしたら、それ、こっちがつくったはなしになる。……だから、うめにいくんじゃなくて、どのくらいたしかかをならべるかたちにしない?",
-              "english": "Before we merge it, one thing. These three are different kinds. The letter is what she said herself, but there's one spot she declined to answer. The paper only shows the marks of several classes layered on top of each other, with no line saying who. If we add an author field here, that becomes a story we made up. …So instead of going in to fill the gaps, how about a form that lines up how sure each thing is?"
+              "japanese": "待って。同じ濃い緑だと、この二枚が同じ確かさに見える。こっちは本人が書いたこと。こっちは紙の跡から読んだ推測。…見た目が整っても、そこを混ぜたら地図が間違いを作る。出どころと確かさ、別に持たせない?",
+              "reading": "まって。おなじこいみどりだと、このにまいがおなじたしかさにみえる。こっちはほんにんがかいたこと。こっちはかみのあとからよんだすいそく。…みためがととのっても、そこをまぜたらちずがまちがいをつくる。でどころとたしかさ、べつにもたせない?",
+              "english": "Wait. Same dark green makes these two look equally certain. This one is what the person wrote. This one is an inference from marks on the paper. …A tidy grid can still manufacture a mistake. Can source and certainty have separate labels?"
             },
             "n1": {
-              "japanese": "まとめにかかる前に、一点だけ。この三つ、そもそも種類が違うんだよ。手紙は本人が言ったこと。ただ、一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とはどこにも書いてない。ここで著者欄をこしらえたら……それ、結局こっちが作った話になっちゃう。だから、空欄を埋めにいくんじゃなくて、どこまで確かかを並べておく形にしないかな。……たぶん、そのほうが後で困らないと思う。",
-              "reading": "まとめにかかるまえに、いってんだけ。このみっつ、そもそもしゅるいがちがうんだよ。てがみはほんにんがいったこと。ただ、いっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはどこにもかいてない。ここでちょしゃらんをこしらえたら……それ、けっきょくこっちがつくったはなしになっちゃう。だから、くうらんをうめにいくんじゃなくて、どこまでたしかかをならべておくかたちにしないかな。……たぶん、そのほうがあとでこまらないとおもう。",
-              "english": "Before we start merging, just one point. These three are different kinds to begin with. The letter is what she said herself. Except there's one spot she declined to answer. The paper only has the marks of several classes layered on top, and nowhere does it say who. If we go and build an author field here… that ends up a story we made. So rather than fill the blank in, how about we lay out how far each thing holds. …It saves us trouble later, probably."
+              "japanese": "待ってください。同じ濃い緑だと、この二枚が同じ強度の証拠に見える。片方はご本人の記述、もう片方は紙の痕跡から導いた推測です。…整った図ほど、混同すると厄介で。出どころと確度を、別の軸で持たせませんか。",
+              "reading": "まってください。おなじこいみどりだと、このにまいがおなじきょうどのしょうこにみえる。かたほうはごほんにんのきじゅつ、もうかたほうはかみのこんせきからみちびいたすいそくです。…ととのったずほど、こんどうするとやっかいで。でどころとかくどを、べつのじくでもたせませんか。",
+              "english": "Wait. Same dark green makes these look like evidence of equal strength. One is the contributor's own statement; the other is inferred from marks on the paper. …The tidier the diagram, the worse that mix-up becomes. Can source and confidence run on separate axes?"
             }
           },
           "support": {
@@ -161,19 +161,19 @@
           "attentionTarget": "her coloured pens, now standing in for degrees of certainty rather than topics",
           "variants": {
             "n3": {
-              "japanese": "……そうか。うん、一本にしなくていいんだ。じゃあ、地図にしよう。一つひとつの主張に、『どこから来たか』と『どのくらい確かか』を付ける。手紙で本人が言い切ったところは濃い色、紙から推せるだけのところは薄い色。ここなんかは、『そうらしい』までかな。色が、確かさそのものになる。",
-              "reading": "……そうか。うん、いっぽんにしなくていいんだ。じゃあ、ちずにしよう。ひとつひとつのしゅちょうに、『どこからきたか』と『どのくらいたしかか』をつける。てがみでほんにんがいいきったところはこいいろ、かみからおせるだけのところはうすいいろ。ここなんかは、『そうらしい』までかな。いろが、たしかさそのものになる。",
-              "english": "…Right. Yeah, we don't have to make it one account. Then let's make it a map. Every claim gets a 'where it came from' and a 'how sure.' Where she says it outright in the letter, a dark colour; where the paper only lets us guess, a pale one. This one here only goes as far as 'apparently,' I'd say. Colour becomes the certainty itself."
+              "japanese": "……そうか。じゃあ、色の濃さは確かさだけに使おう。出どころは、下に一行ずつ書く。手紙で本人が言ったものは濃く、紙が示すだけなら薄く。…この札は、『そうらしい』の色。これなら、同じ緑でも同じ証拠には見えない。",
+              "reading": "……そうか。じゃあ、いろのこさはたしかさだけにつかおう。でどころは、したにいちぎょうずつかく。てがみでほんにんがいったものはこく、かみがしめすだけならうすく。…このふだは、『そうらしい』のいろ。これなら、おなじみどりでもおなじしょうこにはみえない。",
+              "english": "…Right. Then shade carries confidence only, and each source gets a line underneath. Dark for what the letter states; pale for what the paper merely suggests. …This tab is the colour of 'apparently.' Now two greens won't pretend to be the same evidence."
             },
             "n2": {
-              "japanese": "……なるほど。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておく。手紙で本人がはっきり言い切ったところは濃い色。紙から推せるだけのところは薄い色。ここなんかは、正直、『そうらしい』までかな。色そのものが、確かさの目盛りになる。",
-              "reading": "……なるほど。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておく。てがみでほんにんがはっきりいいきったところはこいいろ。かみからおせるだけのところはうすいいろ。ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、たしかさのめもりになる。",
-              "english": "…I see. Yeah, we don't have to force it into one account. Then let's just make it a map. On every claim we stick a 'where the story came from' and a 'how far it holds.' Where she says it flat out in the letter, a dark colour. Where the paper only lets us infer, a pale one. This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty."
+              "japanese": "……なるほど。なら、色の濃さは確度だけに使おう。出どころは、各札の下に一行ずつ。手紙に明記されたものは濃く、紙から推測したものは薄く。…この札は、『そうらしい』までの色。これなら、見た目に判断を任せずに済む。",
+              "reading": "……なるほど。なら、いろのこさはかくどだけにつかおう。でどころは、かくふだのしたにいちぎょうずつ。てがみにめいきされたものはこく、かみからすいそくしたものはうすく。…このふだは、『そうらしい』までのいろ。これなら、みためにはんだんをまかせずにすむ。",
+              "english": "…Right. Shade will carry confidence only. Each tab gets a source line underneath. Dark for what the letter states, pale for what the paper supports only as inference. …This one gets the colour of 'apparently.' Then the design can't make the judgment for us."
             },
             "n1": {
-              "japanese": "……なるほどね。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておくの。手紙で本人がはっきり言い切ったところは、濃い色で。紙から推せるだけのところは、薄い色で。……ここなんかは、正直、『そうらしい』までかな。色そのものが、そのまま確かさの目盛りになる。",
-              "reading": "……なるほどね。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておくの。てがみでほんにんがはっきりいいきったところは、こいいろで。かみからおせるだけのところは、うすいいろで。……ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、そのままたしかさのめもりになる。",
-              "english": "…I see. Yeah, no need to force it into one account. Then let's just make it a map. On each single claim we pin a 'where the story came from' and a 'how far it holds.' Where she says it outright in the letter, in a dark colour. Where the paper only lets us infer, in a pale one. …This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty, just like that."
+              "japanese": "……なるほどね。では、色の濃淡は確度だけに使おう。出どころは、札の下に一行ずつ明記する。返書で明言されたものは濃く、紙から推定するほかないものは淡く。…この札は、『そうらしい』までの色。これなら、図の整い方に判断を預けずに済む。",
+              "reading": "……なるほどね。では、いろののうたんはかくどだけにつかおう。でどころは、ふだのしたにいちぎょうずつめいきする。へんしょでめいげんされたものはこく、かみからすいていするほかないものはあわく。…このふだは、『そうらしい』までのいろ。これなら、ずのととのいかたにはんだんをあずけずにすむ。",
+              "english": "…I see. Then shade carries confidence only; the source is written under every tab. Dark for what the reply states, pale for what the paper permits us to infer. …This tab goes only as far as 'apparently.' The diagram no longer gets to make the judgment for us."
             }
           },
           "support": {
@@ -223,18 +223,18 @@
           "id": "line:map-of-claims:henry-structure-holds",
           "beatId": "beat:map-of-claims:changed-image",
           "speakerId": "henry",
-          "intent": "Confirm the structure holds each claim at its own level and mark his own changed behavior: he no longer fills a gap he finds, and he trusts a map that says out loud where it is not certain.",
-          "attentionTarget": "the blank cell that has stayed blank on purpose",
+          "intent": "Check that each colour matches its source status, then catch his old impulse to add a pale tab merely to make the grid look complete.",
+          "attentionTarget": "the uncoloured cell and the legend entry that explains it",
           "variants": {
             "n2": {
-              "japanese": "うん、これでいい。埋まってないところが、ちゃんと埋まってないまま見える。前の俺なら、こういう穴を見つけると、とりあえず何か足したくなってたけど……この地図は、確かじゃないところを、自分から『ここは確かじゃない』って言ってくれる。取り繕うより、そのほうがずっと信用できるよ。",
-              "reading": "うん、これでいい。うまってないところが、ちゃんとうまってないままみえる。まえのおれなら、こういうあなをみつけると、とりあえずなにかたしたくなってたけど……このちずは、たしかじゃないところを、じぶんから『ここはたしかじゃない』っていってくれる。とりつくろうより、そのほうがずっとしんようできるよ。",
-              "english": "Yeah, this is right. Where it isn't filled, you can see it isn't filled. The old me, when I found a hole like this, would want to add something to it… but this map says it for you: 'this part isn't certain.' I trust that more than papering it over."
+              "japanese": "うん、色と出どころがちゃんと合ってる。ここが無色なのも、凡例の『資料なし』を見れば迷わない。前の俺なら、見栄えをそろえたくて薄い色を置いたかもしれないけど、それじゃ推測が一件増えるだけだ。……このままでいこう。",
+              "reading": "うん、いろとでどころがちゃんとあってる。ここがむしょくなのも、はんれいの『しりょうなし』をみればまよわない。まえのおれなら、みばえをそろえたくてうすいいろをおいたかもしれないけど、それじゃすいそくがいっけんふえるだけだ。……このままでいこう。",
+              "english": "Yeah, the colours match their sources. No one will misread this uncoloured cell once they see 'no source found' in the legend. The old me might have added a pale tab just to make the grid look even, but that only creates one more guess. …Keep it as it is."
             },
             "n1": {
-              "japanese": "うん、これでいいと思う。埋まっていないところが、埋まっていないまま、ちゃんと見える。……前の俺なら、こういう穴を見つけたら、とりあえず何か足して塞ごうとしてたんだよな。でもこの地図は、確かじゃない箇所を、自分から『ここは確かじゃない』って言ってくれる。下手に取り繕うより、そのほうがずっと信用できるよ。",
-              "reading": "うん、これでいいとおもう。うまっていないところが、うまっていないまま、ちゃんとみえる。……まえのおれなら、こういうあなをみつけたら、とりあえずなにかたしてふさごうとしてたんだよな。でもこのちずは、たしかじゃないかしょを、じぶんから『ここはたしかじゃない』っていってくれる。へたにとりつくろうより、そのほうがずっとしんようできるよ。",
-              "english": "Yeah, I think this is right. Where it isn't filled, it stays unfilled, and you can see it plainly. …The old me, if I found a hole like this, would just add something to plug it. But this map says it for you: 'this part isn't certain.' I trust that a lot more than a clumsy cover-up."
+              "japanese": "うん、色と出どころがきちんと対応してる。ここが無着色なのも、凡例の『該当資料なし』まで見れば迷わない。前の俺なら、見栄えをそろえるために淡い色を置いたかもしれない。でも、それでは推測を一件増やすだけだ。……このままでいこう。",
+              "reading": "うん、いろとでどころがきちんとたいおうしてる。ここがむちゃくしょくなのも、はんれいの『がいとうしりょうなし』までみればまよわない。まえのおれなら、みばえをそろえるためにあわいいろをおいたかもしれない。でも、それではすいそくをいっけんふやすだけだ。……このままでいこう。",
+              "english": "Yeah, each colour corresponds properly to its source. No one will misread the uncoloured cell once they reach 'no corresponding source' in the legend. The old me might have added a pale colour for visual balance. But that would only add one more inference. …Keep it as it is."
             }
           },
           "support": {
@@ -262,8 +262,8 @@
       "locationId": "location:library",
       "timeState": "evening",
       "weatherState": "summer-evening",
-      "goal": "Let the map's most rigorous move be a visible blank, and decide how it holds a claim the former learner declined to answer without either inventing it or erasing that she declined.",
-      "dramaticQuestion": "Is the strongest mark on a record the one that is filled in, or the one honestly left open?",
+      "goal": "Finish the legend before closing time and decide how it distinguishes a claim unsupported by any source from a question the former learner expressly declined.",
+      "dramaticQuestion": "Will the map keep 'no source found' and 'the source declined' visibly distinct when the venue asks for one clean answer?",
       "learnerNeed": "A stance on holding a claim the record cannot support and a person chose not to answer, keeping both facts visible.",
       "curriculum": {
         "sectionId": "hold-the-unsupported-claim",
@@ -276,7 +276,7 @@
           "id": "node:map-of-claims:blank-labelled",
           "beatId": "beat:map-of-claims:regroup-image",
           "cueId": "cue:one-cell-labelled-we-dont-know",
-          "description": "The map is nearly full. In the middle, one cell stays deliberately empty except for three words written across it: we don't know this yet. Nothing around it has been stretched to reach over it. Sophie's notebook lies open beside the sheet, the old two-column page showing through under the new grid."
+          "description": "The map is nearly full. In the middle, one uncoloured cell carries a source line instead of a claim: absent from every record checked. Sophie's old two-column notebook is wedged under the ruler, keeping the new grid from curling."
         },
         {
           "kind": "line",
@@ -287,19 +287,19 @@
           "attentionTarget": "the empty cell that reads 'we don't know this yet,' and the notebook it grew out of",
           "variants": {
             "n3": {
-              "japanese": "見て、ここ。『まだ分からない』って書いてある空欄。これ、この地図でいちばん強いマスだと思う。昔の私だったら、絶対ここも何かで埋めてた。全部埋まってないと落ち着かなくて。……でも今は、空けたままにしておけるほうが、ずっといい仕事だって分かる。あのノート、覚えてる? 数字を場面ごと書いてたやつ。あれが、こういう形になったんだね。",
-              "reading": "みて、ここ。『まだわからない』ってかいてあるくうらん。これ、このちずでいちばんつよいマスだとおもう。むかしのわたしだったら、ぜったいここもなにかでうめてた。ぜんぶうまってないとおちつかなくて。……でもいまは、あけたままにしておけるほうが、ずっといいしごとだってわかる。あのノート、おぼえてる? すうじをばめんごとかいてたやつ。あれが、こういうかたちになったんだね。",
-              "english": "Look, here. The empty cell that says 'still don't know.' I think it's the strongest cell on the map. The old me would definitely have filled this in with something too. I couldn't settle unless everything was full. …But now I get that leaving it open is the better piece of work. Remember that notebook? The one where we wrote each number with its situation. This is what it turned into."
+              "japanese": "見て、ここ。まだ色をつけてない。前の私なら、空いているのが嫌で、何か書いて埋めてたと思う。でも、調べた資料のどこにもないなら、『まだ分からない』のままでいい。……あの数字のノートと同じだね。数字だけじゃなく、どこで数えたかを書く。今度は、空白にも理由を書く。",
+              "reading": "みて、ここ。まだいろをつけてない。まえのわたしなら、あいているのがいやで、なにかかいてうめてたとおもう。でも、しらべたしりょうのどこにもないなら、『まだわからない』のままでいい。……あのすうじのノートとおなじだね。すうじだけじゃなく、どこでかぞえたかをかく。こんどは、くうはくにもりゆうをかく。",
+              "english": "Look here. I haven't coloured it in. The old me would have hated the empty cell and written something just to fill it. But if it appears nowhere in the records we checked, it can stay 'still unknown.' …It's the same as the number notebook: not just the number, but where we counted it. This time, even the blank gets a reason."
             },
             "n2": {
-              "japanese": "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。全部埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、こういう地図になったんだ。",
-              "reading": "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、こういうちずになったんだ。",
-              "english": "Look, here. The empty cell that we went to the trouble of writing 'still don't know' across. I think this might be the strongest cell on the map. The old me would surely have filled this in with something too. I just couldn't settle unless it was all full. But now I see that leaving it open, marked 'don't know,' is far more use. …Remember that notebook? Where we wrote each number with which situation we counted it in. That's what became this map."
+              "japanese": "見て、ここ。色はない。でも、この空白には理由がある。前の私なら、全部のマスを埋めようとしてた。今は、確認した資料のどこにもないなら、『まだ分からない』を残せる。……あの数字のノートの続きだね。数字だけでなく、どの場面で数えたかを書く。今度は、色を置かない理由まで書く。",
+              "reading": "みて、ここ。いろはない。でも、このくうはくにはりゆうがある。まえのわたしなら、ぜんぶのマスをうめようとしてた。いまは、かくにんしたしりょうのどこにもないなら、『まだわからない』をのこせる。……あのすうじのノートのつづきだね。すうじだけでなく、どのばめんでかぞえたかをかく。こんどは、いろをおかないりゆうまでかく。",
+              "english": "Look here. There is no colour, but the blank has a reason. The old me would have tried to fill every cell. Now, if it appears nowhere in the records we checked, I can leave 'still unknown' in place. …It's the next page of the number notebook: not just the number, but where we counted it. This time we also write why no colour belongs there."
             },
             "n1": {
-              "japanese": "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。……これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。ぜんぶ埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、めぐりめぐって、こういう地図になったんだね。",
-              "reading": "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。……これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、めぐりめぐって、こういうちずになったんだね。",
-              "english": "Look, here. The empty cell that we went out of our way to write 'still don't know' across. …I think this might just be the strongest cell on the map. The old me would surely have filled it in with something. I couldn't settle at all unless every last thing was full. But now I understand that leaving it open, marked 'don't know,' is by far the better work. …Remember that notebook? The one where we wrote each number along with which situation we'd counted it in. That, going all the way round, became this map."
+              "japanese": "見て、ここ。無着色だけど、理由のある空白。以前の私なら、全欄を埋めることを正確さだと思ってた。今は、照合した資料のどこにも見当たらないなら、『現時点では不明』をそのまま残せる。……あの数字のノートの続きだね。数字だけでなく、どの場面で数えたかを併記した。今度は、色を置かない根拠まで記す。",
+              "reading": "みて、ここ。むちゃくしょくだけど、りゆうのあるくうはく。いぜんのわたしなら、ぜんらんをうめることをせいかくさだとおもってた。いまは、しょうごうしたしりょうのどこにもみあたらないなら、『げんじてんではふめい』をそのままのこせる。……あのすうじのノートのつづきだね。すうじだけでなく、どのばめんでかぞえたかをへいきした。こんどは、いろをおかないこんきょまでしるす。",
+              "english": "Look here. It is uncoloured, but the blank has a reason. I used to think accuracy meant filling every field. Now, if something appears nowhere in the records we cross-checked, I can leave 'unknown at present' exactly as it is. …It's the next page of the number notebook: not only the number, but where it was counted. This time we record the grounds for leaving the colour out."
             }
           },
           "support": {
@@ -385,14 +385,14 @@
           "attentionTarget": "the letter and the physical page side by side, and the line the map draws between what can and cannot be said",
           "variants": {
             "n2": {
-              "japanese": "うん。……こうして並べると、はっきりするね。手紙によると、で言えるのはここまで。紙が示してるのは、何クラスも重ねてきた、ということだけ。誰が最初か、までは、どっちの材料も言ってない。だから地図には、こう書いておく。『ここまでは言える。これ以上は、まだ言えない』。……アトラスを閉じるときも、たぶん、このやり方でいいんだよね。",
-              "reading": "うん。……こうしてならべると、はっきりするね。てがみによると、でいえるのはここまで。かみがしめしてるのは、なんクラスもかさねてきた、ということだけ。だれがさいしょか、までは、どっちのざいりょうもいってない。だからちずには、こうかいておく。『ここまではいえる。これいじょうは、まだいえない』。……アトラスをとじるときも、たぶん、このやりかたでいいんだよね。",
-              "english": "Yeah. …Laid out like this, it gets clear. According to the letter, we can say this much and no more. What the paper shows is only that several classes layered onto it. Who was first — neither source says. So on the map we write this: 'this far we can say; beyond this, not yet.' …When we close the atlas too, this is probably the way to do it."
+              "japanese": "うん。手紙が言うのはここ。紙が示すのはここ。『最初の一人』は、どちらにもない。……よし。会場から何を頼まれても、返事を書く前に、この凡例を先に見る。",
+              "reading": "うん。てがみがいうのはここ。かみがしめすのはここ。『さいしょのひとり』は、どちらにもない。……よし。かいじょうからなにをたのまれても、へんじをかくまえに、このはんれいをさきにみる。",
+              "english": "Right. The letter gets us here. The paper gets us here. 'The first single person' appears in neither. …Good. Whatever the venue asks for, we read this legend before we write back."
             },
             "n1": {
-              "japanese": "うん。……こうして横に並べてみると、かえってはっきりするね。手紙によると、で言い切れるのは、ここまで。紙のほうが示しているのは、いくつものクラスが上から重ねてきた、という一点だけ。どちらの材料も、『誰が最初に始めたか』までは、何も言ってない。だからこの地図には、こう書いておくの。『ここまでは言える。これ以上は、まだ言えない』って。……いつかアトラスを閉じるときも、きっと、このやり方でいいんだと思う。",
-              "reading": "うん。……こうしてよこにならべてみると、かえってはっきりするね。てがみによると、でいいきれるのは、ここまで。かみのほうがしめしているのは、いくつものクラスがうえからかさねてきた、といういってんだけ。どちらのざいりょうも、『だれがさいしょにはじめたか』までは、なにもいってない。だからこのちずには、こうかいておくの。『ここまではいえる。これいじょうは、まだいえない』って。……いつかアトラスをとじるときも、きっと、このやりかたでいいんだとおもう。",
-              "english": "Yeah. …Set side by side like this, it actually gets clearer. According to the letter, what we can state outright reaches this far. What the paper shows is the one point that several classes layered on top of it. Neither source says a thing about who started it first. So on the map we write this: 'this far we can say; beyond this, not yet.' …Whenever we come to close the atlas, this is surely the way to do it."
+              "japanese": "うん。手紙が証言しているのはここ。紙面から読み取れるのはここ。『最初の一人』は、どちらにも存在しない。……よし。会場からどんな注文が来ても、返事より先に、この凡例を通す。",
+              "reading": "うん。てがみがしょうげんしているのはここ。しめんからよみとれるのはここ。『さいしょのひとり』は、どちらにもそんざいしない。……よし。かいじょうからどんなちゅうもんがきても、へんじよりさきに、このはんれいをとおす。",
+              "english": "Right. The letter testifies to this. The paper lets us infer this. 'The first single person' exists in neither. …Good. Whatever the venue orders, it goes through this legend before we answer."
             }
           },
           "support": {
@@ -406,7 +406,7 @@
           "id": "node:map-of-claims:map-left-on-the-table",
           "beatId": "beat:map-of-claims:exit-image",
           "cueId": "cue:finished-map-blank-cell-intact",
-          "description": "The finished map lies flat under the reading lamp, colour standing for how sure and where-from, one cell a labelled blank. Henry's laptop shows the same grid, the empty cell empty on screen too. Sophie caps her darkest pen without reaching for the blank, and closes the number notebook over the new page."
+          "description": "The closing bell sounds. Under the reading lamp, every claim now carries two separate marks: a source line and a confidence shade. Henry's screen matches the paper grid exactly. As Sophie caps her darkest pen, the library printer wakes and produces the venue's final-panel request: one founder, one clean ending. She lays it face-down on the finished legend for tomorrow."
         }
       ],
       "exit": {

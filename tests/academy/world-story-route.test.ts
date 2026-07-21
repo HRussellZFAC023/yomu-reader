@@ -19,7 +19,11 @@ describe('World Story route', () => {
         const flow = createWorldFlow({
             evidence: { recordEncounter } as never,
             pronunciation: {} as never,
-            audio: {} as never,
+            audio: {
+                state: 'ready',
+                settings: { muted: true, volumes: { music: 1, ambience: 1, lesson: 1, sfx: 1 } },
+                onEvent: () => () => undefined,
+            } as never,
         });
 
         await flow.render('story', {

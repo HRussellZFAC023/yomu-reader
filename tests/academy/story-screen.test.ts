@@ -1,3 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+    createStoryVoicePlayback,
+    parseStoryVoicePlaybackCatalog,
+    type StoryVoiceMedia,
+} from '../../src/academy/audio/voice-lines';
 import {
     STORY_OPENING_ARC_ID,
     loadStoryRuntime,
@@ -216,6 +223,64 @@ describe('Academy Story screen', () => {
         expect(screen.querySelector('.academy-vn-stage')).not.toBeNull();
     });
 
+    it('reaches a shipped exact pilot through the real StoryScreen and replays it', async () => {
+        const catalog = parseStoryVoicePlaybackCatalog(JSON.parse(readFileSync(resolve(
+            import.meta.dirname,
+            '../../public/academy/audio/story-voice-playback.json',
+        ), 'utf8')));
+        const pilot = catalog.entries.find(entry => entry.lineId === 'line:margin-map:henry-presents')!;
+        const media: StoryScreenVoiceMedia[] = [];
+        const releases: ReturnType<typeof vi.fn>[] = [];
+        const director = {
+            state: 'ready' as const,
+            settings: {
+                muted: false,
+                volumes: { music: 0.7, ambience: 0.6, lesson: 0.65, sfx: 0.8 },
+            },
+            beginExternalLesson: vi.fn(() => {
+                const release = vi.fn();
+                releases.push(release);
+                return release;
+            }),
+            onEvent: vi.fn(() => () => undefined),
+        };
+        const createVoicePlayback = vi.fn(() => createStoryVoicePlayback({
+            director,
+            catalog,
+            createMedia: url => {
+                const element = new StoryScreenVoiceMedia(url);
+                media.push(element);
+                return element;
+            },
+        }));
+        const { screen } = render('s1e02-margin-map', { selectedBand: 'n5', createVoicePlayback });
+        const stage = screen.querySelector<HTMLElement>('.academy-story-vn-stage')!;
+
+        expect(createVoicePlayback).toHaveBeenCalledOnce();
+        expect(stage.dataset.voiceAvailable).toBe('false');
+        stage.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        advance(screen);
+        await vi.waitFor(() => expect(media).toHaveLength(1));
+
+        expect(stage.querySelector<HTMLElement>('.academy-vn-dialogue')?.dataset.line).toBe(pilot.lineId);
+        expect(media[0]?.url).toBe(pilot.url);
+        expect(media[0]?.play).toHaveBeenCalledOnce();
+        expect(stage.dataset.voiceAvailable).toBe('true');
+        expect(stage.dataset.voiceStatus).toBe('playing');
+
+        media[0]?.emit('ended');
+        expect(releases[0]).toHaveBeenCalledOnce();
+        stage.querySelector<HTMLButtonElement>('.academy-vn-voice-replay')?.click();
+        await vi.waitFor(() => expect(media).toHaveLength(2));
+        expect(media[1]?.url).toBe(pilot.url);
+        expect(media[1]?.play).toHaveBeenCalledOnce();
+
+        screen.querySelector<HTMLElement>('.academy-story-authored-arc')
+            ?.dispatchEvent(new Event('academy:dispose'));
+        expect(media[1]?.pause).toHaveBeenCalledOnce();
+        expect(releases[1]).toHaveBeenCalledOnce();
+    });
+
     it('continues from Season 2 into the fully authored N3 season', async () => {
         const finale = render('s1e24-lanterns-return');
         await finishAuthoredArc(finale.screen);
@@ -335,4 +400,30 @@ function storyWithLearnerLine(): StoryRuntime {
         openingArc: arc as StoryRuntime['openingArc'],
         playableArc: episodeId => episodeId === arc.episodeId ? arc : story.playableArc(episodeId),
     };
+}
+
+class StoryScreenVoiceMedia implements StoryVoiceMedia {
+    preload = '';
+    volume = 1;
+    currentTime = 0;
+    readonly play = vi.fn(async () => undefined);
+    readonly pause = vi.fn();
+    private readonly listeners = new Map<'ended' | 'error', Set<EventListener>>();
+
+    constructor(readonly url: string) {}
+
+    addEventListener(type: 'ended' | 'error', listener: EventListener): void {
+        const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+        listeners.add(listener);
+        this.listeners.set(type, listeners);
+    }
+
+    removeEventListener(type: 'ended' | 'error', listener: EventListener): void {
+        this.listeners.get(type)?.delete(listener);
+    }
+
+    emit(type: 'ended' | 'error'): void {
+        const event = new Event(type);
+        for (const listener of this.listeners.get(type) ?? []) listener(event);
+    }
 }

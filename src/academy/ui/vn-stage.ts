@@ -1,5 +1,6 @@
 import { resolveDirectorSfxCue, type AcademySemanticSfxCue } from '../audio/sfx-catalog';
 import type { AudioDirectorControl, SfxCue } from '../audio/types';
+import type { StoryVoiceLine, StoryVoicePlayback } from '../audio/voice-lines';
 import { createVnPerformanceEngine } from '../vn/performance-engine';
 import { setAcademyReadingSurface } from '../integration/reader-markup';
 import type { VnPerformanceFrame } from '../vn/performance-contract';
@@ -46,6 +47,8 @@ export interface AcademyVnLine {
     readonly translationEarned?: boolean;
     readonly emphasis?: 'jump';
     readonly sfx?: readonly AcademySemanticSfxCue[];
+    /** Present only for authored story dialogue eligible for exact static voice matching. */
+    readonly voice?: Readonly<Pick<StoryVoiceLine, 'band' | 'sourceSha256'>>;
 }
 export interface AcademyVnSlotContent {
     readonly element: HTMLElement;
@@ -58,6 +61,8 @@ export interface AcademyVnStageOptions {
     readonly onBack?: () => void;
     /** SFX remains silent until this stage has observed a learner gesture. */
     readonly audio?: Pick<AudioDirectorControl, 'playSfx'>;
+    /** A stage-owned, catalog-backed static story voice player. */
+    readonly voice?: StoryVoicePlayback;
     readonly reducedMotion?: boolean;
 }
 export interface AcademyVnBackControl {
@@ -132,6 +137,12 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     readingToggle.type = 'button';
     readingToggle.className = 'academy-vn-reading-toggle';
     readingToggle.disabled = true;
+    const voiceReplay = document.createElement('button');
+    voiceReplay.type = 'button';
+    voiceReplay.className = 'academy-vn-log-button academy-vn-voice-replay';
+    voiceReplay.textContent = '\u25b6';
+    voiceReplay.disabled = true;
+    setToolLabel(voiceReplay, options.uiLanguage === 'ja' ? '音声をもう一度聞く' : 'Replay voice line');
     const logButton = document.createElement('button');
     logButton.type = 'button';
     logButton.className = 'academy-vn-log-button';
@@ -179,7 +190,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     back.hidden = !backControl;
     const actionSlot = node('div', 'academy-vn-action-slot');
     actionSlot.dataset.empty = 'true';
-    lineTools.append(logButton, readingToggle, translationToggle);
+    lineTools.append(logButton, voiceReplay, readingToggle, translationToggle);
     dialogueHeader.append(speakerTab, lineTools);
     lineBody.append(japanese);
     navigation.append(back, actionSlot);
@@ -201,6 +212,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     let textRevealTimer: number | undefined;
     let activeTextRevealLineId: string | undefined;
     let activeTextRevealToken = 0;
+    let voiceLineToken = 0;
     const readingSurfaces = new Map<HTMLElement, string>();
     const history: AcademyVnLine[] = [];
     const inertSnapshots = new Map<HTMLElement, InertSnapshot>();
@@ -225,6 +237,10 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     const renderHistory = (): void => {
         logEntries.replaceChildren(...history.map(line => historyEntry(line, readingVisible, translationVisible)));
     };
+    const releaseVoiceStatus = options.voice?.onStatus(snapshot => {
+        root.dataset.voiceStatus = snapshot.status;
+        voiceReplay.dataset.voiceStatus = snapshot.status;
+    });
     const syncToolAvailability = (): void => {
         logButton.disabled = history.length === 0;
         const transcriptMode = !logPanel.hidden;
@@ -239,6 +255,10 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     const markUserInteraction = (): void => { hasUserInteraction = true; };
     root.addEventListener('pointerdown', markUserInteraction, { capture: true, signal: lifecycle.signal });
     root.addEventListener('keydown', markUserInteraction, { capture: true, signal: lifecycle.signal });
+    voiceReplay.addEventListener('click', () => {
+        hasUserInteraction = true;
+        if (!voiceReplay.disabled) void options.voice?.play();
+    }, { signal: lifecycle.signal });
     back.addEventListener('click', () => backControl?.onBack(), { signal: lifecycle.signal });
     lineBody.addEventListener('click', event => {
         if (japanese.dataset.performanceText !== 'revealing') return;
@@ -508,6 +528,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         const changesLine = currentLine?.id !== line?.id;
         const advancesLine = Boolean(currentLine && line && changesLine);
         currentLine = line;
+        syncVoiceLine(line);
         dialogue.hidden = !line;
         if (!line) {
             delete dialogue.dataset.line;
@@ -543,6 +564,28 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         performBeat(changesLine
             ? [...(advancesLine ? ['vn.advance' as const] : []), ...(line.sfx ?? [])]
             : []);
+    };
+
+    const syncVoiceLine = (line: AcademyVnLine | null): void => {
+        const token = ++voiceLineToken;
+        voiceReplay.disabled = true;
+        root.dataset.voiceAvailable = 'false';
+        const voiceLine = line?.voice && line.speakerId
+            ? {
+                lineId: line.id,
+                speakerId: line.speakerId,
+                japanese: line.japanese,
+                ...(line.voice.band ? { band: line.voice.band } : {}),
+                ...(line.voice.sourceSha256 ? { sourceSha256: line.voice.sourceSha256 } : {}),
+            }
+            : null;
+        if (!options.voice) return;
+        void options.voice.setLine(voiceLine).then(available => {
+            if (disposed || token !== voiceLineToken) return;
+            voiceReplay.disabled = !available;
+            root.dataset.voiceAvailable = String(available);
+            if (available && hasUserInteraction) void options.voice?.play();
+        });
     };
 
     const performBeat = (automaticSfx: readonly AcademySemanticSfxCue[] = []): void => {
@@ -659,10 +702,16 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     const dispose = (): void => {
         if (disposed) return;
         disposed = true;
+        voiceLineToken += 1;
         clearTextRevealTimer();
         activeTextRevealLineId = undefined;
         lifecycle.abort();
-        const disposers = [objectMount?.content.dispose, actionMount?.content.dispose];
+        const disposers = [
+            objectMount?.content.dispose,
+            actionMount?.content.dispose,
+            () => options.voice?.dispose(),
+            releaseVoiceStatus,
+        ];
         objectMount = null;
         actionMount = null;
         sprites.clear();

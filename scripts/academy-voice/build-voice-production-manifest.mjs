@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,7 +47,20 @@ const manifest = {
 };
 
 writeFileSync(join(docsRoot, 'voice-production-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(JSON.stringify(manifest.counts));
+const playbackCatalog = {
+    schema: 'yomu-academy.story-voice-playback.v1',
+    entries: story
+        .filter(entry => (
+            entry.status === 'locked'
+            && entry.pitch?.status === 'pilot-rendered'
+            && entry.pilotOutput
+            && entry.speakerId !== 'learner'
+            && entry.speakerId !== 'narrator'
+        ))
+        .map(entry => playbackEntry(entry)),
+};
+writeFileSync(join(audioRoot, 'story-voice-playback.json'), `${JSON.stringify(playbackCatalog, null, 2)}\n`);
+console.log(JSON.stringify({ ...manifest.counts, playablePilots: playbackCatalog.entries.length }));
 
 function storyEntries(file, source) {
     return source.scenes.flatMap(scene => scene.nodes.flatMap(node => {
@@ -104,6 +117,23 @@ function pilotPath(chapterId, lineId, speakerId) {
     const stem = `${chapterId}__${lineId.split(':').at(-1)}__${speakerId ?? 'narrator'}.opus`;
     const relative = `story-pilot/${stem}`;
     return existsSync(join(audioRoot, relative)) ? `/academy/audio/${relative}` : undefined;
+}
+
+function playbackEntry(entry) {
+    const publicRelative = entry.pilotOutput.replace(/^\//, '');
+    const assetPath = join(root, 'public', publicRelative);
+    const asset = readFileSync(assetPath);
+    return {
+        lineId: entry.lineId,
+        speakerId: entry.speakerId,
+        japanese: entry.japanese,
+        band: entry.band,
+        sourceSha256: entry.sourceSha256,
+        assetSha256: createHash('sha256').update(asset).digest('hex'),
+        bytes: statSync(assetPath).size,
+        url: entry.pilotOutput,
+        reviewStatus: 'locked',
+    };
 }
 
 function readJson(path) {

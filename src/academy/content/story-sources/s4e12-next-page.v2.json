@@ -9,7 +9,7 @@
     "en": "The Next Page",
     "ja": "次のページ"
   },
-  "synopsis": "The atlas is closed. On the last evening the class leaves one blank page for whoever comes next, under the terms it agreed: one bounded contribution each if they want it, and no one assigned to fill the rest. Jenny drapes a finished scarf over a chair she leaves empty on purpose; Peter says an open question can be an ending. The learner writes or records one thing — thanks, a piece of advice, a question, or a small mark — and the page stays open, unlit, and valid. Someone else locks up while Rie, for once, drinks her tea before it cools.",
+  "synopsis": "The atlas is latched shut and the projection cable coiled. On the last evening, a separate unwired sheet waits under four tone cards: thanks, advice, question, or mark. Rie puts the red pen away; Jenny tests her finished scarf on a chair she leaves for the next arrival; Peter folds his still-unsubmitted December exam form back into his bag without pretending he has decided. The learner writes or records one bounded contribution, Shaun locks up from Henry's run-sheet, and Rie drinks her tea while it is still warm.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -101,7 +101,7 @@
       "locationId": "location:classroom",
       "timeState": "evening",
       "weatherState": "summer-evening",
-      "goal": "Turn from the closed atlas to the one blank page the class will leave, and state the terms under which it stays open.",
+      "goal": "Turn from the latched atlas to a separate graduation sheet, and make its optional one-contribution terms concrete before anyone writes.",
       "dramaticQuestion": "Now that the atlas is closed, what does the class leave for whoever comes next, and on whose terms?",
       "learnerNeed": "A stance on how to approach writing a bounded final page when every tone is accepted and no one is assigned to fill it.",
       "curriculum": {
@@ -115,30 +115,30 @@
           "id": "node:next-page:last-evening",
           "beatId": "beat:next-page:arrival-image",
           "cueId": "cue:closed-atlas-blank-page-and-tea",
-          "description": "The classroom on the last evening, chairs pushed into a loose ring. On the wall the atlas holds a steady, ordinary light, every route settled. On Rie's desk lies one blank page, and at her elbow a fresh cup of tea, a thin line of steam still coming off it. Nobody is standing at the front."
+          "description": "The classroom door opens onto a loose ring of chairs. The atlas is shut in its case on the back table; beside it, Shaun has coiled the projection cable next to Henry's seven-cue run-sheet. A separate sheet in the middle is held against the summer breeze by four cards: THANKS, ADVICE, QUESTION, MARK. Someone has placed a red pen beside Rie's fresh tea. She picks up the pen first and looks around."
         },
         {
           "kind": "line",
           "id": "line:next-page:rie-states-the-terms",
           "beatId": "beat:next-page:human-want",
           "speakerId": "rie",
-          "intent": "Name graduation plainly — not a test, not a closing speech — and set the terms: each person may leave one thing on the page if they want, then it stays open for the next class, with no one obliged to fill it.",
-          "attentionTarget": "the single blank page and the closed atlas behind it",
+          "intent": "Put away the marking pen, identify the four usable tones, and set the bounded permission plainly: leave one thing if wanted, or pass the pen on.",
+          "attentionTarget": "the red pen, the four cards, and the separate sheet",
           "variants": {
             "n3": {
-              "japanese": "はい、地図はこれで閉じました。で、卒業なんですけど、テストじゃないんです。この一枚に、書きたい人が、書きたいことをひとつ置いていくだけ。残りは次のクラスのために、開けたままにしておきます。埋めなきゃいけない人はいませんよ。",
-              "reading": "はい、ちずはこれでとじました。で、そつぎょうなんですけど、テストじゃないんです。このいちまいに、かきたいひとが、かきたいことをひとつおいていくだけ。のこりはつぎのクラスのために、あけたままにしておきます。うめなきゃいけないひとはいませんよ。",
-              "english": "Right, the map's closed now. So — graduation. It isn't a test. On this one page, whoever wants to just leaves one thing they want to leave. The rest we keep open, for the next class. Nobody has to fill it."
+              "japanese": "この赤ペンを置いたの、誰ですか。卒業の最後まで添削させるつもりですか。……しまいますよ。札は四つ。お礼、助言、質問、絵や音。使いたい札を一つ選んで、何か一つだけ残してください。書かない人は、ペンを次へ渡せば大丈夫です。この紙は次のクラスに渡します。でも、同じことをする決まりにはしません。",
+              "reading": "このあかペンをおいたの、だれですか。そつぎょうのさいごまでてんさくさせるつもりですか。……しまいますよ。ふだはよっつ。おれい、じょげん、しつもん、えやおと。つかいたいふだをひとつえらんで、なにかひとつだけのこしてください。かかないひとは、ペンをつぎへわたせばだいじょうぶです。このかみはつぎのクラスにわたします。でも、おなじことをするきまりにはしません。",
+              "english": "Who put this red pen here? Are you planning to make me correct things right through graduation? …I'm putting it away. Four cards: thanks, advice, question, picture or sound. Choose one card you want to use and leave just one thing. If you don't want to write, passing the pen on is fine. This sheet will go to the next class, but it will not become a rule that they must do the same."
             },
             "n2": {
-              "japanese": "はい、これで地図は閉じました。……で、卒業なんですけど、テストでも、締めくくりのスピーチでもないんですよ。この一枚に、書きたい人が、書きたいことをひとつだけ置いていく。それだけ。あとは次のクラスのために、開けたまま置いておきます。埋めなきゃいけない人は、いません。",
-              "reading": "はい、これでちずはとじました。……で、そつぎょうなんですけど、テストでも、しめくくりのスピーチでもないんですよ。このいちまいに、かきたいひとが、かきたいことをひとつだけおいていく。それだけ。あとはつぎのクラスのために、あけたままおいておきます。うめなきゃいけないひとは、いません。",
-              "english": "Right — the map's closed now. …So, graduation. It isn't a test, and it isn't a closing speech either. On this one page, whoever wants to leaves just one thing they want to leave. That's all. And the rest we keep open, for the next class. Nobody's obliged to fill it."
+              "japanese": "この赤ペンを置いたの、誰ですか。卒業の最後まで添削させるつもり？　……しまいますよ。札は四つです。お礼、助言、質問、絵や音。使いたい札を一つ選んで、何か一つだけ残してください。書かないなら、ペンを次へ渡す。それで大丈夫です。この紙は次のクラスに渡しますが、同じことを続ける決まりにはしません。",
+              "reading": "このあかペンをおいたの、だれですか。そつぎょうのさいごまでてんさくさせるつもり？　……しまいますよ。ふだはよっつです。おれい、じょげん、しつもん、えやおと。つかいたいふだをひとつえらんで、なにかひとつだけのこしてください。かかないなら、ペンをつぎへわたす。それでだいじょうぶです。このかみはつぎのクラスにわたしますが、おなじことをつづけるきまりにはしません。",
+              "english": "Who put this red pen here? Were you planning to make me correct things right through graduation? …I'm putting it away. There are four cards: thanks, advice, question, picture or sound. Choose one you want to use and leave just one thing. If you don't want to write, pass the pen on. That's fine. This sheet will go to the next class, but it will not become a rule that they continue the same practice."
             },
             "n1": {
-              "japanese": "はい、地図はこれで閉じました。……で、卒業なんですけどね、別に試験でもなければ、立派な締めの言葉でもなくて。このたった一枚に、書きたい方が、書きたいことをひとつだけ置いていく——ええ、それだけのことなんです。あとは次のクラスのために、開けたまま残しておく。誰かが埋めなきゃいけない、なんてことは、ひとつもありませんから。",
-              "reading": "はい、ちずはこれでとじました。……で、そつぎょうなんですけどね、べつにしけんでもなければ、りっぱなしめのことばでもなくて。このたったいちまいに、かきたいかたが、かきたいことをひとつだけおいていく——ええ、それだけのことなんです。あとはつぎのクラスのために、あけたままのこしておく。だれかがうめなきゃいけない、なんてことは、ひとつもありませんから。",
-              "english": "Yes — the map is closed now. …So, graduation. It's not an exam, and it's not some grand closing speech either. On this one page, anyone who'd like to leaves just one thing they want to leave — yes, that's all it is. The rest we leave open, for the next class. There's no such thing here as someone being obliged to fill it."
+              "japanese": "この赤ペンを置いたのは、どなたですか。卒業の最後まで添削させるおつもりで？　……これは、しまいますよ。札は四つ。お礼、助言、質問、それから絵や音。使いたいものを一つ選んで、何か一つだけ残してください。書かない方は、ペンを次へ渡す。それも、きちんと一つの選択です。この紙自体は次のクラスへ渡しますが、同じ形式を引き継ぐ義務までは残しません。",
+              "reading": "このあかペンをおいたのは、どなたですか。そつぎょうのさいごまでてんさくさせるおつもりで？　……これは、しまいますよ。ふだはよっつ。おれい、じょげん、しつもん、それからえやおと。つかいたいものをひとつえらんで、なにかひとつだけのこしてください。かかないかたは、ペンをつぎへわたす。それも、きちんとひとつのせんたくです。このかみじたいはつぎのクラスへわたしますが、おなじけいしきをひきつぐぎむまではのこしません。",
+              "english": "Who put this red pen here? Were you intending to make me correct things right through graduation? …This is going away. Four cards: thanks, advice, question, and picture or sound. Choose one you want to use and leave just one thing. If you don't want to write, pass the pen on. That, too, is a complete choice. The sheet itself will go to the next class, but we will leave them no obligation to inherit the same format."
             }
           },
           "support": {
@@ -152,23 +152,23 @@
           "id": "line:next-page:jenny-leaves-the-chair",
           "beatId": "beat:next-page:obstruction",
           "speakerId": "jenny",
-          "intent": "Drape the just-finished scarf over one chair and leave the chair empty on purpose, naming that leaving a place open is a whole choice, not a gap, with a plan held lightly.",
+          "intent": "Test the just-finished scarf against a chair, decide to leave both for the next arrival, and make the handoff practical rather than ceremonial.",
           "attentionTarget": "the empty chair and the finished scarf she sets over it",
           "variants": {
             "n3": {
-              "japanese": "……これ、やっと編み終わった。誰の、ってわけじゃないよ。ここ、掛けとくね。椅子は空けたまま。埋めなくていい席も、あっていいと思うんだ。いつか誰か座ったらいいな、くらいで。",
-              "reading": "……これ、やっとあみおわった。だれの、ってわけじゃないよ。ここ、かけとくね。いすはあけたまま。うめなくていいせきも、あっていいとおもうんだ。いつかだれかすわったらいいな、くらいで。",
-              "english": "…This, I finally finished knitting it. Not that it's for anyone. I'll hang it here. The chair stays empty. A seat you don't have to fill is fine to have too, I think. If someone sits there someday, that'd be nice — about that much."
+              "japanese": "そこ、座る前にちょっと待って。やっと編み終わったから、背もたれに掛けても床につかないか見たいの。……うん、大丈夫。これはここに置いていくね。次に来た人が寒かったら使えるし。椅子も一つ、その人に残しておこう。",
+              "reading": "そこ、すわるまえにちょっとまって。やっとあみおわったから、せもたれにかけてもゆかにつかないかみたいの。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむかったらつかえるし。いすもひとつ、そのひとにのこしておこう。",
+              "english": "Wait a second before you sit there. I finally finished it, and I want to see if it clears the floor when I hang it over the back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave them one chair too."
             },
             "n2": {
-              "japanese": "……これ、やっと編み終わったんだ。誰の、とかじゃなくて。ここ、掛けとくね。椅子は、空けたまま。……埋めなくていい席って、あっていいと思うんだよね。いつか誰か座ったら、いいなあ、くらいで。",
-              "reading": "……これ、やっとあみおわったんだ。だれの、とかじゃなくて。ここ、かけとくね。いすは、あけたまま。……うめなくていいせきって、あっていいとおもうんだよね。いつかだれかすわったら、いいなあ、くらいで。",
-              "english": "…This — I finally finished it. Not for anyone in particular. I'll just drape it here. The chair stays empty. …A seat you don't have to fill — I think it's fine for one of those to exist. If someone sits there someday, that'd be nice. About that much."
+              "japanese": "そこ、座る前にちょっと待って。やっと編み終わったから、背もたれに掛けても端が床につかないか見たいんだ。……うん、大丈夫。これはここに置いていくね。次に来た人が寒かったら使えばいいし。椅子も一つ、その人に残しておこう。",
+              "reading": "そこ、すわるまえにちょっとまって。やっとあみおわったから、せもたれにかけてもはしがゆかにつかないかみたいんだ。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむかったらつかえばいいし。いすもひとつ、そのひとにのこしておこう。",
+              "english": "Wait a second before you sit there. I finally finished it, and I want to see whether the end clears the floor over the chair back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave them one chair too."
             },
             "n1": {
-              "japanese": "……これ、ようやく編み上がってさ。誰にあげる、とかでもないんだけど。ここに、掛けとくね。椅子はこのまま、空けておく。……無理に埋めなくていい席って、ひとつくらいあってもいいでしょ。いつか、誰かがふらっと座ってくれたらいいな——まあ、それくらいの気持ちで。",
-              "reading": "……これ、ようやくあみあがってさ。だれにあげる、とかでもないんだけど。ここに、かけとくね。いすはこのまま、あけておく。……むりにうめなくていいせきって、ひとつくらいあってもいいでしょ。いつか、だれかがふらっとすわってくれたらいいな——まあ、それくらいのきもちで。",
-              "english": "…This, I finally got it finished. Not that it's for anyone to have. I'll drape it here. The chair I'll leave as is — empty. …A seat nobody has to fill, there ought to be at least one of those. If someone drifts in and sits there someday, that'd be nice — well, about that much feeling behind it."
+              "japanese": "そこ、座る前にちょっと待って。ようやく編み上がったから、背もたれに掛けても端が床につかないか、見ておきたいんだ。……うん、大丈夫。これはここに置いていくね。次に来た人が寒ければ使えばいいし。椅子も一つ、その人のために残しておこう。",
+              "reading": "そこ、すわるまえにちょっとまって。ようやくあみあがったから、せもたれにかけてもはしがゆかにつかないか、みておきたいんだ。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむければつかえばいいし。いすもひとつ、そのひとのためにのこしておこう。",
+              "english": "Wait a second before you sit there. I finally finished it, and I want to make sure the end clears the floor over the chair back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave one chair for them as well."
             }
           },
           "support": {
@@ -182,23 +182,23 @@
           "id": "line:next-page:peter-open-question",
           "beatId": "beat:next-page:attempt",
           "speakerId": "peter",
-          "intent": "From the overlooked seat, reframe the page: you can leave a question instead of an answer and still finish, and model his own undecided December exam as exactly that kind of open ending.",
-          "attentionTarget": "the blank page and the chair Jenny left empty",
+          "intent": "Show his still-unsubmitted December exam form, distinguish indecision from a false claim of action, and choose to take the live question home with him.",
+          "attentionTarget": "the unsubmitted exam form he unfolds and folds again",
           "variants": {
             "n3": {
-              "japanese": "いい席ですね、それ。……僕、前から思ってたんです。最後に答えを置いていかなきゃいけない、ってわけじゃないでしょう。問いをひとつ、開けたまま残す。それでも、ちゃんと終われるんですよ。僕も、十二月の試験を受けるか、まだ決めてなくて。決めないまま、置いていきます。……それで、いいと思う。",
-              "reading": "いいせきですね、それ。……ぼく、まえからおもってたんです。さいごにこたえをおいていかなきゃいけない、ってわけじゃないでしょう。といをひとつ、あけたままのこす。それでも、ちゃんとおわれるんですよ。ぼくも、じゅうにがつのしけんをうけるか、まだきめてなくて。きめないまま、おいていきます。……それで、いいとおもう。",
-              "english": "That's a good seat, that. …I've thought so for a while. It's not that you have to leave an answer at the end. Leave one question, open. You can still finish properly. I haven't decided whether I'll sit the December exam either. I'll leave it undecided. …And I think that's fine."
+              "japanese": "……僕の十二月の試験の申込書、まだここが白いんです。締切の日も書いてある。受けるかは、まだ決めてません。でも、『出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰ります。",
+              "reading": "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだここがしろいんです。しめきりのひもかいてある。うけるかは、まだきめてません。でも、『だした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえります。",
+              "english": "…My application for the December exam is still blank here. The deadline's written on it too. I haven't decided whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back in my bag and coming home with me."
             },
             "n2": {
-              "japanese": "いい席ですね、それ。……僕、前から思ってたんですけどね。最後に必ず答えを置いていく、ってものでもないでしょう。問いをひとつ、開けたまま残していく。それでも、ちゃんと終われるんですよ。僕自身、十二月の試験を受けるかどうか、まだ決めてなくて。決めないまま、置いていきます。……それで、悪くない。",
-              "reading": "いいせきですね、それ。……ぼく、まえからおもってたんですけどね。さいごにかならずこたえをおいていく、ってものでもないでしょう。といをひとつ、あけたままのこしていく。それでも、ちゃんとおわれるんですよ。ぼくじしん、じゅうにがつのしけんをうけるかどうか、まだきめてなくて。きめないまま、おいていきます。……それで、わるくない。",
-              "english": "That's a good seat, that one. …I've thought this for a while, you know. It's not as though you must leave an answer at the end. Leave one question, open. You can still finish properly. Myself, I haven't decided whether I'll sit the December exam. I'll leave it undecided. …And that's not bad."
+              "japanese": "……僕の十二月の試験の申込書、まだこの欄が白いんです。締切の日も、ちゃんと書いてある。受けるかどうかは、まだ決めてません。でも、『提出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰りますよ。",
+              "reading": "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだこのらんがしろいんです。しめきりのひも、ちゃんとかいてある。うけるかどうかは、まだきめてません。でも、『ていしゅつした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえりますよ。",
+              "english": "…This field on my application for the December exam is still blank. The deadline is properly written there too. I haven't decided whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back in my bag and coming home with me."
             },
             "n1": {
-              "japanese": "いい席じゃないですか、それ。……前々から思っていたんですがね。終わりに、必ずしも答えを置いていく必要はないでしょう。問いをひとつ、開けたまま残していく——それで、ちゃんと終われるものなんですよ。現に僕も、十二月の試験を受けるかどうか、いまだに決めかねていましてね。決めないまま、ここに置いていくつもりです。……ええ、それで、案外わるくない。",
-              "reading": "いいせきじゃないですか、それ。……まえまえからおもっていたんですがね。おわりに、かならずしもこたえをおいていくひつようはないでしょう。といをひとつ、あけたままのこしていく——それで、ちゃんとおわれるものなんですよ。げんにぼくも、じゅうにがつのしけんをうけるかどうか、いまだにきめかねていましてね。きめないまま、ここにおいていくつもりです。……ええ、それで、あんがいわるくない。",
-              "english": "That's rather a good seat, isn't it. …I've thought so for a long while, you know. At the end, you don't necessarily have to leave an answer behind. Leave one question, open — and you can still finish, properly. As it happens, I still can't decide whether I'll sit the December exam myself. I mean to leave it undecided, right here. …Yes, and it's surprisingly not bad that way."
+              "japanese": "……僕の十二月の試験の申込書、まだこの欄が白いんですよ。締切の日付だけは、きちんと印刷してある。受けるかどうかは、いまだ決めかねています。ただ、『提出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰ります。",
+              "reading": "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだこのらんがしろいんですよ。しめきりのひづけだけは、きちんといんさつしてある。うけるかどうかは、いまだきめかねています。ただ、『ていしゅつした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえります。",
+              "english": "…This field on my application for the December exam is still blank. Only the deadline has been neatly printed. I still can't decide whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back into my bag and coming home with me."
             }
           },
           "support": {
@@ -248,30 +248,30 @@
           "kind": "checkpoint",
           "id": "checkpoint:next-page:before-response",
           "beatId": "beat:next-page:response",
-          "resume": "The learner has chosen how to approach the page. Rie answers with the one thing she wants them to hear before they write."
+          "resume": "The learner has chosen how to approach the sheet. Rie notices everyone looking toward the drawer where she put the red pen."
         },
         {
           "kind": "line",
           "id": "line:next-page:rie-no-wrong-page",
           "beatId": "beat:next-page:repair",
           "speakerId": "rie",
-          "intent": "Give the one usable reassurance before explanation: whatever tone they pick the page is accepted, there is no best answer, and she is deliberately not drawing a hanamaru because this page is not graded.",
-          "attentionTarget": "the learner and the blank page, and the pen she is not marking",
+          "intent": "Make non-grading visible by keeping the red pen in the drawer, accept writing, drawing, or sound, and use Robert's dishes for a small practical warning.",
+          "attentionTarget": "the closed pen drawer, the recorder, and Robert's dishes",
           "variants": {
             "n3": {
-              "japanese": "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、ひとことでも、問いでも、音でも——どれを置いても、ちゃんと受け取ります。花丸は、今日はなし。点をつける紙じゃないからね。",
-              "reading": "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、ひとことでも、といでも、おとでも——どれをおいても、ちゃんとうけとります。はなまるは、きょうはなし。てんをつけるかみじゃないからね。",
-              "english": "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word, a question, a sound — whichever you leave, we take it, properly. No hanamaru today. It's not a page you put a mark on."
+              "japanese": "赤ペンなら、もう引き出しの中ですよ。読み上げないし、直しません。書いても、描いても、音にしてもいいです。ただ、音を選ぶなら、ロバートのお皿の近くで急に歌わないでね。先にびっくりするから。",
+              "reading": "あかペンなら、もうひきだしのなかですよ。よみあげないし、なおしません。かいても、えがいても、おとにしてもいいです。ただ、おとをえらぶなら、ロバートのおさらのちかくできゅうにうたわないでね。さきにびっくりするから。",
+              "english": "The red pen is already in the drawer. I won't read anything aloud or correct it. You can write, draw, or make it sound. Just, if you choose sound, don't suddenly sing next to Robert's dishes. They'll be startled first."
             },
             "n2": {
-              "japanese": "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いても、この授業はちゃんと受け取ります。花丸は、今日はつけません。点数をつける紙じゃ、ないので。",
-              "reading": "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいても、このじゅぎょうはちゃんとうけとります。はなまるは、きょうはつけません。てんすうをつけるかみじゃ、ないので。",
-              "english": "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this class takes it, properly. No hanamaru today. This isn't a page you put a score on."
+              "japanese": "赤ペンなら、もう引き出しの中ですよ。読み上げないし、直しません。書いても、描いても、音にしてもいい。ただ、音を選ぶなら、ロバートのお皿のそばで急に歌わないでね。お皿が先にびっくりしますから。",
+              "reading": "あかペンなら、もうひきだしのなかですよ。よみあげないし、なおしません。かいても、えがいても、おとにしてもいい。ただ、おとをえらぶなら、ロバートのおさらのそばできゅうにうたわないでね。おさらがさきにびっくりしますから。",
+              "english": "The red pen is already in the drawer. I won't read anything aloud or correct it. You can write, draw, or make it sound. Just, if you choose sound, don't suddenly sing beside Robert's dishes. The dishes will be startled first."
             },
             "n1": {
-              "japanese": "ええ、どちらでも構いませんよ。……ひとつだけ、先に言っておきますね。ここに『正解』は、ないんです。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いてくださっても、この教室はちゃんと受け取ります。花丸は、今日はなし。点をつけるための紙じゃ、ありませんから。",
-              "reading": "ええ、どちらでもかまいませんよ。……ひとつだけ、さきにいっておきますね。ここに『せいかい』は、ないんです。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいてくださっても、このきょうしつはちゃんとうけとります。はなまるは、きょうはなし。てんをつけるためのかみじゃ、ありませんから。",
-              "english": "Yes, either way is fine. …Just one thing, before you start. There is no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this room takes it, properly. No hanamaru today. This isn't a page for putting a mark on."
+              "japanese": "赤ペンなら、もう引き出しの中ですよ。読み上げもしませんし、直しもしません。書いても、描いても、音にしても構わない。ただ、音を選ぶなら、ロバートのお皿のそばで突然歌わないでくださいね。お皿のほうが先に驚きますから。",
+              "reading": "あかペンなら、もうひきだしのなかですよ。よみあげもしませんし、なおしもしません。かいても、えがいても、おとにしてもかまわない。ただ、おとをえらぶなら、ロバートのおさらのそばでとつぜんうたわないでくださいね。おさらのほうがさきにおどろきますから。",
+              "english": "The red pen is already in the drawer. I won't read anything aloud or correct it. You may write, draw, or make it sound. But if you choose sound, please don't suddenly sing beside Robert's dishes. The dishes will be startled first."
             }
           },
           "support": {
@@ -285,7 +285,7 @@
           "id": "node:next-page:page-to-the-middle",
           "beatId": "beat:next-page:exit-image",
           "cueId": "cue:page-moved-into-the-ring",
-          "description": "The blank page moves to the middle of the loose ring of chairs. Rie's tea sits at her elbow, still full, still steaming — she hasn't touched it, already turning to hand someone a pen."
+          "description": "Jenny moves the sheet and its four cards into the middle of the ring, then takes the blue pen around herself. Before Rie can follow, Jenny nudges the steaming cup into the hand Rie has left empty. Rie catches it with both hands and stays in her chair."
         }
       ],
       "exit": {
@@ -299,8 +299,8 @@
       "locationId": "location:classroom",
       "timeState": "evening",
       "weatherState": "summer-evening",
-      "goal": "Let the learner leave one bounded contribution in a chosen tone, and let the class close the room around it — the page left open, unlit, and valid.",
-      "dramaticQuestion": "With every tone accepted, what does the learner choose to leave, and does the page need to light to count?",
+      "goal": "Let the learner leave one bounded contribution in a chosen tone, establish the sheet's ordinary unwired state, and complete the room-closing handoff from Henry to Shaun.",
+      "dramaticQuestion": "What does the learner choose to leave, and will Rie actually stay seated while Shaun performs the last cue?",
       "learnerNeed": "An integrated N1 production: author one bounded final contribution in a chosen tone under the class's permission terms.",
       "curriculum": {
         "sectionId": "leave-one-bounded-contribution",
@@ -313,30 +313,30 @@
           "id": "node:next-page:room-finishing",
           "beatId": "beat:next-page:regroup-image",
           "cueId": "cue:controlled-montage-around-the-page",
-          "description": "The page waits in the middle. Around it the room is quietly finishing, nobody waiting for a speech: Robert sets the last table with one seat and one dish left unchosen on purpose. Felix crouches by the window and tags one small living detail with a question mark. Stasi lays down a small, vivid drawing that leaves space at its edge. Jodi props a card with two captions for one place and crosses out neither. The rest of it goes into the journal, not onto the floor."
+          "description": "The sheet makes one slow circuit. Robert tapes 'ask before choosing the dish' beside a one-place setting. Felix notes the time beside a small shape at the window and adds a question mark instead of a species name. Stasi draws the red pen disappearing into Rie's drawer. Jodi props the same station photograph between two captions and keeps both. Shaun checks the door key against cue seven on Henry's run-sheet. The other farewells go into the journal, not into speeches."
         },
         {
           "kind": "line",
           "id": "line:next-page:rie-hands-the-pen",
           "beatId": "beat:next-page:production-want",
           "speakerId": "rie",
-          "intent": "Hand the pen to the learner, name that the page will not light — the responsiveness was only people matching each other, now closed — and that it does not need to, then offer the four tones.",
-          "attentionTarget": "the pen going into the learner's hand, and the page that will not glow",
+          "intent": "Set the blue pen and recorder within reach, point to the coiled projection cable as physical proof that the sheet is unwired, and return the learner to one chosen card.",
+          "attentionTarget": "the blue pen, the recorder, and the coiled projection cable",
           "variants": {
             "n3": {
-              "japanese": "はい、どうぞ。……この一枚は、光らないよ。前は、みんなの声がそろうと道が点いたでしょ。あれ、機械でも魔法でもなくて、人が合わせてただけ。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなのを、ひとつだけ。",
-              "reading": "はい、どうぞ。……このいちまいは、ひからないよ。まえは、みんなのこえがそろうとみちがついたでしょ。あれ、きかいでもまほうでもなくて、ひとがあわせてただけ。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなのを、ひとつだけ。",
-              "english": "Here, go ahead. …This page won't light. Before, when everyone's voices lined up, the route came on, right. That was never a machine or magic — just people matching. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+              "japanese": "青いペンはここ。音なら、この録音機を使ってください。この紙は投影機につながっていません。コードは後ろの箱です。もし光ったら、ショーンに言ってね。配線トラブルです。……光りませんよ。選んだ札から、一つだけどうぞ。",
+              "reading": "あおいペンはここ。おとなら、このろくおんきをつかってください。このかみはとうえいきにつながっていません。コードはうしろのはこです。もしひかったら、ショーンにいってね。はいせんトラブルです。……ひかりませんよ。えらんだふだから、ひとつだけどうぞ。",
+              "english": "The blue pen is here. For sound, use this recorder. This sheet isn't connected to the projector; the cable is in the box at the back. If it lights, tell Shaun. We have a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             },
             "n2": {
-              "japanese": "はい、どうぞ。……この一枚は、光りません。前は、みんなの声がそろうと道が点いたでしょう。あれ、機械でも魔法でもなくて、人が合わせてただけなんです。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ。",
-              "reading": "はい、どうぞ。……このいちまいは、ひかりません。まえは、みんなのこえがそろうとみちがついたでしょう。あれ、きかいでもまほうでもなくて、ひとがあわせてただけなんです。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ。",
-              "english": "Here — go ahead. …This page won't light. Before, when everyone's voices lined up, the route would come on, remember. That was never a machine or magic — it was just people matching each other. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+              "japanese": "青いペンはここ。音なら、この録音機を使ってください。この紙は投影機につながっていません。コードは後ろの箱に入っています。もし光ったら、ショーンに言ってね。配線トラブルですから。……光りません。選んだ札から、一つだけどうぞ。",
+              "reading": "あおいペンはここ。おとなら、このろくおんきをつかってください。このかみはとうえいきにつながっていません。コードはうしろのはこにはいっています。もしひかったら、ショーンにいってね。はいせんトラブルですから。……ひかりません。えらんだふだから、ひとつだけどうぞ。",
+              "english": "The blue pen is here. For sound, use this recorder. This sheet isn't connected to the projector; the cable is in the box at the back. If it lights, tell Shaun. It would be a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             },
             "n1": {
-              "japanese": "はい、どうぞ。……この一枚はね、光りませんよ。前は、みんなの声がそろった瞬間に道が点いた——でも、あれは機械でも魔法でもなくて、人が息を合わせていた、それだけのことだったんです。その息の合わせ方も、もう閉じました。だから、この紙は点かない。点かなくて、いいんですよ。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ、置いていってください。",
-              "reading": "はい、どうぞ。……このいちまいはね、ひかりませんよ。まえは、みんなのこえがそろったしゅんかんにみちがついた——でも、あれはきかいでもまほうでもなくて、ひとがいきをあわせていた、それだけのことだったんです。そのいきのあわせかたも、もうとじました。だから、このかみはつかない。つかなくて、いいんですよ。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ、おいていってください。",
-              "english": "Here — go ahead. …This page, you see, won't light. Before, the moment everyone's voices lined up, the route would come on — but that was never a machine or magic, it was people matching their breath, only that. And that matching, too, is closed now. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, leave just one."
+              "japanese": "青いペンはこちら。音を選んだ方は、この録音機を使ってください。この紙は投影機につながっていませんし、コードは後ろの箱に収まっています。万が一光ったら、ショーンに知らせてください。配線トラブルです。……光りませんよ。選んだ札から、一つだけどうぞ。",
+              "reading": "あおいペンはこちら。おとをえらんだかたは、このろくおんきをつかってください。このかみはとうえいきにつながっていませんし、コードはうしろのはこにおさまっています。まんがいちひかったら、ショーンにしらせてください。はいせんトラブルです。……ひかりませんよ。えらんだふだから、ひとつだけどうぞ。",
+              "english": "The blue pen is here. If you chose sound, use this recorder. This sheet isn't connected to the projector, and the cable is packed in the box at the back. In the unlikely event it lights, notify Shaun. We have a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             }
           },
           "support": {
@@ -445,30 +445,30 @@
           "kind": "checkpoint",
           "id": "checkpoint:next-page:after-page",
           "beatId": "beat:next-page:production-response",
-          "resume": "The one thing is on the page. The class does not read it aloud or grade it. Rie sees it set down and lets the room close around it."
+          "resume": "The one thing is on the sheet. Rie accepts it without opening the red-pen drawer, then looks to Shaun and the seventh cue."
         },
         {
           "kind": "line",
           "id": "line:next-page:rie-lets-the-room-close",
           "beatId": "beat:next-page:transform",
           "speakerId": "rie",
-          "intent": "Accept the page without reading or grading it, and — for once — let someone else lock up, naming plainly that she is sitting down while another person closes the room.",
-          "attentionTarget": "the page set down, and the still-warm cup in her own hand",
+          "intent": "Accept the contribution without reading or correcting it, ask Shaun to perform the final lock-up cue, and choose the still-steaming tea as her own last action.",
+          "attentionTarget": "the contribution, Shaun's run-sheet, and the cup in her hands",
           "variants": {
             "n3": {
-              "japanese": "……うん、それでいい。読み上げもしないし、点もつけません。置いてくれたら、それでこの授業はおしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
-              "reading": "……うん、それでいい。よみあげもしないし、てんもつけません。おいてくれたら、それでこのじゅぎょうはおしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
-              "english": "…Yeah, that's good. I won't read it out, and I won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+              "japanese": "……受け取りました。読み上げないし、直しません。これで卒業です。ショーン、七番の戸締まり、お願いしてもいい？　私はこのお茶を飲みます。今日はまだ、湯気があるので。",
+              "reading": "……うけとりました。よみあげないし、なおしません。これでそつぎょうです。ショーン、ななばんのとじまり、おねがいしてもいい？　わたしはこのおちゃをのみます。きょうはまだ、ゆげがあるので。",
+              "english": "…Received. I won't read it aloud or correct it. That's graduation. Shaun, could you take cue seven, the lock-up? I'm going to drink this tea. Today it still has steam."
             },
             "n2": {
-              "japanese": "……うん、それでいい。読み上げも、しません。点もつけない。置いてくれたら、それでこの授業は、おしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
-              "reading": "……うん、それでいい。よみあげも、しません。てんもつけない。おいてくれたら、それでこのじゅぎょうは、おしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
-              "english": "…Yeah, that's good. I won't read it out, either. Won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+              "japanese": "……受け取りました。読み上げないし、直しません。これで卒業です。ショーン、七番の戸締まり、お願いしてもいい？　私はこのお茶を飲みます。今日はまだ、湯気が残っているので。",
+              "reading": "……うけとりました。よみあげないし、なおしません。これでそつぎょうです。ショーン、ななばんのとじまり、おねがいしてもいい？　わたしはこのおちゃをのみます。きょうはまだ、ゆげがのこっているので。",
+              "english": "…Received. I won't read it aloud or correct it. That's graduation. Shaun, could you take cue seven, the lock-up? I'm going to drink this tea. Today it still has steam."
             },
             "n1": {
-              "japanese": "……ええ、それでいいんです。読み上げたりは、しません。点もつけない。ひとつ置いてくださったら、それでこの授業は、おしまい。……戸締まりも、今日はほかの方がやってくれていてね。めずらしく、私、こうして座っているんですよ。",
-              "reading": "……ええ、それでいいんです。よみあげたりは、しません。てんもつけない。ひとつおいてくださったら、それでこのじゅぎょうは、おしまい。……とじまりも、きょうはほかのかたがやってくれていてね。めずらしく、わたし、こうしてすわっているんですよ。",
-              "english": "…Yes, that's just fine. I won't read it out. Won't put a mark on it. Once you've left one thing, that's this class, over. …The locking-up, too — someone else has it tonight. For once, I'm sitting here like this."
+              "japanese": "……確かに、受け取りました。読み上げもしませんし、直しもしません。これで卒業です。ショーン、七番の戸締まりをお願いしてもいいですか。私は、このお茶を飲みます。今日はまだ、湯気が残っていますから。",
+              "reading": "……たしかに、うけとりました。よみあげもしませんし、なおしもしません。これでそつぎょうです。ショーン、ななばんのとじまりをおねがいしてもいいですか。わたしは、このおちゃをのみます。きょうはまだ、ゆげがのこっていますから。",
+              "english": "…I have received it, properly. I won't read it aloud or correct it. That's graduation. Shaun, may I ask you to take cue seven, the lock-up? I am going to drink this tea. Today, it still has steam."
             }
           },
           "support": {
@@ -482,7 +482,7 @@
           "id": "node:next-page:room-closes",
           "beatId": "beat:next-page:exit-image",
           "cueId": "cue:someone-else-locks-up-rie-drinks",
-          "description": "At the door, someone else works the latch and the lights, unhurried. Rie lifts the cup at her elbow and drinks — the tea is still warm. The page sits in the middle of the ring, one thing on it, the rest open. Jenny's scarf stays over the empty chair. On the wall the closed atlas holds its steady, ordinary light. Nothing needs to come on."
+          "description": "Shaun reads cue seven once, checks the windows, turns off the projector-cart switch that is already dark, and works the door latch. At its click Rie starts to rise, then settles back and drinks. The tea is still warm. Jenny's scarf clears the floor on the chair kept for the next arrival; Peter's form is back in his bag. The atlas case stays latched. On the separate sheet, the learner's one contribution remains exactly as they left it."
         }
       ],
       "exit": {
@@ -499,7 +499,7 @@
         "rie",
         "learner"
       ],
-      "meaningNow": "A blank page is offered under the class's permission terms with no person assigned to occupy it, and Jenny's deliberately-empty chair makes the same shape concrete: a place kept open is a complete choice, not a gap to fill.",
+      "meaningNow": "Jenny tests the finished scarf against a chair, confirms that it clears the floor, and leaves both for the next person who arrives; hospitality is handed forward through a usable object and a real seat rather than a promise about who must take it.",
       "priorUse": {
         "packageId": "s3e05-chair-not-reserved",
         "sceneId": "scene:chair-not-reserved:role-left-open",
@@ -515,7 +515,7 @@
       "ownerIds": [
         "rie"
       ],
-      "meaningNow": "The blank page does not light and stays valid; Rie names once more that the atlas's responsiveness was people matching each other, not magic, and that mechanism is now closed, so the paper is ordinary and needs no glow to count.",
+      "meaningNow": "The atlas stays latched, its cable visibly coiled beside Henry's run-sheet, while the separate graduation sheet is demonstrably unwired; Rie's joke about reporting any glow as a wiring fault pays off the ordinary projection mechanism without restating its whole history.",
       "priorUse": {
         "packageId": "s4e11-atlas-closes",
         "sceneId": "scene:atlas-closes:name-the-mechanism",
@@ -523,7 +523,7 @@
       },
       "useNumber": 5,
       "maximumUses": 6,
-      "optionalFallback": "Rie says plainly that the last page will not light, that the earlier glow was only the class coordinating, and that an unlit page is still a real contribution."
+      "optionalFallback": "The atlas stays latched with its projection cable visibly packed away, and the separate graduation sheet is plainly unwired; the class accepts the learner's contribution without requiring any visual effect."
     },
     {
       "id": "callback:cold-tea",
@@ -550,7 +550,7 @@
         "peter",
         "learner"
       ],
-      "meaningNow": "Leaving an open question, with no answer attached, is offered to the learner as a fully valid final contribution — Peter's method handed to the player as a legitimate way to end.",
+      "meaningNow": "Peter unfolds the still-unsubmitted December exam form, refuses to claim an action he has not taken, and carries the live decision home; the learner may likewise choose a question as one honest contribution rather than manufacture an answer.",
       "priorUse": {
         "packageId": "s4e06-open-question",
         "sceneId": "scene:open-question:wrong-frame",
@@ -565,7 +565,7 @@
     {
       "id": "outcome:next-page:graduation-open-page",
       "kind": "story",
-      "description": "At graduation the closed atlas is left as it is and one blank page is offered to the next class under the terms this class agreed: one bounded contribution each if wanted, no one assigned to fill the rest, the page unlit and valid. Graduation happens once and is not undone."
+      "description": "At graduation the atlas remains latched and the projection cable coiled. A separate unwired sheet circulates under four tone cards, accepting one bounded contribution from each willing participant and a passed pen from anyone who declines. It is handed to the next class without requiring them to repeat the format; the learner's contribution remains in their chosen form, and graduation happens once and is not undone."
     },
     {
       "id": "outcome:next-page:jenny-future",
@@ -573,7 +573,7 @@
       "castId": "jenny",
       "chapter": 48,
       "beat": "future",
-      "description": "Jenny's finished scarf is handed on over a chair she leaves empty on purpose, and her plan is held lightly rather than promised; the class hears the open place as a complete choice, paying off her arc of stepping back and returning on her own terms without any next possibility closed for her."
+      "description": "Jenny checks that her finished scarf clears the floor when draped over a chair, then leaves both for the next arrival to use if needed. She also takes the blue pen around and puts Rie's hot cup into her free hand, carrying her arc through practical, unannounced care while keeping her own next step unpromised."
     },
     {
       "id": "outcome:next-page:peter-future",
@@ -581,7 +581,7 @@
       "castId": "peter",
       "chapter": 48,
       "beat": "future",
-      "description": "Peter legitimizes leaving an open question as a finished contribution and states his own undecided December exam as exactly that kind of open horizon; the peripheral observer's method is handed to the learner, his future left as one unclosed question rather than a promise."
+      "description": "Peter shows the actual unsubmitted December exam form, acknowledges its printed deadline, and distinguishes not deciding from falsely saying he submitted it. He folds it back into his bag and takes the decision home, handing the learner his method without turning his future into a promise."
     },
     {
       "id": "outcome:next-page:robert-future",
@@ -589,7 +589,7 @@
       "castId": "robert",
       "chapter": 48,
       "beat": "future",
-      "description": "Robert sets the final table with one seat and one dish left unchosen on purpose; the host who once covered every gap now leaves space deliberately, recorded in the journal rather than a spoken roll call."
+      "description": "Robert sets one place and tapes 'ask before choosing the dish' beside it; the host who once chose everything in advance now leaves the next preference to the next person, recorded in the journal rather than a spoken roll call."
     },
     {
       "id": "outcome:next-page:stasi-future",
@@ -597,7 +597,7 @@
       "castId": "stasi",
       "chapter": 48,
       "beat": "future",
-      "description": "Stasi's bounded contribution is visual — a small, vivid drawing that leaves space at its edge — her preference kept as an offering that makes room rather than a claim; recorded in the journal."
+      "description": "Stasi's bounded contribution is visual and sharply observed: a small drawing of Rie's red pen disappearing into the drawer, catching the evening's comic action without turning it into a speech; recorded in the journal."
     },
     {
       "id": "outcome:next-page:felix-future",
@@ -605,7 +605,7 @@
       "castId": "felix",
       "chapter": 48,
       "beat": "future",
-      "description": "Felix spots one small living detail by the window and hands it on as a question rather than an answer; attention kept open for the next class, recorded in the journal."
+      "description": "Felix records the time beside a small shape at the window and adds a question mark instead of guessing its species; exact observation and an honest limit are handed forward in the journal."
     },
     {
       "id": "outcome:next-page:jodi-future",
@@ -621,7 +621,7 @@
       "castId": "shaun",
       "chapter": 48,
       "beat": "future",
-      "description": "Shaun is unremarkably, fully part of the graduating room with one open possibility and no set-piece speech; recorded in the journal without a spoken payoff."
+      "description": "Shaun checks the door key against cue seven on Henry's run-sheet and completes the window, switch, and latch sequence while Rie stays seated. The prior rehearsal becomes an ordinary successful handoff, with no set-piece speech required."
     },
     {
       "id": "outcome:next-page:transfer-return",
@@ -648,6 +648,6 @@
       "hide-english",
       "replay-compose-step"
     ],
-    "withdrawnContentFallback": "Use the same graduation-composition beats with neutral nameplates: a teacher states the page's terms, a classmate leaves a place open, another says an open question can be an ending, and the learner leaves one bounded contribution in a chosen tone on a page kept open for the next class."
+    "withdrawnContentFallback": "Use the same graduation-composition beats with neutral nameplates: a teacher puts away the marking pen and states the four optional tones, a classmate leaves a scarf and chair for the next arrival, another carries an undecided application home without claiming it was submitted, and the learner leaves one bounded contribution before someone else locks up."
   }
 }

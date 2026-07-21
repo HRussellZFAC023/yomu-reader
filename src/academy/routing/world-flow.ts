@@ -1,4 +1,5 @@
 import type { AudioDirector } from '../audio/director';
+import { createStoryVoicePlayback } from '../audio/voice-lines';
 import type { AcademySyncClient } from '../account/sync-client';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
 import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
@@ -149,6 +150,7 @@ class WorldFlow implements AcademyRouteFlow {
             activityOutcomes: storyActivityOutcomes(context.projection, replayEvents),
             selectedBand: context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band,
             audio: { playSfx: cue => this.options.audio.playSfx(cue) },
+            createVoicePlayback: () => createStoryVoicePlayback({ director: this.options.audio }),
             onCheckpoint: cursor => context.save?.({ sectionId: serializeStoryCursor(cursor) }),
             onOpenActivity: (lessonId, activityId, cursor) => void context.go('source-activity', {
                 lessonId,
