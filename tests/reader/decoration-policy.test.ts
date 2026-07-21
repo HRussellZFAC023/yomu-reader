@@ -687,12 +687,12 @@ describe('interactive-passive geometry invariance', () => {
         }
     });
 
-    it.each<[string, string, string | undefined, string?]>([
+    it.each<[string, string, string?]>([
         ['opaque', 'rgb(17, 26, 29)', undefined],
-        ['transparent', 'transparent', 'unsafe-lane'],
-        ['missing-alpha', 'transparent', 'unsafe-lane', 'oklch(0.5 0.1 200 / none)'],
-        ['scientific-alpha', 'transparent', 'unsafe-lane', 'color(srgb 0.1 0.1 0.1 / 5e-1)'],
-    ])('treats text behind an %s shadow overlay according to its actual paint visibility', (_kind, background, hiddenReason, computedBackground) => {
+        ['transparent', 'transparent', undefined],
+        ['missing-alpha', 'transparent', 'oklch(0.5 0.1 200 / none)'],
+        ['scientific-alpha', 'transparent', 'color(srgb 0.1 0.1 0.1 / 5e-1)'],
+    ])('keeps enabled furigana visible over an %s shadow overlay', (_kind, background, computedBackground) => {
         document.body.innerHTML = '<div id="behind">underlying text</div><reddit-overlay-host></reddit-overlay-host>';
         const behind = document.querySelector<HTMLElement>('#behind')!;
         const host = document.querySelector<HTMLElement>('reddit-overlay-host')!;
@@ -742,8 +742,8 @@ describe('interactive-passive geometry invariance', () => {
             }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-            expect(reading.dataset.yomuDetachedReadingHidden).toBe(hiddenReason);
-            expect(reading.style.getPropertyValue('display')).toBe(hiddenReason ? 'none' : 'block');
+            expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading.style.getPropertyValue('display')).toBe('block');
         } finally {
             restoreElementsFromPoint();
         }
@@ -803,8 +803,8 @@ describe('interactive-passive geometry invariance', () => {
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
             expect(reading.style.getPropertyValue('display')).toBe('block');
-            expect(innerRootHitQueries).toBeGreaterThan(0);
-            expect(outerRootHitQueries).toBeGreaterThan(0);
+            expect(innerRootHitQueries).toBe(0);
+            expect(outerRootHitQueries).toBe(0);
         } finally {
             restoreElementsFromPoint();
         }
@@ -858,9 +858,9 @@ describe('interactive-passive geometry invariance', () => {
             }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-            expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
-            expect(reading.style.getPropertyValue('display')).toBe('none');
-            expect(outerRootHitQueries).toBeGreaterThan(0);
+            expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(outerRootHitQueries).toBe(0);
         } finally {
             restoreElementsFromPoint();
         }
@@ -870,27 +870,26 @@ describe('interactive-passive geometry invariance', () => {
         kind: string,
         background: string,
         stack: string[],
-        hiddenReason: string | undefined,
         computedOverrides?: Record<string, string>,
         geometry?: 'corner' | 'partial',
     ]>([
-        ['opaque foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], undefined],
-        ['transparent foreground', 'transparent', ['menu', 'behind'], 'unsafe-lane'],
-        ['opaque background', 'rgb(17, 26, 29)', ['behind', 'menu'], 'unsafe-lane'],
-        ['filtered foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { filter: 'opacity(0.5)' }],
-        ['masked foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { maskImage: 'linear-gradient(transparent, black)' }],
-        ['clipped foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { clipPath: 'circle(20%)' }],
-        ['blended foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { mixBlendMode: 'multiply' }],
-        ['scaled foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { transform: 'matrix(0.5, 0, 0, 0.5, 0, 0)' }],
-        ['translated foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], undefined, { transform: 'matrix(1, 0, 0, 1, 12, 8)' }],
-        ['rounded transparent corner', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', {
+        ['opaque foreground', 'rgb(17, 26, 29)', ['menu', 'behind']],
+        ['transparent foreground', 'transparent', ['menu', 'behind']],
+        ['opaque background', 'rgb(17, 26, 29)', ['behind', 'menu']],
+        ['filtered foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { filter: 'opacity(0.5)' }],
+        ['masked foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { maskImage: 'linear-gradient(transparent, black)' }],
+        ['clipped foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { clipPath: 'circle(20%)' }],
+        ['blended foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { mixBlendMode: 'multiply' }],
+        ['scaled foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { transform: 'matrix(0.5, 0, 0, 0.5, 0, 0)' }],
+        ['translated foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], { transform: 'matrix(1, 0, 0, 1, 12, 8)' }],
+        ['rounded transparent corner', 'rgb(17, 26, 29)', ['menu', 'behind'], {
             borderTopLeftRadius: '40px',
             borderTopRightRadius: '40px',
             borderBottomRightRadius: '40px',
             borderBottomLeftRadius: '40px',
         }, 'corner'],
-        ['partial-width foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', undefined, 'partial'],
-    ])('orders annotated reading/base collisions across an %s paint surface', (_kind, background, stack, hiddenReason, computedOverrides, geometry) => {
+        ['partial-width foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], undefined, 'partial'],
+    ])('keeps enabled furigana visible across an %s paint surface', (_kind, background, stack, computedOverrides, geometry) => {
         document.body.innerHTML = `
             <div id="surface">
                 <div id="behind"><span id="behind-source">国際</span></div>
@@ -971,18 +970,16 @@ describe('interactive-passive geometry invariance', () => {
 
             const foregroundReading = menu.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             const backgroundReading = behind.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-            expect(foregroundReading.dataset.yomuDetachedReadingHidden).toBe(hiddenReason);
-            expect(foregroundReading.style.getPropertyValue('display')).toBe(hiddenReason ? 'none' : 'block');
-            // When the menu is genuinely above the title only the background
-            // candidate fails closed; transparent or reversed paint cannot
-            // use the menu as occlusion evidence.
-            expect(backgroundReading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+            expect(foregroundReading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(foregroundReading.style.getPropertyValue('display')).toBe('block');
+            expect(backgroundReading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(backgroundReading.style.getPropertyValue('display')).toBe('block');
         } finally {
             restoreElementsFromPoint();
         }
     });
 
-    it('does not use a shared opaque menu surface to excuse a genuine reading collision', () => {
+    it('does not hide neighboring readings on a shared opaque menu surface', () => {
         document.body.innerHTML = `
             <div id="menu" style="background:rgb(17, 26, 29)">
                 <span id="first">国際</span><span id="second">並べ</span>
@@ -1018,13 +1015,14 @@ describe('interactive-passive geometry invariance', () => {
             });
 
             expect([...menu.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')]
-                .every(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane')).toBe(true);
+                .every(reading => !reading.dataset.yomuDetachedReadingHidden
+                    && reading.style.getPropertyValue('display') === 'block')).toBe(true);
         } finally {
             restoreElementsFromPoint();
         }
     });
 
-    it('still hides a detached reading that reaches a genuinely different authored row', () => {
+    it('keeps a detached reading visible when it reaches a neighboring authored row', () => {
         document.body.innerHTML = '<div id="foreign">ordinary text</div><span id="source">賛成票</span>';
         const source = document.querySelector<HTMLElement>('#source')!;
         const foreign = document.querySelector<HTMLElement>('#foreign')!;
@@ -1052,8 +1050,8 @@ describe('interactive-passive geometry invariance', () => {
             }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-            expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
-            expect(reading.style.getPropertyValue('display')).toBe('none');
+            expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading.style.getPropertyValue('display')).toBe('block');
         } finally {
             restoreElementsFromPoint();
         }
@@ -1071,9 +1069,8 @@ describe('clip-constrained chrome rows (engine-unconditional)', () => {
     }
 
     function expectNoInFlowRuby(row: HTMLElement): void {
-        // Any reading in the row must live in a rest-hidden channel: a
-        // hover-only mirror or a clip-constrained-stamped scope (CSS hides
-        // its rt at rest). Nothing may paint ruby at rest.
+        // Fixed-height rows keep readings detached so the authored box does
+        // not grow; detached furigana remains visible at rest.
         for (const rt of Array.from(row.querySelectorAll('rt'))) {
             const scoped = rt.closest('.jpdb-reader-text-mirror') ?? rt.closest('[data-yomu-clip-constrained="true"]');
             expect(scoped).not.toBeNull();
@@ -1460,7 +1457,7 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         expect(panel.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
     });
 
-    it('opens a furigana lane on an aria-expanded disclosure button while unmeasurable jsdom paint fails closed', () => {
+    it('opens a visible furigana lane on an aria-expanded disclosure button', () => {
         document.body.innerHTML = `
             <button id="sort" type="button" aria-expanded="false" aria-haspopup="menu"
                 style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">賛成票率順</button>
@@ -1497,8 +1494,8 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         const reading = button.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
         expect(button.dataset.yomuDetachedReadingOverflow).toBe('true');
         expect(button.style.getPropertyValue('overflow')).toBe('visible');
-        expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
-        expect(getComputedStyle(reading).display).toBe('none');
+        expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+        expect(getComputedStyle(reading).display).toBe('block');
         expect(button.getBoundingClientRect().height).toBe(40);
         button.click();
         expect(clicked).toHaveBeenCalledTimes(1);
@@ -1507,7 +1504,7 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
     it.each([
         ['treeitem', 'role="treeitem"'],
         ['link-like custom toggle', 'role="link" tabindex="0"'],
-    ])('opens a furigana lane on an aria-expanded %s while unmeasurable jsdom paint fails closed', (_label, semantics) => {
+    ])('opens a visible furigana lane on an aria-expanded %s', (_label, semantics) => {
         document.body.innerHTML = `<div id="toggle" ${semantics} aria-expanded="false"
             style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">表示順</div>`;
         const toggle = document.querySelector<HTMLElement>('#toggle')!;
@@ -1540,8 +1537,8 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         const reading = toggle.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
         expect(toggle.dataset.yomuDetachedReadingOverflow).toBe('true');
         expect(toggle.style.getPropertyValue('overflow')).toBe('visible');
-        expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
-        expect(getComputedStyle(reading).display).toBe('none');
+        expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+        expect(getComputedStyle(reading).display).toBe('block');
         toggle.click();
         expect(clicked).toHaveBeenCalledTimes(1);
     });

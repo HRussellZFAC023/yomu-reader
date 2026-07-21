@@ -9,13 +9,13 @@
 //   prose-full          long-form prose: inline ruby, ruby-room growth allowed
 //   content-ruby        non-prose content (titles, metadata, comments,
 //                       transcript, named content chips): inline ruby + growth
-//   interactive-passive interactive controls: colour + pitch underline ONLY at
-//                       rest — no in-flow <ruby>, no line-height change, no
-//                       ruby-room growth; readings via the hover/long-press
-//                       word popover
+//   interactive-passive interactive controls: every enabled annotation remains
+//                       visible at rest, but readings use an out-of-flow lane so
+//                       controls keep their authored line height and hit target
 //   skip                editable/composing contexts: never decorated
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { isYouTubeAppHostname } from '../app/youtube-host';
 
 export type DecorationState = 'prose-full' | 'content-ruby' | 'interactive-passive' | 'skip';
 
@@ -246,8 +246,7 @@ export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElem
     return null;
 }
 
-// Shadow-aware parent step shared by the fragile-row walk. Mirrors the
-// composed-tree traversal the detached-reading collision detector uses.
+// Shadow-aware parent step shared by the fragile-row walk.
 export function composedAncestorElement(element: HTMLElement): HTMLElement | null {
     if (element.assignedSlot) return element.assignedSlot;
     if (element.parentElement) return element.parentElement;
@@ -281,9 +280,8 @@ export function isClipConstrainedRow(element: HTMLElement): boolean {
 //     taller, while a fixed-height
 //     clip would cut in-flow readings mid-glyph and stays rest-hidden.
 // Growth here is pure in-flow line-height — no geometry writes of any kind.
-// Scope: the IN-PLACE render channel only. Mirror-channel clip rows (YouTube
-// feed/watch tiles) keep the paint-invariant hover-only overlay by channel
-// fact — the mirror is out-of-flow, so "grow naturally" cannot apply to it.
+// Scope: the IN-PLACE render channel only. Mirror-channel readings are projected
+// out of flow, so "grow naturally" does not apply to them.
 export function contentClipRowShowsRestReadings(
     decoration: DecorationState | undefined,
     clipRow: HTMLElement,
@@ -810,10 +808,7 @@ function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
 }
 
 export function isYouTubeHost(): boolean {
-    const hostname = location.hostname.toLowerCase();
-    return hostname === 'youtube.com'
-        || hostname.endsWith('.youtube.com')
-        || hostname === 'youtu.be';
+    return isYouTubeAppHostname();
 }
 
 function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {

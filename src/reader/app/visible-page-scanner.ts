@@ -6,7 +6,7 @@ import {
     healUngrowableInFlowClampRows,
     makeRoomForRubyInCroppedRows,
     noteConstrainedRowLayoutSettled,
-    realignAdditiveTextMirrorRuns,
+    projectAdditiveTextMirrors,
     refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
     scanTargetRequiresWholeSourceMirror,
@@ -22,6 +22,7 @@ import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './s
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
 import { applyAuthoredVocabularyOverrides } from '../lookup/authored-vocabulary';
 import type { JPDBToken, ReaderSettings } from './types';
+import { isYouTubeAppHostname } from './youtube-host';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
@@ -248,7 +249,7 @@ export class VisiblePageScanner {
         const healed = healUngrowableInFlowClampRows(document);
         if (healed) log.info('Rest-hid in-flow readings on ungrowable clamp rows', { healed });
         refreshWrappedScanWordUnderlines(document);
-        realignAdditiveTextMirrorRuns(document);
+        projectAdditiveTextMirrors(document);
     }
 
     // Wire the layout-settle signals that fire with no scan of their own —
@@ -840,7 +841,7 @@ function isNarrowVisibleScanViewport(): boolean {
 }
 
 function isYouTubeVisibleScanHost(hostname = location.hostname): boolean {
-    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
+    return isYouTubeAppHostname(hostname);
 }
 
 function hasJpdbParseApiKey(settings: ReaderSettings): boolean {

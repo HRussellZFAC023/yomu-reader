@@ -53,14 +53,14 @@ describe('wrapped scan-word underline stamping', () => {
         expect(sameLine.hasAttribute('data-yomu-wrapped')).toBe(false);
     });
 
-    it('skips text-mirror words (atomic, never fragment)', () => {
+    it('recognizes wrapped text-mirror words without assuming atomic layout', () => {
         const mirror = document.createElement('div');
         mirror.className = 'jpdb-reader-text-mirror';
         const word = scanWord([rect(0, 20), rect(22, 20)]);
         mirror.append(word);
         document.body.append(mirror);
         refreshWrappedScanWordUnderlines(document);
-        expect(word.hasAttribute('data-yomu-wrapped')).toBe(false);
+        expect(word.getAttribute('data-yomu-wrapped')).toBe('true');
     });
 
     it('ships the wrapped-word CSS switch (native decoration on, overlay off)', async () => {

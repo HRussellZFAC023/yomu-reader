@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.274] - 2026-07-21
+
+### Fixed
+
+- Furigana, pitch underlines, and word highlights on framework-owned text now use the same source-range projection on every site. Yomu no longer injects wrap points or reflows a duplicate line, so annotations stay attached to their exact glyphs even when one Japanese word wraps across two lines; furigana sits directly above its kanji and the underline follows each real line fragment.
+- Enabled annotations no longer disappear from buttons, navigation, metadata, or other passive chrome because a collision heuristic considered their lane unsafe. Passive now controls interaction only, never visibility. YouTube-specific scanning is also restricted to actual YouTube app hosts, so consent.youtube.com and other ordinary pages use the standard in-flow annotation path.
+
 ## [1.6.273] - 2026-07-21
 
 ### Added

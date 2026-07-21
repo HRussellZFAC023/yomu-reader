@@ -260,6 +260,17 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toContain('jpdb-reader-pitch-compound');
     });
 
+    it('attaches projected underlines and furigana directly to their source glyphs', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const fragmentLine = css.match(/\.jpdb-reader-source-fragment::after\s*\{[^}]*\}/)?.[0] ?? '';
+        const detachedFuri = css.match(/\.jpdb-reader-detached-furi\s*\{[^}]*\}/)?.[0] ?? '';
+
+        expect(fragmentLine).toContain('inset-block-end: 0.08em');
+        expect(fragmentLine).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness)');
+        expect(detachedFuri).toContain('inset-block-end: 100%');
+        expect(detachedFuri).not.toContain('calc(100% +');
+    });
+
 
 
     it('keeps pointer-focused OCR text passive until hover or explicit activation', () => {

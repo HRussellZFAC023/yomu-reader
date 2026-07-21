@@ -986,6 +986,12 @@ describe('reader helpers', () => {
             .toContain('wiktionary-ja-parser');
         expect(getMatchingSiteParsers('https://en.wiktionary.org/wiki/%E8%AA%AD%E3%82%80').map(profile => profile.id))
             .not.toContain('wiktionary-ja-parser');
+        expect(getMatchingSiteParsers('https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC%E8%AA%9E').map(profile => profile.id))
+            .toContain('youtube-comments-parser');
+        expect(getMatchingSiteParsers('https://m.youtube.com/').map(profile => profile.id))
+            .toContain('youtube-comments-parser');
+        expect(getMatchingSiteParsers('https://consent.youtube.com/d?hl=ja').map(profile => profile.id))
+            .not.toContain('youtube-comments-parser');
     });
 
     it('uses viewport-bounded, continuable discovery for the main YouTube surface', () => {

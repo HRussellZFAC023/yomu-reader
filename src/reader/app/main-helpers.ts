@@ -15,6 +15,7 @@ import { documentLooksLikeImageReadingPage } from './dom-helpers';
 import { collectSiteScanTargets, isBookWalkerReaderPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import { isYouTubeAppHostname } from './youtube-host';
 
 export const TERM_AUDIO_PRELOAD_LIMIT = 4;
 export const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
@@ -216,7 +217,7 @@ export function allowsFrequentVisibleAutoScan(): boolean {
 }
 
 export function isYouTubeHostname(hostname = location.hostname): boolean {
-    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
+    return isYouTubeAppHostname(hostname);
 }
 
 // Every host gets the budget tier that was proven on YouTube: a paced batch
@@ -287,7 +288,7 @@ export function throttledAutoScanDelay(
 }
 
 function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
-    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
+    return isYouTubeAppHostname(hostname);
 }
 
 export function hasPressLookupEnabled(settings: ReaderSettings): boolean {

@@ -1,4 +1,5 @@
 import { createWindowEvent, dispatchWindowEvent } from '../platform/window-events';
+import { isYouTubeAppHostname } from '../app/youtube-host';
 import { rectArea, setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
@@ -1141,5 +1142,5 @@ function usableVideoRect(rect?: DOMRect): rect is DOMRect {
 }
 
 function isYouTubePage(): boolean {
-    return /(^|\.)youtube\.com$/i.test(location.hostname);
+    return isYouTubeAppHostname();
 }

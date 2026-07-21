@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.273
+// @version 1.6.274
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -13,12 +13,12 @@
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.64ab6b590f19.user.js#sha256=ZKtrWQ8ZPOrOOmPRt6FF4SStYMIBClN/idN1h82rfCE=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.8078164e351c.user.js#sha256=gHgWTjUciJtfNWATOQ2Od6W0TPpwf1qleCoQLkVzgM0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.9d08dbe99848.user.js#sha256=nQjb6ZhIdiXh3zFAOxA/7asMVC60wCnz7TdZuGoPH0w=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.834adda55a71.user.js#sha256=g0rdpVpxH4l2UrfWrvIjNMK7r1HH4IAlLGXAHKgKx4g=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.832cf9ae5018.user.js#sha256=gyz5rlAY66IfRPTnNwj0AHWsHJgYlSAiEe+B1XPQ8qM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.21c3bf4ef228.user.js#sha256=IcO/TvIo/exW4dEm0DsbQzlYlrl5qVZPqfRtMHVn1KA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.5c6c6a6351b3.user.js#sha256=XGxqY1GzfDrzvI9xMOVm1LgzHr405WusCtyEVQlyzOs=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.804d3c6f38ea.user.js#sha256=gE08bzjqLD9RiE/WkLQUo0EM/lQVKqr0TJ3OZp4CUE8=
-// @require https://yomureader.com/greasyfork/yomu-video.acb445eac71e.user.js#sha256=rLRF6sceMhgrx/xUGak5YgwB2sDl8HOBkRgiY121SWo=
-// @resource yomuCss  https://yomureader.com/yomu.a03d44645870.css#sha256=oD1EZFhwLl/3hZCHY+GPz3t7wF3sQCcsrDvOYrZyRGA=
+// @require https://yomureader.com/greasyfork/yomu-video.2b32247dff16.user.js#sha256=KzIkff8Wpv/vHJkjgqPD84WdlnAwCygCDZ4g+6L5IRA=
+// @resource yomuCss  https://yomureader.com/yomu.3a89a092ab56.css#sha256=OomgkqtW/j61f7QYjXSxaL3wKlw0cSX1v+SUM8yZLVM=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -898,6 +898,19 @@ const LOGGER_COLOR_TOKENS = {
   warn: "#a15c00",
   error: "#b91c1c"
 };
+const YOUTUBE_APP_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "studio.youtube.com",
+  "kids.youtube.com",
+  "gaming.youtube.com",
+  "youtu.be"
+]);
+function isYouTubeAppHostname(hostname = location.hostname) {
+  return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+}
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -1359,8 +1372,7 @@ function shouldSuppressCompactMediaRuby(parent) {
   return isYouTubeFeedbackChromeLinkText(parent);
 }
 function isYouTubeHost() {
-  const hostname = location.hostname.toLowerCase();
-  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+  return isYouTubeAppHostname();
 }
 function isYouTubeFeedbackChromeLinkText(parent) {
   if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
@@ -8051,9 +8063,6 @@ function renderTokenizedScanText(text, tokens, settings, target) {
   for (const plan of tokenPlans) {
   const { token, tokenWithSentence } = plan;
   appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
-  if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
-    fragment.append(document.createElement("wbr"));
-  }
   fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
     allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
     detachedReadings: target.detachedReadings ?? suppressRuby,
@@ -8446,7 +8455,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
   }
-  scheduleAdditiveMirrorRealign();
+  scheduleAdditiveMirrorProjection();
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -8461,171 +8470,140 @@ function stabilizeReadingFreeControlMirror(mirror, host) {
 }
 function stampMirrorWordSourceRanges(mirror, tokens) {
   const words = Array.from(mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word"));
+  const sourceText = mirror.dataset.sourceText ?? "";
   for (const [index, word] of words.entries()) {
   const token = tokens[index];
   if (!token) continue;
   word.dataset.yomuSourceStart = String(token.start);
   word.dataset.yomuSourceEnd = String(token.end);
+  stampProjectedRubySourceRanges(word, sourceText.slice(token.start, token.end), token, token.start);
   }
 }
-const ADDITIVE_MIRROR_RUN_ALIGN_EPSILON = 1;
-function alignAdditiveTextMirrorRun(mirror, host) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-  const word = mirror.querySelector(
-  ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
-  );
-  if (!word) return;
-  const mirrorLeft = firstFragmentLeft(word.getClientRects());
-  const sourceLeft = hostSourceRunLeft(host, word);
-  if (mirrorLeft === null || sourceLeft === null) return;
-  const residual = sourceLeft - mirrorLeft;
-  if (Math.abs(residual) <= ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) return;
-  const { x: currentX, y } = parseMirrorTranslate(mirror);
-  const nextX = currentX + residual;
-  const parts = [];
-  if (Math.abs(nextX) > ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) parts.push(`translateX(${nextX}px)`);
-  if (y) parts.push(`translateY(${y})`);
-  if (parts.length) mirror.style.setProperty("transform", parts.join(" "));
-  else mirror.style.removeProperty("transform");
+function stampProjectedRubySourceRanges(word, surface, token, sourceStart) {
+  const rubies = effectiveTokenRubies(surface, token, true);
+  word.querySelectorAll(".jpdb-reader-detached-ruby").forEach((wrapper, rubyIndex) => {
+  const ruby = rubies[rubyIndex];
+  const local = ruby ? localRubyRange(surface, token, ruby) : null;
+  if (!local) return;
+  wrapper.dataset.yomuSourceStart = String(sourceStart + local.start);
+  wrapper.dataset.yomuSourceEnd = String(sourceStart + local.end);
+  });
 }
-function realignAdditiveTextMirrorRuns(root = document) {
+const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
+function projectAdditiveTextMirror(mirror, host) {
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+  const source = hostOriginalTextWithNodeOffsets(host);
+  if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return;
+  mirror.style.setProperty("inset", "0 auto auto 0");
+  mirror.style.setProperty("width", `${host.offsetWidth || host.getBoundingClientRect().width}px`);
+  mirror.style.setProperty("height", `${host.offsetHeight || host.getBoundingClientRect().height}px`);
+  mirror.style.setProperty("padding", "0");
+  mirror.style.setProperty("transform", "none");
+  const mirrorRect = mirror.getBoundingClientRect();
+  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return;
+  const scaleX = mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1;
+  const scaleY = mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1;
+  const clipRect = closestRubyFragileConstrainedRow(host)?.getBoundingClientRect() ?? null;
+  for (const word of mirror.querySelectorAll(
+  ".jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]"
+  )) {
+  word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
+  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+  const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+  if (!rects.length) continue;
+  word.dataset.yomuSourceProjected = "true";
+  word.style.setProperty("position", "absolute", "important");
+  word.style.setProperty("inset", "0", "important");
+  word.style.setProperty("width", "auto", "important");
+  word.style.setProperty("height", "auto", "important");
+  word.style.setProperty("margin", "0", "important");
+  for (const rect of rects) {
+    const fragment = document.createElement("span");
+    fragment.className = SOURCE_FRAGMENT_CLASS;
+    fragment.setAttribute("aria-hidden", "true");
+    positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
+    word.append(fragment);
+  }
+  for (const ruby of word.querySelectorAll(
+    ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]"
+  )) {
+    const rubyStart = Number.parseInt(ruby.dataset.yomuSourceStart ?? "", 10);
+    const rubyEnd = Number.parseInt(ruby.dataset.yomuSourceEnd ?? "", 10);
+    const rubyRect = sourceClientRects(host, source.nodeOffsets, rubyStart, rubyEnd).find((rect) => !clipRect || rectsIntersect(rect, clipRect));
+    if (rubyRect) positionProjectedElement(ruby, rubyRect, mirrorRect, scaleX, scaleY);
+  }
+  }
+  mirror.dataset.yomuSourceProjected = "true";
+}
+function sourceClientRects(host, nodeOffsets, start, end) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+  const startBoundary = sourceRangeBoundary(nodeOffsets, start, "start");
+  const endBoundary = sourceRangeBoundary(nodeOffsets, end, "end");
+  if (!startBoundary || !endBoundary) return [];
+  const range = host.ownerDocument.createRange();
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  return mergeSourceLineRects(Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+}
+function mergeSourceLineRects(rects) {
+  const sorted = [...rects].sort((left, right) => left.top - right.top || left.left - right.left);
+  const merged = [];
+  for (const rect of sorted) {
+  const previous = merged.at(-1);
+  const sameLine = previous && Math.abs(previous.top - rect.top) <= 1 && Math.abs(previous.bottom - rect.bottom) <= 1;
+  if (!sameLine || rect.left > previous.right + 1) {
+    merged.push(rect);
+    continue;
+  }
+  const left = Math.min(previous.left, rect.left);
+  const top = Math.min(previous.top, rect.top);
+  const right = Math.max(previous.right, rect.right);
+  const bottom = Math.max(previous.bottom, rect.bottom);
+  merged[merged.length - 1] = {
+    left,
+    top,
+    right,
+    bottom,
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+    toJSON: () => ({})
+  };
+  }
+  return merged;
+}
+function positionProjectedElement(element, rect, mirrorRect, scaleX, scaleY) {
+  element.style.setProperty("position", "absolute", "important");
+  element.style.setProperty("left", `${(rect.left - mirrorRect.left) / scaleX}px`, "important");
+  element.style.setProperty("top", `${(rect.top - mirrorRect.top) / scaleY}px`, "important");
+  element.style.setProperty("width", `${rect.width / scaleX}px`, "important");
+  element.style.setProperty("height", `${rect.height / scaleY}px`, "important");
+  element.style.setProperty("margin", "0", "important");
+}
+function rectsIntersect(left, right) {
+  return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
+}
+function projectAdditiveTextMirrors(root = document) {
   if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
   for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
-  alignAdditiveTextMirrorRun(mirror, host);
-  alignMirrorWordsToSourceRects(mirror, host);
+  projectAdditiveTextMirror(mirror, host);
   }
 }
-function isPureTranslateTransform(transform) {
-  const match = transform.match(/^matrix\(([^)]+)\)$/u);
-  if (!match) return false;
-  const parts = match[1].split(",").map((value) => Number.parseFloat(value));
-  if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
-  const [a, b, c, d] = parts;
-  return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
-}
-function alignMirrorWordsToSourceRects(mirror, host) {
-  if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
-  if (mirror.style.getPropertyValue("overflow") === "hidden") return;
-  if (typeof Range.prototype.getClientRects !== "function" || !host.isConnected) return;
-  const hostRect = host.getBoundingClientRect();
-  if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
-  for (let node = mirror, depth = 0; node && depth < 10; depth += 1, node = composedAncestorElement(node)) {
-  const transform = safeComputedStyle(node).transform;
-  if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
-  }
-  const source = hostOriginalTextWithNodeOffsets(host);
-  if (mirror.dataset.sourceText !== source.hostText) return;
-  const words = Array.from(mirror.querySelectorAll(
-  ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
-  ));
-  if (!words.length) return;
-  const range = host.ownerDocument.createRange();
-  const mirrorRect = mirror.getBoundingClientRect();
-  const placements = [];
-  let maxDrift = 0;
-  for (const word of words) {
-  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
-  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
-  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
-  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
-  if (!startBoundary || !endBoundary) continue;
-  range.setStart(startBoundary.node, startBoundary.offset);
-  range.setEnd(endBoundary.node, endBoundary.offset);
-  const rects = Array.from(range.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
-  if (!rects.length) continue;
-  const rect = rects[0];
-  const current = word.getBoundingClientRect();
-  maxDrift = Math.max(
-    maxDrift,
-    Math.abs(current.left - rect.left),
-    Math.abs(current.top - rect.top),
-    Math.abs(current.width - rect.width)
-  );
-  placements.push({
-    word,
-    left: rect.left - mirrorRect.left,
-    top: rect.top - mirrorRect.top,
-    width: rect.width,
-    height: rect.height
-  });
-  }
-  if (!placements.length) return;
-  const DRIFT_TOLERANCE_PX = 1.5;
-  if (maxDrift <= DRIFT_TOLERANCE_PX) {
-  mirror.dataset.yomuAlignedHostW = String(hostRect.width);
-  mirror.dataset.yomuAlignedHostH = String(hostRect.height);
-  return;
-  }
-  for (const { word, left, top, width, height } of placements) {
-  word.style.setProperty("position", "absolute", "important");
-  word.style.setProperty("left", `${left}px`, "important");
-  word.style.setProperty("top", `${top}px`, "important");
-  word.style.setProperty("width", `${width}px`, "important");
-  word.style.setProperty("height", `${height}px`, "important");
-  word.style.setProperty("margin", "0", "important");
-  word.style.setProperty("white-space", "nowrap", "important");
-  }
-  if (mirror.style.getPropertyValue("transform")) {
-  const settled = mirror.getBoundingClientRect();
-  const dx = settled.left - mirrorRect.left;
-  const dy = settled.top - mirrorRect.top;
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-    for (const { word, left, top } of placements) {
-      word.style.setProperty("left", `${left - dx}px`, "important");
-      word.style.setProperty("top", `${top - dy}px`, "important");
-    }
-  }
-  }
-  mirror.dataset.yomuSourceAligned = "1";
-  const finalHostRect = host.getBoundingClientRect();
-  mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
-  mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
-}
-let pendingAdditiveMirrorAlignFrame = 0;
-function scheduleAdditiveMirrorRealign() {
+let pendingAdditiveMirrorProjectionFrame = 0;
+function scheduleAdditiveMirrorProjection() {
   if (typeof requestAnimationFrame !== "function") {
-  realignAdditiveTextMirrorRuns(document);
+  projectAdditiveTextMirrors(document);
   return;
   }
-  if (pendingAdditiveMirrorAlignFrame) return;
-  pendingAdditiveMirrorAlignFrame = requestAnimationFrame(() => {
-  pendingAdditiveMirrorAlignFrame = 0;
-  realignAdditiveTextMirrorRuns(document);
+  if (pendingAdditiveMirrorProjectionFrame) return;
+  pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
+  pendingAdditiveMirrorProjectionFrame = 0;
+  projectAdditiveTextMirrors(document);
   });
-}
-function firstFragmentLeft(rects) {
-  let left = null;
-  for (const rect of Array.from(rects)) {
-  if (rect.width <= 0 || rect.height <= 0) continue;
-  if (left === null || rect.left < left) left = rect.left;
-  }
-  return left;
-}
-function hostSourceRunLeft(host, word) {
-  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
-  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-  const source = hostOriginalTextWithNodeOffsets(host);
-  if (end > source.hostText.length) return null;
-  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
-  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
-  if (!startBoundary || !endBoundary) return null;
-  const range = host.ownerDocument.createRange();
-  range.setStart(startBoundary.node, startBoundary.offset);
-  range.setEnd(endBoundary.node, endBoundary.offset);
-  return firstFragmentLeft(range.getClientRects());
-}
-function parseMirrorTranslate(mirror) {
-  const transform = mirror.style.transform;
-  const xMatch = /translateX\((-?[\d.]+)px\)/.exec(transform);
-  const yMatch = /translateY\(([^)]+)\)/.exec(transform);
-  return {
-  x: xMatch ? Number.parseFloat(xMatch[1]) : 0,
-  y: yMatch ? yMatch[1].trim() : ""
-  };
 }
 function readerWordSourcePointScore(word, x, y) {
   const mirror = word.closest(".jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror");
@@ -8697,8 +8675,8 @@ function styleDetachedReadingElements(root, host) {
   setInlineStyleIfChanged(reading, "position", "absolute", "important");
   setInlineStyleIfChanged(reading, "z-index", "2");
   setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
-  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  setInlineStyleIfChanged(reading, "inset-block-end", "100%");
+  setInlineStyleIfChanged(reading, "display", "block", "important");
   setInlineStyleIfChanged(reading, "width", "max-content");
   setInlineStyleIfChanged(reading, "max-width", "none");
   setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
@@ -8739,16 +8717,8 @@ function activeAdditiveDecorationSource() {
   return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
-  if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
-  const alignHost = registeredTextMirrorHostFor(root);
-  if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
-  }
-  if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
-  settleDetachedReadingLanes(
-  Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
-  Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"))
-  );
-  if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+  if (filterWordsToClip && root.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(root, clipRow);
+  settleDetachedReadingLanes(Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")));
 }
 function filterDetachedWordsToClip(root, clipRow) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
@@ -8768,442 +8738,17 @@ function filterDetachedWordsToClip(root, clipRow) {
   word.style.setProperty("visibility", "hidden", "important");
   }
 }
-const DETACHED_READING_COLLISION_SLOP = 0.5;
-const DETACHED_READING_CLEARANCE_PX = 3;
-const pendingDetachedReadingSurfaces = new Set();
 const settledDetachedReadingGeometry = new WeakMap();
-function detachedReadingCollisionSurface(root) {
-  const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
-  return composedAncestorElement(owner) ?? owner;
-}
 function detachedReadingSurfaceGeometrySignature(root) {
-  const surface = detachedReadingCollisionSurface(root);
-  const elements = [
-  surface,
-  ...queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base")
-  ];
-  return elements.map((element) => {
-  const rect = element.getBoundingClientRect();
-  return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element.className}:${element.textContent ?? ""}`;
-  }).join("|");
+  const rect = root.getBoundingClientRect();
+  return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${root.textContent ?? ""}`;
 }
 function exposeDetachedReadingCandidate(reading) {
   delete reading.dataset.yomuDetachedReadingHidden;
   reading.style.setProperty("display", "block", "important");
 }
-function settleDetachedReadingLanes(readings, bases) {
-  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-  for (const reading of readings) {
-  exposeDetachedReadingCandidate(reading);
-  reading.style.removeProperty("--jpdb-reader-detached-lift");
-  reading.style.removeProperty("margin-left");
-  }
-  const viewportShifts = readings.map((reading) => {
-  const rect = reading.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0 || viewportWidth <= 0) return { reading, shift: 0 };
-  const leftShift = rect.left < 1 ? 1 - rect.left : 0;
-  const rightShift = rect.right > viewportWidth - 1 ? viewportWidth - 1 - rect.right : 0;
-  return { reading, shift: leftShift || rightShift };
-  });
-  for (const { reading, shift } of viewportShifts) {
-  if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
-  }
-  for (const reading of readings) {
-  const rect = reading.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) continue;
-  const host = reading.closest(ANNOTATABLE_CONTROL_SELECTOR);
-  if (!host) continue;
-  const hostRect = host.getBoundingClientRect();
-  if (rect.top < hostRect.top - 1 && rect.bottom > hostRect.top + 1) {
-    const lift = Math.ceil(rect.bottom - hostRect.top) + 1;
-    reading.style.setProperty("inset-block-end", `calc(100% + ${3 + lift}px)`);
-  }
-  }
-  const readingRects = readings.map((reading) => ({ element: reading, rect: reading.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0).sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-  const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-  const unsafe = new Set();
-  for (const reading of readingRects) {
-  const ownRuby = reading.element.closest(".jpdb-reader-detached-ruby");
-  const ownBase = ownRuby?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  if (detachedReadingIsClipped(reading.element, reading.rect) || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
-  for (const base of baseRects) {
-    if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-    if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
-    if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
-    if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
-    if (rectanglesWithinClearance(reading.rect, base.rect) && !opaqueReadingSurfacePaintsAbove(
-      reading.element,
-      reading.rect,
-      base.element,
-      base.rect
-    )) unsafe.add(reading.element);
-  }
-  }
-  for (let index = 0; index < readingRects.length; index += 1) {
-  const current = readingRects[index];
-  for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
-    const other = readingRects[otherIndex];
-    if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-    if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-    if (opaqueReadingSurfacePaintsAbove(
-      current.element,
-      current.rect,
-      other.element,
-      other.rect
-    )) {
-      unsafe.add(other.element);
-    } else if (opaqueReadingSurfacePaintsAbove(
-      other.element,
-      other.rect,
-      current.element,
-      current.rect
-    )) {
-      unsafe.add(current.element);
-    } else {
-      unsafe.add(current.element);
-      unsafe.add(other.element);
-    }
-  }
-  }
-  const measured = new Set(readingRects.map(({ element }) => element));
-  for (const reading of readings) {
-  if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
-  }
-}
-function detachedReadingCoversForeignText(reading, rect) {
-  const ownWord = reading.closest(".jpdb-reader-word");
-  const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
-  const sourceHost = ownMirror?.parentElement ?? null;
-  const hitRoots = composedHitRootChain(reading);
-  const inset = Math.min(2, rect.width / 4);
-  const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
-  const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
-  const rows = [
-  rect.top - clearanceProbe,
-  (rect.top + rect.bottom) / 2,
-  rect.bottom + clearanceProbe
-  ];
-  const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
-  const elementsFromPoint = hitRoot.elementsFromPoint;
-  if (typeof elementsFromPoint !== "function") return [];
-  return rows.flatMap((y) => points.flatMap((x) => {
-    let pointHits = elementsFromPoint.call(hitRoot, x, y).filter((element) => element instanceof HTMLElement);
-    if (hitRoot instanceof ShadowRoot) {
-      pointHits = pointHits.filter((element) => element.getRootNode() === hitRoot);
-    }
-    const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x, y);
-    const occlusionBoundary = opaqueBackdrop ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot) : null;
-    if (occlusionBoundary) {
-      const boundaryIndex = pointHits.indexOf(occlusionBoundary);
-      if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
-    }
-    return pointHits;
-  }));
-  }));
-  for (const hit of hits) {
-  if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
-  const hitWord = hit.closest(".jpdb-reader-word");
-  if (ownWord && hitWord === ownWord) continue;
-  const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
-  if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
-  if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
-  for (const node of hit.childNodes) {
-    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    if (Array.from(range.getClientRects()).some((textRect) => {
-      if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
-      return rectanglesWithinClearance(rect, textRect);
-    })) return true;
-  }
-  }
-  return false;
-}
-function opaqueReadingSurfacePaintsAbove(reading, readingRect, obstacle, obstacleRect) {
-  const points = collisionProbePoints(readingRect, obstacleRect);
-  if (!points.length) return false;
-  const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
-  if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
-  return points.every((point) => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
-}
-function composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point) {
-  for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
-  const elementsFromPoint = hitRoot.elementsFromPoint;
-  if (typeof elementsFromPoint !== "function") continue;
-  const hits = elementsFromPoint.call(hitRoot, point.x, point.y).filter((element) => element instanceof HTMLElement);
-  const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
-  const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
-  if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
-  const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
-  const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
-  if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
-  if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
-  const backdropIndex = hits.indexOf(backdropHit);
-  const obstacleIndex = hits.indexOf(obstacleHit);
-  if (backdropIndex < 0 || obstacleIndex < 0) continue;
-  return backdropIndex < obstacleIndex;
-  }
-  return false;
-}
-function collisionProbePoints(readingRect, obstacleRect) {
-  const left = Math.max(readingRect.left, obstacleRect.left);
-  const right = Math.min(readingRect.right, obstacleRect.right);
-  if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
-  const xInset = Math.min(0.5, (right - left) / 4);
-  const xs = [...new Set([left + xInset, right - xInset])];
-  const overlapTop = Math.max(readingRect.top, obstacleRect.top);
-  const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
-  let ys;
-  if (overlapBottom > overlapTop) {
-  const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
-  ys = [...new Set([overlapTop + yInset, overlapBottom - yInset])];
-  } else {
-  const inset = Math.min(0.5, obstacleRect.height / 2);
-  ys = [readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset];
-  }
-  return xs.flatMap((x) => ys.map((y) => ({ x, y })));
-}
-function commonComposedHitRoots(left, right) {
-  const rightRoots = new Set(composedHitRootChain(right));
-  const roots = composedHitRootChain(left).filter((root) => rightRoots.has(root));
-  if (!roots.includes(document)) roots.push(document);
-  return roots;
-}
-function composedHitRootChain(element) {
-  const roots = [];
-  let current = element;
-  while (true) {
-  const root = current.getRootNode();
-  if (root instanceof ShadowRoot) {
-    roots.push(root);
-    current = root.host;
-    continue;
-  }
-  roots.push(document);
-  return roots;
-  }
-}
-function nearestHitStackRepresentative(boundary, hitRoot, hits) {
-  let current = boundary;
-  while (current && current.getRootNode() === hitRoot) {
-  if (hits.includes(current)) return current;
-  if (current === document.body || current === document.documentElement) return null;
-  current = current.parentElement;
-  }
-  return null;
-}
-function opaqueComposedBackdropAtPoint(reading, x, y) {
-  for (let current = reading; current; current = composedAncestorElement(current)) {
-  const rect = current.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedBackdropIsOpaqueAtPoint(current, x, y)) return current;
-  }
-  return null;
-}
-function opaqueComposedBackdropCoveringPoints(reading, points) {
-  for (let current = reading; current; current = composedAncestorElement(current)) {
-  const rect = current.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0 && points.every((point) => point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && points.every((point) => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
-  }
-  return null;
-}
-function occlusionBoundaryInHitRoot(backdrop, hitRoot) {
-  let boundary = backdrop;
-  while (boundary.getRootNode() !== hitRoot) {
-  const boundaryRoot = boundary.getRootNode();
-  if (!(boundaryRoot instanceof ShadowRoot)) return null;
-  boundary = boundaryRoot.host;
-  }
-  return boundary;
-}
-function composedBackdropIsOpaqueAtPoint(element, x, y) {
-  for (let current = element; current; current = composedAncestorElement(current)) {
-  const style = safeComputedStyle(current);
-  const opacity = Number.parseFloat(style.opacity || "1");
-  if (Number.isFinite(opacity) && opacity < 0.999) return false;
-  if (!cssEffectIsNone(style.filter) || !cssEffectIsNone(style.maskImage) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-image")) || !cssEffectIsNone(style.getPropertyValue("mask-border-source")) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-box-image-source")) || !cssEffectIsNone(style.clipPath) || style.mixBlendMode && style.mixBlendMode !== "normal" || !cssTransformPreservesBackdropGeometry(style.transform) || !cssScaleIsOne(style.getPropertyValue("scale")) || !cssRotationIsZero(style.getPropertyValue("rotate")) || !cssZoomIsOne(style.getPropertyValue("zoom"))) return false;
-  }
-  return opaqueBackgroundPaintsAtPoint(element, safeComputedStyle(element), x, y);
-}
-function cssEffectIsNone(value) {
-  const effect = value?.trim().toLowerCase() ?? "";
-  return !effect || effect === "none";
-}
-function cssTransformPreservesBackdropGeometry(value) {
-  const transform = value?.trim().toLowerCase() ?? "";
-  if (!transform || transform === "none") return true;
-  const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
-  if (!match) return false;
-  const values = match[2].split(",").map((part) => Number.parseFloat(part.trim()));
-  if (values.some((part) => !Number.isFinite(part))) return false;
-  const close = (left, right) => Math.abs(left - right) < 1e-4;
-  if (!match[1]) {
-  return values.length === 6 && close(values[0], 1) && close(values[1], 0) && close(values[2], 0) && close(values[3], 1);
-  }
-  const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  return values.length === 16 && values.every((part, index) => [12, 13, 14].includes(index) || close(part, identity[index]));
-}
-function cssScaleIsOne(value) {
-  const scale = value.trim().toLowerCase();
-  if (!scale || scale === "none") return true;
-  const parts = scale.split(/\s+/).map((part) => Number.parseFloat(part));
-  return parts.length > 0 && parts.length <= 3 && parts.every((part) => Number.isFinite(part) && Math.abs(part - 1) < 1e-4);
-}
-function cssRotationIsZero(value) {
-  const rotation = value.trim().toLowerCase();
-  return !rotation || rotation === "none" || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
-}
-function cssZoomIsOne(value) {
-  const zoom = value.trim().toLowerCase();
-  return !zoom || zoom === "normal" || Math.abs(Number.parseFloat(zoom) - 1) < 1e-4;
-}
-function opaqueBackgroundPaintsAtPoint(element, style, x, y) {
-  const rect = element.getBoundingClientRect();
-  const clip = (style.backgroundClip || "border-box").split(",").at(-1)?.trim() || "border-box";
-  if (!["border-box", "padding-box", "content-box"].includes(clip)) return false;
-  const border = cssBoxInsets(style, "border");
-  const padding = cssBoxInsets(style, "padding");
-  if (!border || !padding) return false;
-  const inset = clip === "border-box" ? { top: 0, right: 0, bottom: 0, left: 0 } : clip === "padding-box" ? border : {
-  top: border.top + padding.top,
-  right: border.right + padding.right,
-  bottom: border.bottom + padding.bottom,
-  left: border.left + padding.left
-  };
-  const box = {
-  left: rect.left + inset.left,
-  top: rect.top + inset.top,
-  right: rect.right - inset.right,
-  bottom: rect.bottom - inset.bottom
-  };
-  const width = box.right - box.left;
-  const height = box.bottom - box.top;
-  if (width <= 0 || height <= 0 || x < box.left || x > box.right || y < box.top || y > box.bottom) return false;
-  const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
-  return corners ? pointInsideRoundedBox(box, corners, x, y) : false;
-}
-function cssBoxInsets(style, kind) {
-  const values = (kind === "border" ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth] : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]).map((value) => Number.parseFloat(value || "0"));
-  if (values.some((value) => !Number.isFinite(value))) return null;
-  return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
-}
-function roundedBackgroundCorners(style, outerWidth, outerHeight, inset, width, height) {
-  const raw = [
-  parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight)
-  ];
-  if (raw.some((corner) => !corner)) return null;
-  const corners = raw;
-  corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
-  corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
-  corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
-  corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
-  const ratios = [
-  width / (corners[0].x + corners[1].x || width),
-  width / (corners[3].x + corners[2].x || width),
-  height / (corners[0].y + corners[3].y || height),
-  height / (corners[1].y + corners[2].y || height)
-  ];
-  const scale = Math.min(1, ...ratios);
-  if (scale < 1) {
-  for (const corner of corners) {
-    corner.x *= scale;
-    corner.y *= scale;
-  }
-  }
-  return corners;
-}
-function parseCornerRadius(value, width, height) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return { x: 0, y: 0 };
-  if (parts.length > 2) return null;
-  const x = parseLengthPercentage(parts[0], width);
-  const y = parseLengthPercentage(parts[1] ?? parts[0], height);
-  return x === null || y === null ? null : { x, y };
-}
-function parseLengthPercentage(value, extent) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  if (value.endsWith("%")) return parsed * extent / 100;
-  return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
-}
-function pointInsideRoundedBox(box, corners, x, y) {
-  const centers = [
-  { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x < box.left + corners[0].x && y < box.top + corners[0].y },
-  { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x > box.right - corners[1].x && y < box.top + corners[1].y },
-  { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x > box.right - corners[2].x && y > box.bottom - corners[2].y },
-  { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x < box.left + corners[3].x && y > box.bottom - corners[3].y }
-  ];
-  for (const center of centers) {
-  if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
-  const dx = (x - center.x) / center.corner.x;
-  const dy = (y - center.y) / center.corner.y;
-  if (dx * dx + dy * dy > 1) return false;
-  }
-  return true;
-}
-function cssBackgroundIsOpaque(value) {
-  const color = value.trim().toLowerCase();
-  if (!color || color === "transparent") return false;
-  const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
-  const commaMatch = color.startsWith("rgba(") ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
-  const slashAlpha = slashMatch?.[1].trim();
-  const commaAlpha = commaMatch?.[1].trim();
-  const alphaText = slashAlpha ?? commaAlpha;
-  if (!alphaText) return !slashMatch && !commaMatch;
-  if (alphaText === "none") return false;
-  const alpha = Number(alphaText.endsWith("%") ? alphaText.slice(0, -1) : alphaText) / (alphaText.endsWith("%") ? 100 : 1);
-  return Number.isFinite(alpha) && alpha >= 0.999;
-}
-function rectanglesWithinClearance(left, right) {
-  return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
-}
-function rectsShareAuthoredLine(left, right) {
-  const leftHeight = Math.max(0, left.bottom - left.top);
-  const rightHeight = Math.max(0, right.bottom - right.top);
-  const shorterHeight = Math.min(leftHeight, rightHeight);
-  if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
-  const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
-  if (overlap < shorterHeight * 0.5) return false;
-  const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
-  return centreDistance <= Math.max(2, shorterHeight * 0.4);
-}
-function detachedReadingIsClipped(reading, rect) {
-  let ancestor = composedAncestorElement(reading);
-  for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedAncestorElement(ancestor)) {
-  const style = safeComputedStyle(ancestor);
-  const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
-  if (!clips) continue;
-  const box = ancestor.getBoundingClientRect();
-  if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP || rect.left < box.left - DETACHED_READING_COLLISION_SLOP || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
-  }
-  return false;
-}
-function hideUnsafeDetachedReading(reading) {
-  reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
-  reading.style.setProperty("display", "none", "important");
-}
-function detachedReadingRestHidden(reading) {
-  for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
-  if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
-  }
-  return false;
-}
-function reconcilePendingDetachedReadingLanes() {
-  const surfaces = [...pendingDetachedReadingSurfaces];
-  pendingDetachedReadingSurfaces.clear();
-  const readings = uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi")));
-  if (!readings.length) return;
-  settleDetachedReadingLanes(
-  readings,
-  uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
-  );
-}
-function uniqueElements(elements) {
-  return [...new Set(elements)];
+function settleDetachedReadingLanes(readings) {
+  readings.forEach(exposeDetachedReadingCandidate);
 }
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
@@ -9287,8 +8832,8 @@ function detachedReadingGeometrySignature(box) {
 }
 function syncDetachedReadingRestVisibility(box) {
   box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
-  if (reading.dataset.yomuDetachedReadingHidden) return;
-  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  delete reading.dataset.yomuDetachedReadingHidden;
+  setInlineStyleIfChanged(reading, "display", "block", "important");
   });
 }
 function restoreDetachedReadingClip(box) {
@@ -9857,7 +9402,6 @@ function withMirrorTokenApply(callback) {
   } finally {
   mirrorTokenApplyDepth -= 1;
   if (mirrorTokenApplyDepth === 0) {
-    reconcilePendingDetachedReadingLanes();
     sweepAndDrainTextMirrorObservers();
   }
   }
@@ -9893,7 +9437,6 @@ function healTextMirrorPageVisibility() {
   healStuckHiddenTextMirror(host);
   healLateClipConstrainedStamp(host);
   }
-  reconcilePendingDetachedReadingLanes();
 }
 function healLateClipConstrainedStamp(host) {
   const mirror = currentTextMirror(host);
@@ -9906,8 +9449,8 @@ function healLateClipConstrainedStamp(host) {
   clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? void 0, clipRow) ? "content" : "true";
   }
   openSafeDetachedReadingClips(host);
-  filterDetachedWordsToClip(mirror, clipRow);
-  pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+  if (mirror.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(mirror, clipRow);
+  projectAdditiveTextMirror(mirror, host);
   settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
 }
 function dispatchTextMirrorStale(host) {
@@ -10968,7 +10511,7 @@ function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRu
   const start = ruby.start - token.start;
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-  html += '<span class="jpdb-reader-detached-ruby">';
+  html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
   html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
   html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
   html += "</span>";
@@ -10992,6 +10535,8 @@ function replaceRenderedWordFurigana(word, surface, token) {
   if (mirror) {
   mirror.dataset.yomuDetachedReadings = "true";
   styleConstrainedTextMirror(mirror, clipRow, true);
+  const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
   }
   styleDetachedReadingElements(renderSurface, host);
   if (mirror) healLateClipConstrainedStamp(host);
@@ -11500,7 +11045,6 @@ function refreshWrappedScanWordUnderlines(root = document) {
   const wrapped = [];
   const unwrapped = [];
   for (const word of words) {
-  if (word.closest(".jpdb-reader-text-mirror")) continue;
   (scanWordSpansMultipleLines(word) ? wrapped : unwrapped).push(word);
   }
   for (const word of wrapped) word.setAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE, "true");
@@ -23188,7 +22732,7 @@ const SITE_PARSER_PROFILES = [
   suppressResidualVisibleScan: true,
   includePassiveInteractionRoots: false,
   scanLimit: 80,
-  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
+  matches: (url) => isYouTubeAppHostname(url.hostname) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
   },
   {
   id: "youtube-comments-parser",
@@ -23283,7 +22827,7 @@ const SITE_PARSER_PROFILES = [
   includeUiChrome: true,
   nonDestructive: true,
   includePassiveInteractionRoots: true,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+  matches: (url) => isYouTubeAppHostname(url.hostname)
   },
   {
   id: "cijapanese-transcript-parser",
@@ -30336,7 +29880,7 @@ function allowsFrequentVisibleAutoScan() {
   return true;
 }
 function isYouTubeHostname(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = false) {
   return {
@@ -30367,7 +29911,7 @@ function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequen
   return Math.max(delay2, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
 }
 function isYouTubeHostForAutoScan(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function hasPressLookupEnabled(settings) {
   return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover);
@@ -33916,7 +33460,6 @@ function applyWordContrastVars(word, background, m) {
   word.style.setProperty("--jpdb-reader-page-bg", background.css);
   word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
   word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-  const passiveWord = word.classList.contains("jpdb-reader-passive-word");
   const preserveHostPaint = isPassiveChromeWord(word);
   const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
   const accessibleHex = rgbaToHex(accessibleRgba);
@@ -33924,7 +33467,7 @@ function applyWordContrastVars(word, background, m) {
   const sourceText = cssColorToHex(m.fg, accessibleRgba);
   const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
   const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-  const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
+  const textSource = sourceText ?? nativeText;
   const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
   word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
   word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
@@ -35565,8 +35108,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.273"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.273"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.274"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.274"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35698,7 +35241,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.273"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.274"}`;
   } catch {
   return null;
   }
@@ -35964,7 +35507,7 @@ class VisiblePageScanner {
   const healed = healUngrowableInFlowClampRows(document);
   if (healed) log$1.info("Rest-hid in-flow readings on ungrowable clamp rows", { healed });
   refreshWrappedScanWordUnderlines(document);
-  realignAdditiveTextMirrorRuns(document);
+  projectAdditiveTextMirrors(document);
   }
   installSettleTriggers() {
   if (this.settleTriggersInstalled || this.destroyed) return;
@@ -36356,7 +35899,7 @@ function isNarrowVisibleScanViewport() {
   return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
 }
 function isYouTubeVisibleScanHost(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function hasJpdbParseApiKey(settings) {
   return Boolean(settings.apiKey.trim());

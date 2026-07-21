@@ -14,6 +14,7 @@ import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfRe
 import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
 import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
+import { isYouTubeAppHostname } from './youtube-host';
 
 export interface SiteParserProfile {
     id: string;
@@ -799,7 +800,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         suppressResidualVisibleScan: true,
         includePassiveInteractionRoots: false,
         scanLimit: 80,
-        matches: url => (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com'))
+        matches: url => isYouTubeAppHostname(url.hostname)
             && (url.pathname === '/live_chat' || url.pathname === '/live_chat_replay'),
     },
     {
@@ -925,9 +926,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         nonDestructive: true,
         includePassiveInteractionRoots: true,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
+        matches: url => isYouTubeAppHostname(url.hostname),
     },
     {
         id: 'cijapanese-transcript-parser',

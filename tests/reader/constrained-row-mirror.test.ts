@@ -117,8 +117,8 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
 // from the non-destructive mirror path: the destructive and fragment paths open a
 // safe compact clip synchronously at render, but the mirror path left it closed
 // until a later scan-settle heal ran. Real paint visibility is covered by the
-// Chromium/WebKit chip smoke; this jsdom test pins mount ordering and the
-// fail-closed verdict for candidates whose geometry cannot be measured.
+// Chromium/WebKit chip smoke; this jsdom test pins mount ordering and keeps
+// explicitly enabled furigana visible without changing control geometry.
 describe('non-destructive mirror opens safe clips synchronously at render', () => {
     afterEach(() => {
         removeNonDestructiveScanMirrors(document);
@@ -144,8 +144,8 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
             expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
             expect(host.dataset.yomuDetachedReadingOverflow).toBe('true');
             const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
-            expect(reading?.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
-            expect(reading?.style.getPropertyValue('display')).toBe('none');
+            expect(reading?.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading?.style.getPropertyValue('display')).toBe('block');
         });
     });
 

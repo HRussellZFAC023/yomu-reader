@@ -51,10 +51,9 @@ afterEach(() => {
     document.body.innerHTML = '';
 });
 
-// Class O — mirrored words are atomic nowrap inline boxes rendered back-to-back.
-// Japanese prose has no inter-word spaces, so a long mirrored line exposes ZERO
-// soft-wrap opportunities and overflows its host horizontally (side-scroll).
-describe('class O: mirror soft-wrap opportunities', () => {
+// A source-preserving mirror must not invent layout nodes or wrap rules. Visual
+// annotations are projected from the live source ranges instead.
+describe('source-preserving mirror fidelity', () => {
     const TEXT = '言語学習支援';
 
     function paintThreeWords(host: HTMLElement): void {
@@ -68,18 +67,15 @@ describe('class O: mirror soft-wrap opportunities', () => {
         });
     }
 
-    it('inserts a <wbr> break opportunity between adjacent mirrored word tokens', () => {
+    it('does not inject break elements between adjacent mirrored word tokens', () => {
         document.body.innerHTML = `<span id="t" class="ytAttributedStringHost">${TEXT}</span>`;
         const host = document.getElementById('t')!;
         paintThreeWords(host);
         const m = mirror(host);
         const words = m.querySelectorAll('.jpdb-reader-word');
         expect(words.length).toBe(3);
-        // Between each pair of ADJACENT word spans there must be a wbr.
-        const breaks = m.querySelectorAll('wbr');
-        expect(breaks.length).toBe(2);
-        expect(words[0]!.nextElementSibling?.tagName).toBe('WBR');
-        expect(words[1]!.previousElementSibling?.tagName).toBe('WBR');
+        expect(m.querySelectorAll('wbr')).toHaveLength(0);
+        expect(renderedMirrorText(m)).toBe(TEXT);
     });
 
     it('keeps copied/mirrored text free of ZWSP and other break artifacts', () => {
@@ -87,16 +83,14 @@ describe('class O: mirror soft-wrap opportunities', () => {
         const host = document.getElementById('t')!;
         paintThreeWords(host);
         const m = mirror(host);
-        // <wbr> carries no text: textContent must be the exact source text plus
-        // readings in rt only — never U+200B (which would leak into clipboard on
-        // engines that ignore user-select:none for programmatic ranges).
+        // No synthetic break character may leak into copy or programmatic ranges.
         expect(m.textContent).not.toContain('​');
         expect(host.textContent).not.toContain('​');
         const baseText = Array.from(m.querySelectorAll('.jpdb-reader-ruby-base')).map(b => b.textContent).join('');
         expect(baseText).toBe(TEXT);
     });
 
-    it('does not insert breaks between non-adjacent tokens (plain text keeps its own wrap points)', () => {
+    it('keeps source-defined text between non-adjacent tokens', () => {
         const MIXED = '言語と学習';
         document.body.innerHTML = `<span id="t" class="ytAttributedStringHost">${MIXED}</span>`;
         const host = document.getElementById('t')!;
@@ -287,8 +281,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         // 1.6.117 paint-invariant composition (feed-growth supersedes the old
         // host unclip): the host text keeps painting its own nowrap/ellipsis
         // line, so its overflow must stay UNTOUCHED — forcing it visible would
-        // un-ellipsize the page's own text sideways. The hover reveal lives on
-        // the rest-hidden mirror instead (clipHoverOnly) …
+        // un-ellipsize the page's own text sideways. Readings stay detached.
         expect(mirror(host).dataset.yomuDetachedReadings).toBe('true');
         expect(host.style.getPropertyValue('overflow')).toBe('hidden');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
