@@ -43586,6 +43586,69 @@ details.academy-code-section > summary {
     background: #fffdf4;
 }
 
+.academy-story-evidence-map,
+.academy-story-written-response {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+}
+
+.academy-story-evidence-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 1.4fr) repeat(3, minmax(112px, 1fr));
+    gap: 6px;
+    align-items: end;
+    padding-block: 6px;
+    border-bottom: 1px solid rgba(73, 64, 48, 0.2);
+}
+
+.academy-story-evidence-claim,
+.academy-story-evidence-label,
+.academy-story-written-label {
+    margin: 0;
+    color: #302d27;
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.academy-story-evidence-field,
+.academy-story-written-field {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.academy-story-evidence-field select,
+.academy-story-written-field textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid rgba(73, 64, 48, 0.42);
+    border-radius: 2px;
+    color: #29271f;
+    background: #fffdf4;
+    font: inherit;
+    letter-spacing: 0;
+}
+
+.academy-story-written-field textarea {
+    resize: vertical;
+}
+
+.academy-story-practice-submit {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid rgba(73, 64, 48, 0.36);
+    border-radius: 2px;
+    color: #fffdf5;
+    background: #302d27;
+    font-weight: 760;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
 @media (max-width: 700px) {
     .academy-story-vn-shell,
     .academy-story-vn-shell .academy-story-vn-stage {
@@ -43626,6 +43689,10 @@ details.academy-code-section > summary {
 
     .academy-story-vn-choice {
         min-height: 46px;
+    }
+
+    .academy-story-evidence-row {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .academy-story-vn-shell .academy-vn-dialogue:has(.academy-story-vn-choices),

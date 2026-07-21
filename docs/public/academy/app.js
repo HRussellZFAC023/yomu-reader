@@ -14069,7 +14069,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         await this.record.record({
           kind: "learning-evidence-recorded",
           activityId: practice2.activityId,
-          modeId: "authored-story-n3",
+          modeId: "authored-story-practice",
           skill: practice2.skill,
           action: practice2.action,
           outcome,
@@ -14087,7 +14087,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             reviewItemId: itemId,
             conceptId: practice2.reviewSeed.conceptId,
             dueAt: Date.now(),
-            provenance: { activity: practice2.activityId, chapter: practice2.chapterId }
+            provenance: {
+              activity: practice2.activityId,
+              chapter: practice2.chapterId,
+              response: practice2.interaction === "choice" ? "selected-response" : practice2.interaction
+            }
           });
         }
         await this.refreshNow();
@@ -21011,8 +21015,97 @@ ${spelling}`);
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
     for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
       const host2 = registeredTextMirrorHostFor(mirror);
-      if (host2?.isConnected) alignAdditiveTextMirrorRun(mirror, host2);
+      if (!host2?.isConnected) continue;
+      alignAdditiveTextMirrorRun(mirror, host2);
+      alignMirrorWordsToSourceRects(mirror, host2);
     }
+  }
+  function isPureTranslateTransform(transform) {
+    const match = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (!match) return false;
+    const parts = match[1].split(",").map((value) => Number.parseFloat(value));
+    if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
+    const [a, b, c, d] = parts;
+    return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
+  }
+  function alignMirrorWordsToSourceRects(mirror, host2) {
+    if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
+    if (mirror.style.getPropertyValue("overflow") === "hidden") return;
+    if (typeof Range.prototype.getClientRects !== "function" || !host2.isConnected) return;
+    const hostRect = host2.getBoundingClientRect();
+    if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
+    for (let node2 = mirror, depth = 0; node2 && depth < 10; depth += 1, node2 = composedAncestorElement(node2)) {
+      const transform = safeComputedStyle(node2).transform;
+      if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
+    }
+    const source2 = hostOriginalTextWithNodeOffsets(host2);
+    if (mirror.dataset.sourceText !== source2.hostText) return;
+    const words = Array.from(mirror.querySelectorAll(
+      ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
+    ));
+    if (!words.length) return;
+    const range2 = host2.ownerDocument.createRange();
+    const mirrorRect = mirror.getBoundingClientRect();
+    const placements = [];
+    let maxDrift = 0;
+    for (const word of words) {
+      const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+      const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source2.hostText.length) continue;
+      const startBoundary = sourceRangeBoundary(source2.nodeOffsets, start, "start");
+      const endBoundary = sourceRangeBoundary(source2.nodeOffsets, end, "end");
+      if (!startBoundary || !endBoundary) continue;
+      range2.setStart(startBoundary.node, startBoundary.offset);
+      range2.setEnd(endBoundary.node, endBoundary.offset);
+      const rects = Array.from(range2.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
+      if (!rects.length) continue;
+      const rect = rects[0];
+      const current = word.getBoundingClientRect();
+      maxDrift = Math.max(
+        maxDrift,
+        Math.abs(current.left - rect.left),
+        Math.abs(current.top - rect.top),
+        Math.abs(current.width - rect.width)
+      );
+      placements.push({
+        word,
+        left: rect.left - mirrorRect.left,
+        top: rect.top - mirrorRect.top,
+        width: rect.width,
+        height: rect.height
+      });
+    }
+    if (!placements.length) return;
+    const DRIFT_TOLERANCE_PX = 1.5;
+    if (maxDrift <= DRIFT_TOLERANCE_PX) {
+      mirror.dataset.yomuAlignedHostW = String(hostRect.width);
+      mirror.dataset.yomuAlignedHostH = String(hostRect.height);
+      return;
+    }
+    for (const { word, left, top, width, height } of placements) {
+      word.style.setProperty("position", "absolute", "important");
+      word.style.setProperty("left", `${left}px`, "important");
+      word.style.setProperty("top", `${top}px`, "important");
+      word.style.setProperty("width", `${width}px`, "important");
+      word.style.setProperty("height", `${height}px`, "important");
+      word.style.setProperty("margin", "0", "important");
+      word.style.setProperty("white-space", "nowrap", "important");
+    }
+    if (mirror.style.getPropertyValue("transform")) {
+      const settled = mirror.getBoundingClientRect();
+      const dx = settled.left - mirrorRect.left;
+      const dy = settled.top - mirrorRect.top;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        for (const { word, left, top } of placements) {
+          word.style.setProperty("left", `${left - dx}px`, "important");
+          word.style.setProperty("top", `${top - dy}px`, "important");
+        }
+      }
+    }
+    mirror.dataset.yomuSourceAligned = "1";
+    const finalHostRect = host2.getBoundingClientRect();
+    mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
+    mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
   }
   let pendingAdditiveMirrorAlignFrame = 0;
   function scheduleAdditiveMirrorRealign() {
@@ -21128,6 +21221,10 @@ ${spelling}`);
     return active;
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
+    if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
+      const alignHost = registeredTextMirrorHostFor(root);
+      if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
+    }
     if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
     settleDetachedReadingLanes(
       Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
@@ -191028,13 +191125,110 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "mark-pending",
       "When dates disagree, promise the next confirmation rather than a date nobody has confirmed.",
       "日程が一致しないときは、誰も確認していない日付ではなく、次の確認を約束しましょう。"
+    ),
+    evidenceMapPractice(),
+    practice(
+      "activity:s4e04-three-true-versions-synthesis",
+      "s4e04-three-true-versions",
+      "reading",
+      "recognise",
+      ["concept:story-n1:compatible-accounts"],
+      "Rie remembers handing over a blank sheet; the former learner remembers receiving one with a route; the class saw later additions. Which synthesis keeps all three vantage points and the unwitnessed interval?",
+      "リエは白紙を渡したと覚え、以前の学習者は道が一本ある紙を受け取ったと書き、今のクラスはその後の書き足しを見ています。三つの視点と、誰も見ていない間を残すまとめはどれですか。",
+      [
+        ["three-vantages", "According to Rie it was blank when handed over; the letter says it already had a route when received; the class record shows later additions. What happened between the first two accounts remains unknown.", "リエによれば、渡した時は白紙だった。手紙では、受け取った時には道が一本あったという。今のクラスの記録には、その後の書き足しが残る。最初の二つの間に何があったかは、まだ分からない。"],
+        ["teacher-wins", "Rie handed over a blank sheet, so the other two accounts must be mistaken.", "リエが白紙を渡したのだから、ほかの二つの記録は間違っている。"],
+        ["merge-speakers", "The page began blank, already had a route, and kept growing, according to everyone.", "みんなによると、その紙は白紙で始まり、すでに道があり、増え続けていた。"]
+      ],
+      "three-vantages",
+      "Attribute every clause to its vantage point and leave the unwitnessed interval open.",
+      "一つ一つの節を、その場面を見た人に結びつけ、誰も見ていない間は埋めずに残しましょう。"
+    ),
+    practice(
+      "activity:s4e05-left-unsaid-trim-the-line",
+      "s4e05-left-unsaid",
+      "reading",
+      "recognise",
+      ["concept:story-n1:public-private-ellipsis"],
+      "The public draft says: 「この一区画は、あえて空けてあります。書いた人は街を離れ、続きを書けなかったと考えられます。」 The second sentence is inferred and has no publication permission. Which stage line holds the deliberate blank without publishing the private reason?",
+      "公開用の原稿には「この一区画は、あえて空けてあります。書いた人は街を離れ、続きを書けなかったと考えられます」とあります。二文目は推測で、公開の許可もありません。空白が意図したものだと伝えつつ、私的な理由を出さない台詞はどれですか。",
+      [
+        ["stop-at-blank", "「この一区画は、あえて空けてあります。」 Then pause.", "「この一区画は、あえて空けてあります。」そこで一度、間を置く。"],
+        ["publish-inference", "「この一区画は、書いた人が街を離れたため、空いています。」", "「この一区画は、書いた人が街を離れたため、空いています。」"],
+        ["hint-at-secret", "「この一区画には、ここでは言えない理由があります。」", "「この一区画には、ここでは言えない理由があります。」"]
+      ],
+      "stop-at-blank",
+      "The public line can name the deliberate blank. It must not publish or tease an unpermitted private explanation.",
+      "公開の台詞では、意図して空けたことまで言えます。許可のない私的な理由を出したり、秘密らしく匂わせたりはしません。"
+    ),
+    practice(
+      "activity:s4e06-open-question-reframe-premise",
+      "s4e06-open-question",
+      "reading",
+      "recognise",
+      ["concept:story-n1:false-premise-reframe"],
+      "The rehearsal line says 「このアトラスを作ったのは、＿＿です」, but the routes, captions, and photographs came from different people. Which response challenges the one-owner premise without dismissing anyone?",
+      "リハーサルの台詞は「このアトラスを作ったのは、＿＿です」ですが、道、文章、写真は別々の人から来ています。誰も否定せずに、一人の作者を求める前提を問い直す言い方はどれですか。",
+      [
+        ["reframe-question", "Even if no signatures had survived, the atlas would still be complete. Perhaps the question asking for one name is wrong.", "「もし署名が一つもなくても、このアトラスは完成していたはずです。そもそも、一人の名前を入れる質問が合っていないのでは？」"],
+        ["pick-most-work", "Why not name the person who revised the most?", "「いちばん多く直した人を作者にすればいいのでは？」"],
+        ["erase-unknown", "Remove the unknown contributions and reduce it to one name.", "「分からない人の分は外して、一人にまとめましょう。」"]
+      ],
+      "reframe-question",
+      "Use the counterfactual to test the premise, then question the sentence that demands one name.",
+      "反実仮想で前提を確かめてから、一人の名前を求める文そのものを問い直しましょう。"
+    ),
+    writtenFuturesPractice(),
+    practice(
+      "activity:s4e08-last-revision-vivid-without-restoring",
+      "s4e08-last-revision",
+      "reading",
+      "recognise",
+      ["concept:story-n1:bounded-public-edit"],
+      "The draft reads 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 The middle clause restores a withdrawn claim. Which revision stays vivid without restoring it?",
+      "草稿は「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る」です。真ん中の節は、外したはずの話を戻しています。その話を戻さず、鮮やかさを残す直しはどれですか。",
+      [
+        ["vivid-bounded", "「この道は、今夜も静かに灯る。」", "「この道は、今夜も静かに灯る。」"],
+        ["restore-softly", "「この道は、ある人の願いらしきものを受け継ぎ、今夜も灯る。」", "「この道は、ある人の願いらしきものを受け継ぎ、今夜も灯る。」"],
+        ["flatten-line", "「道があります。」 It avoids the claim by removing every image.", "「道があります。」主張を避けるため、像もすべて外す。"]
+      ],
+      "vivid-bounded",
+      "Keep the image in language the sources permit. Softening an unpermitted claim does not make it publishable.",
+      "資料が許す言葉の中で、像を残しましょう。許可のない主張は、ぼかしても公開できる主張にはなりません。"
     )
   ]);
-  function n3StoryPractice(activityId) {
+  function storyPractice(activityId) {
     return PRACTICES.find((practice2) => practice2.activityId === activityId);
   }
+  function gradeStoryPractice(practice2, response) {
+    return storyPracticeMistakeIds(practice2, response).length === 0 ? "pass" : "lapse";
+  }
+  function storyPracticeMistakeIds(practice2, response) {
+    if (practice2.interaction !== response.interaction) return ["interaction"];
+    if (practice2.interaction === "choice" && response.interaction === "choice") {
+      return response.optionId === practice2.correctOptionId ? [] : ["choice"];
+    }
+    if (practice2.interaction === "evidence-map" && response.interaction === "evidence-map") {
+      return practice2.rows.flatMap((row) => {
+        const answer2 = response.rows[row.id];
+        return practice2.columns.flatMap((column) => answer2?.[column.id] === row.correct[column.id] ? [] : [`${row.id}:${column.id}`]);
+      });
+    }
+    if (practice2.interaction === "written-response" && response.interaction === "written-response") {
+      return practice2.fields.flatMap((field2) => {
+        const value = response.fields[field2.id]?.trim() ?? "";
+        const incomplete = value.length < 4 || field2.requiredTermGroups.some((group2) => !group2.some((term) => value.includes(term)));
+        const ranksFuture = practice2.forbiddenTerms.some((term) => value.includes(term));
+        return incomplete || ranksFuture ? [field2.id] : [];
+      });
+    }
+    return ["interaction"];
+  }
   function practice(activityId, chapterId, skill, action2, conceptIds, en, ja, options, correctOptionId, repairEn, repairJa) {
+    const correct2 = options.find(([id2]) => id2 === correctOptionId);
+    if (!correct2) throw new TypeError(`Story practice ${activityId} has no correct option.`);
     return Object.freeze({
+      interaction: "choice",
       activityId,
       chapterId,
       skill,
@@ -191046,7 +191240,105 @@ recommendedJiten	Jiten由来の頻度バッジです。
         label: Object.freeze({ en: optionEn, ja: optionJa })
       }))),
       correctOptionId,
-      repair: Object.freeze({ en: repairEn, ja: repairJa })
+      repair: Object.freeze({ en: repairEn, ja: repairJa }),
+      reviewAnswer: Object.freeze({ en: correct2[1], ja: correct2[2] })
+    });
+  }
+  function evidenceMapPractice() {
+    return Object.freeze({
+      interaction: "evidence-map",
+      activityId: "activity:s4e02-map-of-claims-evidence-map",
+      chapterId: "s4e02-map-of-claims",
+      skill: "writing",
+      action: "produce",
+      conceptIds: Object.freeze(["concept:story-n1:source-bounded-claim"]),
+      prompt: Object.freeze({
+        en: "Build the evidence map. Give every claim its source, confidence, and Japanese evidence phrase.",
+        ja: "根拠の地図を作ってください。各主張に、出典・確かさ・日本語の根拠表現を付けましょう。"
+      }),
+      columns: Object.freeze([
+        mapColumn("source", "Source", "出典", [
+          ["letter", "Former learner's letter", "以前の学習者の手紙"],
+          ["paper", "Physical page", "紙そのもの"],
+          ["none", "No supporting source", "裏付ける資料なし"]
+        ]),
+        mapColumn("confidence", "Confidence", "確かさ", [
+          ["stated", "Directly stated", "本人が明記"],
+          ["observed", "Directly observed", "資料から確認"],
+          ["unknown", "Unknown", "まだ不明"]
+        ]),
+        mapColumn("hedge", "Evidence phrase", "根拠表現", [
+          ["according-letter", "手紙によると", "手紙によると"],
+          ["paper-shows", "紙を見ると", "紙を見ると"],
+          ["still-unknown", "まだ分からない", "まだ分からない"]
+        ])
+      ]),
+      rows: Object.freeze([
+        mapRow("route-added", "The former learner added a route.", "以前の学習者が道を足した。", "letter", "stated", "according-letter"),
+        mapRow("older-ink", "The page has layers of older ink.", "紙には古いインクの層がある。", "paper", "observed", "paper-shows"),
+        mapRow("first-contributor", "The identity of the first contributor.", "最初の寄稿者が誰か。", "none", "unknown", "still-unknown")
+      ]),
+      repair: Object.freeze({
+        en: "Recheck each source. The letter states the route addition, the page shows older ink, and neither identifies the first contributor.",
+        ja: "出典をもう一度確認しましょう。道の追加は手紙、古いインクは紙から確認できます。最初の寄稿者を示す資料はありません。"
+      }),
+      reviewAnswer: Object.freeze({
+        en: "According to the letter, the learner added a route. The page shows older ink. The first contributor is still unknown.",
+        ja: "手紙によると、その学習者は道を足した。紙を見ると古いインクの層がある。最初の寄稿者はまだ分からない。"
+      })
+    });
+  }
+  function writtenFuturesPractice() {
+    return Object.freeze({
+      interaction: "written-response",
+      activityId: "activity:s4e07-journey-not-everyone-takes-non-comparative-futures",
+      chapterId: "s4e07-journey-not-everyone-takes",
+      skill: "writing",
+      action: "produce",
+      conceptIds: Object.freeze(["concept:story-n1:non-comparative-futures"]),
+      prompt: Object.freeze({
+        en: "Write three short Japanese updates. Keep Alex decided, Aakash possible, and Mira staying and restarting. Do not rank them.",
+        ja: "三人の短い予定を日本語で書いてください。アレックスは決定、アーカシュは可能性、ミラは残って再開。順位は付けません。"
+      }),
+      fields: Object.freeze([
+        writtenField("alex", "Alex: decided next month", "アレックス：来月に決まった予定", "決まった時期を含む一文", [["来月"], ["日本", "働", "仕事"]]),
+        writtenField("aakash", "Aakash: a genuine maybe", "アーカシュ：まだ可能性", "「いつか」と不確かさを含む一文", [["いつか"], ["かもしれ", "たい", "たら", "まだ", "分から", "わから"]]),
+        writtenField("mira", "Mira: staying and restarting Tuesday", "ミラ：残って火曜に再開", "残ることと再開を含む一文", [["火曜", "来週"], ["再開", "また", "始め"], ["残", "こっち", "ここ"]])
+      ]),
+      forbiddenTerms: Object.freeze(["一歩先", "追いつ", "上って", "上だ", "勇気がある", "偉い"]),
+      repair: Object.freeze({
+        en: "Use a decided time for Alex, an uncertainty marker for Aakash, and both staying and restarting language for Mira. Leave comparison out.",
+        ja: "アレックスには決まった時期、アーカシュには不確かさ、ミラには残ることと再開を書く。比較は入れません。"
+      }),
+      reviewAnswer: Object.freeze({
+        en: "Alex starts next month. Aakash may travel someday. Mira is staying and restarting Tuesday.",
+        ja: "アレックスは来月から日本で働く。アーカシュはいつか撮り旅に行くかもしれない。ミラはここに残って、来週火曜からまた始める。"
+      })
+    });
+  }
+  function mapColumn(id2, en, ja, options) {
+    return Object.freeze({
+      id: id2,
+      label: Object.freeze({ en, ja }),
+      options: Object.freeze(options.map(([optionId, optionEn, optionJa]) => Object.freeze({
+        id: optionId,
+        label: Object.freeze({ en: optionEn, ja: optionJa })
+      })))
+    });
+  }
+  function mapRow(id2, en, ja, source2, confidence, hedge) {
+    return Object.freeze({
+      id: id2,
+      claim: Object.freeze({ en, ja }),
+      correct: Object.freeze({ source: source2, confidence, hedge })
+    });
+  }
+  function writtenField(id2, en, ja, placeholder, requiredTermGroups) {
+    return Object.freeze({
+      id: id2,
+      label: Object.freeze({ en, ja }),
+      placeholder,
+      requiredTermGroups: Object.freeze(requiredTermGroups.map((group2) => Object.freeze([...group2])))
     });
   }
   const schema$K = "yomu-academy.story-package.v2";
@@ -212459,7 +212751,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$a = "yomu-academy.story-package.v2";
   const id$a = "s4e02-map-of-claims";
-  const revision$a = "2026-07-18.1";
+  const revision$a = "2026-07-21.1";
   const canonicality$a = "canon";
   const season$a = 4;
   const chapter$b = 38;
@@ -212467,7 +212759,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "A Map of Claims",
     ja: "確かさの地図"
   };
-  const synopsis$a = "The library table holds three sources of different weight: the former learner's letter with one question left declined, the physical page's layered ink, and the class's own notes. Sophie wants to pull them into one clean account tonight, but Henry names that the sources will not merge and refuses to invent an author field. Together they turn the number notebook into an evidence map where colour marks how sure and where-from, and the learner decides how the map holds a claim the record cannot support.";
+  const synopsis$a = "The library table holds three sources of different weight: the former learner's letter with one question left declined, the physical page's layered ink, and the class's own notes. Sophie wants to pull them into one clean account tonight, but Henry names that the sources will not merge and refuses to invent an author field. Together they turn the number notebook into an evidence map where colour marks certainty and source; the learner keeps the declined claim open, then assembles source, confidence, and Japanese evidence phrases for the map's three rows.";
   const sourceSafety$a = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -212553,7 +212845,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:map-of-claims:table-of-sources",
           beatId: "beat:map-of-claims:arrival-image",
           cueId: "cue:three-sources-apart-on-the-table",
-          description: "The library's long table is cleared to bare wood. Three things sit on it, set well apart: a single handwritten letter, the lower half of it left blank where a question went unanswered; a shallow tray of paper offcuts and ink samples lifted from the old page; a stack of the class's own notes. Sophie's colour-coded notebook is open to a fresh spread beside them."
+          description: "The library closing bell is forty minutes away. Across the long table, Sophie's coloured tabs already make a confident-looking grid: the former learner's letter, paper and ink samples from the old page, and the class's notes. Two claims in the front row carry the same dark green, though one comes from direct testimony and the other from a mark on paper. Henry has stopped with one finger between them."
         },
         {
           kind: "line",
@@ -212564,19 +212856,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the three sources laid out and the empty notebook spread waiting for one account",
           variants: {
             n3: {
-              japanese: "材料、そろったよ。あの人の手紙と、紙そのものと、私たちのメモ。これ、今夜のうちに一つの話にまとめちゃおうと思って。もう、だいたい筋は見えてるし。",
-              reading: "ざいりょう、そろったよ。あのひとのてがみと、かみそのものと、わたしたちのメモ。これ、こんやのうちにひとつのはなしにまとめちゃおうとおもって。もう、だいたいすじはみえてるし。",
-              english: "We've got the pieces. Her letter, the paper itself, and our own notes. I figured we'd pull it into one story tonight. The shape's more or less there already."
+              japanese: "閉館まで四十分。手紙、紙、私たちのメモ。今夜、この一枚までは仕上げたい。…濃い緑が『確か』。今のところ、この二枚は同じ色でいいよね。",
+              reading: "へいかんまでよんじゅっぷん。てがみ、かみ、わたしたちのメモ。こんや、このいちまいまではしあげたい。…こいみどりが『たしか』。いまのところ、このにまいはおなじいろでいいよね。",
+              english: "Forty minutes to closing. Letter, paper, our notes. I want this sheet finished tonight. …Dark green means 'certain.' These two can share it for now, right?"
             },
             n2: {
-              japanese: "材料はひと通りそろったよ。あの人からの返事と、紙そのものと、私たちのメモ。これ、今夜のうちに一本の話にまとめちゃおうかなと思って。大筋はもう見えてる気がするんだよね。",
-              reading: "ざいりょうはひととおりそろったよ。あのひとからのへんじと、かみそのものと、わたしたちのメモ。これ、こんやのうちにいっぽんのはなしにまとめちゃおうかなとおもって。おおすじはもうみえてるきがするんだよね。",
-              english: "We've got a full set of pieces now. Her reply, the paper itself, and our own notes. I was thinking we could pull it into one clean account tonight. The broad shape's there already, I think."
+              japanese: "閉館まで四十分。あの人の返事、紙そのもの、私たちのメモ。今夜、この一枚だけは仕上げたいんだ。…濃い緑を『確実』にしたから、この二枚は同じ色で置けると思って。",
+              reading: "へいかんまでよんじゅっぷん。あのひとのへんじ、かみそのもの、わたしたちのメモ。こんや、このいちまいだけはしあげたいんだ。…こいみどりを『かくじつ』にしたから、このにまいはおなじいろでおけるとおもって。",
+              english: "Forty minutes until the library closes. Her reply, the paper itself, our notes. I want this sheet done tonight. …I set dark green to 'established,' so I thought these two could sit in the same colour."
             },
             n1: {
-              japanese: "材料は、ひと通りそろったよ。あの人からの返事に、紙そのもの、それに私たちのメモ。これ、今夜のうちに一本の話に落とし込めるかな、と思って。……大筋のほうは、もう見えてる気がするんだよね。",
-              reading: "ざいりょうは、ひととおりそろったよ。あのひとからのへんじに、かみそのもの、それにわたしたちのメモ。これ、こんやのうちにいっぽんのはなしにおとしこめるかな、とおもって。……おおすじのほうは、もうみえてるきがするんだよね。",
-              english: "The pieces are all in, more or less. Her reply, the paper itself, and our own notes. I was thinking we might get it down into one account tonight. …The broad shape of it, I feel like I can already see."
+              japanese: "閉館まで四十分。あの人からの返書、紙そのもの、それに私たちのメモ。せめて今夜、この一枚は仕上げたいと思って。…濃い緑を『確実』にしたから、この二枚は同じ色で置けるかな、と。",
+              reading: "へいかんまでよんじゅっぷん。あのひとからのへんしょ、かみそのもの、それにわたしたちのメモ。せめてこんや、このいちまいはしあげたいとおもって。…こいみどりを『かくじつ』にしたから、このにまいはおなじいろでおけるかな、と。",
+              english: "Forty minutes to closing. Her reply, the paper itself, our notes. At least this sheet, tonight. …Dark green means 'established,' so I was going to give both claims the same colour."
             }
           },
           support: {
@@ -212590,18 +212882,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:map-of-claims:henry-different-kinds",
           beatId: "beat:map-of-claims:obstruction",
           speakerId: "henry",
-          intent: "Stop the merge before it starts: name that the three sources are different kinds of evidence, that one question was declined, and that adding an author field would be inventing the answer, so propose ranking confidence instead of filling gaps.",
-          attentionTarget: "the gap between what each source can actually support, and the blank half of the letter",
+          intent: "Point to two dark-green cards with different sources and ask Sophie to label source separately from certainty.",
+          attentionTarget: "the matching colours on the letter card and the paper-inference card",
           variants: {
             n2: {
-              japanese: "まとめる前に、一個だけ。この三つ、種類が違うんだよね。手紙は本人が言ったこと、でも一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とは書いてない。ここで著者欄を足したら、それ、こっちが作った話になる。……だから、埋めにいくんじゃなくて、どのくらい確かかを並べる形にしない?",
-              reading: "まとめるまえに、いっこだけ。このみっつ、しゅるいがちがうんだよね。てがみはほんにんがいったこと、でもいっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはかいてない。ここでちょしゃらんをたしたら、それ、こっちがつくったはなしになる。……だから、うめにいくんじゃなくて、どのくらいたしかかをならべるかたちにしない?",
-              english: "Before we merge it, one thing. These three are different kinds. The letter is what she said herself, but there's one spot she declined to answer. The paper only shows the marks of several classes layered on top of each other, with no line saying who. If we add an author field here, that becomes a story we made up. …So instead of going in to fill the gaps, how about a form that lines up how sure each thing is?"
+              japanese: "待って。同じ緑だと、同じ確かさに見える。こっちは手紙にあること。こっちは紙の跡からの推測。出どころと確かさ、分けない？",
+              reading: "まって。おなじみどりだと、おなじたしかさにみえる。こっちはてがみにあること。こっちはかみのあとからのすいそく。でどころとたしかさ、わけない？",
+              english: "Wait. The same green makes them look equally certain. This one is in the letter; this one is an inference from the paper. Can we separate source from certainty?"
             },
             n1: {
-              japanese: "まとめにかかる前に、一点だけ。この三つ、そもそも種類が違うんだよ。手紙は本人が言ったこと。ただ、一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とはどこにも書いてない。ここで著者欄をこしらえたら……それ、結局こっちが作った話になっちゃう。だから、空欄を埋めにいくんじゃなくて、どこまで確かかを並べておく形にしないかな。……たぶん、そのほうが後で困らないと思う。",
-              reading: "まとめにかかるまえに、いってんだけ。このみっつ、そもそもしゅるいがちがうんだよ。てがみはほんにんがいったこと。ただ、いっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはどこにもかいてない。ここでちょしゃらんをこしらえたら……それ、けっきょくこっちがつくったはなしになっちゃう。だから、くうらんをうめにいくんじゃなくて、どこまでたしかかをならべておくかたちにしないかな。……たぶん、そのほうがあとでこまらないとおもう。",
-              english: "Before we start merging, just one point. These three are different kinds to begin with. The letter is what she said herself. Except there's one spot she declined to answer. The paper only has the marks of several classes layered on top, and nowhere does it say who. If we go and build an author field here… that ends up a story we made. So rather than fill the blank in, how about we lay out how far each thing holds. …It saves us trouble later, probably."
+              japanese: "待って。同じ濃い緑だと、この二枚が同じくらい確かに見える。こっちは本人の手紙。こっちは紙の跡からの推測。……きれいに並ぶほど、混ぜたらまずいな。出どころと確かさ、分けませんか。",
+              reading: "まって。おなじこいみどりだと、このにまいがおなじくらいたしかにみえる。こっちはほんにんのてがみ。こっちはかみのあとからのすいそく。……きれいにならぶほど、まぜたらまずいな。でどころとたしかさ、わけませんか。",
+              english: "Wait. The same dark green makes these two look equally certain. This is her letter; this is a guess from marks on the paper. …The neater it looks, the worse it is if we mix them. Can we separate source from certainty?"
             }
           },
           support: {
@@ -212619,19 +212911,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "her coloured pens, now standing in for degrees of certainty rather than topics",
           variants: {
             n3: {
-              japanese: "……そうか。うん、一本にしなくていいんだ。じゃあ、地図にしよう。一つひとつの主張に、『どこから来たか』と『どのくらい確かか』を付ける。手紙で本人が言い切ったところは濃い色、紙から推せるだけのところは薄い色。ここなんかは、『そうらしい』までかな。色が、確かさそのものになる。",
-              reading: "……そうか。うん、いっぽんにしなくていいんだ。じゃあ、ちずにしよう。ひとつひとつのしゅちょうに、『どこからきたか』と『どのくらいたしかか』をつける。てがみでほんにんがいいきったところはこいいろ、かみからおせるだけのところはうすいいろ。ここなんかは、『そうらしい』までかな。いろが、たしかさそのものになる。",
-              english: "…Right. Yeah, we don't have to make it one account. Then let's make it a map. Every claim gets a 'where it came from' and a 'how sure.' Where she says it outright in the letter, a dark colour; where the paper only lets us guess, a pale one. This one here only goes as far as 'apparently,' I'd say. Colour becomes the certainty itself."
+              japanese: "……そっか。じゃあ、一つにまとめず、地図にしよう。手紙にあることは濃く、紙を見て分かることは薄く。ここは……色なし。まだ分からないから。",
+              reading: "……そっか。じゃあ、ひとつにまとめず、ちずにしよう。てがみにあることはこく、かみをみてわかることはうすく。ここは……いろなし。まだわからないから。",
+              english: "…Right. Then let's not make it one account. Let's make a map: dark for what the letter says, pale for what the paper shows. And here… no colour. We don't know yet."
             },
             n2: {
-              japanese: "……なるほど。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておく。手紙で本人がはっきり言い切ったところは濃い色。紙から推せるだけのところは薄い色。ここなんかは、正直、『そうらしい』までかな。色そのものが、確かさの目盛りになる。",
-              reading: "……なるほど。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておく。てがみでほんにんがはっきりいいきったところはこいいろ。かみからおせるだけのところはうすいいろ。ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、たしかさのめもりになる。",
-              english: "…I see. Yeah, we don't have to force it into one account. Then let's just make it a map. On every claim we stick a 'where the story came from' and a 'how far it holds.' Where she says it flat out in the letter, a dark colour. Where the paper only lets us infer, a pale one. This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty."
+              japanese: "……なるほど。無理に一つにせず、地図にしよう。手紙にあることは濃く、紙から読めることは薄く。ここは……色なし。まだ分からないから。",
+              reading: "……なるほど。むりにひとつにせず、ちずにしよう。てがみにあることはこく、かみからよめることはうすく。ここは……いろなし。まだわからないから。",
+              english: "…I see. Let's not force it into one account. Let's make a map: dark for what the letter says, pale for what the paper supports. And here… no colour. We don't know yet."
             },
             n1: {
-              japanese: "……なるほどね。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておくの。手紙で本人がはっきり言い切ったところは、濃い色で。紙から推せるだけのところは、薄い色で。……ここなんかは、正直、『そうらしい』までかな。色そのものが、そのまま確かさの目盛りになる。",
-              reading: "……なるほどね。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておくの。てがみでほんにんがはっきりいいきったところは、こいいろで。かみからおせるだけのところは、うすいいろで。……ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、そのままたしかさのめもりになる。",
-              english: "…I see. Yeah, no need to force it into one account. Then let's just make it a map. On each single claim we pin a 'where the story came from' and a 'how far it holds.' Where she says it outright in the letter, in a dark colour. Where the paper only lets us infer, in a pale one. …This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty, just like that."
+              japanese: "……なるほど。じゃあ、無理に一つにしないで、地図にしようか。手紙で本人が言ってるところは濃く、紙を見て『たぶん』までなら薄く。ここは……色なし。分からないんだもの。",
+              reading: "……なるほど。じゃあ、むりにひとつにしないで、ちずにしようか。てがみでほんにんがいってるところはこく、かみをみて『たぶん』までならうすく。ここは……いろなし。わからないんだもの。",
+              english: "…I see. Then let's not force them into one account. Let's make a map: dark where she says it in the letter, pale where the paper gets us only to 'probably.' And here… no colour. We don't know."
             }
           },
           support: {
@@ -212651,7 +212943,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "activity-node:map-of-claims:build-evidence-map",
           beatId: "beat:map-of-claims:map-attempt",
           hook: {
-            componentType: "transfer",
+            componentType: "writing",
             exerciseId: "activity:s4e02-map-of-claims-evidence-map"
           },
           requiredEvidence: {
@@ -212681,18 +212973,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:map-of-claims:henry-structure-holds",
           beatId: "beat:map-of-claims:changed-image",
           speakerId: "henry",
-          intent: "Confirm the structure holds each claim at its own level and mark his own changed behavior: he no longer fills a gap he finds, and he trusts a map that says out loud where it is not certain.",
-          attentionTarget: "the blank cell that has stayed blank on purpose",
+          intent: "Check that each colour matches its source status, then catch his old impulse to add a pale tab merely to make the grid look complete.",
+          attentionTarget: "the uncoloured cell and the legend entry that explains it",
           variants: {
             n2: {
-              japanese: "うん、これでいい。埋まってないところが、ちゃんと埋まってないまま見える。前の俺なら、こういう穴を見つけると、とりあえず何か足したくなってたけど……この地図は、確かじゃないところを、自分から『ここは確かじゃない』って言ってくれる。取り繕うより、そのほうがずっと信用できるよ。",
-              reading: "うん、これでいい。うまってないところが、ちゃんとうまってないままみえる。まえのおれなら、こういうあなをみつけると、とりあえずなにかたしたくなってたけど……このちずは、たしかじゃないところを、じぶんから『ここはたしかじゃない』っていってくれる。とりつくろうより、そのほうがずっとしんようできるよ。",
-              english: "Yeah, this is right. Where it isn't filled, you can see it isn't filled. The old me, when I found a hole like this, would want to add something to it… but this map says it for you: 'this part isn't certain.' I trust that more than papering it over."
+              japanese: "うん。色と出どころが合ってる。空白も、凡例を見れば『資料なし』だ。前なら薄い色を足してたかも。でも、それじゃ推測が一つ増える。このままで。",
+              reading: "うん。いろとでどころがあってる。くうはくも、はんれいをみれば『しりょうなし』だ。まえならうすいいろをたしてたかも。でも、それじゃすいそくがひとつふえる。このままで。",
+              english: "Yeah. The colours match the sources, and the legend makes the blank 'no source.' I might have added a pale tab before. But that would add one more guess. Leave it."
             },
             n1: {
-              japanese: "うん、これでいいと思う。埋まっていないところが、埋まっていないまま、ちゃんと見える。……前の俺なら、こういう穴を見つけたら、とりあえず何か足して塞ごうとしてたんだよな。でもこの地図は、確かじゃない箇所を、自分から『ここは確かじゃない』って言ってくれる。下手に取り繕うより、そのほうがずっと信用できるよ。",
-              reading: "うん、これでいいとおもう。うまっていないところが、うまっていないまま、ちゃんとみえる。……まえのおれなら、こういうあなをみつけたら、とりあえずなにかたしてふさごうとしてたんだよな。でもこのちずは、たしかじゃないかしょを、じぶんから『ここはたしかじゃない』っていってくれる。へたにとりつくろうより、そのほうがずっとしんようできるよ。",
-              english: "Yeah, I think this is right. Where it isn't filled, it stays unfilled, and you can see it plainly. …The old me, if I found a hole like this, would just add something to plug it. But this map says it for you: 'this part isn't certain.' I trust that a lot more than a clumsy cover-up."
+              japanese: "うん。色を見れば、どこから出た話か分かる。空白も、凡例を見れば『資料なし』だ。前なら見栄えで薄い色を足したかもしれないけど……それ、推測を一個増やすだけだな。このままで。",
+              reading: "うん。いろをみれば、どこからでたはなしかわかる。くうはくも、はんれいをみれば『しりょうなし』だ。まえならみばえでうすいいろをたしたかもしれないけど……それ、すいそくをいっこふやすだけだな。このままで。",
+              english: "Yeah. The colour shows where each claim came from, and the legend makes the blank 'no source.' Before, I might have added a pale tab for appearances, but… that just adds another guess. Leave it."
             }
           },
           support: {
@@ -212720,8 +213012,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:library",
       timeState: "evening",
       weatherState: "summer-evening",
-      goal: "Let the map's most rigorous move be a visible blank, and decide how it holds a claim the former learner declined to answer without either inventing it or erasing that she declined.",
-      dramaticQuestion: "Is the strongest mark on a record the one that is filled in, or the one honestly left open?",
+      goal: "Finish the legend before closing time and decide how it distinguishes a claim unsupported by any source from a question the former learner expressly declined.",
+      dramaticQuestion: "Will the map keep 'no source found' and 'the source declined' visibly distinct when the venue asks for one clean answer?",
       learnerNeed: "A stance on holding a claim the record cannot support and a person chose not to answer, keeping both facts visible.",
       curriculum: {
         sectionId: "hold-the-unsupported-claim",
@@ -212734,7 +213026,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:map-of-claims:blank-labelled",
           beatId: "beat:map-of-claims:regroup-image",
           cueId: "cue:one-cell-labelled-we-dont-know",
-          description: "The map is nearly full. In the middle, one cell stays deliberately empty except for three words written across it: we don't know this yet. Nothing around it has been stretched to reach over it. Sophie's notebook lies open beside the sheet, the old two-column page showing through under the new grid."
+          description: "The map is nearly full. In the middle, one uncoloured cell carries a source line instead of a claim: absent from every record checked. Sophie's old two-column notebook is wedged under the ruler, keeping the new grid from curling."
         },
         {
           kind: "line",
@@ -212745,19 +213037,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the empty cell that reads 'we don't know this yet,' and the notebook it grew out of",
           variants: {
             n3: {
-              japanese: "見て、ここ。『まだ分からない』って書いてある空欄。これ、この地図でいちばん強いマスだと思う。昔の私だったら、絶対ここも何かで埋めてた。全部埋まってないと落ち着かなくて。……でも今は、空けたままにしておけるほうが、ずっといい仕事だって分かる。あのノート、覚えてる? 数字を場面ごと書いてたやつ。あれが、こういう形になったんだね。",
-              reading: "みて、ここ。『まだわからない』ってかいてあるくうらん。これ、このちずでいちばんつよいマスだとおもう。むかしのわたしだったら、ぜったいここもなにかでうめてた。ぜんぶうまってないとおちつかなくて。……でもいまは、あけたままにしておけるほうが、ずっといいしごとだってわかる。あのノート、おぼえてる? すうじをばめんごとかいてたやつ。あれが、こういうかたちになったんだね。",
-              english: "Look, here. The empty cell that says 'still don't know.' I think it's the strongest cell on the map. The old me would definitely have filled this in with something too. I couldn't settle unless everything was full. …But now I get that leaving it open is the better piece of work. Remember that notebook? The one where we wrote each number with its situation. This is what it turned into."
+              japanese: "ここ、まだ色がない。前なら何か書いて埋めてた。でも、どの資料にもないなら、『まだ分からない』でいい。数字のノートと同じ。数えた場所も一緒に残したよね。",
+              reading: "ここ、まだいろがない。まえならなにかかいてうめてた。でも、どのしりょうにもないなら、『まだわからない』でいい。すうじのノートとおなじ。かぞえたばしょもいっしょにのこしたよね。",
+              english: "This one still has no colour. Before, I would have filled it with something. But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept where each count came from too."
             },
             n2: {
-              japanese: "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。全部埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、こういう地図になったんだ。",
-              reading: "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、こういうちずになったんだ。",
-              english: "Look, here. The empty cell that we went to the trouble of writing 'still don't know' across. I think this might be the strongest cell on the map. The old me would surely have filled this in with something too. I just couldn't settle unless it was all full. But now I see that leaving it open, marked 'don't know,' is far more use. …Remember that notebook? Where we wrote each number with which situation we counted it in. That's what became this map."
+              japanese: "この空白、前なら埋めてた。全部そろってるほうが正確に見えたから。でも、どの資料にもないなら、『まだ分からない』でいい。数字のノートと同じ。数と場所を一緒に残したでしょう。",
+              reading: "このくうはく、まえならうめてた。ぜんぶそろってるほうがせいかくにみえたから。でも、どのしりょうにもないなら、『まだわからない』でいい。すうじのノートとおなじ。かずとばしょをいっしょにのこしたでしょう。",
+              english: "I would have filled this blank before. A complete grid looked more accurate. But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept the count and its source together."
             },
             n1: {
-              japanese: "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。……これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。ぜんぶ埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、めぐりめぐって、こういう地図になったんだね。",
-              reading: "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。……これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、めぐりめぐって、こういうちずになったんだね。",
-              english: "Look, here. The empty cell that we went out of our way to write 'still don't know' across. …I think this might just be the strongest cell on the map. The old me would surely have filled it in with something. I couldn't settle at all unless every last thing was full. But now I understand that leaving it open, marked 'don't know,' is by far the better work. …Remember that notebook? The one where we wrote each number along with which situation we'd counted it in. That, going all the way round, became this map."
+              japanese: "この空白、前なら埋めてたな。全部そろってるほうが正確に見えたから。……でも、どこにも書いてないなら、ここは『まだ分からない』でいい。数字のノートのときと同じ。数と一緒に、どこで数えたかも残したでしょう。",
+              reading: "このくうはく、まえならうめてたな。ぜんぶそろってるほうがせいかくにみえたから。……でも、どこにもかいてないなら、ここは『まだわからない』でいい。すうじのノートのときとおなじ。かずといっしょに、どこでかぞえたかものこしたでしょう。",
+              english: "I would have filled this blank before. A complete grid looked more accurate. …But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept where each count came from, remember?"
             }
           },
           support: {
@@ -212787,12 +213079,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
               next: "checkpoint:map-of-claims:before-mechanism"
             },
             {
-              id: "option:map-of-claims:infer-at-low-confidence",
-              action: "Add what the paper alone suggests at the palest confidence, with her declining written into the same cell.",
+              id: "option:map-of-claims:separate-boundary-note",
+              action: "Keep the claim cell empty and put her decision not to answer in the source margin, so it cannot be mistaken for a missing record.",
               japaneseByBand: {
-                n3: "断られた点も、紙から推せる範囲でなら、いちばん薄い色で『推測』って添えておかない? 本人が答えなかったことも、一緒に書いた上で。",
-                n2: "答えを控えられた点も、紙から推せるぶんだけ、いちばん薄い色で『あくまで推測』と添えておかない? 本人が答えなかった事実も、必ず同じ欄に並べて書いた上で。",
-                n1: "答えを控えられた点についても、紙から推せる範囲でなら、いちばん薄い色で『あくまで推測』と添えておくのはどうかな。……ただし、本人が答えなかったという事実を、必ず同じ欄に並べて書いておく前提で。"
+                n3: "主張のマスは空けたままにして、横の出典メモに『本人は回答を控えた』と書こうか。資料がない空白とは違うって、見れば分かるように。",
+                n2: "主張のマスは空けたまま、出典の欄に『本人は回答を控えた』と残すのはどう? 記録が見つからない空白とは、そこで分けられる。",
+                n1: "主張のマスは空けたまま、脇の出典欄に『本人は回答を控えた』と残そうか。資料が見つからない空白とは、そこで区別できる。"
               },
               records: [
                 "stance",
@@ -212818,14 +213110,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the same empty cell rendered empty on the laptop, and the dated version label",
           variants: {
             n2: {
-              japanese: "地図のデータのほう、俺が組んでおくよ。空いてるマスは、空いてるまま画面に出す。気を利かせて勝手に埋める処理は入れない。あと、版はちゃんと日付で分けておく。……この前みたいに、誰かが『こっちのほうが見栄えがいい』って古い版をうっかり出しちゃう、ああいうのはもう起こしたくないから。確かじゃない情報は、確かじゃないって、画面のほうにもちゃんと出しておく。",
-              reading: "ちずのデータのほう、おれがくんでおくよ。あいてるマスは、あいてるままがめんにだす。きをきかせてかってにうめるしょりはいれない。あと、はんはちゃんとひづけでわけておく。……このまえみたいに、だれかが『こっちのほうがみばえがいい』ってふるいはんをうっかりだしちゃう、ああいうのはもうおこしたくないから。たしかじゃないじょうほうは、たしかじゃないって、がめんのほうにもちゃんとだしておく。",
-              english: "I'll build the map's data side. Empty cells go on screen empty. No helpful auto-fill routine. And I'll keep the versions split by date. …I don't want another time like before, where someone pulls up an old version because it 'looks nicer' by mistake. Where information isn't certain, the screen says so too."
+              japanese: "じゃ、空欄は空欄のまま出す。勝手に補う処理はなし。版の日付も見えるようにする。古い版に戻るのは、もうなし。",
+              reading: "じゃ、くうらんはくうらんのままだす。かってにおぎなうしょりはなし。はんのひづけもみえるようにする。ふるいはんにもどるのは、もうなし。",
+              english: "Then blank cells stay blank on screen. No automatic filling-in. I'll make the version date visible too. No going back to the old version again."
             },
             n1: {
-              japanese: "データのほうは、俺が組んでおく。空いてるマスは、空いてるまま画面に出すよ。気を利かせて自動で埋める、みたいな処理は一切入れない。……版も、きちんと日付で切り分けておく。この前みたいに、誰かが『こっちのほうが見栄えがいいから』って古い版をうっかり出しちゃう、ああいうのはもう二度と起こしたくないんだよね。確かじゃない情報は、確かじゃないと、ちゃんと画面のほうにも出しておくよ。",
-              reading: "データのほうは、おれがくんでおく。あいてるマスは、あいてるままがめんにだすよ。きをきかせてじどうでうめる、みたいなしょりはいっさいいれない。……はんも、きちんとひづけできりわけておく。このまえみたいに、だれかが『こっちのほうがみばえがいいから』ってふるいはんをうっかりだしちゃう、ああいうのはもうにどとおこしたくないんだよね。たしかじゃないじょうほうは、たしかじゃないと、ちゃんとがめんのほうにもだしておくよ。",
-              english: "I'll put the data side together. Empty cells go on screen empty. Not a single auto-fill routine trying to be helpful. …And I'll cut the versions apart cleanly by date. I really don't want a repeat of last time, someone pulling up an old version by mistake because it 'looks better.' Where the information isn't certain, the screen will say it isn't, too."
+              japanese: "じゃ、空欄は空欄のまま出す。勝手に補う処理はなし。版の日付も見えるようにするよ。前みたいに『古いほうが見やすい』で戻るの、もう嫌だから。",
+              reading: "じゃ、くうらんはくうらんのままだす。かってにおぎなうしょりはなし。はんのひづけもみえるようにするよ。まえみたいに『ふるいほうがみやすい』でもどるの、もういやだから。",
+              english: "Then blank cells stay blank on screen. No helpful filling-in. I'll make the version date visible too. I don't want us going back again because 'the old one is easier to read.'"
             }
           },
           support: {
@@ -212843,14 +213135,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the letter and the physical page side by side, and the line the map draws between what can and cannot be said",
           variants: {
             n2: {
-              japanese: "うん。……こうして並べると、はっきりするね。手紙によると、で言えるのはここまで。紙が示してるのは、何クラスも重ねてきた、ということだけ。誰が最初か、までは、どっちの材料も言ってない。だから地図には、こう書いておく。『ここまでは言える。これ以上は、まだ言えない』。……アトラスを閉じるときも、たぶん、このやり方でいいんだよね。",
-              reading: "うん。……こうしてならべると、はっきりするね。てがみによると、でいえるのはここまで。かみがしめしてるのは、なんクラスもかさねてきた、ということだけ。だれがさいしょか、までは、どっちのざいりょうもいってない。だからちずには、こうかいておく。『ここまではいえる。これいじょうは、まだいえない』。……アトラスをとじるときも、たぶん、このやりかたでいいんだよね。",
-              english: "Yeah. …Laid out like this, it gets clear. According to the letter, we can say this much and no more. What the paper shows is only that several classes layered onto it. Who was first — neither source says. So on the map we write this: 'this far we can say; beyond this, not yet.' …When we close the atlas too, this is probably the way to do it."
+              japanese: "うん。手紙にあるのはここまで。紙から読めるのもここまで。『最初の一人』は、どちらにもない。会場への返事は、この凡例を見てから書こう。",
+              reading: "うん。てがみにあるのはここまで。かみからよめるのもここまで。『さいしょのひとり』は、どちらにもない。かいじょうへのへんじは、このはんれいをみてからかこう。",
+              english: "Right. This is as far as the letter goes, and this is as far as the paper takes us. Neither has 'the first person.' Let's check this legend before replying to the venue."
             },
             n1: {
-              japanese: "うん。……こうして横に並べてみると、かえってはっきりするね。手紙によると、で言い切れるのは、ここまで。紙のほうが示しているのは、いくつものクラスが上から重ねてきた、という一点だけ。どちらの材料も、『誰が最初に始めたか』までは、何も言ってない。だからこの地図には、こう書いておくの。『ここまでは言える。これ以上は、まだ言えない』って。……いつかアトラスを閉じるときも、きっと、このやり方でいいんだと思う。",
-              reading: "うん。……こうしてよこにならべてみると、かえってはっきりするね。てがみによると、でいいきれるのは、ここまで。かみのほうがしめしているのは、いくつものクラスがうえからかさねてきた、といういってんだけ。どちらのざいりょうも、『だれがさいしょにはじめたか』までは、なにもいってない。だからこのちずには、こうかいておくの。『ここまではいえる。これいじょうは、まだいえない』って。……いつかアトラスをとじるときも、きっと、このやりかたでいいんだとおもう。",
-              english: "Yeah. …Set side by side like this, it actually gets clearer. According to the letter, what we can state outright reaches this far. What the paper shows is the one point that several classes layered on top of it. Neither source says a thing about who started it first. So on the map we write this: 'this far we can say; beyond this, not yet.' …Whenever we come to close the atlas, this is surely the way to do it."
+              japanese: "うん。手紙に書いてあるのはここまで。紙から読めるのもここまで。『最初の一人』には、どちらの資料も触れてない。……よし。会場から何を言われても、返事を書く前にこの凡例を見よう。",
+              reading: "うん。てがみにかいてあるのはここまで。かみからよめるのもここまで。『さいしょのひとり』には、どちらのしりょうもふれてない。……よし。かいじょうからなにをいわれても、へんじをかくまえにこのはんれいをみよう。",
+              english: "Right. This is as far as the letter goes. This is as far as the paper takes us. Neither source mentions 'the first person.' …Good. Whatever the venue asks, we check this legend before writing back."
             }
           },
           support: {
@@ -212864,7 +213156,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:map-of-claims:map-left-on-the-table",
           beatId: "beat:map-of-claims:exit-image",
           cueId: "cue:finished-map-blank-cell-intact",
-          description: "The finished map lies flat under the reading lamp, colour standing for how sure and where-from, one cell a labelled blank. Henry's laptop shows the same grid, the empty cell empty on screen too. Sophie caps her darkest pen without reaching for the blank, and closes the number notebook over the new page."
+          description: "The closing bell sounds. Under the reading lamp, every claim now carries two separate marks: a source line and a confidence shade. Henry's screen matches the paper grid exactly. As Sophie caps her darkest pen, the library printer wakes and produces the venue's final-panel request: one founder, one clean ending. She lays it face-down on the finished legend for tomorrow."
         }
       ],
       exit: {
@@ -212919,7 +213211,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "outcome:map-of-claims:transfer-return",
       kind: "curriculum-return",
       transferId: "activity:s4e02-map-of-claims-evidence-map",
-      description: "Synthesis, source-quality weighing, and calibrated-certainty evidence returns through the chapter's transfer activity; the story emits no lesson-completion command."
+      description: "Synthesis, source-quality weighing, and calibrated-certainty evidence returns only after the learner assembles all three source, confidence, and Japanese evidence-phrase rows in the chapter's transfer activity; the story emits no lesson-completion command."
     }
   ];
   const replay$a = {
@@ -213501,7 +213793,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$8 = "yomu-academy.story-package.v2";
   const id$8 = "s4e04-three-true-versions";
-  const revision$8 = "2026-07-18.1";
+  const revision$8 = "2026-07-20.3";
   const canonicality$8 = "canon";
   const season$8 = 4;
   const chapter$9 = 40;
@@ -213509,7 +213801,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "Three True Versions",
     ja: "三つとも本当"
   };
-  const synopsis$8 = "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner binds the three into one synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.";
+  const synopsis$8 = "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner identifies the synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.";
   const sourceSafety$8 = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -213562,7 +213854,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       anyOfEvidence: [
         {
           kind: "transfer-function",
-          "function": "synthesize-three-accounts-into-compatible-truths-with-embedded-quotation"
+          "function": "recognise-a-synthesis-that-keeps-three-attributed-accounts-compatible"
         }
       ],
       recommendedBand: "n2",
@@ -213593,7 +213885,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:three-versions:first-page-and-notes",
           beatId: "beat:three-versions:arrival-image",
           cueId: "cue:first-page-three-accounts",
-          description: "The atlas lies open to its first page in the summer-evening light. Three notes have been set beside it about that one page's beginning: a card copied from the former learner's letter, the class's number-notebook open to its earliest entry, and a blank card where Rie is about to add hers. The three do not say the same thing."
+          description: "Three transparent sheets disagree before anyone speaks. One shows Rie's blank template, one the route already present when the former learner received it, and one the class's page accumulating marks. A desk fan lifts their corners; Jodi pins each with a different coloured clip beside the atlas's first page."
         },
         {
           kind: "line",
@@ -213604,19 +213896,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the three notes laid along the first page, none of them matching",
           variants: {
             n3: {
-              japanese: "ねえ、これ。同じ最初のページの話なのに、三人とも書いてることが違うのよね。……不思議。私、こういうの、あんまり困らないの。",
-              reading: "ねえ、これ。おなじさいしょのページのはなしなのに、さんにんともかいてることがちがうのよね。……ふしぎ。わたし、こういうの、あんまりこまらないの。",
-              english: "Look at this. It's all about the same first page, and yet all three of them wrote something different. …Funny. This kind of thing, it doesn't really trouble me."
+              japanese: "重ねる前は、三枚がけんかして見えるわね。白紙、道が一本、ずっと増えている。……まず、『いつ見たか』のクリップをそろえてみない?",
+              reading: "かさねるまえは、さんまいがけんかしてみえるわね。はくし、みちがいっぽん、ずっとふえている。……まず、『いつみたか』のクリップをそろえてみない?",
+              english: "Before we layer them, the three sheets look as if they're quarrelling: blank page, one route, always growing. …Shall we first line up the clips that say when each person saw it?"
             },
             n2: {
-              japanese: "ねえ、見て。同じ「最初のページ」の話をしてるはずなのに、三人とも中身が食い違ってるのよね。……でも私、こういうのって、あんまり動じないの。昔から、そうなの。",
-              reading: "ねえ、みて。おなじ「さいしょのページ」のはなしをしてるはずなのに、さんにんともなかみがくいちがってるのよね。……でもわたし、こういうのって、あんまりどうじないの。むかしから、そうなの。",
-              english: `Look. They should all be talking about the same "first page," and yet the three don't line up. …But this sort of thing doesn't unsettle me much. It's been that way a long time.`
+              japanese: "重ねる前は、三枚がけんかして見えるわね。白紙だった、道が一本あった、ずっと増えていた。……まず、それぞれの『いつ見たか』をクリップに書いて、端をそろえてみない?",
+              reading: "かさねるまえは、さんまいがけんかしてみえるわね。はくしだった、みちがいっぽんあった、ずっとふえていた。……まず、それぞれの『いつみたか』をクリップにかいて、はしをそろえてみない?",
+              english: "Before we layer them, the three sheets look as if they're quarrelling: it was blank, it had one route, it kept growing. …First, shall we write when each person saw it on the clips and line up the edges?"
             },
             n1: {
-              japanese: "ねえ、これ、見て。三人とも「最初のページ」の話をしているはずなのに、言っていることがまるで揃わないの。……おかしいでしょう。でも私、こういう食い違いって、昔からあまり怖くないのよ。どれかを消さなきゃ、って気に、ならないの。",
-              reading: "ねえ、これ、みて。さんにんとも「さいしょのページ」のはなしをしているはずなのに、いっていることがまるでそろわないの。……おかしいでしょう。でもわたし、こういうくいちがいって、むかしからあまりこわくないのよ。どれかをけさなきゃ、ってきに、ならないの。",
-              english: `Look at this. All three are supposed to be describing the "first page," and yet what they say doesn't match at all. …Strange, isn't it. But a mismatch like this has never really frightened me. I don't get the urge to cross one of them out.`
+              japanese: "重ねる前は、三枚がけんかして見えるわね。白紙だった、道が一本あった、絶えず増えていた。……まず、それぞれの『いつ、どこから見たか』をクリップに書いて、端をそろえてみましょうよ。",
+              reading: "かさねるまえは、さんまいがけんかしてみえるわね。はくしだった、みちがいっぽんあった、たえずふえていた。……まず、それぞれの『いつ、どこからみたか』をクリップにかいて、はしをそろえてみましょうよ。",
+              english: "Before we layer them, the three sheets look as if they're quarrelling: it was blank, it had one route, it never stopped growing. …First, let's write when and from where each person saw it on the clips, then line up the edges."
             }
           },
           support: {
@@ -213634,19 +213926,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "her own blank card, and the edge of the page she can actually remember",
           variants: {
             n3: {
-              japanese: "私が話せるのは、私が見たところだけ。……私の記憶だと、いちばん最初は、まだ何も描いてない白いページだったの。でも、それが全部だったかは、私にもわからない。",
-              reading: "わたしがはなせるのは、わたしがみたところだけ。……わたしのきおくだと、いちばんさいしょは、まだなにもかいてないしろいページだったの。でも、それがぜんぶだったかは、わたしにもわからない。",
-              english: "All I can speak to is the part I saw. …As I remember it, at the very start it was a white page with nothing drawn on it yet. But whether that was the whole of it, even I don't know."
+              japanese: "私は、白い紙を渡したところから覚えてる。その前は見てないの。だからクリップには、『私が渡した時』って書いて。",
+              reading: "わたしは、しろいかみをわたしたところからおぼえてる。そのまえはみてないの。だからクリップには、『わたしがわたしたとき』ってかいて。",
+              english: "My memory begins when I handed over a white sheet. I didn't see before that. So write 'when I handed it over' on my clip."
             },
             n2: {
-              japanese: "私が言えるのは、私の見た範囲のことだけなんです。……私の記憶では、最初はまだ何も引かれていない、白いページだった。ただ、それが本当に「最初の最初」だったのかは、私には確かめようがなくて。",
-              reading: "わたしがいえるのは、わたしのみたはんいのことだけなんです。……わたしのきおくでは、さいしょはまだなにもひかれていない、しろいページだった。ただ、それがほんとうに「さいしょのさいしょ」だったのかは、わたしにはたしかめようがなくて。",
-              english: "All I can state is what fell within what I saw. …In my memory, at first it was a white page with nothing drawn on it yet. Only, whether that was really the very beginning, I've no way to verify."
+              japanese: "私の記憶は、何も引かれていない白い紙を渡したところからです。それより前は見ていません。だからクリップには、『私が渡した時』と書いてください。",
+              reading: "わたしのきおくは、なにもひかれていないしろいかみをわたしたところからです。それよりまえはみていません。だからクリップには、『わたしがわたしたとき』とかいてください。",
+              english: "My memory begins when I handed over a white sheet with nothing drawn on it. I did not see before that. So please write 'when I handed it over' on my clip."
             },
             n1: {
-              japanese: "私が言えるのは、あくまで私の目が届いた範囲のことだけで。……私の覚えている限りでは、最初はまだ一本も引かれていない、真っ白なページだったんです。ただ、それが「いちばん最初」だと言い切ることは、私にはできない。私より前を、私は見ていないので。",
-              reading: "わたしがいえるのは、あくまでわたしのめがとどいたはんいのことだけで。……わたしのおぼえているかぎりでは、さいしょはまだいっぽんもひかれていない、まっしろなページだったんです。ただ、それが「いちばんさいしょ」だといいきることは、わたしにはできない。わたしよりまえを、わたしはみていないので。",
-              english: `All I can speak to is strictly what my own eyes reached. …As far as I remember, at first it was a pure-white page without a single line drawn. But I can't declare that to be "the very first." I never saw what came before me.`
+              japanese: "私の記憶は、まだ一本も引かれていない白い紙を渡した時点からです。それ以前は見ていません。ですからクリップには、『私が渡した時』とだけ書いてください。",
+              reading: "わたしのきおくは、まだいっぽんもひかれていないしろいかみをわたしたじてんからです。それいぜんはみていません。ですからクリップには、『わたしがわたしたとき』とだけかいてください。",
+              english: "My memory begins at the point when I handed over a white sheet without a single line drawn. I did not see what preceded it. So on my clip, please write only: 'when I handed it over.'"
             }
           },
           support: {
@@ -213660,7 +213952,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:three-versions:other-two-accounts",
           beatId: "beat:three-versions:obstruction",
           cueId: "cue:three-accounts-side-by-side",
-          description: "The other two cards are read out and set beside Rie's. By the former learner's letter, when they arrived a single route was already drawn, and they added to it and left room. By the class's own number-notebook, the page was a thing always being added to, with no clear first hand. Blank page, a route already there, a page that never stopped growing. Three accounts of one beginning, and nothing on the table says which came first."
+          description: "Jodi labels the second clip 'when the former learner received it' and the third 'when this class began counting.' The three transparent sheets still show different page states, but they no longer pretend to describe the same instant. The interval between Rie's handoff and the letter remains unwitnessed."
         },
         {
           kind: "line",
@@ -213744,19 +214036,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the two-tense pair she once wrote, and the three cards standing where she once kept two",
           variants: {
             n3: {
-              japanese: "私ね、昔から同じことをしてきたの。一つの場所に、「昔はこうだった」と「今はこう」って、二つ書いて、どっちも消さない。あれと同じよ、これ。ただ、今日は三つ。",
-              reading: "わたしね、むかしからおなじことをしてきたの。ひとつのばしょに、「むかしはこうだった」と「いまはこう」って、ふたつかいて、どっちもけさない。あれとおなじよ、これ。ただ、きょうはみっつ。",
-              english: `You know, I've done the same thing for years. For one place, I'd write two, "it used to be this" and "now it's that," and cross out neither. This is the same. Only, today it's three.`
+              japanese: "前の二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚。透明なら、重ねても消えないでしょう。",
+              reading: "まえのにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまい。とうめいなら、かさねてもきえないでしょう。",
+              english: `Bring out the earlier two as well: "it used to be this" and "now it's that." Today we add one more sheet. When they're transparent, layering them doesn't erase them, see.`
             },
             n2: {
-              japanese: "私、ずっと同じやり方をしてきたのよ。一つの場所に、「昔はこうだった」と「今はこう」って二つ並べて、どっちも消さないでおく。……これも、それと変わらないの。二つが三つになっただけ。",
-              reading: "わたし、ずっとおなじやりかたをしてきたのよ。ひとつのばしょに、「むかしはこうだった」と「いまはこう」ってふたつならべて、どっちもけさないでおく。……これも、それとかわらないの。ふたつがみっつになっただけ。",
-              english: `I've been doing the same thing all along, you know. For one place, I'd set two side by side, "it used to be this" and "now it's that," and leave neither crossed out. …This is no different. Two just became three.`
+              japanese: "前に作った二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚増えただけ。透明なら、重ねても前の線は消えないでしょう。",
+              reading: "まえにつくったにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまいふえただけ。とうめいなら、かさねてもまえのせんはきえないでしょう。",
+              english: `Bring out the two sheets we made before: "it used to be this" and "now it's that." Today there is simply one more. When they're transparent, the earlier lines don't disappear when you layer them, see.`
             },
             n1: {
-              japanese: "私ね、ずっと同じことをしてきただけなのよ。一つの場所に、「昔はこうだった」と「今はこう」と、二つ書いて、どちらも消さずに残しておく。……これも、それと何も変わらないの。ただ、二つが三つになった。それだけのことなのよ。",
-              reading: "わたしね、ずっとおなじことをしてきただけなのよ。ひとつのばしょに、「むかしはこうだった」と「いまはこう」と、ふたつかいて、どちらもけさずにのこしておく。……これも、それとなにもかわらないの。ただ、ふたつがみっつになった。それだけのことなのよ。",
-              english: `You know, I've only ever done the same thing. For one place, I'd write two, "it used to be this" and "now it's that," and keep both without crossing either out. …This is no different at all. Two simply became three. That's all it is.`
+              japanese: "前に作った二枚も出してみて。「昔はこうだった」と「今はこう」。今日は、そこにもう一枚増えただけよ。透明なら、重ねても、それまでの線は一本も消えないでしょう。",
+              reading: "まえにつくったにまいもだしてみて。「むかしはこうだった」と「いまはこう」。きょうは、そこにもういちまいふえただけよ。とうめいなら、かさねても、それまでのせんはいっぽんもきえないでしょう。",
+              english: `Bring out the two sheets we made before: "it used to be this" and "now it's that." Today there is simply one more. When they're transparent, not one of the earlier lines disappears when you layer them, see.`
             }
           },
           support: {
@@ -213779,7 +214071,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       weatherState: "summer-dusk",
       goal: "Turn three kept accounts into one synthesis that says why all three can be true without flattening any speaker, and leave the beginning plural with no omniscient correction.",
       dramaticQuestion: "Can one sentence hold three clashing accounts as compatible truths without shrinking any of them into a footnote?",
-      learnerNeed: "An integrated production where the learner binds three vantage accounts into a single synthesis using embedded quotation while preserving every voice and marking what no one saw.",
+      learnerNeed: "A recognition check where the learner identifies the synthesis that attributes all three accounts and leaves the unwitnessed interval open.",
       curriculum: {
         sectionId: "one-synthesis-that-keeps-three",
         order: 2
@@ -213791,7 +214083,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:three-versions:cards-in-a-row",
           beatId: "beat:three-versions:regroup-image",
           cueId: "cue:three-cards-along-first-page",
-          description: "The three account-cards are laid in a row along the first page, each with a small note of who saw it and from when. Between them the middle span stays blank, the stretch no card can vouch for. Rie sets her own card down no larger than the other two."
+          description: "The three transparent sheets are clipped to one backing page, each headed by its speaker and entry point. The unwitnessed interval is marked only on the margin, not drawn through. Rie swaps her oversized teacher clip for one the same size as the others."
         },
         {
           kind: "line",
@@ -213802,19 +214094,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "her own card among the three, kept the same size as the others",
           variants: {
             n3: {
-              japanese: "一つだけ、お願い。私の話も、その中の一つにしておいてね。私が先生だから本当、っていうのは、なし。他の二つと、同じ大きさで。",
-              reading: "ひとつだけ、おねがい。わたしのはなしも、そのなかのひとつにしておいてね。わたしがせんせいだからほんとう、っていうのは、なし。ほかのふたつと、おなじおおきさで。",
-              english: `One thing, please. Keep my account as just one of them too. "It's true because I'm the teacher," none of that. The same size as the other two.`
+              japanese: "私の見出しも、『先生の記録』じゃなくて『私が渡した時』にしてね。文字の大きさも、他の二つと同じで。",
+              reading: "わたしのみだしも、『せんせいのきろく』じゃなくて『わたしがわたしたとき』にしてね。もじのおおきさも、ほかのふたつとおなじで。",
+              english: "For my heading too, use 'when I handed it over,' not 'the teacher's record.' And set it in the same size type as the other two."
             },
             n2: {
-              japanese: "一つだけ、お願いしてもいい?私の話も、あくまでそのうちの一つにしておいて。「先生が言うんだから」で大きくしないで。他の二つと、同じ扱いでいいの。",
-              reading: "ひとつだけ、おねがいしてもいい?わたしのはなしも、あくまでそのうちのひとつにしておいて。「せんせいがいうんだから」でおおきくしないで。ほかのふたつと、おなじあつかいでいいの。",
-              english: `May I ask one thing? Keep my account as just one among them. Don't enlarge it with "well, the teacher says so." The same treatment as the other two is fine.`
+              japanese: "一つだけお願い。私の見出しも、『先生の記録』ではなく『私が渡した時』にしてね。文字の大きさも、他の二つと同じでいいの。",
+              reading: "ひとつだけおねがい。わたしのみだしも、『せんせいのきろく』ではなく『わたしがわたしたとき』にしてね。もじのおおきさも、ほかのふたつとおなじでいいの。",
+              english: "One request. For my heading too, use 'when I handed it over,' not 'the teacher's record.' The same size type as the other two is fine."
             },
             n1: {
-              japanese: "一つだけ、お願いしてもいいかしら。私の話も、あくまで数ある中の一つ、という扱いにしておいてね。「先生が言うのだから確かだ」で、そこだけ大きくしないで。……私が請け合えるのは、私の見た分だけ。他の二つと、同じ重さでいいの。",
-              reading: "ひとつだけ、おねがいしてもいいかしら。わたしのはなしも、あくまでかずあるなかのひとつ、というあつかいにしておいてね。「せんせいがいうのだからたしかだ」で、そこだけおおきくしないで。……わたしがうけあえるのは、わたしのみたぶんだけ。ほかのふたつと、おなじおもさでいいの。",
-              english: `May I ask just one thing? Keep my account, too, as merely one among several. Don't let "the teacher says so, so it's certain" swell that one part alone. …What I can vouch for is only my share of what I saw. The same weight as the other two is fine.`
+              japanese: "一つだけお願いしてもいいかしら。私の見出しも、『先生の記録』ではなく『私が渡した時』にしてね。肩書きで重くせず、文字の大きさも他の二つと同じに。",
+              reading: "ひとつだけおねがいしてもいいかしら。わたしのみだしも、『せんせいのきろく』ではなく『わたしがわたしたとき』にしてね。かたがきでおもくせず、もじのおおきさもほかのふたつとおなじに。",
+              english: "May I ask one thing? For my heading too, use 'when I handed it over,' not 'the teacher's record.' Don't add weight with my title, and set it in the same size type as the other two."
             }
           },
           support: {
@@ -213856,22 +214148,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "checkpoint",
           id: "checkpoint:three-versions:before-synthesis",
-          beatId: "beat:three-versions:production-attempt",
-          resume: "The three cards stay in their row with the middle span blank. The learner steps in to bind all three into one synthesis that keeps every voice, using embedded quotation, ranking none and correcting none."
+          beatId: "beat:three-versions:recognition-check",
+          resume: "The three cards stay in their row with the middle span blank. The learner identifies the synthesis that keeps each account attributed and leaves that interval unknown."
         },
         {
           kind: "activity",
           id: "activity-node:three-versions:synthesize",
-          beatId: "beat:three-versions:production-attempt",
+          beatId: "beat:three-versions:recognition-check",
           hook: {
-            componentType: "transfer",
+            componentType: "recognition",
             exerciseId: "activity:s4e04-three-true-versions-synthesis"
           },
           requiredEvidence: {
             kind: "activity-passed",
             activityId: "activity:s4e04-three-true-versions-synthesis"
           },
-          resumeContext: "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. The learner produces one synthesis using embedded quotation — 「〜によれば」「〜とのこと」「〜という」 — that attributes each account to its vantage point and says why all three hold at once, ranking none as the real beginning and marking the unwitnessed middle span as unknown.",
+          resumeContext: "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. Choose the synthesis that attributes each account with 「〜によれば」「〜とのこと」「〜という」 and leaves the unwitnessed middle span unknown.",
           onReady: "checkpoint:three-versions:after-synthesis",
           onRepair: "node:three-versions:synthesis-repair",
           onDefer: "checkpoint:three-versions:before-synthesis"
@@ -213879,15 +214171,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "stage",
           id: "node:three-versions:synthesis-repair",
-          beatId: "beat:three-versions:production-repair",
+          beatId: "beat:three-versions:recognition-repair",
           cueId: "cue:one-voice-flattened-restored",
-          description: "The synthesis holds except at one clause, where one account lost its vantage note and got folded into the other two. Only that clause comes back for another pass. The attributions already balanced stay as they are, and the blank middle span stays blank."
+          description: "One option folds an account into the other two by dropping its vantage note. Compare that clause again; the blank middle span stays blank."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:three-versions:after-synthesis",
-          beatId: "beat:three-versions:production-response",
-          resume: "The three accounts now sit inside one sentence, each attributed, none ranked. Jodi reads it back and sees all three still standing."
+          beatId: "beat:three-versions:recognition-response",
+          resume: "The selected sentence keeps all three accounts attributed and the unwitnessed interval open. Jodi reads it back and sees all three still standing."
         },
         {
           kind: "line",
@@ -213928,19 +214220,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the still-blank span between the cards, and the page waiting ahead",
           variants: {
             n3: {
-              japanese: "ありがとう。……正直、私も、全部は知らないの。私の分は残しておく。知らないところは、そのまま空けておく。それを埋めるのは、たぶん、まだ先。",
-              reading: "ありがとう。……しょうじき、わたしも、ぜんぶはしらないの。わたしのぶんはのこしておく。しらないところは、そのままあけておく。それをうめるのは、たぶん、まださき。",
-              english: "Thank you. …Honestly, I don't know all of it either. I'll leave my share. The parts I don't know, I'll leave open as they are. Filling those in, that's probably still ahead of us."
+              japanese: "ありがとう。じゃあ、三枚を重ねたまま、最初から読んでみよう。……真ん中だけ明るく残るね。明日、ナナコさんに後ろで聞いてもらえないかな。この話を知らない耳で、一度試したいの。",
+              reading: "ありがとう。じゃあ、さんまいをかさねたまま、さいしょからよんでみよう。……まんなかだけあかるくのこるね。あした、ナナコさんにうしろできいてもらえないかな。このはなしをしらないみみで、いちどためしたいの。",
+              english: "Thank you. Let's read it from the start with all three sheets layered. …Only the middle stays bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             n2: {
-              japanese: "ありがとう。……正直に言うと、私にも、全部はわからないの。私が請け合える分だけ、そこに残す。見ていない「あいだ」は、無理に埋めないで、空けたままにしておく。そこを埋める話は、たぶん、もう少し先ね。",
-              reading: "ありがとう。……しょうじきにいうと、わたしにも、ぜんぶはわからないの。わたしがうけあえるぶんだけ、そこにのこす。みていない「あいだ」は、むりにうめないで、あけたままにしておく。そこをうめるはなしは、たぶん、もうすこしさきね。",
-              english: `Thank you. …Honestly, I don't know all of it either. Only the part I can vouch for, I'll leave there. The "in-between" I didn't see, I'll leave open rather than force it shut. The talk of filling that in, that's probably a little further ahead.`
+              japanese: "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              reading: "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              english: "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             n1: {
-              japanese: "ありがとう。……正直に言えば、私にだって、全部がわかっているわけじゃないの。私が請け合える分だけを、そこに残しておく。自分の目が届かなかった「あいだ」は、無理に埋めずに、空けたまま渡す。……そこにいつか誰が何を書くのかは、まだ、決めなくていい話。",
-              reading: "ありがとう。……しょうじきにいえば、わたしにだって、ぜんぶがわかっているわけじゃないの。わたしがうけあえるぶんだけを、そこにのこしておく。じぶんのめがとどかなかった「あいだ」は、むりにうめずに、あけたままわたす。……そこにいつかだれがなにをかくのかは、まだ、きめなくていいはなし。",
-              english: `Thank you. …Honestly, it isn't as though even I understand all of it. Only the part I can vouch for, I'll leave there. The "in-between" my own eyes never reached, I'll hand it on, left open rather than forced shut. …Who writes what there someday, that's something we don't have to decide yet.`
+              japanese: "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              reading: "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              english: "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             }
           },
           support: {
@@ -213954,7 +214246,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:three-versions:page-stays-plural",
           beatId: "beat:three-versions:exit-image",
           cueId: "cue:one-synthesis-three-cards-kept",
-          description: "The first page now carries one synthesis, with the three account-cards still set beneath it in their row, each keeping its vantage note. The middle span stays blank, marked unknown. Nothing is crossed out, and no line has been added to say which beginning was the real one."
+          description: "Jodi clips all three transparent sheets to the rehearsal stand at once. Rie reads the synthesis from the back row; the unwitnessed middle remains a bright gap instead of disappearing. A second back-row chair is pulled out for tomorrow, with Nanako's name on the visitor slip."
         }
       ],
       exit: {
@@ -213999,7 +214291,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "outcome:three-versions:transfer-return",
       kind: "curriculum-return",
       activityId: "activity:s4e04-three-true-versions-synthesis",
-      description: "Synthesize-three-accounts-into-compatible-truths-with-embedded-quotation evidence returns through the unregistered N1 transfer activity; the story emits no lesson-completion command."
+      description: "Recognition of a synthesis that keeps three attributed accounts compatible returns through the chapter's selected-response activity; the story emits no lesson-completion command."
     }
   ];
   const replay$8 = {
@@ -214040,7 +214332,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$7 = "yomu-academy.story-package.v2";
   const id$7 = "s4e05-left-unsaid";
-  const revision$7 = "2026-07-18.1";
+  const revision$7 = "2026-07-20.3";
   const canonicality$7 = "canon";
   const season$7 = 4;
   const chapter$8 = 41;
@@ -214048,7 +214340,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "What Was Left Unsaid",
     ja: "言わずにおくこと"
   };
-  const synopsis$7 = "Nanako drops in on a quiet rehearsal of the public evening and hears a stage line that explains a deliberate blank with the writer's private reason attached. She asks the season's smallest sharp question — is that something to put on stage? The learner trims the line so the gap itself carries the meaning, then decides how Henry keeps his own reason off the public page without the line going cold. The woman who once glossed everything into English so nothing was lost now shows that a chosen omission is authored too, and closes the visit the way she always closes things.";
+  const synopsis$7 = "Nanako drops in on a quiet rehearsal of the public evening and hears a stage line that explains a deliberate blank with the writer's private reason attached. She asks the season's smallest sharp question — is that something to put on stage? The learner identifies the line that lets the gap carry the meaning, then decides how Henry keeps his own reason off the public page without the line going cold. The woman who once glossed everything into English so nothing was lost now shows that a chosen omission is authored too, and closes the visit the way she always closes things.";
   const sourceSafety$7 = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -214103,7 +214395,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           transferIds: [
             "activity:s4e05-left-unsaid-trim-the-line"
           ],
-          "function": "compose-meaning-through-implication-ellipsis-and-a-private-public-register-split"
+          "function": "recognise-public-wording-that-preserves-ellipsis-and-a-private-public-register-split"
         }
       ],
       recommendedBand: "n2",
@@ -214122,7 +214414,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       weatherState: "summer-evening",
       goal: "Reach the point where a rehearsal line that spells out a private reason reads worse on stage than one that stops short and lets the gap carry the meaning.",
       dramaticQuestion: "Faced with a blank the audience might not understand, will the class explain it all the way down, or trust the omission to speak?",
-      learnerNeed: "A changed-context rewrite where saying less on purpose lands better than saying everything.",
+      learnerNeed: "A recognition check where the learner identifies the public line that preserves the deliberate blank without publishing a private reason.",
       curriculum: {
         sectionId: "trim-a-line-so-the-gap-speaks",
         order: 1
@@ -214134,7 +214426,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:left-unsaid:rehearsal-set",
           beatId: "beat:left-unsaid:arrival-image",
           cueId: "cue:taped-stage-line-and-weighted-script",
-          description: "The classroom is set for a run-through of the public evening: chairs turned toward a taped line on the floor that stands in for the stage edge, a printed script weighted flat on the front desk. Nanako stands just inside the door, a bag still on her shoulder. She doesn't move toward a chair."
+          description: "The back-row chair from yesterday's overlay test is still pulled out. The classroom door opens on Henry's phrase 'the truth is.' Nanako stops there with her bag still on one shoulder. On the stage script, the next sentence says the earlier writer left town; unlike every other claim on the page, it has no source mark or permission note."
         },
         {
           kind: "line",
@@ -214145,19 +214437,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the taped stage line and the script, seen from the doorway rather than a desk",
           variants: {
             n3: {
-              japanese: "ごめんね、ちょっとだけ遅れちゃった。座らないで、後ろから見てるだけにするね。続けてて。",
-              reading: "ごめんね、ちょっとだけおくれちゃった。すわらないで、うしろからみてるだけにするね。つづけてて。",
-              english: "Sorry, I'm a little late. I won't sit down — I'll just watch from the back. Keep going."
+              japanese: "ごめん、少し遅れた。続けて。……でも今の『街を離れた』って行だけ、あとで見せてね。",
+              reading: "ごめん、すこしおくれた。つづけて。……でもいまの『まちをはなれた』ってぎょうだけ、あとでみせてね。",
+              english: "Sorry, I'm a little late. Keep going. …But show me the line about 'leaving town' afterward, all right?"
             },
             n2: {
-              japanese: "ごめんね、少し遅れちゃった。私は座らずに、後ろで見てるだけにするから。気にしないで続けて。",
-              reading: "ごめんね、すこしおくれちゃった。わたしはすわらずに、うしろでみてるだけにするから。きにしないでつづけて。",
-              english: "Sorry, I'm a bit late. I'll stay at the back and just watch — don't mind me, keep going."
+              japanese: "ごめん、少し遅れた。そのまま続けて。……でも今の『街を離れた』ってところ、あとで見せてくれる?",
+              reading: "ごめん、すこしおくれた。そのままつづけて。……でもいまの『まちをはなれた』ってところ、あとでみせてくれる?",
+              english: "Sorry, I'm a little late. Keep going. …But show me that bit about 'leaving town' afterward, will you?"
             },
             n1: {
-              japanese: "ごめんね、少し遅れちゃって。私は座らずに、後ろで見せてもらうだけにするから。どうぞ気にせず、そのまま続けて。",
-              reading: "ごめんね、すこしおくれちゃって。わたしはすわらずに、うしろでみせてもらうだけにするから。どうぞきにせず、そのままつづけて。",
-              english: "Sorry I'm a little late. I'll keep to the back and just let myself watch — please don't mind me, carry right on."
+              japanese: "ごめん、少し遅れた。そのまま続けて。……でも今の『街を離れた』って一節、あとで見せてくれる?",
+              reading: "ごめん、すこしおくれた。そのままつづけて。……でもいまの『まちをはなれた』っていっせつ、あとでみせてくれる?",
+              english: "Sorry, I'm a little late. Carry on. …But show me that clause about 'leaving town' afterward, will you?"
             }
           },
           support: {
@@ -214171,18 +214463,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:left-unsaid:henry-over-explains",
           beatId: "beat:left-unsaid:human-want",
           speakerId: "henry",
-          intent: "Read the draft closing note for the blank route aloud, stacking on the full private reason so the audience will not be confused about why the space was left empty.",
+          intent: "Read the draft closing note for the deliberately empty atlas section aloud, stacking on the full private reason so the audience will not be confused about why the space was left empty.",
           attentionTarget: "the printed script line and the imagined audience, more than the people in the room",
           variants: {
             n2: {
-              japanese: "じゃあ最後の説明、読むね。「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きをどうしても書けなかったんです。だから――」……このくらい言わないと、なんで空いてるのか、伝わらないと思って。",
-              reading: "じゃあさいごのせつめい、よむね。「このいっくかくは、あえてあけてあります。じつは、かいたひとがそのごこのまちをはなれることになって、つづきをどうしてもかけなかったんです。だから――」……このくらいいわないと、なんであいてるのか、つたわらないとおもって。",
-              english: `Okay, I'll read the closing note. "This one section is left blank on purpose. The truth is, the person who wrote it ended up leaving the town afterward, and couldn't bring themselves to finish it. So—" …I figured if we don't say at least this much, no one gets why it's empty.`
+              japanese: "じゃあ最後の説明、読むね。『この一区画は、あえて空けてあります。資料をつなぐと、書いた人はその後この街を離れて、続きを書けなかったと考えられます。だから――』……理由までないと、お客さんが迷うかなと思って。",
+              reading: "じゃあさいごのせつめい、よむね。『このいっくかくは、あえてあけてあります。しりょうをつなぐと、かいたひとはそのごこのまちをはなれて、つづきをかけなかったとかんがえられます。だから――』……りゆうまでないと、おきゃくさんがまようかなとおもって。",
+              english: "Okay, I'll read the closing note. 'This section is left blank on purpose. Taken together, the records suggest that its writer later left town and could not continue. And so—' …I thought the audience might get lost without the reason."
             },
             n1: {
-              japanese: "じゃあ締めの説明、読むよ。「この一区画は、あえて空けてあります。実は、書いた本人がその後この街を離れることになりまして、どうしても続きが書けなかった。ですから――」……ここまで言っておかないと、なぜ空白なのか、お客さんには伝わらない気がして。",
-              reading: "じゃあしめのせつめい、よむよ。「このいっくかくは、あえてあけてあります。じつは、かいたほんにんがそのごこのまちをはなれることになりまして、どうしてもつづきがかけなかった。ですから――」……ここまでいっておかないと、なぜくうはくなのか、おきゃくさんにはつたわらないきがして。",
-              english: `Okay, reading the closing note. "This section is left blank on purpose. In fact, the one who wrote it ended up leaving the town afterward, and simply couldn't write the rest. And so—" …I feel like unless we spell it out this far, the audience won't understand why it's blank.`
+              japanese: "じゃあ締めの説明、読むよ。『この一区画は、あえて空けてあります。複数の資料をつなぐと、書いた本人はその後この街を離れ、続きを書けなかったと考えられます。ですから――』……理由まで示さないと、なぜ空白なのか、お客さんには伝わらない気がして。",
+              reading: "じゃあしめのせつめい、よむよ。『このいっくかくは、あえてあけてあります。ふくすうのしりょうをつなぐと、かいたほんにんはそのごこのまちをはなれ、つづきをかけなかったとかんがえられます。ですから――』……りゆうまでしめさないと、なぜくうはくなのか、おきゃくさんにはつたわらないきがして。",
+              english: "Okay, reading the closing note. 'This section is left blank on purpose. Taken together, several records suggest that the writer later left town and could not continue. Therefore—' …I feel the audience won't understand the blank unless we give the reason too."
             }
           },
           support: {
@@ -214200,14 +214492,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the one clause about the writer leaving, and the gap it was meant to explain",
           variants: {
             n2: {
-              japanese: "……ねえ、その「実は」のところ。合ってるんだけど、そこ、舞台で言うことかな。空けてあるって分かれば、お客さんはちゃんと受け取るよ。理由まで全部は……言わなくても、伝わると思う。",
-              reading: "……ねえ、その「じつは」のところ。あってるんだけど、そこ、ぶたいでいうことかな。あけてあるってわかれば、おきゃくさんはちゃんとうけとるよ。りゆうまでぜんぶは……いわなくても、つたわるとおもう。",
-              english: `…Hey, that "the truth is" part. It's accurate — but is it something to say on stage? If they can see it was left open, the audience takes it in fine. The whole reason, though… you don't have to say it for it to land.`
+              japanese: "……それ、本人に聞いた? 舞台で言っていいって。聞いてないなら、その行は外そう。言えるのは『あえて空けてあります』まで。そこで止めて、一度読んでみよう。",
+              reading: "……それ、ほんにんにきいた? ぶたいでいっていいって。きいてないなら、そのぎょうははずそう。いえるのは『あえてあけてあります』まで。そこでとめて、いちどよんでみよう。",
+              english: "…Did you ask them? Whether we may say that on stage? If not, take the line out. We can go as far as 'left blank on purpose.' Stop there and read it once."
             },
             n1: {
-              japanese: "……ねえ、その「実は」から先。間違ってはいないの。ただ、それ、舞台に上げることかな、って。空けてあるとだけ分かれば、お客さんのほうで受け取ってくれる。理由を最後まで並べなくても……ちゃんと、伝わると思う。",
-              reading: "……ねえ、その「じつは」からさき。まちがってはいないの。ただ、それ、ぶたいにあげることかな、って。あけてあるとだけわかれば、おきゃくさんのほうでうけとってくれる。りゆうをさいごまでならべなくても……ちゃんと、つたわるとおもう。",
-              english: `…Hey, from that "the truth is" onward. It isn't wrong. It's just — is that something to put on stage? If they only know it was left open, the audience meets it halfway. Without laying the whole reason out… I think it still reaches them.`
+              japanese: "……それ、本人に聞いた? 舞台で言っていいって。聞いてないなら、その一節は外そう。言えるのは『あえて空けてあります』まで。まず、そこで止めて読んでみよう。",
+              reading: "……それ、ほんにんにきいた? ぶたいでいっていいって。きいてないなら、そのいっせつははずそう。いえるのは『あえてあけてあります』まで。まず、そこでとめてよんでみよう。",
+              english: "…Did you ask them? Whether we may say that on stage? If not, take the clause out. We can go as far as 'left blank on purpose.' First, stop there and read it."
             }
           },
           support: {
@@ -214220,21 +214512,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:left-unsaid:before-trim",
           beatId: "beat:left-unsaid:trim-attempt",
-          resume: "The draft line still reads with its full private explanation. The learner steps in to cut it back so the gap itself carries the meaning, keeping only what the audience needs and leaving the writer's reason off the stage."
+          resume: "The draft line still carries a private explanation. The learner identifies the version that stops at the deliberate blank and leaves the writer's reason off the stage."
         },
         {
           kind: "activity",
           id: "activity-node:left-unsaid:trim-the-line",
           beatId: "beat:left-unsaid:trim-attempt",
           hook: {
-            componentType: "transfer",
+            componentType: "recognition",
             exerciseId: "activity:s4e05-left-unsaid-trim-the-line"
           },
           requiredEvidence: {
             kind: "activity-passed",
             activityId: "activity:s4e05-left-unsaid-trim-the-line"
           },
-          resumeContext: "The draft closing note reads 「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きを書けなかったんです。だから――」. The learner rewrites it so the deliberate blank still reads as chosen — trimming the private reason and letting an unfinished 〜けど… or a trailing pause do the work — rather than spelling out why the writer stopped.",
+          resumeContext: "The draft closing note reads 「この一区画は、あえて空けてあります。複数の資料をつなぐと、書いた本人はその後この街を離れ、続きを書けなかったと考えられます。ですから――」, but the inferred private circumstance has no publication permission. Choose the public line that stops at the deliberate blank instead of publishing or teasing the private reason.",
           onReady: "checkpoint:left-unsaid:after-trim",
           onRepair: "node:left-unsaid:trim-repair",
           onDefer: "checkpoint:left-unsaid:before-trim"
@@ -214244,13 +214536,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:left-unsaid:trim-repair",
           beatId: "beat:left-unsaid:trim-repair",
           cueId: "cue:full-and-trimmed-lines-side-by-side",
-          description: "Two versions sit side by side on the desk: the full explanation, and a trimmed line that stops at 「あえて空けてあります」 with the rest trailing off. Only the over-explained clause comes back for another pass; the part that already lands stays as it is."
+          description: "Two versions sit side by side: one publishes the inferred reason, while the other stops at 「あえて空けてあります」. Compare what each version puts on stage."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:left-unsaid:after-trim",
           beatId: "beat:left-unsaid:trim-response",
-          resume: "The closing line now stops short of the private reason. Nanako reads the trimmed version back and names what the gap is doing."
+          resume: "The selected closing line stops short of the private reason. Nanako reads it back and names what the gap is doing."
         },
         {
           kind: "line",
@@ -214261,14 +214553,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the trailing end of the trimmed line and the silence after it",
           variants: {
             n2: {
-              japanese: "うん、これでいい。「あえて空けてあります」――そこで止まってるでしょ。この止まってるところが、いちばん喋ってる。昔の私なら、全部言葉にして、英語まで付けて、誰も取りこぼさないようにしてた。でもね、わざと残す空白も、ちゃんと書いたものなんだよ。",
-              reading: "うん、これでいい。「あえてあけてあります」――そこでとまってるでしょ。このとまってるところが、いちばんしゃべってる。むかしのわたしなら、ぜんぶことばにして、えいごまでつけて、だれもとりこぼさないようにしてた。でもね、わざとのこすくうはくも、ちゃんとかいたものなんだよ。",
-              english: `Yeah, this is right. "Left blank on purpose" — and it stops there, see? That stopping point is what speaks loudest. The old me would have put all of it into words, English and all, so no one got left behind. But a blank you leave on purpose — that's something you wrote too.`
+              japanese: "うん。じゃあ、舞台の線から読んでみて。……『あえて空けてあります』。そこで三秒。……後ろまで届いたよ。理由までは言わなくても、空けたことは伝わる。これなら舞台で言えるね。",
+              reading: "うん。じゃあ、ぶたいのせんからよんでみて。……『あえてあけてあります』。そこでさんびょう。……うしろまでとどいたよ。りゆうまではいわなくても、あけたことはつたわる。これならぶたいでいえるね。",
+              english: "Good. Now read it from the stage line. …'Left blank on purpose.' Three seconds there. …It reached the back. The pause tells them the space was deliberate. We don't need the private reason on stage."
             },
             n1: {
-              japanese: "うん、これでいい。「あえて空けてあります」――そこで、ふっと切れてるでしょう。その切れ目が、いちばん物を言ってる。昔の私だったら、何もかも言葉にして、英語まで添えて、誰一人取りこぼさないようにしてたと思う。……でも、わざと残した余白っていうのも、れっきとした、書かれたものなんだよね。",
-              reading: "うん、これでいい。「あえてあけてあります」――そこで、ふっときれてるでしょう。そのきれめが、いちばんものをいってる。むかしのわたしだったら、なにもかもことばにして、えいごまでそえて、だれひとりとりこぼさないようにしてたとおもう。……でも、わざとのこしたよはくっていうのも、れっきとした、かかれたものなんだよね。",
-              english: `Yeah, this is right. "Left blank on purpose" — and there it just cuts off, see? That cut is what says the most. The old me would have turned every last thing into words, added the English too, so not one person got left behind. …But a margin you leave on purpose — that's a written thing in its own right, isn't it.`
+              japanese: "うん。では、舞台の線から読んでみて。……『あえて空けてあります』。そこで三秒。……後ろまで届いた。空白が意図したものだと、理由まで足さなくても伝わる。舞台では、ここまでで十分だね。",
+              reading: "うん。では、ぶたいのせんからよんでみて。……『あえてあけてあります』。そこでさんびょう。……うしろまでとどいた。くうはくがいとしたものだと、りゆうまでたさなくてもつたわる。ぶたいでは、ここまででじゅうぶんだね。",
+              english: "Good. Now read it from the stage line. …'Left blank on purpose.' Three seconds there. …It reached the back. The pause makes the intention clear without adding the private reason. That is enough for the stage."
             }
           },
           support: {
@@ -214282,7 +214574,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:left-unsaid:blank-left-blank",
           beatId: "beat:left-unsaid:changed-image",
           cueId: "cue:closing-note-ends-with-space-after-it",
-          description: "The script's closing note now ends at 「あえて空けてあります」 with a short trailing dash and clear space after it. Beside the taped stage line, the fuller draft lies face down. The blank on the page is left blank."
+          description: "Henry reads the shorter line from behind the tape and lets the marked three-second pause run. Nanako hears it from the back row without moving closer. The unpermitted clause is covered by a removable strip on the public copy, while the source draft remains intact and face-down."
         }
       ],
       exit: {
@@ -214351,14 +214643,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the underlined personal clause, kept for him rather than handed to the room",
           variants: {
             n2: {
-              japanese: "その理由はね、あなたのものだよ。お客さんに要るのは、「本気で作った」って伝わることで、なんで本気だったかまでじゃない。理由は、知ってる人の間にだけあればいい。舞台の言葉は、みんなに渡せる分だけ乗せて。",
-              reading: "そのりゆうはね、あなたのものだよ。おきゃくさんにいるのは、「ほんきでつくった」ってつたわることで、なんでほんきだったかまでじゃない。りゆうは、しってるひとのあいだにだけあればいい。ぶたいのことばは、みんなにわたせるぶんだけのせて。",
-              english: "That reason — it's yours. What the audience needs is to feel you meant it, not why you meant it. The reason can live just between the people who already know. On the stage, put only the part that's yours to hand to everyone."
+              japanese: "その下線、一度、知らない人の前で読めるか考えてみて。少しでも迷うなら、公開版から外そう。『本気で作った』は、声と間で伝わる。理由は、自分用のメモに残せばいい。",
+              reading: "そのかせん、いちど、しらないひとのまえでよめるかかんがえてみて。すこしでもまようなら、こうかいばんからはずそう。『ほんきでつくった』は、こえとまでつたわる。りゆうは、じぶんようのメモにのこせばいい。",
+              english: "Look at that underlined clause and ask whether you can read it in front of strangers. If you hesitate at all, take it out of the public copy. 'I meant this work' will come through in your voice and the pause. Keep the reason in your own notes."
             },
             n1: {
-              japanese: "その理由は、あなたのものでいいんだよ。お客さんに伝わればいいのは、「本気で作った」ということで、なぜ本気だったのか、まではいらない。理由のほうは、知っている者の間にだけ、そっとあればいい。舞台に乗せる言葉は、誰に渡してもいい分だけで足りるの。",
-              reading: "そのりゆうは、あなたのものでいいんだよ。おきゃくさんにつたわればいいのは、「ほんきでつくった」ということで、なぜほんきだったのか、まではいらない。りゆうのほうは、しっているもののあいだにだけ、そっとあればいい。ぶたいにのせることばは、だれにわたしてもいいぶんだけでたりるの。",
-              english: "That reason can stay yours. What needs to reach the audience is that you meant it — not why you meant it. The reason can rest quietly just among the people who already know. The words you put on stage only need to be the part you can hand to anyone."
+              japanese: "その下線、知らない人の前でも読める? 少しでも止まるなら、舞台の台本からは外そう。本気で作ったことは、声で分かるよ。理由は、自分のメモに残せばいい。",
+              reading: "そのかせん、しらないひとのまえでもよめる? すこしでもとまるなら、ぶたいのだいほんからははずそう。ほんきでつくったことは、こえでわかるよ。りゆうは、じぶんのメモにのこせばいい。",
+              english: "Could you read that underlined bit in front of strangers? If you stop even a little, take it out of the stage script. People can hear that you meant the work. Keep the reason in your own notes."
             }
           },
           support: {
@@ -214375,11 +214667,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
           options: [
             {
               id: "option:left-unsaid:imply-and-trail-off",
-              action: `Keep a trace of it — let the line trail off at "there's a reason, but…" so the audience feels something private without being told it.`,
+              action: "Let the public line stop at the work's unfinished state, so the pause carries warmth without announcing a private reason.",
               japaneseByBand: {
-                n3: "「僕には僕の理由があるんですけど……それはここでは。」って、途中で止めよう。あるって分かるだけで十分だよ。",
-                n2: "「僕なりの理由もあるんですけど……それはまた。」って、そこで切ろう。理由があるってことだけ、匂わせて渡す。",
-                n1: "「僕なりの理由もあるんですけど……それは、また今度。」そこで、ふっと止める。“ある”とだけ伝わればいい――中身は言わずに、気配だけ置いていく。"
+                n3: "「この地図は、まだ途中ですけど……今日は、ここまでにします。」そこで止めよう。理由には触れずに、続きがあることだけ残せる。",
+                n2: "「この地図は、まだ途中ですけど……今日は、ここまでにします。」そこで切ろう。理由を持ち出さなくても、言い切らない温かさは残る。",
+                n1: "「この地図は、まだ途中ですけど……今日は、ここまでにします。」そこで止めよう。私的な理由を匂わせずに、余白だけ残せる。"
               },
               records: [
                 "stance",
@@ -214393,7 +214685,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
               japaneseByBand: {
                 n3: "理由は書かないでおこう。「ちゃんと作りました」って、まっすぐだけ言う。知ってる人には、それで伝わるから。",
                 n2: "理由の一行は、いっそ全部落とそう。「心を込めて作りました」って、まっすぐだけ残す。知ってる人には、言わなくても届いてるよ。",
-                n1: "その一行は、いっそ丸ごと下ろしてしまおう。「心を込めて作りました」――それだけ、まっすぐ置く。知っている人には、口にしなくても、もう届いてるものだから。"
+                n1: "その一行は、丸ごと外そう。「心を込めて作りました」だけでいい。知っている人には、それで届くから。"
               },
               records: [
                 "stance",
@@ -214419,14 +214711,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the trimmed script, and the door she came in by",
           variants: {
             n2: {
-              japanese: "うん、それでいい。全部言い切らなくても、ちゃんと終われるんだよ。前に、言えないまま終わった言葉があったでしょ。あれもね、失敗じゃなかった。人前で片づけなくていいことって、あるの。……じゃ、私はこのへんで。続き、頑張って。",
-              reading: "うん、それでいい。ぜんぶいいきらなくても、ちゃんとおわれるんだよ。まえに、いえないままおわったことばがあったでしょ。あれもね、しっぱいじゃなかった。ひとまえでかたづけなくていいことって、あるの。……じゃ、わたしはこのへんで。つづき、がんばって。",
-              english: "Yeah, that's good. You can end something properly without saying all of it. Remember the words that once went unsaid, back then? Those weren't a failure either. Some things don't have to be settled in front of everyone. …Okay, I'll head off here. Good luck with the rest."
+              japanese: "うん、今の一回で足りる。全部言わなくても、ちゃんと終われるね。二人の間に残しておくことは、書き忘れじゃない。残すと決めた部分。……私は最終電車があるから、ここまで。じゃあ、当日に。",
+              reading: "うん、いまのいっかいでたりる。ぜんぶいわなくても、ちゃんとおわれるね。ふたりのあいだにのこしておくことは、かきわすれじゃない。のこすときめたぶぶん。……わたしはさいしゅうでんしゃがあるから、ここまで。じゃあ、とうじつに。",
+              english: "Yes, that one run is enough. We can finish without saying everything. What we choose to leave between two people isn't something we forgot to write. It is the part we chose to keep. …I have a last train, so this is where I stop. See you on the night."
             },
             n1: {
-              japanese: "うん、それでいい。何もかも言い切らなくたって、人はちゃんと終われるんだよ。ほら、前に、言えないまま流れてしまった言葉があったでしょう。あれも、失敗なんかじゃなかった。人前で決着をつけなくていいことっていうのは、ちゃんとあるの。……さ、私はこのへんで。あとは、頑張って。",
-              reading: "うん、それでいい。なにもかもいいきらなくたって、ひとはちゃんとおわれるんだよ。ほら、まえに、いえないままながれてしまったことばがあったでしょう。あれも、しっぱいなんかじゃなかった。ひとまえでけっちゃくをつけなくていいことっていうのは、ちゃんとあるの。……さ、わたしはこのへんで。あとは、がんばって。",
-              english: "Yeah, that's good. People can end things properly without saying every last part. Remember — there were words, before, that slipped by unsaid? Those weren't a failure either. There really are things you don't have to settle in front of everyone. …Right, I'll head off here. The rest is yours — good luck."
+              japanese: "うん、今ので十分。全部言わなくても、ちゃんと終われるね。二人の間に残すって決めたなら、書き忘れじゃないよ。……私、終電あるからここまで。じゃ、当日ね。",
+              reading: "うん、いまのでじゅうぶん。ぜんぶいわなくても、ちゃんとおわれるね。ふたりのあいだにのこすってきめたなら、かきわすれじゃないよ。……わたし、しゅうでんあるからここまで。じゃ、とうじつね。",
+              english: "Yes, that's enough. We can finish without saying all of it. If we decide to leave something between two people, it isn't a forgotten line. …I've got a last train, so that's me. See you on the night."
             }
           },
           support: {
@@ -214444,19 +214736,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the shortened line, and the fact that it still sounds like him",
           variants: {
             n3: {
-              japanese: "……うん、分かった。全部言わなくても、これ、ちゃんと僕の言葉だ。……来てくれてありがとう。",
-              reading: "……うん、わかった。ぜんぶいわなくても、これ、ちゃんとぼくのことばだ。……きてくれてありがとう。",
-              english: "…Yeah, got it. Even without saying all of it, this still sounds like me. …Thanks for coming."
+              japanese: "……了解。『舞台用』と『自分用』。今、二つに分ける。止めてくれて、ありがとう。",
+              reading: "……りょうかい。『ぶたいよう』と『じぶんよう』。いま、ふたつにわける。とめてくれて、ありがとう。",
+              english: "…Got it. 'Stage copy' and 'my notes.' I'll split them now. Thanks for stopping me."
             },
             n2: {
-              japanese: "……うん、分かった。全部乗せなくても、これ、ちゃんと僕の言葉だ。ありがとう、来てくれて。",
-              reading: "……うん、わかった。ぜんぶのせなくても、これ、ちゃんとぼくのことばだ。ありがとう、きてくれて。",
-              english: "…Yeah, got it. Even without all of it on there, this still sounds like me. Thanks for coming."
+              japanese: "……了解。『舞台用』と『自分用の注記』。今、別ファイルにする。気づいてくれて、ありがとう。",
+              reading: "……りょうかい。『ぶたいよう』と『じぶんようのちゅうき』。いま、べつファイルにする。きづいてくれて、ありがとう。",
+              english: "…Got it. 'Stage copy' and 'my private notes.' I'll make them separate files now. Thanks for catching that."
             },
             n1: {
-              japanese: "……うん、分かったよ。全部を乗せなくても、これはちゃんと、僕の言葉のままだ。……来てくれて、ありがとう。",
-              reading: "……うん、わかったよ。ぜんぶをのせなくても、これはちゃんと、ぼくのことばのままだ。……きてくれて、ありがとう。",
-              english: "…Yeah, got it. Even without all of it on there, this is still my own line. …Thanks for coming."
+              japanese: "……了解。『舞台用』と『自分用』に分けて、今、別々に保存する。止めてくれて、ありがとう。",
+              reading: "……りょうかい。『ぶたいよう』と『じぶんよう』にわけて、いま、べつべつにほぞんする。とめてくれて、ありがとう。",
+              english: "…Got it. I'll split them into 'stage' and 'mine' and save them separately now. Thanks for stopping me."
             }
           },
           support: {
@@ -214470,7 +214762,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:left-unsaid:script-and-door",
           beatId: "beat:left-unsaid:exit-image",
           cueId: "cue:closing-lines-stop-short-note-pocketed",
-          description: "The script's closing lines stop short on purpose, a clean space where the reasons used to run on. Henry folds the private note and puts it in his pocket, off the page. Nanako, her bag still on her shoulder, slips out the way she came in. The taped stage line stays where it is; nothing on the page is crossed out."
+          description: "Two filenames appear on Henry's screen: STAGE and PRIVATE NOTES. The public line keeps its three-second pause; the personal clause remains untouched in the private copy. Nanako checks the train time, lifts one hand from the doorway, and is gone before Henry can reopen either file."
         }
       ],
       exit: {
@@ -214515,7 +214807,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "outcome:left-unsaid:transfer-return",
       kind: "curriculum-return",
       transferId: "activity:s4e05-left-unsaid-trim-the-line",
-      description: "Implication, ellipsis, and private/public-register evidence returns through the chapter's transfer activity; no registered N1 lesson package exists yet, and the story emits no lesson-completion command."
+      description: "Recognition of implication, ellipsis, and the private/public register split returns through the chapter's selected-response activity; no registered N1 lesson package exists yet, and the story emits no lesson-completion command."
     }
   ];
   const replay$7 = {
@@ -214556,7 +214848,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$6 = "yomu-academy.story-package.v2";
   const id$6 = "s4e06-open-question";
-  const revision$6 = "2026-07-18.1";
+  const revision$6 = "2026-07-20.3";
   const canonicality$6 = "canon";
   const season$6 = 4;
   const chapter$7 = 42;
@@ -214564,7 +214856,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "The Open Question",
     ja: "開いたままの問い"
   };
-  const synopsis$6 = "The finished atlas needs one name in an archive card's single author field, and the class has deadlocked over which. From the chair no one thought to check, Peter asks whether finishing it requires naming a single owner at all, or whether the demand for one name is itself the wrong frame. The learner builds the counterfactual that dismantles the premise, the class rejects it, and the record is closed as layered stewardship with the author field deliberately left open.";
+  const synopsis$6 = "A rehearsal sentence stops at one blank author name even though the atlas passed through many hands. From the chair by the window, Peter asks whether the sentence is wrong rather than any of the names. The learner identifies the counterfactual response that tests that premise; Sophie rewrites the spoken introduction around traceable contributions, and the class tries it from the stage before turning to the next blank cue: what each person will do after the final night.";
   const sourceSafety$6 = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -214617,7 +214909,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "content-family",
           family: "n1-argument-structure-counterfactuals",
-          "function": "challenge-a-false-premise-without-flattening-the-speaker"
+          "function": "recognise-a-counterfactual-that-challenges-a-false-premise-without-flattening-the-speaker"
         }
       ],
       recommendedBand: "n2",
@@ -214634,9 +214926,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:classroom",
       timeState: "evening",
       weatherState: "summer-late-light",
-      goal: "Meet the class deadlocked over one owner name for the finished atlas and reach the point where the demand for a single name is itself in question.",
-      dramaticQuestion: "When a form asks for one owner, does the class pick a name, or question whether one owner was ever required?",
-      learnerNeed: "A frame-shifting counterfactual that challenges the single-owner premise without contradicting or blaming anyone in the room.",
+      goal: "Stop a first-page rehearsal at the sentence demanding one maker, and reach the point where the sentence itself becomes the thing to revise.",
+      dramaticQuestion: "When the spoken introduction leaves room for one name, does the class pick someone or question the line?",
+      learnerNeed: "A recognition check where the learner identifies the frame-shifting counterfactual that challenges the single-owner premise without blaming anyone in the room.",
       curriculum: {
         sectionId: "question-the-premise",
         order: 1
@@ -214647,31 +214939,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "stage",
           id: "node:open-question:blank-author-field",
           beatId: "beat:open-question:arrival-image",
-          cueId: "cue:archive-card-one-empty-field",
-          description: "The finished atlas lies closed on the long table. Beside it, an archive card with one empty field: 「作者」. The board behind carries a column of names, each written and then crossed out. By the window, the chair no one thought to check is not empty; Peter sits in it, notebook shut on his knee."
+          cueId: "cue:rehearsal-card-one-empty-line",
+          description: "The projector holds on the rehearsal line 「このアトラスを作ったのは、＿＿です」. On the board, Sophie's first attempt at the blank has become a row of crossed-out names. The atlas lies open on the lectern. By the window, the chair no one thought to check is occupied after all; Peter watches with his notebook shut on one knee."
         },
         {
           kind: "line",
           id: "line:open-question:sophie-deadlock",
           beatId: "beat:open-question:host-want",
           speakerId: "sophie",
-          intent: "Lay out the deadlock precisely: several people added parts, the archive form wants one author name, and she is uneasy but leaning toward filling it because the form demands it.",
-          attentionTarget: "the single empty author field and the crossed-out names",
+          intent: "Stop the rehearsal where its one-name sentence erases a different contributor whichever name she tries.",
+          attentionTarget: "the spoken blank and the crossed-out names beneath it",
           variants: {
             n3: {
-              japanese: "このカードの『作者』の欄、一つしか枠がないんですよね。名前を一人だけ書けって。…でも、道を足した人も、キャプションを直した人も、みんな違うでしょう。一人に決めるの、気が進まないんだけど…欄が一人分しかないなら、埋めるしかないのかな。",
-              reading: "このカードの『さくしゃ』のらん、ひとつしかわくがないんですよね。なまえをひとりだけかけって。…でも、みちをたしたひとも、キャプションをなおしたひとも、みんなちがうでしょう。ひとりにきめるの、きがすすまないんだけど…らんがひとりぶんしかないなら、うめるしかないのかな。",
-              english: "This card's 'author' field only has one box. Write just one name, it says. But the person who added a route, the person who fixed a caption, they're all different. I don't want to settle on one, but if there's only room for one, maybe we have to fill it."
+              japanese: "また、ここで止まる。『このアトラスを作ったのは、＿＿です』。一人入れると、道を足した人か、文を直した人が消える。空けたままだと読めないし。",
+              reading: "また、ここでとまる。『このアトラスをつくったのは、＿＿です』。ひとりいれると、みちをたしたひとか、ぶんをなおしたひとがきえる。あけたままだとよめないし。",
+              english: "We stop here again. 'The person who made this atlas was __.' Put one name in, and either the person who added the route or the person who revised the text disappears. Leave it blank, and the line cannot be read."
             },
             n2: {
-              japanese: "登録カードの『作者』の欄、ここ、枠が一つしかないんですよね。名前を一人だけ入れてくれ、って言われてて。…でも、道を足した人も、あとからキャプションを直した人も、みんな別々でしょう。誰か一人に決めるのは、正直あんまり気が進まないんだけど…様式が一人分しかないなら、結局どこかで埋めるしかないのかな、って。",
-              reading: "とうろくカードの『さくしゃ』のらん、ここ、わくがひとつしかないんですよね。なまえをひとりだけいれてくれ、っていわれてて。…でも、みちをたしたひとも、あとからキャプションをなおしたひとも、みんなべつべつでしょう。だれかひとりにきめるのは、しょうじきあんまりきがすすまないんだけど…ようしきがひとりぶんしかないなら、けっきょくどこかでうめるしかないのかな、って。",
-              english: "The 'author' field on the registration card, there's only one box here. They've told us to put in just one name. But the person who added a route, the person who fixed a caption later, they're all different people. Honestly I don't much want to settle on one person, but if the form only has room for one, I suppose in the end we just fill it in somewhere."
+              japanese: "また、ここで止まるんです。『このアトラスを作ったのは、＿＿です』。一人入れると、道を足した人か、後で文を直した人が消える。かといって、空欄のまま舞台では読めない。",
+              reading: "また、ここでとまるんです。『このアトラスをつくったのは、＿＿です』。ひとりいれると、みちをたしたひとか、あとでぶんをなおしたひとがきえる。かといって、くうらんのままぶたいではよめない。",
+              english: "We stop here again. 'The person who made this atlas was __.' Put one name in, and either the person who added the route or the person who later revised the text disappears. But we cannot read a blank aloud on stage."
             },
             n1: {
-              japanese: "登録カードの『作者』欄、ここ、枠が一つしか用意されてないんですよね。名前は一名だけ、と。…でも実際は、道を引いた人も、後からキャプションに手を入れた人もいて、寄与はてんでばらばらで。誰か一人に絞るのは、正直なところあまり気が進まない。ただ、様式が一名分しか取ってないとなると、結局はどこかで埋めるしかないのかな、と。",
-              reading: "とうろくカードの『さくしゃ』らん、ここ、わくがひとつしかよういされてないんですよね。なまえはいちめいだけ、と。…でもじっさいは、みちをひいたひとも、あとからキャプションにてをいれたひともいて、きよはてんでばらばらで。だれかひとりにしぼるのは、しょうじきなところあまりきがすすまない。ただ、ようしきがいちめいぶんしかとってないとなると、けっきょくはどこかでうめるしかないのかな、と。",
-              english: "The 'author' field here, there's only one box provided. One name, they say. But in reality there's the person who drew a route, the person who later touched up a caption; the contributions are all over the place. I honestly don't much want to narrow it to one person. Only, if the form has room for just one name, then in the end I suppose we just fill it in somewhere."
+              japanese: "また、ここで止まるんです。『このアトラスを作ったのは、＿＿です』。誰か一人を入れると、道を引いた人か、後で文を直した人が消える。だからといって、空欄のまま舞台で読むわけにもいかない。",
+              reading: "また、ここでとまるんです。『このアトラスをつくったのは、＿＿です』。だれかひとりをいれると、みちをひいたひとか、あとでぶんをなおしたひとがきえる。だからといって、くうらんのままぶたいでよむわけにもいかない。",
+              english: "We stop here again. 'The person who made this atlas was __.' Put one person in, and either the route maker or the later editor disappears. Yet we cannot read a blank aloud on stage."
             }
           },
           support: {
@@ -214686,17 +214978,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
           beatId: "beat:open-question:obstruction",
           speakerId: "peter",
           intent: "From the overlooked seat, question the premise rather than contradict anyone: use a counterfactual and premise-framing to ask whether finishing the atlas ever required a single owner at all.",
-          attentionTarget: "the assumption that the field must hold exactly one name",
+          attentionTarget: "the sentence before the blank, which no one has tried changing",
           variants: {
             n2: {
-              japanese: "あの…一つ、いいですか。そもそも、この地図を『仕上げる』のに、作者を一人に決める必要って、本当にあるんでしょうか。仮に、誰も名前を残していなかったとしても、これはこれで完成してましたよね。だとすると…埋めなきゃいけないのは、名前じゃなくて、『欄が一つしかない』っていう、その前提のほうかもしれません。",
-              reading: "あの…ひとつ、いいですか。そもそも、このちずを『しあげる』のに、さくしゃをひとりにきめるひつようって、ほんとうにあるんでしょうか。かりに、だれもなまえをのこしていなかったとしても、これはこれでかんせいしてましたよね。だとすると…うめなきゃいけないのは、なまえじゃなくて、『らんがひとつしかない』っていう、そのぜんていのほうかもしれません。",
-              english: "Sorry, may I say one thing? To begin with, do we really need to decide on a single author in order to 'finish' this map? Even supposing no one had left a name at all, it would still have been complete, wouldn't it. In which case, what needs filling in may not be the name, but the premise itself, that there's only one box."
+              japanese: "あの……その文、要りますか。もし名前が一つも残ってなくても、アトラスはここにあるし、みんなで作ってきたことも変わらない。なら、合ってないのは名前じゃなくて、文のほうかも。",
+              reading: "あの……そのぶん、いりますか。もしなまえがひとつものこってなくても、アトラスはここにあるし、みんなでつくってきたこともかわらない。なら、あってないのはなまえじゃなくて、ぶんのほうかも。",
+              english: "Um… do we need that sentence? Even if no names had survived, the atlas would still be here, and the way everyone made it would not change. Perhaps the sentence is wrong, not the names."
             },
             n1: {
-              japanese: "…すみません、一つだけ。そもそもの話なんですが、この地図を『仕上げる』ために、作者を一人に決めなければならない、というのは…本当にそうなんでしょうか。仮に、誰一人名前を残していなかったとしても、これはこれで完成していたはずで。だとすれば、埋めるべきなのは名前のほうじゃなくて…『欄が一つしかない』という、その前提のほうなのかもしれません。",
-              reading: "…すみません、ひとつだけ。そもそものはなしなんですが、このちずを『しあげる』ために、さくしゃをひとりにきめなければならない、というのは…ほんとうにそうなんでしょうか。かりに、だれひとりなまえをのこしていなかったとしても、これはこれでかんせいしていたはずで。だとすれば、うめるべきなのはなまえのほうじゃなくて…『らんがひとつしかない』という、そのぜんていのほうなのかもしれません。",
-              english: "Sorry, just one thing. Going back to the start of it, the idea that we must settle on a single author to 'finish' this map, is that actually so? Even if not one person had left a name, it would still have been complete. In which case, what we ought to fill in isn't the name, it's the premise that there's only one box."
+              japanese: "……一つだけ。その文、本当に要りますか。仮に、誰一人名前を残していなかったとしても、これはこれで完成していたはずで。だとしたら、合っていないのは名前じゃなくて、文のほうかもしれません。",
+              reading: "……ひとつだけ。そのぶん、ほんとうにいりますか。かりに、だれひとりなまえをのこしていなかったとしても、これはこれでかんせいしていたはずで。だとしたら、あっていないのはなまえじゃなくて、ぶんのほうかもしれません。",
+              english: "…One thing. Do we actually need that sentence? Even if nobody had left a name, the atlas would still have been complete. Perhaps the sentence is wrong, not the names."
             }
           },
           support: {
@@ -214714,19 +215006,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the demand for one name, now visible as an assumption rather than a rule",
           variants: {
             n3: {
-              japanese: "…あ、そっか。誰も『一人にして』なんて言ってないんだ。カードにその欄があるってだけで。…その前提のほう、一回ちゃんと疑ったほうがいいかも。",
-              reading: "…あ、そっか。だれも『ひとりにして』なんていってないんだ。カードにそのらんがあるってだけで。…そのぜんていのほう、いっかいちゃんとうたがったほうがいいかも。",
-              english: "Oh. Right. Nobody actually said 'make it one person.' It's just that the card has that field. Maybe it's the premise we should be questioning, properly, for once."
+              japanese: "……あ。名前を探してたけど、直すのは文のほう? 『誰が作った』じゃなくて、『何を、誰から受け取った』なら言える。",
+              reading: "……あ。なまえをさがしてたけど、なおすのはぶんのほう? 『だれがつくった』じゃなくて、『なにを、だれからうけとった』ならいえる。",
+              english: "…Oh. I've been looking for a name, but the sentence is what needs changing? We cannot say 'who made it,' but we can say what came from whom."
             },
             n2: {
-              japanese: "…あ。そうか。誰も『一人にしろ』なんて決めてないんだ。カードにそう書く欄があるってだけで。…その前提、一回ちゃんと疑ってみたほうがいいかもしれない。",
-              reading: "…あ。そうか。だれも『ひとりにしろ』なんてきめてないんだ。カードにそうかくらんがあるってだけで。…そのぜんてい、いっかいちゃんとうたがってみたほうがいいかもしれない。",
-              english: "Oh. I see. Nobody decided it has to be one person. It's just that the card has a box for writing one. Maybe that premise is the thing we ought to question, properly, once."
+              japanese: "……あ。ずっと名前を探してたけど、直すのは文のほうなんだ。『誰が作った』じゃなくて、『何を、誰から受け取った』なら、今ある資料で言える。",
+              reading: "……あ。ずっとなまえをさがしてたけど、なおすのはぶんのほうなんだ。『だれがつくった』じゃなくて、『なにを、だれからうけとった』なら、いまあるしりょうでいえる。",
+              english: "…Oh. I've been looking for a name, but the sentence is what needs changing. We cannot say 'who made it,' but the evidence does let us say what came from whom."
             },
             n1: {
-              japanese: "…あ。言われてみれば、そうですね。『一人にしろ』なんて、そもそも誰も言ってない。ただ、カードにそういう欄が一つあるっていう、それだけの話で。…疑うべきは、そっちの前提のほうだったのかもしれない。",
-              reading: "…あ。いわれてみれば、そうですね。『ひとりにしろ』なんて、そもそもだれもいってない。ただ、カードにそういうらんがひとつあるっていう、それだけのはなしで。…うたがうべきは、そっちのぜんていのほうだったのかもしれない。",
-              english: "Oh. Now that you say it, yes. Nobody ever said 'make it one person' in the first place. It's only that the card happens to have one such box. The thing to question was that premise, all along, maybe."
+              japanese: "……あ。名前を探し続けてたけど、直すのは文のほうなんですね。『誰が作った』ではなく、『何を、誰から受け取った』なら、資料の範囲で言える。",
+              reading: "……あ。なまえをさがしつづけてたけど、なおすのはぶんのほうなんですね。『だれがつくった』ではなく、『なにを、だれからうけとった』なら、しりょうのはんいでいえる。",
+              english: "…Oh. I've kept looking for a name, but the sentence is what needs changing. We cannot say 'who made it'; we can say what came from whom, within the evidence we have."
             }
           },
           support: {
@@ -214739,21 +215031,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:open-question:before-reframe",
           beatId: "beat:open-question:reframe-attempt",
-          resume: "The 「作者」 field stays blank, one name demanded and none agreed. The learner steps in to question the premise itself, building in careful register the counterfactual and the frame-shift that ask whether a single owner is needed at all, without contradicting anyone in the room."
+          resume: "The projected sentence still stops at one blank name. The learner identifies the counterfactual response that challenges the sentence rather than anyone named on the board."
         },
         {
           kind: "activity",
           id: "activity-node:open-question:reframe-premise",
           beatId: "beat:open-question:reframe-attempt",
           hook: {
-            componentType: "transfer",
+            componentType: "recognition",
             exerciseId: "activity:s4e06-open-question-reframe-premise"
           },
           requiredEvidence: {
             kind: "activity-passed",
             activityId: "activity:s4e06-open-question-reframe-premise"
           },
-          resumeContext: "The archive card offers a single 「作者」 field and a demand for one name. From the deadlock, the learner builds the reframing move: a counterfactual (had no one signed it, it would still have been finished — 〜ていなかったら / 〜としたら) and a premise-frame (そもそも / 〜という前提) that question whether finishing requires one owner at all. The argument challenges the frame, not any person in the room.",
+          resumeContext: "The rehearsal line says 「このアトラスを作ったのは、＿＿です」 even though routes, captions, and photographs came from different hands. Choose the response that uses a counterfactual and そもそも to question the one-owner sentence without dismissing anyone in the room.",
           onReady: "checkpoint:open-question:after-reframe",
           onRepair: "node:open-question:premise-repair",
           onDefer: "checkpoint:open-question:before-reframe"
@@ -214763,13 +215055,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:open-question:premise-repair",
           beatId: "beat:open-question:reframe-repair",
           cueId: "cue:premise-bracketed-on-board",
-          description: "On the board, the crossed-out names stay crossed out. Above them someone has bracketed the word 「作者」 itself and drawn a question mark. Only the assumption that went unquestioned, that the field must hold one name, waits circled for another pass."
+          description: "The crossed-out names stay on the board. On the projector, a bracket now begins before 「このアトラスを作ったのは」 and ends after the blank. No name is circled; the sentence itself waits for another pass."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:open-question:after-reframe",
           beatId: "beat:open-question:reframe-response",
-          resume: "The premise is out in the open now, bracketed on the board rather than obeyed. Peter looks at it and names what just happened."
+          resume: "The selected response puts the premise in question. Peter looks at the bracketed sentence and names what changed."
         },
         {
           kind: "line",
@@ -214780,19 +215072,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the shifted question, and the ease it lets back into the room",
           variants: {
             n3: {
-              japanese: "そう、それです。…反対してるわけじゃないんですよ。問いを一つずらしただけで。『誰の名前か』じゃなくて、『そもそも一人分いるのか』。…人を否定しないで、枠のほうを問い直す。それだけで、楽になる。",
-              reading: "そう、それです。…はんたいしてるわけじゃないんですよ。といをひとつずらしただけで。『だれのなまえか』じゃなくて、『そもそもひとりぶんいるのか』。…ひとをひていしないで、わくのほうをといなおす。それだけで、らくになる。",
-              english: "Yes, that. I'm not disagreeing with anyone. I just shifted the question by one. Not 'whose name,' but 'do we need one at all.' Question the box, not the person. That alone makes it easier."
+              japanese: "そう、それです。名前を消すんじゃなくて、空欄の前から直す。……消しゴム、まだ残ってますね。",
+              reading: "そう、それです。なまえをけすんじゃなくて、くうらんのまえからなおす。……けしゴム、まだのこってますね。",
+              english: "Yes, that's it. Don't erase a name; revise from before the blank. …We still have some eraser left."
             },
             n2: {
-              japanese: "そう、それです。…別に、反対してるわけじゃないんですよ。ただ、問いを一つずらしただけで。『誰の名前を入れるか』じゃなくて、『そもそも一人分の名前が要るのか』。…否定しないで、枠のほうを問い直す。これで、ずいぶん楽になりましたね。",
-              reading: "そう、それです。…べつに、はんたいしてるわけじゃないんですよ。ただ、といをひとつずらしただけで。『だれのなまえをいれるか』じゃなくて、『そもそもひとりぶんのなまえがいるのか』。…ひていしないで、わくのほうをといなおす。これで、ずいぶんらくになりましたね。",
-              english: "Yes, that. I'm not disagreeing with anyone, mind. I only shifted the question by one. Not 'whose name goes in,' but 'do we need a single name at all.' Questioning the box instead of contradicting a person. That's made things a good deal easier, hasn't it."
+              japanese: "そう、それです。名前を消すんじゃなくて、空欄の前から書き直す。……消しゴム、まだずいぶん残ってますね。",
+              reading: "そう、それです。なまえをけすんじゃなくて、くうらんのまえからかきなおす。……けしゴム、まだずいぶんのこってますね。",
+              english: "Yes, that's it. Don't erase a name; rewrite from before the blank. …We have quite a lot of eraser left."
             },
             n1: {
-              japanese: "ええ、それです。…誰かを否定しているわけじゃ、まったくないんですよ。ただ、問いを一つ、横にずらしただけで。『誰の名前を入れるか』ではなく、『そもそも、一人分の名前というものが要るのか』。…相手を打ち消さずに、枠のほうを問い直す。それだけで、ずいぶん風通しがよくなる。",
-              reading: "ええ、それです。…だれかをひていしているわけじゃ、まったくないんですよ。ただ、といをひとつ、よこにずらしただけで。『だれのなまえをいれるか』ではなく、『そもそも、ひとりぶんのなまえというものがいるのか』。…あいてをうちけさずに、わくのほうをといなおす。それだけで、ずいぶんかぜとおしがよくなる。",
-              english: "Yes, that. I'm not negating anyone, not in the least. I only nudged the question sideways by one. Not 'whose name goes in' but 'do we even need a single name to begin with.' Re-asking the box, rather than cancelling a person. That alone lets a good deal of air back into the room."
+              japanese: "ええ、それです。名前を消すんじゃなくて、空欄の前から書き直す。……これなら、消しゴムもまだ残りますね。",
+              reading: "ええ、それです。なまえをけすんじゃなくて、くうらんのまえからかきなおす。……これなら、けしゴムもまだのこりますね。",
+              english: "Yes, that's it. Don't erase a name; rewrite from before the blank. …This way, we even have some eraser left."
             }
           },
           support: {
@@ -214806,7 +215098,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:open-question:splendid",
           beatId: "beat:open-question:changed-image",
           cueId: "cue:field-blank-notebook-shut",
-          description: "The archive card's single field stays blank. Peter opens his notebook a finger's width, then closes it again, and says, quietly and in English, the way he always does when something lands, one word: 'Splendid.'"
+          description: "Sophie strikes through the projected sentence, leaving every name on the board alone. Peter opens his notebook a finger's width, sees she has already begun the new line, and closes it again. 'Splendid,' he says, quietly enough that the projector fan nearly takes it."
         }
       ],
       exit: {
@@ -214820,9 +215112,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:classroom",
       timeState: "evening",
       weatherState: "summer-late-light",
-      goal: "Decide how the record holds the atlas's authorship once the single-owner premise is rejected, and close the atlas without inventing an owner.",
-      dramaticQuestion: "Can a record be more accurate for keeping the author field open than for forcing one name into it?",
-      learnerNeed: "A stance on whether the record names layered stewardship or leaves the owner field open by design.",
+      goal: "Write and perform a replacement introduction that keeps contributions traceable without inventing one maker, then turn the rehearsal toward the futures waiting after the final night.",
+      dramaticQuestion: "Will the new line still make sense from the back row when one early contribution remains unknown?",
+      learnerNeed: "A stance on how the spoken introduction names several kinds of contribution and preserves the part no source can assign.",
       curriculum: {
         sectionId: "record-without-one-owner",
         order: 2
@@ -214833,31 +215125,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "stage",
           id: "node:open-question:record-card-open",
           beatId: "beat:open-question:regroup-image",
-          cueId: "cue:archive-card-open-between-them",
-          description: "The archive card sits open between Sophie and Peter, its 「作者」 field still bare. Sophie uncaps a pen; Peter has turned to a fresh page but written nothing on it yet."
+          cueId: "cue:rehearsal-card-between-them",
+          description: "A strip of paper covers the old sentence on the rehearsal script. Sophie writes a new opening above it while Peter moves to the back row. Beside the lectern, three source cards wait under the headings 道, 文章, and 写真; one early route still has no name."
         },
         {
           kind: "line",
           id: "line:open-question:sophie-record-want",
           beatId: "beat:open-question:record-want",
           speakerId: "sophie",
-          intent: "Reframe how the record should read: record what actually happened rather than one author, tracing who added what as far as it holds and leaving the untraceable parts unfilled instead of inventing them.",
-          attentionTarget: "the author field as something to rewrite rather than fill",
+          intent: "Offer a replacement stage line that follows routes, text, and photographs back as far as the sources allow, then stops honestly.",
+          attentionTarget: "the new spoken line and the three source cards beside it",
           variants: {
             n3: {
-              japanese: "じゃあ、この欄、書き方を変えましょう。『作者一名』じゃなくて、実際にあったとおりに書く。誰が何を足したか、分かる範囲で。分からないところは、そのまま残して。",
-              reading: "じゃあ、このらん、かきかたをかえましょう。『さくしゃいちめい』じゃなくて、じっさいにあったとおりにかく。だれがなにをたしたか、わかるはんいで。わからないところは、そのままのこして。",
-              english: "Then let's change how this field is written. Not 'one author,' write it the way it actually happened. Who added what, as far as we can tell. Where we can't tell, leave it as is."
+              japanese: "こうしよう。『このアトラスは、何人もの手を通ってきました。道、文、写真の出どころは、横のカードでたどれます。分からない線は、分からないまま残しています。』……後ろまで届くか、読んでみるね。",
+              reading: "こうしよう。『このアトラスは、なんにんものてをとおってきました。みち、ぶん、しゃしんのでどころは、よこのカードでたどれます。わからないせんは、わからないままのこしています。』……うしろまでとどくか、よんでみるね。",
+              english: "Try this. 'This atlas passed through many hands. The routes, text, and photographs can be traced on the cards beside it. Lines we cannot identify remain unidentified.' …I'll read it and see whether it reaches the back."
             },
             n2: {
-              japanese: "じゃあ、この欄、書き方ごと変えましょうか。『作者一名』って形じゃなくて…実際にあったとおりに記録する。誰が何を足したのか、分かる範囲で。分からないところは、無理に埋めずに、そのまま残しておく。",
-              reading: "じゃあ、このらん、かきかたごとかえましょうか。『さくしゃいちめい』ってかたちじゃなくて…じっさいにあったとおりにきろくする。だれがなにをたしたのか、わかるはんいで。わからないところは、むりにうめずに、そのままのこしておく。",
-              english: "Then shall we change the whole way this field is written? Not the 'one author' format, record it the way it actually was. Who added what, as far as we can trace. The parts we can't, leave unfilled rather than force them, and keep them as they are."
+              japanese: "こうしましょう。『このアトラスは、何人もの手を通ってきました。道、文章、写真の出どころは、横のカードからたどれます。分からない線は、分からないまま残しています。』……後ろまで届くか、舞台から読んでみますね。",
+              reading: "こうしましょう。『このアトラスは、なんにんものてをとおってきました。みち、ぶんしょう、しゃしんのでどころは、よこのカードからたどれます。わからないせんは、わからないままのこしています。』……うしろまでとどくか、ぶたいからよんでみますね。",
+              english: "Try this. 'This atlas passed through many hands. The routes, text, and photographs can be traced through the cards beside it. Lines we cannot identify remain unidentified.' …I'll read it from the stage and see whether it reaches the back."
             },
             n1: {
-              japanese: "なら、この欄、書き方ごと変えてしまいましょう。『作者、一名』という形じゃなくて…実際にそうだった通りに記録する。誰が何を加えたのか、たどれる範囲で。たどりきれないところは、無理に埋めずに、そのまま残しておく。",
-              reading: "なら、このらん、かきかたごとかえてしまいましょう。『さくしゃ、いちめい』というかたちじゃなくて…じっさいにそうだったとおりにきろくする。だれがなにをくわえたのか、たどれるはんいで。たどりきれないところは、むりにうめずに、そのままのこしておく。",
-              english: "Then let's change the very way this field is written. Not the 'author: one name' format, record it exactly as it was. Who added what, as far as we can follow it. What we can't fully follow, we leave unfilled rather than force, and keep as it stands."
+              japanese: "では、こうします。『このアトラスは、何人もの手を通ってきました。道、文章、写真の出どころは、横のカードからたどれます。分からない線は、分からないまま残しています。』……舞台から読んで、後ろでどう聞こえるか確かめましょう。",
+              reading: "では、こうします。『このアトラスは、なんにんものてをとおってきました。みち、ぶんしょう、しゃしんのでどころは、よこのカードからたどれます。わからないせんは、わからないままのこしています。』……ぶたいからよんで、うしろでどうきこえるかたしかめましょう。",
+              english: "Then this is the line. 'This atlas passed through many hands. The routes, text, and photographs can be traced through the cards beside it. Lines we cannot identify remain unidentified.' …Let's read it from the stage and hear how it lands at the back."
             }
           },
           support: {
@@ -214870,15 +215162,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "choice",
           id: "choice:open-question:how-to-record",
           beatId: "beat:open-question:record-stance",
-          question: "How should the record name the atlas's authorship?",
+          question: "How should the stage introduction hold the atlas's many makers?",
           options: [
             {
               id: "option:open-question:layered-stewardship",
-              action: "Record it as layered stewardship: list who added what, as far as it can be traced, and mark the parts no one can claim as unassigned.",
+              action: "Let the source cards name who added each route, passage, or photograph, and leave the early route visibly unknown.",
               japaneseByBand: {
-                n3: "『作者』を一人に決めないで、関わった人を、足したものと一緒に並べて書きましょう。誰のか分からないところは、『未確定』のまま残して。",
-                n2: "『作者』は一人に決めないで、関わった人を、足したものごとに並べて書きましょう。誰のものとも決めきれない部分は、『未確定』のまま残して。",
-                n1: "『作者』を一人に絞るのはやめて、関わった人それぞれを、加えたものと一緒に並べて記録しましょう。どうしても誰のものとも定めきれない箇所は、無理に割り当てず、『未確定』のまま残す。"
+                n3: "横のカードに、誰が何を足したか並べよう。最初の道だけは、名前を入れないで『分からない』のままにする。",
+                n2: "横のカードに、誰がどの道や文章を足したか並べましょう。最初の道だけは、無理に名前を入れず『分からない』と残す。",
+                n1: "横のカードで、誰がどの道や文章を足したか追えるようにしよう。最初の道だけは、名前を作らず『分からない』と残す。"
               },
               records: [
                 "stance",
@@ -214888,11 +215180,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
             },
             {
               id: "option:open-question:open-field-pointer",
-              action: "Leave the single-owner field open on purpose and point it to the contributors' terms, so the record states 'no single author' by design.",
+              action: "Say plainly that no one person made it, then invite the audience to follow each visible contribution on the cards.",
               japaneseByBand: {
-                n3: "一人分の欄は、わざと空けておきましょう。代わりに、寄稿者の取り決めのページに印をつけて、『作者は一人じゃない』って残す。",
-                n2: "一人分の欄は、あえて空けたままにしましょう。代わりに、寄稿者の取り決めのページに印をつけて、『単独の作者はいない』ってことを、そのまま記録に残す。",
-                n1: "一名分の欄は、あえて埋めずに空けておきましょう。代わりに寄稿者の取り決めのほうへ印を送って、『単独の作者は存在しない』ということ自体を、記録として残す。"
+                n3: "最初に『一人で作ったものではありません』と言ってから、横のカードを一枚ずつ見せよう。",
+                n2: "最初に『一人で作ったものではありません』とはっきり言って、横のカードを一枚ずつたどってもらいましょう。",
+                n1: "最初に『一人で作ったものではありません』と言い切ってから、横のカードを一枚ずつたどってもらおう。"
               },
               records: [
                 "stance",
@@ -214907,25 +215199,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:open-question:before-record",
           beatId: "beat:open-question:record-attempt",
-          resume: "The learner has chosen how the record will hold the atlas's authorship without a single owner. Sophie writes it, and Peter tests it against the one case that would have gone wrong."
+          resume: "The learner has chosen how the introduction and source cards work together. Sophie reads the new line from the stage while Peter tests the one early route that still has no name."
         },
         {
           kind: "line",
           id: "line:open-question:peter-counterfactual",
           beatId: "beat:open-question:repair",
           speakerId: "peter",
-          intent: "Seal the reframing with the counterfactual that proves it: had they forced one name, the finished record would be less accurate than the open one, so leaving the question open is the more accurate answer.",
-          attentionTarget: "the version that would have gone wrong if one name had been forced in",
+          intent: "Test the revised introduction from the back row, ask about the unnamed first route, and notice that an honest stop works better than a quick false answer.",
+          attentionTarget: "the early-route card where Sophie's answer stops at 'we don't know'",
           variants: {
             n2: {
-              japanese: "もし、あそこで無理に一人の名前を入れていたとしたら…この地図、たぶん今より不正確になってたと思うんです。完成はしても、嘘が一つ混じる。…だったら、『作者は一人じゃない』っていう問いを、開いたまま残しておくほうが、よっぽど正確ですよね。答えを一つに決めないことが、答えになる。そういうことも、あるんだと思います。",
-              reading: "もし、あそこでむりにひとりのなまえをいれていたとしたら…このちず、たぶんいまよりふせいかくになってたとおもうんです。かんせいはしても、うそがひとつまじる。…だったら、『さくしゃはひとりじゃない』っていうといを、ひらいたままのこしておくほうが、よっぽどせいかくですよね。こたえをひとつにきめないことが、こたえになる。そういうことも、あるんだとおもいます。",
-              english: "If, back there, we'd forced a single name in, this map would probably have come out less accurate than it is now. Finished, yes, but with one lie folded in. So leaving the question 'the author isn't one person' open, as it stands, is far more accurate, isn't it. Not deciding on a single answer can itself be the answer. That happens too, I think."
+              japanese: "後ろからでも分かりました。道はこの人、文章はこの人。最初の道だけは『分からない』で止まった。……もし一人の名前を入れてたら、そこだけ早く答えて、間違ってましたね。",
+              reading: "うしろからでもわかりました。みちはこのひと、ぶんしょうはこのひと。さいしょのみちだけは『わからない』でとまった。……もしひとりのなまえをいれてたら、そこだけはやくこたえて、まちがってましたね。",
+              english: "It made sense from the back. This route goes to one person, that passage to another. Only the first route stopped at 'we don't know.' …If we had put one name in, we would have answered that bit quickly and wrongly."
             },
             n1: {
-              japanese: "仮に、あそこで無理にでも一人の名前を入れていたとしたら…この地図は、今よりむしろ不正確なものになっていたはずなんです。仕上がりはしても、そこに嘘が一つ紛れ込む。…それなら、『作者は一人ではない』という問いを、開いたまま残しておくほうが、はるかに正確で。答えを一つに定めないこと自体が、一つの答えになる。そういうことも、あるんだと思うんです。",
-              reading: "かりに、あそこでむりにでもひとりのなまえをいれていたとしたら…このちずは、いまよりむしろふせいかくなものになっていたはずなんです。しあがりはしても、そこにうそがひとつまぎれこむ。…それなら、『さくしゃはひとりではない』というといを、ひらいたままのこしておくほうが、はるかにせいかくで。こたえをひとつにさだめないことじたいが、ひとつのこたえになる。そういうことも、あるんだとおもうんです。",
-              english: "Suppose we had forced one name in back there, this map would, if anything, have ended up less accurate than it is now. Finished, but with a single lie slipped in. So keeping the question 'the author is not one person' held open is far more accurate. Not fixing on a single answer is itself an answer. That happens too, I believe."
+              japanese: "後ろからでも追えました。道はこの人、文章はこの人。最初の道だけは『分からない』で止まった。……仮に一人の名前を入れていたら、そこだけ答えは早くて、間違ってましたね。",
+              reading: "うしろからでもおえました。みちはこのひと、ぶんしょうはこのひと。さいしょのみちだけは『わからない』でとまった。……かりにひとりのなまえをいれていたら、そこだけこたえははやくて、まちがってましたね。",
+              english: "I could follow it from the back. This route goes to one person, that passage to another. Only the first route stopped at 'we don't know.' …Had we put in one name, the answer there would have been quicker and wrong."
             }
           },
           support: {
@@ -214939,23 +215231,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:open-question:sophie-closes",
           beatId: "beat:open-question:changed-action",
           speakerId: "sophie",
-          intent: "Agree and record it, connecting the open field to how the atlas was always built in layers, so recording uncertainty rather than inventing ownership is what lets the class close the work.",
-          attentionTarget: "the record now matching how the atlas was actually made",
+          intent: "Run the revised line once more and hear it clear the old blank without hiding the unknown route.",
+          attentionTarget: "the first-page introduction reaching the back row without stopping at a name",
           variants: {
             n3: {
-              japanese: "うん。…この地図、もともとそうやって出来たんですよね。一人じゃなくて、みんなで少しずつ重ねて。じゃあ、記録もそうする。無理に一人の名前でまとめない。…これで、閉じられます。",
-              reading: "うん。…このちず、もともとそうやってできたんですよね。ひとりじゃなくて、みんなですこしずつかさねて。じゃあ、きろくもそうする。むりにひとりのなまえでまとめない。…これで、とじられます。",
-              english: "Yeah. This map was made that way from the start, wasn't it. Not one person, everyone, layering it a little at a time. So the record does the same. We don't force it together under one name. With this, we can close it."
+              japanese: "じゃ、もう一回。『このアトラスは、何人もの手を通ってきました』。……今度は止まらなかった。分からない線も、そのまま残ってる。",
+              reading: "じゃ、もういっかい。『このアトラスは、なんにんものてをとおってきました』。……こんどはとまらなかった。わからないせんも、そのままのこってる。",
+              english: "Once more. 'This atlas passed through many hands.' …This time the line did not stop. And the unidentified route is still unidentified."
             },
             n2: {
-              japanese: "うん。…考えてみれば、この地図、最初からそうやって出来てきたんですよね。誰か一人が全部やったわけじゃなくて、いろんな人が少しずつ重ねて。じゃあ記録も、それに合わせる。無理に一人の名前で締めない。…これで、ようやく閉じられますね。",
-              reading: "うん。…かんがえてみれば、このちず、さいしょからそうやってできてきたんですよね。だれかひとりがぜんぶやったわけじゃなくて、いろんなひとがすこしずつかさねて。じゃあきろくも、それにあわせる。むりにひとりのなまえでしめない。…これで、ようやくとじられますね。",
-              english: "Yeah. Come to think of it, this map was built that way from the beginning. Not one person doing all of it, all sorts of people, layering it a little at a time. So the record matches that. We don't seal it shut under one name. With this, we can finally close it."
+              japanese: "じゃあ、もう一度。『このアトラスは、何人もの手を通ってきました』。……今度は、名前のところで止まらなかった。分からない線も、分からないまま残せてる。",
+              reading: "じゃあ、もういちど。『このアトラスは、なんにんものてをとおってきました』。……こんどは、なまえのところでとまらなかった。わからないせんも、わからないままのこせてる。",
+              english: "Again. 'This atlas passed through many hands.' …This time we did not stop at a name. And the unidentified route remained honestly unidentified."
             },
             n1: {
-              japanese: "ええ。…そもそも、この地図自体、最初からそうやって重なって出来たものですし。誰か一人が全部を担ったわけじゃない、何人もが少しずつ、層にして。だったら記録のほうも、それに合わせるのが筋で。無理に一人の名前でまとめてしまわない。…これで、ようやく閉じられますね。",
-              reading: "ええ。…そもそも、このちずじたい、さいしょからそうやってかさなってできたものですし。だれかひとりがぜんぶをになったわけじゃない、なんにんもがすこしずつ、そうにして。だったらきろくのほうも、それにあわせるのがすじで。むりにひとりのなまえでまとめてしまわない。…これで、ようやくとじられますね。",
-              english: "Yes. The map itself was made this way from the start, layer over layer. Not one person carrying all of it, many people, a little each, in layers. So it stands to reason the record should match. We don't gather it up under one forced name. With this, we can finally close it."
+              japanese: "では、もう一度。『このアトラスは、何人もの手を通ってきました』。……今度は、名前のところで止まらなかった。分からない線も、分からないまま残せてる。",
+              reading: "では、もういちど。『このアトラスは、なんにんものてをとおってきました』。……こんどは、なまえのところでとまらなかった。わからないせんも、わからないままのこせてる。",
+              english: "Once more. 'This atlas passed through many hands.' …This time we did not stop at a name. And the unidentified route remained honestly unidentified."
             }
           },
           support: {
@@ -214969,18 +215261,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:open-question:peter-open-on-purpose",
           beatId: "beat:open-question:exit-line",
           speakerId: "peter",
-          intent: "Leave the field open on purpose and name it as the class's answer: keeping a question open, as a question, is a legitimate way to finish, and it carries his whole method forward toward graduation.",
-          attentionTarget: "the empty field, kept empty as a deliberate answer",
+          intent: "Turn the rehearsal page and point to the next genuinely open question: what each person will do after the final public night.",
+          attentionTarget: "the next cue card, headed 'after this night,' with Alex's line still blank",
           variants: {
             n2: {
-              japanese: "じゃあ、欄は空けたまま、ということで。…埋めない、っていうのが、僕らの出した答え。それでいいんです。…問いは、問いのまま置いておく。それも、一つの仕上げ方ですから。",
-              reading: "じゃあ、らんはあけたまま、ということで。…うめない、っていうのが、ぼくらのだしたこたえ。それでいいんです。…といは、といのままおいておく。それも、ひとつのしあげかたですから。",
-              english: "Then, the field stays open. Not filling it in is the answer we've arrived at. And that's fine. A question, left as a question. That's one way to finish a thing too."
+              japanese: "通じました。……次のカード、空いてますね。『この夜のあと、どこへ』。アレックスのところだけ、まだ何もない。これは明日、本人に聞きましょう。",
+              reading: "つうじました。……つぎのカード、あいてますね。『このよるのあと、どこへ』。アレックスのところだけ、まだなにもない。これはあした、ほんにんにききましょう。",
+              english: "It made sense. …The next cue card is blank: 'Where after this night?' There is still nothing beside Alex. Let's ask him tomorrow."
             },
             n1: {
-              japanese: "では、欄は空けたまま、ということで。…埋めない、というのが、僕らの出した答え。それでいい。…問いは、問いのまま置いておく。それだって、立派な仕上げ方の一つですから。",
-              reading: "では、らんはあけたまま、ということで。…うめない、というのが、ぼくらのだしたこたえ。それでいい。…といは、といのままおいておく。それだって、りっぱなしあげかたのひとつですから。",
-              english: "So, the field stays open. Not filling it in is the answer we've reached. And that's fine. A question left as a question. That, too, is a perfectly good way to finish something."
+              japanese: "通じました。……でも、次のカードが空いてますね。『この夜のあと、どこへ』。アレックスのところだけ、まだ何もない。これは明日、本人に聞きましょう。",
+              reading: "つうじました。……でも、つぎのカードがあいてますね。『このよるのあと、どこへ』。アレックスのところだけ、まだなにもない。これはあした、ほんにんにききましょう。",
+              english: "It made sense. …But the next cue card is blank: 'Where after this night?' There is still nothing beside Alex. Let's ask him tomorrow."
             }
           },
           support: {
@@ -214994,7 +215286,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:open-question:field-left-open",
           beatId: "beat:open-question:exit-image",
           cueId: "cue:author-field-open-mark-to-terms",
-          description: "The card's author field stays open, a small mark beside it pointing to the contributors' terms. The atlas is closed. On the sill by the window seat, Peter's notebook lies shut again, the decisive question of the evening having come, as it turned out, from the chair nobody checked."
+          description: "Sophie clips the revised opening over the old one and runs it once without stopping. Peter turns the rehearsal page. The next card reads AFTER THIS NIGHT; Alex's name sits beneath it with no arrow, date, or destination. A cafe receipt is tucked under the corner for tomorrow."
         }
       ],
       exit: {
@@ -215019,14 +215311,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       useNumber: 3,
       maximumUses: 5,
-      optionalFallback: "A quiet classmate asks whether the finished work needs one named owner at all, and the class settles on recording layered contribution instead of choosing a single name."
+      optionalFallback: "A quiet classmate asks whether the first-page introduction needs one named maker at all, and the class rewrites the spoken line around the contributions it can actually trace."
     }
   ];
   const outcomes$6 = [
     {
       id: "outcome:open-question:reject-false-premise",
       kind: "story",
-      description: "The class rejects the demand for a single atlas owner as the wrong frame and records the authorship as layered stewardship (or leaves the owner field open by design, pointing to the contributors' terms), which lets the finished atlas be closed without inventing an owner."
+      description: "The class rejects the one-maker sentence, replaces it with a spoken introduction that traces routes, text, and photographs without inventing an owner, and tests the revision from the back row. The next rehearsal cue now asks where each person will go after the final night, with Alex's line still blank."
     },
     {
       id: "outcome:open-question:peter-return",
@@ -215040,7 +215332,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "outcome:open-question:transfer-return",
       kind: "curriculum-return",
       family: "n1-argument-structure-counterfactuals",
-      description: "Challenge-a-false-premise-without-flattening-the-speaker evidence returns through the chapter's transfer activity; the story emits no lesson-completion command."
+      description: "Recognition of a counterfactual that challenges the false premise without flattening the speaker returns through the chapter's selected-response activity; the story emits no lesson-completion command."
     }
   ];
   const replay$6 = {
@@ -215060,7 +215352,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "hide-english",
       "replay-reframe-premise"
     ],
-    withdrawnContentFallback: "Use the same premise-reframing and no-single-owner record beats with neutral nameplates and a generic quiet reviewer who asks whether finishing the shared work requires naming one owner, then records layered stewardship instead."
+    withdrawnContentFallback: "Use the same premise-reframing with neutral nameplates and a generic quiet reviewer who asks whether the first-page introduction needs one maker, then tests a spoken line that keeps every traceable contribution and the unknown route visible."
   };
   const s4e06 = {
     schema: schema$6,
@@ -215081,7 +215373,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$5 = "yomu-academy.story-package.v2";
   const id$5 = "s4e07-journey-not-everyone-takes";
-  const revision$5 = "2026-07-18.1";
+  const revision$5 = "2026-07-21.1";
   const canonicality$5 = "canon";
   const season$5 = 4;
   const chapter$6 = 43;
@@ -215089,7 +215381,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "The Journey Not Everyone Takes",
     ja: "それぞれの「いつか」"
   };
-  const synopsis$5 = "Over a summer evening in the cafe, Alex hands the class the term's biggest news in its flattest voice — a job in Japan, next month, already decided — and the room refuses to let the send-off slide past while refusing just as hard to crown his leaving as brave. As Aakash sets his own uncertain camera road-trip beside the move and Mira returns to the group chat with no apology, the class states each future in its honest modality and holds leaving, staying, and undecided level, none ranked above the others.";
+  const synopsis$5 = "Over a summer evening in the cafe, Alex hands the class the term's biggest news in its flattest voice — a job in Japan, next month, already decided — and the room refuses to let the send-off slide past while refusing just as hard to crown his leaving as brave. As Aakash sets his own uncertain camera road-trip beside the move, Mira — Karen, Henry's online Japanese-learning friend rather than a classmate — returns to the group chat with no apology. The learner writes leaving, staying, and undecided in their honest modalities, none ranked above the others.";
   const sourceSafety$5 = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -215139,6 +215431,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       forbiddenClaims: [
         "portrait or inferred likeness",
         "surname, guessed kana name, nationality, address, or private history",
+        "classmate, classroom regular, or lesson lead",
         "return framed as needing a guilt explanation or an invented cause of absence",
         "real-event claim"
       ]
@@ -215157,7 +215450,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "lesson-function",
           lessonIds: [],
-          "function": "state-plans-under-uncertainty-and-hold-non-comparative-futures"
+          "function": "recognise-plans-under-uncertainty-that-hold-non-comparative-futures"
         }
       ],
       recommendedBand: "n1",
@@ -215188,7 +215481,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:journey:cafe-after-class",
           beatId: "beat:journey:arrival-image",
           cueId: "cue:cafe-summer-evening-phones-out",
-          description: "The cafe after class, summer light going amber in the window. Phones are out on the table and the group chat is scrolling. Alex sets his down face-up, waits for a gap in the talk, and lets one open before he uses it."
+          description: "The cafe receipt from yesterday's rehearsal sits under Aakash's phone, beside the card marked AFTER THIS NIGHT. Before Alex has finished taking off his jacket, the phone already shows a draft send-off poll: dinner, camera walk, or a full Saturday route. Alex reads all three options and says the part Aakash has got ahead of."
         },
         {
           kind: "line",
@@ -215199,19 +215492,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the gap in the conversation, and how little he raises his voice to fill it",
           variants: {
             n3: {
-              japanese: "あのさ、日本で働く話、あってさ。……で、来月から。うん、もう決まった。",
-              reading: "あのさ、にほんではたらくはなし、あってさ。……で、らいげつから。うん、もうきまった。",
-              english: "So, hey — there's this work thing in Japan. …Anyway, from next month. Yeah, it's decided."
+              japanese: "その投票、早いよ。……でもまあ、日本で働く話があって。来月から。うん、もう決まった。",
+              reading: "そのとうひょう、はやいよ。……でもまあ、にほんではたらくはなしがあって。らいげつから。うん、もうきまった。",
+              english: "That poll is early. …But yes, there's a work thing in Japan. From next month. Yeah, it's decided."
             },
             n2: {
-              japanese: "あのさ、大した話でもないんだけど。向こうで働く口があって。……来月から。うん、もう決まったんだ。",
-              reading: "あのさ、たいしたはなしでもないんだけど。むこうではたらくくちがあって。……らいげつから。うん、もうきまったんだ。",
-              english: "So, hey — it's not a big deal or anything. There's a position over there. …From next month. Yeah, it's already settled."
+              japanese: "その投票、まだ話す前なんだけど。……まあ、向こうで働く口があって。来月から。うん、もう決まったんだ。",
+              reading: "そのとうひょう、まだはなすまえなんだけど。……まあ、むこうではたらくくちがあって。らいげつから。うん、もうきまったんだ。",
+              english: "That poll arrived before I told you. …Still, there's a position over there. From next month. Yeah, it's already settled."
             },
             n1: {
-              japanese: "あのさ、ほんと、ついで程度の話なんだけど。日本で働く口が、一つあって。……来月から。ええ、もう決まってる。",
-              reading: "あのさ、ほんと、ついでていどのはなしなんだけど。にほんではたらくくちが、ひとつあって。……らいげつから。ええ、もうきまってる。",
-              english: "So, hey — honestly, it's barely worth mentioning. There's one position, over in Japan. …From next month. Yeah, it's settled already."
+              japanese: "その投票、まだ本人が話す前に出来てるんだけど。……まあ、日本で働く口が一つあって。来月から。ええ、もう決まってる。",
+              reading: "そのとうひょう、まだほんにんがはなすまえにできてるんだけど。……まあ、にほんではたらくくちがひとつあって。らいげつから。ええ、もうきまってる。",
+              english: "That poll was ready before the person concerned had spoken. …Still, there is a position in Japan. From next month. Yes, it's settled already."
             }
           },
           support: {
@@ -215229,19 +215522,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the buried clause 'next month, already settled' and Alex's refusal to raise it",
           variants: {
             n3: {
-              japanese: "待って待って、今さらっと言ったでしょ。「来月」「もう決まった」って、そこが一番でかいとこじゃん。……ちゃんと送らせてよ。嫌じゃなければ。",
-              reading: "まってまって、いまさらっといったでしょ。「らいげつ」「もうきまった」って、そこがいちばんでかいとこじゃん。……ちゃんとおくらせてよ。いやじゃなければ。",
-              english: `Wait, wait — you just slid right past it. "Next month," "already decided" — that's the biggest part, right there. …Let us see you off properly. If you're okay with it.`
+              japanese: "待って。今、『来月』『もう決まった』って、普通の声で言ったよね。……ごめん、先に送別会を作っちゃった。何なら嫌じゃない? それだけ教えて。",
+              reading: "まって。いま、『らいげつ』『もうきまった』って、ふつうのこえでいったよね。……ごめん、さきにそうべつかいをつくっちゃった。なにならいやじゃない? それだけおしえて。",
+              english: "Wait. You just said 'next month' and 'already decided' in an ordinary voice. …Sorry, I built the send-off first. What would you not hate? Tell me only that."
             },
             n2: {
-              japanese: "いやいや、待って。今、一番効くとこ、思いっきり普通のトーンで言わなかった?「来月、もう決まってる」でしょ。……そこは、こっちにもちゃんと送らせてほしいんだけど。無理にとは言わないけどさ。",
-              reading: "いやいや、まって。いま、いちばんきくとこ、おもいっきりふつうのトーンでいわなかった?「らいげつ、もうきまってる」でしょ。……そこは、こっちにもちゃんとおくらせてほしいんだけど。むりにとはいわないけどさ。",
-              english: `No, no — hold on. You just said the part that actually lands in the flattest voice imaginable, didn't you. "Next month, already settled." …I'd really like us to see you off for that. I won't push it, but.`
+              japanese: "いや、待って。今、『来月、もう決まってる』って、一番大きいところを普通の声で言ったよね。……ごめん、本人に聞く前に作りすぎた。何なら嫌じゃない? まず、それだけ教えて。",
+              reading: "いや、まって。いま、『らいげつ、もうきまってる』って、いちばんおおきいところをふつうのこえでいったよね。……ごめん、ほんにんにきくまえにつくりすぎた。なにならいやじゃない? まず、それだけおしえて。",
+              english: "No, wait. You just said the biggest part, 'next month, already settled,' in an ordinary voice. …Sorry, I built too much before asking you. What would you not hate? Tell me that first."
             },
             n1: {
-              japanese: "いや待ってって、今さらっと流したよね。一番効いてるとこ、わざと普通の声で言ったでしょ——「来月、もう決まってる」。……そこだけは、こっちにもちゃんと送らせてほしいな。もちろん、アレックスが嫌なら引くけど。",
-              reading: "いやまってって、いまさらっとながしたよね。いちばんきいてるとこ、わざとふつうのこえでいったでしょ——「らいげつ、もうきまってる」。……そこだけは、こっちにもちゃんとおくらせてほしいな。もちろん、アレックスがいやならひくけど。",
-              english: `No — wait, you just breezed right past it. The part that really lands, you said it in an ordinary voice on purpose — "next month, already settled." …That part, at least, I'd like us to see you off for. Of course, if you'd rather not, I'll drop it.`
+              japanese: "いや待って。今、『来月、もう決まってる』って、一番大きいところを普通の声で言ったよね。……ごめん。本人に聞く前に、こっちで話を作りすぎた。何なら嫌じゃない? まず、それだけ教えて。",
+              reading: "いやまって。いま、『らいげつ、もうきまってる』って、いちばんおおきいところをふつうのこえでいったよね。……ごめん。ほんにんにきくまえに、こっちではなしをつくりすぎた。なにならいやじゃない? まず、それだけおしえて。",
+              english: "No, wait. You just said the biggest part, 'next month, already settled,' in an ordinary voice. …Sorry. We built too much of the story before asking you. What would you not hate? Tell me that first."
             }
           },
           support: {
@@ -215259,19 +215552,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "how little he wants made of it, and the parts he genuinely has not decided",
           variants: {
             n3: {
-              japanese: "ありがとう。でも大げさなのは無しでね。いつ戻るかも、まだ決めてないし。転勤がちょっと延びた、くらいの話だよ。",
-              reading: "ありがとう。でもおおげさなのはなしでね。いつもどるかも、まだきめてないし。てんきんがちょっとのびた、くらいのはなしだよ。",
-              english: "Thanks. But nothing over the top, okay. I haven't even decided yet when I'll be back. It's about the size of a transfer that ran a bit long."
+              japanese: "じゃあ、公演のあと、いつものカフェで一杯。それだけ。スピーチなし。戻る日はまだ決めてないから、そこまで聞かないで。",
+              reading: "じゃあ、こうえんのあと、いつものカフェでいっぱい。それだけ。スピーチなし。もどるひはまだきめてないから、そこまできかないで。",
+              english: "Then one drink at the usual cafe after the event. That's all. No speeches. I haven't decided when I'm coming back, so don't ask past that."
             },
             n2: {
-              japanese: "送ってくれるのはありがたいよ。ただ、大ごとにはしないでほしいな。いつ帰るかも、正直まだ決めてないし。まあ、転勤が少し延びた、くらいのことでさ。",
-              reading: "おくってくれるのはありがたいよ。ただ、おおごとにはしないでほしいな。いつかえるかも、しょうじきまだきめてないし。まあ、てんきんがすこしのびた、くらいのことでさ。",
-              english: "I appreciate the send-off. Just — don't make it a whole thing. Honestly, I haven't decided yet when I'll be back. It's about the size of a transfer that ran a little long."
+              japanese: "じゃあ、公演のあと、いつものカフェで一杯。それだけでいい。スピーチもなし。戻る日はまだ決めてないから、そこまで聞かないで。",
+              reading: "じゃあ、こうえんのあと、いつものカフェでいっぱい。それだけでいい。スピーチもなし。もどるひはまだきめてないから、そこまできかないで。",
+              english: "Then one drink at the usual cafe after the event. That's enough. No speeches. I haven't decided when I'm coming back, so don't ask past that."
             },
             n1: {
-              japanese: "送ってくれる気持ちは、ありがたい。ただ、大ごとにだけはしないでほしいんだ。いつ戻るかも、正直まだ決めてない。……なんというか、転勤がちょっと延びた、くらいの話でさ。",
-              reading: "おくってくれるきもちは、ありがたい。ただ、おおごとにだけはしないでほしいんだ。いつもどるかも、しょうじきまだきめてない。……なんというか、てんきんがちょっとのびた、くらいのはなしでさ。",
-              english: "The thought means a lot, it does. Only — don't let it become a whole occasion. When I'll be back, honestly, I haven't decided. …It's about the size of a transfer that ran a bit long, is all."
+              japanese: "じゃあ、公演のあと、いつものカフェで一杯。それだけにしてほしい。スピーチもなし。戻る日はまだ決めてないから、そこまで聞かないでくれ。",
+              reading: "じゃあ、こうえんのあと、いつものカフェでいっぱい。それだけにしてほしい。スピーチもなし。もどるひはまだきめてないから、そこまできかないでくれ。",
+              english: "Then one drink at the usual cafe after the event. Please keep it to that. No speeches. I haven't decided when I'm coming back, so don't ask past that."
             }
           },
           support: {
@@ -215332,19 +215625,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the difference between being seen off and being held up as an example",
           variants: {
             n3: {
-              japanese: "うん、それでいい。送別は軽くね。あと一つだけ——俺のこと、勇気ある人みたいにはしないで。ただ順番が来ただけだから。",
-              reading: "うん、それでいい。そうべつはかるくね。あとひとつだけ——おれのこと、ゆうきあるひとみたいにはしないで。ただじゅんばんがきただけだから。",
-              english: "Yeah, that works. Keep the send-off light. One more thing — don't make me out to be brave. My turn just came up, that's all."
+              japanese: "うん。『いつものカフェ』か『何もしない』。あと、見出しに『勇気』って書かないで。仕事の順番が来ただけだから。",
+              reading: "うん。『いつものカフェ』か『なにもしない』。あと、みだしに『ゆうき』ってかかないで。しごとのじゅんばんがきただけだから。",
+              english: "Yes. The choices are 'the usual cafe' or 'no separate event.' And don't put 'courage' in the heading. A work opportunity came up, that's all."
             },
             n2: {
-              japanese: "うん、それでいい。送別は軽めで。……あと一つだけ頼み。俺を「勇気あるやつ」みたいに扱わないでほしい。たまたま順番が先に来ただけだからさ。",
-              reading: "うん、それでいい。そうべつはかるめで。……あとひとつだけたのみ。おれを「ゆうきあるやつ」みたいにあつかわないでほしい。たまたまじゅんばんがさきにきただけだからさ。",
-              english: "Yeah, that works. A light send-off. …One favor, though. Don't treat me like the brave one. My turn just happened to come up first, that's all it is."
+              japanese: "うん。『いつものカフェ』か『何もしない』。……あと一つだけ。見出しに『勇気』とか『挑戦』とか、そういう言葉は入れないで。仕事の順番が来ただけだからさ。",
+              reading: "うん。『いつものカフェ』か『なにもしない』。……あとひとつだけ。みだしに『ゆうき』とか『ちょうせん』とか、そういうことばはいれないで。しごとのじゅんばんがきただけだからさ。",
+              english: "Yes. The choices are 'the usual cafe' or 'no separate event.' …One more thing. Don't put words like 'courage' or 'challenge' in the heading. A work opportunity came up, that's all."
             },
             n1: {
-              japanese: "うん、それでいい。送別は、ごく軽く。……あと一つだけ、頼みがある。俺を「勇気を出したやつ」みたいには、しないでほしいんだ。たまたま順番が先に回ってきた、それだけの話だから。",
-              reading: "うん、それでいい。そうべつは、ごくかるく。……あとひとつだけ、たのみがある。おれを「ゆうきをだしたやつ」みたいには、しないでほしいんだ。たまたまじゅんばんがさきにまわってきた、それだけのはなしだから。",
-              english: "Yeah, that works. A very light send-off. …And one more favor. Don't turn me into the guy who was brave. My turn just happened to come around first — that's all it is."
+              japanese: "うん。『いつものカフェ』か『何もしない』。……あと一つ。見出しに『勇気』や『挑戦』を入れないでほしい。仕事の順番が来た、それだけの話だから。",
+              reading: "うん。『いつものカフェ』か『なにもしない』。……あとひとつ。みだしに『ゆうき』や『ちょうせん』をいれないでほしい。しごとのじゅんばんがきた、それだけのはなしだから。",
+              english: "Yes. The choices are 'the usual cafe' or 'no separate event.' …One more thing. Please don't bring 'courage' or 'challenge' into the heading. A work opportunity came up; that is all."
             }
           },
           support: {
@@ -215358,7 +215651,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:journey:phones-light-up",
           beatId: "beat:journey:changed-image",
           cueId: "cue:group-chat-wakes-around-the-news",
-          description: "As Alex finishes, the phones on the table light one after another — the group chat waking around his news. Someone types a farewell emoji; someone types nothing yet. Alex's own screen stays face-up and quiet."
+          description: "Aakash deletes the three-option draft and sends a two-choice poll: usual cafe, or no separate event. Phones light around the table. Alex votes for the cafe, then turns his screen face-down before anyone can add a speech field."
         }
       ],
       exit: {
@@ -215374,7 +215667,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       weatherState: "summer-evening",
       goal: "Let the class lay its different futures — leaving, staying, undecided — side by side, and hold them without ranking any above the others.",
       dramaticQuestion: "When one person's 'someday in Japan' finally comes true, does the room rank it above the ones still open?",
-      learnerNeed: "A transfer where the learner states each person's future in honest modality and refuses the comparative frame that would crown one.",
+      learnerNeed: "A recognition check where the learner identifies the line that keeps each future in its honest modality without ranking them.",
       curriculum: {
         sectionId: "hold-futures-without-ranking",
         order: 2
@@ -215386,7 +215679,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:journey:chat-of-somedays",
           beatId: "beat:journey:regroup-image",
           cueId: "cue:thread-fills-with-somedays",
-          description: "The group chat fills with half-plans: one person's 'someday, for work,' another's 'maybe never,' a third's 'not decided.' After a long quiet in the thread, a familiar name surfaces at the bottom, typing from somewhere hours behind them."
+          description: "The group chat fills with half-plans: one person's 'someday, for work,' another's 'maybe never,' a third's 'not decided.' After the thread goes quiet, a message from Mira appears beneath them under her plain nameplate."
         },
         {
           kind: "line",
@@ -215419,28 +215712,57 @@ recommendedJiten	Jiten由来の頻度バッジです。
           }
         },
         {
-          kind: "message",
+          kind: "line",
           id: "message:journey:mira-returns",
           beatId: "beat:journey:return",
           speakerId: "mira",
-          channel: "group-chat",
-          intent: "Return after a long absence without a shred of apology, pick the thread straight up, refuse to let the futures be ranked, and invite a lapsed learner to restart with no pressure.",
-          attentionTarget: "the three kinds of 'someday' in the thread, held level, and an open hand to whoever stalled",
+          intent: "Return remotely after a long absence without apology theatre, notice the three different futures already in the thread, and add her own concrete place in them.",
+          attentionTarget: "the three named futures in the thread, each kept in its own modality and held level",
           variants: {
             n3: {
-              japanese: "うわ、久しぶりに開いたらこの話してる。笑 私も最近サボり気味だったけど、まあ気にしてない。行く人、残る人、迷ってる人——別に競争じゃないしね。ねえ、よかったらまた一緒に、ゆるく再開しない?",
-              reading: "うわ、ひさしぶりにひらいたらこのはなししてる。わら わたしもさいきんサボりぎみだったけど、まあきにしてない。いくひと、のこるひと、まよってるひと——べつにきょうそうじゃないしね。ねえ、よかったらまたいっしょに、ゆるくさいかいしない?",
-              english: "Whoa — open the chat after ages and this is what you're on. lol I've been slacking lately too, but eh, not fussed about it. People leaving, people staying, people still deciding — it's not a contest or anything. Hey, if you're up for it, want to restart together, nice and easy?"
+              japanese: "うわ、久しぶりに開いたら、アレックスは来月で、アーカシュは『いつか』か。私はこっち。……同じチャットに、予定が三つだね。",
+              reading: "うわ、ひさしぶりにひらいたら、アレックスはらいげつで、アーカシュは『いつか』か。わたしはこっち。……おなじチャットに、よていがみっつだね。",
+              english: "Whoa, I open the chat after ages and find Alex has next month while Aakash has 'someday.' I'm staying here. …Three plans in one chat."
             },
             n2: {
-              japanese: "わ、久しぶりにのぞいたら、いい話してるじゃん。私もここ最近すっかりサボってたけど、まあ、そこは気にしてないよ。行く人も、残る人も、まだ迷ってる人も、どれかが上って話じゃないでしょ。……ねえ、責める気は全然ないから、よかったらまた一緒に、ゆるっと再開しない?",
-              reading: "わ、ひさしぶりにのぞいたら、いいはなししてるじゃん。わたしもここさいきんすっかりサボってたけど、まあ、そこはきにしてないよ。いくひとも、のこるひとも、まだまよってるひとも、どれかがうえってはなしじゃないでしょ。……ねえ、せめるきはぜんぜんないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
-              english: "Oh — peek in after ages and you're having a good talk. I've totally been slacking lately myself, but honestly, I'm not bothered about that. People leaving, people staying, people still on the fence — none of them's the higher one, right. …Hey, zero pressure, but if you feel like it, want to restart together, nice and loose?"
+              japanese: "わ、久しぶりに開いたら、アレックスは来月で、アーカシュは『いつか』か。私はこっち。……予定表、三つ並んでるね。",
+              reading: "わ、ひさしぶりにひらいたら、アレックスはらいげつで、アーカシュは『いつか』か。わたしはこっち。……よていひょう、みっつならんでるね。",
+              english: "Oh, I open the chat after ages and find Alex has next month while Aakash has 'someday.' I'm staying here. …Three calendars, side by side."
             },
             n1: {
-              japanese: "うわ、久しぶりに開いたら、ちょうどいい話してる。……私もここのところすっかりご無沙汰だったけど、まあ、そこは気にしてない。行く人、残る人、まだ決めかねてる人——どれかが偉い、って話じゃそもそもないしね。ねえ、責める気なんて一切ないから、よかったらまた一緒に、ゆるっと再開しない?",
-              reading: "うわ、ひさしぶりにひらいたら、ちょうどいいはなししてる。……わたしもここのところすっかりごぶさただったけど、まあ、そこはきにしてない。いくひと、のこるひと、まだきめかねてるひと——どれかがえらい、ってはなしじゃそもそもないしね。ねえ、せめるきなんていっさいないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
-              english: "Whoa — open the chat after ages and it's exactly the right conversation. …I've gone completely quiet lately myself, but honestly, I'm not going to make a thing of it. People leaving, people staying, people who still can't decide — none of them's the admirable one, that was never the point. Hey — not a word of blame from me, so if you're up for it, want to pick it back up together, easy does it?"
+              japanese: "うわ、久しぶりに開いたら、アレックスは来月、アーカシュは『いつか』か。私はこっち。……同じチャットなのに、予定表はばらばらだね。",
+              reading: "うわ、ひさしぶりにひらいたら、アレックスはらいげつ、アーカシュは『いつか』か。わたしはこっち。……おなじチャットなのに、よていひょうはばらばらだね。",
+              english: "Whoa, I open the chat after ages and find Alex has next month while Aakash has 'someday.' I'm staying here. …Same chat, three completely different calendars."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "line",
+          id: "message:journey:mira-invites-restart",
+          beatId: "beat:journey:return-invitation",
+          speakerId: "mira",
+          intent: "Invite anyone whose study has lapsed to join her own small restart, with a concrete twenty-minute plan and an explicit no-reply easy-out.",
+          attentionTarget: "the lapsed learner who may want a small way back without explaining the absence",
+          variants: {
+            n3: {
+              japanese: "で、私は来週の火曜から、二十分だけ復習をまた始める。しばらく休んでた人、よかったら一緒にどう？ 無理なら返事はいらないよ。",
+              reading: "で、わたしはらいしゅうのかようから、にじゅっぷんだけふくしゅうをまたはじめる。しばらくやすんでたひと、よかったらいっしょにどう？ むりならへんじはいらないよ。",
+              english: "And next Tuesday I'm starting again with twenty minutes of review. Anyone who's taken a break want to join me? No need to reply if it doesn't work."
+            },
+            n2: {
+              japanese: "で、私は来週火曜から、二十分だけ復習を再開する。しばらく離れてた人、よかったら一緒にどう？ 都合が悪ければ、返事なしで大丈夫。",
+              reading: "で、わたしはらいしゅうかようから、にじゅっぷんだけふくしゅうをさいかいする。しばらくはなれてたひと、よかったらいっしょにどう？ つごうがわるければ、へんじなしでだいじょうぶ。",
+              english: "And next Tuesday I'm restarting with twenty minutes of review. Anyone else who's been away want to join me? If the timing is bad, no need to reply."
+            },
+            n1: {
+              japanese: "で、私は来週の火曜から、二十分だけ復習をまた始める。しばらく離れてた人、よかったら一緒にどう？ 都合が悪ければ、返事なしで大丈夫。",
+              reading: "で、わたしはらいしゅうのかようから、にじゅっぷんだけふくしゅうをまたはじめる。しばらくはなれてたひと、よかったらいっしょにどう？ つごうがわるければ、へんじなしでだいじょうぶ。",
+              english: "And next Tuesday I'm starting again with twenty minutes of review. Anyone else who's been away want to join me? If the timing is bad, no need to reply."
             }
           },
           support: {
@@ -215452,22 +215774,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "checkpoint",
           id: "checkpoint:journey:before-futures",
-          beatId: "beat:journey:production-attempt",
-          resume: "Three kinds of future sit in the thread — decided, undecided, staying. The learner takes them up and states each in its honest form, without lifting one over the others."
+          beatId: "beat:journey:recognition-check",
+          resume: "Mira has put all three futures in the thread — Alex leaving, Aakash undecided, and herself staying — then invited a lapsed learner into a twenty-minute restart. The learner writes three short updates that preserve each future's modality without ranking them."
         },
         {
           kind: "activity",
           id: "activity-node:journey:non-comparative-futures",
-          beatId: "beat:journey:production-attempt",
+          beatId: "beat:journey:recognition-check",
           hook: {
-            componentType: "transfer",
+            componentType: "writing",
             exerciseId: "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
           },
           requiredEvidence: {
             kind: "activity-passed",
             activityId: "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
           },
-          resumeContext: "The learner phrases each person's future in the modality it actually has — Alex's move as decided (〜ことになった / もう決まった), Aakash's trip as a genuine maybe (〜かもしれない / 〜たいと思っている / まだわからない), someone's staying as its own settled choice — and joins them without a comparative word that would rank one above another.",
+          resumeContext: "Mira's two lines put the evidence in the thread: Alex starts in Japan next month, Aakash's camera trip remains a genuine maybe, and Mira is staying while restarting a twenty-minute review next Tuesday. Write one short Japanese update for each person, preserving those different modalities without ranking one future above another.",
           onReady: "checkpoint:journey:after-futures",
           onRepair: "node:journey:futures-repair",
           onDefer: "checkpoint:journey:before-futures"
@@ -215475,38 +215797,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "stage",
           id: "node:journey:futures-repair",
-          beatId: "beat:journey:production-repair",
+          beatId: "beat:journey:writing-repair",
           cueId: "cue:three-futures-laid-level",
-          description: "The three futures are set out as three cards at the same height — leaving, staying, undecided. Only the card that got ranked, or forced into a certainty it did not have, comes back to be restated; the ones already phrased honestly stay put."
+          description: "The three futures sit on cards at the same height: leaving, staying, undecided. The learner checks each written update against the thread: a decided time for Alex, an uncertainty marker for Aakash, and both staying and restarting language for Mira."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:journey:after-futures",
-          beatId: "beat:journey:production-response",
-          resume: "The three futures now sit level, each in its own honest modality. Alex looks at them lined up and says what his leaving is, and is not."
+          beatId: "beat:journey:writing-response",
+          resume: "The learner's three written updates keep all three futures in their own modality. Alex looks at them and returns to the concrete terms of his send-off."
         },
         {
           kind: "line",
           id: "line:journey:alex-just-my-turn",
           beatId: "beat:journey:transform",
           speakerId: "alex",
-          intent: "Land the term's drifting 'someday, for work' on himself as payoff, and refuse the frame that would make his decided departure braver than a staying or an undecided one.",
+          intent: "Land the term's drifting 'someday, for work' on himself as payoff, reject the courage headline again, and bring the room back to his small cafe poll.",
           attentionTarget: "the group's old 'someday, for work' phrase, now his, and the three futures held level",
           variants: {
             n3: {
-              japanese: "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のは、順番が先に来ただけだよ。偉くもなんともない。行くのも、残るのも、迷うのも、同じだけ本気の話でしょ。",
-              reading: "みんながずっといってた「いつか、しごとで」ってやつ。おれのは、じゅんばんがさきにきただけだよ。えらくもなんともない。いくのも、のこるのも、まようのも、おなじだけほんきのはなしでしょ。",
-              english: "That 'someday, for work' thing everyone kept saying. Mine just came up first in the queue, that's all. Nothing admirable about it. Going, staying, still deciding — they're all just as serious."
+              japanese: "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のには、たまたま先に日付が入っただけ。だから、見出しの『勇気』はやっぱり消して。……カフェの投票だけ残してくれる?",
+              reading: "みんながずっといってた「いつか、しごとで」ってやつ。おれのには、たまたまさきにひづけがはいっただけ。だから、みだしの『ゆうき』はやっぱりけして。……カフェのとうひょうだけのこしてくれる?",
+              english: "That 'someday, for work' thing everyone kept saying. Mine just happened to get a date first. So take 'courage' out of the heading after all. …Can we keep only the cafe poll?"
             },
             n2: {
-              japanese: "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のはたまたま順番が先に回ってきただけの話でさ。別に偉いわけじゃない。行くのも、残るのも、迷うのも、どれも同じくらい本気なんだよ。",
-              reading: "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのはたまたまじゅんばんがさきにまわってきただけのはなしでさ。べつにえらいわけじゃない。いくのも、のこるのも、まようのも、どれもおなじくらいほんきなんだよ。",
-              english: "That 'someday, for work, Japan' line everyone's always said — mine just happened to come round first, that's all. It doesn't make me the admirable one. Going, staying, still deciding — every one of them's just as serious."
+              japanese: "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のには、たまたま先に日付が入っただけでさ。だから見出しの『勇気』はやっぱり外して。……カフェの投票だけ残してくれる?",
+              reading: "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのには、たまたまさきにひづけがはいっただけでさ。だからみだしの『ゆうき』はやっぱりはずして。……カフェのとうひょうだけのこしてくれる?",
+              english: "That 'someday, for work, in Japan' line everyone's always said — mine just happened to get a date first. So take 'courage' out of the heading after all. …Can we keep only the cafe poll?"
             },
             n1: {
-              japanese: "ほら、みんながずっと口にしてた「いつか、仕事で日本」ってやつ。俺のは、たまたま順番が先に回ってきただけなんだ。勇気でも手柄でもない。行く人も、残る人も、まだ決めない人も——どれも、同じだけ本気の話でしょ。",
-              reading: "ほら、みんながずっとくちにしてた「いつか、しごとでにほん」ってやつ。おれのは、たまたまじゅんばんがさきにまわってきただけなんだ。ゆうきでもてがらでもない。いくひとも、のこるひとも、まだきめないひとも——どれも、おなじだけほんきのはなしでしょ。",
-              english: "You know that 'someday, for work, in Japan' thing everyone's always said? Mine just happened to come round first — that's all. It's not courage, it's not an achievement. People leaving, people staying, people not deciding yet — every one of them's just as serious."
+              japanese: "ほら、みんながずっと口にしてた「いつか、仕事で日本」ってやつ。俺のは、たまたま先に日付が入っただけ。だから、見出しに『勇気』はやっぱり要らない。……カフェの投票だけ残してくれる？",
+              reading: "ほら、みんながずっとくちにしてた「いつか、しごとでにほん」ってやつ。おれのは、たまたまさきにひづけがはいっただけ。だから、みだしに『ゆうき』はやっぱりいらない。……カフェのとうひょうだけのこしてくれる？",
+              english: "You know that 'someday, for work, in Japan' thing everyone kept saying? Mine just happens to have a date first. So I still don't want 'courage' in the heading. …Can we keep only the cafe poll?"
             }
           },
           support: {
@@ -215549,8 +215871,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "stage",
           id: "node:journey:somedays-side-by-side",
           beatId: "beat:journey:exit-image",
-          cueId: "cue:three-somedays-level-typing-indicator-stops",
-          description: "The phones stay face-up on the table, the thread scrolling three kinds of someday — one leaving next month, one staying, one still open. At the bottom a typing indicator blinks under a name hours away, then stops. Nobody has been moved up or down the list."
+          cueId: "cue:three-futures-held-side-by-side",
+          description: "Alex's cafe vote remains the only mark on the send-off poll. Mira's twenty-minute review invitation sits below it with no reply required. Aakash closes the route-planning tab without booking anything, and the cafe receipt pins the phones in place when the door opens."
         }
       ],
       exit: {
@@ -215605,12 +215927,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "mira",
       chapter: 43,
       beat: "return",
-      description: "Mira returns to the group chat after a long absence with no apology theatre, picks the thread straight up, holds the class's different futures level, and invites a lapsed learner to restart with an explicit easy-out; the group treats her restart as normal rather than a debt."
+      description: "Mira — Karen, Henry's online Japanese-learning friend rather than a classmate — returns to the group chat after a long absence with no apology theatre, picks the thread straight up, and invites a lapsed learner to restart with an explicit easy-out; her remote return keeps real story and bond presence without turning her into a classroom regular."
     },
     {
       id: "outcome:journey:transfer-return",
       kind: "curriculum-return",
-      description: "Plans-under-uncertainty and non-comparative-futures evidence returns through the chapter's transfer activity; the story emits no lesson-completion command, and no registered N1 package is claimed."
+      description: "Written production of plans-under-uncertainty and non-comparative futures returns through the chapter's three-part learner-output activity; the story emits no lesson-completion command, and no registered N1 package is claimed."
     }
   ];
   const replay$5 = {
@@ -215631,7 +215953,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "hide-english",
       "replay-non-comparative-futures"
     ],
-    withdrawnContentFallback: "Use the same flat-announcement and non-comparative-futures beats with neutral nameplates: a classmate announces a decided move very plainly, a friend keeps an open trip undecided beside it, a distant member returns without guilt, and the class states each future in its honest modality without ranking one as braver."
+    withdrawnContentFallback: "Use the same flat-announcement and non-comparative-futures beats with neutral nameplates: a classmate announces a decided move very plainly, a friend keeps an open trip undecided beside it, a distant member returns without guilt, and the class keeps each future in its honest modality without ranking one as braver."
   };
   const s4e07 = {
     schema: schema$5,
@@ -215652,7 +215974,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$4 = "yomu-academy.story-package.v2";
   const id$4 = "s4e08-last-revision";
-  const revision$4 = "2026-07-18.1";
+  const revision$4 = "2026-07-20.3";
   const canonicality$4 = "canon";
   const season$4 = 4;
   const chapter$5 = 44;
@@ -215766,7 +216088,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           activityIds: [
             "activity:s4e08-last-revision-vivid-without-restoring"
           ],
-          "function": "revise-a-public-version-vivid-without-restoring-withdrawn-detail-and-justify-the-editing-rationale-in-n1"
+          "function": "recognise-a-vivid-public-revision-that-restores-no-withdrawn-detail"
         }
       ],
       recommendedBand: "n1",
@@ -215920,7 +216242,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:last-revision:marked-absence",
           beatId: "beat:last-revision:exit-image",
           cueId: "cue:plain-tab-beside-the-bare-block",
-          description: "Stasi sets a plain grey tab beside the bare block. Nothing drawn on it, nothing like the cat. Next to the marker, the empty rectangle stops looking like a dropped stitch and starts looking left open. The class reads the panel again from the top, and no one reaches to fill the gap."
+          description: "Stasi lowers the matte grey bar by two millimetres and walks back to Jenny's bench. From there the eye lands on the caption's first verb, not the white block. Jenny gives one small nod and returns to her work; the measurement is written on the production copy."
         }
       ],
       exit: {
@@ -215934,9 +216256,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:library",
       timeState: "evening",
       weatherState: "summer-rain",
-      goal: "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner does the bounded rewrite and justifies the editing rationale aloud.",
+      goal: "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner identifies the bounded revision from three visible options.",
       dramaticQuestion: "Can a line be cut down under a hard constraint and come out sharper instead of plainer?",
-      learnerNeed: "A bounded rewrite that keeps the vividness, restores no withdrawn detail, and can be defended as editing rationale in N1.",
+      learnerNeed: "A recognition check where the learner identifies the vivid bounded line that restores no withdrawn detail.",
       curriculum: {
         sectionId: "vivid-under-constraint",
         order: 2
@@ -215948,7 +216270,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:last-revision:over-vivid-clause",
           beatId: "beat:last-revision:regroup-image",
           cueId: "cue:draft-line-one-clause-too-vivid",
-          description: "On the board, the draft caption line is pinned up large. One clause in the middle runs bright and certain, and it leans on the very detail the class agreed to withhold. The rest of the line waits around it, and the grey marker sits in its block below."
+          description: "On the board, the draft is pinned up large: 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 The middle clause leans on the very detail the class agreed to withhold. Beneath it, the bounded candidate is written once: 「この道は、今夜も静かに灯る。」 The grey marker stays in its block below both lines."
         },
         {
           kind: "line",
@@ -215959,14 +216281,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the middle clause, and how good it feels in the mouth versus whether the sentence needs it",
           variants: {
             n2: {
-              japanese: "ちょっと、声に出して読んでみて。……この一文、耳に残るのはいいんだけど、残りすぎてる。歌みたいに気持ちいい言い方って、たいてい言い切っちゃってるんだよね。そのクセを外しても、まだ立つ?",
-              reading: "ちょっと、こえにだしてよんでみて。……このいちぶん、みみにのこるのはいいんだけど、のこりすぎてる。うたみたいにきもちいいいいかたって、たいていいいきっちゃってるんだよね。そのクセをはずしても、まだたつ?",
-              english: "Here — read it out loud. …This sentence sticks in the ear, which is nice, but it sticks too well. A phrasing that feels good like a song usually means you've overstated it. Take that habit out — does it still stand?"
+              japanese: "まず今の文ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜くよ。『この道は、今夜も静かに灯る。』ほら、最初のほうは、声が真ん中に引っぱられるでしょう。そこは、出さないって決めた話だよね。",
+              reading: "まずいまのぶんね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬくよ。『このみちは、こんやもしずかにともる。』ほら、さいしょのほうは、こえがまんなかにひっぱられるでしょう。そこは、ださないってきめたはなしだよね。",
+              english: "First, the line as it stands: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Now without the middle: 'This path shines quietly again tonight.' Hear how the first one pulls the voice into its middle? That is the story we agreed not to publish."
             },
             n1: {
-              japanese: "一回、口に出して、歌うみたいに読んでみて。……うん、気持ちいいんだよね、この言い回し。でも“気持ちいい”ときって、たいてい言い切りすぎてるの。試しに、そのひと節を落としてみて——それでも文が立つなら本物。崩れるなら、そこに寄りかかってたってことだよ。",
-              reading: "いっかい、くちにだして、うたうみたいによんでみて。……うん、きもちいいんだよね、このいいまわし。でも“きもちいい”ときって、たいていいいきりすぎてるの。ためしに、そのひとふしをおとしてみて——それでもぶんがたつならほんもの。くずれるなら、そこによりかかってたってことだよ。",
-              english: "Read it aloud once, like you're singing it. …Yeah, it feels good, this phrasing. But when it feels that good, you've usually overstated it. Try dropping that one clause — if the sentence still stands, it's real. If it collapses, it was leaning on it."
+              japanese: "まず草稿ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜いて、『この道は、今夜も静かに灯る。』草稿のほう、真ん中で声がそこへ引っ張られるでしょ。そこが、出さないって決めた話なんだよね。",
+              reading: "まずそうこうね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬいて、『このみちは、こんやもしずかにともる。』そうこうのほう、まんなかでこえがそこへひっぱられるでしょ。そこが、ださないってきめたはなしなんだよね。",
+              english: "First, the draft: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Then without the middle: 'This path shines quietly again tonight.' In the draft, the voice gets pulled toward that middle, doesn't it? That is the story we agreed not to publish."
             }
           },
           support: {
@@ -215980,18 +216302,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:last-revision:stasi-three-conditions",
           beatId: "beat:last-revision:set-conditions",
           speakerId: "stasi",
-          intent: "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the rewrite to the learner with an easy way to decline.",
+          intent: "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the learner a choice among visible revisions with an easy way to decline.",
           attentionTarget: "the three things that must not move, and the one line the learner is being handed",
           variants: {
             n2: {
-              japanese: "じゃあ、直す前に条件だけ決めよう。色は落とさない——地味にはしない。外したものは、一言も戻さない。印の場所は、そのまま残す。この三つさえ守れば、あとは自由。……この一文の直し、あなたにやってみてほしいんだけど、いい?気が乗らなければ、私がやるよ。",
-              reading: "じゃあ、なおすまえにじょうけんだけきめよう。いろはおとさない——じみにはしない。はずしたものは、ひとこともどさない。しるしのばしょは、そのままのこす。このみっつさえまもれば、あとはじゆう。……このいちぶんのなおし、あなたにやってみてほしいんだけど、いい?きがのらなければ、わたしがやるよ。",
-              english: "Okay, before we touch it, let's fix the rules. Don't lose the colour — no retreating into plain. Not one word of what we cut goes back. The marker's place stays where it is. Keep those three and the rest is open. …I'd like you to take the fix on this line — that alright? If you're not up for it, I'll do it."
+              japanese: "条件は三つ。動詞の色は残す。外した事実は戻さない。灰色の線は動かさない。……この一文、直してみる? 気が乗らなければ、私がやる。",
+              reading: "じょうけんはみっつ。どうしのいろはのこす。はずしたじじつはもどさない。はいいろのせんはうごかさない。……このいちぶん、なおしてみる? きがのらなければ、わたしがやる。",
+              english: "Three conditions. Keep the colour in the verb. Don't restore the fact we removed. Don't move the grey bar. …Want to revise this sentence? If you're not feeling it, I'll do it."
             },
             n1: {
-              japanese: "直しにかかる前に、動かさないところだけ決めておこうか。鮮やかさは殺さない——地味に逃げない。外したものは、ひと言も戻さない。印の場所は、そのまま。守るのはこの三つだけで、あとはどう組んでもいい。……で、この一文、あなたに直してみてほしいんだ。もちろん、気が乗らなければ私がやる。",
-              reading: "なおしにかかるまえに、うごかさないところだけきめておこうか。あざやかさはころさない——じみににげない。はずしたものは、ひとこともどさない。しるしのばしょは、そのまま。まもるのはこのみっつだけで、あとはどうくんでもいい。……で、このいちぶん、あなたになおしてみてほしいんだ。もちろん、きがのらなければわたしがやる。",
-              english: "Before we start cutting, let's just fix what doesn't move. Don't kill the vividness — no escaping into plain. Not one word of what we took out comes back. The marker's place stays put. Only those three are locked; build the rest however you like. …And this line — I'd like you to try the fix. Of course, if you're not feeling it, I'll take it."
+              japanese: "条件は三つだけ。動詞の鮮やかさは残す。外した事実は戻さない。灰色の線は動かさない。……この一文、直してみる? 気が乗らなければ、私が引き取る。",
+              reading: "じょうけんはみっつだけ。どうしのあざやかさはのこす。はずしたじじつはもどさない。はいいろのせんはうごかさない。……このいちぶん、なおしてみる? きがのらなければ、わたしがひきとる。",
+              english: "Only three conditions. Keep the vividness in the verb. Don't restore the fact we removed. Don't move the grey bar. …Want to revise this sentence? If you're not feeling it, I'll take it."
             }
           },
           support: {
@@ -216003,22 +216325,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "checkpoint",
           id: "checkpoint:last-revision:before-rewrite",
-          beatId: "beat:last-revision:production-attempt",
-          resume: "Conditions locked and the over-vivid clause identified, the learner takes the rewrite: cut the line so it stays vivid, restore nothing withdrawn, keep the marker's place, and defend the editing choice aloud."
+          beatId: "beat:last-revision:recognition-check",
+          resume: "The learner can see both lines: the draft 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 and the bounded candidate 「この道は、今夜も静かに灯る。」 The task is to identify the line that stays vivid without restoring the withdrawn claim."
         },
         {
           kind: "activity",
           id: "activity-node:last-revision:revise-vivid-without-restoring",
-          beatId: "beat:last-revision:production-attempt",
+          beatId: "beat:last-revision:recognition-check",
           hook: {
-            componentType: "transfer",
+            componentType: "recognition",
             exerciseId: "activity:s4e08-last-revision-vivid-without-restoring"
           },
           requiredEvidence: {
             kind: "activity-passed",
             activityId: "activity:s4e08-last-revision-vivid-without-restoring"
           },
-          resumeContext: "The learner rewrites the over-vivid clause so the caption line stays vivid, restores no withdrawn detail, and keeps the marker's place, then justifies the cut as editing rationale in N1 (why this form is final under the constraint).",
+          resumeContext: "The visible draft is 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 Choose the revision that removes the unsupported claim, preserves the vivid final verb, and restores no withdrawn detail.",
           onReady: "checkpoint:last-revision:after-rewrite",
           onRepair: "node:last-revision:clause-recut",
           onDefer: "checkpoint:last-revision:before-rewrite"
@@ -216026,15 +216348,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
         {
           kind: "stage",
           id: "node:last-revision:clause-recut",
-          beatId: "beat:last-revision:production-repair",
+          beatId: "beat:last-revision:recognition-repair",
           cueId: "cue:middle-clause-taken-down-once",
-          description: "Only the middle clause comes down; the rest of the line stays pinned. The grey marker in the block below does not move while the learner re-cuts the phrasing on the same three conditions."
+          description: "Compare the middle clauses again. The candidate 「この道は、今夜も静かに灯る。」 keeps the visible image without putting the withdrawn claim back on the wall."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:last-revision:after-rewrite",
-          beatId: "beat:last-revision:production-response",
-          resume: "The line is rewritten under the constraint. Stasi reads it back and names why the constrained form is the better one."
+          beatId: "beat:last-revision:recognition-response",
+          resume: "The selected line stays inside the constraint. Stasi reads it back and gives her own reason for preferring it."
         },
         {
           kind: "line",
@@ -216045,14 +216367,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the cut line reading stronger than the draft, and the marker still holding its place below",
           variants: {
             n2: {
-              japanese: "……うん、これでいい。むしろ、前より効いてる。減らしたのに、痩せてないんだよね。戻せない、埋められない——その縛りがあったから、この形になった。地味にならずに、正確になった。",
-              reading: "……うん、これでいい。むしろ、まえよりきいてる。へらしたのに、やせてないんだよね。もどせない、うめられない——そのしばりがあったから、このかたちになった。じみにならずに、せいかくになった。",
-              english: "…Yeah, this works. If anything it lands harder than before. We took things out and it didn't get thinner. Couldn't restore, couldn't fill — because of that constraint, it came out this shape. Accurate, without going plain."
+              japanese: "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えるけど、もう穴には見えない。",
+              reading: "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえるけど、もうあなにはみえない。",
+              english: "…Two metres. Yes, 'shines' is the first thing my eye catches. I can see the grey line, but it no longer looks like a hole."
             },
             n1: {
-              japanese: "……うん、これだ。減らしたのに、むしろ強くなってる。戻せない、埋められない——その縛りがあったからこそ、この一本にたどり着けたんだと思う。鮮やかさは、一ミリも手放してない。それでいて、嘘は一つも混ざってない。",
-              reading: "……うん、これだ。へらしたのに、むしろつよくなってる。もどせない、うめられない——そのしばりがあったからこそ、このいっぽんにたどりつけたんだとおもう。あざやかさは、いちミリもてばなしてない。それでいて、うそはひとつもまざってない。",
-              english: "…Yeah, this is it. We cut it down and it got stronger. Couldn't restore, couldn't fill — it's because of that constraint we reached this single clean line. Didn't give up a millimetre of the vividness. And not one lie slipped in."
+              japanese: "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えてる。でも、もう穴には見えない。",
+              reading: "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえてる。でも、もうあなにはみえない。",
+              english: "…Two metres. Yes, 'shines' is the first thing my eye catches. The grey line is still visible, but it no longer looks like a hole."
             }
           },
           support: {
@@ -216070,14 +216392,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the whole panel reading as complete despite the kept-out block",
           variants: {
             n2: {
-              japanese: "フレームの外は、外のまま。それで、ちゃんと完成してる。見せてないのに、足りない感じがしない——これがいちばん難しいやつだよ。",
-              reading: "フレームのそとは、そとのまま。それで、ちゃんとかんせいしてる。みせてないのに、たりないかんじがしない——これがいちばんむずかしいやつだよ。",
-              english: "What's outside the frame stays outside. And it's finished, properly. We didn't show it, and it doesn't feel like anything's missing — that's the hardest one to pull off."
+              japanese: "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              reading: "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              english: "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             },
             n1: {
-              japanese: "映さないと決めたものは、最後まで映さないまま。それで、もう完成なんだよね。隠したのに、欠けて見えない——この“見せずに満たす”が、いちばん厄介で、いちばん効くところ。",
-              reading: "うつさないときめたものは、さいごまでうつさないまま。それで、もうかんせいなんだよね。かくしたのに、かけてみえない——この“みせずにみたす”が、いちばんやっかいで、いちばんきくところ。",
-              english: "What we chose not to show stays unshown to the end. And that's it finished. Hidden, and yet it doesn't read as a gap — this 'fill it without showing it' is the trickiest part, and the part that works hardest."
+              japanese: "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              reading: "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              english: "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             }
           },
           support: {
@@ -216095,14 +216417,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the finished line read end to end, checking nothing collapses",
           variants: {
             n2: {
-              japanese: "最後にもう一回、歌ってみるね。……うん、落ちない。ちゃんと立ってる。よし、これで出せる。",
-              reading: "さいごにもういっかい、うたってみるね。……うん、おちない。ちゃんとたってる。よし、これでだせる。",
-              english: "Let me sing it through one more time. …Yeah, nothing drops. It stands. Good — we can put this out."
+              japanese: "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              reading: "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              english: "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             },
             n1: {
-              japanese: "じゃ、しめに一回だけ歌ってみる。……ん、大丈夫、どこも落ちない。最後までちゃんと立ってる。——これ、出せるね。",
-              reading: "じゃ、しめにいっかいだけうたってみる。……ん、だいじょうぶ、どこもおちない。さいごまでちゃんとたってる。——これ、だせるね。",
-              english: "Okay, one last sing-through to close. …Mm, it's fine, nothing drops anywhere. It stands all the way to the end. —We can put this out."
+              japanese: "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              reading: "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              english: "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             }
           },
           support: {
@@ -216116,7 +216438,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:last-revision:tom-hands-over",
           beatId: "beat:last-revision:exit-image",
           cueId: "cue:paper-cat-boxed-marker-handed-on",
-          description: "Tom closes the box on the paper cat and slides the grey marker and a half-page of method notes across the table to Stasi. The mascot is set down for good; the marker and the next turn go to someone else to run. The finished panel stands with its one place kept open and unfilled."
+          description: "Stasi steps back two metres, Ruparna checks the crop from the side, and Xingyu reads the finished caption once. Tom closes the paper cat in its box and slides the grey marker across the table. Each person leaves one tested action behind before the panel goes into its rain cover."
         }
       ],
       exit: {
@@ -218726,6 +219048,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const STORY_REVIEW_CALENDAR_SECTION = "calendar:lantern-atlas-review";
   const STORY_OPENING_ARC_ID = "arc:open-doors:first-route";
+  const STORY_ARC_NODE_KINDS = /* @__PURE__ */ new Set([
+    "activity",
+    "checkpoint",
+    "choice",
+    "command",
+    "line",
+    "narration",
+    "stage"
+  ]);
   let cachedRuntime;
   function loadStoryRuntime() {
     if (cachedRuntime) return cachedRuntime;
@@ -219058,6 +219389,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     const declaredCast = new Set(source2.cast.map((use) => use.castId));
     source2.scenes.flatMap((scene2) => scene2.nodes).forEach((node2) => {
+      if (!STORY_ARC_NODE_KINDS.has(node2.kind)) {
+        throw new TypeError(`Node ${node2.id} in ${source2.id} has unsupported kind ${String(node2.kind)}.`);
+      }
       if (node2.speakerId && node2.speakerId !== "learner" && !declaredCast.has(node2.speakerId)) {
         throw new TypeError(`Speaker ${node2.speakerId} is not declared in ${source2.id}'s cast.`);
       }
@@ -219138,7 +219472,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function storyExerciseRegistered(exerciseId) {
-    return Boolean(n3StoryPractice(exerciseId));
+    return Boolean(storyPractice(exerciseId));
   }
   function arcIsGrounded(arc) {
     return arc.curriculum.activities.every((activity2) => activity2.registered);
@@ -249467,7 +249801,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const { arc } = options;
     const address = storyAddressIndex(arc);
     const choices2 = { ...options.cursor?.choices ?? {} };
-    const storyOnly = new Set(options.cursor?.storyOnlyActivityIds ?? []);
     let activityOutcomes = { ...options.activityOutcomes ?? {} };
     let scene2 = validCursorScene(arc, options.cursor) ?? arc.scene(arc.firstSceneId);
     let node2 = validCursorNode(scene2, options.cursor) ?? firstVisibleNode(scene2, choices2);
@@ -249483,32 +249816,48 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return {
           kind: "complete",
           scene: scene2,
-          completionEligible: storyOnly.size === 0
+          completionEligible: true
         };
       }
-      if (node2.kind === "line") {
-        return { kind: "line", scene: scene2, node: node2, line: resolveStoryLine(node2, options.band) };
+      switch (node2.kind) {
+        case "line":
+          return {
+            kind: "line",
+            scene: scene2,
+            node: node2,
+            line: resolveStoryLine(node2, options.band)
+          };
+        case "choice":
+          return {
+            kind: "choice",
+            scene: scene2,
+            node: node2,
+            options: Object.freeze((node2.options ?? []).map((option2) => resolveChoice(option2, options.band)))
+          };
+        case "activity": {
+          const binding = arc.curriculum.activities.find((candidate2) => candidate2.nodeId === node2.id);
+          if (!binding) throw new Error(`Story activity ${node2.id} has no compiled source binding.`);
+          return {
+            kind: "activity",
+            scene: scene2,
+            node: node2,
+            binding,
+            gate: activityGate(binding.exerciseId)
+          };
+        }
+        case "stage":
+        case "narration":
+          return {
+            kind: node2.kind,
+            scene: scene2,
+            node: node2
+          };
+        case "checkpoint":
+        case "command":
+          throw new Error(`Story node ${node2.id} did not settle before rendering.`);
+        default:
+          return unsupportedStoryNode(node2.id, node2.kind);
       }
-      if (node2.kind === "choice") {
-        return {
-          kind: "choice",
-          scene: scene2,
-          node: node2,
-          options: Object.freeze((node2.options ?? []).map((option2) => resolveChoice(option2, options.band)))
-        };
-      }
-      if (node2.kind === "activity") {
-        const binding = arc.curriculum.activities.find((candidate2) => candidate2.nodeId === node2.id);
-        if (!binding) throw new Error(`Story activity ${node2.id} has no compiled source binding.`);
-        return {
-          kind: "activity",
-          scene: scene2,
-          node: node2,
-          binding,
-          gate: activityGate(binding.exerciseId)
-        };
-      }
-      return { kind: node2.kind, scene: scene2, node: node2 };
     };
     const moveTo = (target2) => {
       if (!target2) {
@@ -249541,7 +249890,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       node2 = firstVisibleNode(scene2, choices2);
     };
     const activityGate = (activityId) => {
-      if (storyOnly.has(activityId)) return "story-only";
       const outcome = activityOutcomes[activityId];
       if (outcome === "pass") return "passed";
       if (outcome === "lapse") return "lapse";
@@ -249570,13 +249918,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       moveTo(option2.next || current.node.convergence);
       return settle();
     };
-    const continueStoryOnly = () => {
-      const current = settle();
-      if (current.kind !== "activity") throw new Error("The current story moment is not an activity.");
-      storyOnly.add(current.binding.exerciseId);
-      moveTo(current.node.onReady);
-      return settle();
-    };
     return {
       get moment() {
         return settle();
@@ -249590,19 +249931,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
           arcId: arc.id,
           sceneId: scene2.id,
           nodeId: currentNode.id,
-          choices: Object.freeze({ ...choices2 }),
-          storyOnlyActivityIds: Object.freeze([...storyOnly].sort())
+          choices: Object.freeze({ ...choices2 })
         });
       },
       band: options.band,
       advance,
       choose,
-      continueStoryOnly,
       updateActivityOutcomes(outcomes2) {
-        activityOutcomes = { ...outcomes2 };
+        activityOutcomes = mergeActivityOutcomes(activityOutcomes, outcomes2);
         return settle();
       }
     };
+  }
+  function mergeActivityOutcomes(current, updates) {
+    const merged = { ...current };
+    Object.entries(updates).forEach(([activityId, outcome]) => {
+      merged[activityId] = merged[activityId] === "pass" || outcome === "pass" ? "pass" : "lapse";
+    });
+    return merged;
+  }
+  function unsupportedStoryNode(nodeId, kind) {
+    throw new Error(`Story node ${nodeId} has unsupported kind ${String(kind)}.`);
   }
   function serializeStoryCursor(cursor) {
     return `${STORY_CURSOR_PREFIX}${encodeURIComponent(JSON.stringify(cursor))}`;
@@ -249611,8 +249960,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!sectionId?.startsWith(STORY_CURSOR_PREFIX)) return void 0;
     try {
       const value = JSON.parse(decodeURIComponent(sectionId.slice(STORY_CURSOR_PREFIX.length)));
-      if (value.version !== 1 || typeof value.arcId !== "string" || typeof value.sceneId !== "string" || typeof value.nodeId !== "string" || !value.choices || typeof value.choices !== "object" || !Array.isArray(value.storyOnlyActivityIds) || value.storyOnlyActivityIds.some((id2) => typeof id2 !== "string")) return void 0;
-      return value;
+      if (value.version !== 1 || typeof value.arcId !== "string" || typeof value.sceneId !== "string" || typeof value.nodeId !== "string" || !value.choices || typeof value.choices !== "object") return void 0;
+      return Object.freeze({
+        version: 1,
+        arcId: value.arcId,
+        sceneId: value.sceneId,
+        nodeId: value.nodeId,
+        choices: Object.freeze({ ...value.choices })
+      });
     } catch {
       return void 0;
     }
@@ -250247,8 +250602,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ...N3_BATCH_REPLAY_SCENES
   ]);
   function storyReplayReviewSeed(practice2) {
-    const answer2 = practice2.options.find((option2) => option2.id === practice2.correctOptionId);
-    if (!answer2) throw new TypeError(`Story practice ${practice2.activityId} has no correct answer.`);
     const conceptId = practice2.conceptIds[0];
     if (!conceptId) throw new TypeError(`Story practice ${practice2.activityId} has no review concept.`);
     return Object.freeze({
@@ -250257,8 +250610,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reason: "new-learning",
       sourceQuestionId: practice2.activityId,
       content: Object.freeze({
-        expression: answer2.label.ja,
-        meanings: Object.freeze([answer2.label.en]),
+        expression: practice2.reviewAnswer.ja,
+        meanings: Object.freeze([practice2.reviewAnswer.en]),
         sentence: practice2.prompt.ja
       })
     });
@@ -253075,7 +253428,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return screen;
     }
     const cursor = parseStoryCursor(options.sectionId);
-    const episode2 = options.story.episode(cursor ? options.story.openingArc.episodeId : options.sectionId);
+    const episode2 = options.story.episode(cursor ? episodeIdForCursor(options.story, cursor) : options.sectionId);
     screen.append(episode2 ? renderEpisode(options, episode2) : renderEpisodeList(options));
     return screen;
   }
@@ -253128,7 +253481,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function renderPlayableArc(options, episode2, arc) {
     const main = element("article", "academy-story-authored-arc academy-story-vn-shell");
-    const mode = options.arcModeForEpisode?.(episode2.id) ?? (episode2.id === options.story.openingArc.episodeId ? options.openingArcMode ?? "chronological-replay" : "canonical");
+    const savedCursor = parseStoryCursor(options.sectionId);
+    const mode = options.arcModeForEpisode?.(episode2.id, savedCursor) ?? (episode2.id === options.story.openingArc.episodeId ? options.openingArcMode ?? "chronological-replay" : "canonical");
     main.dataset.storyArcId = arc.id;
     main.dataset.replayWrites = String(arc.replay.canonicalWrites);
     main.dataset.storyMode = mode;
@@ -253137,7 +253491,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       band: resolveStoryBand(options.selectedBand),
       activityOutcomes: options.activityOutcomes,
       placementEquivalent: mode === "chronological-replay",
-      cursor: parseStoryCursor(options.sectionId)
+      cursor: savedCursor
     });
     const stage2 = createAcademyVnStage({
       label: arc.title,
@@ -253186,83 +253540,86 @@ recommendedJiten	Jiten由来の頻度バッジです。
         stage2.setDirection(directionForScene(moment.scene));
       }
       stage2.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
-      if (moment.kind === "line") {
-        stage2.setLine({
-          id: moment.node.id,
-          speakerId: moment.node.speakerId,
-          speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
-          japanese: moment.line.japanese,
-          language: "ja",
-          reading: storyReadingControl(options.language),
-          translation: moment.line.english,
-          translationEarned: true
-        });
-        stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
-        return;
-      }
-      if (moment.kind === "stage" || moment.kind === "narration") {
-        stage2.setLine({
-          id: moment.node.id,
-          japanese: moment.node.description ?? moment.node.text?.[options.language] ?? "",
-          language: options.language,
-          reading: { ...storyReadingControl(options.language), available: false }
-        });
-        stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
-        return;
-      }
-      if (moment.kind === "choice") {
-        stage2.setLine({
-          id: moment.node.id,
-          japanese: moment.node.question ?? (options.language === "ja" ? "どうしますか。" : "What will you do?"),
-          language: options.language,
-          reading: { ...storyReadingControl(options.language), available: false }
-        });
-        stage2.setAction(playableChoiceAction(moment, (optionId) => transition(() => runner.choose(optionId))));
-        return;
-      }
-      if (moment.kind === "activity") {
-        stage2.setLine({
-          id: moment.node.id,
-          japanese: moment.node.resumeContext ?? (options.language === "ja" ? "登録された練習に進みます。" : "Open the registered practice, then return here."),
-          language: options.language,
-          reading: { ...storyReadingControl(options.language), available: false }
-        });
-        const practice2 = n3StoryPractice(moment.binding.exerciseId);
-        if (practice2 && options.onCompleteStoryPractice) {
-          stage2.setAction(playableN3PracticeAction(options, practice2, async (outcome) => {
-            await options.onCompleteStoryPractice?.(practice2.activityId, outcome);
-            runner.updateActivityOutcomes({ [practice2.activityId]: outcome });
-            if (outcome === "pass") transition(() => runner.advance());
-            else renderMoment(runner.moment);
+      switch (moment.kind) {
+        case "line":
+          stage2.setLine({
+            id: moment.node.id,
+            speakerId: moment.node.speakerId,
+            speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
+            japanese: moment.line.japanese,
+            language: "ja",
+            reading: storyReadingControl(options.language),
+            translation: moment.line.english,
+            translationEarned: true
+          });
+          stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
+          return;
+        case "stage":
+        case "narration":
+          stage2.setLine({
+            id: moment.node.id,
+            japanese: moment.node.description ?? moment.node.text?.[options.language] ?? "",
+            language: options.language,
+            reading: { ...storyReadingControl(options.language), available: false }
+          });
+          stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
+          return;
+        case "choice":
+          stage2.setLine({
+            id: moment.node.id,
+            japanese: moment.node.question ?? (options.language === "ja" ? "どうしますか。" : "What will you do?"),
+            language: options.language,
+            reading: { ...storyReadingControl(options.language), available: false }
+          });
+          stage2.setAction(playableChoiceAction(moment, (optionId) => transition(() => runner.choose(optionId))));
+          return;
+        case "activity": {
+          stage2.setLine({
+            id: moment.node.id,
+            japanese: moment.node.resumeContext ?? (options.language === "ja" ? "登録された練習に進みます。" : "Open the registered practice, then return here."),
+            language: options.language,
+            reading: { ...storyReadingControl(options.language), available: false }
+          });
+          const practice2 = storyPractice(moment.binding.exerciseId);
+          const inlinePractice = Boolean(practice2 && options.onCompleteStoryPractice);
+          const gateSatisfied = moment.gate === "passed" || moment.gate === "placement-equivalent";
+          if (practice2 && inlinePractice && !gateSatisfied) {
+            stage2.setAction(playableStoryPracticeAction(options, practice2, moment.gate, async (response) => {
+              const outcome = await options.onCompleteStoryPractice?.(practice2.activityId, response);
+              if (!outcome) throw new Error(`Story practice ${practice2.activityId} did not return an outcome.`);
+              runner.updateActivityOutcomes({ [practice2.activityId]: outcome });
+              if (outcome === "pass") transition(() => runner.advance());
+              return outcome;
+            }));
+            return;
+          }
+          stage2.setAction(playableActivityAction(options, arc, moment, runner.cursor, {
+            ...!inlinePractice && options.onOpenActivity ? { open() {
+              persist();
+              options.onOpenActivity?.(moment.binding.lessonId, moment.binding.exerciseId, runner.cursor);
+            } } : {},
+            continue() {
+              transition(() => runner.advance());
+            }
           }));
           return;
         }
-        stage2.setAction(playableActivityAction(options, arc, moment, runner.cursor, {
-          open() {
-            persist();
-            options.onOpenActivity?.(moment.binding.lessonId, moment.binding.exerciseId, runner.cursor);
-          },
-          continue() {
-            transition(() => runner.advance());
-          },
-          storyOnly() {
-            transition(() => runner.continueStoryOnly());
-          }
-        }));
-        return;
+        case "complete":
+          stage2.setLine({
+            id: "story:opening-complete",
+            speakerId: "rie",
+            speakerName: displayAcademyCastName("rie", options.language),
+            japanese: options.language === "ja" ? "最初の道ができました。" : "The first route is restored.",
+            language: options.language,
+            reading: { ...storyReadingControl(options.language), available: options.language === "ja" },
+            translation: options.language === "ja" ? "The first route is restored." : void 0,
+            translationEarned: options.language === "ja"
+          });
+          stage2.setAction(playableCompleteAction(options, episode2, moment.completionEligible, mode));
+          return;
+        default:
+          return unsupportedStoryMoment(moment);
       }
-      if (moment.kind !== "complete") return;
-      stage2.setLine({
-        id: "story:opening-complete",
-        speakerId: "rie",
-        speakerName: displayAcademyCastName("rie", options.language),
-        japanese: options.language === "ja" ? "最初の道ができました。" : "The first route is restored.",
-        language: options.language,
-        reading: { ...storyReadingControl(options.language), available: options.language === "ja" },
-        translation: options.language === "ja" ? "The first route is restored." : void 0,
-        translationEarned: options.language === "ja"
-      });
-      stage2.setAction(playableCompleteAction(options, episode2, moment.completionEligible, mode));
     };
     main.append(stage2.element, navigation);
     main.addEventListener("academy:dispose", () => {
@@ -253303,56 +253660,156 @@ recommendedJiten	Jiten由来の頻度バッジです。
       textElement("p", "academy-story-activity-state", moment.binding.registered ? activityGateLabel(options.language, moment.gate) : options.language === "ja" ? "練習は準備中です。" : "Practice is being prepared.")
     );
     const controls = element("div", "academy-story-vn-activity-actions");
-    if (moment.binding.registered && options.onOpenActivity) {
+    if (moment.binding.registered && actions.open) {
       const open = actionButton(options.language === "ja" ? "練習を開く" : "Open practice", "academy-story-open-activity", actions.open);
       open.dataset.storyCursor = serializeStoryCursor(cursor);
       controls.append(open);
     }
-    if (moment.gate === "passed" || moment.gate === "placement-equivalent" || moment.gate === "story-only") {
+    if (moment.gate === "passed" || moment.gate === "placement-equivalent") {
       controls.append(actionButton(options.language === "ja" ? "物語を続ける" : "Continue story", "academy-story-activity-continue", actions.continue));
-    } else if (!moment.binding.registered) {
-      controls.append(actionButton(
-        options.language === "ja" ? "物語を続ける" : "Continue story",
-        "academy-story-activity-story-only",
-        actions.storyOnly
-      ));
-    } else {
-      controls.append(actionButton(
-        options.language === "ja" ? "単位を付けずに続ける" : "Continue without practice credit",
-        "academy-story-activity-story-only",
-        actions.storyOnly
-      ));
     }
     root.append(controls);
     return { element: root };
   }
-  function playableN3PracticeAction(options, practice2, onComplete) {
-    const root = element("section", "academy-story-vn-activity academy-story-n3-practice");
+  function playableStoryPracticeAction(options, practice2, gate, onComplete) {
+    const root = element("section", "academy-story-vn-activity academy-story-practice");
     root.dataset.activityId = practice2.activityId;
-    const prompt2 = textElement("p", "academy-story-n3-prompt", practice2.prompt[options.language]);
+    root.dataset.activityRegistered = "true";
+    root.dataset.activityGate = gate;
+    const prompt2 = textElement("p", "academy-story-practice-prompt", practice2.prompt[options.language]);
     prompt2.lang = options.language === "ja" ? "ja" : "en";
-    const choices2 = element("div", "academy-story-vn-activity-actions");
     const status = element("p", "academy-story-activity-state");
     status.setAttribute("role", "status");
-    practice2.options.forEach((option2) => {
-      const button2 = actionButton(option2.label[options.language], "academy-story-n3-option", () => {
-        choices2.querySelectorAll("button").forEach((control2) => {
-          control2.disabled = true;
-        });
-        const outcome = option2.id === practice2.correctOptionId ? "pass" : "lapse";
+    const interaction = practiceInteraction(options, practice2, (response) => {
+      const controls = interaction.querySelectorAll(
+        "input, select, textarea, button"
+      );
+      controls.forEach((control2) => {
+        control2.disabled = true;
+      });
+      void onComplete(response).then((outcome) => {
+        const expectedOutcome = gradeStoryPractice(practice2, response);
+        if (outcome !== expectedOutcome) {
+          throw new Error(`Story practice ${practice2.activityId} returned ${outcome} for a ${expectedOutcome} response.`);
+        }
+        markPracticeMistakes(interaction, storyPracticeMistakeIds(practice2, response));
         status.textContent = outcome === "pass" ? options.language === "ja" ? "記録しました。場面に戻ります。" : "Recorded. Returning to the scene." : practice2.repair[options.language];
-        void onComplete(outcome).catch(() => {
-          status.textContent = options.language === "ja" ? "記録できませんでした。もう一度試してください。" : "Could not save this attempt. Try again.";
-          choices2.querySelectorAll("button").forEach((control2) => {
+        if (outcome === "lapse") {
+          controls.forEach((control2) => {
             control2.disabled = false;
           });
+          interaction.querySelector('[aria-invalid="true"]')?.focus();
+        }
+      }).catch(() => {
+        status.textContent = options.language === "ja" ? "記録できませんでした。もう一度試してください。" : "Could not save this attempt. Try again.";
+        controls.forEach((control2) => {
+          control2.disabled = false;
         });
       });
-      button2.dataset.storyPracticeOption = option2.id;
-      choices2.append(button2);
     });
-    root.append(prompt2, choices2, status);
+    root.append(prompt2, interaction, status);
     return { element: root };
+  }
+  function markPracticeMistakes(interaction, mistakeIds) {
+    interaction.querySelectorAll("[aria-invalid]").forEach((control2) => control2.removeAttribute("aria-invalid"));
+    mistakeIds.forEach((id2) => {
+      const [rowId, columnId] = id2.split(":");
+      const control2 = columnId ? interaction.querySelector(`[data-evidence-row="${rowId}"] [data-evidence-column="${columnId}"]`) : interaction.querySelector(`[data-story-written-field="${id2}"]`);
+      control2?.setAttribute("aria-invalid", "true");
+    });
+  }
+  function practiceInteraction(options, practice2, submit) {
+    switch (practice2.interaction) {
+      case "choice": {
+        const choices2 = element("div", "academy-story-vn-activity-actions");
+        practice2.options.forEach((option2) => {
+          const button2 = actionButton(option2.label[options.language], "academy-story-practice-option", () => {
+            submit({ interaction: "choice", optionId: option2.id });
+          });
+          button2.dataset.storyPracticeOption = option2.id;
+          choices2.append(button2);
+        });
+        return choices2;
+      }
+      case "evidence-map":
+        return evidenceMapInteraction(options, practice2, submit);
+      case "written-response":
+        return writtenResponseInteraction(options, practice2, submit);
+      default:
+        return unsupportedStoryPractice(practice2);
+    }
+  }
+  function evidenceMapInteraction(options, practice2, submit) {
+    const fieldset = element("fieldset", "academy-story-evidence-map");
+    fieldset.dataset.storyPracticeInteraction = "evidence-map";
+    fieldset.append(textElement("legend", "academy-visually-hidden", practice2.prompt[options.language]));
+    practice2.rows.forEach((row) => {
+      const entry2 = element("div", "academy-story-evidence-row");
+      entry2.dataset.evidenceRow = row.id;
+      const claim = textElement("p", "academy-story-evidence-claim", row.claim[options.language]);
+      claim.lang = options.language === "ja" ? "ja" : "en";
+      entry2.append(claim);
+      practice2.columns.forEach((column) => {
+        const label = element("label", "academy-story-evidence-field");
+        label.append(textElement("span", "academy-story-evidence-label", column.label[options.language]));
+        const select2 = document.createElement("select");
+        select2.dataset.evidenceColumn = column.id;
+        select2.setAttribute("aria-label", `${row.claim[options.language]}: ${column.label[options.language]}`);
+        select2.append(new Option(options.language === "ja" ? "選択" : "Select", ""));
+        column.options.forEach((option2) => select2.append(new Option(option2.label[options.language], option2.id)));
+        label.append(select2);
+        entry2.append(label);
+      });
+      fieldset.append(entry2);
+    });
+    const check2 = actionButton(options.language === "ja" ? "地図を確認" : "Check map", "academy-story-practice-submit", () => {
+      const rows = Object.fromEntries(practice2.rows.map((row) => {
+        const entry2 = fieldset.querySelector(`[data-evidence-row="${row.id}"]`);
+        return [row.id, Object.fromEntries(practice2.columns.map((column) => [
+          column.id,
+          entry2.querySelector(`[data-evidence-column="${column.id}"]`).value
+        ]))];
+      }));
+      submit({ interaction: "evidence-map", rows });
+    });
+    fieldset.append(check2);
+    return fieldset;
+  }
+  function writtenResponseInteraction(options, practice2, submit) {
+    const fieldset = element("fieldset", "academy-story-written-response");
+    fieldset.dataset.storyPracticeInteraction = "written-response";
+    fieldset.append(textElement("legend", "academy-visually-hidden", practice2.prompt[options.language]));
+    practice2.fields.forEach((field2) => {
+      const label = element("label", "academy-story-written-field");
+      label.append(textElement("span", "academy-story-written-label", field2.label[options.language]));
+      const input2 = document.createElement("textarea");
+      input2.rows = 2;
+      input2.lang = "ja";
+      input2.spellcheck = false;
+      input2.placeholder = field2.placeholder;
+      input2.dataset.storyWrittenField = field2.id;
+      label.append(input2);
+      fieldset.append(label);
+    });
+    const check2 = actionButton(options.language === "ja" ? "予定を確認" : "Check updates", "academy-story-practice-submit", () => {
+      const fields = Object.fromEntries(practice2.fields.map((field2) => [
+        field2.id,
+        fieldset.querySelector(`[data-story-written-field="${field2.id}"]`).value
+      ]));
+      submit({ interaction: "written-response", fields });
+    });
+    fieldset.append(check2);
+    return fieldset;
+  }
+  function unsupportedStoryPractice(practice2) {
+    throw new Error(`Unsupported story practice interaction ${String(practice2.interaction)}.`);
+  }
+  function episodeIdForCursor(story, cursor) {
+    return story.episodes.find((episode2) => story.playableArc(episode2.id)?.id === cursor.arcId)?.id;
+  }
+  function unsupportedStoryMoment(moment) {
+    const unsafe = moment;
+    throw new Error(`Story renderer received unsupported moment ${String(unsafe.kind)}.`);
   }
   function playableCompleteAction(options, episode2, completionEligible, mode) {
     const root = element("div", "academy-story-vn-complete");
@@ -253446,8 +253903,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       passed: { en: "Exact activity evidence found.", ja: "この練習の学習記録があります。" },
       "placement-equivalent": { en: "Placement preserves the story here; the activity remains uncredited.", ja: "プレイスメントで物語を続けられます。練習の単位は付きません。" },
       lapse: { en: "This exact activity needs another attempt.", ja: "この練習をもう一度試してください。" },
-      missing: { en: "No evidence yet for this exact activity.", ja: "この練習の学習記録はまだありません。" },
-      "story-only": { en: "Story-only continuation; no practice credit was written.", ja: "物語だけ続けています。練習の単位は付きません。" }
+      missing: { en: "No evidence yet for this exact activity.", ja: "この練習の学習記録はまだありません。" }
     };
     return labels[gate][language];
   }
@@ -256363,7 +256819,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ...context2.projection.profile ? { learner: context2.projection.profile } : {},
         sectionId: context2.checkpoint.sectionId,
         openingArcMode: openingArcModeForEntry(context2.projection),
-        arcModeForEpisode: (episodeId) => n3ArcMode(episodeId, replayEvents, context2.projection),
+        arcModeForEpisode: (episodeId, cursor) => n3ArcMode(episodeId, cursor, replayEvents, context2.projection),
         onOpenEpisode: (episodeId) => void context2.go("story", { sectionId: episodeId }),
         onCompleteEpisode: (episodeId) => {
           const episode2 = story.episode(episodeId);
@@ -256393,13 +256849,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
           sectionId: cursor ? serializeStoryCursor(cursor) : context2.checkpoint.sectionId,
           selectedFork: storyForkForActivity(activityId)
         }),
-        onCompleteStoryPractice: (activityId, outcome) => {
-          const practice2 = n3StoryPractice(activityId);
+        onCompleteStoryPractice: async (activityId, response) => {
+          const practice2 = storyPractice(activityId);
           if (!practice2) throw new Error(`Unknown authored story practice: ${activityId}`);
-          return this.options.evidence.recordAuthoredStoryPractice({
+          const outcome = gradeStoryPractice(practice2, response);
+          await this.options.evidence.recordAuthoredStoryPractice({
             ...practice2,
             reviewSeed: storyReplayReviewSeed(practice2)
           }, outcome);
+          return outcome;
         },
         onOpenReviewCalendar: () => void context2.go("story", { sectionId: STORY_REVIEW_CALENDAR_SECTION }),
         replayEvents,
@@ -256941,9 +257399,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function replayCheckpointBand(band) {
     return band === "ngPlus" ? "n1" : band === "n5" || band === "n4" || band === "n3" || band === "n2" || band === "n1" ? band : void 0;
   }
-  function n3ArcMode(episodeId, events, projection) {
-    const seen = events.some((event) => event.kind === "characters-encountered" && (event.encounterId === `story:${episodeId}` || event.encounterId.startsWith(`story:${episodeId}:scene:`)));
-    if (seen) return "chronological-replay";
+  function n3ArcMode(episodeId, cursor, events, projection) {
+    const episodeSeen = events.some((event) => event.kind === "characters-encountered" && event.encounterId === `story:${episodeId}`);
+    if (episodeSeen) return "chronological-replay";
+    const sceneSeen = events.some((event) => event.kind === "characters-encountered" && event.encounterId.startsWith(`story:${episodeId}:scene:`));
+    const arcId = loadStoryRuntime().playableArc(episodeId)?.id;
+    if (sceneSeen && cursor?.arcId === arcId) return "canonical";
     if (episodeId === "s3e01-after-the-applause" && projection.curriculumEntry?.band === "n3") return "canonical";
     const ordinal = loadStoryRuntime().episode(episodeId)?.ordinal ?? 0;
     const prior = loadStoryRuntime().episodes.find((episode2) => episode2.ordinal === ordinal - 1);
@@ -256952,8 +257413,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function storyActivityOutcomes(projection, events) {
     const outcomes2 = Object.fromEntries(Object.values(projection.activities).map((activity2) => [activity2.activityId, activity2.lastOutcome]));
     events.forEach((event) => {
-      if (event.kind === "learning-evidence-recorded" && event.modeId === "authored-story-n3") {
-        outcomes2[event.activityId] = event.outcome;
+      if (event.kind === "learning-evidence-recorded" && (event.modeId === "authored-story-practice" || event.modeId === "authored-story-n3")) {
+        outcomes2[event.activityId] = outcomes2[event.activityId] === "pass" || event.outcome === "pass" ? "pass" : "lapse";
       }
     });
     return outcomes2;
@@ -272666,6 +273127,9 @@ ${component.reading}`;
     if (!shouldRenderRuby(surface, token, settings)) return false;
     return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
   }
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -272706,9 +273170,6 @@ ${component.reading}`;
     if (!url) return true;
     if (!open(url)) location.href = url;
     return true;
-  }
-  function isJitenHost() {
-    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
   }
   function renderPassiveReference(view) {
     const reading = visibleReferenceReading(view.text, view.reading);

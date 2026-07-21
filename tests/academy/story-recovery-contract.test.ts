@@ -91,6 +91,10 @@ describe('Season 4 story recovery contracts', () => {
             interaction: 'evidence-map',
             rows: Object.fromEntries(practice.rows.map(row => [row.id, row.correct])),
         })).toBe('pass');
+        const node = (mapOfClaims.scenes as readonly { nodes: readonly { id: string; hook?: { componentType: string } }[] }[])
+            .flatMap(scene => scene.nodes)
+            .find(candidate => candidate.id === 'activity-node:map-of-claims:build-evidence-map');
+        expect(node?.hook?.componentType).toBe('writing');
     });
 
     it('hands the overlay rehearsal into Nanako and the stage test into Alex', () => {
@@ -116,11 +120,12 @@ describe('Season 4 story recovery contracts', () => {
         expect(inviteIndex).toBeGreaterThan(returnIndex);
         expect(scene.nodes[inviteIndex]?.kind).toBe('line');
         expect(inviteIndex).toBeLessThan(checkpointIndex);
-        expect(spoken).toContain('アレックスは来月から日本');
-        expect(spoken).toContain('アーカシュの撮り旅');
-        expect(spoken).toContain('私はこっちに残る');
-        expect(spoken).toContain('しばらく勉強から離れてた人');
-        expect(spoken).toContain('都合がつかなければ');
+        expect(spoken).toContain('アレックスは来月');
+        expect(spoken).toContain('アーカシュは『いつか』');
+        expect(spoken).toContain('私はこっち');
+        expect(spoken).toContain('しばらく離れてた人');
+        expect(spoken).toContain('返事なしで大丈夫');
+        expect(spoken).not.toMatch(/競争じゃない|どれかが上/u);
         expect(JSON.stringify(scene)).not.toMatch(/typing|時間が合う人/u);
         expect(scene.nodes.find(node => node.id === 'activity-node:journey:non-comparative-futures'))
             .toMatchObject({ hook: { componentType: 'writing' } });
@@ -144,6 +149,19 @@ describe('Season 4 story recovery contracts', () => {
                 mira: '火曜から再開する。',
             },
         })).toBe('lapse');
+        expect(gradeStoryPractice(practice, {
+            interaction: 'written-response',
+            fields: Object.fromEntries(practice.fields.map(field => [field.id, field.placeholder])),
+        })).toBe('lapse');
+
+        expect(journey.synopsis).toContain("Mira — Karen, Henry's online Japanese-learning friend rather than a classmate");
+        expect(journey.cast.find(member => member.castId === 'mira')?.forbiddenClaims)
+            .toContain('classmate, classroom regular, or lesson lead');
+        expect(journey.outcomes.find(outcome => outcome.id === 'outcome:journey:mira-return')).toMatchObject({
+            kind: 'bond',
+            castId: 'mira',
+            beat: 'return',
+        });
     });
 
     it('gives Alex a concrete callback instead of repeating Mira\'s N2/N3 thesis', () => {

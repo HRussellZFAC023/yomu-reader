@@ -170,25 +170,32 @@ export function storyPractice(activityId: string): StoryPractice | undefined {
 }
 
 export function gradeStoryPractice(practice: StoryPractice, response: StoryPracticeResponse): 'pass' | 'lapse' {
-    if (practice.interaction !== response.interaction) return 'lapse';
+    return storyPracticeMistakeIds(practice, response).length === 0 ? 'pass' : 'lapse';
+}
+
+export function storyPracticeMistakeIds(practice: StoryPractice, response: StoryPracticeResponse): readonly string[] {
+    if (practice.interaction !== response.interaction) return ['interaction'];
     if (practice.interaction === 'choice' && response.interaction === 'choice') {
-        return response.optionId === practice.correctOptionId ? 'pass' : 'lapse';
+        return response.optionId === practice.correctOptionId ? [] : ['choice'];
     }
     if (practice.interaction === 'evidence-map' && response.interaction === 'evidence-map') {
-        const complete = practice.rows.every(row => {
+        return practice.rows.flatMap(row => {
             const answer = response.rows[row.id];
-            return answer && practice.columns.every(column => answer[column.id] === row.correct[column.id]);
+            return practice.columns.flatMap(column => answer?.[column.id] === row.correct[column.id]
+                ? []
+                : [`${row.id}:${column.id}`]);
         });
-        return complete ? 'pass' : 'lapse';
     }
     if (practice.interaction === 'written-response' && response.interaction === 'written-response') {
-        const values = practice.fields.map(field => response.fields[field.id]?.trim() ?? '');
-        const includesForbiddenRanking = practice.forbiddenTerms.some(term => values.some(value => value.includes(term)));
-        const complete = practice.fields.every((field, index) => values[index]!.length >= 4
-            && field.requiredTermGroups.every(group => group.some(term => values[index]!.includes(term))));
-        return complete && !includesForbiddenRanking ? 'pass' : 'lapse';
+        return practice.fields.flatMap(field => {
+            const value = response.fields[field.id]?.trim() ?? '';
+            const incomplete = value.length < 4
+                || field.requiredTermGroups.some(group => !group.some(term => value.includes(term)));
+            const ranksFuture = practice.forbiddenTerms.some(term => value.includes(term));
+            return incomplete || ranksFuture ? [field.id] : [];
+        });
     }
-    return 'lapse';
+    return ['interaction'];
 }
 
 function practice(
@@ -282,9 +289,9 @@ function writtenFuturesPractice(): StoryWrittenResponsePractice {
             ja: '三人の短い予定を日本語で書いてください。アレックスは決定、アーカシュは可能性、ミラは残って再開。順位は付けません。',
         }),
         fields: Object.freeze([
-            writtenField('alex', 'Alex: decided next month', 'アレックス：来月に決まった予定', '来月から日本で働く。', [['来月'], ['日本', '働', '仕事']]),
-            writtenField('aakash', 'Aakash: a genuine maybe', 'アーカシュ：まだ可能性', 'いつか撮り旅に行くかもしれない。', [['いつか'], ['かもしれ', 'たい', 'たら', 'まだ', '分から', 'わから']]),
-            writtenField('mira', 'Mira: staying and restarting Tuesday', 'ミラ：残って火曜に再開', 'ここに残って、来週火曜からまた始める。', [['火曜', '来週'], ['再開', 'また', '始め'], ['残', 'こっち', 'ここ']]),
+            writtenField('alex', 'Alex: decided next month', 'アレックス：来月に決まった予定', '決まった時期を含む一文', [['来月'], ['日本', '働', '仕事']]),
+            writtenField('aakash', 'Aakash: a genuine maybe', 'アーカシュ：まだ可能性', '「いつか」と不確かさを含む一文', [['いつか'], ['かもしれ', 'たい', 'たら', 'まだ', '分から', 'わから']]),
+            writtenField('mira', 'Mira: staying and restarting Tuesday', 'ミラ：残って火曜に再開', '残ることと再開を含む一文', [['火曜', '来週'], ['再開', 'また', '始め'], ['残', 'こっち', 'ここ']]),
         ]),
         forbiddenTerms: Object.freeze(['一歩先', '追いつ', '上って', '上だ', '勇気がある', '偉い']),
         repair: Object.freeze({

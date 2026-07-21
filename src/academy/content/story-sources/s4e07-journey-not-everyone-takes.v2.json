@@ -9,7 +9,7 @@
     "en": "The Journey Not Everyone Takes",
     "ja": "それぞれの「いつか」"
   },
-  "synopsis": "Over a summer evening in the cafe, Alex hands the class the term's biggest news in its flattest voice — a job in Japan, next month, already decided — and the room refuses to let the send-off slide past while refusing just as hard to crown his leaving as brave. As Aakash sets his own uncertain camera road-trip beside the move and Mira returns to the group chat with no apology, the learner identifies the line that keeps leaving, staying, and undecided in their honest modalities, none ranked above the others.",
+  "synopsis": "Over a summer evening in the cafe, Alex hands the class the term's biggest news in its flattest voice — a job in Japan, next month, already decided — and the room refuses to let the send-off slide past while refusing just as hard to crown his leaving as brave. As Aakash sets his own uncertain camera road-trip beside the move, Mira — Karen, Henry's online Japanese-learning friend rather than a classmate — returns to the group chat with no apology. The learner writes leaving, staying, and undecided in their honest modalities, none ranked above the others.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -59,6 +59,7 @@
       "forbiddenClaims": [
         "portrait or inferred likeness",
         "surname, guessed kana name, nationality, address, or private history",
+        "classmate, classroom regular, or lesson lead",
         "return framed as needing a guilt explanation or an invented cause of absence",
         "real-event claim"
       ]
@@ -347,14 +348,14 @@
           "attentionTarget": "the three named futures in the thread, each kept in its own modality and held level",
           "variants": {
             "n3": {
-              "japanese": "うわ、久しぶりに開いたらこの話してる。アレックスは来月から日本。アーカシュの撮り旅は、まだ『いつか』。私はこっちに残る。三つとも別の予定で、競争じゃないね。",
-              "reading": "うわ、ひさしぶりにひらいたらこのはなししてる。アレックスはらいげつからにほん。アーカシュのとりたびは、まだ『いつか』。わたしはこっちにのこる。みっつともべつのよていで、きょうそうじゃないね。",
-              "english": "Whoa, I open the chat after ages and find this. Alex starts in Japan next month. Aakash's camera trip is still a 'someday.' I'm staying here. Three different plans; not a contest."
+              "japanese": "うわ、久しぶりに開いたら、アレックスは来月で、アーカシュは『いつか』か。私はこっち。……同じチャットに、予定が三つだね。",
+              "reading": "うわ、ひさしぶりにひらいたら、アレックスはらいげつで、アーカシュは『いつか』か。わたしはこっち。……おなじチャットに、よていがみっつだね。",
+              "english": "Whoa, I open the chat after ages and find Alex has next month while Aakash has 'someday.' I'm staying here. …Three plans in one chat."
             },
             "n2": {
-              "japanese": "わ、久しぶりにのぞいたら、いい話してるじゃん。アレックスは来月から日本。アーカシュの撮り旅は、まだ『いつか』。私はこっちに残る。どれかが上って話じゃないでしょ。",
-              "reading": "わ、ひさしぶりにのぞいたら、いいはなししてるじゃん。アレックスはらいげつからにほん。アーカシュのとりたびは、まだ『いつか』。わたしはこっちにのこる。どれかがうえってはなしじゃないでしょ。",
-              "english": "Oh, I peek in after ages and find a good conversation. Alex starts in Japan next month. Aakash's camera trip is still a 'someday.' I'm staying here. None of those is the higher one."
+              "japanese": "わ、久しぶりに開いたら、アレックスは来月で、アーカシュは『いつか』か。私はこっち。……予定表、三つ並んでるね。",
+              "reading": "わ、ひさしぶりにひらいたら、アレックスはらいげつで、アーカシュは『いつか』か。わたしはこっち。……よていひょう、みっつならんでるね。",
+              "english": "Oh, I open the chat after ages and find Alex has next month while Aakash has 'someday.' I'm staying here. …Three calendars, side by side."
             },
             "n1": {
               "japanese": "うわ、久しぶりに開いたら、アレックスは来月、アーカシュは『いつか』か。私はこっち。……同じチャットなのに、予定表はばらばらだね。",
@@ -377,14 +378,14 @@
           "attentionTarget": "the lapsed learner who may want a small way back without explaining the absence",
           "variants": {
             "n3": {
-              "japanese": "で、私は来週の火曜から、二十分だけ復習をまた始める。しばらく勉強してなかった人、よかったら一緒に戻らない? 無理なら返事はいらないよ。",
-              "reading": "で、わたしはらいしゅうのかようから、にじゅっぷんだけふくしゅうをまたはじめる。しばらくべんきょうしてなかったひと、よかったらいっしょにもどらない? むりならへんじはいらないよ。",
-              "english": "And I'm restarting with twenty minutes of review next Tuesday. Anyone who hasn't studied for a while, want to come back with me? No need to reply if it doesn't work."
+              "japanese": "で、私は来週の火曜から、二十分だけ復習をまた始める。しばらく休んでた人、よかったら一緒にどう？ 無理なら返事はいらないよ。",
+              "reading": "で、わたしはらいしゅうのかようから、にじゅっぷんだけふくしゅうをまたはじめる。しばらくやすんでたひと、よかったらいっしょにどう？ むりならへんじはいらないよ。",
+              "english": "And next Tuesday I'm starting again with twenty minutes of review. Anyone who's taken a break want to join me? No need to reply if it doesn't work."
             },
             "n2": {
-              "japanese": "で、私は来週火曜から、二十分だけ復習を再開する。しばらく勉強から離れてた人、よかったらまた一緒に、ゆるっと再開しない? 都合がつかなければ、返事はいらないよ。",
-              "reading": "で、わたしはらいしゅうかようから、にじゅっぷんだけふくしゅうをさいかいする。しばらくべんきょうからはなれてたひと、よかったらまたいっしょに、ゆるっとさいかいしない? つごうがつかなければ、へんじはいらないよ。",
-              "english": "And I'm restarting with twenty minutes of review next Tuesday. Anyone who's been away from studying, want to restart gently with me? If it doesn't work for you, no reply needed."
+              "japanese": "で、私は来週火曜から、二十分だけ復習を再開する。しばらく離れてた人、よかったら一緒にどう？ 都合が悪ければ、返事なしで大丈夫。",
+              "reading": "で、わたしはらいしゅうかようから、にじゅっぷんだけふくしゅうをさいかいする。しばらくはなれてたひと、よかったらいっしょにどう？ つごうがわるければ、へんじなしでだいじょうぶ。",
+              "english": "And next Tuesday I'm restarting with twenty minutes of review. Anyone else who's been away want to join me? If the timing is bad, no need to reply."
             },
             "n1": {
               "japanese": "で、私は来週の火曜から、二十分だけ復習をまた始める。しばらく離れてた人、よかったら一緒にどう？ 都合が悪ければ、返事なしで大丈夫。",
@@ -554,7 +555,7 @@
       "castId": "mira",
       "chapter": 43,
       "beat": "return",
-      "description": "Mira returns to the group chat after a long absence with no apology theatre, picks the thread straight up, holds the class's different futures level, and invites a lapsed learner to restart with an explicit easy-out; the group treats her restart as normal rather than a debt."
+      "description": "Mira — Karen, Henry's online Japanese-learning friend rather than a classmate — returns to the group chat after a long absence with no apology theatre, picks the thread straight up, and invites a lapsed learner to restart with an explicit easy-out; her remote return keeps real story and bond presence without turning her into a classroom regular."
     },
     {
       "id": "outcome:journey:transfer-return",

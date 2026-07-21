@@ -20,6 +20,7 @@ import type {
 } from '../content/story-runtime';
 import {
     gradeStoryPractice,
+    storyPracticeMistakeIds,
     storyPractice,
     type StoryEvidenceMapPractice,
     type StoryPractice,
@@ -52,7 +53,10 @@ export interface StoryScreenOptions {
     readonly onCheckpoint?: (cursor: StoryCursor) => void | Promise<void>;
     readonly onSceneEncounter?: (sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
     readonly onArcSceneEncounter?: (episodeId: string, sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
-    readonly onCompleteStoryPractice?: (activityId: string, outcome: StoryActivityOutcome) => void | Promise<void>;
+    readonly onCompleteStoryPractice?: (
+        activityId: string,
+        response: StoryPracticeResponse,
+    ) => StoryActivityOutcome | Promise<StoryActivityOutcome>;
     readonly activityOutcomes?: Readonly<Record<string, StoryActivityOutcome>>;
     readonly selectedBand?: string;
     readonly audio?: AcademyVnStageOptions['audio'];
@@ -244,11 +248,12 @@ function renderPlayableArc(
                 const inlinePractice = Boolean(practice && options.onCompleteStoryPractice);
                 const gateSatisfied = moment.gate === 'passed' || moment.gate === 'placement-equivalent';
                 if (practice && inlinePractice && !gateSatisfied) {
-                    stage.setAction(playableStoryPracticeAction(options, practice, moment.gate, async outcome => {
-                        await options.onCompleteStoryPractice?.(practice.activityId, outcome);
+                    stage.setAction(playableStoryPracticeAction(options, practice, moment.gate, async response => {
+                        const outcome = await options.onCompleteStoryPractice?.(practice.activityId, response);
+                        if (!outcome) throw new Error(`Story practice ${practice.activityId} did not return an outcome.`);
                         runner.updateActivityOutcomes({ [practice.activityId]: outcome });
                         if (outcome === 'pass') transition(() => runner.advance());
-                        else renderMoment(runner.moment);
+                        return outcome;
                     }));
                     return;
                 }
@@ -351,7 +356,7 @@ function playableStoryPracticeAction(
     options: StoryScreenOptions,
     practice: StoryPractice,
     gate: Extract<StoryMoment, { kind: 'activity' }>['gate'],
-    onComplete: (outcome: StoryActivityOutcome) => Promise<void>,
+    onComplete: (response: StoryPracticeResponse) => Promise<StoryActivityOutcome>,
 ): AcademyVnSlotContent {
     const root = element('section', 'academy-story-vn-activity academy-story-practice');
     root.dataset.activityId = practice.activityId;
@@ -366,12 +371,19 @@ function playableStoryPracticeAction(
             'input, select, textarea, button',
         );
         controls.forEach(control => { control.disabled = true; });
-        const outcome = gradeStoryPractice(practice, response);
-        status.textContent = outcome === 'pass'
-            ? options.language === 'ja' ? '記録しました。場面に戻ります。' : 'Recorded. Returning to the scene.'
-            : practice.repair[options.language];
-        void onComplete(outcome).then(() => {
-            if (outcome === 'lapse') controls.forEach(control => { control.disabled = false; });
+        void onComplete(response).then(outcome => {
+            const expectedOutcome = gradeStoryPractice(practice, response);
+            if (outcome !== expectedOutcome) {
+                throw new Error(`Story practice ${practice.activityId} returned ${outcome} for a ${expectedOutcome} response.`);
+            }
+            markPracticeMistakes(interaction, storyPracticeMistakeIds(practice, response));
+            status.textContent = outcome === 'pass'
+                ? options.language === 'ja' ? '記録しました。場面に戻ります。' : 'Recorded. Returning to the scene.'
+                : practice.repair[options.language];
+            if (outcome === 'lapse') {
+                controls.forEach(control => { control.disabled = false; });
+                interaction.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+            }
         }).catch(() => {
             status.textContent = options.language === 'ja' ? '記録できませんでした。もう一度試してください。' : 'Could not save this attempt. Try again.';
             controls.forEach(control => { control.disabled = false; });
@@ -379,6 +391,17 @@ function playableStoryPracticeAction(
     });
     root.append(prompt, interaction, status);
     return { element: root };
+}
+
+function markPracticeMistakes(interaction: HTMLElement, mistakeIds: readonly string[]): void {
+    interaction.querySelectorAll<HTMLElement>('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
+    mistakeIds.forEach(id => {
+        const [rowId, columnId] = id.split(':');
+        const control = columnId
+            ? interaction.querySelector<HTMLElement>(`[data-evidence-row="${rowId}"] [data-evidence-column="${columnId}"]`)
+            : interaction.querySelector<HTMLElement>(`[data-story-written-field="${id}"]`);
+        control?.setAttribute('aria-invalid', 'true');
+    });
 }
 
 function practiceInteraction(

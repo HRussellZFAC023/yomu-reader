@@ -7,6 +7,11 @@ import {
     type StoryRuntime,
 } from '../../src/academy/content/story-runtime';
 import { serializeStoryCursor, type StoryCursor } from '../../src/academy/content/story-runner';
+import {
+    gradeStoryPractice,
+    storyPractice,
+    type StoryPracticeResponse,
+} from '../../src/academy/content/n3-story-practice';
 import { renderStoryScreen } from '../../src/academy/ui/story-screen';
 
 function render(sectionId?: string, overrides: Partial<Parameters<typeof renderStoryScreen>[0]> = {}) {
@@ -42,6 +47,14 @@ function episodeCursor(
     const arc = loadStoryRuntime().playableArc(episodeId);
     if (!arc) throw new Error(`Missing story arc ${episodeId}.`);
     return serializeStoryCursor({ version: 1, arcId: arc.id, sceneId, nodeId, choices });
+}
+
+function storyPracticeRecorder() {
+    return vi.fn(async (activityId: string, response: StoryPracticeResponse) => {
+        const practice = storyPractice(activityId);
+        if (!practice) throw new Error(`Missing story practice ${activityId}.`);
+        return gradeStoryPractice(practice, response);
+    });
 }
 
 describe('Academy Story screen', () => {
@@ -266,7 +279,7 @@ describe('Academy Story screen', () => {
         ] as const;
 
         for (const [episodeId, activityId, correctOptionId] of cases) {
-            const onCompleteStoryPractice = vi.fn(async () => undefined);
+            const onCompleteStoryPractice = storyPracticeRecorder();
             const { screen } = render(episodeId, { selectedBand: 'n1', onCompleteStoryPractice });
             advanceTo(screen, `[data-activity-id="${activityId}"]`);
             const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
@@ -277,25 +290,35 @@ describe('Academy Story screen', () => {
             const incorrect = [...activity.querySelectorAll<HTMLButtonElement>('[data-story-practice-option]')]
                 .find(option => option !== correct)!;
             incorrect.click();
-            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'lapse'));
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+            expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+                interaction: 'choice',
+                optionId: incorrect.dataset.storyPracticeOption,
+            });
             await vi.waitFor(() => expect(correct.disabled).toBe(false));
             correct.click();
-            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'pass'));
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(2));
+            expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+                interaction: 'choice',
+                optionId: correct.dataset.storyPracticeOption,
+            });
         }
     });
 
     it('requires the learner to assemble the S4E02 evidence map before recording writing production', async () => {
         const activityId = 'activity:s4e02-map-of-claims-evidence-map';
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const onCompleteStoryPractice = storyPracticeRecorder();
         const { screen } = render('s4e02-map-of-claims', { selectedBand: 'n1', onCompleteStoryPractice });
+        document.body.replaceChildren(screen);
         advanceTo(screen, `[data-activity-id="${activityId}"]`);
         const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
 
         expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
         expect(activity.querySelectorAll('[data-evidence-row]')).toHaveLength(3);
         activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
-        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'lapse'));
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
         await vi.waitFor(() => expect(activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.disabled).toBe(false));
+        expect(activity.querySelectorAll('[aria-invalid="true"]')).toHaveLength(9);
 
         const answers = {
             'route-added': ['letter', 'stated', 'according-letter'],
@@ -309,12 +332,20 @@ describe('Academy Story screen', () => {
             });
         }
         activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
-        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, 'pass'));
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(2));
+        expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+            interaction: 'evidence-map',
+            rows: {
+                'route-added': { source: 'letter', confidence: 'stated', hedge: 'according-letter' },
+                'older-ink': { source: 'paper', confidence: 'observed', hedge: 'paper-shows' },
+                'first-contributor': { source: 'none', confidence: 'unknown', hedge: 'still-unknown' },
+            },
+        });
     });
 
     it('requires authored Japanese updates for S4E07 instead of inferring output from recognition', async () => {
         const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const onCompleteStoryPractice = storyPracticeRecorder();
         const { screen } = render('s4e07-journey-not-everyone-takes', { selectedBand: 'n1', onCompleteStoryPractice });
         advanceTo(screen, `[data-activity-id="${activityId}"]`);
         const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
@@ -330,52 +361,17 @@ describe('Academy Story screen', () => {
             activity.querySelector<HTMLTextAreaElement>(`[data-story-written-field="${fieldId}"]`)!.value = value;
         }
         activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
-        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'pass'));
-    });
-
-    it('reloads on Mira\'s supported line and carries her into canonical attendee evidence', async () => {
-        const episodeId = 's4e07-journey-not-everyone-takes';
-        const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
-        const onArcSceneEncounter = vi.fn(async () => undefined);
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
-        const { screen } = render(episodeCursor(
-            episodeId,
-            'scene:journey:non-comparative-futures',
-            'message:journey:mira-returns',
-        ), {
-            selectedBand: 'n1',
-            arcModeForEpisode: () => 'canonical',
-            activityOutcomes: { [activityId]: 'pass' },
-            onArcSceneEncounter,
-            onCompleteStoryPractice,
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+        expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+            interaction: 'written-response',
+            fields: values,
         });
-        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id]')!;
-
-        expect(arc.dataset.storyArcId).toBe(`arc:${episodeId}`);
-        expect(arc.dataset.storyScene).toBe('scene:journey:non-comparative-futures');
-        expect(arc.dataset.storyMoment).toBe('line');
-        expect(screen.textContent).toContain('同じチャットなのに、予定表はばらばらだね');
-
-        advance(screen);
-        expect(screen.textContent).toContain('二十分だけ復習をまた始める');
-        advance(screen);
-        expect(screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)?.dataset.activityGate).toBe('passed');
-        expect(screen.querySelector('[data-story-practice-option]')).toBeNull();
-        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
-        advance(screen, 3);
-
-        await vi.waitFor(() => expect(onArcSceneEncounter).toHaveBeenCalledWith(
-            episodeId,
-            'scene:journey:non-comparative-futures',
-            expect.arrayContaining(['aakash', 'mira', 'alex']),
-        ));
-        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
     });
 
     it('continues a replay from existing passed evidence without forcing another inline attempt', () => {
         const episodeId = 's4e04-three-true-versions';
         const activityId = 'activity:s4e04-three-true-versions-synthesis';
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const onCompleteStoryPractice = storyPracticeRecorder();
         const { screen } = render(episodeCursor(
             episodeId,
             'scene:three-versions:one-synthesis',
@@ -397,7 +393,7 @@ describe('Academy Story screen', () => {
     it('continues a placement-equivalent replay without creating practice evidence', () => {
         const episodeId = 's4e05-left-unsaid';
         const activityId = 'activity:s4e05-left-unsaid-trim-the-line';
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const onCompleteStoryPractice = storyPracticeRecorder();
         const { screen } = render(episodeCursor(
             episodeId,
             'scene:left-unsaid:the-line-that-says-too-much',

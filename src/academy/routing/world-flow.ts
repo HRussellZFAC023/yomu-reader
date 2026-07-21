@@ -12,7 +12,7 @@ import {
 } from '../content/library-vocabulary-sheet';
 import { serializeStoryCursor, type StoryCursor } from '../content/story-runner';
 import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
-import { storyPractice } from '../content/n3-story-practice';
+import { gradeStoryPractice, storyPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
 import type { JlptBand } from '../domain/learner-record';
 import { canonicalGroundedReviewKey } from '../domain/review-identity';
@@ -156,13 +156,15 @@ class WorldFlow implements AcademyRouteFlow {
                 sectionId: cursor ? serializeStoryCursor(cursor) : context.checkpoint.sectionId,
                 selectedFork: storyForkForActivity(activityId),
             }),
-            onCompleteStoryPractice: (activityId, outcome) => {
+            onCompleteStoryPractice: async (activityId, response) => {
                 const practice = storyPractice(activityId);
                 if (!practice) throw new Error(`Unknown authored story practice: ${activityId}`);
-                return this.options.evidence.recordAuthoredStoryPractice({
+                const outcome = gradeStoryPractice(practice, response);
+                await this.options.evidence.recordAuthoredStoryPractice({
                     ...practice,
                     reviewSeed: storyReplayReviewSeed(practice),
                 }, outcome);
+                return outcome;
             },
             onOpenReviewCalendar: () => void context.go('story', { sectionId: STORY_REVIEW_CALENDAR_SECTION }),
             replayEvents,
