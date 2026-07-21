@@ -15,11 +15,14 @@
   ],
   "vars": {
     "ACADEMY_ORIGIN": "https://yomureader.com",
-    // The live-proof deployment command must override this with the exact
-    // reviewed 40-character git commit. The runner rejects this sentinel.
-    "ACADEMY_BUILD_COMMIT": "UNSET_REVIEWED_COMMIT"
+    "ACADEMY_ENVIRONMENT": "production"
   },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "triggers": {
+    // Exact 90-day receipt retention is enforced by this daily maintenance
+    // event. Session-time pruning remains only a backup.
+    "crons": ["17 3 * * *"]
+  },
   // Deploy-time contract: every value below is a Worker secret set with
   // `npx wrangler secret put <NAME> --config wrangler.academy.jsonc`.
   // None of them may appear in vars, source, or D1.

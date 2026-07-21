@@ -30,6 +30,20 @@ function mutation(path: string, body: unknown): Request {
     });
 }
 
+function exportRequest(path: string, cookie: string, cursor?: string, origin = 'https://yomureader.com'): Request {
+    return new Request(`https://yomureader.com${path}`, {
+        method: 'POST',
+        headers: {
+            cookie,
+            'content-type': 'application/json',
+            origin,
+            'sec-fetch-site': origin === 'https://yomureader.com' ? 'same-origin' : 'cross-site',
+            'cf-connecting-ip': sharedIp,
+        },
+        body: JSON.stringify(cursor === undefined ? {} : { cursor }),
+    });
+}
+
 async function dispatch(env: Env, request: Request): Promise<Response> {
     return worker.fetch(request, env, ctx);
 }
@@ -82,7 +96,11 @@ describe('Academy authenticated export traversal', () => {
                 throw error;
             }
 
-            const firstResponse = await dispatch(academy.env, get('/academy/api/account/export', primaryCookie));
+            expect((await dispatch(academy.env, get('/academy/api/account/export', primaryCookie))).status).toBe(404);
+            expect((await dispatch(academy.env, exportRequest(
+                '/academy/api/account/export', primaryCookie, undefined, 'https://attacker.example',
+            ))).status).toBe(403);
+            const firstResponse = await dispatch(academy.env, exportRequest('/academy/api/account/export', primaryCookie));
             expect(firstResponse.status).toBe(200);
             const first = await firstResponse.json() as ExportBody;
             expect(first.schemaVersion).toBe(2);
@@ -92,13 +110,11 @@ describe('Academy authenticated export traversal', () => {
             if (!firstCursor) throw new Error('first export cursor missing');
 
             const tampered = `${firstCursor.slice(0, -1)}${firstCursor.endsWith('0') ? '1' : '0'}`;
-            expect((await dispatch(academy.env, get(
-                `/academy/api/account/export?cursor=${encodeURIComponent(tampered)}`,
-                primaryCookie,
+            expect((await dispatch(academy.env, exportRequest(
+                '/academy/api/account/export', primaryCookie, tampered,
             ))).status).toBe(400);
-            expect((await dispatch(academy.env, get(
-                `/academy/api/account/export?cursor=${encodeURIComponent(firstCursor)}`,
-                peerCookie,
+            expect((await dispatch(academy.env, exportRequest(
+                '/academy/api/account/export', peerCookie, firstCursor,
             ))).status).toBe(409);
 
             const lateEventId = crypto.randomUUID();
@@ -108,9 +124,8 @@ describe('Academy authenticated export traversal', () => {
             let cursor: string | null = firstCursor;
             let pageCount = 1;
             while (cursor) {
-                const response = await dispatch(academy.env, get(
-                    `/academy/api/account/export?cursor=${encodeURIComponent(cursor)}`,
-                    primaryCookie,
+                const response = await dispatch(academy.env, exportRequest(
+                    '/academy/api/account/export', primaryCookie, cursor,
                 ));
                 expect(response.status).toBe(200);
                 const body = await response.json() as ExportBody;
@@ -119,9 +134,8 @@ describe('Academy authenticated export traversal', () => {
                 const usedCursor = cursor;
                 cursor = body.eventPage.exportCursor;
                 if (pageCount === 2) {
-                    expect((await dispatch(academy.env, get(
-                        `/academy/api/account/export?cursor=${encodeURIComponent(usedCursor)}`,
-                        primaryCookie,
+                    expect((await dispatch(academy.env, exportRequest(
+                        '/academy/api/account/export', primaryCookie, usedCursor,
                     ))).status).toBe(409);
                 }
                 expect(pageCount).toBeLessThan(200);
@@ -135,10 +149,10 @@ describe('Academy authenticated export traversal', () => {
             expect(events.some(event => event.id === lateEventId)).toBe(false);
 
             for (let attempt = 1; attempt < 120; attempt += 1) {
-                expect((await dispatch(academy.env, get('/academy/api/profile/export', primaryCookie))).status).toBe(200);
+                expect((await dispatch(academy.env, exportRequest('/academy/api/profile/export', primaryCookie))).status).toBe(200);
             }
-            expect((await dispatch(academy.env, get('/academy/api/profile/export', primaryCookie))).status).toBe(429);
-            expect((await dispatch(academy.env, get('/academy/api/profile/export', peerCookie))).status).toBe(200);
+            expect((await dispatch(academy.env, exportRequest('/academy/api/profile/export', primaryCookie))).status).toBe(429);
+            expect((await dispatch(academy.env, exportRequest('/academy/api/profile/export', peerCookie))).status).toBe(200);
         } finally {
             academy.close();
         }

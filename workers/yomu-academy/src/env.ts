@@ -6,8 +6,8 @@ export interface Env {
     readonly ACADEMY_MEDIA: R2Bucket;
     /** Public origin the Academy app is served from, e.g. "https://yomureader.com". */
     readonly ACADEMY_ORIGIN: string;
-    /** Non-secret git commit injected by the reviewed deployment command. */
-    readonly ACADEMY_BUILD_COMMIT?: string;
+    /** Deployment boundary used by server-side production-proof grants. */
+    readonly ACADEMY_ENVIRONMENT: 'production' | 'staging' | 'development';
     /** Cloudflare's immutable metadata for the executing Worker version. */
     readonly CF_VERSION_METADATA?: {
         readonly id: string;

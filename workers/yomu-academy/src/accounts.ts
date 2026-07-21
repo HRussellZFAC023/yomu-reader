@@ -208,11 +208,11 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             ]);
             const linked = results.at(-1)?.results[0];
             if (linked?.link_ok === 1) return linked;
-            throw await resolveAccountLinkFailure(env, session, subjectHash, plan);
+            throw await resolveAccountLinkFailure(env, session, subjectHash, plan, now);
         } catch (error) {
             if (isDiscriminatorCollision(error)) continue;
             if (isTransactionAssertion(error)) {
-                throw await resolveAccountLinkFailure(env, session, subjectHash, plan);
+                throw await resolveAccountLinkFailure(env, session, subjectHash, plan, now);
             }
             if (error instanceof AccountLinkFailure) throw error;
             throw new AccountLinkFailure(503, 'Academy account link could not be completed.', 'transaction_failed');
@@ -233,6 +233,7 @@ async function resolveAccountLinkFailure(
     session: ActiveSession,
     subjectHash: string,
     plan: AccountLinkPlanRow,
+    now: number,
 ): Promise<AccountLinkFailure> {
     const account = await accountBySubjectHash(env, subjectHash);
     if (plan.account_id && plan.account_id !== account?.id) {
@@ -243,7 +244,7 @@ async function resolveAccountLinkFailure(
         return new AccountLinkFailure(403, 'No recoverable Academy account was found.', 'recovery_not_found');
     }
     try {
-        await assertSessionEntitlementCanLink(env, session, account?.id ?? null);
+        await assertSessionEntitlementCanLink(env, session, account?.id ?? null, now);
     } catch (error) {
         return accountLinkEntitlementFailure(error);
     }

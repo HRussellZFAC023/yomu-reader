@@ -231,7 +231,7 @@ describe('Academy profile pairing and event-log sync', () => {
         expect(JSON.stringify(academy.db.rows<Record<string, unknown>>('SELECT * FROM srs_events'))).not.toContain('plaintext-secret');
 
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [privateEvent] }, anonymousCookie));
-        const exported = await dispatch(academy.env, get('/academy/api/profile/export', anonymousCookie));
+        const exported = await dispatch(academy.env, request('/academy/api/profile/export', 'POST', {}, anonymousCookie));
         expect(exported.status).toBe(200);
         const exportText = await exported.text();
         expect(exportText).toContain(privateEvent.ciphertext);
@@ -268,7 +268,7 @@ describe('Academy profile pairing and event-log sync', () => {
         const accountEvent = event('44444444-4444-4444-8444-444444444444', 7);
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [accountEvent] }, accountCookie));
 
-        const accountExport = await dispatch(academy.env, get('/academy/api/account/export', accountCookie));
+        const accountExport = await dispatch(academy.env, request('/academy/api/account/export', 'POST', {}, accountCookie));
         expect(accountExport.status).toBe(200);
         expect(await accountExport.json()).toMatchObject({
             account: { displayName: 'Learner' },

@@ -18,7 +18,14 @@ import { handleProgressSync } from './progress';
 import { handleGetProfile, handleInitializeProfileKey } from './profiles';
 import { handleClaimPairing, handleCompletePairing, handleCreatePairing, pruneExpiredPairings } from './pairings';
 import { handleSyncPull, handleSyncPush } from './sync';
-import { handleDeleteAccount, handleDeleteProfile, pruneLifecycleRecords } from './lifecycle';
+import {
+    handleCreateLifecycleProofGrant,
+    handleDeleteAccount,
+    handleDeleteLifecycleProofAccount,
+    handleDeleteProfile,
+    handleVerifyLifecycleProofGrant,
+    pruneLifecycleRecords,
+} from './lifecycle';
 import { handleAccountExport, handleProfileExport } from './exports';
 import { handleGetEntitlement, handleRedeemEntitlement } from './entitlements';
 import { handleAnswerCheck } from './answer-check';
@@ -56,6 +63,8 @@ export default {
                     return await handleAdminClass(request, env, clock);
                 case 'POST /academy/api/admin/roles':
                     return await handleAdminRole(request, env);
+                case 'POST /academy/api/admin/lifecycle-proof-grants':
+                    return await handleCreateLifecycleProofGrant(request, env, clock);
                 case 'POST /academy/api/checkout':
                     return await handleCreateCheckout(request, env, clock);
                 case 'POST /academy/api/stripe/webhook':
@@ -77,10 +86,14 @@ export default {
                     return await handleGetAccount(request, env, clock);
                 case 'PATCH /academy/api/account':
                     return await handlePatchAccount(request, env, clock);
-                case 'GET /academy/api/account/export':
+                case 'POST /academy/api/account/export':
                     return await handleAccountExport(request, env, clock);
                 case 'DELETE /academy/api/account':
                     return await handleDeleteAccount(request, env, clock);
+                case 'POST /academy/api/account/lifecycle-proof/verify':
+                    return await handleVerifyLifecycleProofGrant(request, env, clock);
+                case 'DELETE /academy/api/account/lifecycle-proof':
+                    return await handleDeleteLifecycleProofAccount(request, env, clock);
                 case 'GET /academy/api/entitlement':
                     return await handleGetEntitlement(request, env, clock);
                 case 'POST /academy/api/entitlement/redeem':
@@ -89,7 +102,7 @@ export default {
                     return await handleGetProfile(request, env, clock);
                 case 'POST /academy/api/profile/key':
                     return await handleInitializeProfileKey(request, env, clock);
-                case 'GET /academy/api/profile/export':
+                case 'POST /academy/api/profile/export':
                     return await handleProfileExport(request, env, clock);
                 case 'DELETE /academy/api/profile':
                     return await handleDeleteProfile(request, env, clock);
@@ -111,8 +124,8 @@ export default {
                     return jsonResponse({
                         ok: true,
                         apiBase: `${env.ACADEMY_ORIGIN}/academy/api`,
-                        gitCommit: env.ACADEMY_BUILD_COMMIT ?? null,
                         workerVersionId: env.CF_VERSION_METADATA?.id ?? null,
+                        artifactProof: 'cloudflare-version-modules-v1',
                     });
                 default:
                     throw new HttpError(404, 'Not found.');

@@ -44,3 +44,8 @@ export interface R2Bucket {
 export interface ExecutionContext {
     waitUntil(promise: Promise<unknown>): void;
 }
+
+export interface ScheduledController {
+    readonly scheduledTime: number;
+    readonly cron: string;
+}

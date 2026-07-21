@@ -325,6 +325,7 @@
   const STORAGE_KEY$1 = "yomu:academy:profile-sync:v1";
   const SYNC_BATCH_SIZE = 50;
   const PAIRING_INFO = "yomu-academy-device-pairing-v1";
+  const ACADEMY_EXPORT_FALLBACK_MAX_BYTES = 32 * 1024 * 1024;
   class AcademySyncClient {
     constructor(options) {
       this.options = options;
@@ -334,6 +335,7 @@
       this.navigate = options.navigate ?? ((url) => window.location.assign(url));
       this.currentUrl = options.currentUrl ?? (() => window.location.href);
       this.replaceUrl = options.replaceUrl ?? ((url) => window.history.replaceState(window.history.state, "", url));
+      this.exportFallbackByteLimit = Number.isSafeInteger(options.exportFallbackByteLimit) && (options.exportFallbackByteLimit ?? 0) > 0 ? Math.min(options.exportFallbackByteLimit, ACADEMY_EXPORT_FALLBACK_MAX_BYTES) : ACADEMY_EXPORT_FALLBACK_MAX_BYTES;
       this.state = loadState(this.storage);
     }
     storage;
@@ -342,6 +344,7 @@
     navigate;
     currentUrl;
     replaceUrl;
+    exportFallbackByteLimit;
     state;
     account = null;
     entitlement = null;
@@ -544,34 +547,71 @@
       this.error = null;
       this.navigate("/academy/api/auth/google/start");
     }
-    async exportData() {
+    async exportData(destination) {
       await this.connect();
       const endpoint = this.account ? "/academy/api/account/export" : "/academy/api/profile/export";
       let cursor = null;
       let numericCursor = 0;
-      let exported = null;
-      const events = [];
-      while (true) {
-        const requestPath = cursor === null ? endpoint : `${endpoint}?cursor=${encodeURIComponent(cursor)}`;
-        const response = await this.authorizedRequest(requestPath, { credentials: "same-origin" });
-        if (!response.ok) throw await responseError(response);
-        const body = await response.json();
-        if (!isRecord$7(body)) throw new Error("Academy export response was malformed.");
-        const page = parseAcademyExportPage(body.eventPage);
-        exported ??= body;
-        events.push(...page.events);
-        if (!page.hasMore) {
-          exported = {
-            ...exported,
-            eventPage: { events, nextCursor: page.nextCursor, hasMore: false, exportCursor: null }
-          };
-          return new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" });
+      let firstEvent = true;
+      let wroteHeader = false;
+      const encoder = new TextEncoder();
+      const writer = destination?.getWriter() ?? null;
+      const chunks2 = [];
+      let bufferedBytes = 0;
+      const write = async (value) => {
+        const bytes = encoder.encode(value);
+        if (writer) {
+          await writer.write(bytes);
+          return;
         }
-        if (page.nextCursor <= numericCursor || !page.exportCursor) {
-          throw new Error("Academy export pagination did not advance.");
+        if (bufferedBytes + bytes.byteLength > this.exportFallbackByteLimit) {
+          throw new Error(
+            `Academy export exceeds the ${Math.floor(this.exportFallbackByteLimit / (1024 * 1024))} MiB in-memory safety limit. Use a browser with streaming file export.`
+          );
         }
-        numericCursor = page.nextCursor;
-        cursor = page.exportCursor;
+        bufferedBytes += bytes.byteLength;
+        chunks2.push(bytes);
+      };
+      try {
+        while (true) {
+          const response = await this.authorizedRequest(endpoint, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(cursor === null ? {} : { cursor })
+          });
+          if (!response.ok) throw await responseError(response);
+          const body = await response.json();
+          if (!isRecord$7(body)) throw new Error("Academy export response was malformed.");
+          const page = parseAcademyExportPage(body.eventPage);
+          if (!wroteHeader) {
+            const { eventPage: _eventPage, ...metadata2 } = body;
+            const serializedMetadata = JSON.stringify(metadata2);
+            await write(serializedMetadata === "{}" ? '{"eventPage":{"events":[' : `${serializedMetadata.slice(0, -1)},"eventPage":{"events":[`);
+            wroteHeader = true;
+          }
+          for (const event of page.events) {
+            if (!firstEvent) await write(",");
+            await write(JSON.stringify(event));
+            firstEvent = false;
+          }
+          if (!page.hasMore) {
+            await write(`],"nextCursor":${page.nextCursor},"hasMore":false,"exportCursor":null}}`);
+            if (writer) {
+              await writer.close();
+              return null;
+            }
+            return new Blob(chunks2, { type: "application/json" });
+          }
+          if (page.nextCursor <= numericCursor || !page.exportCursor) {
+            throw new Error("Academy export pagination did not advance.");
+          }
+          numericCursor = page.nextCursor;
+          cursor = page.exportCursor;
+        }
+      } catch (error) {
+        if (writer) await writer.abort(error).catch(() => void 0);
+        throw error;
       }
     }
     async updateClassBoardProfile(update) {
@@ -256641,7 +256681,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           await sync.claimPairing(code);
           this.renderProfileSync(context2);
         },
-        onExport: async () => downloadExport(await sync.exportData()),
+        onExport: async () => downloadExport(sync),
         onSignOut: async () => {
           await sync.signOut();
           this.renderProfileSync(context2);
@@ -256821,7 +256861,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function classWeekPackageId(lessonId) {
     return lessonId.startsWith("authored-week:") ? lessonId.slice("authored-week:".length) : lessonId;
   }
-  function downloadExport(blob) {
+  async function downloadExport(sync) {
+    const picker = window.showSaveFilePicker;
+    if (picker) {
+      const handle = await picker.call(window, {
+        suggestedName: "yomu-academy-export.json",
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
+      });
+      await sync.exportData(await handle.createWritable());
+      return;
+    }
+    const blob = await sync.exportData();
+    if (!blob) throw new Error("Academy export produced no download.");
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;

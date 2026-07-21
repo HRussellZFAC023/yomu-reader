@@ -133,6 +133,7 @@ export function createSqliteAcademy(): SqliteAcademy {
         ACADEMY_DB: db,
         ACADEMY_MEDIA: new EmptyR2(),
         ACADEMY_ORIGIN: 'https://yomureader.com',
+        ACADEMY_ENVIRONMENT: 'production',
         ACADEMY_INVITE_HMAC_KEY: 'sqlite-test-invite-hmac-key',
         ACADEMY_RATE_HMAC_KEY: 'sqlite-test-rate-hmac-key',
         ACADEMY_ADMIN_TOKEN: 'sqlite-test-admin-token',

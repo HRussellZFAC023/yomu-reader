@@ -1,8 +1,9 @@
-import type { ExecutionContext } from './cf';
+import type { ExecutionContext, ScheduledController } from './cf';
 import type { Env } from './env';
 import { errorResponse } from './http';
 import academy from './index';
 import { handlePaymentRoute } from './payment-routes';
+import { runScheduledLifecycleMaintenance } from './lifecycle';
 
 const clock = (): number => Date.now();
 
@@ -16,5 +17,8 @@ export default {
         } catch (error) {
             return errorResponse(error);
         }
+    },
+    async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
+        await runScheduledLifecycleMaintenance(env, clock);
     },
 };

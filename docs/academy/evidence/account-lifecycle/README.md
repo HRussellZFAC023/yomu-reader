@@ -17,12 +17,18 @@ unknown-subject recovery rejection, account/profile isolation, two-device key
 pairing, encrypted retry and offline behavior, paid-code rollback on a reproduced
 profile-conflict `409`, injected transaction failures, a 24,001-record export
 with snapshot/tamper/replay/shared-NAT behavior, corrupt-profile reset, 90-day
-deletion-receipt pruning, permanent redemption tombstones, and learning-data
-cascades. It then
-applies the same migrations to isolated Wrangler/Miniflare storage and exercises
-the real Worker entrypoint for health, recovery-session persistence, session
-readback, and Google-start PKCE construction. No Cloudflare or Google credential
-is read by the local smoke.
+scheduled deletion-receipt pruning with retry metrics, production-proof grant
+races/replay, permanent redemption tombstones, and learning-data
+cascades. It then applies the same migrations to isolated Wrangler/Miniflare
+storage and exercises the real Worker entrypoint for health, recovery-session
+persistence, session readback, Google-start PKCE construction, and the
+scheduled prune handler. No Cloudflare or Google credential is read by the
+local smoke.
+
+The repository remains on Vite 5.4.21. Cloudflare's Vite integration relies on
+the Vite Environment API introduced in Vite 6, so this proof deliberately
+starts the Worker with `wrangler dev --local`. Passing it does not claim that
+the newer Cloudflare Vite-plugin startup path is supported by this repository.
 
 The redacted local runtime receipt is written to ignored
 `artifacts/academy-account-lifecycle/local-miniflare-proof.json`. It records
@@ -65,6 +71,8 @@ a deployed class-code smoke, or permission to close dependency-ordered
 ## Live prerequisites
 
 Use a dedicated disposable Google test account with no personal Academy data.
+It must already have the exact Academy account public id the supervisor will
+mark; the live runner is not allowed to create or choose its own deletion grant.
 The two invite codes must both be valid for that account journey; they may be
 two one-use codes or one reusable code. Do not put a Google password, OAuth
 authorization code, cookie, pairing code, or Worker secret in any environment
@@ -76,17 +84,39 @@ the Academy app bytes from that same commit first:
 
 ```bash
 npx wrangler d1 migrations apply yomu-academy --remote --config wrangler.academy.jsonc
-REVIEWED_COMMIT="$(git rev-parse HEAD)"
-npx wrangler deploy --config wrangler.academy.jsonc \
-  --var ACADEMY_ORIGIN:https://yomureader.com \
-  --var ACADEMY_BUILD_COMMIT:"$REVIEWED_COMMIT"
+npx wrangler deploy --config wrangler.academy.jsonc
 ```
 
 The Worker `version_metadata` binding exposes its immutable executing version
-id. `/academy/api/health` exposes that id, the injected commit, and API base;
-none is secret. The proof refuses to open Chrome unless those values match the
-100%-active Wrangler deployment, local clean HEAD, hosted `academy/app.js`
-SHA-256, and the exact remote `d1_migrations` set.
+id. The runner reproduces the reviewed bundle with Wrangler `--dry-run`, hashes
+its runtime module bytes, normalized version settings, exact config bytes, and
+every migration. It retrieves the 100%-active immutable version's raw modules
+and settings from Cloudflare's version API, retrieves Cloudflare's immutable
+script ETag, and compares the reproducible hashes directly.
+`/academy/api/health` supplies only the executing version id, API base, and
+artifact-proof protocol; no mutable commit variable is trusted. A different
+bundle with the same claimed commit fails before Chrome opens. Hosted
+`academy/app.js`, clean local HEAD, active deployment id, and remote migrations
+must also match.
+
+Before launching the runner, the supervisor creates one random run nonce and
+mints the account-bound grant through the admin endpoint. Keep the admin token
+out of the runner environment and shell history where possible. The returned
+proof token expires after one hour and is consumed by the deletion transaction:
+
+```bash
+export ACADEMY_LIFECYCLE_PROOF_RUN_NONCE="$(node -e 'console.log(require("node:crypto").randomBytes(32).toString("base64url"))')"
+curl --fail-with-body https://yomureader.com/academy/api/admin/lifecycle-proof-grants \
+  -H "Authorization: Bearer $ACADEMY_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data "{\"accountId\":\"$DEDICATED_ACADEMY_ACCOUNT_ID\",\"runNonce\":\"$ACADEMY_LIFECYCLE_PROOF_RUN_NONCE\"}"
+```
+
+The supervisor passes only `proofToken` from that response to the runner. Do
+not proceed unless the response names the exact account, `production`
+environment, `account-lifecycle-production-test` scope, same run nonce, and a
+future expiry. Unset `ACADEMY_ADMIN_TOKEN` before starting the runner; it must
+not be able to mint or retarget its own grant.
 
 Configure the runner locally. The browser profile paths must be distinct,
 absolute directories reserved for this proof:
@@ -97,11 +127,12 @@ export ACADEMY_LIFECYCLE_PROOF_INVITE_CODE_A='...'
 export ACADEMY_LIFECYCLE_PROOF_INVITE_CODE_B='...'
 export ACADEMY_LIFECYCLE_PROOF_DEVICE_A_DIR='/absolute/private/path/device-a'
 export ACADEMY_LIFECYCLE_PROOF_DEVICE_B_DIR='/absolute/private/path/device-b'
-export ACADEMY_LIFECYCLE_PROOF_GOOGLE_IDENTITY='dedicated-test-account@example.test'
+export ACADEMY_LIFECYCLE_PROOF_PROOF_TOKEN='the single-use proofToken returned above'
+export ACADEMY_LIFECYCLE_PROOF_RUN_NONCE='the exact nonce used to mint the grant'
 export ACADEMY_LIFECYCLE_PROOF_REVIEWED_COMMIT="$(git rev-parse HEAD)"
 export ACADEMY_LIFECYCLE_PROOF_EVIDENCE_HMAC_KEY='a separate local random secret of at least 32 bytes'
+export CLOUDFLARE_ACCOUNT_ID='...'
 export CLOUDFLARE_API_TOKEN='...'
-export ACADEMY_LIFECYCLE_PROOF_DELETE_ACK='DELETE_DEDICATED_TEST_ACCOUNT'
 npm run academy:account-lifecycle:proof:live
 ```
 
@@ -111,11 +142,12 @@ ancestor overlap, `$HOME`, the repository, and known Chrome/Chromium/Firefox
 profile roots. Marker-owned directories are reset before launch and removed
 after browsers close. Existing personal browser profiles are never accepted.
 
-Immediately before account deletion, the runner opens the visible Google
-account page again. The operator must reconfirm that it is the configured
-disposable identity and type a fresh acknowledgement bound to that identity,
-the Academy account, reviewed commit, active Worker version, and random nonce.
-The initial environment acknowledgement cannot satisfy this second gate.
+After the first real login, the runner verifies the server-side grant belongs
+to the authenticated account, production environment, and run nonce. It repeats
+that verification immediately before deletion, then calls only the dedicated
+proof deletion route. That route atomically consumes the grant and gates every
+destructive statement. Operator labels, visible profile text, and local browser
+directory ownership are never deletion authority.
 
 ## Observed live journey
 
@@ -142,7 +174,8 @@ B. The runner then requires all of these observations before returning zero:
    account, and creates a minimized 90-day D1 receipt.
 9. Real Google recovery creates a fresh profile/key and the retained synthetic
    local record can be re-encrypted, synced, decrypted, and exported.
-10. After the late identity-bound acknowledgement, account deletion removes
+10. After the server-side proof grant is reverified and atomically consumed,
+    account deletion removes
     Academy identity, sessions, profiles, imports, study days, and synced
     records. Remote D1 retains the 90-day minimized receipt and any permanent
     minimal redemption/payment audit records required for code-reuse and
@@ -157,9 +190,11 @@ the previous profile key state is uncertain.
 ## Evidence boundary
 
 `artifacts/academy-account-lifecycle/live-proof-results.json` contains the
-reviewed git commit, active Worker deployment/version ids, hosted app SHA-256,
-exact schema migration set, API base, timestamps, and redacted pass/fail
-statements. Public ids, Google identity, invite/pairing codes, cookies, OAuth
+reviewed git commit, active Worker deployment/version ids, reviewed artifact,
+Cloudflare script ETag, runtime-module, version-settings, config, migration-set
+and hosted app SHA-256 values, exact schema migration set, API base, timestamps,
+and redacted pass/fail statements. Public ids, proof/run tokens,
+invite/pairing codes, cookies, OAuth
 parameters, and Cloudflare/evidence keys are redacted or never recorded. The
 payload carries a SHA-256 plus HMAC-SHA-256 signature under the separate local
 evidence key and is verified after write. A missing result, invalid signature,

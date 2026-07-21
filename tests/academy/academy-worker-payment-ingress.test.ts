@@ -83,7 +83,7 @@ describe('Academy canonical payment ingress', () => {
             expect(await health.json()).toEqual({
                 ok: true,
                 apiBase: 'https://yomureader.com/academy/api',
-                gitCommit: null,
+                artifactProof: 'cloudflare-version-modules-v1',
                 workerVersionId: null,
             });
         } finally { academy.close(); }

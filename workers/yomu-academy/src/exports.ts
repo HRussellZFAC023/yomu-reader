@@ -2,7 +2,7 @@ import { getAccountView, requireAccount } from './accounts';
 import { hmacSha256Hex, randomToken, timingSafeEqual } from './crypto';
 import { entitlementForAccount } from './entitlements';
 import type { Clock, Env } from './env';
-import { HttpError, jsonResponse } from './http';
+import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { profileView, requireProfile, type ProfileContext } from './profiles';
 import { authenticatedSessionSubject, enforceRateLimit, EXPORT_RATE } from './rate-limit';
 
@@ -67,14 +67,16 @@ export async function handleAccountExport(request: Request, env: Env, clock: Clo
 }
 
 async function handleExport(request: Request, env: Env, clock: Clock, scope: ExportScope): Promise<Response> {
+    requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
     const context = await requireProfile(request, env, now);
-    const url = new URL(request.url);
-    if ([...url.searchParams.keys()].some(key => key !== 'cursor') || url.searchParams.getAll('cursor').length > 1) {
+    const body = await readJsonBody(request, 512);
+    if (Object.keys(body).some(key => key !== 'cursor')
+        || (body.cursor !== undefined && typeof body.cursor !== 'string')) {
         throw new HttpError(400, 'Export accepts only one continuation cursor.');
     }
-    const suppliedCursor = url.searchParams.get('cursor');
-    if (suppliedCursor === null) {
+    const suppliedCursor = body.cursor;
+    if (suppliedCursor === undefined) {
         await enforceRateLimit(
             env,
             await authenticatedSessionSubject(env, context.session.public_id),

@@ -6,10 +6,11 @@
  * runner never accepts provider tokens or synthesizes an OAuth callback.
  */
 import { execFileSync } from 'node:child_process';
-import { createHash, createHmac, randomBytes as nodeRandomBytes } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import {
     existsSync,
     lstatSync,
+    mkdtempSync,
     mkdirSync,
     readFileSync,
     readdirSync,
@@ -17,16 +18,23 @@ import {
     rmSync,
     writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path, { resolve } from 'node:path';
-import { createInterface } from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
+import {
+    assertCloudflareArtifactMatches,
+    createReviewedWorkerArtifact,
+    localWorkerSettings,
+    parseCloudflareWorkerVersion,
+    parseCloudflareWorkerVersionDetail,
+    parseWranglerConfig,
+    readLocalWorkerModules,
+} from './lib/academy-worker-artifact.mjs';
 import { loadLocalEnv } from './lib/qa-env.mjs';
 
 const D1_DATABASE = 'yomu-academy';
 const WRANGLER_CONFIG = 'wrangler.academy.jsonc';
-const DELETE_ACK = 'DELETE_DEDICATED_TEST_ACCOUNT';
 const SESSION_COOKIE = '__Host-academy_session';
 const PAIRING_INFO = 'yomu-academy-device-pairing-v1';
 const EVIDENCE_PATH = resolve('artifacts/academy-account-lifecycle/live-proof-results.json');
@@ -37,6 +45,8 @@ const HOSTED_APP_PATH = resolve('docs/public/academy/app.js');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const INVITE_PATTERN = /^[A-Z0-9-]{7,64}$/u;
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
+const PROOF_SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
+const CLOUDFLARE_ACCOUNT_PATTERN = /^[0-9a-f]{32}$/u;
 
 export function readLiveProofConfig(env = process.env) {
     const required = [
@@ -45,10 +55,11 @@ export function readLiveProofConfig(env = process.env) {
         'ACADEMY_LIFECYCLE_PROOF_INVITE_CODE_B',
         'ACADEMY_LIFECYCLE_PROOF_DEVICE_A_DIR',
         'ACADEMY_LIFECYCLE_PROOF_DEVICE_B_DIR',
-        'ACADEMY_LIFECYCLE_PROOF_DELETE_ACK',
-        'ACADEMY_LIFECYCLE_PROOF_GOOGLE_IDENTITY',
+        'ACADEMY_LIFECYCLE_PROOF_PROOF_TOKEN',
+        'ACADEMY_LIFECYCLE_PROOF_RUN_NONCE',
         'ACADEMY_LIFECYCLE_PROOF_REVIEWED_COMMIT',
         'ACADEMY_LIFECYCLE_PROOF_EVIDENCE_HMAC_KEY',
+        'CLOUDFLARE_ACCOUNT_ID',
         'CLOUDFLARE_API_TOKEN',
     ];
     const missing = required.filter(name => !env[name]?.trim());
@@ -64,12 +75,10 @@ export function readLiveProofConfig(env = process.env) {
         throw new Error('Both live proof browser profile paths must be absolute.');
     }
     if (deviceADir === deviceBDir) throw new Error('Live proof devices must use different browser profile directories.');
-    if (env.ACADEMY_LIFECYCLE_PROOF_DELETE_ACK !== DELETE_ACK) {
-        throw new Error(`ACADEMY_LIFECYCLE_PROOF_DELETE_ACK must equal ${DELETE_ACK}.`);
-    }
-    const googleIdentity = env.ACADEMY_LIFECYCLE_PROOF_GOOGLE_IDENTITY.normalize('NFKC').trim().toLowerCase();
-    if (!googleIdentity || googleIdentity.length > 320 || /[\r\n]/u.test(googleIdentity)) {
-        throw new Error('ACADEMY_LIFECYCLE_PROOF_GOOGLE_IDENTITY must name the dedicated disposable Google identity.');
+    const proofToken = env.ACADEMY_LIFECYCLE_PROOF_PROOF_TOKEN.trim();
+    const runNonce = env.ACADEMY_LIFECYCLE_PROOF_RUN_NONCE.trim();
+    if (!PROOF_SECRET_PATTERN.test(proofToken) || !PROOF_SECRET_PATTERN.test(runNonce)) {
+        throw new Error('Lifecycle proof token and run nonce must each be one 32-byte base64url value.');
     }
     const reviewedCommit = env.ACADEMY_LIFECYCLE_PROOF_REVIEWED_COMMIT.trim().toLowerCase();
     if (!COMMIT_PATTERN.test(reviewedCommit)) {
@@ -79,6 +88,10 @@ export function readLiveProofConfig(env = process.env) {
     if (Buffer.byteLength(evidenceHmacKey, 'utf8') < 32) {
         throw new Error('ACADEMY_LIFECYCLE_PROOF_EVIDENCE_HMAC_KEY must contain at least 32 bytes.');
     }
+    const cloudflareAccountId = env.CLOUDFLARE_ACCOUNT_ID.trim().toLowerCase();
+    if (!CLOUDFLARE_ACCOUNT_PATTERN.test(cloudflareAccountId)) {
+        throw new Error('CLOUDFLARE_ACCOUNT_ID must be one full Cloudflare account id.');
+    }
 
     return Object.freeze({
         origin,
@@ -86,9 +99,12 @@ export function readLiveProofConfig(env = process.env) {
         inviteCodeB,
         deviceADir,
         deviceBDir,
-        googleIdentity,
+        proofToken,
+        runNonce,
         reviewedCommit,
         evidenceHmacKey,
+        cloudflareAccountId,
+        cloudflareApiToken: env.CLOUDFLARE_API_TOKEN,
         timeoutMs: boundedInteger(env.ACADEMY_LIFECYCLE_PROOF_TIMEOUT_MS, 5 * 60_000, 60_000, 15 * 60_000),
     });
 }
@@ -336,6 +352,59 @@ function sha256(value) {
     return createHash('sha256').update(value).digest('hex');
 }
 
+function localReviewedWorkerArtifact(gitCommit) {
+    const outputDirectory = mkdtempSync(path.join(tmpdir(), 'yomu-academy-worker-artifact-'));
+    try {
+        commandText('npx', [
+            'wrangler', 'deploy', '--dry-run', '--outdir', outputDirectory,
+            '--config', WRANGLER_CONFIG,
+        ]);
+        const configBytes = readFileSync(WRANGLER_CONFIG);
+        const config = parseWranglerConfig(configBytes.toString('utf8'), WRANGLER_CONFIG);
+        const modules = readLocalWorkerModules(outputDirectory);
+        const mainModule = path.basename(config.main).replace(/\.[cm]?ts$/u, '.js');
+        const migrations = readdirSync(MIGRATIONS_DIR)
+            .filter(file => /^\d{4}_[a-z0-9_]+\.sql$/u.test(file))
+            .sort()
+            .map(name => ({ name, content: readFileSync(path.join(MIGRATIONS_DIR, name)) }));
+        return createReviewedWorkerArtifact({
+            reviewedCommit: gitCommit,
+            modules,
+            settings: localWorkerSettings(config, mainModule),
+            configBytes,
+            migrations,
+        });
+    } finally {
+        rmSync(outputDirectory, { recursive: true, force: true });
+    }
+}
+
+async function activeCloudflareWorkerVersion(config, workerVersionId) {
+    const endpoint = 'https://api.cloudflare.com/client/v4/accounts/'
+        + `${config.cloudflareAccountId}/workers/workers/yomu-academy/versions/${workerVersionId}?include=modules`;
+    const response = await fetch(endpoint, {
+        headers: { authorization: `Bearer ${config.cloudflareApiToken}`, accept: 'application/json' },
+        cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Cloudflare Worker version content returned HTTP ${response.status}.`);
+    const document = await response.json();
+    if (document?.success !== true) throw new Error('Cloudflare Worker version content request was unsuccessful.');
+    return parseCloudflareWorkerVersion(document, workerVersionId);
+}
+
+async function activeCloudflareWorkerVersionDetail(config, workerVersionId) {
+    const endpoint = 'https://api.cloudflare.com/client/v4/accounts/'
+        + `${config.cloudflareAccountId}/workers/scripts/yomu-academy/versions/${workerVersionId}`;
+    const response = await fetch(endpoint, {
+        headers: { authorization: `Bearer ${config.cloudflareApiToken}`, accept: 'application/json' },
+        cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Cloudflare Worker version detail returned HTTP ${response.status}.`);
+    const document = await response.json();
+    if (document?.success !== true) throw new Error('Cloudflare Worker version detail request was unsuccessful.');
+    return parseCloudflareWorkerVersionDetail(document, workerVersionId);
+}
+
 async function reviewedDeploymentIdentity(config) {
     const repositoryRoot = realpathSync.native(commandText('git', ['rev-parse', '--show-toplevel']));
     if (repositoryRoot !== realpathSync.native(process.cwd())) throw new Error('Live proof must run from the reviewed worktree root.');
@@ -346,16 +415,20 @@ async function reviewedDeploymentIdentity(config) {
     const healthResponse = await fetch(`${config.origin}/academy/api/health`, { cache: 'no-store' });
     if (!healthResponse.ok) throw new Error(`Deployed Worker health returned HTTP ${healthResponse.status}.`);
     const health = await healthResponse.json();
-    if (health?.ok !== true || health.apiBase !== `${config.origin}/academy/api`) {
+    if (health?.ok !== true || health.apiBase !== `${config.origin}/academy/api`
+        || health.artifactProof !== 'cloudflare-version-modules-v1') {
         throw new Error('Deployed Worker API base does not match the reviewed live origin.');
     }
-    if (health.gitCommit !== gitCommit) throw new Error('Deployed Worker git commit does not match reviewed HEAD.');
     if (!UUID_PATTERN.test(health.workerVersionId ?? '')) throw new Error('Deployed Worker did not expose an immutable version id.');
 
     const deployment = parseDeploymentStatus(wranglerJson(['deployments', 'status', '--json']));
     if (deployment.workerVersionId !== health.workerVersionId) {
         throw new Error('Active Worker deployment version does not match the executing API version.');
     }
+    const reviewedArtifact = localReviewedWorkerArtifact(gitCommit);
+    const remoteVersion = await activeCloudflareWorkerVersion(config, deployment.workerVersionId);
+    const remoteVersionDetail = await activeCloudflareWorkerVersionDetail(config, deployment.workerVersionId);
+    const artifactBinding = assertCloudflareArtifactMatches(reviewedArtifact, remoteVersion);
 
     const hostedResponse = await fetch(`${config.origin}/academy/app.js`, { cache: 'no-store' });
     if (!hostedResponse.ok) throw new Error(`Hosted Academy app returned HTTP ${hostedResponse.status}.`);
@@ -376,6 +449,12 @@ async function reviewedDeploymentIdentity(config) {
         gitCommit,
         workerDeploymentId: deployment.deploymentId,
         workerVersionId: deployment.workerVersionId,
+        workerScriptEtag: remoteVersionDetail.scriptEtag,
+        reviewedArtifactSha256: artifactBinding.reviewedArtifactSha256,
+        workerModuleSetSha256: artifactBinding.moduleSetSha256,
+        workerSettingsSha256: artifactBinding.settingsSha256,
+        workerConfigSha256: reviewedArtifact.configSha256,
+        workerMigrationSetSha256: reviewedArtifact.migrationSetSha256,
         hostedAppSha256: hostedAppHash,
         schemaMigrations: localMigrations,
         apiBase: health.apiBase,
@@ -531,6 +610,9 @@ async function unwrapProfileKey(envelope, code, pairingId) {
 }
 
 async function exportWithDeployedClient(page) {
+    await page.evaluate(() => {
+        Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true });
+    });
     const exportButton = page.getByRole('button', { name: /Export encrypted data|暗号化データを書き出す/u });
     await exportButton.waitFor({ state: 'visible' });
     const downloadPromise = page.waitForEvent('download');
@@ -556,30 +638,16 @@ async function launchDevice(profileDir, origin) {
     return { context, page };
 }
 
-async function requireIdentityBoundDeletionAcknowledgement(device, config, accountId, deployment) {
-    const identityPage = await device.context.newPage();
-    await identityPage.goto('https://myaccount.google.com/', { waitUntil: 'domcontentloaded', timeout: config.timeoutMs });
-    const identityFingerprint = sha256(config.googleIdentity).slice(0, 12);
-    const nonce = nodeRandomBytes(12).toString('hex');
-    const binding = sha256([
-        config.googleIdentity,
-        accountId,
-        deployment.gitCommit,
-        deployment.workerVersionId,
-        nonce,
-    ].join('|')).slice(0, 20);
-    const expected = `DELETE ${identityFingerprint}:${binding}`;
-    console.log('ACTION Reconfirm the visible Google identity is the configured disposable test identity.');
-    console.log(`ACTION Then type this deployment/account-bound acknowledgement exactly: ${expected}`);
-    const prompt = createInterface({ input: process.stdin, output: process.stdout });
-    let answer;
-    try {
-        answer = await prompt.question('Deletion acknowledgement: ');
-    } finally {
-        prompt.close();
-        await identityPage.close();
+async function verifyLifecycleProofGrant(page, config, accountId) {
+    const proof = requireStatus(await requestJson(page, '/academy/api/account/lifecycle-proof/verify', {
+        method: 'POST',
+        body: { proofToken: config.proofToken, runNonce: config.runNonce },
+    }), 200, 'Production lifecycle proof grant verification');
+    if (proof?.verified !== true || proof.accountId !== accountId || proof.environment !== 'production'
+        || proof.scope !== 'account-lifecycle-production-test'
+        || !Number.isSafeInteger(proof.expiresAt) || proof.expiresAt <= Date.now()) {
+        throw new Error('Production lifecycle proof grant was not bound to this authenticated account and run.');
     }
-    if (answer.trim() !== expected) throw new Error('Identity-bound deletion acknowledgement did not match.');
 }
 
 function equalBytes(left, right) {
@@ -609,7 +677,8 @@ async function main() {
     const recorder = createRecorder([
         config.inviteCodeA,
         config.inviteCodeB,
-        config.googleIdentity,
+        config.proofToken,
+        config.runNonce,
         config.evidenceHmacKey,
         process.env.CLOUDFLARE_API_TOKEN,
     ]);
@@ -645,6 +714,8 @@ async function main() {
         const accountId = recorder.secret(profileA.accountId);
         const originalProfileId = recorder.secret(profileA.profileId);
         if (!UUID_PATTERN.test(accountId) || !UUID_PATTERN.test(originalProfileId)) throw new Error('Device A received malformed public ids.');
+        await verifyLifecycleProofGrant(deviceA.page, config, accountId);
+        recorder.record('single-use production proof grant matched the authenticated account, environment, and run nonce', 'pass');
 
         const profileKey = crypto.getRandomValues(new Uint8Array(32));
         requireStatus(await requestJson(deviceA.page, '/academy/api/profile/key', {
@@ -744,9 +815,14 @@ async function main() {
         }
         recorder.record('corrupt-profile reset recreated encryption state and exported restored local progress', 'pass');
 
-        await requireIdentityBoundDeletionAcknowledgement(deviceB, config, accountId, deployment);
-        const accountDeletion = requireStatus(await requestJson(deviceB.page, '/academy/api/account', {
-            method: 'DELETE', body: { confirmation: 'delete-account' },
+        await verifyLifecycleProofGrant(deviceB.page, config, accountId);
+        const accountDeletion = requireStatus(await requestJson(deviceB.page, '/academy/api/account/lifecycle-proof', {
+            method: 'DELETE',
+            body: {
+                confirmation: 'delete-account',
+                proofToken: config.proofToken,
+                runNonce: config.runNonce,
+            },
         }), 200, 'Account deletion');
         const accountDeletionId = recorder.secret(accountDeletion.deletionReceipt?.deletionId);
         if (!UUID_PATTERN.test(accountDeletionId)
@@ -757,7 +833,7 @@ async function main() {
             throw new Error('Remote D1 did not prove account learning-data deletion and its minimized receipt.');
         }
         if ((await requestJson(deviceB.page, '/academy/api/session')).status !== 401) throw new Error('Account deletion did not clear the session.');
-        recorder.record('operator reconfirmed the visible disposable Google identity immediately before deletion', 'pass');
+        recorder.record('server atomically consumed the account-bound production proof grant at deletion', 'pass');
         recorder.record('account deletion removed identity, profile, sessions, and synced records while retaining declared audit records', 'pass');
 
         await startRecovery(deviceB.page);
@@ -783,7 +859,7 @@ async function main() {
     const complete = recorder.results.every(result => result.outcome === 'pass');
     mkdirSync(path.dirname(EVIDENCE_PATH), { recursive: true });
     const evidence = signLifecycleEvidence({
-        schemaVersion: 2,
+        schemaVersion: 3,
         ranAt: new Date().toISOString(),
         complete,
         deployment,

@@ -125,6 +125,13 @@ async function main() {
             'd1', 'migrations', 'apply', 'ACADEMY_DB', '--local', '--config', CONFIG,
             '--persist-to', persistence,
         ]);
+        wrangler([
+            'd1', 'execute', 'ACADEMY_DB', '--local', '--config', CONFIG,
+            '--persist-to', persistence, '--command',
+            "INSERT INTO deletion_receipts "
+            + "(id, scope, deleted_at, profile_count, device_count, synced_record_count, prune_after) "
+            + "VALUES ('00000000-0000-4000-8000-000000000001', 'profile', 0, 1, 0, 0, 1);",
+        ]);
 
         const port = await freePort();
         const inspectorPort = await freePort();
@@ -133,6 +140,7 @@ async function main() {
             WRANGLER_BIN, 'dev', '--local', '--config', CONFIG, '--persist-to', persistence,
             '--env-file', envFile, '--ip', '127.0.0.1', '--port', String(port),
             '--inspector-port', String(inspectorPort), '--log-level', 'error',
+            '--test-scheduled',
             '--show-interactive-dev-session=false',
         ], {
             cwd: ROOT,
@@ -188,6 +196,8 @@ async function main() {
             throw new Error('Local Google start did not preserve the PKCE/state/nonce redirect contract.');
         }
 
+        requireStatus(await fetch(`${localOrigin}/__scheduled?cron=17+3+*+*+*`), 200, 'Local scheduled receipt prune');
+
         await stopWorker(child);
         child = null;
 
@@ -199,14 +209,18 @@ async function main() {
             + '(SELECT COUNT(*) FROM d1_migrations) AS migration_count, '
             + '(SELECT COUNT(*) FROM sessions) AS session_count, '
             + '(SELECT COUNT(*) FROM oauth_flows) AS oauth_flow_count, '
+            + '(SELECT COUNT(*) FROM deletion_receipts) AS receipt_count, '
             + "(SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'deletion_receipts') AS receipt_table_count, "
+            + "(SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'account_lifecycle_proof_grants') AS proof_grant_table_count, "
             + "(SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('idx_sessions_token_family', 'idx_deletion_receipts_deleted_at')) AS lifecycle_index_count;",
         ]));
         const proof = rows[0];
         if (proof?.migration_count !== migrationCount
             || proof?.session_count !== 1
             || proof?.oauth_flow_count !== 1
+            || proof?.receipt_count !== 0
             || proof?.receipt_table_count !== 1
+            || proof?.proof_grant_table_count !== 1
             || proof?.lifecycle_index_count !== 2) {
             throw new Error('Local Miniflare D1 state did not match the lifecycle contract.');
         }
@@ -218,11 +232,13 @@ async function main() {
             complete: true,
             runtime: { wrangler: wranglerVersion, miniflare: miniflareVersion },
             migrationsApplied: migrationCount,
-            workerChecks: ['health', 'recovery-session', 'session-read', 'google-start-pkce'],
+            workerChecks: ['health', 'recovery-session', 'session-read', 'google-start-pkce', 'scheduled-receipt-prune'],
             d1Checks: {
                 sessionCount: proof.session_count,
                 oauthFlowCount: proof.oauth_flow_count,
                 deletionReceiptTable: true,
+                proofGrantTable: true,
+                expiredDeletionReceipts: proof.receipt_count,
                 lifecycleIndexes: proof.lifecycle_index_count,
             },
         }, null, 2)}\n`);

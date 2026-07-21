@@ -3,6 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error The artifact verifier is intentionally plain ESM for the deployment runner.
+import { assertCloudflareArtifactMatches, createReviewedWorkerArtifact, localWorkerSettings, parseCloudflareWorkerVersion, parseCloudflareWorkerVersionDetail, parseWranglerConfig } from '../../scripts/lib/academy-worker-artifact.mjs';
 // @ts-expect-error The executable proof harness is intentionally plain ESM.
 import { cleanupDedicatedProfileDirectories, parseDeploymentStatus, prepareDedicatedProfileDirectories, readLiveProofConfig, sanitizeLifecycleEvidenceDetail, signLifecycleEvidence, verifyLifecycleEvidence } from '../../scripts/academy-account-lifecycle-live-proof.mjs';
 
@@ -12,10 +14,11 @@ const baseEnv = {
     ACADEMY_LIFECYCLE_PROOF_INVITE_CODE_B: 'DEVICE-B-2026',
     ACADEMY_LIFECYCLE_PROOF_DEVICE_A_DIR: '/tmp/yomu-proof-a',
     ACADEMY_LIFECYCLE_PROOF_DEVICE_B_DIR: '/tmp/yomu-proof-b',
-    ACADEMY_LIFECYCLE_PROOF_DELETE_ACK: 'DELETE_DEDICATED_TEST_ACCOUNT',
-    ACADEMY_LIFECYCLE_PROOF_GOOGLE_IDENTITY: 'plat-001-test@example.invalid',
+    ACADEMY_LIFECYCLE_PROOF_PROOF_TOKEN: 'p'.repeat(43),
+    ACADEMY_LIFECYCLE_PROOF_RUN_NONCE: 'r'.repeat(43),
     ACADEMY_LIFECYCLE_PROOF_REVIEWED_COMMIT: 'a'.repeat(40),
     ACADEMY_LIFECYCLE_PROOF_EVIDENCE_HMAC_KEY: 'test-only-evidence-hmac-key-with-32-bytes',
+    CLOUDFLARE_ACCOUNT_ID: '1'.repeat(32),
     CLOUDFLARE_API_TOKEN: 'never-print-this',
 };
 
@@ -24,8 +27,8 @@ describe('Academy account lifecycle live proof harness', () => {
         expect(() => readLiveProofConfig({ ...baseEnv, CLOUDFLARE_API_TOKEN: '' })).toThrow('CLOUDFLARE_API_TOKEN');
         expect(() => readLiveProofConfig({
             ...baseEnv,
-            ACADEMY_LIFECYCLE_PROOF_DELETE_ACK: 'yes',
-        })).toThrow('DELETE_DEDICATED_TEST_ACCOUNT');
+            ACADEMY_LIFECYCLE_PROOF_PROOF_TOKEN: 'yes',
+        })).toThrow('32-byte base64url');
     });
 
     it('accepts only one exact HTTPS origin and separate absolute device profiles', () => {
@@ -106,5 +109,85 @@ describe('Academy account lifecycle live proof harness', () => {
         expect(verifyLifecycleEvidence(signed, key)).toBe(true);
         expect(verifyLifecycleEvidence({ ...signed, payload: { ...signed.payload, complete: false } }, key)).toBe(false);
         expect(() => parseDeploymentStatus({ id: 'deployment-123', versions: [] })).toThrow('100% active');
+    });
+
+    it('binds the active immutable version to raw modules and reviewed settings, not a mutable commit variable', () => {
+        const configText = JSON.stringify({
+            compatibility_date: '2026-07-12',
+            compatibility_flags: ['nodejs_compat'],
+            vars: { ACADEMY_ORIGIN: 'https://yomureader.com', ACADEMY_ENVIRONMENT: 'production' },
+        });
+        const config = parseWranglerConfig(configText);
+        const settings = localWorkerSettings(config, 'payment-entrypoint.js');
+        const reviewedCommit = 'a'.repeat(40);
+        const reviewed = createReviewedWorkerArtifact({
+            reviewedCommit,
+            modules: [{
+                name: 'payment-entrypoint.js',
+                contentType: 'application/javascript+module',
+                content: Buffer.from('export default { fetch() { return new Response("reviewed"); } };'),
+            }],
+            settings,
+            configBytes: Buffer.from(configText),
+            migrations: [{ name: '0001.sql', content: Buffer.from('SELECT 1;') }],
+        });
+        const versionId = '11111111-1111-4111-8111-111111111111';
+        const remote = parseCloudflareWorkerVersion({ result: {
+            id: versionId,
+            main_module: 'payment-entrypoint.js',
+            compatibility_date: '2026-07-12',
+            compatibility_flags: ['nodejs_compat'],
+            bindings: [
+                { type: 'plain_text', name: 'ACADEMY_ORIGIN', text: 'https://yomureader.com' },
+                { type: 'plain_text', name: 'ACADEMY_ENVIRONMENT', text: 'production' },
+            ],
+            modules: [{
+                name: 'payment-entrypoint.js',
+                content_type: 'application/javascript+module',
+                content_base64: Buffer.from('export default { fetch() { return new Response("reviewed"); } };').toString('base64'),
+            }],
+        } }, versionId);
+        expect(assertCloudflareArtifactMatches(reviewed, remote)).toMatchObject({
+            workerVersionId: versionId,
+            reviewedArtifactSha256: reviewed.artifactSha256,
+        });
+        expect(parseCloudflareWorkerVersionDetail({ result: {
+            id: versionId,
+            resources: { script: { etag: 'e'.repeat(64) } },
+        } }, versionId)).toEqual({ versionId, scriptEtag: 'e'.repeat(64) });
+
+        const differentBundle = parseCloudflareWorkerVersion({ result: {
+            id: versionId,
+            main_module: 'payment-entrypoint.js',
+            compatibility_date: '2026-07-12',
+            compatibility_flags: ['nodejs_compat'],
+            bindings: [
+                { type: 'plain_text', name: 'ACADEMY_ORIGIN', text: 'https://yomureader.com' },
+                { type: 'plain_text', name: 'ACADEMY_ENVIRONMENT', text: 'production' },
+            ],
+            modules: [{
+                name: 'payment-entrypoint.js',
+                content_type: 'application/javascript+module',
+                content_base64: Buffer.from('export default { fetch() { return new Response("different"); } };').toString('base64'),
+            }],
+        } }, versionId);
+        expect(() => assertCloudflareArtifactMatches(reviewed, differentBundle)).toThrow('modules do not match');
+
+        const differentSettings = parseCloudflareWorkerVersion({ result: {
+            id: versionId,
+            main_module: 'payment-entrypoint.js',
+            compatibility_date: '2026-07-12',
+            compatibility_flags: ['nodejs_compat'],
+            bindings: [
+                { type: 'plain_text', name: 'ACADEMY_ORIGIN', text: 'https://yomureader.com' },
+                { type: 'plain_text', name: 'ACADEMY_ENVIRONMENT', text: 'staging' },
+            ],
+            modules: [{
+                name: 'payment-entrypoint.js',
+                content_type: 'application/javascript+module',
+                content_base64: Buffer.from('export default { fetch() { return new Response("reviewed"); } };').toString('base64'),
+            }],
+        } }, versionId);
+        expect(() => assertCloudflareArtifactMatches(reviewed, differentSettings)).toThrow('settings do not match');
     });
 });

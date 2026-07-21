@@ -133,7 +133,9 @@ describe('Academy access client and Worker integration', () => {
             expect((await source.retry()).phase).toBe('ready');
             expect((await sourceEvents.readAll()).map(event => event.eventId)).toContain(targetOnly.eventId);
 
-            const completeExport = JSON.parse(await (await source.exportData()).text()) as {
+            const completeExportBlob = await source.exportData();
+            if (!completeExportBlob) throw new Error('Account export did not produce the fallback Blob.');
+            const completeExport = JSON.parse(await completeExportBlob.text()) as {
                 account: { accountId: string };
                 profile: { profileId: string };
                 eventPage: { events: unknown[]; hasMore: boolean };
@@ -183,12 +185,16 @@ describe('Academy access client and Worker integration', () => {
             expect((await followGoogleCallback(isolatedBrowser, 'different-lifecycle-subject', provider)).status).toBe(302);
             await isolated.completeGoogleReturn();
             expect((await isolated.initializeAccountProfile()).phase).toBe('ready');
-            expect(JSON.parse(await (await isolated.exportData()).text()).eventPage.events).toHaveLength(0);
+            const isolatedExportBlob = await isolated.exportData();
+            if (!isolatedExportBlob) throw new Error('Isolated export did not produce the fallback Blob.');
+            expect(JSON.parse(await isolatedExportBlob.text()).eventPage.events).toHaveLength(0);
             const crossAccountTicket = await corrupted.startPairing();
             await expect(isolated.claimPairing(crossAccountTicket.code)).rejects.toMatchObject({ status: 409 });
             expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM profiles')[0]?.count).toBe(2);
 
-            const finalExport = JSON.parse(await (await corrupted.exportData()).text()) as {
+            const finalExportBlob = await corrupted.exportData();
+            if (!finalExportBlob) throw new Error('Recovered export did not produce the fallback Blob.');
+            const finalExport = JSON.parse(await finalExportBlob.text()) as {
                 eventPage: { events: unknown[] };
             };
             expect(finalExport.eventPage.events).toHaveLength(206);

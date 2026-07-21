@@ -104,10 +104,13 @@ the `__Host-academy_session` cookie.
 | `POST` | `/academy/api/pairings/claim` | Consume the ticket from a fresh or same-profile device |
 | `POST` | `/academy/api/srs/push` | Append up to 50 encrypted event envelopes |
 | `GET` | `/academy/api/srs/pull?cursor=0&limit=200` | Pull ordered envelopes; limit max 200 |
-| `GET` | `/academy/api/profile/export[?cursor=...]` | Start or continue a session-bound snapshot export |
+| `POST` | `/academy/api/profile/export` | Start with `{}` or continue with `{ "cursor": "..." }` under same-origin mutation protection |
 | `DELETE` | `/academy/api/profile` | Delete sync/profile data with `{"confirmation":"delete-profile"}` and return a minimized deletion receipt |
-| `GET` | `/academy/api/account/export[?cursor=...]` | Start or continue an account/session-bound snapshot export |
+| `POST` | `/academy/api/account/export` | Start with `{}` or continue with `{ "cursor": "..." }` under same-origin mutation protection |
 | `DELETE` | `/academy/api/account` | Delete learner identity/profile data with `{"confirmation":"delete-account"}`; retain the declared audit records below |
+| `POST` | `/academy/api/admin/lifecycle-proof-grants` | Supervisor-only mint for one account/run-bound production-test grant |
+| `POST` | `/academy/api/account/lifecycle-proof/verify` | Verify the authenticated account's grant without consuming it |
+| `DELETE` | `/academy/api/account/lifecycle-proof` | Atomically consume the grant and perform the ordinary transactional account deletion |
 | `GET` | `/academy/api/entitlement` | Current Google account's safe paid-entitlement projection |
 | `POST` | `/academy/api/entitlement/redeem` | Atomically bind `{ "code": "..." }` to the signed-in account |
 
@@ -155,6 +158,9 @@ another session fail closed. Events written after export start are deliberately
 excluded from that snapshot. The shipped Academy client follows the protocol
 until `hasMore` is false, so traversal size is not capped by the request-rate
 budget and exports beyond 24,000 records terminate without gaps or duplicates.
+Where the File System Access API is available, each page is serialized directly
+to the selected writable file without retaining prior pages. Other browsers use
+a chunked Blob fallback capped at 32 MiB and fail explicitly above that bound.
 
 Profile and account deletion return `{ deleted, scope, deletionReceipt }`.
 The receipt contains only a random deletion id, scope, timestamp, 90-day
@@ -166,6 +172,18 @@ account receipt confirms removal of the Academy identity, encrypted profile,
 imported progress/snapshots, study days, and profile-bound sessions. Permanent
 minimal paid-redemption and payment-audit records remain so one-time codes
 cannot become transferable and payment/fraud disputes remain auditable.
+The daily `17 3 * * *` scheduled handler enforces receipt expiry with three
+observable attempts and structured removed-row metrics. Session creation keeps
+opportunistic pruning only as a backup.
+
+The deployed proof never authorizes deletion from an operator-entered identity
+label. A supervisor mints one HMAC-only grant for the exact existing account,
+literal `production` environment, fixed `account-lifecycle-production-test`
+scope, and 32-byte run nonce. The runner verifies it after login. The proof
+deletion route then consumes and rechecks it in the same D1 batch that gates
+the receipt, payment cleanup, session removal, and account cascade. Missing,
+expired, consumed, wrong-account, wrong-run, and wrong-environment grants make
+every destructive statement a no-op.
 
 ## Paid entitlement protocol
 
@@ -346,6 +364,8 @@ export finite while learners sharing a school/workplace NAT remain isolated.
   receipts with only scope, time, and aggregate removed-row counts.
 - `0013_export_traversals_and_retention.sql`: session-bound snapshot export
   cursors plus the 90-day deletion-receipt pruning deadline.
+- `0014_lifecycle_proof_grants.sql`: HMAC-only, single-use production proof
+  authorization bound to one account, environment, and run nonce.
 
 ## Account lifecycle proof
 
@@ -362,7 +382,9 @@ npm run academy:account-lifecycle:proof:local
 The credential-gated deployed proof is documented in
 `docs/academy/evidence/account-lifecycle/README.md`. It uses two visible Chrome
 profiles and real Google callbacks, queries remote D1 through Wrangler, and
-deletes a dedicated test account. It exits nonzero when configuration is
+uses Cloudflare's immutable active-version module content plus reviewed local
+Wrangler output to bind the deployment to source before deleting a dedicated
+test account. It exits nonzero when configuration is
 missing, a callback is blocked, remote migration state is stale, or any live
 assertion is unobserved. Local proof must never be relabelled as deployment
 proof.

@@ -407,7 +407,9 @@ describe('Academy Google account and paid entitlement policy', () => {
                 entitlement: 'academy', status: 'active',
             });
 
-            const exported = await dispatch(env, get(env, '/academy/api/account/export', recoveryCookie));
+            const exported = await dispatch(env, mutation(
+                env, '/academy/api/account/export', 'POST', {}, recoveryCookie,
+            ));
             expect(exported.status).toBe(200);
             expect(await exported.json()).toMatchObject({
                 paidEntitlement: { status: 'paid', amountPence: 1000, redeemedAt: expect.any(Number) },
