@@ -117,16 +117,12 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
 
         await expect(listNewTabAnkiCards(client, settings, 10)).resolves.toEqual([]);
 
-        expect(queries).toHaveLength(4);
+        expect(queries).toHaveLength(2);
         expect(queries[0]).toContain('(deck:"Yomu" OR deck:"Yomu::Anime" OR deck:"Yomu Mining" OR deck:"Other")');
         expect(queries[0]).not.toContain('note:"Yomu Japanese"');
         expect(queries[0]).toContain('(is:due OR is:learn)');
-        expect(queries[1]).toContain('note:"Yomu Japanese"');
-        expect(queries[1]).toContain('(is:due OR is:learn)');
-        expect(queries[2]).not.toContain('note:"Yomu Japanese"');
-        expect(queries[2]).toContain('is:new');
-        expect(queries[3]).toContain('note:"Yomu Japanese"');
-        expect(queries[3]).toContain('is:new');
+        expect(queries[1]).not.toContain('note:"Yomu Japanese"');
+        expect(queries[1]).toContain('is:new');
     });
 
     it('skips disabled Anki decks when loading new-tab reviews', async () => {
@@ -552,11 +548,74 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
         const cards = await listNewTabAnkiCards(client, settings, 1);
 
         expect(cards.map(card => card.spelling)).toEqual(['後続']);
-        // UT-50: cardsInfo streams in 40-card chunks and stops as soon as
-        // enough reviewable cards are found — the second window's tail chunk
-        // is never rendered.
-        expect(cardInfoBatchSizes).toEqual([24, 40]);
-        expect(noteInfoBatchSizes).toEqual([24, 40]);
+        // The first empty 24-card page expands to 48. Expanded sparse pages
+        // are exhausted so an adaptable card later in the page cannot make
+        // the loader skip an unrendered tail.
+        expect(cardInfoBatchSizes).toEqual([24, 40, 8]);
+        expect(noteInfoBatchSizes).toEqual([24, 48]);
+    });
+
+    it('stops rendering Anki templates once the requested source queue is full', async () => {
+        const ids = Array.from({ length: 120 }, (_, index) => index + 1);
+        const { cardInfoBatchSizes, noteInfoBatchSizes } = stubPagedAnkiCandidateFetch(ids, noteId => ({
+            modelName: 'Imported Japanese',
+            fields: {
+                Expression: { value: `単語${noteId}` },
+                Reading: { value: `たんご${noteId}` },
+                Meaning: { value: `word ${noteId}` },
+            },
+        }));
+        const { settings, client } = newTabAnkiClient({ ankiEnabled: true });
+
+        const cards = await listNewTabAnkiCards(client, settings, 80);
+
+        expect(cards).toHaveLength(80);
+        expect(cardInfoBatchSizes).toEqual([40, 40]);
+        expect(noteInfoBatchSizes).toEqual([80]);
+    });
+
+    it('continues past an unadaptable note instead of skipping the candidate-page tail', async () => {
+        const ids = Array.from({ length: 120 }, (_, index) => index + 1);
+        const { cardInfoBatchSizes } = stubPagedAnkiCandidateFetch(ids, noteId => ({
+            modelName: 'Imported Japanese',
+            fields: noteId === 1
+                ? { Metadata: { value: 'plain English only' } }
+                : {
+                    Expression: { value: `単語${noteId}` },
+                    Reading: { value: `たんご${noteId}` },
+                    Meaning: { value: `word ${noteId}` },
+                },
+        }));
+        const { settings, client } = newTabAnkiClient({ ankiEnabled: true });
+
+        const cards = await listNewTabAnkiCards(client, settings, 80);
+
+        expect(cards).toHaveLength(80);
+        expect(cards[0]?.spelling).toBe('単語2');
+        expect(cards.at(-1)?.spelling).toBe('単語81');
+        expect(cardInfoBatchSizes).toEqual([40, 40, 24]);
+    });
+
+    it('exhausts a doubled sparse window before marking its tail consumed', async () => {
+        const ids = Array.from({ length: 240 }, (_, index) => index + 1);
+        const { cardInfoBatchSizes } = stubPagedAnkiCandidateFetch(ids, noteId => ({
+            modelName: 'Imported Japanese',
+            fields: noteId <= 100
+                ? { Metadata: { value: 'plain English only' } }
+                : {
+                    Expression: { value: `単語${noteId}` },
+                    Reading: { value: `たんご${noteId}` },
+                    Meaning: { value: `word ${noteId}` },
+                },
+        }));
+        const { settings, client } = newTabAnkiClient({ ankiEnabled: true });
+
+        const cards = await listNewTabAnkiCards(client, settings, 80);
+
+        expect(cards).toHaveLength(80);
+        expect(cards[0]?.spelling).toBe('単語101');
+        expect(cards.at(-1)?.spelling).toBe('単語180');
+        expect(cardInfoBatchSizes).toEqual([40, 40, 40, 40, 40, 40]);
     });
 
     it('uses broad Anki due queue across configured and imported note types', async () => {

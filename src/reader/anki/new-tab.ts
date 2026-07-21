@@ -12,7 +12,6 @@ const ANKI_CARD_INFO_CHUNK_SIZE = 250;
 const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
 const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
 const ANKI_CARD_INFO_CONCURRENCY = 2;
-const ANKI_CANDIDATE_OVERFETCH = 3;
 const ANKI_CANDIDATE_MIN_WINDOW_SIZE = 24;
 const ANKI_CANDIDATE_MAX_WINDOW_SIZE = ANKI_CARD_INFO_CHUNK_SIZE * ANKI_CARD_INFO_CONCURRENCY;
 const ANKI_NEW_TAB_EXPRESSION_FIELD_NAMES = [
@@ -154,7 +153,7 @@ export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: R
 async function loadNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, deckNames: string[], limit: number, kind: AnkiNewTabQueryKind): Promise<JPDBCard[]> {
     const cards: JPDBCard[] = [];
     const seenCards = new Set<number>();
-    for (const query of newTabAnkiQueries(settings, deckNames, kind)) {
+    for (const query of newTabAnkiQueries(deckNames, kind)) {
         const loadedCards = await loadNewTabAnkiCardsForQuery(client, settings, query, limit - cards.length, kind, deckNames, seenCards);
         cards.push(...loadedCards);
         if (cards.length >= limit) break;
@@ -179,6 +178,7 @@ async function loadNewTabAnkiCardsForQuery(
     const cards: JPDBCard[] = [];
     let offset = 0;
     let windowSize = newTabAnkiCandidateWindowSize(limit);
+    let exhaustWindow = false;
     while (offset < candidateCardIds.length && cards.length < limit) {
         const candidateWindow = candidateCardIds.slice(offset, offset + windowSize);
         offset += candidateWindow.length;
@@ -191,9 +191,14 @@ async function loadNewTabAnkiCardsForQuery(
             limit - cards.length,
             kind,
             deckNames,
+            exhaustWindow,
         ));
         if (cards.length === beforeWindow) {
             windowSize = Math.min(ANKI_CANDIDATE_MAX_WINDOW_SIZE, windowSize * 2);
+            exhaustWindow = true;
+        } else {
+            windowSize = newTabAnkiCandidateWindowSize(limit - cards.length);
+            exhaustWindow = false;
         }
     }
     return cards.slice(0, Math.max(1, limit));
@@ -206,9 +211,17 @@ async function loadNewTabAnkiCardsFromCandidateWindow(
     limit: number,
     kind: AnkiNewTabQueryKind,
     deckNames: string[],
+    exhaustWindow = false,
 ): Promise<JPDBCard[]> {
     if (limit <= 0 || !candidateCardIds.length) return [];
-    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit);
+    const reviewCards = await loadReviewableNewTabAnkiCards(
+        client,
+        candidateCardIds,
+        kind,
+        deckNames,
+        limit,
+        exhaustWindow ? candidateCardIds.length : limit,
+    );
     if (!reviewCards.length) return [];
 
     const noteIds = unique(reviewCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
@@ -232,7 +245,12 @@ async function loadNewTabAnkiCardsFromCandidateWindow(
 function newTabAnkiCandidateWindowSize(limit: number): number {
     return Math.min(
         ANKI_CANDIDATE_MAX_WINDOW_SIZE,
-        Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit) * ANKI_CANDIDATE_OVERFETCH),
+        // Keep each candidate page no larger than the queue it can fill. The
+        // loader marks a whole page consumed after inspecting its notes; a
+        // larger page would skip its unrendered tail when an early note cannot
+        // be adapted. Small queues retain a 24-card floor so sparse decks do
+        // not devolve into one AnkiConnect round trip per unusable card.
+        Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit)),
     );
 }
 
@@ -254,22 +272,37 @@ function normalizeNewTabAnkiDeckScope(deckScope: string): string {
     return scope === 'all' ? '' : scope;
 }
 
-async function loadReviewableNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[], kind: AnkiNewTabQueryKind, deckNames: string[], limit = candidateCardIds.length): Promise<AnkiCardInfo[]> {
-    const dueByCardId = kind === 'due'
-        ? await ankiDueFlags(client, candidateCardIds)
-        : new Map<number, boolean>();
+async function loadReviewableNewTabAnkiCards(
+    client: AnkiConnectClient,
+    candidateCardIds: number[],
+    kind: AnkiNewTabQueryKind,
+    deckNames: string[],
+    limit = candidateCardIds.length,
+    renderTarget = limit,
+): Promise<AnkiCardInfo[]> {
     // UT-50: cardsInfo renders templates (~110ms/card), so drop
     // disabled-deck candidates with one cheap getDecks call FIRST, then
     // stream small chunks and stop once the queue has enough reviewable
     // cards — instead of rendering the whole overfetched window up front.
-    const deckEligibleIds = await filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames);
+    // areDue and getDecks are independent AnkiConnect reads. Running them in
+    // parallel removes one full local round trip from every due-source load.
+    const [dueByCardId, deckEligibleIds] = await Promise.all([
+        kind === 'due'
+            ? ankiDueFlags(client, candidateCardIds)
+            : Promise.resolve(new Map<number, boolean>()),
+        filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames),
+    ]);
     const cards = await loadCardInfoChunksUntil(
         client,
         chunks(deckEligibleIds, ANKI_CARD_INFO_STREAM_CHUNK_SIZE),
         info => isReviewableAnkiCard(kind === 'due' && dueByCardId.has(Number(info.cardId))
             ? { ...info, isDue: dueByCardId.get(Number(info.cardId)) === true }
             : info, kind),
-        Math.max(1, Math.ceil(limit * 1.25)),
+        // Stop once the requested queue can be filled. The outer candidate
+        // pager already advances when note fields cannot be adapted, so
+        // rendering another 25% of expensive card templates here only adds
+        // work to the common all-valid path.
+        Math.max(1, renderTarget),
     );
     const cardsById = new Map(cards.map(cardInfo => [Number(cardInfo.cardId), cardInfo]));
     const reviewableCards = candidateCardIds
@@ -382,11 +415,11 @@ async function ankiDueFlags(client: AnkiConnectClient, candidateCardIds: number[
     return flags;
 }
 
-function newTabAnkiQueries(settings: ReaderSettings, deckNames: string[], kind: AnkiNewTabQueryKind): string[] {
-    const broadQuery = newTabAnkiQuery(deckNames, '', kind);
-    const model = settings.ankiModel.trim();
-    const modelQuery = model ? newTabAnkiQuery(deckNames, model, kind) : '';
-    return [...new Set([broadQuery, modelQuery].filter(Boolean))];
+function newTabAnkiQueries(deckNames: string[], kind: AnkiNewTabQueryKind): string[] {
+    // The broad query already contains every card the configured-model query
+    // could return. If it is exhausted, retrying the subset cannot add a card;
+    // if it fills the queue, the loop stops before the subset anyway.
+    return [newTabAnkiQuery(deckNames, '', kind)];
 }
 
 function newTabAnkiQuery(deckNames: string[], model: string, kind: AnkiNewTabQueryKind): string {

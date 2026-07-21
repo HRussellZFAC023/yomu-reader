@@ -284,10 +284,16 @@ function selectedAnkiScanDeck(deckNames: string[], currentDeck: string): string 
     return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
 }
 
+function selectedAnkiScanModel(scan: AnkiLibraryScanResult, currentModel: string): string {
+    const savedModel = currentModel.trim();
+    if (savedModel && scan.models.some(model => model.modelName === savedModel)) return savedModel;
+    return scan.suggestedModel?.modelName || savedModel;
+}
+
 function ankiScanSelection(controls: AnkiScanFormControls, scan: AnkiLibraryScanResult): AnkiScanSelection {
     return {
         selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
-        selectedModel: scan.suggestedModel?.modelName || settingsControlValue(controls.model),
+        selectedModel: selectedAnkiScanModel(scan, settingsControlValue(controls.model)),
     };
 }
 

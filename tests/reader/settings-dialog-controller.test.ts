@@ -1214,6 +1214,57 @@ describe('settings dialog keyboard dismissal', () => {
         expect(ankiStatusText(form)).toContain('expression: Vocabulary-Kanji');
     });
 
+    it('keeps the saved Anki note type selected when a different live model scores higher', async () => {
+        const lapis = singleModelAnkiScan(
+            'Mining',
+            'Lapis',
+            ['Expression', 'Reading', 'Meaning'],
+            [
+                ['expression', 'Expression', 'high'],
+                ['reading', 'Reading', 'high'],
+                ['meaning', 'Meaning', 'high'],
+            ],
+        ).models[0]!;
+        const kaishi = {
+            ...singleModelAnkiScan(
+                'Mining',
+                'Kaishi 1.5k',
+                ['Word', 'Reading', 'Definition'],
+                [
+                    ['expression', 'Word', 'high'],
+                    ['reading', 'Reading', 'high'],
+                    ['meaning', 'Definition', 'high'],
+                ],
+            ).models[0]!,
+            score: lapis.score + 1,
+        };
+        const scanLibrary = vi.fn().mockResolvedValue({
+            deckNames: ['Mining'],
+            models: [kaishi, lapis],
+            suggestedModel: kaishi,
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                ankiEnabled: true,
+                ankiDeck: 'Mining',
+                ankiModel: 'Lapis',
+            }),
+            anki: {
+                isConnected: vi.fn().mockResolvedValue(true),
+                scanLibrary,
+            },
+        });
+
+        await waitForCondition(() => scanLibrary.mock.calls.length === 1);
+        await waitForCondition(() => settingsOptionValues(form, '[data-anki-model-options] option').length === 2);
+
+        expect(settingsSelectValue(form, 'select[name="ankiModel"]')).toBe('Lapis');
+        expect(settingsOptionValues(form, '[data-anki-model-options] option')).toEqual(['Lapis', 'Kaishi 1.5k']);
+        expect(ankiFieldRoleValue(form, 'expression')).toBe('Expression');
+    });
+
     it('preserves live custom Anki field mappings while replacing stale scanned roles', async () => {
         const isConnected = vi.fn().mockResolvedValue(true);
         const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
