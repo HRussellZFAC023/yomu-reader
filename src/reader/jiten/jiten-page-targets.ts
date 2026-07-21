@@ -95,6 +95,30 @@ function jitenStudyAnswerHidden(): boolean {
         .some(button => /show answer/i.test(button.textContent ?? ''));
 }
 
+// The study-card front (question phase) shows only the headword; furigana or a
+// pitch/status underline there spoils the reading the learner must recall. Flag
+// any element inside the study card while the answer is hidden so the scan drops
+// it (plain prompt) instead of annotating it — matching the hosted study page.
+// Self-heals on reveal: jitenStudyAnswerHidden() flips false and the re-scan
+// annotates the now-revealed card normally.
+export function isJitenStudyFrontPrompt(element: HTMLElement): boolean {
+    // Cheapest gates first: this runs per element during classifyDecoration, so
+    // the document-wide "Show Answer" button scan only happens for elements that
+    // actually sit inside the study card on the study page.
+    if (!isJitenHost() || !isJitenStudyPage()) return false;
+    if (!element.closest('.relative.touch-pan-y')) return false;
+    return jitenStudyAnswerHidden();
+}
+
+// Per-card identity signal for the study page, readable while the answer is
+// hidden (currentJitenTermTarget is null on the front). Used to scroll to the
+// top only on a genuine new card, not on revealing the same card.
+export function currentJitenStudyHeadwordText(): string {
+    if (!isJitenHost() || !isJitenStudyPage()) return '';
+    const element = document.querySelector<HTMLElement>(HEADWORD_SELECTOR);
+    return element ? cleanText(extractBaseText(element)) : '';
+}
+
 export function currentJitenLocalDictionaryTargets(): LocalDictionaryTarget[] {
     if (isJitenKanjiPage()) {
         const kanji = extractCurrentJitenKanji();

@@ -61,8 +61,11 @@ import {
     releaseRubyRoomGrowth,
     removeNonDestructiveScanMirrors,
     setInnerHtml,
+    setReviewCardFrontPredicate,
     unwrapReaderWords,
 } from '../dom/index';
+import { isReviewCardFrontPromptElement } from './site-parsers';
+import { currentJitenStudyHeadwordText } from '../jiten/jiten-page-targets';
 import {
     kanjiFactProviderTitle,
     kanjiSourceStateKey,
@@ -1052,6 +1055,7 @@ export class ReaderApp {
     private jpdbPageEnhanceTimer?: number;
     private jpdbPageEnhancementGeneration = 0;
     private lastEnhancedHref = '';
+    private lastJitenStudyHeadword = '';
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
     private preloadedPreparedTermAudioKeys = new Set<string>();
@@ -1842,6 +1846,9 @@ export class ReaderApp {
 
     private initJpdbPageEnhancements(): void {
         if (!isPageEnhancementHost()) return;
+        // Seed the study-card baseline so the first card the learner loaded does
+        // not scroll (they are already at the top); only later card changes do.
+        this.lastJitenStudyHeadword = currentJitenStudyHeadwordText();
         this.scheduleJpdbPageEnhancements(0);
         this.installJpdbReviewExamplesToggleMemory();
         addWindowEventListener('popstate', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
@@ -1885,6 +1892,19 @@ export class ReaderApp {
                 if (element.dataset.yomuGeneration !== generationKey) element.remove();
             });
         });
+    }
+
+    // A jiten SRS study session keeps the same /srs/study URL across cards, so
+    // grading to the next card leaves the page scrolled wherever the previous
+    // card was read. Scroll back to the top when the study headword changes —
+    // only on a genuine new card, not on revealing the same card (the headword
+    // is identical front and back) and not on the very first card (already top).
+    private maybeScrollJitenStudyToNewCard(): void {
+        const headword = currentJitenStudyHeadwordText();
+        if (!headword || headword === this.lastJitenStudyHeadword) return;
+        const hadPreviousCard = this.lastJitenStudyHeadword !== '';
+        this.lastJitenStudyHeadword = headword;
+        if (hadPreviousCard) window.scrollTo({ top: 0 });
     }
 
     private jitenEnhancementsNeedRefresh(): boolean {
@@ -2385,6 +2405,7 @@ export class ReaderApp {
         this.disposeShadowRootDiscovery = undefined;
         setShadowRootScanHook(null);
         setCustomElementUpgradeHook(null);
+        setReviewCardFrontPredicate(null);
         this.autoScanObserver?.disconnect();
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
@@ -2517,11 +2538,16 @@ export class ReaderApp {
                 });
             }
             if (isJitenHost()) {
+                this.maybeScrollJitenStudyToNewCard();
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
             } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
                 this.scheduleJpdbPageEnhancements(500);
             }
         });
+        // Keep the review-card front (jiten study / jpdb review question side)
+        // a plain prompt: the decoration policy skips any element this predicate
+        // flags, so furigana/pitch never spoil the reading being tested.
+        setReviewCardFrontPredicate(isReviewCardFrontPromptElement);
         // New shadow roots discovered by the fragment walk join the same
         // observer; a Lit/web-component re-render then schedules a rescan
         // exactly like a light-DOM mutation would.

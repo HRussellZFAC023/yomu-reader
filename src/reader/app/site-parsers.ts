@@ -12,6 +12,8 @@ import {
 } from '../dom/index';
 import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfReaderPage } from './pages';
 import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
+import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
+import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
 
 export interface SiteParserProfile {
     id: string;
@@ -1358,6 +1360,19 @@ function addUniqueSiteScanTarget(
 function shouldRejectProfileScanTarget(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
     if (!isYouTubeSiteParserProfile(profile)) return false;
     return targetSpansMultipleYouTubeWatchMetadataTextHosts(target);
+}
+
+// A review-card FRONT (question side) must stay a plain prompt: furigana or a
+// pitch/status underline there spoils the reading the learner must recall. This
+// predicate is registered with the decoration policy (setReviewCardFrontPredicate)
+// so classifyDecoration returns 'skip' for it — the one choke point every scan
+// pass honours (profile scan, residual-visible pass, and shadow rounds all drop
+// a 'skip' node). Rejecting only the profile target was not enough: the residual
+// pass re-collected the "uncovered" headword and annotated it anyway. It stays
+// plain on the front and re-annotates on reveal, matching the hosted study page.
+export function isReviewCardFrontPromptElement(element: Element): boolean {
+    if (!(element instanceof HTMLElement)) return false;
+    return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
 }
 
 // Sub-count and subscribe rows re-render constantly — the flicker that once

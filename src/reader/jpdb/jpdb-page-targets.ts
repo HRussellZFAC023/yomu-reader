@@ -65,6 +65,21 @@ function hasReviewAnswerContent(): boolean {
     return Boolean(document.querySelector('.review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings'));
 }
 
+// The review front (before reveal) shows the prompt the learner must recall;
+// furigana or a pitch/status underline there spoils it. Flag the prompt element
+// while no answer content is present so the scan drops it (plain prompt). Once
+// the answer is revealed this returns false and the word annotates normally.
+export function isJpdbReviewFrontPrompt(element: HTMLElement): boolean {
+    if (!isJpdbHost() || !isReviewPage()) return false;
+    // Cheap containment gate before the document-wide answer-content query.
+    if (!element.closest('.review-card, .prompt, .spelling, .kanji, .vocabulary-spelling')) return false;
+    // Never suppress revealed answer content, even for a review type whose reveal
+    // marker hasReviewAnswerContent() might not recognise — an element sitting in
+    // an answer container is the back, never the prompt.
+    if (element.closest('.answer-box, .subsection-meanings, .result, .review-reveal')) return false;
+    return !hasReviewAnswerContent();
+}
+
 function currentReviewCardState(): JpdbReviewCardState {
     if (!isReviewPage()) return { kind: '', kanji: '', isKanji: false, phase: 'none' };
     const response = new URLSearchParams(location.search).get('r');

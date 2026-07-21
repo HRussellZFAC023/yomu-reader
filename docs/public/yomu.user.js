@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.268
+// @version 1.6.269
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.c059e2ad754d.user.js#sha256=wFnirXVNTSUB3mjC0uDNK6XsWJftmz74GCN8C4I6y84=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f0de21db490e.user.js#sha256=8N4h20kOrOH5uvmZtjP56QJmtkJ+yNFVeh4ry71zCfg=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.109bc640dfb9.user.js#sha256=EJvGQN+5hY4fKz/teAlaw67WVpq6fXPsdRQPaxmXhvk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.8bd4f3cdce36.user.js#sha256=i9Tzzc42JYgzsvUS9D9yocTO/A7ziMfD7gtByJ4C3u0=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.63b3dea958f5.user.js#sha256=Y7PeqVj1ibkpG+lg2ezXvplRhJyiXOwPDtVJ2G828lU=
 // @require https://yomureader.com/greasyfork/yomu-video.7f54e407f4aa.user.js#sha256=f1TkB/SqJa5kZbaMPW+BEq3cbfZhhfksFyUWFsqqPNs=
 // @resource yomuCss  https://yomureader.com/yomu.ca9baff67630.css#sha256=ypuv9nYwqEK5BLTFdMZAFPCI5nMt1Ag5Vx0xYWtZbak=
@@ -1556,9 +1556,14 @@ function mediaElementIsThumbnailSized(media) {
   if (rect.width <= 0 && rect.height <= 0) return true;
   return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
+let reviewCardFrontPredicate = null;
+function setReviewCardFrontPredicate(predicate) {
+  reviewCardFrontPredicate = predicate;
+}
 function classifyDecoration(element) {
   if (element.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
   if (isEditableComposingContext(element)) return "skip";
+  if (reviewCardFrontPredicate?.(element)) return "skip";
   const control = interactivePassiveControl(element);
   if (control) {
   if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return "interactive-passive";
@@ -21687,6 +21692,12 @@ function isKanjiReviewBack() {
 function hasReviewAnswerContent() {
   return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
 }
+function isJpdbReviewFrontPrompt(element) {
+  if (!isJpdbHost() || !isReviewPage()) return false;
+  if (!element.closest(".review-card, .prompt, .spelling, .kanji, .vocabulary-spelling")) return false;
+  if (element.closest(".answer-box, .subsection-meanings, .result, .review-reveal")) return false;
+  return !hasReviewAnswerContent();
+}
 function currentReviewCardState() {
   if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
   const response = new URLSearchParams(location.search).get("r");
@@ -22153,6 +22164,16 @@ function jitenStudyCardAnchor() {
 function jitenStudyAnswerHidden() {
   return Array.from(document.querySelectorAll("button")).some((button) => /show answer/i.test(button.textContent ?? ""));
 }
+function isJitenStudyFrontPrompt(element) {
+  if (!isJitenHost() || !isJitenStudyPage()) return false;
+  if (!element.closest(".relative.touch-pan-y")) return false;
+  return jitenStudyAnswerHidden();
+}
+function currentJitenStudyHeadwordText() {
+  if (!isJitenHost() || !isJitenStudyPage()) return "";
+  const element = document.querySelector(HEADWORD_SELECTOR);
+  return element ? cleanText(extractBaseText(element)) : "";
+}
 function currentJitenLocalDictionaryTargets() {
   if (isJitenKanjiPage()) {
   const kanji = extractCurrentJitenKanji();
@@ -22203,6 +22224,1681 @@ function jitenKanjiAnchor() {
 }
 function ownedElement(element) {
   return element && !element.closest(READER_OWNED_SELECTOR) ? element : null;
+}
+const STRUCTURAL_EXCLUDE_ENTRIES = [
+  "[data-jpdb-reader-root]",
+  ".jpdb-reader-text-mirror",
+  ".jpdb-reader-word",
+  "script",
+  "style",
+  "noscript",
+  "input",
+  "select",
+  "textarea",
+  "option",
+  "svg",
+  "use",
+  "canvas",
+  "rt",
+  "rp",
+  "[hidden]",
+  '[aria-hidden="true"]',
+  '[contenteditable="true"]',
+  "details:not([open]) > :not(summary)",
+  "details:not([open]) > :not(summary) *"
+];
+const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
+const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
+const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
+const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = "residual-visible-japanese-parser";
+const PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD = 40;
+const PROFILE_PHASE_GENERIC_RESERVE_RATIO = 0.3;
+const PROFILE_PHASE_GENERIC_RESERVE_MAX = 64;
+const GENERIC_UI_CHROME_TARGET_MAX = 48;
+const MOKURO_SCAN_ROOT_LIMIT = 160;
+const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
+const GENERIC_PROSE_ROOTS = [
+  "main h1",
+  '[role="main"] h1',
+  "article",
+  "main article",
+  '[role="main"] article',
+  '[role="article"]',
+  ".markdown",
+  ".markdown-body",
+  ".markdown-content",
+  ".message",
+  ".message-body",
+  ".message-content",
+  ".messageContent",
+  ".chat-message",
+  ".conversation-turn",
+  ".model-response",
+  ".model-response-text",
+  ".response-content",
+  "[data-message-author-role]",
+  "[data-message-id]",
+  '[data-testid*="conversation-turn" i]',
+  '[data-testid*="chat-message" i]',
+  '[data-testid*="message-content" i]',
+  '[data-testid*="message-bubble" i]',
+  '[data-test-id*="chat-message" i]',
+  '[data-test-id*="message-content" i]',
+  ".article",
+  ".post",
+  ".entry",
+  ".story",
+  ".prose",
+  ".content",
+  ".article-body",
+  ".article-content",
+  ".entry-content",
+  ".post-content",
+  ".story-body",
+  '[itemprop="articleBody"]'
+].join(",");
+const GENERIC_PROSE_EXCLUDE = [
+  COMMON_EXCLUDE,
+  "nav",
+  "header",
+  "footer",
+  "aside",
+  "button",
+  'a[role="button"]',
+  '[role="complementary"]',
+  "[title]",
+  '[class*="audio" i]',
+  '[class*="aside" i]',
+  '[class*="banner" i]',
+  '[class*="breadcrumb" i]',
+  '[class*="btn" i]',
+  '[class*="button" i]',
+  '[class*="card" i]',
+  '[class*="comment" i]',
+  '[class*="footer" i]',
+  '[class*="header" i]',
+  '[class*="menu" i]',
+  '[class*="meta" i]',
+  '[class*="nav" i]',
+  '[class*="new-article" i]',
+  '[class*="pager" i]',
+  '[class*="popular" i]',
+  '[class*="promo" i]',
+  '[class*="rank" i]',
+  '[class*="recommend" i]',
+  '[class*="related" i]',
+  '[class*="share" i]',
+  '[class*="sidebar" i]',
+  '[class*="sound" i]',
+  '[class*="speaker" i]',
+  '[class*="teaser" i]',
+  '[class*="voice" i]',
+  '[aria-label*="聞"]',
+  '[aria-label*="音声"]',
+  "time"
+].join(",");
+const SAFE_UI_CHROME_SCOPE_SELECTORS = [
+  "nav",
+  '[role="navigation"]',
+  "header",
+  "aside",
+  '[role="complementary"]',
+  '[role="tablist"]',
+  '[class*="appearance" i]',
+  '[id*="appearance" i]',
+  '[class*="menu" i]',
+  '[id*="menu" i]',
+  '[class*="pinnable" i]',
+  '[id*="pinnable" i]',
+  '[class*="prefs" i]',
+  '[id*="prefs" i]',
+  '[class*="sidebar" i]',
+  '[id*="sidebar" i]',
+  '[class*="tabs" i]',
+  '[id*="tabs" i]',
+  '[class*="toc" i]',
+  '[id*="toc" i]',
+  '[class*="toolbar" i]',
+  '[id*="toolbar" i]'
+];
+const SAFE_UI_CHROME_CONTROL_SELECTORS = [
+  "a[href]",
+  "button",
+  "label",
+  "summary",
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="tab"]'
+];
+const SAFE_UI_CHROME_PEER_TEXT_SELECTORS = [
+  '[role="heading"]',
+  '[class*="label" i]'
+];
+const PASSIVE_INTERACTION_ROOTS = [
+  ...SAFE_UI_CHROME_CONTROL_SELECTORS,
+  "[aria-controls]",
+  "[aria-expanded]",
+  '[slot="more-button"]',
+  ".more-button",
+  "#more",
+  "#less",
+  "[onclick]",
+  '[tabindex]:not([tabindex="-1"])',
+  '[class*="audio" i]',
+  '[class*="button" i]',
+  '[class*="control" i]',
+  '[class*="play" i]',
+  '[class*="sound" i]',
+  '[class*="speaker" i]',
+  '[class*="toggle" i]'
+].join(",");
+const SCOPED_SAFE_UI_CHROME_ROOTS = [
+  ...SAFE_UI_CHROME_SCOPE_SELECTORS,
+  ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS].map((control) => `${scope} ${control}`))
+];
+const SAFE_UI_CHROME_ROOTS = [
+  ...SCOPED_SAFE_UI_CHROME_ROOTS,
+  "nav a[href]",
+  '[role="navigation"] a[href]',
+  '[class*="breadcrumb" i] a[href]',
+  "header a[href]",
+  "aside a[href]",
+  "main a[href]",
+  '[role="main"] a[href]',
+  "article a[href]",
+  "button",
+  "summary",
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  "time",
+  "[datetime]"
+].join(",");
+const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
+const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]'
+].join(",");
+const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
+  ".ytp-caption-window-container",
+  ".caption-window",
+  ".captions-text"
+];
+const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
+  ...STRUCTURAL_EXCLUDE_ENTRIES,
+  ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+  "[disabled]",
+  '[aria-disabled="true"]'
+];
+const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(",");
+const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.filter((entry) => entry !== '[class*="control" i]').join(",");
+const SAFE_FORM_CHROME_ROOTS = SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [
+  `${scope} form`,
+  `${scope} label`
+]).join(",");
+const SAFE_FORM_CHROME_EXCLUDE = [
+  ...STRUCTURAL_EXCLUDE_ENTRIES,
+  "[disabled]",
+  '[aria-disabled="true"]'
+].join(",");
+const DICTIONARY_SITE_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ".pi",
+  ".p-button-icon"
+].join(",");
+const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
+const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
+const YOMU_HOSTED_DOCS_PARSER_ID = "yomu-hosted-docs-parser";
+const JPDB_PARSER_ID = "jpdb-parser";
+const YOMU_HOSTED_DOCS_ROOTS = [
+  "[data-yomu-runtime-surface]",
+  ".yomu-try-me-text"
+];
+const YOMU_HOSTED_DOCS_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ".yomu-hosted-overflow-group"
+].join(",");
+const YOMU_VIDEO_PLAYER_ROOTS = [
+  ".brand strong",
+  "[data-yomu-video-frame] .empty strong",
+  "[data-yomu-video-frame] .empty [data-status]",
+  ".file-button",
+  "[data-subtitle-open]",
+  "[data-settings-trigger]",
+  "[data-overflow-menu]"
+];
+const YOMU_PDF_READER_ROOTS = [
+  ".textLayer",
+  ".brand strong",
+  "[data-yomu-pdf-empty] strong",
+  "[data-yomu-pdf-empty] [data-status]",
+  ".file-button",
+  "[data-settings-trigger]",
+  "[data-overflow-menu]"
+];
+const YOMU_PDF_READER_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ".textLayer .endOfContent",
+  '.textLayer span[role="img"]'
+].join(",");
+const YOUTUBE_TEXT_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
+].join(",");
+const YOUTUBE_STABLE_TEXT_HOST_SELECTOR = [
+  "yt-formatted-string",
+  "yt-attributed-string",
+  ".ytAttributedStringHost",
+  ".yt-core-attributed-string",
+  ".yt-core-attributed-string--white-space-pre-wrap"
+].join(",");
+const YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR = [
+  "ytd-watch-metadata #owner-sub-count",
+  "ytd-watch-metadata #owner #subscribe-button",
+  "ytd-watch-metadata #owner button",
+  "ytd-watch-metadata ytd-video-description-transcript-section-renderer",
+  "ytd-watch-metadata ytd-video-description-infocards-section-renderer",
+  "ytd-watch-metadata ytd-video-description-music-section-renderer",
+  "ytd-watch-metadata ytd-video-description-course-section-renderer",
+  "ytd-watch-metadata #description ytd-channel-name",
+  "ytd-watch-metadata #description #owner-sub-count"
+].join(",");
+const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
+  "button",
+  '[role="button"]',
+  "[aria-controls]",
+  "[aria-expanded]",
+  '[slot*="button" i]',
+  '[class*="button" i]'
+];
+const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
+  "ytd-comment-view-model #content-text",
+  "ytm-comment-renderer #content-text",
+  "ytm-comment-thread-renderer",
+  "ytm-comment-renderer",
+  "ytm-comment-replies-renderer",
+  ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`),
+  ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytm-comment-renderer ${selector}`)
+].join(",");
+const YOUTUBE_COMMENT_HEADER_ROOTS = [
+  "ytd-comments-header-renderer #title",
+  "ytd-comments-header-renderer #count",
+  "ytd-comments-header-renderer .count-text",
+  "ytm-comments-header-renderer",
+  "ytm-comment-section-header-renderer",
+  "ytm-comments-entry-point-header-renderer"
+].join(",");
+const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
+  "ytd-watch-info-text"
+].join(",");
+const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
+  "#view-count[aria-label]",
+  "#date-text[aria-label]"
+].join(",");
+const YOUTUBE_LIVE_CHAT_TEXT_ROOTS = [
+  "yt-live-chat-text-message-renderer #author-name",
+  "yt-live-chat-text-message-renderer #message",
+  "yt-live-chat-paid-message-renderer #author-name",
+  "yt-live-chat-paid-message-renderer #message",
+  "yt-live-chat-membership-item-renderer #author-name",
+  "yt-live-chat-membership-item-renderer #message",
+  "yt-live-chat-header-renderer #title",
+  "yt-live-chat-header-renderer #primary-content",
+  "yt-live-chat-viewer-engagement-message-renderer #content",
+  "yt-live-chat-viewer-engagement-message-renderer #message",
+  "yt-live-chat-viewer-engagement-message-renderer yt-formatted-string",
+  "yt-live-chat-viewer-engagement-message-renderer a[href]",
+  "yt-live-chat-viewer-engagement-message-renderer button",
+  'yt-live-chat-viewer-engagement-message-renderer [role="button"]',
+  "yt-live-chat-banner-renderer #message",
+  "yt-live-chat-banner-renderer #header",
+  "yt-live-chat-banner-renderer yt-formatted-string",
+  "yt-live-chat-banner-renderer a[href]",
+  "yt-live-chat-banner-renderer button",
+  'yt-live-chat-banner-renderer [role="button"]',
+  "yt-live-chat-restricted-participation-renderer #message",
+  "yt-live-chat-restricted-participation-renderer #subtext",
+  "yt-live-chat-restricted-participation-renderer yt-formatted-string",
+  "yt-live-chat-restricted-participation-renderer a[href]",
+  "yt-live-chat-restricted-participation-renderer button",
+  'yt-live-chat-restricted-participation-renderer [role="button"]',
+  "yt-live-chat-ticker-renderer #text",
+  "yt-live-chat-ticker-renderer #content",
+  "yt-live-chat-ticker-renderer yt-formatted-string",
+  "yt-live-chat-ticker-renderer a[href]",
+  "yt-live-chat-ticker-renderer button",
+  'yt-live-chat-ticker-renderer [role="button"]'
+];
+const GOOGLE_SEARCH_ROOTS = [
+  "#botstuff",
+  "#bres",
+  "[data-attrid]",
+  "[data-sokoban-container]",
+  ".MjjYud",
+  ".g",
+  ".VwiC3b",
+  ".LC20lb",
+  "#search",
+  "#rso",
+  "#main",
+  "#rcnt",
+  '[role="main"]'
+];
+const GOOGLE_SEARCH_EXCLUDE = [
+  COMMON_EXCLUDE,
+  "g-img",
+  "img"
+].join(",");
+const BLOOMEE_LANDING_HOSTS = new Set(["bloomeelife.com", "www.bloomeelife.com"]);
+const BLOOMEE_LANDING_PARSER_ID = "bloomee-landing-parser";
+const BLOOMEE_LANDING_ROOTS = [
+  ".point__itembox-headline",
+  ".point__itembox-txt",
+  ".cv-step__ttlbox-title",
+  ".cv-step__catch",
+  ".cv-step__itembox-title",
+  ".life-lp-faq h2",
+  ".life-lp-faq dt h3",
+  ".lp-gift__headline",
+  ".lp-gift__txt",
+  ".ctaarea p"
+].join(",");
+const BOOKWALKER_STOREFRONT_HOSTS = new Set(["bookwalker.jp", "www.bookwalker.jp"]);
+const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader";
+const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront";
+const BOOKWALKER_TEXT_METADATA_ROOTS = [
+  "#bookTitle",
+  "#book-title",
+  "#book_title",
+  "#bookDescription",
+  "[data-book-title]",
+  "[data-book-description]",
+  '[id*="bookTitle"]',
+  '[id*="book-title"]',
+  '[class*="bookTitle"]',
+  '[class*="book-title"]',
+  ".book-title",
+  ".book-description",
+  ".t-o-heading-book-title",
+  ".t-o-heading-book-title__link",
+  ".t-c-tile-card__title",
+  ".t-c-tile-card__catch",
+  ".m-bookDetailTitle",
+  ".m-bookDetailLead",
+  ".m-bookDetailDescription"
+];
+const BOOKWALKER_READER_SETTINGS_SELECTOR = '.settings-popover,[class*="setting" i],[id*="setting" i],[aria-label*="設定"],[role="dialog"],[role="menu"]';
+const MIGAKU_MARKETING_HOSTS = new Set(["migaku.com", "www.migaku.com"]);
+const MIGAKU_MARKETING_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ".WelcomeText__title",
+  ".migaku-surface"
+].join(",");
+const YOMUYOMU_HOSTS = new Set(["yomuyomu.app", "www.yomuyomu.app"]);
+const YOMUYOMU_READER_ROOTS = [
+  '#du-reading-screen canvas[lang*="ja" i]',
+  '#du-lesson-container .lesson-canvas-container canvas[lang*="ja" i]',
+  '.lesson-content canvas[lang*="ja" i]'
+].join(",");
+const SITE_PARSER_PROFILES = [
+  {
+  id: YOMU_HOSTED_DOCS_PARSER_ID,
+  roots: YOMU_HOSTED_DOCS_ROOTS,
+  exclude: YOMU_HOSTED_DOCS_EXCLUDE,
+  allowUiText: true,
+  heading: true,
+  minLength: 1,
+  disableGenericDomScan: true,
+  suppressResidualVisibleScan: true,
+  includePassiveInteractionRoots: false,
+  visibleOnly: false,
+  matches: (url) => isYomuHostedPassivePage(url.href)
+  },
+  {
+  id: "yomu-video-player-parser",
+  roots: YOMU_VIDEO_PLAYER_ROOTS,
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  heading: true,
+  minLength: 1,
+  includeUiChrome: true,
+  includeFormChrome: true,
+  matches: (url) => isYomuHostedVideoPlayerPage(url.href)
+  },
+  {
+  id: "yomu-pdf-reader-parser",
+  roots: YOMU_PDF_READER_ROOTS,
+  exclude: YOMU_PDF_READER_EXCLUDE,
+  allowUiText: true,
+  heading: true,
+  minLength: 1,
+  includeUiChrome: true,
+  includeFormChrome: true,
+  providesTextLayer: true,
+  matches: (url) => isYomuHostedPdfReaderPage(url.href)
+  },
+  {
+  id: "google-search-parser",
+  roots: GOOGLE_SEARCH_ROOTS,
+  exclude: GOOGLE_SEARCH_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  includeUiChrome: true,
+  includeGenericPageText: true,
+  plainScan: true,
+  matches: (url) => /(^|\.)google\./i.test(url.hostname) && url.pathname === "/search"
+  },
+  {
+  id: BLOOMEE_LANDING_PARSER_ID,
+  roots: [BLOOMEE_LANDING_ROOTS],
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  heading: true,
+  allowShortCenteredHeadings: true,
+  matches: (url) => isBloomeeLandingUrl(url)
+  },
+  {
+  id: BOOKWALKER_READER_PARSER_ID,
+  roots: [...BOOKWALKER_TEXT_METADATA_ROOTS, BOOKWALKER_READER_SETTINGS_SELECTOR],
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  disableGenericDomScan: true,
+  suppressResidualVisibleScan: true,
+  includePassiveInteractionRoots: true,
+  matches: (url) => isBookWalkerReaderUrl(url)
+  },
+  {
+  id: BOOKWALKER_STOREFRONT_PARSER_ID,
+  roots: BOOKWALKER_TEXT_METADATA_ROOTS,
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  disableGenericDomScan: true,
+  includePassiveInteractionRoots: false,
+  providesTextLayer: true,
+  matches: (url) => isBookWalkerStorefrontUrl(url)
+  },
+  {
+  id: "migaku-marketing-parser",
+  roots: ["main"],
+  exclude: MIGAKU_MARKETING_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  heading: true,
+  suppressResidualVisibleScan: true,
+  matches: (url) => MIGAKU_MARKETING_HOSTS.has(url.hostname.toLowerCase())
+  },
+  {
+  id: "yomuyomu-reader-parser",
+  roots: [YOMUYOMU_READER_ROOTS],
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  nonDestructive: true,
+  includeGenericPageText: true,
+  matches: (url) => YOMUYOMU_HOSTS.has(url.hostname.toLowerCase())
+  },
+  {
+  id: JPDB_PARSER_ID,
+  roots: [
+    ".subsection-spelling ruby.v",
+    ".result.vocabulary",
+    ".result.kanji",
+    ".results .result",
+    ".subsection-composed-of-kanji",
+    ".subsection-meanings",
+    ".subsection-usages",
+    ".subsection-examples",
+    ".subsection-pitch-accent",
+    ".review-card",
+    ".answer",
+    ".sentence"
+  ],
+  exclude: [
+    COMMON_EXCLUDE,
+    ".subsection-headword .subsection-spelling ruby.v",
+    ".subsection-spelling",
+    ".primary-spelling"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "jpdb.io" || url.hostname.endsWith(".jpdb.io")
+  },
+  {
+  id: "jisho-parser",
+  roots: [
+    ".concept_light-representation .text",
+    ".concept_light-readings .text",
+    ".japanese_sentence",
+    ".sentence_content",
+    ".kanji_light_content",
+    ".kanji-details__main-readings",
+    ".kanji-details__main-meanings"
+  ],
+  exclude: [
+    COMMON_EXCLUDE,
+    ".furigana",
+    ".concept_light-readings .furigana"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "jisho.org" || url.hostname.endsWith(".jisho.org")
+  },
+  {
+  id: "jiten-parser",
+  roots: [
+    '[lang="ja"]',
+    "blockquote",
+    ".p-card",
+    ".rounded-lg.overflow-hidden",
+    "main",
+    "article"
+  ],
+  exclude: DICTIONARY_SITE_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "jiten.moe" || url.hostname.endsWith(".jiten.moe")
+  },
+  {
+  id: "weblio-parser",
+  roots: ["#main", "#mainContents", ".mainBlock", ".NetDicBody", ".kiji", "main", "article"],
+  exclude: DICTIONARY_SITE_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "weblio.jp" || url.hostname.endsWith(".weblio.jp")
+  },
+  {
+  id: "kotobank-parser",
+  roots: ["main", "article", ".description", ".ex.cf", ".dictype", ".articleBody"],
+  exclude: DICTIONARY_SITE_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "kotobank.jp" || url.hostname.endsWith(".kotobank.jp")
+  },
+  {
+  id: "takoboto-parser",
+  roots: ["#SearchResultList", "#results", "#main", ".result", ".entry", "main", "article"],
+  exclude: DICTIONARY_SITE_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  fallbackToWholePage: true,
+  matches: (url) => url.hostname === "takoboto.jp" || url.hostname.endsWith(".takoboto.jp")
+  },
+  {
+  id: "wiktionary-ja-parser",
+  roots: ["#firstHeading", "#mw-content-text .mw-parser-output"],
+  exclude: [
+    DICTIONARY_SITE_EXCLUDE,
+    ".thumb"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  heading: true,
+  matches: (url) => url.hostname === "ja.wiktionary.org" || url.hostname === "ja.m.wiktionary.org"
+  },
+  {
+  id: "luna-translator-parser",
+  roots: [".lunatranslator_clickword", ".lunatranslator_text_all", ".origin"],
+  matches: (url) => url.protocol === "file:" && /LunaTranslator.*(?:mainui|transhist)\.html/i.test(decodeURIComponent(url.pathname))
+  },
+  {
+  id: "texthooker-parser",
+  roots: ["#textlog", "main", ".textline", ".line_box", ".my-2.cursor-pointer", "p"],
+  matches: (url) => /^(anacreondjt\.gitlab\.io|learnjapanese\.moe)$/.test(url.hostname) || url.hostname === "renji-xd.github.io" || /\/texthooker\/?$/.test(url.pathname)
+  },
+  {
+  id: "exstatic-parser",
+  roots: [".sentence-entry", "#entry_holder"],
+  matches: (url) => url.hostname === "kamwithk.github.io" && url.pathname.endsWith("/exSTATic/tracker.html")
+  },
+  {
+  id: "readwok-parser",
+  roots: ['div[class*="styles_paragraph_"]', 'div[class*="styles_reader_"]'],
+  matches: (url) => url.hostname === "app.readwok.com"
+  },
+  {
+  id: "ttsu-parser",
+  roots: ["div.book-content", "div.book-content-container", "#book-content"],
+  matches: (url) => url.hostname === "reader.ttsu.app"
+  },
+  {
+  id: "tadoku-parser",
+  roots: [
+    ".bd-title h1",
+    ".bd-desc-jp",
+    ".bd-author",
+    ".book-viewer",
+    ".book-reader",
+    ".tadoku-book",
+    "main article"
+  ],
+  exclude: [
+    COMMON_EXCLUDE,
+    ".bd-desc-en"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  heading: true,
+  fallbackToWholePage: true,
+  matches: (url) => url.hostname === "tadoku.org" || url.hostname.endsWith(".tadoku.org")
+  },
+  {
+  id: "youtube-live-chat-frame-parser",
+  roots: [
+    ...YOUTUBE_LIVE_CHAT_TEXT_ROOTS,
+    "main",
+    '[role="main"]'
+  ],
+  exclude: COMMON_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  includeUiChrome: true,
+  singlePassScan: true,
+  nonDestructive: true,
+  disableGenericDomScan: true,
+  suppressResidualVisibleScan: true,
+  includePassiveInteractionRoots: false,
+  scanLimit: 80,
+  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
+  },
+  {
+  id: "youtube-comments-parser",
+  roots: [
+    "ytd-watch-metadata h1",
+    "ytd-watch-metadata #title",
+    "ytd-watch-metadata #owner ytd-channel-name yt-formatted-string",
+    "ytd-watch-metadata #owner ytd-channel-name .ytAttributedStringHost",
+    "ytd-watch-metadata #owner ytd-channel-name",
+    "ytd-watch-metadata #owner-sub-count",
+    "ytd-watch-metadata #owner #subscribe-button",
+    "ytd-watch-info-text",
+    "ytd-watch-metadata #info-strings",
+    "ytd-watch-metadata #metadata-line",
+    "ytd-watch-metadata #teaser-carousel",
+    "ytd-watch-metadata yt-video-metadata-carousel-view-model",
+    "ytd-watch-metadata yt-carousel-title-view-model",
+    "ytd-watch-metadata yt-text-carousel-item-view-model",
+    "ytd-watch-metadata .ytAttributedStringHost",
+    "ytd-watch-metadata #description-inline-expander",
+    "ytd-watch-metadata #description yt-attributed-string#attributed-snippet-text",
+    "ytd-watch-metadata #description yt-attributed-string#attributed-description-text",
+    "ytd-watch-metadata #description .yt-core-attributed-string:not(#owner-sub-count)",
+    "ytd-watch-metadata #description-text",
+    "ytd-watch-metadata ytd-text-inline-expander",
+    "ytd-watch-metadata #attributed-snippet-text",
+    "ytd-watch-metadata #attributed-description-text",
+    "ytd-watch-metadata yt-attributed-string#attributed-description-text",
+    "ytd-channel-renderer",
+    "ytd-search-sub-menu-renderer",
+    "ytd-shelf-renderer #show-more-button",
+    "ytd-shelf-renderer #expand",
+    "ytd-shelf-renderer yt-button-renderer",
+    "ytd-mini-guide-entry-renderer",
+    "ytm-slim-video-metadata-section-renderer",
+    "ytm-slim-owner-renderer",
+    "ytm-expandable-video-description-body-renderer",
+    "ytm-structured-description-content-renderer",
+    YOUTUBE_COMMENT_HEADER_ROOTS,
+    "ytd-transcript-segment-renderer",
+    "ytm-transcript-segment-renderer",
+    ".ytp-ce-element .ytp-ce-video-title",
+    ".ytp-ce-element .ytp-ce-playlist-title",
+    ".ytp-pause-overlay .ytp-videowall-still-info-title",
+    ".ytp-cards-teaser-text",
+    YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
+    "ytd-watch-next-secondary-results-renderer #video-title",
+    "#secondary ytd-compact-video-renderer #video-title",
+    "#secondary ytd-compact-video-renderer",
+    "ytd-compact-video-renderer #video-title",
+    "ytd-compact-video-renderer",
+    ...YOUTUBE_LIVE_CHAT_TEXT_ROOTS,
+    "ytd-live-chat-frame #show-hide-button",
+    "ytd-live-chat-frame #header",
+    "ytd-live-chat-frame #content",
+    "ytd-live-chat-frame #message",
+    "ytd-live-chat-frame #subtext",
+    "ytd-live-chat-frame .yt-core-attributed-string",
+    "ytd-live-chat-frame .yt-core-attributed-string--white-space-pre-wrap",
+    "ytd-live-chat-frame yt-formatted-string",
+    "ytd-live-chat-frame button",
+    'ytd-live-chat-frame [role="button"]',
+    "ytd-watch-next-secondary-results-renderer",
+    "ytd-rich-grid-renderer",
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "yt-lockup-view-model",
+    "yt-page-header-view-model",
+    "ytd-c4-tabbed-header-renderer",
+    "grid-shelf-view-model",
+    "ytd-shelf-renderer",
+    "ytd-reel-shelf-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-playlist-panel-video-renderer",
+    "ytd-playlist-video-renderer",
+    "ytd-playlist-header-renderer",
+    "ytd-channel-renderer",
+    "ytd-grid-channel-renderer",
+    "ytm-playlist-panel-video-renderer",
+    "ytm-playlist-video-renderer",
+    "ytm-channel-list-item-renderer",
+    "ytm-compact-channel-renderer",
+    "ytm-rich-grid-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model",
+    "ytm-shorts-lockup-view-model-v2",
+    "ytm-item-section-renderer"
+  ],
+  exclude: YOUTUBE_TEXT_EXCLUDE,
+  allowUiText: true,
+  visibleOnly: true,
+  includeUiChrome: true,
+  nonDestructive: true,
+  includePassiveInteractionRoots: true,
+  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+  },
+  {
+  id: "cijapanese-transcript-parser",
+  roots: [
+    ".transcript",
+    '[data-tab-type="transcript"]'
+  ],
+  exclude: [
+    COMMON_EXCLUDE,
+    "svg"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname === "cijapanese.com" || url.hostname.endsWith(".cijapanese.com")
+  },
+  {
+  id: "mokuro-parser",
+  roots: [".textBox", "#manga-panel .textBox", "#pagesContainer .textBox", ".volume-card__title"],
+  allowUiText: true,
+  minLength: 1,
+  mergeBlockFragments: true,
+  visibleOnly: false,
+  scanLimit: 80,
+  disableGenericDomScan: true,
+  includePassiveInteractionRoots: false,
+  providesTextLayer: true,
+  matches: (url) => url.hostname === "reader.mokuro.app" || url.hostname === "mokuro.moe" || url.hostname.endsWith(".mokuro.moe") || url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
+  },
+  {
+  id: "wikipedia-parser",
+  roots: ["#firstHeading", "#mw-content-text", ".mwe-popups-extract"],
+  exclude: [
+    COMMON_EXCLUDE
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  heading: true,
+  matches: (url) => url.hostname === "ja.wikipedia.org" || url.hostname === "ja.m.wikipedia.org"
+  },
+  {
+  id: "satori-reader-parser",
+  roots: ["#article-content"],
+  exclude: [COMMON_EXCLUDE, ".fg", ".wpr"].join(","),
+  allowUiText: true,
+  minLength: 1,
+  matches: (url) => url.hostname.endsWith(".satorireader.com") && url.pathname.includes("/articles/")
+  },
+  {
+  id: "nhk-parser",
+  roots: [
+    "body"
+  ],
+  exclude: [
+    COMMON_EXCLUDE,
+    "#loading"
+  ].join(","),
+  allowUiText: true,
+  minLength: 1,
+  includeUiChrome: true,
+  fallbackToWholePage: true,
+  matches: (url) => url.hostname === "news.web.nhk" && /\/news\/easy\//.test(url.pathname) || url.protocol === "file:" && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)) || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
+  },
+  {
+  id: "nhk-news-parser",
+  roots: [
+    "#main article",
+    "#main",
+    '[data-testid*="article"]'
+  ],
+  exclude: [
+    COMMON_EXCLUDE
+  ].join(","),
+  fallbackToWholePage: true,
+  matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && /\/news\/html\//.test(url.pathname)
+  },
+  {
+  id: "bunpro-parser",
+  roots: ["article", "div.mx-auto", '[id^="study-question-"]'],
+  matches: (url) => url.hostname === "bunpro.jp" || url.hostname.endsWith(".bunpro.jp")
+  },
+  {
+  id: "asbplayer-parser",
+  roots: [".asbplayer-offscreen", ".asbplayer-subtitles-container-bottom"],
+  matches: () => Boolean(document.querySelector(ASBPLAYER_ROOT_SELECTOR))
+  }
+];
+function getMatchingSiteParsers(href = window.location.href) {
+  const url = new URL(href, window.location.href);
+  return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
+}
+function isBookWalkerReaderPage(href = location.href) {
+  return isBookWalkerReaderUrl(new URL(href, window.location.href));
+}
+function isBloomeeLandingUrl(url) {
+  return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase()) && (url.pathname === "/" || url.pathname === "") && Boolean(document.querySelector(".life-top-page-wrap,.home-index,.point__itembox-headline,.cv-step,.ctaarea"));
+}
+function isBookWalkerStorefrontUrl(url) {
+  return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase()) && !isBookWalkerReaderUrl(url);
+}
+function isBookWalkerReaderUrl(url) {
+  const hostname = url.hostname.toLowerCase();
+  if (!/^(?:[^.]+\.)*bookwalker\.jp$/iu.test(hostname)) return false;
+  if (hostname !== "bookwalker.jp" && hostname !== "www.bookwalker.jp") return true;
+  return Boolean(document.querySelector('canvas, #pageSliderCounter, #viewer, #renderer, #bookContainer, [id^="viewport"]'));
+}
+function mokuroDisplayOcrEnabled() {
+  try {
+  if (typeof localStorage === "undefined") return true;
+  const raw = localStorage.getItem("profiles");
+  if (!raw) return true;
+  const profiles = JSON.parse(raw);
+  const currentRaw = localStorage.getItem("currentProfile") ?? "";
+  let current = currentRaw;
+  try {
+    current = JSON.parse(currentRaw);
+  } catch {
+  }
+  const profile = profiles[current] ?? profiles[currentRaw] ?? Object.values(profiles)[0];
+  return profile?.displayOCR !== false;
+  } catch {
+  return true;
+  }
+}
+function effectiveSiteScanCollectionLimit(limit, href = window.location.href) {
+  const profiles = getMatchingSiteParsers(href);
+  return profiles.length ? effectiveScanTargetLimit(profiles, limit) : limit;
+}
+function collectSiteScanTargets(limit = 40, href = window.location.href, options = {}) {
+  return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
+}
+function* siteScanTargetSteps(limit, href, options) {
+  const profiles = getMatchingSiteParsers(href);
+  if (!profiles.length) return null;
+  const context = createSiteScanContext(profiles, limit, options);
+  for (const profile of profiles) yield* profileScanTargetSteps(profile, context);
+  return siteScanResult(profiles, context.targets);
+}
+function drainCollectionSteps(steps) {
+  for (; ; ) {
+  const next = steps.next();
+  if (next.done) return next.value;
+  }
+}
+function createSiteScanContext(profiles, limit, options = {}) {
+  return {
+  effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipTargetCount ?? 0),
+  targets: [],
+  seen: new Set(),
+  skipMirroredHosts: Boolean(options.skipMirroredHosts),
+  mirroredHeadTargetCount: Math.max(0, options.mirroredHeadTargetCount ?? 0),
+  rootQueryCache: new Map()
+  };
+}
+function* profileScanTargetSteps(profile, context) {
+  if (profile.id === "youtube-comments-parser") collectYouTubeSyntheticTextTargets(profile, context);
+  for (const root of queryParserRoots(profile, context.rootQueryCache)) {
+  if (!siteScanHasRoom(context)) break;
+  collectRootScanTargets(profile, root, context);
+  yield;
+  }
+  if (profile.includePassiveInteractionRoots !== false) {
+  yield* profilePassiveInteractionTargetSteps(profile, context);
+  }
+}
+function collectYouTubeSyntheticTextTargets(profile, context) {
+  const roots = uniqueVisibleRoots(Array.from(document.querySelectorAll(YOUTUBE_SYNTHETIC_TEXT_ROOTS)));
+  for (const root of roots) {
+  if (!siteScanHasRoom(context)) break;
+  if (context.targets.some((target) => target.parent === root)) continue;
+  const text = syntheticYouTubeElementText(root);
+  if (!text || !HAS_JAPANESE.test(text)) continue;
+  context.targets.push(siteScanTargetWithProfileOptions(profile, {
+    text,
+    parent: root,
+    fragments: [],
+    layoutSensitive: true
+  }));
+  }
+}
+function syntheticYouTubeElementText(root) {
+  if (root.matches("ytd-watch-info-text")) return syntheticYouTubeWatchInfoText(root);
+  for (const text of [
+  root.getAttribute("aria-label"),
+  root.getAttribute("title"),
+  root.innerText,
+  root.textContent
+  ]) {
+  const normalized = text?.replace(/\s+/g, " ").trim();
+  if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
+  }
+  return "";
+}
+function syntheticYouTubeWatchInfoText(root) {
+  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text2) => Boolean(text2));
+  const text = parts.join(" • ");
+  if (HAS_JAPANESE.test(text)) return text;
+  for (const attribute of ["aria-label", "title"]) {
+  const fallback = normalizedAttributeText(root, attribute);
+  if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
+  }
+  return "";
+}
+function normalizedAttributeText(element, attribute) {
+  return element.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
+}
+function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
+  if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
+  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context) + (context.skipMirroredHosts ? context.mirroredHeadTargetCount + 24 : 0), profile.visibleOnly ?? true, excludeSelector, {
+  allowUiText: true,
+  minLength: profile.minLength,
+  includeUiChrome: true,
+  includeFormChrome: true,
+  includeTabChrome: true,
+  includePlayerChrome: isYouTubeSiteParserProfile(profile),
+  includePassiveInteractions: true,
+  mergeBlockFragments: profile.mergeBlockFragments,
+  heading: profile.heading,
+  allowShortCenteredHeadings: profile.allowShortCenteredHeadings
+  });
+  for (const target of collected) {
+  if (context.skipMirroredHosts && profile.nonDestructive && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  if (!addUniqueSiteScanTarget(profile, target, context)) continue;
+  if (!siteScanHasRoom(context)) break;
+  }
+}
+function collectCanvasFallbackTextTarget(profile, canvas, context) {
+  const text = canvasFallbackText(canvas);
+  if (!text || !HAS_JAPANESE.test(text)) return false;
+  context.targets.push(siteScanTargetWithProfileOptions(profile, {
+  text,
+  parent: canvas,
+  fragments: [],
+  layoutSensitive: true,
+  nonDestructive: true
+  }));
+  return true;
+}
+function canvasFallbackText(canvas) {
+  return (canvas.textContent ?? "").replace(/\r\n?/gu, "\n").trim();
+}
+function* profilePassiveInteractionTargetSteps(profile, context) {
+  if (!siteScanHasRoom(context)) return;
+  for (const root of queryProfilePassiveInteractionRoots(profile)) {
+  if (!siteScanHasRoom(context)) break;
+  collectRootScanTargets(profile, root, context, siteScanPassiveInteractionExcludeSelector(profile));
+  yield;
+  }
+}
+function queryProfilePassiveInteractionRoots(profile) {
+  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(PASSIVE_INTERACTION_ROOTS).filter((root) => isUsefulProfilePassiveInteractionRoot(profile, root)));
+}
+function isUsefulProfilePassiveInteractionRoot(profile, root) {
+  const exclude = siteScanPassiveInteractionExcludeSelector(profile);
+  return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
+}
+function siteScanExcludeSelector(profile) {
+  return profile.exclude ?? COMMON_EXCLUDE;
+}
+function siteScanPassiveInteractionExcludeSelector(profile) {
+  return siteScanExcludeSelector(profile);
+}
+function addUniqueSiteScanTarget(profile, target, context) {
+  return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
+  reject: (candidate) => shouldRejectProfileScanTarget(profile, candidate),
+  transform: (candidate) => siteScanTargetWithProfileOptions(profile, volatileYouTubeTargetAsPassiveMirror(profile, candidate))
+  });
+}
+function shouldRejectProfileScanTarget(profile, target) {
+  if (!isYouTubeSiteParserProfile(profile)) return false;
+  return targetSpansMultipleYouTubeWatchMetadataTextHosts(target);
+}
+function isReviewCardFrontPromptElement(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
+}
+function volatileYouTubeTargetAsPassiveMirror(profile, target) {
+  if (!isYouTubeSiteParserProfile(profile)) return target;
+  if (!target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return target;
+  return {
+  ...target,
+  passiveInteraction: true,
+  nonDestructive: true,
+  fragments: target.fragments.map((fragment) => ({ ...fragment, passiveInteraction: true }))
+  };
+}
+function targetSpansMultipleYouTubeWatchMetadataTextHosts(target) {
+  if (!target.parent.closest("ytd-watch-metadata")) return false;
+  const hosts = new Set();
+  for (const fragment of target.fragments) {
+  const parent = fragment.node.parentElement;
+  const host = parent?.closest(YOUTUBE_STABLE_TEXT_HOST_SELECTOR);
+  if (host?.closest("ytd-watch-metadata")) hosts.add(host);
+  }
+  return hosts.size > 1;
+}
+function siteScanTargetWithProfileOptions(profile, target) {
+  const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
+  const baseTarget = {
+  ...target,
+  parserId: profile.id,
+  ...profileDecoration(profile, target),
+  suppressRuby: target.suppressRuby || suppressRuby || void 0,
+  passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || void 0,
+  singlePassScan: profile.singlePassScan || void 0,
+  nonDestructive: profile.nonDestructive || void 0
+  };
+  return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+}
+function isYouTubeSiteParserProfile(profile) {
+  return profile.id.startsWith("youtube-");
+}
+function profileDecoration(profile, target) {
+  const sealed = target.decoration ?? classifyDecoration(target.parent);
+  if (sealed === "interactive-passive" && profile.id === YOMU_HOSTED_DOCS_PARSER_ID) {
+  return { decoration: "content-ruby", decorationProfileOverride: true };
+  }
+  return { decoration: sealed, decorationProfileOverride: target.decorationProfileOverride };
+}
+function shouldSuppressSiteScanRuby(profile, target) {
+  if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
+  if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
+  if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
+  return false;
+}
+function isBookWalkerReaderPassiveChromeTarget(parent) {
+  return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
+}
+function isJpdbReviewPromptTarget(parent, text) {
+  if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
+  if (compactTextLength(text) > 18) return false;
+  const prompt = parent.closest(".review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling");
+  if (!prompt) return false;
+  return !parent.closest(".subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit");
+}
+function isJitenStudyPromptTarget(parent, text) {
+  if (!isJitenStudyPath() || compactTextLength(text) > 18) return false;
+  const prompt = parent.closest('[lang="ja"]');
+  if (!prompt || !prompt.classList.contains("font-noto-sans")) return false;
+  if (!hasPromptTextSizeClass(prompt)) return false;
+  return Boolean(prompt.closest(".flex.items-center.justify-center"));
+}
+function isJitenStudyPath() {
+  return (location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe")) && location.pathname.startsWith("/srs/study");
+}
+function hasPromptTextSizeClass(element) {
+  return Array.from(element.classList).some(
+  (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
+  );
+}
+function compactTextLength(text) {
+  return text.replace(/\s+/g, "").length;
+}
+function plainScanTarget(target) {
+  return {
+  ...target,
+  layoutSensitive: true,
+  fragments: target.fragments.map((fragment) => ({
+    ...fragment,
+    layoutSensitive: true
+  }))
+  };
+}
+function siteScanRemaining(context) {
+  return context.effectiveLimit - context.targets.length;
+}
+function siteScanHasRoom(context) {
+  return siteScanRemaining(context) > 0;
+}
+function siteScanResult(profiles, targets) {
+  if (targets.length) return targets;
+  return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
+}
+function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
+  return scanTargetCollectionSteps(limit, href, options);
+}
+const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
+function* scanTargetCollectionSteps(limit, href, options) {
+  const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
+  const collectionLimit = limit + skipTargetCount;
+  const matchingProfiles = getMatchingSiteParsers(href);
+  const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
+  const withDeferred = yield* withDeferredShadowScanTargets(
+  targets,
+  effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
+  matchingProfiles
+  );
+  const eligible = options.skipTarget ? withDeferred.filter((target) => !options.skipTarget(target)) : withDeferred;
+  return eligible.slice(0, limit);
+}
+function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
+  let targets = baseTargets;
+  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
+  for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
+  const remaining = effectiveLimit - targets.length;
+  const hosts = drainDepthCappedShadowHosts();
+  if (!hosts.length || remaining <= 0) break;
+  yield;
+  const seen = seenTextNodes(targets);
+  const collected = [];
+  for (const host of hosts) {
+    if (collected.length >= remaining) break;
+    const hostTargets = collectFragmentTextTargetsIn(host, remaining - collected.length, true, residualVisibleJapaneseExcludeSelector(profiles), {
+      allowUiText: true,
+      includeUiChrome: true,
+      includeFormChrome: true,
+      includeTabChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1
+    }).filter((target) => target.fragments.every((fragment) => !seen.has(fragment.node)));
+    collected.push(...hostTargets);
+  }
+  if (!collected.length) continue;
+  targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
+  }
+  return targets;
+}
+function* scanTargetPhaseSteps(limit, href, options) {
+  const matchingProfiles = getMatchingSiteParsers(href);
+  const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipTargetCount ?? 0) : limit;
+  const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
+  const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
+  const baseTargets = siteTargets ?? [];
+  if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
+  if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
+    return baseTargets;
+  }
+  yield;
+  const residualTargets = collectResidualVisibleJapaneseTargets(
+    effectiveLimit - baseTargets.length,
+    baseTargets,
+    matchingProfiles,
+    options
+  );
+  return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
+  }
+  yield;
+  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles, options);
+  if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
+  const profileTargets = [...baseTargets, ...profileUiChromeTargets];
+  if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
+  yield;
+  const residualTargets = collectResidualVisibleJapaneseTargets(
+    effectiveLimit - profileTargets.length,
+    profileTargets,
+    matchingProfiles,
+    options
+  );
+  return residualTargets.length ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : profileTargets;
+  }
+  yield;
+  const genericPhaseRemaining = effectiveLimit - baseTargets.length - profileUiChromeTargets.length;
+  const uiChromeReserve = genericUiChromeTargetLimit(genericPhaseRemaining);
+  const genericTargets = collectGenericProseTargets(
+  genericPhaseRemaining - uiChromeReserve,
+  [...baseTargets, ...profileUiChromeTargets],
+  options
+  );
+  yield;
+  const uiChromeTargets = collectSafeUiChromeTargets(
+  genericPhaseRemaining - genericTargets.length,
+  [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
+  options
+  );
+  yield;
+  const supplementalGenericTargets = collectGenericProseTargets(
+  genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
+  [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
+  options
+  );
+  const collectedTargets = [
+  ...baseTargets,
+  ...profileUiChromeTargets,
+  ...genericTargets,
+  ...uiChromeTargets,
+  ...supplementalGenericTargets
+  ];
+  yield;
+  const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
+  if (targetsWithResidual.length) return targetsWithResidual;
+  yield;
+  const broadTargets = collectWholePageScanTargets(effectiveLimit);
+  const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
+  if (broadWithResidual.length) return broadWithResidual;
+  if (annotationScopeActive()) return [];
+  return collectVisibleTextTargets(effectiveLimit);
+}
+function markTargetsPassive(targets, options = {}) {
+  return targets.map((target) => ({
+  ...target,
+  passiveInteraction: true,
+  nonDestructive: options.nonDestructive || void 0,
+  ..."fragments" in target ? {
+    fragments: target.fragments.map((fragment) => ({
+      ...fragment,
+      passiveInteraction: true
+    }))
+  } : {}
+  }));
+}
+function profilePhaseTargetLimit(profiles, effectiveLimit) {
+  if (!profiles.length || !Number.isFinite(effectiveLimit) || effectiveLimit < PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD || profiles.some((profile) => profile.disableGenericDomScan || profile.suppressResidualVisibleScan)) return effectiveLimit;
+  const reserve = Math.min(
+  PROFILE_PHASE_GENERIC_RESERVE_MAX,
+  Math.max(1, Math.floor(effectiveLimit * PROFILE_PHASE_GENERIC_RESERVE_RATIO))
+  );
+  return Math.max(1, effectiveLimit - reserve);
+}
+function genericUiChromeTargetLimit(remaining) {
+  if (remaining <= 0) return 0;
+  if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
+  return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
+}
+function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
+  const remaining = effectiveLimit - targets.length;
+  if (remaining <= 0) return targets;
+  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
+  return residual.length ? [...targets, ...residual] : targets;
+}
+function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, options = {}) {
+  if (limit <= 0 || !document.body) return [];
+  const collection = {
+  targets: [],
+  seen: seenTextNodes(existingTargets),
+  limit
+  };
+  const candidateLimit = Number.isFinite(limit) ? Math.max(limit, existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0) + limit + 24) : limit;
+  const nonDestructiveProfile = profiles.some((profile) => profile.nonDestructive);
+  const collected = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
+  allowUiText: true,
+  includeUiChrome: true,
+  includeFormChrome: true,
+  includeTabChrome: true,
+  includePlayerChrome: isYouTubeHost(),
+  includePassiveInteractions: true,
+  heading: true,
+  allowShortCenteredHeadings: nonDestructiveProfile,
+  minLength: 1
+  }));
+  for (const target of collected) {
+  if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  appendResidualVisibleTarget(collection.targets, collection.seen, {
+    ...target,
+    parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
+  });
+  if (genericProseCollectionFull(collection)) break;
+  }
+  return collection.targets;
+}
+function residualVisibleJapaneseExcludeSelector(profiles) {
+  const entries2 = [COMMON_EXCLUDE, "ruby"];
+  if (profiles.some(isYouTubeSiteParserProfile)) {
+  entries2.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
+  }
+  if (profiles.some((profile) => profile.id === JPDB_PARSER_ID)) {
+  entries2.push(".subsection-spelling.with-furigana > :not(.primary-spelling)");
+  }
+  return entries2.join(",");
+}
+function* completeSiteScanTargetSteps(profiles, limit, href, options = {}) {
+  if (!profiles.length) return null;
+  const siteTargets = (yield* siteScanTargetSteps(limit, href, options)) ?? [];
+  if (siteTargets.length) return siteTargets;
+  if (hasWholePageFallback(profiles)) {
+  yield;
+  const broadTargets = collectWholePageScanTargets(limit);
+  if (broadTargets.length) return broadTargets;
+  }
+  return hasGenericPageTextFallback(profiles) ? null : siteTargets;
+}
+function hasGenericPageTextFallback(profiles) {
+  return profiles.some((profile) => profile.includeGenericPageText);
+}
+function hasWholePageFallback(profiles) {
+  return profiles.some((profile) => profile.fallbackToWholePage);
+}
+function effectiveScanTargetLimit(profiles, requestedLimit, profileLimitOffset = 0) {
+  const profileLimit = profiles.reduce(
+  (limit, profile) => Math.min(limit, profile.scanLimit === void 0 ? limit : profile.scanLimit + profileLimitOffset),
+  requestedLimit
+  );
+  return Math.max(1, profileLimit);
+}
+function collectWholePageScanTargets(limit) {
+  const targets = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
+  allowUiText: true,
+  includeUiChrome: true,
+  includeFormChrome: true,
+  includeTabChrome: true,
+  includePassiveInteractions: true,
+  heading: true,
+  minLength: 1
+  })).slice(0, limit);
+  return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
+}
+function collectGenericProseTargets(limit, existingTargets = [], options = {}) {
+  const roots = genericProseRoots();
+  const collection = createGenericProseCollection(limit, existingTargets, options);
+  for (const root of roots) {
+  collectFragmentTargetsFromRoot(root, collection, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+  if (genericProseCollectionFull(collection)) break;
+  }
+  return collection.targets;
+}
+function createGenericProseCollection(limit, existingTargets, options) {
+  return {
+  targets: [],
+  seen: seenTextNodes(existingTargets),
+  limit,
+  skipMirroredHosts: options.skipMirroredHosts,
+  candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0)
+  };
+}
+function seenTextNodes(targets) {
+  return new Set(targets.flatMap((target) => {
+  if ("fragments" in target) return textNodesForFragmentTarget(target);
+  return [target.node];
+  }));
+}
+function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true, profiles = [], options = {}) {
+  if (!enabled || limit <= 0) return [];
+  const collection = createGenericProseCollection(limit, existingTargets, options);
+  const extraExclude = profiles.map((p) => p.exclude).filter(Boolean).join(",");
+  const parserId = profiles.length === 1 ? profiles[0].id : "safe-ui-chrome-parser";
+  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
+  collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, "ui", extraExclude, parserId, nonDestructive);
+  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form", "", parserId, nonDestructive);
+  collectSafeFormControlTextTargets(collection, extraExclude);
+  return collection.targets;
+}
+function collectSafeUiChromeTargets(limit, existingTargets = [], options = {}) {
+  if (limit <= 0) return [];
+  const collection = createGenericProseCollection(limit, existingTargets, options);
+  collectSafeChromeRootTargets(safeUiChromeRoots(), collection, "ui");
+  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form");
+  collectSafeFormControlTextTargets(collection);
+  return collection.targets;
+}
+function collectSafeFormControlTextTargets(collection, extraExclude = "") {
+  const targets = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
+  excludeSelector: extraExclude
+  }));
+  for (const target of targets) {
+  collection.targets.push(target);
+  if (genericProseCollectionFull(collection)) break;
+  }
+}
+function collectSafeChromeRootTargets(roots, collection, kind, extraExclude = "", parserId = "safe-ui-chrome-parser", nonDestructive = false) {
+  for (const root of roots) {
+  if (kind === "ui") {
+    const baseExclude = safeUiChromeExcludeForRoot(root);
+    collectFragmentTargetsFromRoot(root, collection, extraExclude ? `${baseExclude},${extraExclude}` : baseExclude, {
+      allowUiText: true,
+      includeUiChrome: true,
+      includeTabChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      allowShortCenteredHeadings: true,
+      minLength: 1
+    }, parserId, nonDestructive);
+  } else {
+    collectFragmentTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, {
+      allowUiText: true,
+      includeFormChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1
+    }, parserId, nonDestructive);
+  }
+  if (genericProseCollectionFull(collection)) break;
+  }
+}
+function safeUiChromeRoots() {
+  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root)));
+}
+function profileSafeUiChromeRoots(extraExclude = "") {
+  const roots = queryWithinAnnotationScope(PROFILE_SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root));
+  if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
+  return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
+}
+function safeUiChromeExcludeForRoot(root) {
+  return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]') ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE : SAFE_UI_CHROME_EXCLUDE;
+}
+function safeFormChromeRoots() {
+  return uniqueVisibleRoots(queryWithinAnnotationScope(SAFE_FORM_CHROME_ROOTS).filter((root) => isUsefulSafeFormChromeRoot(root)));
+}
+function collectFragmentTargetsFromRoot(root, collection, exclude, options, passiveParserId, nonDestructive = false) {
+  const remaining = genericProseRemaining(collection);
+  const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts ? remaining + (collection.candidateHeadroom ?? 0) + 24 : remaining, true, exclude, options);
+  for (const target of collected) {
+  if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
+    ...target,
+    parserId: passiveParserId,
+    passiveInteraction: true,
+    nonDestructive: nonDestructive || void 0
+  } : target);
+  if (genericProseCollectionFull(collection)) break;
+  }
+}
+function genericProseRoots() {
+  return queryWithinAnnotationScope(GENERIC_PROSE_ROOTS).filter((root) => isUsefulGenericProseRoot(root));
+}
+function genericProseRemaining(collection) {
+  return Math.max(0, collection.limit - collection.targets.length);
+}
+function genericProseCollectionFull(collection) {
+  return genericProseRemaining(collection) <= 0;
+}
+function appendGenericProseTarget(targets, seen, target, options) {
+  const admissionOptions = { defaultParserId: "generic-prose-parser" };
+  return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
+}
+function appendResidualVisibleTarget(targets, seen, target) {
+  const nodes = textNodesForFragmentTarget(target);
+  if (!nodes.some((node) => seen.has(node))) {
+  appendGenericProseTarget(targets, seen, target);
+  return;
+  }
+  for (const fragments of unseenFragmentRuns(target, seen)) {
+  const parent = fragments[0]?.node.parentElement;
+  if (!parent) continue;
+  const text = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
+  if (!HAS_JAPANESE.test(text)) continue;
+  const decoration = classifyDecoration(parent);
+  if (decoration === "skip") continue;
+  appendAdmittedFragmentTarget(targets, seen, {
+    ...target,
+    text,
+    parent,
+    fragments,
+    decoration,
+    suppressRuby: decoration === "interactive-passive" || void 0,
+    passiveInteraction: true,
+    proseWrap: false
+  }, { defaultParserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID });
+  }
+}
+function unseenFragmentRuns(target, seen) {
+  const runs = [];
+  let current = [];
+  const flush = () => {
+  const trimmed = trimFragmentRun(current);
+  if (trimmed.length) runs.push(trimmed);
+  current = [];
+  };
+  for (const fragment of target.fragments) {
+  if (seen.has(fragment.node)) flush();
+  else current.push({ ...fragment });
+  }
+  flush();
+  return runs;
+}
+function trimFragmentRun(fragments) {
+  while (fragments.length) {
+  const first = fragments[0];
+  const value = first.node.data.slice(first.start, first.end);
+  first.start += value.match(/^\s*/u)?.[0].length ?? 0;
+  if (first.start < first.end) break;
+  fragments.shift();
+  }
+  while (fragments.length) {
+  const last = fragments[fragments.length - 1];
+  const value = last.node.data.slice(last.start, last.end);
+  last.end -= value.match(/\s*$/u)?.[0].length ?? 0;
+  if (last.start < last.end) break;
+  fragments.pop();
+  }
+  return fragments;
+}
+function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
+  const nodes = textNodesForFragmentTarget(target);
+  if (!nodes.length || nodes.some((node) => seen.has(node))) return false;
+  if (options.reject?.(target)) return false;
+  if (isResidualReaderParticleTarget(target)) return false;
+  if (isResidualJpdbAlternateSpellingTarget(target)) return false;
+  nodes.forEach((node) => seen.add(node));
+  const admittedTarget = options.transform ? options.transform(target) : { ...target, parserId: target.parserId ?? options.defaultParserId };
+  targets.push(admittedTarget);
+  return true;
+}
+function isResidualReaderParticleTarget(target) {
+  const text = target.text.replace(/\s+/g, "");
+  return /^[のはをがにでへもとやかねよな]$/u.test(text) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
+}
+function isResidualJpdbAlternateSpellingTarget(target) {
+  const spelling = target.parent.closest(".subsection-spelling.with-furigana");
+  return Boolean(spelling && !target.parent.closest(".primary-spelling"));
+}
+function textNodesForFragmentTarget(target) {
+  const nodes = [];
+  for (const fragment of target.fragments) {
+  if (!nodes.includes(fragment.node)) nodes.push(fragment.node);
+  }
+  return nodes;
+}
+function isUsefulGenericProseRoot(root) {
+  if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
+  const text = compactRootText(root);
+  if (text.length < 12) return false;
+  return HAS_JAPANESE.test(text);
+}
+function isUsefulSafeUiChromeRoot(root) {
+  return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
+}
+function isUsefulSafeFormChromeRoot(root) {
+  return isUsefulCompactJapaneseRoot(root, SAFE_FORM_CHROME_EXCLUDE, 1, SAFE_FORM_CHROME_MAX_COMPACT_LENGTH);
+}
+function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
+  if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
+  if (!isVisibleSafeUiChromeRoot(root)) return false;
+  const text = compactRootText(root);
+  return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
+}
+function compactRootText(root) {
+  return root.textContent?.replace(/\s+/g, "").trim() ?? "";
+}
+function isVisibleSafeUiChromeRoot(root) {
+  const rect = root.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+  const style = getComputedStyle(root);
+  return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
+}
+function queryParserRoots(profile, rootQueryCache) {
+  const roots = [];
+  for (const selector of profile.roots) {
+  roots.push(...queryRootsBySelector(selector, rootQueryCache));
+  }
+  const unique2 = uniqueVisibleRoots(roots);
+  return profile.id === "mokuro-parser" ? nearestMokuroRoots(unique2) : unique2;
+}
+function queryRootsBySelector(selector, rootQueryCache) {
+  const cached = rootQueryCache?.get(selector);
+  if (cached) return cached;
+  const elements = queryWithinAnnotationScope(selector);
+  rootQueryCache?.set(selector, elements);
+  return elements;
+}
+function nearestMokuroRoots(roots) {
+  const margin = mokuroScanViewportMargin();
+  return roots.filter((root) => isElementNearViewport(root, margin)).sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b) || documentPositionOrder(a, b)).slice(0, MOKURO_SCAN_ROOT_LIMIT);
+}
+function mokuroScanViewportMargin() {
+  const width = window.innerWidth || document.documentElement.clientWidth || 0;
+  const height = window.innerHeight || document.documentElement.clientHeight || 0;
+  return Math.max(width, height) * MOKURO_SCAN_MARGIN_VIEWPORTS;
+}
+function isElementNearViewport(element, margin) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+}
+function elementViewportDistance(element) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return Number.POSITIVE_INFINITY;
+  const dx = rect.right < 0 ? -rect.right : rect.left > window.innerWidth ? rect.left - window.innerWidth : 0;
+  const dy = rect.bottom < 0 ? -rect.bottom : rect.top > window.innerHeight ? rect.top - window.innerHeight : 0;
+  return Math.hypot(dx, dy);
+}
+function uniqueVisibleRoots(roots) {
+  const unique2 = [];
+  for (const root of roots) {
+  if (unique2.some((existing) => existing === root || existing.contains(root))) continue;
+  unique2.push(root);
+  }
+  return unique2;
+}
+function uniqueSpecificVisibleRoots(roots) {
+  const unique2 = [];
+  for (const root of [...roots].sort((a, b) => elementDepth(b) - elementDepth(a))) {
+  if (unique2.some((existing) => existing === root || existing.contains(root) || root.contains(existing))) continue;
+  unique2.push(root);
+  }
+  return unique2.sort((a, b) => documentPositionOrder(a, b));
+}
+function elementDepth(element) {
+  let depth = 0;
+  for (let current = element.parentElement; current; current = current.parentElement) depth += 1;
+  return depth;
+}
+function documentPositionOrder(a, b) {
+  if (a === b) return 0;
+  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
+}
+function safeElementMatches(element, selector) {
+  try {
+  return element.matches(selector);
+  } catch {
+  return false;
+  }
 }
 function renderPassiveReference(view) {
   const reading = visibleReferenceReading(view.text, view.reading);
@@ -27949,1677 +29645,6 @@ function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rub
 function pointInsideExpandedRect(rect, x, y, pad) {
   return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
 }
-const STRUCTURAL_EXCLUDE_ENTRIES = [
-  "[data-jpdb-reader-root]",
-  ".jpdb-reader-text-mirror",
-  ".jpdb-reader-word",
-  "script",
-  "style",
-  "noscript",
-  "input",
-  "select",
-  "textarea",
-  "option",
-  "svg",
-  "use",
-  "canvas",
-  "rt",
-  "rp",
-  "[hidden]",
-  '[aria-hidden="true"]',
-  '[contenteditable="true"]',
-  "details:not([open]) > :not(summary)",
-  "details:not([open]) > :not(summary) *"
-];
-const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
-const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
-const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
-const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = "residual-visible-japanese-parser";
-const PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD = 40;
-const PROFILE_PHASE_GENERIC_RESERVE_RATIO = 0.3;
-const PROFILE_PHASE_GENERIC_RESERVE_MAX = 64;
-const GENERIC_UI_CHROME_TARGET_MAX = 48;
-const MOKURO_SCAN_ROOT_LIMIT = 160;
-const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
-const GENERIC_PROSE_ROOTS = [
-  "main h1",
-  '[role="main"] h1',
-  "article",
-  "main article",
-  '[role="main"] article',
-  '[role="article"]',
-  ".markdown",
-  ".markdown-body",
-  ".markdown-content",
-  ".message",
-  ".message-body",
-  ".message-content",
-  ".messageContent",
-  ".chat-message",
-  ".conversation-turn",
-  ".model-response",
-  ".model-response-text",
-  ".response-content",
-  "[data-message-author-role]",
-  "[data-message-id]",
-  '[data-testid*="conversation-turn" i]',
-  '[data-testid*="chat-message" i]',
-  '[data-testid*="message-content" i]',
-  '[data-testid*="message-bubble" i]',
-  '[data-test-id*="chat-message" i]',
-  '[data-test-id*="message-content" i]',
-  ".article",
-  ".post",
-  ".entry",
-  ".story",
-  ".prose",
-  ".content",
-  ".article-body",
-  ".article-content",
-  ".entry-content",
-  ".post-content",
-  ".story-body",
-  '[itemprop="articleBody"]'
-].join(",");
-const GENERIC_PROSE_EXCLUDE = [
-  COMMON_EXCLUDE,
-  "nav",
-  "header",
-  "footer",
-  "aside",
-  "button",
-  'a[role="button"]',
-  '[role="complementary"]',
-  "[title]",
-  '[class*="audio" i]',
-  '[class*="aside" i]',
-  '[class*="banner" i]',
-  '[class*="breadcrumb" i]',
-  '[class*="btn" i]',
-  '[class*="button" i]',
-  '[class*="card" i]',
-  '[class*="comment" i]',
-  '[class*="footer" i]',
-  '[class*="header" i]',
-  '[class*="menu" i]',
-  '[class*="meta" i]',
-  '[class*="nav" i]',
-  '[class*="new-article" i]',
-  '[class*="pager" i]',
-  '[class*="popular" i]',
-  '[class*="promo" i]',
-  '[class*="rank" i]',
-  '[class*="recommend" i]',
-  '[class*="related" i]',
-  '[class*="share" i]',
-  '[class*="sidebar" i]',
-  '[class*="sound" i]',
-  '[class*="speaker" i]',
-  '[class*="teaser" i]',
-  '[class*="voice" i]',
-  '[aria-label*="聞"]',
-  '[aria-label*="音声"]',
-  "time"
-].join(",");
-const SAFE_UI_CHROME_SCOPE_SELECTORS = [
-  "nav",
-  '[role="navigation"]',
-  "header",
-  "aside",
-  '[role="complementary"]',
-  '[role="tablist"]',
-  '[class*="appearance" i]',
-  '[id*="appearance" i]',
-  '[class*="menu" i]',
-  '[id*="menu" i]',
-  '[class*="pinnable" i]',
-  '[id*="pinnable" i]',
-  '[class*="prefs" i]',
-  '[id*="prefs" i]',
-  '[class*="sidebar" i]',
-  '[id*="sidebar" i]',
-  '[class*="tabs" i]',
-  '[id*="tabs" i]',
-  '[class*="toc" i]',
-  '[id*="toc" i]',
-  '[class*="toolbar" i]',
-  '[id*="toolbar" i]'
-];
-const SAFE_UI_CHROME_CONTROL_SELECTORS = [
-  "a[href]",
-  "button",
-  "label",
-  "summary",
-  '[role="button"]',
-  '[role="link"]',
-  '[role="menuitem"]',
-  '[role="menuitemcheckbox"]',
-  '[role="menuitemradio"]',
-  '[role="option"]',
-  '[role="checkbox"]',
-  '[role="radio"]',
-  '[role="switch"]',
-  '[role="tab"]'
-];
-const SAFE_UI_CHROME_PEER_TEXT_SELECTORS = [
-  '[role="heading"]',
-  '[class*="label" i]'
-];
-const PASSIVE_INTERACTION_ROOTS = [
-  ...SAFE_UI_CHROME_CONTROL_SELECTORS,
-  "[aria-controls]",
-  "[aria-expanded]",
-  '[slot="more-button"]',
-  ".more-button",
-  "#more",
-  "#less",
-  "[onclick]",
-  '[tabindex]:not([tabindex="-1"])',
-  '[class*="audio" i]',
-  '[class*="button" i]',
-  '[class*="control" i]',
-  '[class*="play" i]',
-  '[class*="sound" i]',
-  '[class*="speaker" i]',
-  '[class*="toggle" i]'
-].join(",");
-const SCOPED_SAFE_UI_CHROME_ROOTS = [
-  ...SAFE_UI_CHROME_SCOPE_SELECTORS,
-  ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS].map((control) => `${scope} ${control}`))
-];
-const SAFE_UI_CHROME_ROOTS = [
-  ...SCOPED_SAFE_UI_CHROME_ROOTS,
-  "nav a[href]",
-  '[role="navigation"] a[href]',
-  '[class*="breadcrumb" i] a[href]',
-  "header a[href]",
-  "aside a[href]",
-  "main a[href]",
-  '[role="main"] a[href]',
-  "article a[href]",
-  "button",
-  "summary",
-  '[role="checkbox"]',
-  '[role="radio"]',
-  '[role="switch"]',
-  '[role="tab"]',
-  '[role="menuitem"]',
-  '[role="menuitemcheckbox"]',
-  '[role="menuitemradio"]',
-  "time",
-  "[datetime]"
-].join(",");
-const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
-const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
-  '[role="menuitem"]',
-  '[role="menuitemcheckbox"]',
-  '[role="menuitemradio"]'
-].join(",");
-const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
-  ".ytp-caption-window-container",
-  ".caption-window",
-  ".captions-text"
-];
-const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
-  ...STRUCTURAL_EXCLUDE_ENTRIES,
-  ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-  "[disabled]",
-  '[aria-disabled="true"]'
-];
-const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(",");
-const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.filter((entry) => entry !== '[class*="control" i]').join(",");
-const SAFE_FORM_CHROME_ROOTS = SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [
-  `${scope} form`,
-  `${scope} label`
-]).join(",");
-const SAFE_FORM_CHROME_EXCLUDE = [
-  ...STRUCTURAL_EXCLUDE_ENTRIES,
-  "[disabled]",
-  '[aria-disabled="true"]'
-].join(",");
-const DICTIONARY_SITE_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ".pi",
-  ".p-button-icon"
-].join(",");
-const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
-const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
-const YOMU_HOSTED_DOCS_PARSER_ID = "yomu-hosted-docs-parser";
-const JPDB_PARSER_ID = "jpdb-parser";
-const YOMU_HOSTED_DOCS_ROOTS = [
-  "[data-yomu-runtime-surface]",
-  ".yomu-try-me-text"
-];
-const YOMU_HOSTED_DOCS_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ".yomu-hosted-overflow-group"
-].join(",");
-const YOMU_VIDEO_PLAYER_ROOTS = [
-  ".brand strong",
-  "[data-yomu-video-frame] .empty strong",
-  "[data-yomu-video-frame] .empty [data-status]",
-  ".file-button",
-  "[data-subtitle-open]",
-  "[data-settings-trigger]",
-  "[data-overflow-menu]"
-];
-const YOMU_PDF_READER_ROOTS = [
-  ".textLayer",
-  ".brand strong",
-  "[data-yomu-pdf-empty] strong",
-  "[data-yomu-pdf-empty] [data-status]",
-  ".file-button",
-  "[data-settings-trigger]",
-  "[data-overflow-menu]"
-];
-const YOMU_PDF_READER_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ".textLayer .endOfContent",
-  '.textLayer span[role="img"]'
-].join(",");
-const YOUTUBE_TEXT_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
-].join(",");
-const YOUTUBE_STABLE_TEXT_HOST_SELECTOR = [
-  "yt-formatted-string",
-  "yt-attributed-string",
-  ".ytAttributedStringHost",
-  ".yt-core-attributed-string",
-  ".yt-core-attributed-string--white-space-pre-wrap"
-].join(",");
-const YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR = [
-  "ytd-watch-metadata #owner-sub-count",
-  "ytd-watch-metadata #owner #subscribe-button",
-  "ytd-watch-metadata #owner button",
-  "ytd-watch-metadata ytd-video-description-transcript-section-renderer",
-  "ytd-watch-metadata ytd-video-description-infocards-section-renderer",
-  "ytd-watch-metadata ytd-video-description-music-section-renderer",
-  "ytd-watch-metadata ytd-video-description-course-section-renderer",
-  "ytd-watch-metadata #description ytd-channel-name",
-  "ytd-watch-metadata #description #owner-sub-count"
-].join(",");
-const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
-  "button",
-  '[role="button"]',
-  "[aria-controls]",
-  "[aria-expanded]",
-  '[slot*="button" i]',
-  '[class*="button" i]'
-];
-const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
-  "ytd-comment-view-model #content-text",
-  "ytm-comment-renderer #content-text",
-  "ytm-comment-thread-renderer",
-  "ytm-comment-renderer",
-  "ytm-comment-replies-renderer",
-  ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`),
-  ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytm-comment-renderer ${selector}`)
-].join(",");
-const YOUTUBE_COMMENT_HEADER_ROOTS = [
-  "ytd-comments-header-renderer #title",
-  "ytd-comments-header-renderer #count",
-  "ytd-comments-header-renderer .count-text",
-  "ytm-comments-header-renderer",
-  "ytm-comment-section-header-renderer",
-  "ytm-comments-entry-point-header-renderer"
-].join(",");
-const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
-  "ytd-watch-info-text"
-].join(",");
-const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
-  "#view-count[aria-label]",
-  "#date-text[aria-label]"
-].join(",");
-const YOUTUBE_LIVE_CHAT_TEXT_ROOTS = [
-  "yt-live-chat-text-message-renderer #author-name",
-  "yt-live-chat-text-message-renderer #message",
-  "yt-live-chat-paid-message-renderer #author-name",
-  "yt-live-chat-paid-message-renderer #message",
-  "yt-live-chat-membership-item-renderer #author-name",
-  "yt-live-chat-membership-item-renderer #message",
-  "yt-live-chat-header-renderer #title",
-  "yt-live-chat-header-renderer #primary-content",
-  "yt-live-chat-viewer-engagement-message-renderer #content",
-  "yt-live-chat-viewer-engagement-message-renderer #message",
-  "yt-live-chat-viewer-engagement-message-renderer yt-formatted-string",
-  "yt-live-chat-viewer-engagement-message-renderer a[href]",
-  "yt-live-chat-viewer-engagement-message-renderer button",
-  'yt-live-chat-viewer-engagement-message-renderer [role="button"]',
-  "yt-live-chat-banner-renderer #message",
-  "yt-live-chat-banner-renderer #header",
-  "yt-live-chat-banner-renderer yt-formatted-string",
-  "yt-live-chat-banner-renderer a[href]",
-  "yt-live-chat-banner-renderer button",
-  'yt-live-chat-banner-renderer [role="button"]',
-  "yt-live-chat-restricted-participation-renderer #message",
-  "yt-live-chat-restricted-participation-renderer #subtext",
-  "yt-live-chat-restricted-participation-renderer yt-formatted-string",
-  "yt-live-chat-restricted-participation-renderer a[href]",
-  "yt-live-chat-restricted-participation-renderer button",
-  'yt-live-chat-restricted-participation-renderer [role="button"]',
-  "yt-live-chat-ticker-renderer #text",
-  "yt-live-chat-ticker-renderer #content",
-  "yt-live-chat-ticker-renderer yt-formatted-string",
-  "yt-live-chat-ticker-renderer a[href]",
-  "yt-live-chat-ticker-renderer button",
-  'yt-live-chat-ticker-renderer [role="button"]'
-];
-const GOOGLE_SEARCH_ROOTS = [
-  "#botstuff",
-  "#bres",
-  "[data-attrid]",
-  "[data-sokoban-container]",
-  ".MjjYud",
-  ".g",
-  ".VwiC3b",
-  ".LC20lb",
-  "#search",
-  "#rso",
-  "#main",
-  "#rcnt",
-  '[role="main"]'
-];
-const GOOGLE_SEARCH_EXCLUDE = [
-  COMMON_EXCLUDE,
-  "g-img",
-  "img"
-].join(",");
-const BLOOMEE_LANDING_HOSTS = new Set(["bloomeelife.com", "www.bloomeelife.com"]);
-const BLOOMEE_LANDING_PARSER_ID = "bloomee-landing-parser";
-const BLOOMEE_LANDING_ROOTS = [
-  ".point__itembox-headline",
-  ".point__itembox-txt",
-  ".cv-step__ttlbox-title",
-  ".cv-step__catch",
-  ".cv-step__itembox-title",
-  ".life-lp-faq h2",
-  ".life-lp-faq dt h3",
-  ".lp-gift__headline",
-  ".lp-gift__txt",
-  ".ctaarea p"
-].join(",");
-const BOOKWALKER_STOREFRONT_HOSTS = new Set(["bookwalker.jp", "www.bookwalker.jp"]);
-const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader";
-const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront";
-const BOOKWALKER_TEXT_METADATA_ROOTS = [
-  "#bookTitle",
-  "#book-title",
-  "#book_title",
-  "#bookDescription",
-  "[data-book-title]",
-  "[data-book-description]",
-  '[id*="bookTitle"]',
-  '[id*="book-title"]',
-  '[class*="bookTitle"]',
-  '[class*="book-title"]',
-  ".book-title",
-  ".book-description",
-  ".t-o-heading-book-title",
-  ".t-o-heading-book-title__link",
-  ".t-c-tile-card__title",
-  ".t-c-tile-card__catch",
-  ".m-bookDetailTitle",
-  ".m-bookDetailLead",
-  ".m-bookDetailDescription"
-];
-const BOOKWALKER_READER_SETTINGS_SELECTOR = '.settings-popover,[class*="setting" i],[id*="setting" i],[aria-label*="設定"],[role="dialog"],[role="menu"]';
-const MIGAKU_MARKETING_HOSTS = new Set(["migaku.com", "www.migaku.com"]);
-const MIGAKU_MARKETING_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ".WelcomeText__title",
-  ".migaku-surface"
-].join(",");
-const YOMUYOMU_HOSTS = new Set(["yomuyomu.app", "www.yomuyomu.app"]);
-const YOMUYOMU_READER_ROOTS = [
-  '#du-reading-screen canvas[lang*="ja" i]',
-  '#du-lesson-container .lesson-canvas-container canvas[lang*="ja" i]',
-  '.lesson-content canvas[lang*="ja" i]'
-].join(",");
-const SITE_PARSER_PROFILES = [
-  {
-  id: YOMU_HOSTED_DOCS_PARSER_ID,
-  roots: YOMU_HOSTED_DOCS_ROOTS,
-  exclude: YOMU_HOSTED_DOCS_EXCLUDE,
-  allowUiText: true,
-  heading: true,
-  minLength: 1,
-  disableGenericDomScan: true,
-  suppressResidualVisibleScan: true,
-  includePassiveInteractionRoots: false,
-  visibleOnly: false,
-  matches: (url) => isYomuHostedPassivePage(url.href)
-  },
-  {
-  id: "yomu-video-player-parser",
-  roots: YOMU_VIDEO_PLAYER_ROOTS,
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  heading: true,
-  minLength: 1,
-  includeUiChrome: true,
-  includeFormChrome: true,
-  matches: (url) => isYomuHostedVideoPlayerPage(url.href)
-  },
-  {
-  id: "yomu-pdf-reader-parser",
-  roots: YOMU_PDF_READER_ROOTS,
-  exclude: YOMU_PDF_READER_EXCLUDE,
-  allowUiText: true,
-  heading: true,
-  minLength: 1,
-  includeUiChrome: true,
-  includeFormChrome: true,
-  providesTextLayer: true,
-  matches: (url) => isYomuHostedPdfReaderPage(url.href)
-  },
-  {
-  id: "google-search-parser",
-  roots: GOOGLE_SEARCH_ROOTS,
-  exclude: GOOGLE_SEARCH_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  includeGenericPageText: true,
-  plainScan: true,
-  matches: (url) => /(^|\.)google\./i.test(url.hostname) && url.pathname === "/search"
-  },
-  {
-  id: BLOOMEE_LANDING_PARSER_ID,
-  roots: [BLOOMEE_LANDING_ROOTS],
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  heading: true,
-  allowShortCenteredHeadings: true,
-  matches: (url) => isBloomeeLandingUrl(url)
-  },
-  {
-  id: BOOKWALKER_READER_PARSER_ID,
-  roots: [...BOOKWALKER_TEXT_METADATA_ROOTS, BOOKWALKER_READER_SETTINGS_SELECTOR],
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  disableGenericDomScan: true,
-  suppressResidualVisibleScan: true,
-  includePassiveInteractionRoots: true,
-  matches: (url) => isBookWalkerReaderUrl(url)
-  },
-  {
-  id: BOOKWALKER_STOREFRONT_PARSER_ID,
-  roots: BOOKWALKER_TEXT_METADATA_ROOTS,
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  disableGenericDomScan: true,
-  includePassiveInteractionRoots: false,
-  providesTextLayer: true,
-  matches: (url) => isBookWalkerStorefrontUrl(url)
-  },
-  {
-  id: "migaku-marketing-parser",
-  roots: ["main"],
-  exclude: MIGAKU_MARKETING_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  heading: true,
-  suppressResidualVisibleScan: true,
-  matches: (url) => MIGAKU_MARKETING_HOSTS.has(url.hostname.toLowerCase())
-  },
-  {
-  id: "yomuyomu-reader-parser",
-  roots: [YOMUYOMU_READER_ROOTS],
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  nonDestructive: true,
-  includeGenericPageText: true,
-  matches: (url) => YOMUYOMU_HOSTS.has(url.hostname.toLowerCase())
-  },
-  {
-  id: JPDB_PARSER_ID,
-  roots: [
-    ".subsection-spelling ruby.v",
-    ".result.vocabulary",
-    ".result.kanji",
-    ".results .result",
-    ".subsection-composed-of-kanji",
-    ".subsection-meanings",
-    ".subsection-usages",
-    ".subsection-examples",
-    ".subsection-pitch-accent",
-    ".review-card",
-    ".answer",
-    ".sentence"
-  ],
-  exclude: [
-    COMMON_EXCLUDE,
-    ".subsection-headword .subsection-spelling ruby.v",
-    ".subsection-spelling",
-    ".primary-spelling"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "jpdb.io" || url.hostname.endsWith(".jpdb.io")
-  },
-  {
-  id: "jisho-parser",
-  roots: [
-    ".concept_light-representation .text",
-    ".concept_light-readings .text",
-    ".japanese_sentence",
-    ".sentence_content",
-    ".kanji_light_content",
-    ".kanji-details__main-readings",
-    ".kanji-details__main-meanings"
-  ],
-  exclude: [
-    COMMON_EXCLUDE,
-    ".furigana",
-    ".concept_light-readings .furigana"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "jisho.org" || url.hostname.endsWith(".jisho.org")
-  },
-  {
-  id: "jiten-parser",
-  roots: [
-    '[lang="ja"]',
-    "blockquote",
-    ".p-card",
-    ".rounded-lg.overflow-hidden",
-    "main",
-    "article"
-  ],
-  exclude: DICTIONARY_SITE_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "jiten.moe" || url.hostname.endsWith(".jiten.moe")
-  },
-  {
-  id: "weblio-parser",
-  roots: ["#main", "#mainContents", ".mainBlock", ".NetDicBody", ".kiji", "main", "article"],
-  exclude: DICTIONARY_SITE_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "weblio.jp" || url.hostname.endsWith(".weblio.jp")
-  },
-  {
-  id: "kotobank-parser",
-  roots: ["main", "article", ".description", ".ex.cf", ".dictype", ".articleBody"],
-  exclude: DICTIONARY_SITE_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "kotobank.jp" || url.hostname.endsWith(".kotobank.jp")
-  },
-  {
-  id: "takoboto-parser",
-  roots: ["#SearchResultList", "#results", "#main", ".result", ".entry", "main", "article"],
-  exclude: DICTIONARY_SITE_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  fallbackToWholePage: true,
-  matches: (url) => url.hostname === "takoboto.jp" || url.hostname.endsWith(".takoboto.jp")
-  },
-  {
-  id: "wiktionary-ja-parser",
-  roots: ["#firstHeading", "#mw-content-text .mw-parser-output"],
-  exclude: [
-    DICTIONARY_SITE_EXCLUDE,
-    ".thumb"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  heading: true,
-  matches: (url) => url.hostname === "ja.wiktionary.org" || url.hostname === "ja.m.wiktionary.org"
-  },
-  {
-  id: "luna-translator-parser",
-  roots: [".lunatranslator_clickword", ".lunatranslator_text_all", ".origin"],
-  matches: (url) => url.protocol === "file:" && /LunaTranslator.*(?:mainui|transhist)\.html/i.test(decodeURIComponent(url.pathname))
-  },
-  {
-  id: "texthooker-parser",
-  roots: ["#textlog", "main", ".textline", ".line_box", ".my-2.cursor-pointer", "p"],
-  matches: (url) => /^(anacreondjt\.gitlab\.io|learnjapanese\.moe)$/.test(url.hostname) || url.hostname === "renji-xd.github.io" || /\/texthooker\/?$/.test(url.pathname)
-  },
-  {
-  id: "exstatic-parser",
-  roots: [".sentence-entry", "#entry_holder"],
-  matches: (url) => url.hostname === "kamwithk.github.io" && url.pathname.endsWith("/exSTATic/tracker.html")
-  },
-  {
-  id: "readwok-parser",
-  roots: ['div[class*="styles_paragraph_"]', 'div[class*="styles_reader_"]'],
-  matches: (url) => url.hostname === "app.readwok.com"
-  },
-  {
-  id: "ttsu-parser",
-  roots: ["div.book-content", "div.book-content-container", "#book-content"],
-  matches: (url) => url.hostname === "reader.ttsu.app"
-  },
-  {
-  id: "tadoku-parser",
-  roots: [
-    ".bd-title h1",
-    ".bd-desc-jp",
-    ".bd-author",
-    ".book-viewer",
-    ".book-reader",
-    ".tadoku-book",
-    "main article"
-  ],
-  exclude: [
-    COMMON_EXCLUDE,
-    ".bd-desc-en"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  heading: true,
-  fallbackToWholePage: true,
-  matches: (url) => url.hostname === "tadoku.org" || url.hostname.endsWith(".tadoku.org")
-  },
-  {
-  id: "youtube-live-chat-frame-parser",
-  roots: [
-    ...YOUTUBE_LIVE_CHAT_TEXT_ROOTS,
-    "main",
-    '[role="main"]'
-  ],
-  exclude: COMMON_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  singlePassScan: true,
-  nonDestructive: true,
-  disableGenericDomScan: true,
-  suppressResidualVisibleScan: true,
-  includePassiveInteractionRoots: false,
-  scanLimit: 80,
-  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
-  },
-  {
-  id: "youtube-comments-parser",
-  roots: [
-    "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title",
-    "ytd-watch-metadata #owner ytd-channel-name yt-formatted-string",
-    "ytd-watch-metadata #owner ytd-channel-name .ytAttributedStringHost",
-    "ytd-watch-metadata #owner ytd-channel-name",
-    "ytd-watch-metadata #owner-sub-count",
-    "ytd-watch-metadata #owner #subscribe-button",
-    "ytd-watch-info-text",
-    "ytd-watch-metadata #info-strings",
-    "ytd-watch-metadata #metadata-line",
-    "ytd-watch-metadata #teaser-carousel",
-    "ytd-watch-metadata yt-video-metadata-carousel-view-model",
-    "ytd-watch-metadata yt-carousel-title-view-model",
-    "ytd-watch-metadata yt-text-carousel-item-view-model",
-    "ytd-watch-metadata .ytAttributedStringHost",
-    "ytd-watch-metadata #description-inline-expander",
-    "ytd-watch-metadata #description yt-attributed-string#attributed-snippet-text",
-    "ytd-watch-metadata #description yt-attributed-string#attributed-description-text",
-    "ytd-watch-metadata #description .yt-core-attributed-string:not(#owner-sub-count)",
-    "ytd-watch-metadata #description-text",
-    "ytd-watch-metadata ytd-text-inline-expander",
-    "ytd-watch-metadata #attributed-snippet-text",
-    "ytd-watch-metadata #attributed-description-text",
-    "ytd-watch-metadata yt-attributed-string#attributed-description-text",
-    "ytd-channel-renderer",
-    "ytd-search-sub-menu-renderer",
-    "ytd-shelf-renderer #show-more-button",
-    "ytd-shelf-renderer #expand",
-    "ytd-shelf-renderer yt-button-renderer",
-    "ytd-mini-guide-entry-renderer",
-    "ytm-slim-video-metadata-section-renderer",
-    "ytm-slim-owner-renderer",
-    "ytm-expandable-video-description-body-renderer",
-    "ytm-structured-description-content-renderer",
-    YOUTUBE_COMMENT_HEADER_ROOTS,
-    "ytd-transcript-segment-renderer",
-    "ytm-transcript-segment-renderer",
-    ".ytp-ce-element .ytp-ce-video-title",
-    ".ytp-ce-element .ytp-ce-playlist-title",
-    ".ytp-pause-overlay .ytp-videowall-still-info-title",
-    ".ytp-cards-teaser-text",
-    YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
-    "ytd-watch-next-secondary-results-renderer #video-title",
-    "#secondary ytd-compact-video-renderer #video-title",
-    "#secondary ytd-compact-video-renderer",
-    "ytd-compact-video-renderer #video-title",
-    "ytd-compact-video-renderer",
-    ...YOUTUBE_LIVE_CHAT_TEXT_ROOTS,
-    "ytd-live-chat-frame #show-hide-button",
-    "ytd-live-chat-frame #header",
-    "ytd-live-chat-frame #content",
-    "ytd-live-chat-frame #message",
-    "ytd-live-chat-frame #subtext",
-    "ytd-live-chat-frame .yt-core-attributed-string",
-    "ytd-live-chat-frame .yt-core-attributed-string--white-space-pre-wrap",
-    "ytd-live-chat-frame yt-formatted-string",
-    "ytd-live-chat-frame button",
-    'ytd-live-chat-frame [role="button"]',
-    "ytd-watch-next-secondary-results-renderer",
-    "ytd-rich-grid-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-video-renderer",
-    "yt-lockup-view-model",
-    "yt-page-header-view-model",
-    "ytd-c4-tabbed-header-renderer",
-    "grid-shelf-view-model",
-    "ytd-shelf-renderer",
-    "ytd-reel-shelf-renderer",
-    "ytd-grid-video-renderer",
-    "ytd-playlist-panel-video-renderer",
-    "ytd-playlist-video-renderer",
-    "ytd-playlist-header-renderer",
-    "ytd-channel-renderer",
-    "ytd-grid-channel-renderer",
-    "ytm-playlist-panel-video-renderer",
-    "ytm-playlist-video-renderer",
-    "ytm-channel-list-item-renderer",
-    "ytm-compact-channel-renderer",
-    "ytm-rich-grid-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
-    "ytm-item-section-renderer"
-  ],
-  exclude: YOUTUBE_TEXT_EXCLUDE,
-  allowUiText: true,
-  visibleOnly: true,
-  includeUiChrome: true,
-  nonDestructive: true,
-  includePassiveInteractionRoots: true,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
-  },
-  {
-  id: "cijapanese-transcript-parser",
-  roots: [
-    ".transcript",
-    '[data-tab-type="transcript"]'
-  ],
-  exclude: [
-    COMMON_EXCLUDE,
-    "svg"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname === "cijapanese.com" || url.hostname.endsWith(".cijapanese.com")
-  },
-  {
-  id: "mokuro-parser",
-  roots: [".textBox", "#manga-panel .textBox", "#pagesContainer .textBox", ".volume-card__title"],
-  allowUiText: true,
-  minLength: 1,
-  mergeBlockFragments: true,
-  visibleOnly: false,
-  scanLimit: 80,
-  disableGenericDomScan: true,
-  includePassiveInteractionRoots: false,
-  providesTextLayer: true,
-  matches: (url) => url.hostname === "reader.mokuro.app" || url.hostname === "mokuro.moe" || url.hostname.endsWith(".mokuro.moe") || url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
-  },
-  {
-  id: "wikipedia-parser",
-  roots: ["#firstHeading", "#mw-content-text", ".mwe-popups-extract"],
-  exclude: [
-    COMMON_EXCLUDE
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  heading: true,
-  matches: (url) => url.hostname === "ja.wikipedia.org" || url.hostname === "ja.m.wikipedia.org"
-  },
-  {
-  id: "satori-reader-parser",
-  roots: ["#article-content"],
-  exclude: [COMMON_EXCLUDE, ".fg", ".wpr"].join(","),
-  allowUiText: true,
-  minLength: 1,
-  matches: (url) => url.hostname.endsWith(".satorireader.com") && url.pathname.includes("/articles/")
-  },
-  {
-  id: "nhk-parser",
-  roots: [
-    "body"
-  ],
-  exclude: [
-    COMMON_EXCLUDE,
-    "#loading"
-  ].join(","),
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  fallbackToWholePage: true,
-  matches: (url) => url.hostname === "news.web.nhk" && /\/news\/easy\//.test(url.pathname) || url.protocol === "file:" && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)) || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
-  },
-  {
-  id: "nhk-news-parser",
-  roots: [
-    "#main article",
-    "#main",
-    '[data-testid*="article"]'
-  ],
-  exclude: [
-    COMMON_EXCLUDE
-  ].join(","),
-  fallbackToWholePage: true,
-  matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && /\/news\/html\//.test(url.pathname)
-  },
-  {
-  id: "bunpro-parser",
-  roots: ["article", "div.mx-auto", '[id^="study-question-"]'],
-  matches: (url) => url.hostname === "bunpro.jp" || url.hostname.endsWith(".bunpro.jp")
-  },
-  {
-  id: "asbplayer-parser",
-  roots: [".asbplayer-offscreen", ".asbplayer-subtitles-container-bottom"],
-  matches: () => Boolean(document.querySelector(ASBPLAYER_ROOT_SELECTOR))
-  }
-];
-function getMatchingSiteParsers(href = window.location.href) {
-  const url = new URL(href, window.location.href);
-  return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
-}
-function isBookWalkerReaderPage(href = location.href) {
-  return isBookWalkerReaderUrl(new URL(href, window.location.href));
-}
-function isBloomeeLandingUrl(url) {
-  return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase()) && (url.pathname === "/" || url.pathname === "") && Boolean(document.querySelector(".life-top-page-wrap,.home-index,.point__itembox-headline,.cv-step,.ctaarea"));
-}
-function isBookWalkerStorefrontUrl(url) {
-  return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase()) && !isBookWalkerReaderUrl(url);
-}
-function isBookWalkerReaderUrl(url) {
-  const hostname = url.hostname.toLowerCase();
-  if (!/^(?:[^.]+\.)*bookwalker\.jp$/iu.test(hostname)) return false;
-  if (hostname !== "bookwalker.jp" && hostname !== "www.bookwalker.jp") return true;
-  return Boolean(document.querySelector('canvas, #pageSliderCounter, #viewer, #renderer, #bookContainer, [id^="viewport"]'));
-}
-function mokuroDisplayOcrEnabled() {
-  try {
-  if (typeof localStorage === "undefined") return true;
-  const raw = localStorage.getItem("profiles");
-  if (!raw) return true;
-  const profiles = JSON.parse(raw);
-  const currentRaw = localStorage.getItem("currentProfile") ?? "";
-  let current = currentRaw;
-  try {
-    current = JSON.parse(currentRaw);
-  } catch {
-  }
-  const profile = profiles[current] ?? profiles[currentRaw] ?? Object.values(profiles)[0];
-  return profile?.displayOCR !== false;
-  } catch {
-  return true;
-  }
-}
-function effectiveSiteScanCollectionLimit(limit, href = window.location.href) {
-  const profiles = getMatchingSiteParsers(href);
-  return profiles.length ? effectiveScanTargetLimit(profiles, limit) : limit;
-}
-function collectSiteScanTargets(limit = 40, href = window.location.href, options = {}) {
-  return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
-}
-function* siteScanTargetSteps(limit, href, options) {
-  const profiles = getMatchingSiteParsers(href);
-  if (!profiles.length) return null;
-  const context = createSiteScanContext(profiles, limit, options);
-  for (const profile of profiles) yield* profileScanTargetSteps(profile, context);
-  return siteScanResult(profiles, context.targets);
-}
-function drainCollectionSteps(steps) {
-  for (; ; ) {
-  const next = steps.next();
-  if (next.done) return next.value;
-  }
-}
-function createSiteScanContext(profiles, limit, options = {}) {
-  return {
-  effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipTargetCount ?? 0),
-  targets: [],
-  seen: new Set(),
-  skipMirroredHosts: Boolean(options.skipMirroredHosts),
-  mirroredHeadTargetCount: Math.max(0, options.mirroredHeadTargetCount ?? 0),
-  rootQueryCache: new Map()
-  };
-}
-function* profileScanTargetSteps(profile, context) {
-  if (profile.id === "youtube-comments-parser") collectYouTubeSyntheticTextTargets(profile, context);
-  for (const root of queryParserRoots(profile, context.rootQueryCache)) {
-  if (!siteScanHasRoom(context)) break;
-  collectRootScanTargets(profile, root, context);
-  yield;
-  }
-  if (profile.includePassiveInteractionRoots !== false) {
-  yield* profilePassiveInteractionTargetSteps(profile, context);
-  }
-}
-function collectYouTubeSyntheticTextTargets(profile, context) {
-  const roots = uniqueVisibleRoots(Array.from(document.querySelectorAll(YOUTUBE_SYNTHETIC_TEXT_ROOTS)));
-  for (const root of roots) {
-  if (!siteScanHasRoom(context)) break;
-  if (context.targets.some((target) => target.parent === root)) continue;
-  const text = syntheticYouTubeElementText(root);
-  if (!text || !HAS_JAPANESE.test(text)) continue;
-  context.targets.push(siteScanTargetWithProfileOptions(profile, {
-    text,
-    parent: root,
-    fragments: [],
-    layoutSensitive: true
-  }));
-  }
-}
-function syntheticYouTubeElementText(root) {
-  if (root.matches("ytd-watch-info-text")) return syntheticYouTubeWatchInfoText(root);
-  for (const text of [
-  root.getAttribute("aria-label"),
-  root.getAttribute("title"),
-  root.innerText,
-  root.textContent
-  ]) {
-  const normalized = text?.replace(/\s+/g, " ").trim();
-  if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
-  }
-  return "";
-}
-function syntheticYouTubeWatchInfoText(root) {
-  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text2) => Boolean(text2));
-  const text = parts.join(" • ");
-  if (HAS_JAPANESE.test(text)) return text;
-  for (const attribute of ["aria-label", "title"]) {
-  const fallback = normalizedAttributeText(root, attribute);
-  if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
-  }
-  return "";
-}
-function normalizedAttributeText(element, attribute) {
-  return element.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
-}
-function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
-  if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context) + (context.skipMirroredHosts ? context.mirroredHeadTargetCount + 24 : 0), profile.visibleOnly ?? true, excludeSelector, {
-  allowUiText: true,
-  minLength: profile.minLength,
-  includeUiChrome: true,
-  includeFormChrome: true,
-  includeTabChrome: true,
-  includePlayerChrome: isYouTubeSiteParserProfile(profile),
-  includePassiveInteractions: true,
-  mergeBlockFragments: profile.mergeBlockFragments,
-  heading: profile.heading,
-  allowShortCenteredHeadings: profile.allowShortCenteredHeadings
-  });
-  for (const target of collected) {
-  if (context.skipMirroredHosts && profile.nonDestructive && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
-  if (!addUniqueSiteScanTarget(profile, target, context)) continue;
-  if (!siteScanHasRoom(context)) break;
-  }
-}
-function collectCanvasFallbackTextTarget(profile, canvas, context) {
-  const text = canvasFallbackText(canvas);
-  if (!text || !HAS_JAPANESE.test(text)) return false;
-  context.targets.push(siteScanTargetWithProfileOptions(profile, {
-  text,
-  parent: canvas,
-  fragments: [],
-  layoutSensitive: true,
-  nonDestructive: true
-  }));
-  return true;
-}
-function canvasFallbackText(canvas) {
-  return (canvas.textContent ?? "").replace(/\r\n?/gu, "\n").trim();
-}
-function* profilePassiveInteractionTargetSteps(profile, context) {
-  if (!siteScanHasRoom(context)) return;
-  for (const root of queryProfilePassiveInteractionRoots(profile)) {
-  if (!siteScanHasRoom(context)) break;
-  collectRootScanTargets(profile, root, context, siteScanPassiveInteractionExcludeSelector(profile));
-  yield;
-  }
-}
-function queryProfilePassiveInteractionRoots(profile) {
-  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(PASSIVE_INTERACTION_ROOTS).filter((root) => isUsefulProfilePassiveInteractionRoot(profile, root)));
-}
-function isUsefulProfilePassiveInteractionRoot(profile, root) {
-  const exclude = siteScanPassiveInteractionExcludeSelector(profile);
-  return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
-}
-function siteScanExcludeSelector(profile) {
-  return profile.exclude ?? COMMON_EXCLUDE;
-}
-function siteScanPassiveInteractionExcludeSelector(profile) {
-  return siteScanExcludeSelector(profile);
-}
-function addUniqueSiteScanTarget(profile, target, context) {
-  return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
-  reject: (candidate) => shouldRejectProfileScanTarget(profile, candidate),
-  transform: (candidate) => siteScanTargetWithProfileOptions(profile, volatileYouTubeTargetAsPassiveMirror(profile, candidate))
-  });
-}
-function shouldRejectProfileScanTarget(profile, target) {
-  if (!isYouTubeSiteParserProfile(profile)) return false;
-  return targetSpansMultipleYouTubeWatchMetadataTextHosts(target);
-}
-function volatileYouTubeTargetAsPassiveMirror(profile, target) {
-  if (!isYouTubeSiteParserProfile(profile)) return target;
-  if (!target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return target;
-  return {
-  ...target,
-  passiveInteraction: true,
-  nonDestructive: true,
-  fragments: target.fragments.map((fragment) => ({ ...fragment, passiveInteraction: true }))
-  };
-}
-function targetSpansMultipleYouTubeWatchMetadataTextHosts(target) {
-  if (!target.parent.closest("ytd-watch-metadata")) return false;
-  const hosts = new Set();
-  for (const fragment of target.fragments) {
-  const parent = fragment.node.parentElement;
-  const host = parent?.closest(YOUTUBE_STABLE_TEXT_HOST_SELECTOR);
-  if (host?.closest("ytd-watch-metadata")) hosts.add(host);
-  }
-  return hosts.size > 1;
-}
-function siteScanTargetWithProfileOptions(profile, target) {
-  const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-  const baseTarget = {
-  ...target,
-  parserId: profile.id,
-  ...profileDecoration(profile, target),
-  suppressRuby: target.suppressRuby || suppressRuby || void 0,
-  passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || void 0,
-  singlePassScan: profile.singlePassScan || void 0,
-  nonDestructive: profile.nonDestructive || void 0
-  };
-  return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
-}
-function isYouTubeSiteParserProfile(profile) {
-  return profile.id.startsWith("youtube-");
-}
-function profileDecoration(profile, target) {
-  const sealed = target.decoration ?? classifyDecoration(target.parent);
-  if (sealed === "interactive-passive" && profile.id === YOMU_HOSTED_DOCS_PARSER_ID) {
-  return { decoration: "content-ruby", decorationProfileOverride: true };
-  }
-  return { decoration: sealed, decorationProfileOverride: target.decorationProfileOverride };
-}
-function shouldSuppressSiteScanRuby(profile, target) {
-  if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
-  if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
-  if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
-  return false;
-}
-function isBookWalkerReaderPassiveChromeTarget(parent) {
-  return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
-}
-function isJpdbReviewPromptTarget(parent, text) {
-  if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
-  if (compactTextLength(text) > 18) return false;
-  const prompt = parent.closest(".review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling");
-  if (!prompt) return false;
-  return !parent.closest(".subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit");
-}
-function isJitenStudyPromptTarget(parent, text) {
-  if (!isJitenStudyPath() || compactTextLength(text) > 18) return false;
-  const prompt = parent.closest('[lang="ja"]');
-  if (!prompt || !prompt.classList.contains("font-noto-sans")) return false;
-  if (!hasPromptTextSizeClass(prompt)) return false;
-  return Boolean(prompt.closest(".flex.items-center.justify-center"));
-}
-function isJitenStudyPath() {
-  return (location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe")) && location.pathname.startsWith("/srs/study");
-}
-function hasPromptTextSizeClass(element) {
-  return Array.from(element.classList).some(
-  (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
-  );
-}
-function compactTextLength(text) {
-  return text.replace(/\s+/g, "").length;
-}
-function plainScanTarget(target) {
-  return {
-  ...target,
-  layoutSensitive: true,
-  fragments: target.fragments.map((fragment) => ({
-    ...fragment,
-    layoutSensitive: true
-  }))
-  };
-}
-function siteScanRemaining(context) {
-  return context.effectiveLimit - context.targets.length;
-}
-function siteScanHasRoom(context) {
-  return siteScanRemaining(context) > 0;
-}
-function siteScanResult(profiles, targets) {
-  if (targets.length) return targets;
-  return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
-}
-function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
-  return scanTargetCollectionSteps(limit, href, options);
-}
-const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
-function* scanTargetCollectionSteps(limit, href, options) {
-  const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
-  const collectionLimit = limit + skipTargetCount;
-  const matchingProfiles = getMatchingSiteParsers(href);
-  const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
-  const withDeferred = yield* withDeferredShadowScanTargets(
-  targets,
-  effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
-  matchingProfiles
-  );
-  const eligible = options.skipTarget ? withDeferred.filter((target) => !options.skipTarget(target)) : withDeferred;
-  return eligible.slice(0, limit);
-}
-function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
-  let targets = baseTargets;
-  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
-  for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
-  const remaining = effectiveLimit - targets.length;
-  const hosts = drainDepthCappedShadowHosts();
-  if (!hosts.length || remaining <= 0) break;
-  yield;
-  const seen = seenTextNodes(targets);
-  const collected = [];
-  for (const host of hosts) {
-    if (collected.length >= remaining) break;
-    const hostTargets = collectFragmentTextTargetsIn(host, remaining - collected.length, true, residualVisibleJapaneseExcludeSelector(profiles), {
-      allowUiText: true,
-      includeUiChrome: true,
-      includeFormChrome: true,
-      includeTabChrome: true,
-      includePassiveInteractions: true,
-      heading: true,
-      minLength: 1
-    }).filter((target) => target.fragments.every((fragment) => !seen.has(fragment.node)));
-    collected.push(...hostTargets);
-  }
-  if (!collected.length) continue;
-  targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
-  }
-  return targets;
-}
-function* scanTargetPhaseSteps(limit, href, options) {
-  const matchingProfiles = getMatchingSiteParsers(href);
-  const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipTargetCount ?? 0) : limit;
-  const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
-  const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
-  const baseTargets = siteTargets ?? [];
-  if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
-  if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
-    return baseTargets;
-  }
-  yield;
-  const residualTargets = collectResidualVisibleJapaneseTargets(
-    effectiveLimit - baseTargets.length,
-    baseTargets,
-    matchingProfiles,
-    options
-  );
-  return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
-  }
-  yield;
-  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles, options);
-  if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
-  const profileTargets = [...baseTargets, ...profileUiChromeTargets];
-  if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
-  yield;
-  const residualTargets = collectResidualVisibleJapaneseTargets(
-    effectiveLimit - profileTargets.length,
-    profileTargets,
-    matchingProfiles,
-    options
-  );
-  return residualTargets.length ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : profileTargets;
-  }
-  yield;
-  const genericPhaseRemaining = effectiveLimit - baseTargets.length - profileUiChromeTargets.length;
-  const uiChromeReserve = genericUiChromeTargetLimit(genericPhaseRemaining);
-  const genericTargets = collectGenericProseTargets(
-  genericPhaseRemaining - uiChromeReserve,
-  [...baseTargets, ...profileUiChromeTargets],
-  options
-  );
-  yield;
-  const uiChromeTargets = collectSafeUiChromeTargets(
-  genericPhaseRemaining - genericTargets.length,
-  [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
-  options
-  );
-  yield;
-  const supplementalGenericTargets = collectGenericProseTargets(
-  genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
-  [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
-  options
-  );
-  const collectedTargets = [
-  ...baseTargets,
-  ...profileUiChromeTargets,
-  ...genericTargets,
-  ...uiChromeTargets,
-  ...supplementalGenericTargets
-  ];
-  yield;
-  const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
-  if (targetsWithResidual.length) return targetsWithResidual;
-  yield;
-  const broadTargets = collectWholePageScanTargets(effectiveLimit);
-  const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
-  if (broadWithResidual.length) return broadWithResidual;
-  if (annotationScopeActive()) return [];
-  return collectVisibleTextTargets(effectiveLimit);
-}
-function markTargetsPassive(targets, options = {}) {
-  return targets.map((target) => ({
-  ...target,
-  passiveInteraction: true,
-  nonDestructive: options.nonDestructive || void 0,
-  ..."fragments" in target ? {
-    fragments: target.fragments.map((fragment) => ({
-      ...fragment,
-      passiveInteraction: true
-    }))
-  } : {}
-  }));
-}
-function profilePhaseTargetLimit(profiles, effectiveLimit) {
-  if (!profiles.length || !Number.isFinite(effectiveLimit) || effectiveLimit < PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD || profiles.some((profile) => profile.disableGenericDomScan || profile.suppressResidualVisibleScan)) return effectiveLimit;
-  const reserve = Math.min(
-  PROFILE_PHASE_GENERIC_RESERVE_MAX,
-  Math.max(1, Math.floor(effectiveLimit * PROFILE_PHASE_GENERIC_RESERVE_RATIO))
-  );
-  return Math.max(1, effectiveLimit - reserve);
-}
-function genericUiChromeTargetLimit(remaining) {
-  if (remaining <= 0) return 0;
-  if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
-  return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
-}
-function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
-  const remaining = effectiveLimit - targets.length;
-  if (remaining <= 0) return targets;
-  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
-  return residual.length ? [...targets, ...residual] : targets;
-}
-function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, options = {}) {
-  if (limit <= 0 || !document.body) return [];
-  const collection = {
-  targets: [],
-  seen: seenTextNodes(existingTargets),
-  limit
-  };
-  const candidateLimit = Number.isFinite(limit) ? Math.max(limit, existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0) + limit + 24) : limit;
-  const nonDestructiveProfile = profiles.some((profile) => profile.nonDestructive);
-  const collected = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
-  allowUiText: true,
-  includeUiChrome: true,
-  includeFormChrome: true,
-  includeTabChrome: true,
-  includePlayerChrome: isYouTubeHost(),
-  includePassiveInteractions: true,
-  heading: true,
-  allowShortCenteredHeadings: nonDestructiveProfile,
-  minLength: 1
-  }));
-  for (const target of collected) {
-  if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
-  appendResidualVisibleTarget(collection.targets, collection.seen, {
-    ...target,
-    parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
-  });
-  if (genericProseCollectionFull(collection)) break;
-  }
-  return collection.targets;
-}
-function residualVisibleJapaneseExcludeSelector(profiles) {
-  const entries2 = [COMMON_EXCLUDE, "ruby"];
-  if (profiles.some(isYouTubeSiteParserProfile)) {
-  entries2.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
-  }
-  if (profiles.some((profile) => profile.id === JPDB_PARSER_ID)) {
-  entries2.push(".subsection-spelling.with-furigana > :not(.primary-spelling)");
-  }
-  return entries2.join(",");
-}
-function* completeSiteScanTargetSteps(profiles, limit, href, options = {}) {
-  if (!profiles.length) return null;
-  const siteTargets = (yield* siteScanTargetSteps(limit, href, options)) ?? [];
-  if (siteTargets.length) return siteTargets;
-  if (hasWholePageFallback(profiles)) {
-  yield;
-  const broadTargets = collectWholePageScanTargets(limit);
-  if (broadTargets.length) return broadTargets;
-  }
-  return hasGenericPageTextFallback(profiles) ? null : siteTargets;
-}
-function hasGenericPageTextFallback(profiles) {
-  return profiles.some((profile) => profile.includeGenericPageText);
-}
-function hasWholePageFallback(profiles) {
-  return profiles.some((profile) => profile.fallbackToWholePage);
-}
-function effectiveScanTargetLimit(profiles, requestedLimit, profileLimitOffset = 0) {
-  const profileLimit = profiles.reduce(
-  (limit, profile) => Math.min(limit, profile.scanLimit === void 0 ? limit : profile.scanLimit + profileLimitOffset),
-  requestedLimit
-  );
-  return Math.max(1, profileLimit);
-}
-function collectWholePageScanTargets(limit) {
-  const targets = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
-  allowUiText: true,
-  includeUiChrome: true,
-  includeFormChrome: true,
-  includeTabChrome: true,
-  includePassiveInteractions: true,
-  heading: true,
-  minLength: 1
-  })).slice(0, limit);
-  return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
-}
-function collectGenericProseTargets(limit, existingTargets = [], options = {}) {
-  const roots = genericProseRoots();
-  const collection = createGenericProseCollection(limit, existingTargets, options);
-  for (const root of roots) {
-  collectFragmentTargetsFromRoot(root, collection, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-  if (genericProseCollectionFull(collection)) break;
-  }
-  return collection.targets;
-}
-function createGenericProseCollection(limit, existingTargets, options) {
-  return {
-  targets: [],
-  seen: seenTextNodes(existingTargets),
-  limit,
-  skipMirroredHosts: options.skipMirroredHosts,
-  candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0)
-  };
-}
-function seenTextNodes(targets) {
-  return new Set(targets.flatMap((target) => {
-  if ("fragments" in target) return textNodesForFragmentTarget(target);
-  return [target.node];
-  }));
-}
-function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true, profiles = [], options = {}) {
-  if (!enabled || limit <= 0) return [];
-  const collection = createGenericProseCollection(limit, existingTargets, options);
-  const extraExclude = profiles.map((p) => p.exclude).filter(Boolean).join(",");
-  const parserId = profiles.length === 1 ? profiles[0].id : "safe-ui-chrome-parser";
-  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
-  collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, "ui", extraExclude, parserId, nonDestructive);
-  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form", "", parserId, nonDestructive);
-  collectSafeFormControlTextTargets(collection, extraExclude);
-  return collection.targets;
-}
-function collectSafeUiChromeTargets(limit, existingTargets = [], options = {}) {
-  if (limit <= 0) return [];
-  const collection = createGenericProseCollection(limit, existingTargets, options);
-  collectSafeChromeRootTargets(safeUiChromeRoots(), collection, "ui");
-  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form");
-  collectSafeFormControlTextTargets(collection);
-  return collection.targets;
-}
-function collectSafeFormControlTextTargets(collection, extraExclude = "") {
-  const targets = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
-  excludeSelector: extraExclude
-  }));
-  for (const target of targets) {
-  collection.targets.push(target);
-  if (genericProseCollectionFull(collection)) break;
-  }
-}
-function collectSafeChromeRootTargets(roots, collection, kind, extraExclude = "", parserId = "safe-ui-chrome-parser", nonDestructive = false) {
-  for (const root of roots) {
-  if (kind === "ui") {
-    const baseExclude = safeUiChromeExcludeForRoot(root);
-    collectFragmentTargetsFromRoot(root, collection, extraExclude ? `${baseExclude},${extraExclude}` : baseExclude, {
-      allowUiText: true,
-      includeUiChrome: true,
-      includeTabChrome: true,
-      includePassiveInteractions: true,
-      heading: true,
-      allowShortCenteredHeadings: true,
-      minLength: 1
-    }, parserId, nonDestructive);
-  } else {
-    collectFragmentTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, {
-      allowUiText: true,
-      includeFormChrome: true,
-      includePassiveInteractions: true,
-      heading: true,
-      minLength: 1
-    }, parserId, nonDestructive);
-  }
-  if (genericProseCollectionFull(collection)) break;
-  }
-}
-function safeUiChromeRoots() {
-  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root)));
-}
-function profileSafeUiChromeRoots(extraExclude = "") {
-  const roots = queryWithinAnnotationScope(PROFILE_SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root));
-  if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
-  return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
-}
-function safeUiChromeExcludeForRoot(root) {
-  return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]') ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE : SAFE_UI_CHROME_EXCLUDE;
-}
-function safeFormChromeRoots() {
-  return uniqueVisibleRoots(queryWithinAnnotationScope(SAFE_FORM_CHROME_ROOTS).filter((root) => isUsefulSafeFormChromeRoot(root)));
-}
-function collectFragmentTargetsFromRoot(root, collection, exclude, options, passiveParserId, nonDestructive = false) {
-  const remaining = genericProseRemaining(collection);
-  const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts ? remaining + (collection.candidateHeadroom ?? 0) + 24 : remaining, true, exclude, options);
-  for (const target of collected) {
-  if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
-  appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
-    ...target,
-    parserId: passiveParserId,
-    passiveInteraction: true,
-    nonDestructive: nonDestructive || void 0
-  } : target);
-  if (genericProseCollectionFull(collection)) break;
-  }
-}
-function genericProseRoots() {
-  return queryWithinAnnotationScope(GENERIC_PROSE_ROOTS).filter((root) => isUsefulGenericProseRoot(root));
-}
-function genericProseRemaining(collection) {
-  return Math.max(0, collection.limit - collection.targets.length);
-}
-function genericProseCollectionFull(collection) {
-  return genericProseRemaining(collection) <= 0;
-}
-function appendGenericProseTarget(targets, seen, target, options) {
-  const admissionOptions = { defaultParserId: "generic-prose-parser" };
-  return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
-}
-function appendResidualVisibleTarget(targets, seen, target) {
-  const nodes = textNodesForFragmentTarget(target);
-  if (!nodes.some((node) => seen.has(node))) {
-  appendGenericProseTarget(targets, seen, target);
-  return;
-  }
-  for (const fragments of unseenFragmentRuns(target, seen)) {
-  const parent = fragments[0]?.node.parentElement;
-  if (!parent) continue;
-  const text = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
-  if (!HAS_JAPANESE.test(text)) continue;
-  const decoration = classifyDecoration(parent);
-  if (decoration === "skip") continue;
-  appendAdmittedFragmentTarget(targets, seen, {
-    ...target,
-    text,
-    parent,
-    fragments,
-    decoration,
-    suppressRuby: decoration === "interactive-passive" || void 0,
-    passiveInteraction: true,
-    proseWrap: false
-  }, { defaultParserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID });
-  }
-}
-function unseenFragmentRuns(target, seen) {
-  const runs = [];
-  let current = [];
-  const flush = () => {
-  const trimmed = trimFragmentRun(current);
-  if (trimmed.length) runs.push(trimmed);
-  current = [];
-  };
-  for (const fragment of target.fragments) {
-  if (seen.has(fragment.node)) flush();
-  else current.push({ ...fragment });
-  }
-  flush();
-  return runs;
-}
-function trimFragmentRun(fragments) {
-  while (fragments.length) {
-  const first = fragments[0];
-  const value = first.node.data.slice(first.start, first.end);
-  first.start += value.match(/^\s*/u)?.[0].length ?? 0;
-  if (first.start < first.end) break;
-  fragments.shift();
-  }
-  while (fragments.length) {
-  const last = fragments[fragments.length - 1];
-  const value = last.node.data.slice(last.start, last.end);
-  last.end -= value.match(/\s*$/u)?.[0].length ?? 0;
-  if (last.start < last.end) break;
-  fragments.pop();
-  }
-  return fragments;
-}
-function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
-  const nodes = textNodesForFragmentTarget(target);
-  if (!nodes.length || nodes.some((node) => seen.has(node))) return false;
-  if (options.reject?.(target)) return false;
-  if (isResidualReaderParticleTarget(target)) return false;
-  if (isResidualJpdbAlternateSpellingTarget(target)) return false;
-  nodes.forEach((node) => seen.add(node));
-  const admittedTarget = options.transform ? options.transform(target) : { ...target, parserId: target.parserId ?? options.defaultParserId };
-  targets.push(admittedTarget);
-  return true;
-}
-function isResidualReaderParticleTarget(target) {
-  const text = target.text.replace(/\s+/g, "");
-  return /^[のはをがにでへもとやかねよな]$/u.test(text) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
-}
-function isResidualJpdbAlternateSpellingTarget(target) {
-  const spelling = target.parent.closest(".subsection-spelling.with-furigana");
-  return Boolean(spelling && !target.parent.closest(".primary-spelling"));
-}
-function textNodesForFragmentTarget(target) {
-  const nodes = [];
-  for (const fragment of target.fragments) {
-  if (!nodes.includes(fragment.node)) nodes.push(fragment.node);
-  }
-  return nodes;
-}
-function isUsefulGenericProseRoot(root) {
-  if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
-  const text = compactRootText(root);
-  if (text.length < 12) return false;
-  return HAS_JAPANESE.test(text);
-}
-function isUsefulSafeUiChromeRoot(root) {
-  return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
-}
-function isUsefulSafeFormChromeRoot(root) {
-  return isUsefulCompactJapaneseRoot(root, SAFE_FORM_CHROME_EXCLUDE, 1, SAFE_FORM_CHROME_MAX_COMPACT_LENGTH);
-}
-function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
-  if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
-  if (!isVisibleSafeUiChromeRoot(root)) return false;
-  const text = compactRootText(root);
-  return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
-}
-function compactRootText(root) {
-  return root.textContent?.replace(/\s+/g, "").trim() ?? "";
-}
-function isVisibleSafeUiChromeRoot(root) {
-  const rect = root.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
-  const style = getComputedStyle(root);
-  return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
-}
-function queryParserRoots(profile, rootQueryCache) {
-  const roots = [];
-  for (const selector of profile.roots) {
-  roots.push(...queryRootsBySelector(selector, rootQueryCache));
-  }
-  const unique2 = uniqueVisibleRoots(roots);
-  return profile.id === "mokuro-parser" ? nearestMokuroRoots(unique2) : unique2;
-}
-function queryRootsBySelector(selector, rootQueryCache) {
-  const cached = rootQueryCache?.get(selector);
-  if (cached) return cached;
-  const elements = queryWithinAnnotationScope(selector);
-  rootQueryCache?.set(selector, elements);
-  return elements;
-}
-function nearestMokuroRoots(roots) {
-  const margin = mokuroScanViewportMargin();
-  return roots.filter((root) => isElementNearViewport(root, margin)).sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b) || documentPositionOrder(a, b)).slice(0, MOKURO_SCAN_ROOT_LIMIT);
-}
-function mokuroScanViewportMargin() {
-  const width = window.innerWidth || document.documentElement.clientWidth || 0;
-  const height = window.innerHeight || document.documentElement.clientHeight || 0;
-  return Math.max(width, height) * MOKURO_SCAN_MARGIN_VIEWPORTS;
-}
-function isElementNearViewport(element, margin) {
-  const rect = element.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return false;
-  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-}
-function elementViewportDistance(element) {
-  const rect = element.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return Number.POSITIVE_INFINITY;
-  const dx = rect.right < 0 ? -rect.right : rect.left > window.innerWidth ? rect.left - window.innerWidth : 0;
-  const dy = rect.bottom < 0 ? -rect.bottom : rect.top > window.innerHeight ? rect.top - window.innerHeight : 0;
-  return Math.hypot(dx, dy);
-}
-function uniqueVisibleRoots(roots) {
-  const unique2 = [];
-  for (const root of roots) {
-  if (unique2.some((existing) => existing === root || existing.contains(root))) continue;
-  unique2.push(root);
-  }
-  return unique2;
-}
-function uniqueSpecificVisibleRoots(roots) {
-  const unique2 = [];
-  for (const root of [...roots].sort((a, b) => elementDepth(b) - elementDepth(a))) {
-  if (unique2.some((existing) => existing === root || existing.contains(root) || root.contains(existing))) continue;
-  unique2.push(root);
-  }
-  return unique2.sort((a, b) => documentPositionOrder(a, b));
-}
-function elementDepth(element) {
-  let depth = 0;
-  for (let current = element.parentElement; current; current = current.parentElement) depth += 1;
-  return depth;
-}
-function documentPositionOrder(a, b) {
-  if (a === b) return 0;
-  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
-}
-function safeElementMatches(element, selector) {
-  try {
-  return element.matches(selector);
-  } catch {
-  return false;
-  }
-}
 const TERM_AUDIO_PRELOAD_LIMIT = 4;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
 const NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS = 350;
@@ -34385,8 +34410,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.268"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.268"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.269"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.269"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34518,7 +34543,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.268"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.269"}`;
   } catch {
   return null;
   }
@@ -35981,6 +36006,7 @@ class ReaderApp {
   jpdbPageEnhanceTimer;
   jpdbPageEnhancementGeneration = 0;
   lastEnhancedHref = "";
+  lastJitenStudyHeadword = "";
   nearbyReaderAudioPreloadTimer;
   preloadedTermAudioKeys = new Set();
   preloadedPreparedTermAudioKeys = new Set();
@@ -36640,6 +36666,7 @@ class ReaderApp {
   }
   initJpdbPageEnhancements() {
   if (!isPageEnhancementHost()) return;
+  this.lastJitenStudyHeadword = currentJitenStudyHeadwordText();
   this.scheduleJpdbPageEnhancements(0);
   this.installJpdbReviewExamplesToggleMemory();
   addWindowEventListener("popstate", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
@@ -36679,6 +36706,13 @@ class ReaderApp {
       if (element.dataset.yomuGeneration !== generationKey) element.remove();
     });
   });
+  }
+  maybeScrollJitenStudyToNewCard() {
+  const headword = currentJitenStudyHeadwordText();
+  if (!headword || headword === this.lastJitenStudyHeadword) return;
+  const hadPreviousCard = this.lastJitenStudyHeadword !== "";
+  this.lastJitenStudyHeadword = headword;
+  if (hadPreviousCard) window.scrollTo({ top: 0 });
   }
   jitenEnhancementsNeedRefresh() {
   if (location.href !== this.lastEnhancedHref) return true;
@@ -37062,6 +37096,7 @@ class ReaderApp {
   this.disposeShadowRootDiscovery = void 0;
   setShadowRootScanHook(null);
   setCustomElementUpgradeHook(null);
+  setReviewCardFrontPredicate(null);
   this.autoScanObserver?.disconnect();
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
@@ -37171,11 +37206,13 @@ class ReaderApp {
       });
     }
     if (isJitenHost()) {
+      this.maybeScrollJitenStudyToNewCard();
       if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
     } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
       this.scheduleJpdbPageEnhancements(500);
     }
   });
+  setReviewCardFrontPredicate(isReviewCardFrontPromptElement);
   setShadowRootScanHook((root, cause) => {
     if (this.isDestroyed || !nodeWithinAnnotationScope(root)) return;
     this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);

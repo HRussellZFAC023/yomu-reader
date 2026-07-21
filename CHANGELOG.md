@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.269] - 2026-07-21
+
+### Fixed
+
+- Review card fronts no longer spoil the answer: the word you are being tested on stays a plain prompt on the question side, with no furigana and no pitch underline, and is annotated as usual once you reveal the answer. Yomu had been annotating the headword on the front of jiten study cards and jpdb reviews, showing the reading you were meant to recall; the hosted study page already behaved correctly and now the native sites match it.
+- Moving to the next card in a jiten study session now scrolls back to the top, so each new card starts at its headword instead of wherever you had scrolled on the previous card. The page only scrolls on a genuinely new card, not when you reveal the answer to the one you are on.
+
 ## [1.6.268] - 2026-07-21
 
 ### Fixed

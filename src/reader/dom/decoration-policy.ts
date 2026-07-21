@@ -946,6 +946,7 @@ const COMBOBOX_OWNED_ID_TTL_MS = 250;
 export function resetDecorationPolicyCachesForTest(): void {
     constrainedRowStyleFactMemo = new WeakMap();
     comboboxOwnedIdMemo = new WeakMap();
+    reviewCardFrontPredicate = null;
 }
 
 function comboboxOwnedIds(root: Node): ReadonlySet<string> {
@@ -1145,11 +1146,25 @@ function mediaElementIsThumbnailSized(media: HTMLElement): boolean {
     return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
 
+// Injected by the site layer (setReviewCardFrontPredicate) so this site-neutral
+// policy can drop review-card fronts (jiten study / jpdb review question side)
+// without importing site modules. Null until the reader registers it.
+let reviewCardFrontPredicate: ((element: Element) => boolean) | null = null;
+
+export function setReviewCardFrontPredicate(predicate: ((element: Element) => boolean) | null): void {
+    reviewCardFrontPredicate = predicate;
+}
+
 export function classifyDecoration(element: Element): DecorationState {
     // Reader-owned surfaces (lookup panel, drawers, previews) manage their own
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';
     if (isEditableComposingContext(element)) return 'skip';
+    // A review-card FRONT (question side) is a plain prompt: never decorate it so
+    // furigana/pitch cannot spoil the reading the learner must recall. Every scan
+    // pass funnels through here, so one 'skip' covers the profile scan, the
+    // residual-visible pass, and shadow rounds alike.
+    if (reviewCardFrontPredicate?.(element)) return 'skip';
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return 'interactive-passive';

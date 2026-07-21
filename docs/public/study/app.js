@@ -11669,8 +11669,97 @@ ${spelling}`);
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
     for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
       const host = registeredTextMirrorHostFor(mirror);
-      if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
+      if (!host?.isConnected) continue;
+      alignAdditiveTextMirrorRun(mirror, host);
+      alignMirrorWordsToSourceRects(mirror, host);
     }
+  }
+  function isPureTranslateTransform(transform) {
+    const match = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (!match) return false;
+    const parts = match[1].split(",").map((value) => Number.parseFloat(value));
+    if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
+    const [a, b, c, d] = parts;
+    return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
+  }
+  function alignMirrorWordsToSourceRects(mirror, host) {
+    if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
+    if (mirror.style.getPropertyValue("overflow") === "hidden") return;
+    if (typeof Range.prototype.getClientRects !== "function" || !host.isConnected) return;
+    const hostRect = host.getBoundingClientRect();
+    if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
+    for (let node = mirror, depth = 0; node && depth < 10; depth += 1, node = composedAncestorElement(node)) {
+      const transform = safeComputedStyle(node).transform;
+      if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
+    }
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (mirror.dataset.sourceText !== source.hostText) return;
+    const words = Array.from(mirror.querySelectorAll(
+      ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
+    ));
+    if (!words.length) return;
+    const range = host.ownerDocument.createRange();
+    const mirrorRect = mirror.getBoundingClientRect();
+    const placements = [];
+    let maxDrift = 0;
+    for (const word of words) {
+      const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+      const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
+      const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
+      const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
+      if (!startBoundary || !endBoundary) continue;
+      range.setStart(startBoundary.node, startBoundary.offset);
+      range.setEnd(endBoundary.node, endBoundary.offset);
+      const rects = Array.from(range.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
+      if (!rects.length) continue;
+      const rect = rects[0];
+      const current = word.getBoundingClientRect();
+      maxDrift = Math.max(
+        maxDrift,
+        Math.abs(current.left - rect.left),
+        Math.abs(current.top - rect.top),
+        Math.abs(current.width - rect.width)
+      );
+      placements.push({
+        word,
+        left: rect.left - mirrorRect.left,
+        top: rect.top - mirrorRect.top,
+        width: rect.width,
+        height: rect.height
+      });
+    }
+    if (!placements.length) return;
+    const DRIFT_TOLERANCE_PX = 1.5;
+    if (maxDrift <= DRIFT_TOLERANCE_PX) {
+      mirror.dataset.yomuAlignedHostW = String(hostRect.width);
+      mirror.dataset.yomuAlignedHostH = String(hostRect.height);
+      return;
+    }
+    for (const { word, left, top, width, height } of placements) {
+      word.style.setProperty("position", "absolute", "important");
+      word.style.setProperty("left", `${left}px`, "important");
+      word.style.setProperty("top", `${top}px`, "important");
+      word.style.setProperty("width", `${width}px`, "important");
+      word.style.setProperty("height", `${height}px`, "important");
+      word.style.setProperty("margin", "0", "important");
+      word.style.setProperty("white-space", "nowrap", "important");
+    }
+    if (mirror.style.getPropertyValue("transform")) {
+      const settled = mirror.getBoundingClientRect();
+      const dx = settled.left - mirrorRect.left;
+      const dy = settled.top - mirrorRect.top;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        for (const { word, left, top } of placements) {
+          word.style.setProperty("left", `${left - dx}px`, "important");
+          word.style.setProperty("top", `${top - dy}px`, "important");
+        }
+      }
+    }
+    mirror.dataset.yomuSourceAligned = "1";
+    const finalHostRect = host.getBoundingClientRect();
+    mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
+    mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
   }
   let pendingAdditiveMirrorAlignFrame = 0;
   function scheduleAdditiveMirrorRealign() {
@@ -11786,6 +11875,10 @@ ${spelling}`);
     return active;
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
+    if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
+      const alignHost = registeredTextMirrorHostFor(root);
+      if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
+    }
     if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
     settleDetachedReadingLanes(
       Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
@@ -45610,7 +45703,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.267".trim() ? "1.6.267".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.269".trim() ? "1.6.269".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -71604,6 +71697,9 @@ ${component.reading}`;
     if (!shouldRenderRuby(surface, token, settings)) return false;
     return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter$1);
   }
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -71644,9 +71740,6 @@ ${component.reading}`;
     if (!url) return true;
     if (!open(url)) location.href = url;
     return true;
-  }
-  function isJitenHost() {
-    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
   }
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "Jiten") {
     const meanings = jitenDefinitionMeanings(card, info);
