@@ -103,6 +103,8 @@ import {
     currentPageLocalDictionaryTargets,
     currentPageTermTarget,
     isCurrentKanjiSurface,
+    isBunproHost,
+    isBunproQuizAnswerHidden,
     isJitenHost,
     isPageEnhancementHost,
     isPageEnhancementReady,
@@ -700,7 +702,7 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
     return resolution.patterns[0] ?? '';
 }
 
-// Identity of a jiten page-addon key by SPELLING only ("word:食べる:たべる" ->
+// Identity of a dynamic page-addon key by SPELLING only ("word:食べる:たべる" ->
 // "word:食べる", "kanji:食" -> "kanji:食"). A jiten headword can momentarily
 // resolve its reading from the page title (reading === spelling) or gain
 // furigana after the addon mounts, both of which flip only the reading half of
@@ -708,7 +710,7 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
 // refetch the Immersion Kit on every such flip; the spelling is the stable card
 // identity, and same-spelling content is word-keyed so a rare reading-only
 // change is a safe no-op.
-function jitenAddonKeyIdentity(key: string): string {
+function pageAddonKeyIdentity(key: string): string {
     const parts = key.split(':');
     return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
 }
@@ -1924,7 +1926,12 @@ export class ReaderApp {
     private jitenEnhancementsNeedRefresh(): boolean {
         if (location.href !== this.lastEnhancedHref) return true;
         if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
-        if (!document.querySelector('[data-yomu-jpdb-addon]')) return true;
+        const hasAddon = Boolean(document.querySelector('[data-yomu-jpdb-addon]'));
+        // Bunpro keeps the previous answer console alive briefly while the next
+        // prompt renders. Remove its addon immediately so the preceding answer
+        // cannot leak into the unrevealed question phase.
+        if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+        if (!hasAddon) return true;
         if (this.jitenAddonWordIdentityChanged()) return true;
         return this.jitenAddonStrandedOnFallbackAnchor();
     }
@@ -1936,11 +1943,11 @@ export class ReaderApp {
     // and its Immersion Kit — kept showing the previous card. Refresh whenever
     // the mounted addon's word/kanji identity no longer matches the current target.
     private jitenAddonWordIdentityChanged(): boolean {
-        const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+        const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
         if (!expected.length) return false;
         const mounted = new Set(
             Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
-                .map(element => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
+                .map(element => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
         );
         return !expected.some(identity => mounted.has(identity));
     }
@@ -2056,14 +2063,14 @@ export class ReaderApp {
             entries.length
             || (data?.jpdbVocabularyInfo && !isJpdbHost())
             || (data?.jitenVocabularyInfo && !isJitenHost())
-            || data?.bunproDefinitionInfo
+            || (data?.bunproDefinitionInfo && !isBunproHost())
             || this.settings.immersionKitEnabled,
         );
     }
 
     private jpdbPageWordCard(target: LocalDictionaryTarget): JPDBCard {
         const card = jpdbAudioCard(target.term, target.reading);
-        card.source = isJitenHost() ? 'jiten' : 'jpdb';
+        card.source = isBunproHost() ? 'bunpro' : isJitenHost() ? 'jiten' : 'jpdb';
         return card;
     }
 
@@ -2556,6 +2563,11 @@ export class ReaderApp {
             if (isJitenHost()) {
                 this.maybeScrollJitenStudyToNewCard();
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+            } else if (isBunproHost()) {
+                // Bunpro's lesson carousel and review loop both replace the
+                // active item in place, so the generic JPDB mutation selector
+                // is too narrow. The identity gate keeps steady DOM churn cheap.
+                if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
             } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
                 this.scheduleJpdbPageEnhancements(500);
             }

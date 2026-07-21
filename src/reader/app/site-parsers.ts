@@ -15,6 +15,7 @@ import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } fro
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
 import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
 import { isYouTubeAppHostname } from './youtube-host';
+import { isBunproReviewFrontPrompt } from '../bunpro/page-targets';
 
 export interface SiteParserProfile {
     id: string;
@@ -1371,7 +1372,9 @@ function shouldRejectProfileScanTarget(profile: SiteParserProfile, target: Fragm
 // plain on the front and re-annotates on reveal, matching the hosted study page.
 export function isReviewCardFrontPromptElement(element: Element): boolean {
     if (!(element instanceof HTMLElement)) return false;
-    return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
+    return isBunproReviewFrontPrompt(element)
+        || isJitenStudyFrontPrompt(element)
+        || isJpdbReviewFrontPrompt(element);
 }
 
 // Sub-count and subscribe rows re-render constantly — the flicker that once

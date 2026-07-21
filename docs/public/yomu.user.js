@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.300
+// @version 1.6.301
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.e8c9a564f63f.user.js#sha256=6MmlZPY/cUy4oms3xPhZkWZyicuFXKZWyQCrk4Htnvg=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.612f3ab34644.user.js#sha256=YS86s0ZEfFtK1RmprV8jQQ2B+vvRiJMkEDo1HKL3Hhk=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.1fdcf9d25c51.user.js#sha256=H9z50lxRvUm2AM6wWb0otF/sYp6htHWPDVrQC4jDhs4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.254268591beb.user.js#sha256=JUJoWRvrTiPg53x+2AicpMTxoewCA+NdXSUVysnnj98=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.3ed1e11d537d.user.js#sha256=PtHhHVN9w6qn0dsnTvObeoHzQcnOCW5WhLUOWMAk4/M=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.0e07b9ff40a3.user.js#sha256=Dge5/0CjIpyHV76RChP19QjS+1Z7zentumsn47+cLw4=
 // @require https://yomureader.com/greasyfork/yomu-video.1ded38a4bfde.user.js#sha256=He04pL/eZ27nn6wcS/E21sBwIKEQi5cb0yNHEopQGIE=
 // @resource yomuCss  https://yomureader.com/yomu.5bf313852b35.css#sha256=W/MThSs15EIbKdkdCXoMuyW8Txw03Hn4hJx98cqRUM4=
@@ -21951,7 +21951,7 @@ function uniqueLookupValues(values) {
   }
   return result;
 }
-const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+const READER_OWNED_SELECTOR$1 = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
 const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
 const HEADWORD_SELECTOR = [
   '.text-3xl[lang="ja"]',
@@ -22005,14 +22005,14 @@ function jitenContentAnchor() {
 }
 function jitenStudyCardAnchor() {
   if (jitenStudyAnswerHidden()) return null;
-  const wrap = ownedElement(document.querySelector(".relative.touch-pan-y"));
+  const wrap = ownedElement$1(document.querySelector(".relative.touch-pan-y"));
   if (!wrap) return null;
   const content = Array.from(wrap.children).find(
   (child) => child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className))
   );
   const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
   const last = card?.lastElementChild;
-  if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
+  if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR$1)) return last;
   return card ?? null;
 }
 function jitenStudyAnswerHidden() {
@@ -22048,7 +22048,7 @@ function currentJitenLocalDictionaryTargets() {
   }];
 }
 function jitenHeadword() {
-  const element = ownedElement(document.querySelector(HEADWORD_SELECTOR));
+  const element = ownedElement$1(document.querySelector(HEADWORD_SELECTOR));
   const domTerm = element ? cleanText(extractBaseText(element)) : "";
   if (element && domTerm && JAPANESE_RE.test(domTerm)) {
   return { term: domTerm, reading: cleanText(extractReadingText(element)) || domTerm };
@@ -22066,15 +22066,152 @@ function jitenAlternateForms() {
   return Array.from(heading.parentElement.querySelectorAll('[lang="ja"], ruby')).map((node) => cleanText(extractBaseText(node))).filter((value) => value && JAPANESE_RE.test(value)).slice(0, 8);
 }
 function jitenVocabAnchor() {
-  const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
+  const column = ownedElement$1(document.querySelector(VOCAB_COLUMN_SELECTOR));
   const lastChild = column?.lastElementChild;
   if (lastChild instanceof HTMLElement) return lastChild;
   return column;
 }
 function jitenKanjiAnchor() {
-  const header = ownedElement(document.querySelector(".text-center"));
+  const header = ownedElement$1(document.querySelector(".text-center"));
   if (header) return header;
   return document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2") ?? null;
+}
+function ownedElement$1(element) {
+  return element && !element.closest(READER_OWNED_SELECTOR$1) ? element : null;
+}
+const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+const REVIEW_HEADER_SELECTOR = '#js-rev-header h1[id^="rev-id-"]';
+const QUIZ_ROOT_SELECTOR = "#js-quiz";
+const QUIZ_QUESTION_SELECTOR = '#js-tour-quiz-question, .bp-quiz-question, [id^="study-question-"]';
+const QUIZ_ANSWER_RUBY_SELECTOR = '#js-tour-quiz-question button ruby, .bp-quiz-question button ruby, [id^="study-question-"] button ruby';
+const QUIZ_ANSWER_SELECTOR = "#js-tour-quiz-answer";
+const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
+function isBunproHost() {
+  return location.hostname === "bunpro.jp" || location.hostname.endsWith(".bunpro.jp");
+}
+function isBunproEnhanceablePage() {
+  const pathname = bunproPathname();
+  return pathname === "/learn" || pathname.startsWith("/learn/") || pathname === "/reviews" || pathname.startsWith("/vocabs/") || pathname.startsWith("/grammar_points/");
+}
+function currentBunproTermTarget() {
+  if (!isBunproHost() || !isBunproEnhanceablePage() || isBunproQuizAnswerHidden()) return null;
+  const headword = bunproHeadword();
+  const anchor = bunproAddonAnchor();
+  if (!headword || !anchor) return null;
+  return {
+  term: headword.term,
+  reading: headword.reading,
+  queries: uniqueLookupValues([headword.term, headword.reading]),
+  examples: bunproPageExamples(),
+  anchor
+  };
+}
+function currentBunproLocalDictionaryTargets() {
+  const target = currentBunproTermTarget();
+  if (!target) return [];
+  return [{
+  term: target.term,
+  reading: target.reading,
+  alternates: uniqueLookupValues(target.queries),
+  compounds: [],
+  examples: target.examples,
+  anchor: target.anchor
+  }];
+}
+function isBunproQuizAnswerHidden() {
+  if (!isBunproHost() || !isBunproEnhanceablePage()) return false;
+  const quiz = document.querySelector(QUIZ_ROOT_SELECTOR);
+  if (!quiz) return false;
+  if (document.querySelector(REVIEW_HEADER_SELECTOR)) return false;
+  const manualInput = quiz.querySelector("#js-manual-input");
+  if (manualInput) return !manualInput.readOnly;
+  if (quiz.querySelector(".InputFlashcardReveal, .InputFlashcardSubmit")) return true;
+  return !quiz.querySelector(QUIZ_ANSWER_SELECTOR);
+}
+function isBunproReviewFrontPrompt(element) {
+  if (!isBunproHost() || !element.closest(QUIZ_QUESTION_SELECTOR)) return false;
+  if (element.closest(QUIZ_ANSWER_SELECTOR)) return false;
+  return isBunproQuizAnswerHidden();
+}
+function bunproPathname() {
+  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX, "");
+  return stripped || "/";
+}
+function bunproHeadword() {
+  const heading = ownedElement(document.querySelector(REVIEW_HEADER_SELECTOR));
+  const headword = heading?.querySelector('ruby, [lang="ja"]') ?? heading;
+  const domTerm = headword ? cleanText(extractBaseText(headword)) : "";
+  const domReading = headword ? cleanText(extractReadingText(headword)) : "";
+  if (domTerm && isCompactJapaneseTerm(domTerm)) {
+  return {
+    term: domTerm,
+    reading: domReading || domTerm
+  };
+  }
+  const quizHeadword = bunproRevealedQuizHeadword();
+  if (quizHeadword) return quizHeadword;
+  const pathTerm = bunproVocabularyPathTerm();
+  return pathTerm ? { term: pathTerm, reading: pathTerm } : null;
+}
+function bunproRevealedQuizHeadword() {
+  const quiz = document.querySelector(QUIZ_ROOT_SELECTOR);
+  const input = quiz?.querySelector("#js-manual-input");
+  if (!quiz || !input?.readOnly) return null;
+  const reading = cleanText(input.value);
+  if (!isCompactJapaneseTerm(reading)) return null;
+  const answerRuby = quiz.querySelector(QUIZ_ANSWER_RUBY_SELECTOR);
+  const base = answerRuby ? cleanText(extractBaseText(answerRuby)) : "";
+  const stemReading = answerRuby ? cleanText(extractReadingText(answerRuby)) : "";
+  const suffix = stemReading && reading.startsWith(stemReading) ? reading.slice(stemReading.length) : "";
+  const term = base && stemReading && suffix ? `${base}${suffix}` : reading;
+  return isCompactJapaneseTerm(term) ? { term, reading } : null;
+}
+function bunproVocabularyPathTerm() {
+  const parts = bunproPathname().split("/").filter(Boolean);
+  if (parts[0] !== "vocabs" || !parts[1]) return "";
+  try {
+  const term = cleanText(decodeURIComponent(parts[1]));
+  return isCompactJapaneseTerm(term) ? term : "";
+  } catch {
+  return "";
+  }
+}
+function bunproAddonAnchor() {
+  const answer = ownedElement(document.querySelector(QUIZ_ANSWER_SELECTOR));
+  if (answer) return lastOwnedChild(answer) ?? answer;
+  const header = ownedElement(document.querySelector("#js-rev-header"));
+  if (header) {
+  for (const selector of ["#examples", "#about", "#dictionary-definition"]) {
+    const sectionHeader = ownedElement(document.querySelector(selector));
+    const section = sectionHeader?.closest("section");
+    if (section) return section;
+  }
+  return header;
+  }
+  if (!isBunproQuizAnswerHidden()) {
+  return ownedElement(document.querySelector("#js-tour-quiz-question"));
+  }
+  return null;
+}
+function bunproPageExamples() {
+  const root = document.querySelector(QUIZ_QUESTION_SELECTOR) ?? document.querySelector("#examples")?.closest("section") ?? document;
+  const seen = new Set();
+  const examples = [];
+  for (const element of Array.from(root.querySelectorAll('[lang="ja"], .bp-quiz-question'))) {
+  if (element.closest(READER_OWNED_SELECTOR)) continue;
+  const sentence = cleanText(extractBaseText(element));
+  if (!sentence || sentence.length > 180 || !JAPANESE_RE.test(sentence) || seen.has(sentence)) continue;
+  seen.add(sentence);
+  examples.push({ sentence, translation: "" });
+  if (examples.length >= 8) break;
+  }
+  return examples;
+}
+function isCompactJapaneseTerm(value) {
+  return value.length <= 40 && JAPANESE_RE.test(value) && !/[。！？!?]/.test(value);
+}
+function lastOwnedChild(element) {
+  return Array.from(element.children).reverse().find((child) => child instanceof HTMLElement && !child.closest(READER_OWNED_SELECTOR)) ?? null;
 }
 function ownedElement(element) {
   return element && !element.closest(READER_OWNED_SELECTOR) ? element : null;
@@ -23136,7 +23273,7 @@ function shouldRejectProfileScanTarget(profile, target) {
 }
 function isReviewCardFrontPromptElement(element) {
   if (!(element instanceof HTMLElement)) return false;
-  return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
+  return isBunproReviewFrontPrompt(element) || isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
 }
 function volatileYouTubeTargetAsPassiveMirror(profile, target) {
   if (!isYouTubeSiteParserProfile(profile)) return target;
@@ -28585,23 +28722,28 @@ function requestText$1(url, proxyUrl = "") {
   });
 }
 function isPageEnhancementHost() {
-  return isJpdbHost() || isJitenHost();
+  return isJpdbHost() || isJitenHost() || isBunproHost();
 }
 function isPageEnhancementReady() {
   if (isJpdbHost()) return true;
+  if (isBunproHost()) return isBunproEnhanceablePage();
   return isJitenHost() && isJitenEnhanceablePage();
 }
 function isCurrentKanjiSurface() {
+  if (isBunproHost()) return false;
   if (isJitenHost()) return isJitenKanjiPage();
   return isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack();
 }
 function currentPageKanji() {
+  if (isBunproHost()) return "";
   return isJitenHost() ? extractCurrentJitenKanji() : extractCurrentKanji();
 }
 function currentPageTermTarget() {
+  if (isBunproHost()) return currentBunproTermTarget();
   return isJitenHost() ? currentJitenTermTarget() : currentJpdbTermTarget();
 }
 function currentPageLocalDictionaryTargets() {
+  if (isBunproHost()) return currentBunproLocalDictionaryTargets();
   return isJitenHost() ? currentJitenLocalDictionaryTargets() : currentLocalDictionaryTargets();
 }
 function vocabularyRoot(doc, spelling, reading) {
@@ -35284,8 +35426,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.300"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.300"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.301"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.301"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35417,7 +35559,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.300"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.301"}`;
   } catch {
   return null;
   }
@@ -36568,7 +36710,7 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
-function jitenAddonKeyIdentity(key) {
+function pageAddonKeyIdentity(key) {
   const parts = key.split(":");
   return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
 }
@@ -37600,15 +37742,17 @@ class ReaderApp {
   jitenEnhancementsNeedRefresh() {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
-  if (!document.querySelector("[data-yomu-jpdb-addon]")) return true;
+  const hasAddon = Boolean(document.querySelector("[data-yomu-jpdb-addon]"));
+  if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+  if (!hasAddon) return true;
   if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
   }
   jitenAddonWordIdentityChanged() {
-  const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+  const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
   if (!expected.length) return false;
   const mounted = new Set(
-    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
+    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
   );
   return !expected.some((identity) => mounted.has(identity));
   }
@@ -37699,12 +37843,12 @@ class ReaderApp {
   }
   hasJpdbPageWordContent(entries2, data) {
   return Boolean(
-    entries2.length || data?.jpdbVocabularyInfo && !isJpdbHost() || data?.jitenVocabularyInfo && !isJitenHost() || data?.bunproDefinitionInfo || this.settings.immersionKitEnabled
+    entries2.length || data?.jpdbVocabularyInfo && !isJpdbHost() || data?.jitenVocabularyInfo && !isJitenHost() || data?.bunproDefinitionInfo && !isBunproHost() || this.settings.immersionKitEnabled
   );
   }
   jpdbPageWordCard(target) {
   const card = jpdbAudioCard(target.term, target.reading);
-  card.source = isJitenHost() ? "jiten" : "jpdb";
+  card.source = isBunproHost() ? "bunpro" : isJitenHost() ? "jiten" : "jpdb";
   return card;
   }
   jpdbPageWordAddonKey(target) {
@@ -38092,6 +38236,8 @@ class ReaderApp {
     if (isJitenHost()) {
       this.maybeScrollJitenStudyToNewCard();
       if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+    } else if (isBunproHost()) {
+      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
     } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
       this.scheduleJpdbPageEnhancements(500);
     }

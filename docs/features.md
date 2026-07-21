@@ -57,6 +57,8 @@ Example sentences can come from Jiten/JPDB public example rows, Immersion Kit wi
 
 Every Immersion example card also links to public searches on Immersion Kit and Nadeshiko. These links work without API keys in popup lookup, Study, and enhanced jpdb/Jiten pages; Nadeshiko is also available as an opt-in lookup pill in Settings.
 
+The same Immersion Kit section can live directly inside jpdb, Jiten, and Bunpro. On Bunpro it follows vocabulary and grammar details, the lesson carousel, and the lesson-quiz or review SRS loop. Question prompts stay untouched; the section mounts only with revealed answer information and updates for the next item.
+
 Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them only when you choose the translation.
 
 <figure class="yomu-feature-shot">

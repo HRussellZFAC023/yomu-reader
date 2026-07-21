@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.301] - 2026-07-21
+
+### Added
+
+- Immersion Kit now appears inside Bunpro vocabulary and grammar pages, lesson cards, and revealed quiz or review answers, using the same in-page enhancement as jpdb and Jiten. It follows Bunpro's in-place SRS loop as the item changes, stays out of unrevealed question prompts, and removes the previous item's examples before the next question can appear.
+
 ## [1.6.300] - 2026-07-21
 
 ### Added
