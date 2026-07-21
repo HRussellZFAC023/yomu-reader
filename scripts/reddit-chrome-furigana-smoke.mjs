@@ -240,7 +240,34 @@ for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', ty
     try {
         summaries.push(await runEngine(engine.name, launched.browser));
     } catch (error) {
-        failures.push(`${engine.name}: ${String(error).slice(0, 8000)}`);
+        const firstFailure = String(error);
+        if (!isRetryablePerformanceFailure(firstFailure)) {
+            failures.push(`${engine.name}: ${firstFailure.slice(0, 8000)}`);
+            continue;
+        }
+
+        // Shared CI runners can be descheduled for hundreds of milliseconds
+        // even when the page is idle. Preserve the strict frame/input limits,
+        // but require a fresh browser context to fail them twice before calling
+        // it reader work. The first sample stays in the summary for diagnosis.
+        try {
+            const retry = await runEngine(engine.name, launched.browser);
+            console.warn(
+                `${engine.name}: performance gate passed on a clean-context retry; first sample is preserved in the JSON summary`,
+            );
+            summaries.push({
+                ...retry,
+                performanceRetry: {
+                    firstFailure: firstFailure.slice(0, 2000),
+                },
+            });
+        } catch (retryError) {
+            failures.push([
+                `${engine.name}: performance gate failed twice`,
+                `first: ${firstFailure.slice(0, 3500)}`,
+                `retry: ${String(retryError).slice(0, 3500)}`,
+            ].join('\n'));
+        }
     } finally {
         await launched.browser.close().catch(() => undefined);
     }
@@ -253,6 +280,13 @@ if (failures.length) {
 }
 assert(summaries.some(summary => !summary.skipped), 'No browser engine was available to run the Reddit smoke');
 console.log('reddit-chrome-furigana smoke passed');
+
+function isRetryablePerformanceFailure(message) {
+    return message.includes('boot responsiveness probe did not sample frames')
+        || message.includes('reader boot starved the iPad-shaped frame lane')
+        || message.includes('steady-state work can starve puck/input tasks')
+        || message.includes('steady-state work delayed the puck input lane');
+}
 
 async function runEngine(engineName, browser) {
     const requests = [];
