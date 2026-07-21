@@ -45909,7 +45909,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.272".trim() ? "1.6.272".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.273".trim() ? "1.6.273".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -92821,6 +92821,7 @@ ${entry.url}`),
       const targetOptions = this.mainGradeTargetOptions(card);
       const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
       const grades = newTabGradeOptions(this.dependencies.getSettings(), card);
+      const sourceSummary = this.reviewSourceSummary(card);
       const buttons = renderNewTabGradeControlButtons({
         apiShortLabel: this.apiGradeTargetShortLabel(card),
         bothLabel: this.text("gradeTargetBoth"),
@@ -92830,13 +92831,19 @@ ${entry.url}`),
         showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
         selectorLabel: this.text("gradeTargetSelector"),
         selectedOption: targetOptions[0],
-        summary: this.reviewSourceSummary(card),
         targetLabel,
         targetOptions
       });
       const outcomes = this.studyStepOutcomesForCard(card);
       this.markSuggestedGradeButton(buttons, suggestedStudyGrade(outcomes, grades.map(([grade]) => grade)));
-      return buttons;
+      if (!sourceSummary.hasWanikani) return buttons;
+      return [
+        el("p", {
+          class: "jpdb-reader-newtab-grade-help",
+          dataset: { wanikaniGradeMappingHelp: true }
+        }, uiText(this.language(), "wanikaniGradeMappingHelp")),
+        ...buttons
+      ];
     }
     markSuggestedGradeButton(buttons, suggested) {
       if (!suggested) return;
@@ -95629,7 +95636,7 @@ ${rank.detail}` : baseTitle;
   }
   function wanikaniReviewInput(card, grade) {
     const subject = isRecord(card.raw) && isRecord(card.raw.subject) ? card.raw.subject : void 0;
-    const isRadical = subject?.type === "radical" || card.kind === "unknown" && !card.reading;
+    const isRadical = subject?.type === "radical";
     const failed = grade === "nothing" || grade === "again" || grade === "fail" || grade === "something" || grade === "hard";
     return {
       incorrectMeaningAnswers: failed ? 1 : 0,

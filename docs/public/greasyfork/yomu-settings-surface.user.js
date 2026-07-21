@@ -4957,7 +4957,7 @@ ${candidate.depth}`;
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.272".trim() ? "1.6.272".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.273".trim() ? "1.6.273".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
