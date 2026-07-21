@@ -9,9 +9,8 @@ import {
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
-const DEFAULT_DONATION_GBP = 5;
-const DEFAULT_MIN_DONATION_GBP = 1;
-const DEFAULT_MAX_DONATION_GBP = 100;
+const DEFAULT_MIN_DONATION_GBP = 5;
+const DEFAULT_MAX_DONATION_GBP = 500;
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
 const PRODUCTION_SUPPORT_HOSTS = new Set(["support.yomureader.com"]);
 const STRIPE_API_VERSION = "2026-02-25.clover";
@@ -69,7 +68,6 @@ interface Env extends AcademyBridgeEnv {
   SUPPORT_DONATIONS_THIS_MONTH_GBP?: string;
   SUPPORT_ESTIMATED_DAILY_COST_GBP?: string;
   SUPPORT_ESTIMATED_MONTHLY_COST_GBP?: string;
-  SUPPORT_STRIPE_PAYMENT_LINK_URL?: string;
   SUPPORT_SUCCESS_URL?: string;
   SUPPORT_CANCEL_URL?: string;
   SUPPORT_PROVIDER_KOFI_URL?: string;
@@ -651,25 +649,28 @@ async function donationSnapshot(env: Env): Promise<DonationSnapshot> {
 }
 
 async function createDonationCheckout(request: Request, env: Env): Promise<Response> {
+  const amount = donationAmountMinor(new URL(request.url));
+  if (amount.kind === "missing") return donationAmountForm(request);
+  if (amount.kind === "invalid") {
+    return donationAmountForm(request, "Enter an amount from £5 to £500, with no more than two decimal places.", 400);
+  }
   const requireLiveStripe = requiresLiveStripe(request);
-  const fallbackUrl = fallbackDonateUrl(env, { requireLiveStripe });
   if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test") {
     logStripeTestModeBlocked(request, "secret_key");
-    return donationFallback(fallbackUrl);
+    return donationUnavailableResponse();
   }
-  if (!env.STRIPE_SECRET_KEY) return donationFallback(fallbackUrl);
+  if (!env.STRIPE_SECRET_KEY) return donationUnavailableResponse();
 
-  const amountMinor = donationAmountMinor(new URL(request.url));
   const claimToken = randomSupportClaimToken();
   const claimHash = await sha256Hex(claimToken);
-  const response = await requestStripeCheckout(request, env, amountMinor, claimHash);
+  const response = await requestStripeCheckout(request, env, amount.amountMinor, claimHash);
   const payload = await response.json().catch(() => null);
   const checkoutUrl = checkoutSessionUrl(payload);
   if (checkoutUrl && requireLiveStripe && isStripeTestCheckoutUrl(checkoutUrl)) {
     logStripeTestModeBlocked(request, "checkout_url");
-    return donationFallback(fallbackUrl);
+    return donationUnavailableResponse();
   }
-  if (!response.ok || !checkoutUrl) return failedStripeCheckout(response.status, fallbackUrl);
+  if (!response.ok || !checkoutUrl) return failedStripeCheckout(response.status);
   return completedStripeCheckout(checkoutUrl, claimToken);
 }
 
@@ -714,13 +715,9 @@ function completedStripeCheckout(checkoutUrl: string, claimToken: string): Respo
   });
 }
 
-function failedStripeCheckout(status: number, fallbackUrl: string | null): Response {
+function failedStripeCheckout(status: number): Response {
   console.error(JSON.stringify({ event: "yomu_support_stripe_checkout_failed", status }));
-  return donationFallback(fallbackUrl);
-}
-
-function donationFallback(fallbackUrl: string | null): Response {
-  return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
+  return donationUnavailableResponse();
 }
 
 async function handleDonationClaim(request: Request, env: Env): Promise<Response> {
@@ -1404,13 +1401,74 @@ async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent
   ).run();
 }
 
-function donationAmountMinor(url: URL): number {
-  const raw = url.searchParams.get("amount_gbp") || url.searchParams.get("amount");
-  const parsed = raw ? Number(raw) : DEFAULT_DONATION_GBP;
-  const min = positiveNumberEnv(undefined, DEFAULT_MIN_DONATION_GBP);
-  const max = positiveNumberEnv(undefined, DEFAULT_MAX_DONATION_GBP);
-  const pounds = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : DEFAULT_DONATION_GBP;
-  return Math.round(pounds * 100);
+type DonationAmount =
+  | { kind: "missing" }
+  | { kind: "invalid" }
+  | { kind: "valid"; amountMinor: number };
+
+function donationAmountMinor(url: URL): DonationAmount {
+  const values = [
+    ...url.searchParams.getAll("amount_gbp"),
+    ...url.searchParams.getAll("amount"),
+  ];
+  if (values.length === 0) return { kind: "missing" };
+  if (values.length !== 1) return { kind: "invalid" };
+  const raw = values[0]?.trim() ?? "";
+  if (!/^\d+(?:\.\d{1,2})?$/u.test(raw)) return { kind: "invalid" };
+  const [whole, fraction = ""] = raw.split(".");
+  const amountMinor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  const minMinor = DEFAULT_MIN_DONATION_GBP * 100;
+  const maxMinor = DEFAULT_MAX_DONATION_GBP * 100;
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < minMinor || amountMinor > maxMinor) {
+    return { kind: "invalid" };
+  }
+  return { kind: "valid", amountMinor };
+}
+
+function donationAmountForm(request: Request, error = "", status = 200): Response {
+  const errorMarkup = error ? `<p id="amount-error" role="alert">${error}</p>` : "";
+  const describedBy = error ? ' aria-describedby="amount-help amount-error"' : ' aria-describedby="amount-help"';
+  const body = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support Yomu</title>
+  <style>
+    :root { color-scheme: light dark; font-family: ui-rounded, system-ui, sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #11131a; color: #f7f4ec; }
+    main { width: min(28rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #3a4050; border-radius: 1rem; background: #1a1e28; box-sizing: border-box; }
+    h1 { margin-top: 0; font-size: 1.8rem; }
+    p { color: #c8cbd4; line-height: 1.5; }
+    label { display: block; margin: 1.5rem 0 .5rem; font-weight: 700; }
+    .amount { display: flex; align-items: center; gap: .6rem; font-size: 1.25rem; }
+    input { width: 100%; padding: .8rem; border: 1px solid #697084; border-radius: .6rem; font: inherit; }
+    button { width: 100%; margin-top: 1.25rem; padding: .85rem 1rem; border: 0; border-radius: .7rem; background: #ff7a5c; color: #16100e; font: inherit; font-weight: 800; cursor: pointer; }
+    #amount-error { color: #ffb4a4; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Support Yomu</h1>
+    <p>Choose any amount from £5 to £500. Every verified donation includes permanent Yomu Academy access.</p>
+    <form method="get" action="/donate">
+      <label for="amount-gbp">Donation amount</label>
+      <div class="amount"><span aria-hidden="true">£</span><input id="amount-gbp" name="amount_gbp" type="number" min="5" max="500" step="0.01" inputmode="decimal" placeholder="Your amount" required${describedBy}></div>
+      <p id="amount-help">GBP, one-time donation.</p>
+      ${errorMarkup}
+      <button type="submit">Continue to secure checkout</button>
+    </form>
+  </main>
+</body>
+</html>`;
+  const headers = new Headers({
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "content-type": "text/html; charset=utf-8",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+  });
+  return new Response(request.method === "HEAD" ? null : body, { status, headers });
 }
 
 function monthlyCostEstimate(env: Env, estimatedDailyCostGbp: number): number {
@@ -1464,19 +1522,6 @@ function stripeKeyMode(value: string | undefined): "live" | "test" | "" {
   return "";
 }
 
-function fallbackDonateUrl(env: Env, options: { requireLiveStripe?: boolean } = {}): string {
-  const fallback = env.SUPPORT_STRIPE_PAYMENT_LINK_URL?.trim() || "";
-  try {
-    const url = new URL(fallback);
-    if (url.protocol !== "https:") return "";
-    if (url.hostname === "yomureader.com" && url.pathname.replace(/\/$/u, "") === "/support") return "";
-    if (options.requireLiveStripe && isStripeTestPaymentLinkUrl(url)) return "";
-    return url.href;
-  } catch {
-    return "";
-  }
-}
-
 function isStripeTestCheckoutUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -1484,12 +1529,6 @@ function isStripeTestCheckoutUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function isStripeTestPaymentLinkUrl(url: URL): boolean {
-  return isStripeHostedUrl(url)
-    && url.hostname.toLowerCase() === "buy.stripe.com"
-    && url.pathname.split("/").some(segment => /^test(?:_|$)/iu.test(segment));
 }
 
 function isStripeHostedUrl(url: URL): boolean {

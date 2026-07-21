@@ -21,48 +21,18 @@ export function createDonationDialog(language: AcademyLanguage, checkout: Donati
     close.setAttribute('aria-label', academyText(language, 'donationClose'));
     close.textContent = '×';
     const form = element('form', 'academy-donation-form');
-    const fieldset = element('fieldset', 'academy-donation-amounts');
-    fieldset.setAttribute('aria-label', academyText(language, 'donationChooseAmount'));
-    const legend = copyElement('legend', 'academy-donation-legend', language, 'donationChooseAmount');
-    const choices = element('div', 'academy-donation-choice-grid');
-    const presets = [5, 10, 20] as const;
-    const radios: HTMLInputElement[] = [];
-    presets.forEach(amount => {
-        const option = element('label', 'academy-donation-choice');
-        const input = element('input');
-        input.type = 'radio';
-        input.name = 'donation-amount';
-        input.value = String(amount);
-        input.checked = amount === 10;
-        input.setAttribute('aria-label', `£${amount}`);
-        const copy = element('span');
-        copy.textContent = `£${amount}`;
-        option.append(input, copy);
-        choices.append(option);
-        radios.push(input);
-    });
-    const otherOption = element('label', 'academy-donation-choice');
-    const otherRadio = element('input');
-    otherRadio.type = 'radio';
-    otherRadio.name = 'donation-amount';
-    otherRadio.value = 'other';
-    otherRadio.setAttribute('aria-label', academyText(language, 'donationOther'));
-    otherOption.append(otherRadio, copyElement('span', '', language, 'donationOther'));
-    choices.append(otherOption);
-    radios.push(otherRadio);
-    fieldset.append(legend, choices);
-
-    const otherField = copyElement('label', 'academy-donation-other', language, 'donationOtherAmount');
-    const otherInput = element('input', 'academy-input');
-    otherInput.type = 'number';
-    otherInput.min = '2';
-    otherInput.max = '500';
-    otherInput.step = '0.01';
-    otherInput.inputMode = 'decimal';
-    otherInput.setAttribute('aria-label', academyText(language, 'donationOtherAmount'));
-    otherInput.disabled = true;
-    otherField.hidden = true;
-    otherField.append(otherInput);
+    const amountField = copyElement('label', 'academy-donation-amount', language, 'donationOtherAmount');
+    const amountInput = element('input', 'academy-input');
+    amountInput.type = 'number';
+    amountInput.name = 'donation-amount';
+    amountInput.min = '5';
+    amountInput.max = '500';
+    amountInput.step = '0.01';
+    amountInput.inputMode = 'decimal';
+    amountInput.placeholder = academyText(language, 'donationAmountPlaceholder');
+    amountInput.required = true;
+    amountInput.setAttribute('aria-label', academyText(language, 'donationOtherAmount'));
+    amountField.append(amountInput);
     const description = copyElement('p', 'academy-donation-description', language, 'donationDescription');
     description.id = 'academy-donation-description';
     const feedback = element('div', 'academy-form-feedback');
@@ -72,20 +42,12 @@ export function createDonationDialog(language: AcademyLanguage, checkout: Donati
     cancel.type = 'button';
     const actions = element('div', 'academy-donation-actions');
     actions.append(continueButton, cancel);
-    form.append(fieldset, otherField, description, feedback, actions);
+    form.append(amountField, description, feedback, actions);
     paper.append(close, heading, form);
     dialog.append(paper);
 
     let returnFocus: HTMLElement | null = null;
     let inerted: InertSnapshot[] = [];
-    const syncOther = () => {
-        const selected = radios.find(input => input.checked)?.value;
-        const visible = selected === 'other';
-        otherField.hidden = !visible;
-        otherInput.disabled = !visible;
-        if (visible) otherInput.focus();
-    };
-    radios.forEach(input => input.addEventListener('change', syncOther, { signal: lifecycle.signal }));
     const restoreFocus = () => {
         dialog.removeAttribute('aria-modal');
         restoreInert(inerted);
@@ -119,12 +81,11 @@ export function createDonationDialog(language: AcademyLanguage, checkout: Donati
     form.addEventListener('submit', event => {
         event.preventDefault();
         feedback.replaceChildren();
-        const selected = radios.find(input => input.checked)?.value;
-        const amount = selected === 'other' ? Number(otherInput.value) : Number(selected);
+        const amount = Number(amountInput.value);
         const pence = Math.round(amount * 100);
-        if (!Number.isFinite(amount) || amount < 2 || amount > 500 || Math.abs(pence - amount * 100) > 1e-6) {
+        if (!Number.isFinite(amount) || amount < 5 || amount > 500 || Math.abs(pence - amount * 100) > 1e-6) {
             feedback.replaceChildren(fieldError(academyText(language, 'donationInvalidAmount')));
-            if (selected === 'other') otherInput.focus();
+            amountInput.focus();
             return;
         }
         setBusy(continueButton, true, academyText(language, 'donationStarting'));
@@ -148,7 +109,7 @@ export function createDonationDialog(language: AcademyLanguage, checkout: Donati
             } catch {
                 dialog.setAttribute('open', '');
             }
-            requestAnimationFrame(() => radios.find(input => input.checked)?.focus());
+            requestAnimationFrame(() => amountInput.focus());
         },
         dispose() {
             lifecycle.abort();

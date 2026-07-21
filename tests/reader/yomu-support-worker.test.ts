@@ -240,15 +240,15 @@ describe("Yomu support Worker", () => {
     expect(paypal?.url).toBe("");
   });
 
-  it("redirects donation requests to a Stripe Payment Link fallback when Checkout is not configured", async () => {
+  it("keeps the donor-selected amount fail-closed when Checkout is not configured", async () => {
     const response = await SupportWorker.fetch(
-      new Request("https://yomu-support.example.workers.dev/donate"),
-      { SUPPORT_STRIPE_PAYMENT_LINK_URL: "https://buy.stripe.com/test_yomu" },
+      new Request("https://yomu-support.example.workers.dev/donate?amount_gbp=12.34"),
+      {},
       { waitUntil: vi.fn() },
     );
 
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("https://buy.stripe.com/test_yomu");
+    expect(response.status).toBe(503);
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("does not send production donation requests to Stripe test mode", async () => {
@@ -256,10 +256,9 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", stripeFetch);
 
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/donate"),
+      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
       {
         STRIPE_SECRET_KEY: "sk_test_secret",
-        SUPPORT_STRIPE_PAYMENT_LINK_URL: "https://buy.stripe.com/test_yomu",
       },
       { waitUntil: vi.fn() },
     );
@@ -277,7 +276,7 @@ describe("Yomu support Worker", () => {
 
   it("does not loop through the support page when no Stripe donation path is available", async () => {
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/donate"),
+      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
       {},
       { waitUntil: vi.fn() },
     );
@@ -285,6 +284,45 @@ describe("Yomu support Worker", () => {
     expect(response.status).toBe(503);
     await expect(response.text()).resolves.toContain("Stripe donations are temporarily unavailable");
   });
+
+  it("serves a secure donor-chosen amount form without contacting Stripe", async () => {
+    const stripeFetch = vi.fn();
+    vi.stubGlobal("fetch", stripeFetch);
+
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate"),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("content-security-policy")).toContain("form-action 'self'");
+    const body = await response.text();
+    expect(body).toContain('name="amount_gbp"');
+    expect(body).toContain('min="5"');
+    expect(body).toContain('max="500"');
+    expect(body).toContain('step="0.01"');
+    expect(body).not.toContain('value="5"');
+    expect(stripeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "0", "4.99", "500.01", "5.001", "1e2", "abc"])(
+    "rejects invalid explicit donation amount %j without contacting Stripe",
+    async amount => {
+      const stripeFetch = vi.fn();
+      vi.stubGlobal("fetch", stripeFetch);
+      const response = await SupportWorker.fetch(
+        new Request(`https://support.yomureader.com/donate?amount_gbp=${encodeURIComponent(amount)}`),
+        { STRIPE_SECRET_KEY: "sk_live_secret" },
+        { waitUntil: vi.fn() },
+      );
+      expect(response.status).toBe(400);
+      await expect(response.text()).resolves.toContain("Enter an amount from £5 to £500");
+      expect(stripeFetch).not.toHaveBeenCalled();
+    },
+  );
 
   it("creates Stripe Checkout sessions server-side and redirects to Stripe", async () => {
     let checkoutClaimHash = "";
@@ -375,7 +413,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", stripeFetch);
 
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/donate"),
+      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
       { STRIPE_SECRET_KEY: "sk_live_secret" },
       { waitUntil: vi.fn() },
     );

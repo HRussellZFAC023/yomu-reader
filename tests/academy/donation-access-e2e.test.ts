@@ -34,7 +34,7 @@ describe('support donation to Academy access', () => {
         };
 
         const checkout = await SupportWorker.fetch(
-            new Request('https://support.yomureader.com/donate?amount_gbp=1'),
+            new Request('https://support.yomureader.com/donate?amount_gbp=5'),
             supportEnv,
             executionContext(),
         );
@@ -49,7 +49,7 @@ describe('support donation to Academy access', () => {
             data: {
                 object: {
                     id: 'cs_live_e2e',
-                    amount_total: 100,
+                    amount_total: 500,
                     currency: 'gbp',
                     payment_status: 'paid',
                     metadata: { yomu_academy_claim_hash: claimHash },

@@ -26,7 +26,7 @@ description: Get help with よむ — report a bug, join the Discord, view the s
 
 よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, Yomu Gaming, and Anki export into one free toolkit. The core reading-and-mining loop stays free, local-first, and usable without an account.
 
-Donations are optional. They help cover testing devices, hosting, API usage, maintenance, and the time needed to keep よむ free, polished, and improving.
+Donations are optional. Choose any one-time amount from £5 to £500. They help cover testing devices, hosting, API usage, maintenance, and the time needed to keep よむ free, polished, and improving. Every verified donation includes permanent Yomu Academy access.
 
 ## Service Budget
 

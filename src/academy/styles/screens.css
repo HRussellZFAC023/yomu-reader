@@ -385,83 +385,10 @@
     gap: 20px;
 }
 
-.academy-donation-amounts {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.academy-donation-legend {
-    width: 100%;
-    margin-bottom: 12px;
-    font-weight: 760;
-    text-align: center;
-}
-
-.academy-donation-choice-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.academy-donation-choice {
-    position: relative;
-    display: grid;
-    min-height: 104px;
-    place-items: center;
-    border: 2px solid rgba(55, 49, 37, 0.18);
-    border-radius: 4px 11px 5px 8px;
-    background: rgba(255, 252, 241, 0.58);
-    box-shadow: 3px 4px 0 rgba(83, 69, 47, 0.16);
-    cursor: pointer;
-    font-size: clamp(1.15rem, 3vw, 1.8rem);
-    transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.academy-donation-choice input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-}
-
-.academy-donation-choice:has(input:checked) {
-    border-color: var(--academy-accent);
-    background: color-mix(in srgb, var(--academy-accent) 11%, var(--academy-paper));
-    box-shadow: 5px 6px 0 color-mix(in srgb, var(--academy-accent) 28%, transparent);
-    transform: translateY(-2px) rotate(-0.4deg);
-}
-
-.academy-donation-choice:focus-within {
-    outline: 3px solid var(--academy-accent-strong);
-    outline-offset: 3px;
-}
-
-.academy-donation-choice:has(input:checked)::after {
-    position: absolute;
-    right: -7px;
-    bottom: -7px;
-    display: grid;
-    width: 26px;
-    height: 26px;
-    place-items: center;
-    border: 2px solid var(--academy-paper);
-    border-radius: 50%;
-    color: var(--jpdb-reader-accent-text, #11161d);
-    background: var(--academy-accent);
-    content: "✓";
-    font: 800 0.8rem/1 var(--academy-font);
-}
-
-.academy-donation-other {
+.academy-donation-amount {
     display: grid;
     gap: 7px;
     font-weight: 720;
-}
-
-.academy-donation-other[hidden] {
-    display: none;
 }
 
 .academy-donation-description {
@@ -1809,14 +1736,6 @@
     .academy-donation-paper {
         max-height: calc(100dvh - 16px);
         padding: 58px 18px 24px;
-    }
-
-    .academy-donation-choice-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .academy-donation-choice {
-        min-height: 72px;
     }
 
     .academy-title {

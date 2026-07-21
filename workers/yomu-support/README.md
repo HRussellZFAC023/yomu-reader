@@ -16,12 +16,14 @@ Routes:
   GBP using a daily-cached FX rate, and returns `display: { amount, goal,
   currency, symbol, amountText, goalText, converted }` plus `providers[]` and
   banner copy used by the hosted homepage bar. `cache-control` 5 min.
-- `/donate` creates a Stripe Checkout session and redirects the user there. It
+- `/donate` first asks the donor for any amount from £5 to £500, then creates a
+  Stripe Checkout session and redirects the user there. There are no fixed
+  Stripe donation tiers. It
   commits a random HttpOnly browser claim into Checkout as a SHA-256 hash; the
   same browser returns to `/claim` and receives its single-use Academy code only
-  after the signed paid webhook reaches Academy. If Checkout is unavailable, it
-  can redirect to `SUPPORT_STRIPE_PAYMENT_LINK_URL`; fallback-link payments do
-  not carry this self-claim proof.
+  after the signed paid webhook reaches Academy. If Checkout is unavailable,
+  the request fails closed so the selected amount and self-claim proof are never
+  replaced by a static Payment Link.
   The browser keeps one HttpOnly claim token, so opening a second Checkout before
   completing the first replaces the first tab's claim proof; finish one card
   donation before starting another.
@@ -52,12 +54,6 @@ npx wrangler secret put STRIPE_WEBHOOK_SECRET --config workers/yomu-support/wran
 
 Use a live-mode Stripe secret (`sk_live_...` or scoped `rk_live_...`) for `support.yomureader.com`.
 The Worker refuses known test-mode keys and test Payment Links on the production support host so donations do not redirect to Stripe sandbox Checkout.
-
-Optional Stripe-hosted Payment Link fallback:
-
-```bash
-npx wrangler secret put SUPPORT_STRIPE_PAYMENT_LINK_URL --config workers/yomu-support/wrangler.jsonc
-```
 
 Apply the D1 schema before turning on the webhook in Stripe:
 

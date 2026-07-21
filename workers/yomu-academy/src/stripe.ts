@@ -7,9 +7,7 @@ import { CHECKOUT_RATE, CLAIM_RATE, clientSubject, enforceRateLimit } from './ra
 export const STRIPE_API_VERSION = '2026-02-25.clover';
 const CLAIM_COOKIE = '__Host-academy_claim';
 const CHECKOUT_SESSIONS_URL = 'https://api.stripe.com/v1/checkout/sessions';
-/** Suggested one-click donation amounts, in whole GBP. */
-export const DONATION_PRESETS_GBP: readonly number[] = [5, 10, 20];
-const MIN_DONATION_PENCE = 200;
+const MIN_DONATION_PENCE = 500;
 const MAX_DONATION_PENCE = 50_000;
 const CLAIM_TTL_MS = 24 * 60 * 60_000;
 const MAX_WEBHOOK_BYTES = 128 * 1024;
@@ -256,21 +254,15 @@ function isSafeCheckoutUrl(value: string): boolean {
     }
 }
 
-/** Accept either a known preset or a bounded whole-pence custom GBP amount. */
+/** Accept a donor-chosen, bounded whole-pence GBP amount. */
 function readDonationPence(body: Record<string, unknown>): number {
-    if (body.preset !== undefined) {
-        if (typeof body.preset !== 'number' || !DONATION_PRESETS_GBP.includes(body.preset)) {
-            throw new HttpError(400, `preset must be one of: ${DONATION_PRESETS_GBP.join(', ')}.`);
-        }
-        return body.preset * 100;
-    }
     const value = body.amountGbp;
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         throw new HttpError(400, 'amountGbp must be a number.');
     }
     const pence = Math.round(value * 100);
     if (Math.abs(pence - value * 100) > 1e-6 || pence < MIN_DONATION_PENCE || pence > MAX_DONATION_PENCE) {
-        throw new HttpError(400, 'Donation must be between £2 and £500 in whole pence.');
+        throw new HttpError(400, 'Donation must be between £5 and £500 in whole pence.');
     }
     return pence;
 }

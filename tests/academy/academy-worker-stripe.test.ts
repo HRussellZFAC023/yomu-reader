@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { hmacSha256Hex } from '../../workers/yomu-academy/src/crypto';
 import { errorResponse } from '../../workers/yomu-academy/src/http';
-import { DONATION_PRESETS_GBP, handleClaim, handleCreateCheckout, handleStripeWebhook, verifyStripeSignature, STRIPE_API_VERSION } from '../../workers/yomu-academy/src/stripe';
+import { handleClaim, handleCreateCheckout, handleStripeWebhook, verifyStripeSignature, STRIPE_API_VERSION } from '../../workers/yomu-academy/src/stripe';
 import { handleCreateSession } from '../../workers/yomu-academy/src/sessions';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { createFakeAcademy, jsonRequest } from './helpers/fake-academy-env';
@@ -98,23 +98,12 @@ describe('Academy Worker donation checkout', () => {
         expect(academy.db.purchases).toEqual([expect.objectContaining({ amount_pence: 500, status: 'pending', checkout_session_id: 'cs_test_123' })]);
     });
 
-    it('accepts each preset and only exact preset values', async () => {
-        for (const preset of DONATION_PRESETS_GBP) {
-            const academy = createFakeAcademy();
-            const fetcher = stripeOk();
-            expect((await checkout(academy.env, { preset }, fetcher)).status).toBe(200);
-            const form = new URLSearchParams(((fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as { body: string }).body);
-            expect(form.get('line_items[0][price_data][unit_amount]')).toBe(String(preset * 100));
-        }
-        for (const preset of [4, 0, -5, '5', 5.5, null]) {
-            const academy = createFakeAcademy();
-            expect((await checkout(academy.env, { preset }, stripeOk())).status, `preset ${String(preset)}`).toBe(400);
-            expect(academy.db.purchases).toHaveLength(0);
-        }
-    });
-
     it('rejects out-of-bounds or malformed amounts and non-Stripe URLs', async () => {
-        for (const amountGbp of [1, 501, -5, 2.001, 'five', null]) {
+        const legacyPreset = createFakeAcademy();
+        expect((await checkout(legacyPreset.env, { preset: 5 }, stripeOk())).status).toBe(400);
+        expect(legacyPreset.db.purchases).toHaveLength(0);
+
+        for (const amountGbp of [4.99, 501, -5, 5.001, 'five', null]) {
             const academy = createFakeAcademy();
             const response = await checkout(academy.env, { amountGbp }, stripeOk());
             expect(response.status, `amount ${String(amountGbp)}`).toBe(400);

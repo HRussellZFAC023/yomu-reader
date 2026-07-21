@@ -40,10 +40,16 @@ describe('Academy human interface', () => {
         expect(dialog.getAttribute('aria-modal')).toBe('true');
         expect(dialog.getAttribute('aria-labelledby')).toBe('academy-donation-title');
         expect(screen.querySelector<HTMLElement>('.academy-screen-veil')?.inert).toBe(true);
+        const amount = dialog.querySelector<HTMLInputElement>('input[name="donation-amount"]')!;
+        expect(dialog.querySelectorAll('input[type="radio"]')).toHaveLength(0);
+        expect(amount.value).toBe('');
+        expect(amount.min).toBe('5');
+        expect(amount.max).toBe('500');
+        amount.value = '12.34';
         dialog.querySelector<HTMLFormElement>('.academy-donation-form')
             ?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await Promise.resolve();
-        expect(checkout.start).toHaveBeenCalledWith(10);
+        expect(checkout.start).toHaveBeenCalledWith(12.34);
 
         dialog.querySelector<HTMLButtonElement>('.academy-donation-close')?.click();
         expect(dialog.open).toBe(false);
