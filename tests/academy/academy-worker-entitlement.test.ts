@@ -2,13 +2,13 @@
 import worker from '../../workers/yomu-academy/src/index';
 import { linkGoogleSubject } from '../../workers/yomu-academy/src/accounts';
 import type { ExecutionContext } from '../../workers/yomu-academy/src/cf';
-import { derivePaidInviteCode, hmacSha256Hex, toBase64Url } from '../../workers/yomu-academy/src/crypto';
+import { derivePaidInviteCode, hmacSha256Hex, sha256Hex, toBase64Url } from '../../workers/yomu-academy/src/crypto';
 import { bindPaidEntitlement } from '../../workers/yomu-academy/src/entitlements';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { inviteCodeHash, mintPaidInvite } from '../../workers/yomu-academy/src/invites';
 import { handleMedia, type MediaManifest } from '../../workers/yomu-academy/src/media';
 import { handleGoogleCallback, handleGoogleStart } from '../../workers/yomu-academy/src/oauth';
-import { handleClaim, handleCreateCheckout, handleStripeWebhook } from '../../workers/yomu-academy/src/stripe';
+import { handlePaymentClaim, handlePaymentIngress } from '../../workers/yomu-academy/src/payment-ingress';
 import { activeSession } from '../../workers/yomu-academy/src/sessions';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
@@ -310,58 +310,62 @@ describe('Academy Google account and paid entitlement policy', () => {
         }
     });
 
-    it('fulfils in Stripe test mode, redeems after OIDC, recovers, exports, and tombstones deletion', async () => {
+    it('fulfils live support ingress, redeems after OIDC, recovers, exports, and tombstones deletion', async () => {
         const academy = createSqliteAcademy();
+        const ingressToken = 'entitlement-lifecycle-ingress-token';
         const env: Env = {
             ...academy.env,
             ACADEMY_ORIGIN: 'https://academy.test',
-            STRIPE_SECRET_KEY: 'sk_test_academy',
-            STRIPE_WEBHOOK_SECRET: 'whsec_academy_test',
+            PAYMENT_INGRESS_TOKEN: ingressToken,
         };
         const now = Date.now();
         try {
-            const checkout = await handleCreateCheckout(
-                mutation(env, '/academy/api/checkout', 'POST', { amountGbp: 10 }),
-                env,
-                () => now,
-                vi.fn(async () => new Response(JSON.stringify({
-                    id: 'cs_test_paid123',
-                    livemode: false,
-                    url: 'https://checkout.stripe.com/c/pay/cs_test_paid123',
-                }), { status: 200 })) as unknown as typeof fetch,
-            );
-            expect(checkout.status).toBe(200);
-            const claimCookie = cookie(checkout);
+            const claimToken = 'a'.repeat(43);
+            const transactionReference = 'cs_live_support_entitlement_lifecycle';
+            const ingress = await handlePaymentIngress(new Request(
+                'https://academy.test/academy/internal/payment-ingress',
+                {
+                    method: 'POST',
+                    headers: {
+                        authorization: `Bearer ${ingressToken}`,
+                        'content-type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        schemaVersion: 1,
+                        provider: 'stripe',
+                        eventId: 'evt_live_support_entitlement_lifecycle',
+                        eventType: 'charge.settled',
+                        occurredAt: now,
+                        subject: { kind: 'transaction', reference: transactionReference },
+                        transaction: {
+                            reference: transactionReference,
+                            sessionReference: transactionReference,
+                            claimHash: await sha256Hex(claimToken),
+                            currency: 'gbp',
+                            amountMinor: 1000,
+                        },
+                    }),
+                },
+            ), env, now + 1);
+            expect(ingress.status).toBe(200);
             const [purchase] = academy.db.rows<{ id: string }>('SELECT id FROM purchases');
-            if (!purchase) throw new Error('pending purchase missing');
+            if (!purchase) throw new Error('paid support purchase missing');
 
-            const event = {
-                id: 'evt_test_paid_claim',
-                type: 'checkout.session.completed',
-                livemode: false,
-                data: { object: {
-                    id: 'cs_test_paid123',
-                    payment_status: 'paid',
-                    currency: 'gbp',
-                    amount_total: 1000,
-                    metadata: { yomu_academy_purchase: purchase.id },
-                } },
-            };
-            const raw = JSON.stringify(event);
-            const timestamp = Math.floor(now / 1000);
-            const signature = await hmacSha256Hex(env.STRIPE_WEBHOOK_SECRET, `${timestamp}.${raw}`);
-            const webhook = await handleStripeWebhook(new Request(`${env.ACADEMY_ORIGIN}/academy/api/stripe/webhook`, {
-                method: 'POST',
-                headers: { 'stripe-signature': `t=${timestamp},v1=${signature}` },
-                body: raw,
-            }), env, () => now);
-            expect(webhook.status).toBe(200);
-
-            const claimRequest = (): Request => get(env, '/academy/api/claim?session_id=cs_test_paid123', claimCookie);
-            const firstClaim = await handleClaim(claimRequest(), env, () => now + 1);
+            const claimRequest = (): Request => new Request(
+                'https://academy.test/academy/internal/payment-claim',
+                {
+                    method: 'POST',
+                    headers: {
+                        authorization: `Bearer ${ingressToken}`,
+                        'content-type': 'application/json',
+                    },
+                    body: JSON.stringify({ provider: 'stripe', transactionReference, claimToken }),
+                },
+            );
+            const firstClaim = await handlePaymentClaim(claimRequest(), env, now + 2);
             const claimBody = await firstClaim.json() as { status: string; code: string };
-            expect(claimBody.status).toBe('paid');
-            expect(await (await handleClaim(claimRequest(), env, () => now + 2)).json()).toEqual(claimBody);
+            expect(claimBody.status).toBe('ready');
+            expect(await (await handlePaymentClaim(claimRequest(), env, now + 3)).json()).toEqual(claimBody);
 
             const paid = await createSession(env, claimBody.code);
             expect(paid.response.status).toBe(200);
@@ -425,7 +429,8 @@ describe('Academy Google account and paid entitlement policy', () => {
             expect(tombstone?.checkout_session_id).toBeNull();
             expect(tombstone?.redeemed_by_account_id).toBeNull();
             expect(tombstone?.redeemed_at).toEqual(expect.any(Number));
-            expect((await dispatch(env, claimRequest())).status).toBe(404);
+            await expect(handlePaymentClaim(claimRequest(), env, now + 7))
+                .rejects.toMatchObject({ status: 409 });
 
             const afterDelete = await createSession(env, claimBody.code);
             expect(afterDelete.response.status).toBe(403);

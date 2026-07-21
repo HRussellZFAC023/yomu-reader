@@ -16,9 +16,11 @@ Routes:
   GBP using a daily-cached FX rate, and returns `display: { amount, goal,
   currency, symbol, amountText, goalText, converted }` plus `providers[]` and
   banner copy used by the hosted homepage bar. `cache-control` 5 min.
-- `/donate` first asks the donor for any amount from £5 to £500, then creates a
-  Stripe Checkout session and redirects the user there. There are no fixed
-  Stripe donation tiers. It
+- `/donate` first asks the donor for a currency and amount, then creates a
+  Stripe Checkout session in that native currency and redirects the user there.
+  Supported ranges are GBP £5–£500, USD $7–$700, EUR €6–€600,
+  CAD C$10–C$1,000, AUD A$11–A$1,100, and JPY ¥1,000–¥100,000. There are no
+  fixed Stripe donation tiers. It
   commits a random HttpOnly browser claim into Checkout as a SHA-256 hash; the
   same browser returns to `/claim` and receives its single-use Academy code only
   after the signed paid webhook reaches Academy. If Checkout is unavailable,
@@ -27,7 +29,10 @@ Routes:
   The browser keeps one HttpOnly claim token, so opening a second Checkout before
   completing the first replaces the first tab's claim proof; finish one card
   donation before starting another.
-- `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records GBP donations in D1.
+- `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records
+  the exact native amount and currency in D1. Public goal progress converts
+  supported native totals to an estimated GBP value using the cached daily FX
+  feed; missing FX never blocks Academy entitlement delivery.
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
   recording each stable provider event exactly once in D1.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw

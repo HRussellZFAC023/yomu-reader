@@ -901,8 +901,6 @@ export function createFakeAcademy(overrides: Partial<Env> = {}): FakeAcademy {
         ACADEMY_INVITE_HMAC_KEY: 'test-invite-hmac-key',
         ACADEMY_RATE_HMAC_KEY: 'test-rate-hmac-key',
         ACADEMY_ADMIN_TOKEN: 'test-admin-token',
-        STRIPE_SECRET_KEY: 'sk_test_fake',
-        STRIPE_WEBHOOK_SECRET: 'whsec_test_fake',
         GOOGLE_OIDC_CLIENT_ID: 'test.apps.googleusercontent.com',
         GOOGLE_OIDC_CLIENT_SECRET: 'test-google-client-secret',
         ...overrides,

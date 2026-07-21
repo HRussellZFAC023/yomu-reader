@@ -27,47 +27,15 @@ describe('Academy human interface', () => {
         expect(academyText('en', 'accessUnavailable')).toBe('Couldn’t check that code. Try again.');
     });
 
-    it('opens an accessible one-time support letter and returns focus on close', async () => {
-        const checkout = { start: vi.fn(async () => {}) };
-        const screen = renderAccessScreen({ language: 'en', onSubmit: vi.fn(), checkout });
-        document.body.append(screen);
-        const trigger = screen.querySelector<HTMLButtonElement>('.academy-get-code')!;
-        trigger.focus();
-        trigger.click();
-        const dialog = screen.querySelector<HTMLDialogElement>('.academy-donation-dialog')!;
-
-        expect(dialog.open).toBe(true);
-        expect(dialog.getAttribute('aria-modal')).toBe('true');
-        expect(dialog.getAttribute('aria-labelledby')).toBe('academy-donation-title');
-        expect(screen.querySelector<HTMLElement>('.academy-screen-veil')?.inert).toBe(true);
-        const amount = dialog.querySelector<HTMLInputElement>('input[name="donation-amount"]')!;
-        expect(dialog.querySelectorAll('input[type="radio"]')).toHaveLength(0);
-        expect(amount.value).toBe('');
-        expect(amount.min).toBe('5');
-        expect(amount.max).toBe('500');
-        amount.value = '12.34';
-        dialog.querySelector<HTMLFormElement>('.academy-donation-form')
-            ?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
-        await Promise.resolve();
-        expect(checkout.start).toHaveBeenCalledWith(12.34);
-
-        dialog.querySelector<HTMLButtonElement>('.academy-donation-close')?.click();
-        expect(dialog.open).toBe(false);
-        expect(screen.querySelector<HTMLElement>('.academy-screen-veil')?.inert).toBe(false);
-        expect(document.activeElement).toBe(trigger);
-    });
-
-    it('restores inert background state when an open support letter is disposed', () => {
-        const screen = renderAccessScreen({ language: 'en', onSubmit: vi.fn(), checkout: { start: vi.fn() } });
+    it('opens the canonical support checkout in an isolated new tab', () => {
+        const supportDonation = { open: vi.fn() };
+        const screen = renderAccessScreen({ language: 'en', onSubmit: vi.fn(), supportDonation });
         document.body.append(screen);
         screen.querySelector<HTMLButtonElement>('.academy-get-code')?.click();
-        const veil = screen.querySelector<HTMLElement>('.academy-screen-veil')!;
-        expect(veil.inert).toBe(true);
 
-        screen.dispatchEvent(new CustomEvent('academy:dispose'));
-
-        expect(veil.inert).toBe(false);
-        expect(veil.hasAttribute('aria-hidden')).toBe(false);
+        expect(supportDonation.open).toHaveBeenCalledTimes(1);
+        expect(screen.querySelector('.academy-donation-dialog')).toBeNull();
+        expect(screen.querySelector<HTMLInputElement>('input[name="code"]')).not.toBeNull();
     });
 
     it('keeps the overflow menu to global preferences rather than regular workflows', () => {

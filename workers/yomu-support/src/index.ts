@@ -1,5 +1,12 @@
 import operatingForecast from "../operating-forecast.json";
 import {
+  DONATION_CURRENCIES,
+  DONATION_CURRENCY_CODES,
+  isDonationCurrency,
+  validDonationMinor,
+  type DonationCurrency,
+} from "../../shared/donation-currencies";
+import {
   claimAcademyPayment,
   forwardAcademyPayment,
   stablePatreonEventId,
@@ -9,8 +16,6 @@ import {
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
-const DEFAULT_MIN_DONATION_GBP = 5;
-const DEFAULT_MAX_DONATION_GBP = 500;
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
 const PRODUCTION_SUPPORT_HOSTS = new Set(["support.yomureader.com"]);
 const STRIPE_API_VERSION = "2026-02-25.clover";
@@ -40,6 +45,7 @@ const FX_RATES_URL = "https://api.frankfurter.dev/v1/latest?base=GBP";
 const FX_CACHE_KEY = "fx:GBP:latest";
 const FX_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const BASE_CURRENCY = "GBP";
+
 
 const MANUAL_PROVIDERS = ["kofi", "patreon", "bmac", "paypal"] as const;
 type ManualProvider = (typeof MANUAL_PROVIDERS)[number];
@@ -206,7 +212,7 @@ interface StripeDonationEvent {
   eventType: string;
   day: string;
   amountMinor: number;
-  currency: "gbp";
+  currency: DonationCurrency;
   stripeSessionId: string;
   stripeCreatedAt: number;
 }
@@ -257,7 +263,7 @@ async function handleReadRoute(
 ): Promise<Response> {
   const cacheHeaders = { "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}` };
   if (pathname === "/goal") return jsonResponse(request, buildGoal(env), 200, cacheHeaders);
-  if (pathname === "/progress") return jsonResponse(request, await buildProgress(env), 200, cacheHeaders);
+  if (pathname === "/progress") return jsonResponse(request, await buildProgress(env, ctx), 200, cacheHeaders);
   if (pathname === "/status" || pathname === "/healthz") {
     return jsonResponse(request, await supportStatus(request, env, ctx), 200, {
       ...cacheHeaders,
@@ -312,8 +318,8 @@ function forecastFloorGbp(): number {
 
 // --- Progress (aggregated month-to-date across providers) -----------------
 
-async function buildProgress(env: Env): Promise<ProgressResponse> {
-  const stripe = await donationSnapshot(env);
+async function buildProgress(env: Env, ctx: ExecutionContext): Promise<ProgressResponse> {
+  const stripe = await donationSnapshot(env, ctx);
   const manual = await manualProviderProgress(env);
   const providers: ProviderProgress[] = [
     { provider: "stripe", monthGbp: round2(stripe.donationsThisMonthGbp), source: stripe.source },
@@ -389,15 +395,14 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
   const goal = buildGoal(env);
   const donationGoalGbp = goal.monthlyGoalGBP;
   const estimatedMonthlyCostGbp = monthlyCostEstimate(env, estimatedDailyCostGbp);
-  const progress = await buildProgress(env);
+  const progress = await buildProgress(env, ctx);
   const donationsTodayGbp = progress.totalTodayGbp;
   const donationsThisMonthGbp = progress.totalThisMonthGbp;
   const goalMet = donationsThisMonthGbp >= donationGoalGbp;
   const progressRatio = donationGoalGbp > 0 ? Math.min(1, round2(donationsThisMonthGbp / donationGoalGbp)) : 0;
   const donateUrl = donateUrlFor(request);
   const display = await currencyDisplay(request, env, ctx, donationsThisMonthGbp, donationGoalGbp);
-  const costLabel = `Donation goal: ${display.goalText}/month`;
-  const goalLabel = `This month: ${display.amountText} / ${display.goalText}`;
+  const bannerCopy = supportBannerCopy(request, goalMet, display);
   return {
     service: "yomu-support",
     status: stripeStatusFor(request, env),
@@ -421,15 +426,43 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
     banner: {
       enabled: !falseyEnv(env.SUPPORT_BANNER_ENABLED),
       dismissVersion: SUPPORT_BANNER_DISMISS_VERSION,
-      message: goalMet
-        ? "Yomu's Ultimate Audio is funded for this month. Thank you."
-        : "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
-      costLabel,
-      goalLabel,
-      ctaLabel: "Donate",
+      message: bannerCopy.message,
+      costLabel: bannerCopy.costLabel,
+      goalLabel: bannerCopy.goalLabel,
+      ctaLabel: bannerCopy.ctaLabel,
       donateUrl,
     },
   };
+}
+
+function supportBannerCopy(
+  request: Request,
+  goalMet: boolean,
+  display: CurrencyDisplay,
+): { message: string; costLabel: string; goalLabel: string; ctaLabel: string } {
+  if (prefersJapanese(request)) {
+    return {
+      message: goalMet
+        ? "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。"
+        : "よむ Ultimate Audio は寄付で運営されています。今月の目標に届かない場合、単語とシャドーイング向けの高速な実音声再生は来月停止します。",
+      costLabel: `寄付目標：月${display.goalText}`,
+      goalLabel: `今月：${display.amountText} / ${display.goalText}`,
+      ctaLabel: "寄付する",
+    };
+  }
+  return {
+    message: goalMet
+      ? "Yomu's Ultimate Audio is funded for this month. Thank you."
+      : "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
+    costLabel: `Donation goal: ${display.goalText}/month`,
+    goalLabel: `This month: ${display.amountText} / ${display.goalText}`,
+    ctaLabel: "Donate",
+  };
+}
+
+function prefersJapanese(request: Request): boolean {
+  const firstLanguage = request.headers.get("accept-language")?.split(",", 1)[0]?.trim().toLowerCase() ?? "";
+  return firstLanguage === "ja" || firstLanguage.startsWith("ja-") || firstLanguage.startsWith("ja;");
 }
 
 function providerLinks(request: Request, env: Env): SupportProviderLink[] {
@@ -609,9 +642,21 @@ function isFxPayload(value: unknown): value is FxRatesPayload {
   return base === BASE_CURRENCY && Boolean(date) && Boolean(rates);
 }
 
+function donationMinorToGbp(
+  amountMinor: number,
+  currency: DonationCurrency,
+  rates: FxRatesPayload | null,
+): number {
+  if (amountMinor <= 0) return 0;
+  const amount = amountMinor / (10 ** DONATION_CURRENCIES[currency].minorDigits);
+  if (currency === "gbp") return amount;
+  const rate = rates?.rates[currency.toUpperCase()];
+  return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? amount / rate : 0;
+}
+
 // --- Existing status donation snapshot (Stripe, D1-backed) ----------------
 
-async function donationSnapshot(env: Env): Promise<DonationSnapshot> {
+async function donationSnapshot(env: Env, ctx: ExecutionContext): Promise<DonationSnapshot> {
   const fallback: DonationSnapshot = {
     donationsTodayGbp: nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0),
     donationsThisMonthGbp: nonNegativeNumberEnv(
@@ -622,21 +667,34 @@ async function donationSnapshot(env: Env): Promise<DonationSnapshot> {
   };
   if (!env.SUPPORT_DB) return fallback;
   try {
-    const [today, month] = await Promise.all([
-      env.SUPPORT_DB.prepare(`
-      SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
-      FROM donation_events
-      WHERE day = ? AND currency = 'gbp'
-      `).bind(utcDayKey()).first<{ total_minor?: number | null }>(),
-      env.SUPPORT_DB.prepare(`
-      SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
-      FROM donation_events
-      WHERE day >= ? AND day < ? AND currency = 'gbp'
-      `).bind(utcMonthKey(), nextUtcMonthKey()).first<{ total_minor?: number | null }>(),
-    ]);
+    const totals = await Promise.all(DONATION_CURRENCY_CODES.map(async currency => {
+      const [today, month] = await Promise.all([
+        env.SUPPORT_DB!.prepare(`
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+        FROM donation_events
+        WHERE day = ? AND currency = ? AND stripe_session_id LIKE 'cs_live_%'
+        `).bind(utcDayKey(), currency).first<{ total_minor?: number | null }>(),
+        env.SUPPORT_DB!.prepare(`
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+        FROM donation_events
+        WHERE day >= ? AND day < ? AND currency = ? AND stripe_session_id LIKE 'cs_live_%'
+        `).bind(utcMonthKey(), nextUtcMonthKey(), currency).first<{ total_minor?: number | null }>(),
+      ]);
+      return {
+        currency,
+        todayMinor: nonNegativeNumber(today?.total_minor, 0),
+        monthMinor: nonNegativeNumber(month?.total_minor, 0),
+      };
+    }));
+    const needsFx = totals.some(total => total.currency !== "gbp" && (total.todayMinor > 0 || total.monthMinor > 0));
+    const rates = needsFx ? await fxRates(env, ctx) : null;
     return {
-      donationsTodayGbp: nonNegativeNumber(today?.total_minor, 0) / 100,
-      donationsThisMonthGbp: nonNegativeNumber(month?.total_minor, 0) / 100,
+      donationsTodayGbp: round2(totals.reduce(
+        (sum, total) => sum + donationMinorToGbp(total.todayMinor, total.currency, rates), 0,
+      )),
+      donationsThisMonthGbp: round2(totals.reduce(
+        (sum, total) => sum + donationMinorToGbp(total.monthMinor, total.currency, rates), 0,
+      )),
       source: "d1",
     };
   } catch (error) {
@@ -652,10 +710,10 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
   const amount = donationAmountMinor(new URL(request.url));
   if (amount.kind === "missing") return donationAmountForm(request);
   if (amount.kind === "invalid") {
-    return donationAmountForm(request, "Enter an amount from £5 to £500, with no more than two decimal places.", 400);
+    return donationAmountForm(request, "Enter an amount within the range shown for the selected currency.", 400);
   }
   const requireLiveStripe = requiresLiveStripe(request);
-  if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test") {
+  if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) !== "live") {
     logStripeTestModeBlocked(request, "secret_key");
     return donationUnavailableResponse();
   }
@@ -663,13 +721,10 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
 
   const claimToken = randomSupportClaimToken();
   const claimHash = await sha256Hex(claimToken);
-  const response = await requestStripeCheckout(request, env, amount.amountMinor, claimHash);
+  const response = await requestStripeCheckout(request, env, amount.currency, amount.amountMinor, claimHash);
   const payload = await response.json().catch(() => null);
-  const checkoutUrl = checkoutSessionUrl(payload);
-  if (checkoutUrl && requireLiveStripe && isStripeTestCheckoutUrl(checkoutUrl)) {
-    logStripeTestModeBlocked(request, "checkout_url");
-    return donationUnavailableResponse();
-  }
+  const checkoutUrl = checkoutSessionUrl(payload, requireLiveStripe);
+  if (!checkoutUrl && requireLiveStripe) logStripeTestModeBlocked(request, "checkout_response");
   if (!response.ok || !checkoutUrl) return failedStripeCheckout(response.status);
   return completedStripeCheckout(checkoutUrl, claimToken);
 }
@@ -677,6 +732,7 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
 async function requestStripeCheckout(
   request: Request,
   env: Env,
+  currency: DonationCurrency,
   amountMinor: number,
   claimHash: string,
 ): Promise<Response> {
@@ -687,7 +743,7 @@ async function requestStripeCheckout(
   body.set("success_url", `${supportOrigin}/claim?session_id={CHECKOUT_SESSION_ID}`);
   body.set("cancel_url", env.SUPPORT_CANCEL_URL || `${DEFAULT_SUPPORT_URL}?donation=cancelled`);
   body.set("line_items[0][quantity]", "1");
-  body.set("line_items[0][price_data][currency]", "gbp");
+  body.set("line_items[0][price_data][currency]", currency);
   body.set("line_items[0][price_data][unit_amount]", String(amountMinor));
   body.set("line_items[0][price_data][product_data][name]", "Yomu shared service donation");
   body.set("metadata[yomu_service]", "support");
@@ -937,7 +993,7 @@ function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): A
     eventId,
     eventType: "charge.settled",
     occurredAt,
-    transaction: stripeAcademyTransaction(sessionId, donation.amountMinor, claimHash),
+    transaction: stripeAcademyTransaction(sessionId, donation.currency, donation.amountMinor, claimHash),
   } as const;
   if (purchaseId) {
     return { ...common, subject: { kind: "academy_purchase", reference: purchaseId }, purchaseId };
@@ -945,8 +1001,13 @@ function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): A
   return { ...common, subject: { kind: "transaction", reference: sessionId } };
 }
 
-function stripeAcademyTransaction(sessionId: string, amountMinor: number, claimHash: string | null) {
-  const transaction = { reference: sessionId, sessionReference: sessionId, currency: "gbp", amountMinor } as const;
+function stripeAcademyTransaction(
+  sessionId: string,
+  currency: DonationCurrency,
+  amountMinor: number,
+  claimHash: string | null,
+) {
+  const transaction = { reference: sessionId, sessionReference: sessionId, currency, amountMinor } as const;
   return claimHash ? { ...transaction, claimHash } : transaction;
 }
 
@@ -1348,7 +1409,7 @@ function parseJson(payload: string): unknown {
 function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): StripeDonationEvent | null {
   const record = objectRecord(event);
   const eventType = stringField(record, "type");
-  if (!record || !eventType || !STRIPE_DONATION_EVENT_TYPES.has(eventType)) return null;
+  if (!record || record.livemode !== true || !eventType || !STRIPE_DONATION_EVENT_TYPES.has(eventType)) return null;
   const fields = validStripeDonationFields(record);
   if (!fields) return null;
   const stripeCreatedAt = numberField(record, "created") ?? receivedTimestamp;
@@ -1357,7 +1418,7 @@ function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): Str
     eventType,
     day: utcDayKey(new Date(stripeCreatedAt * 1000)),
     amountMinor: Math.round(fields.amountMinor),
-    currency: "gbp",
+    currency: fields.currency,
     stripeSessionId: fields.sessionId,
     stripeCreatedAt,
   };
@@ -1365,16 +1426,19 @@ function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): Str
 
 function validStripeDonationFields(
   event: Record<string, unknown>,
-): { id: string; sessionId: string; amountMinor: number } | null {
+): { id: string; sessionId: string; amountMinor: number; currency: DonationCurrency } | null {
   const session = stripeSessionRecord(event);
   const id = stringField(event, "id");
   const sessionId = stringField(session, "id");
   const amountMinor = numberField(session, "amount_total");
   const currency = stringField(session, "currency")?.toLowerCase();
   const paymentStatus = stringField(session, "payment_status");
-  if (!id || !sessionId || !amountMinor || amountMinor <= 0) return null;
-  if (currency !== "gbp" || paymentStatus !== "paid") return null;
-  return { id, sessionId, amountMinor };
+  const service = stringField(objectRecord(session?.metadata), "yomu_service");
+  if (!id || !sessionId || !amountMinor || amountMinor <= 0 || paymentStatus !== "paid") return null;
+  if (service !== "support") return null;
+  if (!/^cs_live_[A-Za-z0-9_-]{3,250}$/u.test(sessionId)) return null;
+  if (!isDonationCurrency(currency) || !validDonationMinor(amountMinor, currency)) return null;
+  return { id, sessionId, amountMinor, currency };
 }
 
 async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent): Promise<void> {
@@ -1404,28 +1468,45 @@ async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent
 type DonationAmount =
   | { kind: "missing" }
   | { kind: "invalid" }
-  | { kind: "valid"; amountMinor: number };
+  | { kind: "valid"; currency: DonationCurrency; amountMinor: number };
 
 function donationAmountMinor(url: URL): DonationAmount {
-  const values = [
-    ...url.searchParams.getAll("amount_gbp"),
-    ...url.searchParams.getAll("amount"),
-  ];
-  if (values.length === 0) return { kind: "missing" };
-  if (values.length !== 1) return { kind: "invalid" };
-  const raw = values[0]?.trim() ?? "";
-  if (!/^\d+(?:\.\d{1,2})?$/u.test(raw)) return { kind: "invalid" };
-  const [whole, fraction = ""] = raw.split(".");
-  const amountMinor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  const minMinor = DEFAULT_MIN_DONATION_GBP * 100;
-  const maxMinor = DEFAULT_MAX_DONATION_GBP * 100;
-  if (!Number.isSafeInteger(amountMinor) || amountMinor < minMinor || amountMinor > maxMinor) {
+  const gbpValues = url.searchParams.getAll("amount_gbp");
+  const amountValues = url.searchParams.getAll("amount");
+  if (gbpValues.length === 0 && amountValues.length === 0) return { kind: "missing" };
+  if (gbpValues.length + amountValues.length !== 1) return { kind: "invalid" };
+  const currencyValues = url.searchParams.getAll("currency");
+  if (currencyValues.length > 1) return { kind: "invalid" };
+  const requestedCurrency = currencyValues[0]?.trim().toLowerCase();
+  const currency = gbpValues.length === 1 ? "gbp" : (requestedCurrency || "gbp");
+  if (!isDonationCurrency(currency) || (gbpValues.length === 1 && requestedCurrency && requestedCurrency !== "gbp")) {
     return { kind: "invalid" };
   }
-  return { kind: "valid", amountMinor };
+  const raw = (gbpValues[0] ?? amountValues[0] ?? "").trim();
+  const config = DONATION_CURRENCIES[currency];
+  const pattern = config.minorDigits === 0 ? /^\d+$/u : /^\d+(?:\.\d{1,2})?$/u;
+  if (!pattern.test(raw)) return { kind: "invalid" };
+  const [whole, fraction = ""] = raw.split(".");
+  const scale = 10 ** config.minorDigits;
+  const amountMinor = Number(whole) * scale + Number(fraction.padEnd(config.minorDigits, "0"));
+  if (!validDonationMinor(amountMinor, currency)) {
+    return { kind: "invalid" };
+  }
+  return { kind: "valid", currency, amountMinor };
+}
+
+function preferredDonationCurrency(request: Request): DonationCurrency {
+  const preferred = resolveCurrency(request).toLowerCase();
+  return isDonationCurrency(preferred) ? preferred : "gbp";
 }
 
 function donationAmountForm(request: Request, error = "", status = 200): Response {
+  const requested = new URL(request.url).searchParams.get("currency")?.trim().toLowerCase();
+  const currency = isDonationCurrency(requested) ? requested : preferredDonationCurrency(request);
+  const options = DONATION_CURRENCY_CODES.map(code => {
+    const config = DONATION_CURRENCIES[code];
+    return `<option value="${code}"${code === currency ? " selected" : ""}>${config.label}</option>`;
+  }).join("");
   const errorMarkup = error ? `<p id="amount-error" role="alert">${error}</p>` : "";
   const describedBy = error ? ' aria-describedby="amount-help amount-error"' : ' aria-describedby="amount-help"';
   const body = `<!doctype html>
@@ -1442,7 +1523,7 @@ function donationAmountForm(request: Request, error = "", status = 200): Respons
     p { color: #c8cbd4; line-height: 1.5; }
     label { display: block; margin: 1.5rem 0 .5rem; font-weight: 700; }
     .amount { display: flex; align-items: center; gap: .6rem; font-size: 1.25rem; }
-    input { width: 100%; padding: .8rem; border: 1px solid #697084; border-radius: .6rem; font: inherit; }
+    input, select { width: 100%; padding: .8rem; border: 1px solid #697084; border-radius: .6rem; font: inherit; }
     button { width: 100%; margin-top: 1.25rem; padding: .85rem 1rem; border: 0; border-radius: .7rem; background: #ff7a5c; color: #16100e; font: inherit; font-weight: 800; cursor: pointer; }
     #amount-error { color: #ffb4a4; }
   </style>
@@ -1450,11 +1531,13 @@ function donationAmountForm(request: Request, error = "", status = 200): Respons
 <body>
   <main>
     <h1>Support Yomu</h1>
-    <p>Choose any amount from £5 to £500. Every verified donation includes permanent Yomu Academy access.</p>
+    <p>Choose your currency and amount. Every verified donation includes permanent Yomu Academy access.</p>
     <form method="get" action="/donate">
-      <label for="amount-gbp">Donation amount</label>
-      <div class="amount"><span aria-hidden="true">£</span><input id="amount-gbp" name="amount_gbp" type="number" min="5" max="500" step="0.01" inputmode="decimal" placeholder="Your amount" required${describedBy}></div>
-      <p id="amount-help">GBP, one-time donation.</p>
+      <label for="currency">Currency</label>
+      <select id="currency" name="currency">${options}</select>
+      <label for="amount">Donation amount</label>
+      <div class="amount"><input id="amount" name="amount" type="text" inputmode="decimal" placeholder="Your amount" required${describedBy}></div>
+      <p id="amount-help">GBP £5–£500; USD $7–$700; EUR €6–€600; CAD C$10–C$1,000; AUD A$11–A$1,100; JPY ¥1,000–¥100,000. One-time donation.</p>
       ${errorMarkup}
       <button type="submit">Continue to secure checkout</button>
     </form>
@@ -1480,13 +1563,20 @@ function monthlyCostEstimate(env: Env, estimatedDailyCostGbp: number): number {
   return buildGoal(env).forecastGBP;
 }
 
-function checkoutSessionUrl(payload: unknown): string | null {
+function checkoutSessionUrl(payload: unknown, requireLive: boolean): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const value = (payload as { url?: unknown }).url;
+  const session = payload as { id?: unknown; livemode?: unknown; url?: unknown };
+  const value = session.url;
   if (typeof value !== "string") return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" ? url.href : null;
+    if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "checkout.stripe.com") return null;
+    if (requireLive && (
+      session.livemode !== true
+      || typeof session.id !== "string"
+      || !/^cs_live_[A-Za-z0-9_-]{3,250}$/u.test(session.id)
+    )) return null;
+    return url.href;
   } catch {
     return null;
   }
@@ -1502,9 +1592,10 @@ function donateUrlFor(request: Request): string {
 
 function stripeStatusFor(request: Request, env: Env): SupportStatus["status"] {
   if (!env.STRIPE_SECRET_KEY) return "stripe-unconfigured";
-  return requiresLiveStripe(request) && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test"
-    ? "stripe-test-mode"
-    : "ok";
+  if (!requiresLiveStripe(request)) return "ok";
+  const mode = stripeKeyMode(env.STRIPE_SECRET_KEY);
+  if (mode === "test") return "stripe-test-mode";
+  return mode === "live" ? "ok" : "stripe-unconfigured";
 }
 
 function requiresLiveStripe(request: Request): boolean {
@@ -1520,19 +1611,6 @@ function stripeKeyMode(value: string | undefined): "live" | "test" | "" {
   if (/^(?:sk|rk)_live_/u.test(trimmed)) return "live";
   if (/^(?:sk|rk)_test_/u.test(trimmed)) return "test";
   return "";
-}
-
-function isStripeTestCheckoutUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return isStripeHostedUrl(url) && /^\/c\/pay\/cs_test_/iu.test(url.pathname);
-  } catch {
-    return false;
-  }
-}
-
-function isStripeHostedUrl(url: URL): boolean {
-  return url.hostname.toLowerCase() === "stripe.com" || url.hostname.toLowerCase().endsWith(".stripe.com");
 }
 
 function safeHttpsUrl(value: string | undefined): string | null {

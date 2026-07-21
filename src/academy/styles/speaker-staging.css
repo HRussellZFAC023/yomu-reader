@@ -248,8 +248,7 @@
 /* 14. The Sensei vocabulary sheet modal was the most generic-app surface
       left in the study loop: uniform 7px radius, soft blurred drop shadow,
       plain white fill, hairline rows. Bring it into the living-paper
-      grammar already used by the donation letter (screens.css
-      .academy-donation-paper) and the VN ink tags: asymmetric corners,
+      grammar already used by the VN ink tags: asymmetric corners,
       hard offset shadow, dot-grid paper, a tape strip and folded corner,
       and the source label as an angled ink tab. Reuses the existing
       academy-letter-open keyframes — no new motion. */

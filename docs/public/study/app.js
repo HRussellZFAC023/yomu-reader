@@ -16168,6 +16168,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -45833,7 +45834,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.271".trim() ? "1.6.271".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.272".trim() ? "1.6.272".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -84963,8 +84964,10 @@ ${entry.url}`),
     return "";
   }
   function newTabSupportMeta(status, language) {
-    const cost = status.banner?.costLabel || newTabText(language, "supportBannerCost").replace("{amount}", formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10)));
-    const goal = status.banner?.goalLabel || newTabText(language, "supportBannerGoal").replace("{current}", formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)).replace("{goal}", formatNewTabSupportGbp(status.donationGoalGbp ?? 10));
+    const goalText = status.display?.goalText || formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+    const amountText = status.display?.amountText || formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+    const cost = newTabText(language, "supportBannerCost").replace("{amount}", goalText);
+    const goal = newTabText(language, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
     return `${cost} · ${goal}`;
   }
   function newTabSupportDonateUrl(status) {
@@ -86145,7 +86148,7 @@ ${entry.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
-          el("strong", {}, status.banner?.message || this.text("supportBannerMessage")),
+          el("strong", {}, this.text("supportBannerMessage")),
           el("span", {}, newTabSupportMeta(status, this.language()))
         ),
         el(
@@ -86156,7 +86159,7 @@ ${entry.url}`),
             href: newTabSupportDonateUrl(status),
             target: "_blank",
             rel: "noopener"
-          }, status.banner?.ctaLabel || this.text("donate")),
+          }, this.text("donate")),
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",

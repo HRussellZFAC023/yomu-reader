@@ -1,6 +1,5 @@
 import type { AccessGateway } from '../access/gateway';
 import type { AcademySyncStatus } from '../account/sync-client';
-import { createDonationClaimService, type DonationClaimService } from '../access/donation-claim';
 import { createN3AdvancedEntryPlan } from '../content/advanced-entry';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
@@ -22,7 +21,6 @@ export interface EnrollmentFlowOptions {
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
     readonly audio?: { beginExternalLesson(duck?: number): () => void; playSfx?(cue: SfxCue): void };
-    readonly donationClaim?: DonationClaimService;
     /** Paid access must settle its account gate before Academy onboarding. */
     readonly account?: Pick<AcademyAccountGate, 'connect'>;
     /** Development-only seam; production entrypoints never enable it. */
@@ -38,13 +36,10 @@ export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRou
 }
 
 class EnrollmentFlow implements AcademyRouteFlow {
-    private readonly donationClaim: DonationClaimService;
     private placementDraft: PlacementMockDraft | null = null;
     private releaseExternalListening: (() => void) | null = null;
 
-    constructor(private readonly options: EnrollmentFlowOptions) {
-        this.donationClaim = options.donationClaim ?? createDonationClaimService();
-    }
+    constructor(private readonly options: EnrollmentFlowOptions) {}
 
     async render(route: AcademyRoute, context: AcademyRouteContext): Promise<boolean> {
         switch (route) {
@@ -52,7 +47,6 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 context.shell.replace(renderAccessScreen({
                     language: context.language,
                     onSubmit: code => this.openSession(code, context),
-                    claim: this.donationClaim,
                 }));
                 return true;
             case 'profile':
