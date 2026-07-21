@@ -13,6 +13,11 @@ describe('advanced curriculum catalog', () => {
             'n3-source-opening-01',
             'n3-source-opening-02',
             'n3-source-opening-03',
+            'n3-mock-listening-01-action',
+            'n3-mock-listening-02-point',
+            'n3-mock-listening-03-overview',
+            'n3-mock-listening-04-expression',
+            'n3-mock-listening-05-response',
             'n3-n4-sleep-bridge-01',
             'n3-pet-housing-01',
             'n2-home-life-opening-01-apartment-moving',
@@ -27,8 +32,8 @@ describe('advanced curriculum catalog', () => {
             'n1-contrast-inference-01',
             'advanced-immersion-n3-n1-01',
         ]);
-        expect(ADVANCED_CURRICULUM.map(entry => entry.activity.id)).toHaveLength(16);
-        expect(new Set(ADVANCED_CURRICULUM.map(entry => entry.activity.id)).size).toBe(16);
+        expect(ADVANCED_CURRICULUM.map(entry => entry.activity.id)).toHaveLength(21);
+        expect(new Set(ADVANCED_CURRICULUM.map(entry => entry.activity.id)).size).toBe(21);
     });
 
     it('keeps localized presentation metadata beside each ActivityModel', () => {
@@ -48,8 +53,8 @@ describe('advanced curriculum catalog', () => {
     });
 
     it('filters the continuation catalog by advanced band', () => {
-        expect(advancedCurriculumForBand()).toHaveLength(16);
-        expect(advancedCurriculumForBand('n3')).toHaveLength(5);
+        expect(advancedCurriculumForBand()).toHaveLength(21);
+        expect(advancedCurriculumForBand('n3')).toHaveLength(10);
         expect(advancedCurriculumForBand('n2')).toHaveLength(7);
         expect(advancedCurriculumForBand('n1')).toHaveLength(4);
         expect(advancedCurriculumForBand('n4')).toHaveLength(0);

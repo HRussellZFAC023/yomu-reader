@@ -80,8 +80,11 @@ export interface GradeResult {
 export interface ReviewSeed {
     readonly id: string;
     readonly conceptId: string;
-    readonly reason: 'new-learning' | 'repair';
+    readonly reason: 'new-learning' | 'repair' | 'delayed-review';
     readonly sourceQuestionId?: string;
+    readonly schedule?: Readonly<{
+        readonly dueAfterMs: number;
+    }>;
     readonly content: {
         readonly expression: string;
         readonly reading?: string;
@@ -268,12 +271,19 @@ function normalizeGrade(result: GradeResult): GradeResult {
 function normalizeReviewSeed(seed: ReviewSeed, model: ActivityModel): ReviewSeed {
     const conceptId = requireText(seed.conceptId, 'reviewSeed.conceptId');
     if (!model.conceptIds.includes(conceptId)) throw new TypeError(`Review seed uses unrelated Concept ${conceptId}.`);
-    if (seed.reason !== 'new-learning' && seed.reason !== 'repair') throw new TypeError('Invalid review seed reason.');
+    if (seed.reason !== 'new-learning' && seed.reason !== 'repair' && seed.reason !== 'delayed-review') {
+        throw new TypeError('Invalid review seed reason.');
+    }
+    const dueAfterMs = seed.schedule?.dueAfterMs;
+    if (dueAfterMs !== undefined && (!Number.isFinite(dueAfterMs) || dueAfterMs <= 0)) {
+        throw new TypeError('Review seed dueAfterMs must be a positive duration.');
+    }
     return {
         id: requireText(seed.id, 'reviewSeed.id'),
         conceptId,
         reason: seed.reason,
         ...(seed.sourceQuestionId ? { sourceQuestionId: requireText(seed.sourceQuestionId, 'sourceQuestionId') } : {}),
+        ...(dueAfterMs !== undefined ? { schedule: { dueAfterMs } } : {}),
         content: {
             expression: requireText(seed.content.expression, 'reviewSeed.content.expression'),
             ...(seed.content.reading ? { reading: requireText(seed.content.reading, 'reviewSeed.content.reading') } : {}),

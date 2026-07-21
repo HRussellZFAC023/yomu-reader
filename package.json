@@ -95,6 +95,7 @@
     "profile:performance": "node scripts/profile-performance.mjs",
     "package:gaming": "npm run smoke:gaming && node scripts/package-gaming-electron.mjs --target=dir",
     "qa": "npm run check && npm run smoke:p0 && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa:academy:n3-listening": "node scripts/n3-mock-listening-browser-proof.mjs",
     "manual:jpdb-live": "node scripts/manual/jpdb-live-smoke.mjs",
     "release:integrity:secrets": "node scripts/tracked-secret-scan.mjs",
     "release:integrity:tests": "vitest run --config config/vite/academy.config.ts tests/academy/tracked-secret-detection.test.ts tests/academy/offline-manifest.test.ts tests/academy/l1-l01-release-integrity.test.ts",

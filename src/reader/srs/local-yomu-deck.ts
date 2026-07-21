@@ -37,7 +37,7 @@ export interface AcademyVocabularyProvenance {
     readonly activityId?: string;
     readonly conceptId?: string;
     readonly sourceId?: string;
-    readonly reason?: 'new-learning' | 'repair';
+    readonly reason?: 'new-learning' | 'repair' | 'delayed-review';
 }
 
 export interface AcademyVocabularyInput {
@@ -45,6 +45,8 @@ export interface AcademyVocabularyInput {
     readonly reading?: string;
     readonly meanings: readonly string[];
     readonly sentence?: string;
+    readonly dueAt?: number;
+    readonly postponeExisting?: boolean;
     readonly provenance: AcademyVocabularyProvenance;
 }
 
@@ -137,7 +139,7 @@ export function upsertAcademyVocabulary(
         meanings,
         sentence: cleanOptional(input.sentence),
         tags: ['academy'],
-        dueAt: now,
+        dueAt: finiteDueAt(input.dueAt, now),
         lastReviewAt: null,
         createdAt: now,
         updatedAt: now,
@@ -149,7 +151,11 @@ export function upsertAcademyVocabulary(
         academyProvenance: { [provenance.id]: previousProvenance ?? provenance },
     };
     const card = existing
-        ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing)
+        ? preserveExistingSchedule(
+            mergeStoredYomuSrsCards(existing, incoming),
+            existing,
+            input.postponeExisting === true && !previousProvenance ? input.dueAt : undefined,
+        )
         : incoming;
     deck.cards[identity.key] = card;
     return {
@@ -160,14 +166,19 @@ export function upsertAcademyVocabulary(
     };
 }
 
+function finiteDueAt(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value >= fallback ? value : fallback;
+}
+
 /** Academy collection enriches an existing card; it never reschedules it. */
 function preserveExistingSchedule(
     merged: StoredYomuSrsCard,
     existing: StoredYomuSrsCard,
+    notBefore?: number,
 ): StoredYomuSrsCard {
     return {
         ...merged,
-        dueAt: existing.dueAt,
+        dueAt: notBefore === undefined ? existing.dueAt : Math.max(existing.dueAt, notBefore),
         lastReviewAt: existing.lastReviewAt,
         reviews: existing.reviews,
         lapses: existing.lapses,
@@ -290,7 +301,9 @@ function normalizeProvenanceRecord(value: unknown, fallbackAt: number): Record<s
                 ...(typeof candidate.activityId === 'string' ? { activityId: candidate.activityId } : {}),
                 ...(typeof candidate.conceptId === 'string' ? { conceptId: candidate.conceptId } : {}),
                 ...(typeof candidate.sourceId === 'string' ? { sourceId: candidate.sourceId } : {}),
-                ...(candidate.reason === 'new-learning' || candidate.reason === 'repair' ? { reason: candidate.reason } : {}),
+                ...(candidate.reason === 'new-learning' || candidate.reason === 'repair' || candidate.reason === 'delayed-review'
+                    ? { reason: candidate.reason }
+                    : {}),
             }, finiteNumber(candidate.addedAt, fallbackAt));
             result[normalized.id] = normalized;
         } catch {
@@ -344,4 +357,3 @@ function finiteNumber<T extends number | null>(value: unknown, fallback: T): num
 function nonNegativeInteger(value: unknown): number {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
-

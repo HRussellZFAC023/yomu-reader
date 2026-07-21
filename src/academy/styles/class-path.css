@@ -283,6 +283,23 @@
     overflow-wrap: anywhere;
 }
 
+.academy-advanced-rail-requirement {
+    grid-column: 1 / -1;
+    min-width: 0;
+    color: rgba(255, 253, 245, 0.68);
+    font-size: 0.68rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.academy-advanced-rail-stop[data-rail-state="gated"] .academy-advanced-rail-entry {
+    border-left-color: #e6c763;
+}
+
+.academy-advanced-rail-stop[data-rail-state="recommended"] .academy-advanced-rail-entry {
+    border-left-color: #7bd19d;
+}
+
 .academy-advanced-rail-eyebrow {
     grid-column: 1 / -1;
     color: rgba(255, 253, 245, 0.7);

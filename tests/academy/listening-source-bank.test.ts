@@ -120,6 +120,9 @@ describe('Academy listening source bank', () => {
             jlptQuestionMapRecords: 487,
             staticCompleteJlptTasks: 386,
             n1BrowserTtsFallbackRecords: 30,
+            itemReviewedCandidates: 29,
+            mechanicAdaptedCandidates: 28,
+            remainingUnreviewedCandidates: 458,
         });
         expect(inventory.sourceFamilies.minna.facts).toMatchObject({ audioFiles: 87, exactMoodlePayloads: 30 });
         expect(inventory.sourceFamilies.genki).toMatchObject({

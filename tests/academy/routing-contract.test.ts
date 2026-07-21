@@ -67,6 +67,26 @@ describe('Academy resume route contract', () => {
             .toMatchObject({ route: 'lesson-overview', lessonId: 'lesson:foundation-00' });
     });
 
+    it('repairs an advanced checkpoint to its exact activity instead of falling back to Lesson 0', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Riku', learningReason: 'Listen', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const normalized = normalizeResumeCheckpoint({
+            ...checkpoint('source-activity'),
+            selectedBand: 'n3',
+            lessonId: 'advanced:n3-mock-listening-01-action',
+            activityId: undefined,
+        }, projectLearnerRecord([profile]), 1_000, true, true);
+
+        expect(normalized).toMatchObject({
+            route: 'source-activity',
+            lessonId: 'advanced:n3-mock-listening-01-action',
+            activityId: 'activity:n3-mock-listening-01-action',
+        });
+        expect(normalized.lessonId).not.toBe('lesson:foundation-00');
+    });
+
 
     it('preserves the chosen mission while returning legacy progress to the overview', () => {
         const profile = event({

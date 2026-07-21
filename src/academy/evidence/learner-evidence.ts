@@ -9,6 +9,10 @@ import {
     createGroundedLessonResolver,
     type GroundedLessonResolver,
 } from '../content/grounded-lesson-resolver';
+import {
+    isAdvancedLessonId,
+    resolveAdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
 import { getAuthoredWeekRegistration, getCompleteLessonRegistration } from '../content/lesson-content-registry';
 import {
     createLearnerRecord,
@@ -110,12 +114,18 @@ export interface AuthoredStoryPracticeEvidence {
     readonly reviewSeed: ReviewSeed;
 }
 
+export interface LearnerEvidenceOptions {
+    readonly now?: () => number;
+}
+
 export function createLearnerEvidence(
     repository: LearnerEventRepository,
     review: ReviewQueueService,
     groundedLessons: GroundedLessonResolver = createGroundedLessonResolver(),
+    options: LearnerEvidenceOptions = {},
 ): LearnerEvidence {
-    return new DefaultLearnerEvidence(createLearnerRecord({ repository }), review, groundedLessons);
+    const now = options.now ?? Date.now;
+    return new DefaultLearnerEvidence(createLearnerRecord({ repository, now }), review, groundedLessons, now);
 }
 
 class DefaultLearnerEvidence implements LearnerEvidence {
@@ -126,6 +136,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
         private readonly record: LearnerRecord,
         private readonly review: ReviewQueueService,
         private readonly groundedLessons: GroundedLessonResolver,
+        private readonly now: () => number,
     ) {}
 
     get projection(): LearnerProjection {
@@ -214,6 +225,8 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 if (!authoredWeekOwnsActivity(packageId, evaluation.attempt.activityId)) {
                     throw new TypeError(`Activity ${evaluation.attempt.activityId} does not belong to ${lessonId}.`);
                 }
+            } else if (isAdvancedLessonId(lessonId)) {
+                assertAdvancedEvaluation(evaluation, resolveAdvancedCurriculumEntry(lessonId).activity, lessonId);
             } else {
                 const lesson = await this.groundedLessons.resolve(lessonId);
                 if (lesson.status === 'playable') {
@@ -359,7 +372,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                     eventId: `review-scheduled:story:${practice.activityId}:${practice.reviewSeed.conceptId}`,
                     reviewItemId: itemId,
                     conceptId: practice.reviewSeed.conceptId,
-                    dueAt: Date.now(),
+                    dueAt: this.now(),
                     provenance: {
                         activity: practice.activityId,
                         chapter: practice.chapterId,
@@ -397,11 +410,14 @@ class DefaultLearnerEvidence implements LearnerEvidence {
     ): Promise<void> {
         if (!seeds.length) return;
         await this.review.ingest(seeds);
+        const scheduledAt = this.now();
         const unscheduled = new Map<string, ReviewSeed>();
         for (const seed of seeds) {
             const itemId = reviewItemId(seed);
             const legacyItemId = `yomu-local:${seed.id}`;
-            if (this.projection.scheduledReviews[itemId] || this.projection.scheduledReviews[legacyItemId]) continue;
+            const scheduleEventId = `review-scheduled:academy:${seed.id}`;
+            const existing = this.projection.scheduledReviews[itemId] ?? this.projection.scheduledReviews[legacyItemId];
+            if (existing && (seed.reason !== 'delayed-review' || existing.eventId === scheduleEventId)) continue;
             unscheduled.set(itemId, unscheduled.get(itemId) ?? seed);
         }
         await this.record.recordMany([...unscheduled].map(([itemId, seed]) => ({
@@ -409,7 +425,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
             eventId: `review-scheduled:academy:${seed.id}`,
             reviewItemId: itemId,
             conceptId: seed.conceptId,
-            dueAt: Date.now(),
+            dueAt: scheduledAt + (seed.schedule?.dueAfterMs ?? 0),
             provenance: provenance(seed),
         })));
     }
@@ -445,6 +461,28 @@ function assertTrustedSourceEvaluation(
     }
     if (!evaluation.attempt.conceptIds.length) {
         throw new Error(`Trusted-source activity ${evaluation.attempt.activityId} emitted no learning concepts.`);
+    }
+}
+
+function assertAdvancedEvaluation(
+    evaluation: ActivityEvaluation,
+    activity: Readonly<{
+        id: string;
+        sourceQuestionId?: string;
+        conceptIds: readonly string[];
+        responseKind: string;
+    }>,
+    lessonId: string,
+): void {
+    if (evaluation.attempt.activityId !== activity.id
+        || evaluation.attempt.sourceQuestionId !== activity.sourceQuestionId
+        || evaluation.attempt.responseKind !== activity.responseKind
+        || !sameStrings(evaluation.attempt.conceptIds, activity.conceptIds)) {
+        throw new TypeError(`Activity ${evaluation.attempt.activityId} does not match ${lessonId}.`);
+    }
+    if (evaluation.reviewSeeds.some(seed => seed.sourceQuestionId !== activity.sourceQuestionId
+        || !activity.conceptIds.includes(seed.conceptId))) {
+        throw new TypeError(`Activity ${evaluation.attempt.activityId} emitted review evidence outside ${lessonId}.`);
     }
 }
 

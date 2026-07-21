@@ -1,10 +1,14 @@
 import type { ActivityModel } from '../domain/activity-runtime';
-import type { JlptBand } from '../domain/learner-record';
+import type { JlptBand, LearnerProjection } from '../domain/learner-record';
 import type { LocalizedText } from '../domain/source-library';
 import {
     N3_SOURCE_OPENING_PACKAGE_IDS,
     createN3SourceOpeningPackage,
 } from './n3-source-opening/package';
+import {
+    N3_MOCK_LISTENING_PACKAGES,
+} from './n3-mock-listening/registry';
+import type { N3MockListeningPackageId } from './n3-mock-listening/types';
 import {
     N3_N4_SLEEP_BRIDGE_PACKAGES,
 } from './n3-n4-sleep-bridge/registry';
@@ -39,6 +43,7 @@ export type AdvancedPackageId =
     | 'n3-source-opening-01'
     | 'n3-source-opening-02'
     | 'n3-source-opening-03'
+    | N3MockListeningPackageId
     | typeof N3_N4_SLEEP_BRIDGE_PACKAGE_ID
     | typeof N3_PET_HOUSING_PACKAGE_ID
     | typeof N2_APARTMENT_MOVING_PACKAGE_ID
@@ -77,6 +82,25 @@ export interface AdvancedCurriculumEntry<
     readonly packageId: PackageId;
     readonly lessonId: `advanced:${PackageId}`;
     readonly activity: Model;
+    readonly sequence?: Readonly<{
+        ordinal: number;
+        previousPackageId?: AdvancedPackageId;
+    }>;
+    readonly prerequisites: readonly Readonly<{
+        conceptId: string;
+        minimumEvidence: 'introduced-and-attempted';
+        reason: LocalizedText;
+    }>[];
+    readonly delayedReviewOf: readonly string[];
+}
+
+export type AdvancedCurriculumRailState = 'complete' | 'repair' | 'recommended' | 'available' | 'gated';
+
+export interface AdvancedCurriculumRailEntry {
+    readonly curriculum: AdvancedCurriculumEntry;
+    readonly state: AdvancedCurriculumRailState;
+    readonly unmetPrerequisites: AdvancedCurriculumEntry['prerequisites'];
+    readonly overrideRequired: boolean;
 }
 
 const N3_SOURCE_OPENING_PACKAGES = N3_SOURCE_OPENING_PACKAGE_IDS.map(id => createN3SourceOpeningPackage(id));
@@ -99,6 +123,36 @@ const catalog = [
         ['主張・根拠・控えめな要約を、資料文から取り出します。', 'Find claim, evidence, and a bounded summary in a source text.'],
         ['図書館', 'Library'],
         'rie', ['りえ先生', 'Rie-sensei'],
+    )),
+    entry('n3', N3_MOCK_LISTENING_PACKAGES[0]!, 'n3-mock-listening-01-action', metadata(
+        ['次の一手', 'The next action'],
+        ['完了した作業を消し、変更後にまずすることを聞き取ります。', 'Remove completed work and identify the first action after a change.'],
+        ['準備室', 'Preparation room'],
+        'rie', ['りえ先生', 'Rie-sensei'],
+    )),
+    entry('n3', N3_MOCK_LISTENING_PACKAGES[1]!, 'n3-mock-listening-02-point', metadata(
+        ['決め手を聞く', 'Hear the deciding point'],
+        ['否定と対比を越えて、理由・評価・勧めの中心を取ります。', 'Listen through denial and contrast for the central reason, evaluation, or recommendation.'],
+        ['資料室', 'Archive room'],
+        'aakash', ['アーカッシュ', 'Aakash'],
+    )),
+    entry('n3', N3_MOCK_LISTENING_PACKAGES[2]!, 'n3-mock-listening-03-overview', metadata(
+        ['話の全体像', 'The whole message'],
+        ['目的・現状・結論をまとめ、話し手の意図を捉えます。', 'Group purpose, current state, and conclusion to identify the speaker\'s intent.'],
+        ['放送室', 'Broadcast room'],
+        'rie', ['りえ先生', 'Rie-sensei'],
+    )),
+    entry('n3', N3_MOCK_LISTENING_PACKAGES[3]!, 'n3-mock-listening-04-expression', metadata(
+        ['場面に合う表現', 'Language for the moment'],
+        ['相手と負担に合う表現を選び、新しい場面で声に出します。', 'Choose language that fits the listener and burden, then say it in a new setting.'],
+        ['案内所', 'Information desk'],
+        'mika', ['ミカ', 'Mika'],
+    )),
+    entry('n3', N3_MOCK_LISTENING_PACKAGES[4]!, 'n3-mock-listening-05-response', metadata(
+        ['一言で返す', 'The next turn'],
+        ['短い発話の役割と含みを捉え、自然な返事へつなぎます。', 'Identify the function and implication of a short turn, then supply a natural response.'],
+        ['交流ラウンジ', 'Conversation lounge'],
+        'sophie', ['ソフィー', 'Sophie'],
     )),
     entry('n3', N3_N4_SLEEP_BRIDGE_PACKAGES[0]!, N3_N4_SLEEP_BRIDGE_PACKAGE_ID, metadata(
         ['夜の図書館', 'The late library'],
@@ -190,6 +244,53 @@ export function advancedCurriculumForBand(
         : ADVANCED_CURRICULUM.filter(entry => entry.band === band);
 }
 
+export function advancedCurriculumRailForBand(
+    band: JlptBand | undefined,
+    projection: LearnerProjection,
+    placementOverride = false,
+): readonly AdvancedCurriculumRailEntry[] {
+    const entries = advancedCurriculumForBand(band);
+    const recommendationAssigned = new Set<AdvancedPackageId>();
+    return entries.map(curriculum => {
+        const progress = projection.activities[curriculum.activity.id];
+        const placementEquivalent = curriculum.sequence?.ordinal === 1
+            && projection.curriculumEntry?.band === curriculum.band;
+        const unmetPrerequisites = placementOverride || placementEquivalent
+            ? []
+            : curriculum.prerequisites.filter(prerequisite => !Object.values(projection.activities)
+                .some(activity => activity.attemptCount > 0 && activity.conceptIds.includes(prerequisite.conceptId)));
+        let state: AdvancedCurriculumRailState;
+        if (progress?.lastOutcome === 'pass') state = 'complete';
+        else if (progress) state = 'repair';
+        else if (unmetPrerequisites.length) state = 'gated';
+        else if (curriculum.sequence && !recommendationAssigned.has(sequenceRootId(curriculum, entries))) {
+            state = 'recommended';
+            recommendationAssigned.add(sequenceRootId(curriculum, entries));
+        } else state = 'available';
+        return Object.freeze({
+            curriculum,
+            state,
+            unmetPrerequisites: Object.freeze(unmetPrerequisites),
+            overrideRequired: state === 'gated',
+        });
+    });
+}
+
+function sequenceRootId(
+    entry: AdvancedCurriculumEntry,
+    entries: readonly AdvancedCurriculumEntry[],
+): AdvancedPackageId {
+    let current = entry;
+    const seen = new Set<AdvancedPackageId>();
+    while (current.sequence?.previousPackageId && !seen.has(current.id)) {
+        seen.add(current.id);
+        const previous = entries.find(candidate => candidate.id === current.sequence?.previousPackageId);
+        if (!previous) break;
+        current = previous;
+    }
+    return current.id;
+}
+
 export function resolveAdvancedCurriculumEntry(id: string): AdvancedCurriculumEntry {
     const packageId = id.startsWith('advanced:') ? advancedPackageIdFromLessonId(id) : id;
     const found = ADVANCED_CURRICULUM.find(entry => entry.id === packageId);
@@ -217,13 +318,28 @@ export function isAdvancedLessonId(lessonId: string): lessonId is AdvancedLesson
 
 function entry<PackageId extends AdvancedPackageId, Model extends ActivityModel>(
     band: AdvancedCurriculumBand,
-    packageRecord: Readonly<{ readonly id: string; readonly activity: Model }>,
+    packageRecord: Readonly<{
+        readonly id: string;
+        readonly activity: Model;
+    }>,
     packageId: PackageId,
     metadata: AdvancedCurriculumMetadata,
 ): AdvancedCurriculumEntry<PackageId, Model> {
     if (packageRecord.id !== packageId) {
         throw new TypeError(`Advanced catalog package mismatch: ${packageRecord.id} !== ${packageId}`);
     }
+    const packageMetadata = packageRecord as unknown as Readonly<{
+        sequence?: Readonly<{ ordinal?: number; order?: number; previousPackageId?: string }>;
+        prerequisites?: AdvancedCurriculumEntry['prerequisites'];
+        readerSrs?: Readonly<{ delayedReviewOf?: readonly string[] }>;
+    }>;
+    const ordinal = packageMetadata.sequence?.ordinal ?? packageMetadata.sequence?.order;
+    const sequence = ordinal === undefined ? undefined : Object.freeze({
+        ordinal,
+        ...(packageMetadata.sequence?.previousPackageId
+            ? { previousPackageId: packageMetadata.sequence.previousPackageId as AdvancedPackageId }
+            : {}),
+    });
     return Object.freeze({
         band,
         id: packageId,
@@ -231,6 +347,9 @@ function entry<PackageId extends AdvancedPackageId, Model extends ActivityModel>
         lessonId: advancedLessonId(packageId) as `advanced:${PackageId}`,
         ...metadata,
         activity: packageRecord.activity,
+        ...(sequence ? { sequence } : {}),
+        prerequisites: Object.freeze([...(packageMetadata.prerequisites ?? [])]),
+        delayedReviewOf: Object.freeze([...(packageMetadata.readerSrs?.delayedReviewOf ?? [])]),
     });
 }
 
