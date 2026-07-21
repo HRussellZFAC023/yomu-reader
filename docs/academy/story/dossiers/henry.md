@@ -76,7 +76,7 @@ Every beat follows the Need → Input → Lesson → Repair → Transfer → Con
 ### Beat 5 — Ch 38 `s4e02-map-of-claims` — N2 family (Ch 37–39 required content: synthesis, source quality, calibrated certainty)
 - **Transfer function (canon):** synthesis, source quality, and calibrated certainty; the notebook becomes an evidence map.
 - **Language functions:** **calibrated certainty / modality** (`〜と思われる`, `〜かもしれない`, `〜に違いない`, `〜はず`, `〜ようだ`, `確かに〜が、`); **synthesis connectives** (`一方で`, `それに対して`); evaluating and labeling source quality.
-- **Activity types:** **reading** (multiple sources), **writing** (an evidence map that labels confidence and source kind), **transfer/synthesis**, **speaking** (present a calibrated conclusion).
+- **Activity types:** **reading** (multiple sources) + structured **writing** (assemble an evidence map that labels every claim's source, confidence, and hedge) + **transfer/synthesis**. The runtime does not claim speaking evidence for this chapter.
 - **Why the real texture forces the Japanese:** Henry genuinely distinguishes reliable data from noise (jpdb over vibes; probing how different AI models behave). Here that instinct meets the Japanese for *marking* confidence — the tool now says "この情報は確かではない" out loud. Real skill, honest grammar.
 
 ### Beat 6 — Ch 45 `s4e09-rehearsal-for-leaving` — N1 family (Ch 43–45 required content: plans under uncertainty, editing rationale, mastery-aware production)

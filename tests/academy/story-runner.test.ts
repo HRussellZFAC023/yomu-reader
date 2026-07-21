@@ -39,7 +39,7 @@ describe('Academy story runner', () => {
         expect(visitedScenes).toContain(arc.lastSceneId);
     });
 
-    it('keeps exact activity truth and permits an explicitly non-credit story-only continuation', () => {
+    it('keeps exact activity truth and exposes no story-only continuation', () => {
         const runner = createStoryRunner({
             arc,
             band: 'foundation',
@@ -49,7 +49,6 @@ describe('Academy story runner', () => {
                 sceneId: 'scene:blank-atlas:arrival-greetings',
                 nodeId: 'activity-node:blank-atlas:greet-rie',
                 choices: {},
-                storyOnlyActivityIds: [],
             },
         });
 
@@ -62,8 +61,8 @@ describe('Academy story runner', () => {
             },
         });
         expect(() => runner.advance()).toThrow('still requires evidence');
-        expect(runner.continueStoryOnly().kind).not.toBe('activity');
-        expect(runner.cursor.storyOnlyActivityIds).toEqual(['activity:lesson-zero-greet-rie']);
+        expect('continueStoryOnly' in runner).toBe(false);
+        expect(runner.moment).toMatchObject({ kind: 'activity', gate: 'missing' });
     });
 
     it('uses placement as story-gate equivalence without changing chronology or lesson outcomes', () => {
@@ -89,14 +88,12 @@ describe('Academy story runner', () => {
                 sceneId: 'scene:blank-atlas:arrival-greetings',
                 nodeId: 'activity-node:blank-atlas:greet-rie',
                 choices: {},
-                storyOnlyActivityIds: [],
             },
         });
         expect(activityRunner.moment).toMatchObject({ kind: 'activity', gate: 'placement-equivalent' });
-        expect(activityRunner.cursor.storyOnlyActivityIds).toEqual([]);
     });
 
-    it('round-trips a compact resumable cursor with choices and story-only gates', () => {
+    it('round-trips a compact cursor and ignores legacy story-only gate data', () => {
         const cursor = {
             version: 1 as const,
             arcId: arc.id,
@@ -105,11 +102,15 @@ describe('Academy story runner', () => {
             choices: {
                 'choice:blank-atlas:mission': 'option:blank-atlas:mission-text',
             },
-            storyOnlyActivityIds: ['activity:lesson-zero-name-card-draft'],
         };
         const serialized = serializeStoryCursor(cursor);
+        const legacy = `story-run:v1:${encodeURIComponent(JSON.stringify({
+            ...cursor,
+            storyOnlyActivityIds: ['activity:lesson-zero-name-card-draft'],
+        }))}`;
 
         expect(parseStoryCursor(serialized)).toEqual(cursor);
+        expect(parseStoryCursor(legacy)).toEqual(cursor);
         expect(parseStoryCursor('s1e01-the-blank-atlas')).toBeUndefined();
         expect(createStoryRunner({ arc, band: 'n5', cursor }).moment).toMatchObject({
             kind: 'activity',

@@ -158,7 +158,6 @@ interface Scene {
 
 type StoryNode =
   | LineNode
-  | MessageNode
   | NarrationNode
   | ChoiceNode
   | ActivityNode
@@ -183,11 +182,10 @@ A scene cannot place an activity interruption inside a disclosure, refusal, apol
 
 ## Class-thread model
 
-Class-thread scenes are wholly fictional asynchronous scenes. They compile from semantic messages, not copied chat text or simulated raw timestamps.
+Class-thread scenes are wholly fictional asynchronous scenes. They are authored from semantic messages, not copied chat text or simulated raw timestamps. `message` is not an executable `StoryNode` kind in the current runner: a thread utterance must compile to a supported `LineNode`, with the scene and staging carrying its channel context. Package validation rejects raw `message` nodes until a dedicated compiler and renderer exist.
 
 ```ts
-interface MessageNode {
-  kind: 'message';
+interface ThreadMessageDraft {
   id: string;
   beatId: string;
   speakerId: AcademyCastMemberId | 'learner';

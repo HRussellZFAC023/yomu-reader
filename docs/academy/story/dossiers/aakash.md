@@ -89,7 +89,7 @@ Every beat below follows the linkage pattern: **Need → Input → Lesson → Re
 
 ### Ch 43 — required family: **N1 plans under uncertainty, non-comparative futures**
 - **Functions needed:** intention and uncertainty (〜つもり, 〜たいと思っています, 〜かもしれない, volitional 〜(よ)う), talking about a solo trip and an open plan without ranking it against others'.
-- **Activity types:** speaking (describe an uncertain future), reading/writing (a plan that isn't a promise).
+- **Activity types:** reading/listening (follow the three plans in the thread) + structured writing production (write his open trip with an uncertainty marker beside Alex's decided plan and Mira's restart). The current runtime does not record speaking evidence here.
 - **Why the texture forces it:** his real road-trip dream is *genuinely* uncertain (budget-conscious, work, life) — so the language of "maybe, I'm thinking of, I intend to" is honest, not decorative. The learner practises futures that hold ambiguity, mirroring the chapter's refusal to make leaving the brave choice.
 
 ### Bonus authored transfer — the "two-reason café pitch" (`ext-aakash-two-reasons`, N4)

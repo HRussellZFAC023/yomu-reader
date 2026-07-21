@@ -11,9 +11,9 @@ import {
     libraryVocabularyReviewSeeds,
     type LibraryVocabularySheet,
 } from '../content/library-vocabulary-sheet';
-import { serializeStoryCursor } from '../content/story-runner';
+import { serializeStoryCursor, type StoryCursor } from '../content/story-runner';
 import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
-import { n3StoryPractice } from '../content/n3-story-practice';
+import { gradeStoryPractice, storyPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
 import type { JlptBand } from '../domain/learner-record';
 import { canonicalGroundedReviewKey } from '../domain/review-identity';
@@ -121,13 +121,17 @@ class WorldFlow implements AcademyRouteFlow {
         context.shell.setNavigation(true, 'story');
         const story = loadStoryRuntime();
         const replayEvents = await this.options.evidence.history?.() ?? [];
+        const createVoicePlayback = typeof this.options.audio.onEvent === 'function'
+            && typeof this.options.audio.beginExternalLesson === 'function'
+            ? () => createStoryVoicePlayback({ director: this.options.audio })
+            : undefined;
         context.shell.replace(renderStoryScreen({
             language: context.language,
             story,
             ...(context.projection.profile ? { learner: context.projection.profile } : {}),
             sectionId: context.checkpoint.sectionId,
             openingArcMode: openingArcModeForEntry(context.projection),
-            arcModeForEpisode: episodeId => n3ArcMode(episodeId, replayEvents, context.projection),
+            arcModeForEpisode: (episodeId, cursor) => n3ArcMode(episodeId, cursor, replayEvents, context.projection),
             onOpenEpisode: episodeId => void context.go('story', { sectionId: episodeId }),
             onCompleteEpisode: episodeId => {
                 const episode = story.episode(episodeId);
@@ -150,7 +154,7 @@ class WorldFlow implements AcademyRouteFlow {
             activityOutcomes: storyActivityOutcomes(context.projection, replayEvents),
             selectedBand: context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band,
             audio: { playSfx: cue => this.options.audio.playSfx(cue) },
-            createVoicePlayback: () => createStoryVoicePlayback({ director: this.options.audio }),
+            ...(createVoicePlayback ? { createVoicePlayback } : {}),
             onCheckpoint: cursor => context.save?.({ sectionId: serializeStoryCursor(cursor) }),
             onOpenActivity: (lessonId, activityId, cursor) => void context.go('source-activity', {
                 lessonId,
@@ -158,13 +162,15 @@ class WorldFlow implements AcademyRouteFlow {
                 sectionId: cursor ? serializeStoryCursor(cursor) : context.checkpoint.sectionId,
                 selectedFork: storyForkForActivity(activityId),
             }),
-            onCompleteStoryPractice: (activityId, outcome) => {
-                const practice = n3StoryPractice(activityId);
+            onCompleteStoryPractice: async (activityId, response) => {
+                const practice = storyPractice(activityId);
                 if (!practice) throw new Error(`Unknown authored story practice: ${activityId}`);
-                return this.options.evidence.recordAuthoredStoryPractice({
+                const outcome = gradeStoryPractice(practice, response);
+                await this.options.evidence.recordAuthoredStoryPractice({
                     ...practice,
                     reviewSeed: storyReplayReviewSeed(practice),
                 }, outcome);
+                return outcome;
             },
             onOpenReviewCalendar: () => void context.go('story', { sectionId: STORY_REVIEW_CALENDAR_SECTION }),
             replayEvents,
@@ -780,12 +786,17 @@ function replayCheckpointBand(band: ReplayLanguageBand): JlptBand | undefined {
 
 function n3ArcMode(
     episodeId: string,
+    cursor: StoryCursor | undefined,
     events: readonly import('../domain/learner-record').LearnerEvent[],
     projection: import('../domain/learner-record').LearnerProjection,
 ): 'canonical' | 'chronological-replay' {
-    const seen = events.some(event => event.kind === 'characters-encountered'
-        && (event.encounterId === `story:${episodeId}` || event.encounterId.startsWith(`story:${episodeId}:scene:`)));
-    if (seen) return 'chronological-replay';
+    const episodeSeen = events.some(event => event.kind === 'characters-encountered'
+        && event.encounterId === `story:${episodeId}`);
+    if (episodeSeen) return 'chronological-replay';
+    const sceneSeen = events.some(event => event.kind === 'characters-encountered'
+        && event.encounterId.startsWith(`story:${episodeId}:scene:`));
+    const arcId = loadStoryRuntime().playableArc(episodeId)?.id;
+    if (sceneSeen && cursor?.arcId === arcId) return 'canonical';
     if (episodeId === 's3e01-after-the-applause' && projection.curriculumEntry?.band === 'n3') return 'canonical';
     const ordinal = loadStoryRuntime().episode(episodeId)?.ordinal ?? 0;
     const prior = loadStoryRuntime().episodes.find(episode => episode.ordinal === ordinal - 1);
@@ -802,8 +813,11 @@ function storyActivityOutcomes(
     const outcomes: Record<string, 'pass' | 'lapse'> = Object.fromEntries(Object.values(projection.activities)
         .map(activity => [activity.activityId, activity.lastOutcome]));
     events.forEach(event => {
-        if (event.kind === 'learning-evidence-recorded' && event.modeId === 'authored-story-n3') {
-            outcomes[event.activityId] = event.outcome;
+        if (event.kind === 'learning-evidence-recorded'
+            && (event.modeId === 'authored-story-practice' || event.modeId === 'authored-story-n3')) {
+            outcomes[event.activityId] = outcomes[event.activityId] === 'pass' || event.outcome === 'pass'
+                ? 'pass'
+                : 'lapse';
         }
     });
     return outcomes;

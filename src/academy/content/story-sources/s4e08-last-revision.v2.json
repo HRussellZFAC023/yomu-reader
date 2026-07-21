@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e08-last-revision",
-  "revision": "2026-07-19.1",
+  "revision": "2026-07-20.3",
   "canonicality": "canon",
   "season": 4,
   "chapter": 44,
@@ -115,7 +115,7 @@
           "activityIds": [
             "activity:s4e08-last-revision-vivid-without-restoring"
           ],
-          "function": "revise-a-public-version-vivid-without-restoring-withdrawn-detail-and-justify-the-editing-rationale-in-n1"
+          "function": "recognise-a-vivid-public-revision-that-restores-no-withdrawn-detail"
         }
       ],
       "recommendedBand": "n1",
@@ -157,14 +157,14 @@
           "attentionTarget": "the bare block, and the way an eye falls into it rather than past it",
           "variants": {
             "n2": {
-              "japanese": "二メートル離れると、目が最初にこの白い四角へ飛ぶ。文章じゃなくて、穴を読んじゃうんだよね。十二ミリの灰色の線を、本文の下端にそろえて置く。文字も絵もなし。まず、それで見よう。",
-              "reading": "にメートルはなれると、めがさいしょにこのしろいしかくへとぶ。ぶんしょうじゃなくて、あなをよんじゃうんだよね。じゅうにミリのはいいろのせんを、ほんぶんのかたんにそろえておく。もじもえもなし。まず、それでみよう。",
-              "english": "From two metres away, the eye jumps first to this white rectangle. It reads the hole, not the text. Put a twelve-millimetre grey bar along the lower edge of the body text. No words, no picture. Let's test that first."
+              "japanese": "ここ、空白のままだと、抜けたみたいに見えるんだよね。目がそこに落ちる。でも、消したものを戻すわけにはいかないし……かといって、ただ白く空けておくと、忘れたのかって思われる。",
+              "reading": "ここ、くうはくのままだと、ぬけたみたいにみえるんだよね。めがそこにおちる。でも、けしたものをもどすわけにはいかないし……かといって、ただしろくあけておくと、わすれたのかっておもわれる。",
+              "english": "Here — if we leave it blank, it looks like something dropped out. The eye falls into it. But we can't put back what we removed… and yet if we just leave it white and open, people will think we forgot."
             },
             "n1": {
-              "japanese": "二メートル離れると、視線が最初にこの白い矩形へ飛ぶ。文章ではなく、欠落を読ませてしまう。十二ミリの無光沢の灰色の線を、本文の下端にそろえて置く。文字も図案もなし。まず、それで検証しよう。",
-              "reading": "にメートルはなれると、しせんがさいしょにこのしろいくけいへとぶ。ぶんしょうではなく、けつらくをよませてしまう。じゅうにミリのむこうたくのはいいろせんを、ほんぶんのかたんにそろえておく。もじもずあんもなし。まず、それでけんしょうしよう。",
-              "english": "From two metres away, the eye jumps first to this white rectangle. It makes the viewer read an omission rather than the text. Put a twelve-millimetre matte grey bar along the lower edge of the body text. No words, no graphic. Let's test that first."
+              "japanese": "ここ、白いまま残すと、どうしても“抜け落ちた”ように見えるんだよね。目が吸い込まれる。かといって、外したものを戻すわけにはいかない——戻さずに、それでも欠けて見せない。そこをどう作るか、なんだと思う。",
+              "reading": "ここ、しろいままのこすと、どうしても“ぬけおちた”ようにみえるんだよね。めがすいこまれる。かといって、はずしたものをもどすわけにはいかない——もどさずに、それでもかけてみせない。そこをどうつくるか、なんだとおもう。",
+              "english": "Here — leave it white and it always reads as if something fell out. Your eye gets pulled in. But we can't put back what we took out. Restore nothing, and still don't let it look like a gap. Making that — that's the whole problem, I think."
             }
           },
           "support": {
@@ -182,14 +182,14 @@
           "attentionTarget": "the edge of the block as a frame line, and everything the frame is allowed to leave out",
           "variants": {
             "n2": {
-              "japanese": "うん。中身じゃなくて、切った境界だけ見せる。字幕と同じ。画面の外へ切ったものは戻さない。灰色の線は、ドアじゃなくてフレームの端にしよう。",
-              "reading": "うん。なかみじゃなくて、きったきょうかいだけみせる。じまくとおなじ。がめんのそとへきったものはもどさない。はいいろのせんは、ドアじゃなくてフレームのはしにしよう。",
-              "english": "Yes. Show the boundary of the cut, not the content. Same as subtitles: what was cut outside the frame does not come back. Make the grey bar the edge of a frame, not a door."
+              "japanese": "戻すものの話じゃないと思う。フレームの外に、何を置いたままにするか——そっちの話だよ。字幕と同じで、映さないって決めた部分は、映さないままのほうが正確なの。部屋を指せばいい。ドアは開けなくていい。",
+              "reading": "もどすもののはなしじゃないとおもう。フレームのそとに、なにをおいたままにするか——そっちのはなしだよ。じまくとおなじで、うつさないってきめたぶぶんは、うつさないままのほうがせいかくなの。へやをさせばいい。ドアはあけなくていい。",
+              "english": "I don't think this is about what to put back. It's about what to leave outside the frame — that's the question. Same as a subtitle: the part you decided not to show stays truer left unshown. Point at the room. You don't have to open the door."
             },
             "n1": {
-              "japanese": "うん。中身ではなく、切り取った境界だけを見せる。字幕と同じで、画面の外へ切ったものは戻さない。灰色の線はドアではなく、フレームの端として置こう。",
-              "reading": "うん。なかみではなく、きりとったきょうかいだけをみせる。じまくとおなじで、がめんのそとへきったものはもどさない。はいいろのせんはドアではなく、フレームのはしとしておこう。",
-              "english": "Yes. Show only the boundary of the crop, not the content. As with subtitles, what was cut outside the frame does not come back. Place the grey bar as the edge of a frame, not as a door."
+              "japanese": "たぶん、“何を戻すか”じゃないんだよね。フレームの外に、何を残しておくか。字幕でもそうだけど、あえて映さないと決めたところは、映さないほうがむしろ正確で。部屋のほうを指すだけでいい——ドアまで開けなくても、ちゃんと伝わる。",
+              "reading": "たぶん、“なにをもどすか”じゃないんだよね。フレームのそとに、なにをのこしておくか。じまくでもそうだけど、あえてうつさないときめたところは、うつさないほうがむしろせいかくで。へやのほうをさすだけでいい——ドアまであけなくても、ちゃんとつたわる。",
+              "english": "It's probably not 'what to put back.' It's what to keep outside the frame. It's like a subtitle — the place you chose not to show is more accurate left unshown. Just point toward the room. You don't have to open the door for it to land."
             }
           },
           "support": {
@@ -248,14 +248,14 @@
           "attentionTarget": "the plain tab going down beside the bare block, and the boxed paper cat it looks nothing like",
           "variants": {
             "n2": {
-              "japanese": "猫は箱へ。前の猫は、見つけてほしい手がかりを指してた。でも、新しい印は逆。何も見せないで、埋めてはいけない場所だけ残す。無光沢の灰色にして、目が穴じゃなく文章へ戻る位置に置こう。",
-              "reading": "ねこははこへ。まえのねこは、みつけてほしいてがかりをさしてた。でも、あたらしいしるしはぎゃく。なにもみせないで、うめてはいけないばしょだけのこす。むこうたくのはいいろにして、めがあなじゃなくぶんしょうへもどるいちにおこう。",
-              "english": "The cat goes in the box. The old cat pointed to a clue we wanted people to find. This new marker does the opposite: it reveals nothing and simply keeps open the place that must not be filled. Make it matte grey and place it where the eye returns to the sentence, not the gap."
+              "japanese": "昔は、あの紙の猫で“どこが大事か”を教えてたよね。今日は逆。これは、何も教えない印。ただ“ここは空けてある、わざとだ”っていう場所だけを守る。中身の代わりじゃなくて、中身を出さないための印なんだ。",
+              "reading": "むかしは、あのかみのねこで“どこがだいじか”をおしえてたよね。きょうはぎゃく。これは、なにもおしえないしるし。ただ“ここはあけてある、わざとだ”っていうばしょだけをまもる。なかみのかわりじゃなくて、なかみをださないためのしるしなんだ。",
+              "english": "Back then, that paper cat told you where the important thing was. Today it's the opposite. This is a marker that tells you nothing. It only holds the place — 'this is left open, on purpose.' Not a stand-in for the content. A marker for keeping the content out."
             },
             "n1": {
-              "japanese": "猫は箱へ。前の猫は、見つけるべき手がかりを指してた。今度の印はその逆。何も暴かず、埋めてはいけない場所だけを守る。無光沢の灰色で、視線が欠落ではなく文章へ戻る位置に置こう。",
-              "reading": "ねこははこへ。まえのねこは、みつけるべきてがかりをさしてた。こんどのしるしはそのぎゃく。なにもあばかず、うめてはいけないばしょだけをまもる。むこうたくのはいいろで、しせんがけつらくではなくぶんしょうへもどるいちにおこう。",
-              "english": "The cat goes in the box. The old cat pointed to a clue meant to be found. This marker reverses it: it exposes nothing and protects only the place that must not be filled. Make it matte grey and place it where the eye returns to the sentence rather than the omission."
+              "japanese": "前は、あの紙の猫が“ここを見て”って教える役だったでしょ。今日のこれは、真逆なんだよね。何も見せないための印。地味でいい——むしろ地味じゃなきゃ困る。“ここは、わざと空けてある”それだけを守って、中身の代わりには絶対にならない。埋めちゃいけない場所を、埋めずに残しておくための印。",
+              "reading": "まえは、あのかみのねこが“ここをみて”っておしえるやくだったでしょ。きょうのこれは、まぎゃくなんだよね。なにもみせないためのしるし。じみでいい——むしろじみじゃなきゃこまる。“ここは、わざとあけてある”それだけをまもって、なかみのかわりにはぜったいにならない。うめちゃいけないばしょを、うめずにのこしておくためのしるし。",
+              "english": "Before, that paper cat's job was to say 'look here.' This one is the exact reverse. A marker for showing nothing. Plain is fine — plain is the point. It holds one thing: 'this is left open, deliberately.' It never stands in for what's missing. A marker for keeping a place you mustn't fill, unfilled."
             }
           },
           "support": {
@@ -283,9 +283,9 @@
       "locationId": "location:library",
       "timeState": "evening",
       "weatherState": "summer-rain",
-      "goal": "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner does the bounded rewrite and justifies the editing rationale aloud.",
+      "goal": "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner identifies the bounded revision from three visible options.",
       "dramaticQuestion": "Can a line be cut down under a hard constraint and come out sharper instead of plainer?",
-      "learnerNeed": "A bounded rewrite that keeps the vividness, restores no withdrawn detail, and can be defended as editing rationale in N1.",
+      "learnerNeed": "A recognition check where the learner identifies the vivid bounded line that restores no withdrawn detail.",
       "curriculum": {
         "sectionId": "vivid-under-constraint",
         "order": 2
@@ -297,7 +297,7 @@
           "id": "node:last-revision:over-vivid-clause",
           "beatId": "beat:last-revision:regroup-image",
           "cueId": "cue:draft-line-one-clause-too-vivid",
-          "description": "On the board, the draft caption line is pinned up large. One clause in the middle runs bright and certain, and it leans on the very detail the class agreed to withhold. The rest of the line waits around it, and the grey marker sits in its block below."
+          "description": "On the board, the draft is pinned up large: 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 The middle clause leans on the very detail the class agreed to withhold. Beneath it, the bounded candidate is written once: 「この道は、今夜も静かに灯る。」 The grey marker stays in its block below both lines."
         },
         {
           "kind": "line",
@@ -308,14 +308,14 @@
           "attentionTarget": "the middle clause, and how good it feels in the mouth versus whether the sentence needs it",
           "variants": {
             "n2": {
-              "japanese": "二回読むね。一回目は今のまま。二回目は、明るい真ん中の節を抜く。……聞いた? 一回目だけ、最後に余分な一拍がある。その一拍が、出さないと決めたことを言い切ってる。",
-              "reading": "にかいよむね。いっかいめはいまのまま。にかいめは、あかるいまんなかのせつをぬく。……きいた? いっかいめだけ、さいごによぶんないっぱくがある。そのいっぱくが、ださないときめたことをいいきってる。",
-              "english": "I'll read it twice. First as written. Second without the bright middle clause. …Hear it? Only the first version has an extra beat at the end. That beat states the very thing we decided not to publish."
+              "japanese": "まず今の文ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜くよ。『この道は、今夜も静かに灯る。』ほら、最初のほうは、声が真ん中に引っぱられるでしょう。そこは、出さないって決めた話だよね。",
+              "reading": "まずいまのぶんね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬくよ。『このみちは、こんやもしずかにともる。』ほら、さいしょのほうは、こえがまんなかにひっぱられるでしょう。そこは、ださないってきめたはなしだよね。",
+              "english": "First, the line as it stands: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Now without the middle: 'This path shines quietly again tonight.' Hear how the first one pulls the voice into its middle? That is the story we agreed not to publish."
             },
             "n1": {
-              "japanese": "二通り読むね。第一稿はそのまま。第二稿は、鮮やかな中間節だけを抜く。……聞こえた? 第一稿にだけ、末尾へ余分な一拍が残る。その一拍が、出さないと決めた内容を断定してしまってる。",
-              "reading": "ふたとおりよむね。だいいっこうはそのまま。だいにこうは、あざやかなちゅうかんせつだけをぬく。……きこえた? だいいっこうにだけ、まつびへよぶんないっぱくがのこる。そのいっぱくが、ださないときめたないようをだんていしてしまってる。",
-              "english": "I'll read it two ways. The first draft as written. In the second, I remove only the vivid middle clause. …Hear it? Only the first draft leaves an extra beat at the end. That beat turns the content we decided not to publish into a categorical statement."
+              "japanese": "まず草稿ね。『この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。』……次は真ん中を抜いて、『この道は、今夜も静かに灯る。』草稿のほう、真ん中で声がそこへ引っ張られるでしょ。そこが、出さないって決めた話なんだよね。",
+              "reading": "まずそうこうね。『このみちは、もどらなかったひとのねがいをうけつぎ、こんやもともる。』……つぎはまんなかをぬいて、『このみちは、こんやもしずかにともる。』そうこうのほう、まんなかでこえがそこへひっぱられるでしょ。そこが、ださないってきめたはなしなんだよね。",
+              "english": "First, the draft: 'This path inherits the hopes of those who did not return, and shines again tonight.' …Then without the middle: 'This path shines quietly again tonight.' In the draft, the voice gets pulled toward that middle, doesn't it? That is the story we agreed not to publish."
             }
           },
           "support": {
@@ -329,7 +329,7 @@
           "id": "line:last-revision:stasi-three-conditions",
           "beatId": "beat:last-revision:set-conditions",
           "speakerId": "stasi",
-          "intent": "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the rewrite to the learner with an easy way to decline.",
+          "intent": "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the learner a choice among visible revisions with an easy way to decline.",
           "attentionTarget": "the three things that must not move, and the one line the learner is being handed",
           "variants": {
             "n2": {
@@ -352,22 +352,22 @@
         {
           "kind": "checkpoint",
           "id": "checkpoint:last-revision:before-rewrite",
-          "beatId": "beat:last-revision:production-attempt",
-          "resume": "Conditions locked and the over-vivid clause identified, the learner takes the rewrite: cut the line so it stays vivid, restore nothing withdrawn, keep the marker's place, and defend the editing choice aloud."
+          "beatId": "beat:last-revision:recognition-check",
+          "resume": "The learner can see both lines: the draft 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 and the bounded candidate 「この道は、今夜も静かに灯る。」 The task is to identify the line that stays vivid without restoring the withdrawn claim."
         },
         {
           "kind": "activity",
           "id": "activity-node:last-revision:revise-vivid-without-restoring",
-          "beatId": "beat:last-revision:production-attempt",
+          "beatId": "beat:last-revision:recognition-check",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "recognition",
             "exerciseId": "activity:s4e08-last-revision-vivid-without-restoring"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e08-last-revision-vivid-without-restoring"
           },
-          "resumeContext": "The learner rewrites the over-vivid clause so the caption line stays vivid, restores no withdrawn detail, and keeps the marker's place, then justifies the cut as editing rationale in N1 (why this form is final under the constraint).",
+          "resumeContext": "The visible draft is 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 Choose the revision that removes the unsupported claim, preserves the vivid final verb, and restores no withdrawn detail.",
           "onReady": "checkpoint:last-revision:after-rewrite",
           "onRepair": "node:last-revision:clause-recut",
           "onDefer": "checkpoint:last-revision:before-rewrite"
@@ -375,15 +375,15 @@
         {
           "kind": "stage",
           "id": "node:last-revision:clause-recut",
-          "beatId": "beat:last-revision:production-repair",
+          "beatId": "beat:last-revision:recognition-repair",
           "cueId": "cue:middle-clause-taken-down-once",
-          "description": "Only the middle clause comes down; the rest of the line stays pinned. The grey marker in the block below does not move while the learner re-cuts the phrasing on the same three conditions."
+          "description": "Compare the middle clauses again. The candidate 「この道は、今夜も静かに灯る。」 keeps the visible image without putting the withdrawn claim back on the wall."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:last-revision:after-rewrite",
-          "beatId": "beat:last-revision:production-response",
-          "resume": "The line is rewritten under the constraint. Stasi reads it back and names why the constrained form is the better one."
+          "beatId": "beat:last-revision:recognition-response",
+          "resume": "The selected line stays inside the constraint. Stasi reads it back and gives her own reason for preferring it."
         },
         {
           "kind": "line",
@@ -394,14 +394,14 @@
           "attentionTarget": "the cut line reading stronger than the draft, and the marker still holding its place below",
           "variants": {
             "n2": {
-              "japanese": "……うん。今は、目が穴じゃなくて動詞へ行く。色も残ってる。出してない事実も戻ってない。これでいい。出そう。",
-              "reading": "……うん。いまは、めがあなじゃなくてどうしへいく。いろものこってる。だしてないじじつももどってない。これでいい。だそう。",
-              "english": "…Yes. Now the eye goes to the verb, not the hole. The colour is still there. The unpublished fact hasn't come back. This is right. Ship it."
+              "japanese": "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えるけど、もう穴には見えない。",
+              "reading": "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえるけど、もうあなにはみえない。",
+              "english": "…Two metres. Yes, 'shines' is the first thing my eye catches. I can see the grey line, but it no longer looks like a hole."
             },
             "n1": {
-              "japanese": "……うん、これだ。今は、視線が欠落ではなく動詞へ行く。鮮やかさも残ってるし、非公開の事実も戻ってない。これでいい。出そう。",
-              "reading": "……うん、これだ。いまは、しせんがけつらくではなくどうしへいく。あざやかさものこってるし、ひこうかいのじじつももどってない。これでいい。だそう。",
-              "english": "…Yes, this is it. Now the eye goes to the verb rather than the omission. The vividness remains, and the unpublished fact has not returned. This is right. Ship it."
+              "japanese": "……二メートル。うん、最初に『灯る』が目に入る。灰色の線は見えてる。でも、もう穴には見えない。",
+              "reading": "……にメートル。うん、さいしょに『ともる』がめにはいる。はいいろのせんはみえてる。でも、もうあなにはみえない。",
+              "english": "…Two metres. Yes, 'shines' is the first thing my eye catches. The grey line is still visible, but it no longer looks like a hole."
             }
           },
           "support": {
@@ -419,14 +419,14 @@
           "attentionTarget": "the whole panel reading as complete despite the kept-out block",
           "variants": {
             "n2": {
-              "japanese": "私も賛成。切った境界が見えて、中身は見えない。クロップがちゃんと本当のことを言ってる。",
-              "reading": "わたしもさんせい。きったきょうかいがみえて、なかみはみえない。クロップがちゃんとほんとうのことをいってる。",
-              "english": "I agree. We can see the boundary of the cut, but not the content. The crop tells the truth."
+              "japanese": "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              "reading": "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              "english": "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             },
             "n1": {
-              "japanese": "私も賛成。切り取った境界は見えるけど、中身は見えない。クロップそのものが、いちばん正確な説明になってる。",
-              "reading": "わたしもさんせい。きりとったきょうかいはみえるけど、なかみはみえない。クロップそのものが、いちばんせいかくなせつめいになってる。",
-              "english": "I agree. The boundary of the crop is visible, but the content is not. The crop itself has become the most accurate explanation."
+              "japanese": "私は横から見るね。……切った境界は残ってる。でも、中身は出てない。これなら、クロップが嘘をつかない。",
+              "reading": "わたしはよこからみるね。……きったきょうかいはのこってる。でも、なかみはでてない。これなら、クロップがうそをつかない。",
+              "english": "I'll check it from the side. …The cut edge remains, but the content is not showing. This way, the crop does not lie."
             }
           },
           "support": {
@@ -444,14 +444,14 @@
           "attentionTarget": "the finished line read end to end, checking nothing collapses",
           "variants": {
             "n2": {
-              "japanese": "最後に一回だけ、声で通すね。……うん。余分な一拍なし。動詞で着地してる。出せる。",
-              "reading": "さいごにいっかいだけ、こえでとおすね。……うん。よぶんないっぱくなし。どうしでちゃくちしてる。だせる。",
-              "english": "One final read aloud. …Yes. No extra beat. It lands on the verb. We can ship it."
+              "japanese": "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              "reading": "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              "english": "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             },
             "n1": {
-              "japanese": "じゃ、最後に一度だけ、声で通す。……うん。余分な一拍はない。動詞で着地してる。これ、出せるね。",
-              "reading": "じゃ、さいごにいちどだけ、こえでとおす。……うん。よぶんないっぱくはない。どうしでちゃくちしてる。これ、だせるね。",
-              "english": "One final read aloud. …Yes. No extra beat. It lands on the verb. We can ship this."
+              "japanese": "じゃ、声で一回。『この道は、今夜も静かに灯る。』……うん。途中で別の話にそれない。『灯る』までまっすぐ届く。",
+              "reading": "じゃ、こえでいっかい。『このみちは、こんやもしずかにともる。』……うん。とちゅうでべつのはなしにそれない。『ともる』までまっすぐとどく。",
+              "english": "One read aloud, then: 'This path shines quietly again tonight.' …Yes. It does not veer into another story. It reaches 'shines' in a straight line."
             }
           },
           "support": {
@@ -465,7 +465,7 @@
           "id": "node:last-revision:tom-hands-over",
           "beatId": "beat:last-revision:exit-image",
           "cueId": "cue:paper-cat-boxed-marker-handed-on",
-          "description": "Tom closes the box on the paper cat. The production sheet now carries the marker's exact width, finish, alignment, and final offset. Stasi initials the revision, Ruparna checks the crop, and Xingyu marks the read-aloud pass before the panel goes into its rain cover."
+          "description": "Stasi steps back two metres, Ruparna checks the crop from the side, and Xingyu reads the finished caption once. Tom closes the paper cat in its box and slides the grey marker across the table. Each person leaves one tested action behind before the panel goes into its rain cover."
         }
       ],
       "exit": {

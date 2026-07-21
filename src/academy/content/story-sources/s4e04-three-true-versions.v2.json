@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e04-three-true-versions",
-  "revision": "2026-07-19.1",
+  "revision": "2026-07-20.3",
   "canonicality": "canon",
   "season": 4,
   "chapter": 40,
@@ -9,7 +9,7 @@
     "en": "Three True Versions",
     "ja": "三つとも本当"
   },
-  "synopsis": "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner binds the three into one synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.",
+  "synopsis": "Following the first page back to its start, the class finds three accounts of how it began that do not match: Rie's memory of a blank template, a former learner's letter saying a route was already drawn, and the class's own note that the page was always being added to. Jodi, who once wrote two captions for one place and deleted neither, treats the mismatch as three vantage points on one beginning rather than an error to correct. The learner identifies the synthesis that keeps every voice, and the page's start is left plural, with the span no one witnessed marked unknown and nothing crossed out.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -62,7 +62,7 @@
       "anyOfEvidence": [
         {
           "kind": "transfer-function",
-          "function": "synthesize-three-accounts-into-compatible-truths-with-embedded-quotation"
+          "function": "recognise-a-synthesis-that-keeps-three-attributed-accounts-compatible"
         }
       ],
       "recommendedBand": "n2",
@@ -171,19 +171,19 @@
           "attentionTarget": "the three cards in a row, and the different moment each speaker walked in at",
           "variants": {
             "n3": {
-              "japanese": "ほら。リエさんは『渡した時』、手紙は『受け取った時』、ノートは『数え始めた時』。三枚を同じ時刻みたいに置いたから、けんかして見えたのね。端をそろえたら、ちゃんと重なる。",
-              "reading": "ほら。リエさんは『わたしたとき』、てがみは『うけとったとき』、ノートは『かぞえはじめたとき』。さんまいをおなじじこくみたいにおいたから、けんかしてみえたのね。はしをそろえたら、ちゃんとかさなる。",
-              "english": "There. Rie's says 'when I handed it over,' the letter says 'when I received it,' and the notebook says 'when we began counting.' They looked as if they were quarrelling because we set them down as one instant. Line up the edges, and they layer properly."
+              "japanese": "あのね、たぶんどれも本当なのよ。白いページも、もう道があったのも、ずっと足されてたのも。……「最初」って、その人が入ったところが「最初」でしょう。だから、選ばなくていいと思う。",
+              "reading": "あのね、たぶんどれもほんとうなのよ。しろいページも、もうみちがあったのも、ずっとたされてたのも。……「さいしょ」って、そのひとがはいったところが「さいしょ」でしょう。だから、えらばなくていいとおもう。",
+              "english": "You know, I think they're probably all true. The white page, the route already there, the one always being added to. …\"The beginning\" is whatever point the person walked in at, isn't it. So I don't think we have to choose."
             },
             "n2": {
-              "japanese": "ほら。リエさんは『渡した時』、手紙は『受け取った時』、ノートは『数え始めた時』。三枚を同じ瞬間の記録みたいに置いたから、食い違って見えたのよ。入り口を添えて端をそろえれば、ちゃんと重なる。",
-              "reading": "ほら。リエさんは『わたしたとき』、てがみは『うけとったとき』、ノートは『かぞえはじめたとき』。さんまいをおなじしゅんかんのきろくみたいにおいたから、くいちがってみえたのよ。いりぐちをそえてはしをそろえれば、ちゃんとかさなる。",
-              "english": "There. Rie's says 'when I handed it over,' the letter says 'when I received it,' and the notebook says 'when we began counting.' They looked inconsistent because we laid them down as records of one instant. Add each entry point, line up the edges, and they layer properly."
+              "japanese": "あのね、これ、たぶん三つとも本当なの。白紙だったっていうのも、もう一本引いてあったっていうのも、ずっと足され続けてたっていうのも。……「最初」って、その人が入ってきた地点が、その人の「最初」なのよね。矛盾してるんじゃなくて、立っている場所が違うだけ。だから、無理にどれか一つにしなくていい。",
+              "reading": "あのね、これ、たぶんみっつともほんとうなの。はくしだったっていうのも、もういっぽんひいてあったっていうのも、ずっとたされつづけてたっていうのも。……「さいしょ」って、そのひとがはいってきたちてんが、そのひとの「さいしょ」なのよね。むじゅんしてるんじゃなくて、たっているばしょがちがうだけ。だから、むりにどれかひとつにしなくていい。",
+              "english": "You know, I think all three of these are true. The blank page, the one route already drawn, the page that kept being added to. …With \"the beginning,\" the point each person entered is that person's beginning. They're not contradicting each other; they're just standing in different places. So we don't have to force it down to one."
             },
             "n1": {
-              "japanese": "ほら。リエさんは『渡した時』、手紙は『受け取った時』、ノートは『数え始めた時』。三枚を同一時点の記録として置いたから、矛盾して見えたのよ。それぞれの入り口を明記して端をそろえれば、ちゃんと重なる。",
-              "reading": "ほら。リエさんは『わたしたとき』、てがみは『うけとったとき』、ノートは『かぞえはじめたとき』。さんまいをどういつじてんのきろくとしておいたから、むじゅんしてみえたのよ。それぞれのいりぐちをめいきしてはしをそろえれば、ちゃんとかさなる。",
-              "english": "There. Rie's says 'when I handed it over,' the letter says 'when I received it,' and the notebook says 'when we began counting.' They looked contradictory because we treated the three as records of the same moment. State each entry point, line up the edges, and they layer properly."
+              "japanese": "あのね、これ、おそらく三つとも本当なのよ。白紙だったという話も、もう一本引いてあったという話も、ずっと足され続けていたという話も。……「最初」というのは、その人が入ってきた地点が、その人にとっての「最初」でしょう。食い違っているように見えて、実は矛盾していない。ただ、立っている時点が違うだけなの。だから、どれか一つに絞り込まなくていいと思うのよ。",
+              "reading": "あのね、これ、おそらくみっつともほんとうなのよ。はくしだったというはなしも、もういっぽんひいてあったというはなしも、ずっとたされつづけていたというはなしも。……「さいしょ」というのは、そのひとがはいってきたちてんが、そのひとにとっての「さいしょ」でしょう。くいちがっているようにみえて、じつはむじゅんしていない。ただ、たっているじてんがちがうだけなの。だから、どれかひとつにしぼりこまなくていいとおもうのよ。",
+              "english": "You know, I think all three are true, most likely. The blank-page account, the one-route-already-there account, the always-being-added-to account. …\"The beginning\" is, for each person, the point where they entered. They look like they clash, but they don't actually contradict. It's only that each is standing at a different moment. So I don't think we need to narrow it to one."
             }
           },
           "support": {
@@ -279,7 +279,7 @@
       "weatherState": "summer-dusk",
       "goal": "Turn three kept accounts into one synthesis that says why all three can be true without flattening any speaker, and leave the beginning plural with no omniscient correction.",
       "dramaticQuestion": "Can one sentence hold three clashing accounts as compatible truths without shrinking any of them into a footnote?",
-      "learnerNeed": "An integrated production where the learner binds three vantage accounts into a single synthesis using embedded quotation while preserving every voice and marking what no one saw.",
+      "learnerNeed": "A recognition check where the learner identifies the synthesis that attributes all three accounts and leaves the unwitnessed interval open.",
       "curriculum": {
         "sectionId": "one-synthesis-that-keeps-three",
         "order": 2
@@ -332,19 +332,19 @@
           "attentionTarget": "the three cards and the blank span, and the one sentence that has to keep all of it",
           "variants": {
             "n3": {
-              "japanese": "じゃあ、この三枚を留める文を一本作りましょう。『〜によれば』で話した人を入れて、クリップの順につなぐの。",
-              "reading": "じゃあ、このさんまいをとめるぶんをいっぽんつくりましょう。『〜によれば』ではなしたひとをいれて、クリップのじゅんにつなぐの。",
-              "english": "Then let's make one sentence to fasten these three sheets together. Name each speaker with 'according to,' and join them in clip order."
+              "japanese": "じゃあ、やってみましょう。三つを一つの文にまとめる。でも、どれも小さくしないで。「◯◯によれば」って、それぞれの声を残したまま、つなぐの。",
+              "reading": "じゃあ、やってみましょう。みっつをひとつのぶんにまとめる。でも、どれもちいさくしないで。「◯◯によれば」って、それぞれのこえをのこしたまま、つなぐの。",
+              "english": "Then let's try it. Pull the three into one sentence. But don't shrink any of them. \"According to so-and-so,\" join them with each voice kept intact."
             },
             "n2": {
-              "japanese": "じゃあ、この三枚を留める文を一本作りましょうか。『〜によれば』『〜という』で話し手を残して、クリップの順につなぐの。どの節がどのシートか、指で追えるように。",
-              "reading": "じゃあ、このさんまいをとめるぶんをいっぽんつくりましょうか。『〜によれば』『〜という』ではなしてをのこして、クリップのじゅんにつなぐの。どのせつがどのシートか、ゆびでおえるように。",
-              "english": "Then shall we make one sentence to fasten these three sheets together? Keep each speaker with 'according to' and 'the account that,' then join them in clip order. We should be able to trace each clause back to its sheet with a finger."
+              "japanese": "じゃあ、一回やってみましょうか。三つを、一つのまとまった言い方にする。ただし、どの声もつぶさないで。「〜によれば」「〜という」で、誰の話かを残したまま、一つにつなぐの。",
+              "reading": "じゃあ、いっかいやってみましょうか。みっつを、ひとつのまとまったいいかたにする。ただし、どのこえもつぶさないで。「〜によれば」「〜という」で、だれのはなしかをのこしたまま、ひとつにつなぐの。",
+              "english": "Then shall we try it once? Turn the three into one connected way of saying it. But don't crush any voice. With \"according to—\" and \"the account that—,\" keep whose account each is, and join them into one."
             },
             "n1": {
-              "japanese": "じゃあ、この三枚を留める文を一本作りましょうか。『〜によれば』『〜とのこと』『〜という』で話し手と視点を残し、クリップの順につなぐの。どの節がどのシートに属するか、指で遡れるようにね。",
-              "reading": "じゃあ、このさんまいをとめるぶんをいっぽんつくりましょうか。『〜によれば』『〜とのこと』『〜という』ではなしてとしてんをのこし、クリップのじゅんにつなぐの。どのせつがどのシートにぞくするか、ゆびでさかのぼれるようにね。",
-              "english": "Then shall we make one sentence to fasten these three sheets together? Preserve each speaker and vantage with 'according to,' 'reportedly,' and 'the account that,' then join them in clip order. We should be able to trace every clause back to its sheet with a finger."
+              "japanese": "じゃあ、一度まとめてみましょうか。三つの話を、一つの言い方に束ねる。ただし、どの声も平らにしないで。「〜によれば」「〜とのこと」「〜という」——誰が、どこから見た話なのかを残したまま、一つにつなぐの。矛盾を消すんじゃなくて、そのまま抱えたまま、ね。",
+              "reading": "じゃあ、いちどまとめてみましょうか。みっつのはなしを、ひとつのいいかたにたばねる。ただし、どのこえもたいらにしないで。「〜によれば」「〜とのこと」「〜という」——だれが、どこからみたはなしなのかをのこしたまま、ひとつにつなぐの。むじゅんをけすんじゃなくて、そのままかかえたまま、ね。",
+              "english": "Then let's try binding them once. Tie the three accounts into one way of saying it. But don't flatten any voice. \"According to—,\" \"reportedly—,\" \"the account that—\": keep who saw it and from where, and join them into one. Not erasing the clash, holding it as it is."
             }
           },
           "support": {
@@ -356,22 +356,22 @@
         {
           "kind": "checkpoint",
           "id": "checkpoint:three-versions:before-synthesis",
-          "beatId": "beat:three-versions:production-attempt",
-          "resume": "The three cards stay in their row with the middle span blank. The learner steps in to bind all three into one synthesis that keeps every voice, using embedded quotation, ranking none and correcting none."
+          "beatId": "beat:three-versions:recognition-check",
+          "resume": "The three cards stay in their row with the middle span blank. The learner identifies the synthesis that keeps each account attributed and leaves that interval unknown."
         },
         {
           "kind": "activity",
           "id": "activity-node:three-versions:synthesize",
-          "beatId": "beat:three-versions:production-attempt",
+          "beatId": "beat:three-versions:recognition-check",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "recognition",
             "exerciseId": "activity:s4e04-three-true-versions-synthesis"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e04-three-true-versions-synthesis"
           },
-          "resumeContext": "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. The learner produces one synthesis using embedded quotation — 「〜によれば」「〜とのこと」「〜という」 — that attributes each account to its vantage point and says why all three hold at once, ranking none as the real beginning and marking the unwitnessed middle span as unknown.",
+          "resumeContext": "The three accounts of the first page's beginning are Rie's blank-template memory, the former learner's letter that a route was already drawn, and the class's note that the page was always being added to. Choose the synthesis that attributes each account with 「〜によれば」「〜とのこと」「〜という」 and leaves the unwitnessed middle span unknown.",
           "onReady": "checkpoint:three-versions:after-synthesis",
           "onRepair": "node:three-versions:synthesis-repair",
           "onDefer": "checkpoint:three-versions:before-synthesis"
@@ -379,15 +379,15 @@
         {
           "kind": "stage",
           "id": "node:three-versions:synthesis-repair",
-          "beatId": "beat:three-versions:production-repair",
+          "beatId": "beat:three-versions:recognition-repair",
           "cueId": "cue:one-voice-flattened-restored",
-          "description": "The synthesis holds except at one clause, where one account lost its vantage note and got folded into the other two. Only that clause comes back for another pass. The attributions already balanced stay as they are, and the blank middle span stays blank."
+          "description": "One option folds an account into the other two by dropping its vantage note. Compare that clause again; the blank middle span stays blank."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:three-versions:after-synthesis",
-          "beatId": "beat:three-versions:production-response",
-          "resume": "The three accounts now sit inside one sentence, each attributed, none ranked. Jodi reads it back and sees all three still standing."
+          "beatId": "beat:three-versions:recognition-response",
+          "resume": "The selected sentence keeps all three accounts attributed and the unwitnessed interval open. Jodi reads it back and sees all three still standing."
         },
         {
           "kind": "line",
@@ -398,19 +398,19 @@
           "attentionTarget": "the one synthesis with the three cards still beneath it, nothing crossed out",
           "variants": {
             "n3": {
-              "japanese": "読んでみるね。……白いシート、手紙、ノート。ほら、三つとも残ってるでしょう。『本当の始まり』を一つに決めなくていいの。三つとも、その人が覚えている本当の始まり。誰の『最初』も消さないほうが、正確でしょう。",
-              "reading": "よんでみるね。……しろいシート、てがみ、ノート。ほら、みっつとものこってるでしょう。『ほんとうのはじまり』をひとつにきめなくていいの。みっつとも、そのひとがおぼえているほんとうのはじまり。だれの『さいしょ』もけさないほうが、せいかくでしょう。",
-              "english": "I'll read it. …The white sheet, the letter, the notebook. There, all three are still here. We don't have to choose one 'real beginning.' Each is the beginning that person truly remembers. It is more accurate not to erase anyone's 'first.'"
+              "japanese": "ほら、できた。三つとも、ちゃんと入ってる。……どれも消えてないでしょう。これでいいのよ。「本当の始まり」を一つ選ばなくても、始まりは、ちゃんと三つとも本当。",
+              "reading": "ほら、できた。みっつとも、ちゃんとはいってる。……どれもきえてないでしょう。これでいいのよ。「ほんとうのはじまり」をひとつえらばなくても、はじまりは、ちゃんとみっつともほんとう。",
+              "english": "There, done. All three are in it, properly. …None of them vanished, see. This is fine as it is. Even without picking one \"real beginning,\" the beginning is all three of them, and all three are true."
             },
             "n2": {
-              "japanese": "読んでみるね。……白いシート、手紙、ノート。三つとも残ってるでしょう。『本当の始まり』を一つに決めなくても、それぞれが覚えている始まりを、その人の本当として置ける。誰の『最初』も消さない。そのほうが正確よ。",
-              "reading": "よんでみるね。……しろいシート、てがみ、ノート。みっつとものこってるでしょう。『ほんとうのはじまり』をひとつにきめなくても、それぞれがおぼえているはじまりを、そのひとのほんとうとしておける。だれの『さいしょ』もけさない。そのほうがせいかくよ。",
-              "english": "I'll read it. …The white sheet, the letter, the notebook. All three remain. We don't have to choose one 'real beginning'; we can leave each remembered beginning as true for the person who told it. No one's 'first' gets erased. That is more accurate."
+              "japanese": "ほら、まとまった。三つとも、ちゃんと残ってるでしょう。どれも小さくなってない。……「本当の始まりはどれか」を決めなくても、これで足りるのよ。三つとも本当、っていうのが、いちばん正確なんだから。",
+              "reading": "ほら、まとまった。みっつとも、ちゃんとのこってるでしょう。どれもちいさくなってない。……「ほんとうのはじまりはどれか」をきめなくても、これでたりるのよ。みっつともほんとう、っていうのが、いちばんせいかくなんだから。",
+              "english": "There, it came together. All three are still there, see. None of them shrank. …Even without deciding \"which is the real beginning,\" this is enough. Because \"all three are true\" is the most accurate thing we can say."
             },
             "n1": {
-              "japanese": "読んでみるね。……白いシート、手紙、ノート。三つの『最初』が、どれも消えずに残ってる。唯一の始まりを決めなくても、それぞれの語りにとっての真実として並べられる。誰かの始まりを訂正線で消すより、そのほうが正確よ。",
-              "reading": "よんでみるね。……しろいシート、てがみ、ノート。みっつの『さいしょ』が、どれもきえずにのこってる。ゆいいつのはじまりをきめなくても、それぞれのかたりにとってのしんじつとしてならべられる。だれかのはじまりをていせいせんでけすより、そのほうがせいかくよ。",
-              "english": "I'll read it. …The white sheet, the letter, the notebook. All three 'firsts' remain without one being erased. We don't have to decree a single beginning; they can sit beside one another as truths within each account. That is more accurate than striking out someone's beginning."
+              "japanese": "ほら、ちゃんと一つになった。それでいて、三つとも残ってるでしょう。どの声も、小さくなっていない。……「本当の始まりはどれか」なんて、決めなくていいのよ。三つとも本当だ、と書いておくことのほうが、よっぽど正確なんだから。誰かの「最初」を、消さずに済む。",
+              "reading": "ほら、ちゃんとひとつになった。それでいて、みっつとものこってるでしょう。どのこえも、ちいさくなっていない。……「ほんとうのはじまりはどれか」なんて、きめなくていいのよ。みっつともほんとうだ、とかいておくことのほうが、よっぽどせいかくなんだから。だれかの「さいしょ」を、けさずにすむ。",
+              "english": "There, it's become one, and yet all three are still there, see. Not one voice got smaller. …We don't have to decide \"which is the real beginning.\" Writing down that all three are true is far more accurate. And no one's \"beginning\" has to be crossed out."
             }
           },
           "support": {
@@ -428,19 +428,19 @@
           "attentionTarget": "the still-blank span between the cards, and the page waiting ahead",
           "variants": {
             "n3": {
-              "japanese": "ありがとう。じゃあ、次は見せ方ね。舞台で三枚を一度に重ねる? それとも、一枚ずつ置く? 台本に、質問を残しておきましょう。",
-              "reading": "ありがとう。じゃあ、つぎはみせかたね。ぶたいでさんまいをいちどにかさねる? それとも、いちまいずつおく? だいほんに、しつもんをのこしておきましょう。",
-              "english": "Thank you. Next is how we show it. Do we layer all three sheets at once on stage, or place them one at a time? Let's leave that question in the script."
+              "japanese": "ありがとう。じゃあ、三枚を重ねたまま、最初から読んでみよう。……真ん中だけ明るく残るね。明日、ナナコさんに後ろで聞いてもらえないかな。この話を知らない耳で、一度試したいの。",
+              "reading": "ありがとう。じゃあ、さんまいをかさねたまま、さいしょからよんでみよう。……まんなかだけあかるくのこるね。あした、ナナコさんにうしろできいてもらえないかな。このはなしをしらないみみで、いちどためしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …Only the middle stays bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             "n2": {
-              "japanese": "ありがとう。では、次は見せ方ですね。舞台で三枚を一度に重ねるか、一枚ずつ置くか。台本のその箇所に、質問として残しておきましょう。",
-              "reading": "ありがとう。では、つぎはみせかたですね。ぶたいでさんまいをいちどにかさねるか、いちまいずつおくか。だいほんのそのかしょに、しつもんとしてのこしておきましょう。",
-              "english": "Thank you. Next is how we show them. Do we layer all three sheets at once on stage, or place them one at a time? Let's leave that as a question at the relevant point in the script."
+              "japanese": "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              "reading": "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             },
             "n1": {
-              "japanese": "ありがとう。では、次に決めるのは見せ方ですね。舞台で三枚を同時に重ねるのか、一枚ずつ置くのか。台本の該当箇所に、未決の質問として残しておきましょう。",
-              "reading": "ありがとう。では、つぎにきめるのはみせかたですね。ぶたいでさんまいをどうじにかさねるのか、いちまいずつおくのか。だいほんのがいとうかしょに、みけつのしつもんとしてのこしておきましょう。",
-              "english": "Thank you. Then the next decision is how we show them. Do we layer all three sheets at once on stage, or place them one at a time? Let's leave that as an unresolved question at the relevant point in the script."
+              "japanese": "ありがとう。では、三枚を重ねたまま、最初から読んでみましょう。……やっぱり、真ん中の空白だけが明るく残るね。明日、ナナコさんに後ろから聞いてもらえないかしら。この話を知らない耳で、一度通したいの。",
+              "reading": "ありがとう。では、さんまいをかさねたまま、さいしょからよんでみましょう。……やっぱり、まんなかのくうはくだけがあかるくのこるね。あした、ナナコさんにうしろからきいてもらえないかしら。このはなしをしらないみみで、いちどとおしたいの。",
+              "english": "Thank you. Let's read it from the start with all three sheets layered. …The blank in the middle really does stay bright. Could Nanako listen from the back tomorrow? I want one pass with ears that don't know this story."
             }
           },
           "support": {
@@ -454,7 +454,7 @@
           "id": "node:three-versions:page-stays-plural",
           "beatId": "beat:three-versions:exit-image",
           "cueId": "cue:one-synthesis-three-cards-kept",
-          "description": "The three transparent sheets are copied into the rehearsal script as one attributed sentence. No source line is crossed out. Beside the stage cue, Rie brackets one practical question for the next session: all three overlays at once, or one at a time?"
+          "description": "Jodi clips all three transparent sheets to the rehearsal stand at once. Rie reads the synthesis from the back row; the unwitnessed middle remains a bright gap instead of disappearing. A second back-row chair is pulled out for tomorrow, with Nanako's name on the visitor slip."
         }
       ],
       "exit": {
@@ -499,7 +499,7 @@
       "id": "outcome:three-versions:transfer-return",
       "kind": "curriculum-return",
       "activityId": "activity:s4e04-three-true-versions-synthesis",
-      "description": "Synthesize-three-accounts-into-compatible-truths-with-embedded-quotation evidence returns through the unregistered N1 transfer activity; the story emits no lesson-completion command."
+      "description": "Recognition of a synthesis that keeps three attributed accounts compatible returns through the chapter's selected-response activity; the story emits no lesson-completion command."
     }
   ],
   "replay": {

@@ -3,7 +3,7 @@ import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import { createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
 import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
-import { n3StoryPractice } from '../../src/academy/content/n3-story-practice';
+import { n3StoryPractice, storyPractice } from '../../src/academy/content/n3-story-practice';
 import { storyReplayReviewSeed } from '../../src/academy/content/story-replay-catalog';
 import type { ActivityEvaluation, ReviewSeed } from '../../src/academy/domain/activity-runtime';
 import { createLibraryVocabularySheet, libraryVocabularyReviewSeeds } from '../../src/academy/content/library-vocabulary-sheet';
@@ -162,6 +162,60 @@ describe('Academy Yomu review bridge', () => {
         expect(Object.values(evidence.projection.scheduledReviews)).toEqual([
             expect.objectContaining({ reviewItemId: canonicalStudyCardKey('まだ決定していない。'), conceptId: practice.conceptIds[0] }),
         ]);
+    });
+
+    it('records Season 4 choice and production gates with truthful evidence and SRS provenance', async () => {
+        const now = Date.parse('2026-07-20T10:00:00.000Z');
+        const repository = new LocalYomuSrsRepository(() => now);
+        const review = createYomuLocalReviewService(repository, () => now);
+        const events = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(events, review);
+        const activityIds = [
+            'activity:s4e02-map-of-claims-evidence-map',
+            'activity:s4e04-three-true-versions-synthesis',
+            'activity:s4e05-left-unsaid-trim-the-line',
+            'activity:s4e06-open-question-reframe-premise',
+            'activity:s4e07-journey-not-everyone-takes-non-comparative-futures',
+            'activity:s4e08-last-revision-vivid-without-restoring',
+        ] as const;
+        await evidence.initialize();
+
+        for (const activityId of activityIds) {
+            const practice = storyPractice(activityId)!;
+            await evidence.recordAuthoredStoryPractice({
+                ...practice,
+                reviewSeed: storyReplayReviewSeed(practice),
+            }, 'pass');
+        }
+
+        const recorded = (await events.readAll()).filter(event =>
+            event.kind === 'learning-evidence-recorded' && activityIds.includes(event.activityId as typeof activityIds[number]));
+        expect(recorded).toHaveLength(activityIds.length);
+        expect(recorded).toEqual(activityIds.map(activityId => {
+            const practice = storyPractice(activityId)!;
+            return expect.objectContaining({
+                kind: 'learning-evidence-recorded',
+                activityId,
+                modeId: 'authored-story-practice',
+                skill: practice.skill,
+                action: practice.action,
+                outcome: 'pass',
+                independent: true,
+            });
+        }));
+
+        const expectedExpressions = activityIds.map(activityId => {
+            const practice = storyPractice(activityId)!;
+            return practice.reviewAnswer.ja;
+        });
+        expect((await repository.queue(10)).cards.map(card => card.providerCardId))
+            .toEqual(expect.arrayContaining(expectedExpressions.map(expression => canonicalStudyCardKey(expression))));
+        const scheduled = (await events.readAll()).filter(event => event.kind === 'review-scheduled');
+        expect(scheduled).toHaveLength(activityIds.length);
+        expect(scheduled.map(event => event.provenance.response)).toEqual(activityIds.map(activityId => {
+            const interaction = storyPractice(activityId)!.interaction;
+            return interaction === 'choice' ? 'selected-response' : interaction;
+        }));
     });
 
     it('seeds verified pre-study rows into the real local SRS without recording pretend answers', async () => {

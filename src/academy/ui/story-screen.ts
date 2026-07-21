@@ -18,7 +18,15 @@ import type {
     StoryPlayableArc,
     StoryRuntime,
 } from '../content/story-runtime';
-import { n3StoryPractice } from '../content/n3-story-practice';
+import {
+    gradeStoryPractice,
+    storyPracticeMistakeIds,
+    storyPractice,
+    type StoryEvidenceMapPractice,
+    type StoryPractice,
+    type StoryPracticeResponse,
+    type StoryWrittenResponsePractice,
+} from '../content/n3-story-practice';
 import { STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
 import { ACADEMY_ASSETS } from '../assets';
 import type { StoryVoicePlayback } from '../audio/voice-lines';
@@ -41,12 +49,15 @@ export interface StoryScreenOptions {
     readonly onOpenEpisode: (episodeId: string) => void;
     readonly onCompleteEpisode?: (episodeId: string) => void | Promise<void>;
     readonly openingArcMode?: StoryOpeningArcMode;
-    readonly arcModeForEpisode?: (episodeId: string) => StoryOpeningArcMode;
+    readonly arcModeForEpisode?: (episodeId: string, cursor?: StoryCursor) => StoryOpeningArcMode;
     readonly onOpenActivity?: (lessonId: string, activityId: string, cursor?: StoryCursor) => void;
     readonly onCheckpoint?: (cursor: StoryCursor) => void | Promise<void>;
     readonly onSceneEncounter?: (sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
     readonly onArcSceneEncounter?: (episodeId: string, sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
-    readonly onCompleteStoryPractice?: (activityId: string, outcome: StoryActivityOutcome) => void | Promise<void>;
+    readonly onCompleteStoryPractice?: (
+        activityId: string,
+        response: StoryPracticeResponse,
+    ) => StoryActivityOutcome | Promise<StoryActivityOutcome>;
     readonly activityOutcomes?: Readonly<Record<string, StoryActivityOutcome>>;
     readonly selectedBand?: string;
     readonly audio?: AcademyVnStageOptions['audio'];
@@ -70,7 +81,7 @@ export function renderStoryScreen(options: StoryScreenOptions): HTMLElement {
         return screen;
     }
     const cursor = parseStoryCursor(options.sectionId);
-    const episode = options.story.episode(cursor ? options.story.openingArc.episodeId : options.sectionId);
+    const episode = options.story.episode(cursor ? episodeIdForCursor(options.story, cursor) : options.sectionId);
     const content = episode ? renderEpisode(options, episode) : renderEpisodeList(options);
     screen.append(content);
     screen.addEventListener('academy:dispose', () => {
@@ -134,7 +145,8 @@ function renderPlayableArc(
     arc: StoryPlayableArc,
 ): HTMLElement {
     const main = element('article', 'academy-story-authored-arc academy-story-vn-shell');
-    const mode = options.arcModeForEpisode?.(episode.id) ?? (episode.id === options.story.openingArc.episodeId
+    const savedCursor = parseStoryCursor(options.sectionId);
+    const mode = options.arcModeForEpisode?.(episode.id, savedCursor) ?? (episode.id === options.story.openingArc.episodeId
         ? options.openingArcMode ?? 'chronological-replay'
         : 'canonical');
     main.dataset.storyArcId = arc.id;
@@ -146,7 +158,7 @@ function renderPlayableArc(
         band: resolveStoryBand(options.selectedBand),
         activityOutcomes: options.activityOutcomes,
         placementEquivalent: mode === 'chronological-replay',
-        cursor: parseStoryCursor(options.sectionId),
+        cursor: savedCursor,
     });
     const stage = createAcademyVnStage({
         label: arc.title,
@@ -197,84 +209,89 @@ function renderPlayableArc(
         }
         stage.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
 
-        if (moment.kind === 'line') {
-            stage.setLine({
-                id: moment.node.id,
-                speakerId: moment.node.speakerId,
-                speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
-                japanese: moment.line.japanese,
-                language: 'ja',
-                reading: storyReadingControl(options.language),
-                translation: moment.line.english,
-                translationEarned: true,
-                ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
-                    ? { voice: { band: moment.line.band } }
-                    : {}),
-            });
-            stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
-            return;
-        }
-        if (moment.kind === 'stage' || moment.kind === 'narration') {
-            stage.setLine({
-                id: moment.node.id,
-                japanese: moment.node.description ?? moment.node.text?.[options.language] ?? '',
-                language: options.language,
-                reading: { ...storyReadingControl(options.language), available: false },
-            });
-            stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
-            return;
-        }
-        if (moment.kind === 'choice') {
-            stage.setLine({
-                id: moment.node.id,
-                japanese: moment.node.question ?? (options.language === 'ja' ? 'どうしますか。' : 'What will you do?'),
-                language: options.language,
-                reading: { ...storyReadingControl(options.language), available: false },
-            });
-            stage.setAction(playableChoiceAction(moment, optionId => transition(() => runner.choose(optionId))));
-            return;
-        }
-        if (moment.kind === 'activity') {
-            stage.setLine({
-                id: moment.node.id,
-                japanese: moment.node.resumeContext ?? (options.language === 'ja'
-                    ? '登録された練習に進みます。'
-                    : 'Open the registered practice, then return here.'),
-                language: options.language,
-                reading: { ...storyReadingControl(options.language), available: false },
-            });
-            const practice = n3StoryPractice(moment.binding.exerciseId);
-            if (practice && options.onCompleteStoryPractice) {
-                stage.setAction(playableN3PracticeAction(options, practice, async outcome => {
-                    await options.onCompleteStoryPractice?.(practice.activityId, outcome);
-                    runner.updateActivityOutcomes({ [practice.activityId]: outcome });
-                    if (outcome === 'pass') transition(() => runner.advance());
-                    else renderMoment(runner.moment);
+        switch (moment.kind) {
+            case 'line':
+                stage.setLine({
+                    id: moment.node.id,
+                    speakerId: moment.node.speakerId,
+                    speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
+                    japanese: moment.line.japanese,
+                    language: 'ja',
+                    reading: storyReadingControl(options.language),
+                    translation: moment.line.english,
+                    translationEarned: true,
+                    ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
+                        ? { voice: { band: moment.line.band } }
+                        : {}),
+                });
+                stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
+                return;
+            case 'stage':
+            case 'narration':
+                stage.setLine({
+                    id: moment.node.id,
+                    japanese: moment.node.description ?? moment.node.text?.[options.language] ?? '',
+                    language: options.language,
+                    reading: { ...storyReadingControl(options.language), available: false },
+                });
+                stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
+                return;
+            case 'choice':
+                stage.setLine({
+                    id: moment.node.id,
+                    japanese: moment.node.question ?? (options.language === 'ja' ? 'どうしますか。' : 'What will you do?'),
+                    language: options.language,
+                    reading: { ...storyReadingControl(options.language), available: false },
+                });
+                stage.setAction(playableChoiceAction(moment, optionId => transition(() => runner.choose(optionId))));
+                return;
+            case 'activity': {
+                stage.setLine({
+                    id: moment.node.id,
+                    japanese: moment.node.resumeContext ?? (options.language === 'ja'
+                        ? '登録された練習に進みます。'
+                        : 'Open the registered practice, then return here.'),
+                    language: options.language,
+                    reading: { ...storyReadingControl(options.language), available: false },
+                });
+                const practice = storyPractice(moment.binding.exerciseId);
+                const inlinePractice = Boolean(practice && options.onCompleteStoryPractice);
+                const gateSatisfied = moment.gate === 'passed' || moment.gate === 'placement-equivalent';
+                if (practice && inlinePractice && !gateSatisfied) {
+                    stage.setAction(playableStoryPracticeAction(options, practice, moment.gate, async response => {
+                        const outcome = await options.onCompleteStoryPractice?.(practice.activityId, response);
+                        if (!outcome) throw new Error(`Story practice ${practice.activityId} did not return an outcome.`);
+                        runner.updateActivityOutcomes({ [practice.activityId]: outcome });
+                        if (outcome === 'pass') transition(() => runner.advance());
+                        return outcome;
+                    }));
+                    return;
+                }
+                stage.setAction(playableActivityAction(options, arc, moment, runner.cursor, {
+                    ...(!inlinePractice && options.onOpenActivity ? { open() {
+                        persist();
+                        options.onOpenActivity?.(moment.binding.lessonId, moment.binding.exerciseId, runner.cursor);
+                    } } : {}),
+                    continue() { transition(() => runner.advance()); },
                 }));
                 return;
             }
-            stage.setAction(playableActivityAction(options, arc, moment, runner.cursor, {
-                open() {
-                    persist();
-                    options.onOpenActivity?.(moment.binding.lessonId, moment.binding.exerciseId, runner.cursor);
-                },
-                continue() { transition(() => runner.advance()); },
-                storyOnly() { transition(() => runner.continueStoryOnly()); },
-            }));
-            return;
+            case 'complete':
+                stage.setLine({
+                    id: 'story:opening-complete',
+                    speakerId: 'rie',
+                    speakerName: displayAcademyCastName('rie', options.language),
+                    japanese: options.language === 'ja' ? '最初の道ができました。' : 'The first route is restored.',
+                    language: options.language,
+                    reading: { ...storyReadingControl(options.language), available: options.language === 'ja' },
+                    translation: options.language === 'ja' ? 'The first route is restored.' : undefined,
+                    translationEarned: options.language === 'ja',
+                });
+                stage.setAction(playableCompleteAction(options, episode, moment.completionEligible, mode));
+                return;
+            default:
+                return unsupportedStoryMoment(moment);
         }
-        if (moment.kind !== 'complete') return;
-        stage.setLine({
-            id: 'story:opening-complete',
-            speakerId: 'rie',
-            speakerName: displayAcademyCastName('rie', options.language),
-            japanese: options.language === 'ja' ? '最初の道ができました。' : 'The first route is restored.',
-            language: options.language,
-            reading: { ...storyReadingControl(options.language), available: options.language === 'ja' },
-            translation: options.language === 'ja' ? 'The first route is restored.' : undefined,
-            translationEarned: options.language === 'ja',
-        });
-        stage.setAction(playableCompleteAction(options, episode, moment.completionEligible, mode));
     };
 
     main.append(stage.element, navigation);
@@ -312,7 +329,7 @@ function playableActivityAction(
     arc: StoryPlayableArc,
     moment: Extract<StoryMoment, { kind: 'activity' }>,
     cursor: StoryCursor,
-    actions: Readonly<{ open: () => void; continue: () => void; storyOnly: () => void }>,
+    actions: Readonly<{ open?: () => void; continue: () => void }>,
 ): AcademyVnSlotContent {
     const root = element('section', 'academy-story-vn-activity');
     root.dataset.activityId = moment.binding.exerciseId;
@@ -333,59 +350,179 @@ function playableActivityAction(
             : options.language === 'ja' ? '練習は準備中です。' : 'Practice is being prepared.'),
     );
     const controls = element('div', 'academy-story-vn-activity-actions');
-    if (moment.binding.registered && options.onOpenActivity) {
+    if (moment.binding.registered && actions.open) {
         const open = actionButton(options.language === 'ja' ? '練習を開く' : 'Open practice', 'academy-story-open-activity', actions.open);
         open.dataset.storyCursor = serializeStoryCursor(cursor);
         controls.append(open);
     }
-    if (moment.gate === 'passed' || moment.gate === 'placement-equivalent' || moment.gate === 'story-only') {
+    if (moment.gate === 'passed' || moment.gate === 'placement-equivalent') {
         controls.append(actionButton(options.language === 'ja' ? '物語を続ける' : 'Continue story', 'academy-story-activity-continue', actions.continue));
-    } else if (!moment.binding.registered) {
-        controls.append(actionButton(
-            options.language === 'ja' ? '物語を続ける' : 'Continue story',
-            'academy-story-activity-story-only',
-            actions.storyOnly,
-        ));
-    } else {
-        controls.append(actionButton(
-            options.language === 'ja' ? '単位を付けずに続ける' : 'Continue without practice credit',
-            'academy-story-activity-story-only',
-            actions.storyOnly,
-        ));
     }
     root.append(controls);
     return { element: root };
 }
 
-function playableN3PracticeAction(
+function playableStoryPracticeAction(
     options: StoryScreenOptions,
-    practice: NonNullable<ReturnType<typeof n3StoryPractice>>,
-    onComplete: (outcome: StoryActivityOutcome) => Promise<void>,
+    practice: StoryPractice,
+    gate: Extract<StoryMoment, { kind: 'activity' }>['gate'],
+    onComplete: (response: StoryPracticeResponse) => Promise<StoryActivityOutcome>,
 ): AcademyVnSlotContent {
-    const root = element('section', 'academy-story-vn-activity academy-story-n3-practice');
+    const root = element('section', 'academy-story-vn-activity academy-story-practice');
     root.dataset.activityId = practice.activityId;
-    const prompt = textElement('p', 'academy-story-n3-prompt', practice.prompt[options.language]);
+    root.dataset.activityRegistered = 'true';
+    root.dataset.activityGate = gate;
+    const prompt = textElement('p', 'academy-story-practice-prompt', practice.prompt[options.language]);
     prompt.lang = options.language === 'ja' ? 'ja' : 'en';
-    const choices = element('div', 'academy-story-vn-activity-actions');
     const status = element('p', 'academy-story-activity-state');
     status.setAttribute('role', 'status');
-    practice.options.forEach(option => {
-        const button = actionButton(option.label[options.language], 'academy-story-n3-option', () => {
-            choices.querySelectorAll<HTMLButtonElement>('button').forEach(control => { control.disabled = true; });
-            const outcome: StoryActivityOutcome = option.id === practice.correctOptionId ? 'pass' : 'lapse';
+    const interaction = practiceInteraction(options, practice, response => {
+        const controls = interaction.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>(
+            'input, select, textarea, button',
+        );
+        controls.forEach(control => { control.disabled = true; });
+        void onComplete(response).then(outcome => {
+            const expectedOutcome = gradeStoryPractice(practice, response);
+            if (outcome !== expectedOutcome) {
+                throw new Error(`Story practice ${practice.activityId} returned ${outcome} for a ${expectedOutcome} response.`);
+            }
+            markPracticeMistakes(interaction, storyPracticeMistakeIds(practice, response));
             status.textContent = outcome === 'pass'
                 ? options.language === 'ja' ? '記録しました。場面に戻ります。' : 'Recorded. Returning to the scene.'
                 : practice.repair[options.language];
-            void onComplete(outcome).catch(() => {
-                status.textContent = options.language === 'ja' ? '記録できませんでした。もう一度試してください。' : 'Could not save this attempt. Try again.';
-                choices.querySelectorAll<HTMLButtonElement>('button').forEach(control => { control.disabled = false; });
-            });
+            if (outcome === 'lapse') {
+                controls.forEach(control => { control.disabled = false; });
+                interaction.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+            }
+        }).catch(() => {
+            status.textContent = options.language === 'ja' ? '記録できませんでした。もう一度試してください。' : 'Could not save this attempt. Try again.';
+            controls.forEach(control => { control.disabled = false; });
         });
-        button.dataset.storyPracticeOption = option.id;
-        choices.append(button);
     });
-    root.append(prompt, choices, status);
+    root.append(prompt, interaction, status);
     return { element: root };
+}
+
+function markPracticeMistakes(interaction: HTMLElement, mistakeIds: readonly string[]): void {
+    interaction.querySelectorAll<HTMLElement>('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
+    mistakeIds.forEach(id => {
+        const [rowId, columnId] = id.split(':');
+        const control = columnId
+            ? interaction.querySelector<HTMLElement>(`[data-evidence-row="${rowId}"] [data-evidence-column="${columnId}"]`)
+            : interaction.querySelector<HTMLElement>(`[data-story-written-field="${id}"]`);
+        control?.setAttribute('aria-invalid', 'true');
+    });
+}
+
+function practiceInteraction(
+    options: StoryScreenOptions,
+    practice: StoryPractice,
+    submit: (response: StoryPracticeResponse) => void,
+): HTMLElement {
+    switch (practice.interaction) {
+        case 'choice': {
+            const choices = element('div', 'academy-story-vn-activity-actions');
+            practice.options.forEach(option => {
+                const button = actionButton(option.label[options.language], 'academy-story-practice-option', () => {
+                    submit({ interaction: 'choice', optionId: option.id });
+                });
+                button.dataset.storyPracticeOption = option.id;
+                choices.append(button);
+            });
+            return choices;
+        }
+        case 'evidence-map':
+            return evidenceMapInteraction(options, practice, submit);
+        case 'written-response':
+            return writtenResponseInteraction(options, practice, submit);
+        default:
+            return unsupportedStoryPractice(practice);
+    }
+}
+
+function evidenceMapInteraction(
+    options: StoryScreenOptions,
+    practice: StoryEvidenceMapPractice,
+    submit: (response: StoryPracticeResponse) => void,
+): HTMLElement {
+    const fieldset = element('fieldset', 'academy-story-evidence-map');
+    fieldset.dataset.storyPracticeInteraction = 'evidence-map';
+    fieldset.append(textElement('legend', 'academy-visually-hidden', practice.prompt[options.language]));
+    practice.rows.forEach(row => {
+        const entry = element('div', 'academy-story-evidence-row');
+        entry.dataset.evidenceRow = row.id;
+        const claim = textElement('p', 'academy-story-evidence-claim', row.claim[options.language]);
+        claim.lang = options.language === 'ja' ? 'ja' : 'en';
+        entry.append(claim);
+        practice.columns.forEach(column => {
+            const label = element('label', 'academy-story-evidence-field');
+            label.append(textElement('span', 'academy-story-evidence-label', column.label[options.language]));
+            const select = document.createElement('select');
+            select.dataset.evidenceColumn = column.id;
+            select.setAttribute('aria-label', `${row.claim[options.language]}: ${column.label[options.language]}`);
+            select.append(new Option(options.language === 'ja' ? '選択' : 'Select', ''));
+            column.options.forEach(option => select.append(new Option(option.label[options.language], option.id)));
+            label.append(select);
+            entry.append(label);
+        });
+        fieldset.append(entry);
+    });
+    const check = actionButton(options.language === 'ja' ? '地図を確認' : 'Check map', 'academy-story-practice-submit', () => {
+        const rows = Object.fromEntries(practice.rows.map(row => {
+            const entry = fieldset.querySelector<HTMLElement>(`[data-evidence-row="${row.id}"]`)!;
+            return [row.id, Object.fromEntries(practice.columns.map(column => [
+                column.id,
+                entry.querySelector<HTMLSelectElement>(`[data-evidence-column="${column.id}"]`)!.value,
+            ])) as Record<'source' | 'confidence' | 'hedge', string>];
+        }));
+        submit({ interaction: 'evidence-map', rows });
+    });
+    fieldset.append(check);
+    return fieldset;
+}
+
+function writtenResponseInteraction(
+    options: StoryScreenOptions,
+    practice: StoryWrittenResponsePractice,
+    submit: (response: StoryPracticeResponse) => void,
+): HTMLElement {
+    const fieldset = element('fieldset', 'academy-story-written-response');
+    fieldset.dataset.storyPracticeInteraction = 'written-response';
+    fieldset.append(textElement('legend', 'academy-visually-hidden', practice.prompt[options.language]));
+    practice.fields.forEach(field => {
+        const label = element('label', 'academy-story-written-field');
+        label.append(textElement('span', 'academy-story-written-label', field.label[options.language]));
+        const input = document.createElement('textarea');
+        input.rows = 2;
+        input.lang = 'ja';
+        input.spellcheck = false;
+        input.placeholder = field.placeholder;
+        input.dataset.storyWrittenField = field.id;
+        label.append(input);
+        fieldset.append(label);
+    });
+    const check = actionButton(options.language === 'ja' ? '予定を確認' : 'Check updates', 'academy-story-practice-submit', () => {
+        const fields = Object.fromEntries(practice.fields.map(field => [
+            field.id,
+            fieldset.querySelector<HTMLTextAreaElement>(`[data-story-written-field="${field.id}"]`)!.value,
+        ]));
+        submit({ interaction: 'written-response', fields });
+    });
+    fieldset.append(check);
+    return fieldset;
+}
+
+function unsupportedStoryPractice(practice: never): never {
+    throw new Error(`Unsupported story practice interaction ${String((practice as StoryPractice).interaction)}.`);
+}
+
+function episodeIdForCursor(story: StoryRuntime, cursor: StoryCursor): string | undefined {
+    return story.episodes.find(episode => story.playableArc(episode.id)?.id === cursor.arcId)?.id;
+}
+
+function unsupportedStoryMoment(moment: never): never {
+    const unsafe = moment as unknown as { readonly kind?: unknown };
+    throw new Error(`Story renderer received unsupported moment ${String(unsafe.kind)}.`);
 }
 
 function playableCompleteAction(
@@ -520,7 +657,6 @@ function activityGateLabel(
         'placement-equivalent': { en: 'Placement preserves the story here; the activity remains uncredited.', ja: 'プレイスメントで物語を続けられます。練習の単位は付きません。' },
         lapse: { en: 'This exact activity needs another attempt.', ja: 'この練習をもう一度試してください。' },
         missing: { en: 'No evidence yet for this exact activity.', ja: 'この練習の学習記録はまだありません。' },
-        'story-only': { en: 'Story-only continuation; no practice credit was written.', ja: '物語だけ続けています。練習の単位は付きません。' },
     } as const;
     return labels[gate][language];
 }

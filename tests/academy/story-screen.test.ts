@@ -14,6 +14,11 @@ import {
     type StoryRuntime,
 } from '../../src/academy/content/story-runtime';
 import { serializeStoryCursor, type StoryCursor } from '../../src/academy/content/story-runner';
+import {
+    gradeStoryPractice,
+    storyPractice,
+    type StoryPracticeResponse,
+} from '../../src/academy/content/n3-story-practice';
 import { renderStoryScreen } from '../../src/academy/ui/story-screen';
 
 function render(sectionId?: string, overrides: Partial<Parameters<typeof renderStoryScreen>[0]> = {}) {
@@ -37,8 +42,26 @@ function cursor(sceneId: string, nodeId: string, choices: Readonly<Record<string
         sceneId,
         nodeId,
         choices,
-        storyOnlyActivityIds: [],
     } satisfies StoryCursor);
+}
+
+function episodeCursor(
+    episodeId: string,
+    sceneId: string,
+    nodeId: string,
+    choices: Readonly<Record<string, string>> = {},
+): string {
+    const arc = loadStoryRuntime().playableArc(episodeId);
+    if (!arc) throw new Error(`Missing story arc ${episodeId}.`);
+    return serializeStoryCursor({ version: 1, arcId: arc.id, sceneId, nodeId, choices });
+}
+
+function storyPracticeRecorder() {
+    return vi.fn(async (activityId: string, response: StoryPracticeResponse) => {
+        const practice = storyPractice(activityId);
+        if (!practice) throw new Error(`Missing story practice ${activityId}.`);
+        return gradeStoryPractice(practice, response);
+    });
 }
 
 describe('Academy Story screen', () => {
@@ -181,10 +204,14 @@ describe('Academy Story screen', () => {
         const { screen } = render(cursor(
             'scene:blank-atlas:mission-text',
             'line:blank-atlas:sophie-two-gaps',
-        ), { openingArcMode: 'canonical', onSceneEncounter });
+        ), {
+            openingArcMode: 'canonical',
+            onSceneEncounter,
+            activityOutcomes: passedActivityOutcomes('s1e01-the-blank-atlas'),
+        });
 
         advance(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only')?.click();
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')?.click();
         advance(screen);
         await vi.waitFor(() => expect(onSceneEncounter).toHaveBeenCalledWith(
             'scene:blank-atlas:mission-text', ['sophie', 'ruparna'],
@@ -198,10 +225,11 @@ describe('Academy Story screen', () => {
             openingArcMode: 'canonical',
             onSceneEncounter,
             onCompleteEpisode: vi.fn(async () => undefined),
+            activityOutcomes: passedActivityOutcomes('s1e01-the-blank-atlas'),
         });
 
         advance(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only')?.click();
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue')?.click();
         advance(screen);
         await vi.waitFor(() => expect(onSceneEncounter).toHaveBeenCalledWith(
             'scene:blank-atlas:close', ['rie'],
@@ -282,7 +310,9 @@ describe('Academy Story screen', () => {
     });
 
     it('continues from Season 2 into the fully authored N3 season', async () => {
-        const finale = render('s1e24-lanterns-return');
+        const finale = render('s1e24-lanterns-return', {
+            activityOutcomes: passedActivityOutcomes('s1e24-lanterns-return'),
+        });
         await finishAuthoredArc(finale.screen);
         finale.screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
         expect(finale.actions.onOpenReviewCalendar).not.toHaveBeenCalled();
@@ -301,7 +331,149 @@ describe('Academy Story screen', () => {
         expect(activity.dataset.activityRegistered).toBe('false');
         expect(activity.querySelector('.academy-story-open-activity')).toBeNull();
         expect(activity.textContent).toContain('Practice is being prepared.');
-        expect(activity.querySelector('.academy-story-activity-story-only')).not.toBeNull();
+        expect(activity.querySelector('.academy-story-activity-story-only')).toBeNull();
+        expect(activity.querySelector('.academy-story-activity-continue')).toBeNull();
+    });
+
+    it('renders and records every recovered Season 4 transfer through the story UI', async () => {
+        const cases = [
+            ['s4e04-three-true-versions', 'activity:s4e04-three-true-versions-synthesis', 'three-vantages'],
+            ['s4e05-left-unsaid', 'activity:s4e05-left-unsaid-trim-the-line', 'stop-at-blank'],
+            ['s4e06-open-question', 'activity:s4e06-open-question-reframe-premise', 'reframe-question'],
+            ['s4e08-last-revision', 'activity:s4e08-last-revision-vivid-without-restoring', 'vivid-bounded'],
+        ] as const;
+
+        for (const [episodeId, activityId, correctOptionId] of cases) {
+            const onCompleteStoryPractice = storyPracticeRecorder();
+            const { screen } = render(episodeId, { selectedBand: 'n1', onCompleteStoryPractice });
+            advanceTo(screen, `[data-activity-id="${activityId}"]`);
+            const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+            expect(activity.dataset.activityRegistered, episodeId).toBe('true');
+            expect(activity.querySelector('.academy-story-activity-story-only'), episodeId).toBeNull();
+            const correct = activity.querySelector<HTMLButtonElement>(`[data-story-practice-option="${correctOptionId}"]`)!;
+            const incorrect = [...activity.querySelectorAll<HTMLButtonElement>('[data-story-practice-option]')]
+                .find(option => option !== correct)!;
+            incorrect.click();
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+            expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+                interaction: 'choice',
+                optionId: incorrect.dataset.storyPracticeOption,
+            });
+            await vi.waitFor(() => expect(correct.disabled).toBe(false));
+            correct.click();
+            await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(2));
+            expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+                interaction: 'choice',
+                optionId: correct.dataset.storyPracticeOption,
+            });
+        }
+    });
+
+    it('requires the learner to assemble the S4E02 evidence map before recording writing production', async () => {
+        const activityId = 'activity:s4e02-map-of-claims-evidence-map';
+        const onCompleteStoryPractice = storyPracticeRecorder();
+        const { screen } = render('s4e02-map-of-claims', { selectedBand: 'n1', onCompleteStoryPractice });
+        document.body.replaceChildren(screen);
+        advanceTo(screen, `[data-activity-id="${activityId}"]`);
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        expect(activity.querySelectorAll('[data-evidence-row]')).toHaveLength(3);
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.disabled).toBe(false));
+        expect(activity.querySelectorAll('[aria-invalid="true"]')).toHaveLength(9);
+
+        const answers = {
+            'route-added': ['letter', 'stated', 'according-letter'],
+            'older-ink': ['paper', 'observed', 'paper-shows'],
+            'first-contributor': ['none', 'unknown', 'still-unknown'],
+        } as const;
+        for (const [rowId, values] of Object.entries(answers)) {
+            const row = activity.querySelector<HTMLElement>(`[data-evidence-row="${rowId}"]`)!;
+            [...row.querySelectorAll<HTMLSelectElement>('select')].forEach((select, index) => {
+                select.value = values[index]!;
+            });
+        }
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(2));
+        expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+            interaction: 'evidence-map',
+            rows: {
+                'route-added': { source: 'letter', confidence: 'stated', hedge: 'according-letter' },
+                'older-ink': { source: 'paper', confidence: 'observed', hedge: 'paper-shows' },
+                'first-contributor': { source: 'none', confidence: 'unknown', hedge: 'still-unknown' },
+            },
+        });
+    });
+
+    it('requires authored Japanese updates for S4E07 instead of inferring output from recognition', async () => {
+        const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
+        const onCompleteStoryPractice = storyPracticeRecorder();
+        const { screen } = render('s4e07-journey-not-everyone-takes', { selectedBand: 'n1', onCompleteStoryPractice });
+        advanceTo(screen, `[data-activity-id="${activityId}"]`);
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        expect(activity.querySelectorAll('[data-story-written-field]')).toHaveLength(3);
+        const values = {
+            alex: '来月から日本で働く。',
+            aakash: 'いつか撮り旅に行くかもしれない。',
+            mira: 'ここに残って、来週火曜からまた始める。',
+        };
+        for (const [fieldId, value] of Object.entries(values)) {
+            activity.querySelector<HTMLTextAreaElement>(`[data-story-written-field="${fieldId}"]`)!.value = value;
+        }
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+        expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
+            interaction: 'written-response',
+            fields: values,
+        });
+    });
+
+    it('continues a replay from existing passed evidence without forcing another inline attempt', () => {
+        const episodeId = 's4e04-three-true-versions';
+        const activityId = 'activity:s4e04-three-true-versions-synthesis';
+        const onCompleteStoryPractice = storyPracticeRecorder();
+        const { screen } = render(episodeCursor(
+            episodeId,
+            'scene:three-versions:one-synthesis',
+            'activity-node:three-versions:synthesize',
+        ), {
+            arcModeForEpisode: () => 'chronological-replay',
+            activityOutcomes: { [activityId]: 'pass' },
+            onCompleteStoryPractice,
+        });
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.dataset.activityGate).toBe('passed');
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        activity.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
+        expect(screen.querySelector(`[data-activity-id="${activityId}"]`)).toBeNull();
+        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
+    });
+
+    it('continues a placement-equivalent replay without creating practice evidence', () => {
+        const episodeId = 's4e05-left-unsaid';
+        const activityId = 'activity:s4e05-left-unsaid-trim-the-line';
+        const onCompleteStoryPractice = storyPracticeRecorder();
+        const { screen } = render(episodeCursor(
+            episodeId,
+            'scene:left-unsaid:the-line-that-says-too-much',
+            'activity-node:left-unsaid:trim-the-line',
+        ), {
+            arcModeForEpisode: () => 'chronological-replay',
+            onCompleteStoryPractice,
+        });
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.dataset.activityGate).toBe('placement-equivalent');
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        activity.querySelector<HTMLButtonElement>('.academy-story-activity-continue')!.click();
+        expect(screen.querySelector(`[data-activity-id="${activityId}"]`)).toBeNull();
+        expect(onCompleteStoryPractice).not.toHaveBeenCalled();
     });
 
     it('renders the verified Season 3-4 event art instead of leaving generated files orphaned', () => {
@@ -319,7 +491,9 @@ describe('Academy Story screen', () => {
     });
 
     it('returns to the episode list only after the authored graduation chapter', async () => {
-        const { screen, actions } = render('s4e12-next-page');
+        const { screen, actions } = render('s4e12-next-page', {
+            activityOutcomes: passedActivityOutcomes('s4e12-next-page'),
+        });
         await finishAuthoredArc(screen);
         screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
 
@@ -350,15 +524,20 @@ async function finishAuthoredArc(screen: HTMLElement): Promise<void> {
     for (let guard = 0; guard < 300; guard += 1) {
         if (screen.querySelector('.academy-story-next')) return;
         const choice = screen.querySelector<HTMLButtonElement>('[data-story-option-id]');
-        const pending = screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only');
         const completePractice = screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue');
         const next = screen.querySelector<HTMLButtonElement>('.academy-vn-primary-action');
-        const action = choice ?? pending ?? completePractice ?? next;
+        const action = choice ?? completePractice ?? next;
         if (!action) throw new Error(`Story stalled at ${screen.dataset.storyMoment ?? 'unknown moment'}.`);
         action.click();
         await Promise.resolve();
     }
     throw new Error('Story did not reach its completion action.');
+}
+
+function passedActivityOutcomes(episodeId: string): Readonly<Record<string, 'pass'>> {
+    const arc = loadStoryRuntime().playableArc(episodeId);
+    if (!arc) throw new Error(`Missing story arc ${episodeId}.`);
+    return Object.fromEntries(arc.curriculum.activities.map(activity => [activity.exerciseId, 'pass' as const]));
 }
 
 function storyWithLearnerLine(): StoryRuntime {

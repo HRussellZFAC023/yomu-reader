@@ -103,6 +103,7 @@ export interface LearnerEvidence {
 export interface AuthoredStoryPracticeEvidence {
     readonly activityId: string;
     readonly chapterId: string;
+    readonly interaction: 'choice' | 'evidence-map' | 'written-response';
     readonly skill: import('../domain/learner-record').LearningSkill;
     readonly action: import('../domain/learner-record').LearningAction;
     readonly conceptIds: readonly string[];
@@ -340,7 +341,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
             await this.record.record({
                 kind: 'learning-evidence-recorded',
                 activityId: practice.activityId,
-                modeId: 'authored-story-n3',
+                modeId: 'authored-story-practice',
                 skill: practice.skill,
                 action: practice.action,
                 outcome,
@@ -359,7 +360,11 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                     reviewItemId: itemId,
                     conceptId: practice.reviewSeed.conceptId,
                     dueAt: Date.now(),
-                    provenance: { activity: practice.activityId, chapter: practice.chapterId },
+                    provenance: {
+                        activity: practice.activityId,
+                        chapter: practice.chapterId,
+                        response: practice.interaction === 'choice' ? 'selected-response' : practice.interaction,
+                    },
                 });
             }
             await this.refreshNow();

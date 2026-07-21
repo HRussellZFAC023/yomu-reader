@@ -11,7 +11,7 @@ const STORY_CURSOR_PREFIX = 'story-run:v1:';
 
 export type StoryLanguageBand = 'foundation' | 'n5' | 'n4' | 'n3' | 'n2' | 'n1' | 'ngPlus';
 export type StoryActivityOutcome = 'pass' | 'lapse';
-export type StoryActivityGate = 'passed' | 'placement-equivalent' | 'lapse' | 'missing' | 'story-only';
+export type StoryActivityGate = 'passed' | 'placement-equivalent' | 'lapse' | 'missing';
 
 export interface StoryCursor {
     readonly version: 1;
@@ -19,7 +19,6 @@ export interface StoryCursor {
     readonly sceneId: string;
     readonly nodeId: string;
     readonly choices: Readonly<Record<string, string>>;
-    readonly storyOnlyActivityIds: readonly string[];
 }
 
 export type StoryMoment =
@@ -67,7 +66,6 @@ export interface StoryRunner {
     readonly band: StoryLanguageBand;
     advance(): StoryMoment;
     choose(optionId: string): StoryMoment;
-    continueStoryOnly(): StoryMoment;
     updateActivityOutcomes(outcomes: Readonly<Record<string, StoryActivityOutcome>>): StoryMoment;
 }
 
@@ -79,7 +77,6 @@ export function createStoryRunner(options: StoryRunnerOptions): StoryRunner {
     const { arc } = options;
     const address = storyAddressIndex(arc);
     const choices: Record<string, string> = { ...(options.cursor?.choices ?? {}) };
-    const storyOnly = new Set(options.cursor?.storyOnlyActivityIds ?? []);
     let activityOutcomes = { ...(options.activityOutcomes ?? {}) };
     let scene = validCursorScene(arc, options.cursor) ?? arc.scene(arc.firstSceneId)!;
     let node = validCursorNode(scene, options.cursor) ?? firstVisibleNode(scene, choices);
@@ -96,32 +93,48 @@ export function createStoryRunner(options: StoryRunnerOptions): StoryRunner {
             return {
                 kind: 'complete',
                 scene,
-                completionEligible: storyOnly.size === 0,
+                completionEligible: true,
             };
         }
-        if (node.kind === 'line') {
-            return { kind: 'line', scene, node: node as StoryArcNode & { kind: 'line' }, line: resolveStoryLine(node, options.band) };
+        switch (node.kind) {
+            case 'line':
+                return {
+                    kind: 'line',
+                    scene,
+                    node: node as StoryArcNode & { readonly kind: 'line' },
+                    line: resolveStoryLine(node, options.band),
+                };
+            case 'choice':
+                return {
+                    kind: 'choice',
+                    scene,
+                    node: node as StoryArcNode & { readonly kind: 'choice' },
+                    options: Object.freeze((node.options ?? []).map(option => resolveChoice(option, options.band))),
+                };
+            case 'activity': {
+                const binding = arc.curriculum.activities.find(candidate => candidate.nodeId === node!.id);
+                if (!binding) throw new Error(`Story activity ${node.id} has no compiled source binding.`);
+                return {
+                    kind: 'activity',
+                    scene,
+                    node: node as StoryArcNode & { readonly kind: 'activity' },
+                    binding,
+                    gate: activityGate(binding.exerciseId),
+                };
+            }
+            case 'stage':
+            case 'narration':
+                return {
+                    kind: node.kind,
+                    scene,
+                    node: node as StoryArcNode & { readonly kind: 'stage' | 'narration' },
+                };
+            case 'checkpoint':
+            case 'command':
+                throw new Error(`Story node ${node.id} did not settle before rendering.`);
+            default:
+                return unsupportedStoryNode(node.id, node.kind);
         }
-        if (node.kind === 'choice') {
-            return {
-                kind: 'choice',
-                scene,
-                node: node as StoryArcNode & { kind: 'choice' },
-                options: Object.freeze((node.options ?? []).map(option => resolveChoice(option, options.band))),
-            };
-        }
-        if (node.kind === 'activity') {
-            const binding = arc.curriculum.activities.find(candidate => candidate.nodeId === node!.id);
-            if (!binding) throw new Error(`Story activity ${node.id} has no compiled source binding.`);
-            return {
-                kind: 'activity',
-                scene,
-                node: node as StoryArcNode & { kind: 'activity' },
-                binding,
-                gate: activityGate(binding.exerciseId),
-            };
-        }
-        return { kind: node.kind, scene, node } as StoryMoment;
     };
 
     const moveTo = (target: string | null | undefined): void => {
@@ -157,7 +170,6 @@ export function createStoryRunner(options: StoryRunnerOptions): StoryRunner {
     };
 
     const activityGate = (activityId: string): StoryActivityGate => {
-        if (storyOnly.has(activityId)) return 'story-only';
         const outcome = activityOutcomes[activityId];
         if (outcome === 'pass') return 'passed';
         if (outcome === 'lapse') return 'lapse';
@@ -189,14 +201,6 @@ export function createStoryRunner(options: StoryRunnerOptions): StoryRunner {
         return settle();
     };
 
-    const continueStoryOnly = (): StoryMoment => {
-        const current = settle();
-        if (current.kind !== 'activity') throw new Error('The current story moment is not an activity.');
-        storyOnly.add(current.binding.exerciseId);
-        moveTo(current.node.onReady);
-        return settle();
-    };
-
     return {
         get moment() { return settle(); },
         get cursor() {
@@ -209,18 +213,31 @@ export function createStoryRunner(options: StoryRunnerOptions): StoryRunner {
                 sceneId: scene.id,
                 nodeId: currentNode.id,
                 choices: Object.freeze({ ...choices }),
-                storyOnlyActivityIds: Object.freeze([...storyOnly].sort()),
             });
         },
         band: options.band,
         advance,
         choose,
-        continueStoryOnly,
         updateActivityOutcomes(outcomes) {
-            activityOutcomes = { ...outcomes };
+            activityOutcomes = mergeActivityOutcomes(activityOutcomes, outcomes);
             return settle();
         },
     };
+}
+
+function mergeActivityOutcomes(
+    current: Readonly<Record<string, StoryActivityOutcome>>,
+    updates: Readonly<Record<string, StoryActivityOutcome>>,
+): Record<string, StoryActivityOutcome> {
+    const merged = { ...current };
+    Object.entries(updates).forEach(([activityId, outcome]) => {
+        merged[activityId] = merged[activityId] === 'pass' || outcome === 'pass' ? 'pass' : 'lapse';
+    });
+    return merged;
+}
+
+function unsupportedStoryNode(nodeId: string, kind: never): never {
+    throw new Error(`Story node ${nodeId} has unsupported kind ${String(kind)}.`);
 }
 
 export function serializeStoryCursor(cursor: StoryCursor): string {
@@ -235,10 +252,14 @@ export function parseStoryCursor(sectionId: string | undefined): StoryCursor | u
             || typeof value.arcId !== 'string'
             || typeof value.sceneId !== 'string'
             || typeof value.nodeId !== 'string'
-            || !value.choices || typeof value.choices !== 'object'
-            || !Array.isArray(value.storyOnlyActivityIds)
-            || value.storyOnlyActivityIds.some(id => typeof id !== 'string')) return undefined;
-        return value as StoryCursor;
+            || !value.choices || typeof value.choices !== 'object') return undefined;
+        return Object.freeze({
+            version: 1 as const,
+            arcId: value.arcId,
+            sceneId: value.sceneId,
+            nodeId: value.nodeId,
+            choices: Object.freeze({ ...value.choices }),
+        });
     } catch {
         return undefined;
     }

@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e02-map-of-claims",
-  "revision": "2026-07-19.1",
+  "revision": "2026-07-21.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 38,
@@ -9,7 +9,7 @@
     "en": "A Map of Claims",
     "ja": "確かさの地図"
   },
-  "synopsis": "The library table holds three sources of different weight: the former learner's letter with one question left declined, the physical page's layered ink, and the class's own notes. Sophie wants to pull them into one clean account tonight, but Henry names that the sources will not merge and refuses to invent an author field. Together they turn the number notebook into an evidence map where colour marks how sure and where-from, and the learner decides how the map holds a claim the record cannot support.",
+  "synopsis": "The library table holds three sources of different weight: the former learner's letter with one question left declined, the physical page's layered ink, and the class's own notes. Sophie wants to pull them into one clean account tonight, but Henry names that the sources will not merge and refuses to invent an author field. Together they turn the number notebook into an evidence map where colour marks certainty and source; the learner keeps the declined claim open, then assembles source, confidence, and Japanese evidence phrases for the map's three rows.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -132,18 +132,18 @@
           "id": "line:map-of-claims:henry-different-kinds",
           "beatId": "beat:map-of-claims:obstruction",
           "speakerId": "henry",
-          "intent": "Stop the merge before it starts: name that the three sources are different kinds of evidence, that one question was declined, and that adding an author field would be inventing the answer, so propose ranking confidence instead of filling gaps.",
-          "attentionTarget": "the gap between what each source can actually support, and the blank half of the letter",
+          "intent": "Point to two dark-green cards with different sources and ask Sophie to label source separately from certainty.",
+          "attentionTarget": "the matching colours on the letter card and the paper-inference card",
           "variants": {
             "n2": {
-              "japanese": "待って。同じ濃い緑だと、この二枚が同じ確かさに見える。こっちは本人が書いたこと。こっちは紙の跡から読んだ推測。…見た目が整っても、そこを混ぜたら地図が間違いを作る。出どころと確かさ、別に持たせない?",
-              "reading": "まって。おなじこいみどりだと、このにまいがおなじたしかさにみえる。こっちはほんにんがかいたこと。こっちはかみのあとからよんだすいそく。…みためがととのっても、そこをまぜたらちずがまちがいをつくる。でどころとたしかさ、べつにもたせない?",
-              "english": "Wait. Same dark green makes these two look equally certain. This one is what the person wrote. This one is an inference from marks on the paper. …A tidy grid can still manufacture a mistake. Can source and certainty have separate labels?"
+              "japanese": "待って。同じ緑だと、同じ確かさに見える。こっちは手紙にあること。こっちは紙の跡からの推測。出どころと確かさ、分けない？",
+              "reading": "まって。おなじみどりだと、おなじたしかさにみえる。こっちはてがみにあること。こっちはかみのあとからのすいそく。でどころとたしかさ、わけない？",
+              "english": "Wait. The same green makes them look equally certain. This one is in the letter; this one is an inference from the paper. Can we separate source from certainty?"
             },
             "n1": {
-              "japanese": "待ってください。同じ濃い緑だと、この二枚が同じ強度の証拠に見える。片方はご本人の記述、もう片方は紙の痕跡から導いた推測です。…整った図ほど、混同すると厄介で。出どころと確度を、別の軸で持たせませんか。",
-              "reading": "まってください。おなじこいみどりだと、このにまいがおなじきょうどのしょうこにみえる。かたほうはごほんにんのきじゅつ、もうかたほうはかみのこんせきからみちびいたすいそくです。…ととのったずほど、こんどうするとやっかいで。でどころとかくどを、べつのじくでもたせませんか。",
-              "english": "Wait. Same dark green makes these look like evidence of equal strength. One is the contributor's own statement; the other is inferred from marks on the paper. …The tidier the diagram, the worse that mix-up becomes. Can source and confidence run on separate axes?"
+              "japanese": "待って。同じ濃い緑だと、この二枚が同じくらい確かに見える。こっちは本人の手紙。こっちは紙の跡からの推測。……きれいに並ぶほど、混ぜたらまずいな。出どころと確かさ、分けませんか。",
+              "reading": "まって。おなじこいみどりだと、このにまいがおなじくらいたしかにみえる。こっちはほんにんのてがみ。こっちはかみのあとからのすいそく。……きれいにならぶほど、まぜたらまずいな。でどころとたしかさ、わけませんか。",
+              "english": "Wait. The same dark green makes these two look equally certain. This is her letter; this is a guess from marks on the paper. …The neater it looks, the worse it is if we mix them. Can we separate source from certainty?"
             }
           },
           "support": {
@@ -161,19 +161,19 @@
           "attentionTarget": "her coloured pens, now standing in for degrees of certainty rather than topics",
           "variants": {
             "n3": {
-              "japanese": "……そうか。じゃあ、色の濃さは確かさだけに使おう。出どころは、下に一行ずつ書く。手紙で本人が言ったものは濃く、紙が示すだけなら薄く。…この札は、『そうらしい』の色。これなら、同じ緑でも同じ証拠には見えない。",
-              "reading": "……そうか。じゃあ、いろのこさはたしかさだけにつかおう。でどころは、したにいちぎょうずつかく。てがみでほんにんがいったものはこく、かみがしめすだけならうすく。…このふだは、『そうらしい』のいろ。これなら、おなじみどりでもおなじしょうこにはみえない。",
-              "english": "…Right. Then shade carries confidence only, and each source gets a line underneath. Dark for what the letter states; pale for what the paper merely suggests. …This tab is the colour of 'apparently.' Now two greens won't pretend to be the same evidence."
+              "japanese": "……そっか。じゃあ、一つにまとめず、地図にしよう。手紙にあることは濃く、紙を見て分かることは薄く。ここは……色なし。まだ分からないから。",
+              "reading": "……そっか。じゃあ、ひとつにまとめず、ちずにしよう。てがみにあることはこく、かみをみてわかることはうすく。ここは……いろなし。まだわからないから。",
+              "english": "…Right. Then let's not make it one account. Let's make a map: dark for what the letter says, pale for what the paper shows. And here… no colour. We don't know yet."
             },
             "n2": {
-              "japanese": "……なるほど。なら、色の濃さは確度だけに使おう。出どころは、各札の下に一行ずつ。手紙に明記されたものは濃く、紙から推測したものは薄く。…この札は、『そうらしい』までの色。これなら、見た目に判断を任せずに済む。",
-              "reading": "……なるほど。なら、いろのこさはかくどだけにつかおう。でどころは、かくふだのしたにいちぎょうずつ。てがみにめいきされたものはこく、かみからすいそくしたものはうすく。…このふだは、『そうらしい』までのいろ。これなら、みためにはんだんをまかせずにすむ。",
-              "english": "…Right. Shade will carry confidence only. Each tab gets a source line underneath. Dark for what the letter states, pale for what the paper supports only as inference. …This one gets the colour of 'apparently.' Then the design can't make the judgment for us."
+              "japanese": "……なるほど。無理に一つにせず、地図にしよう。手紙にあることは濃く、紙から読めることは薄く。ここは……色なし。まだ分からないから。",
+              "reading": "……なるほど。むりにひとつにせず、ちずにしよう。てがみにあることはこく、かみからよめることはうすく。ここは……いろなし。まだわからないから。",
+              "english": "…I see. Let's not force it into one account. Let's make a map: dark for what the letter says, pale for what the paper supports. And here… no colour. We don't know yet."
             },
             "n1": {
-              "japanese": "……なるほどね。では、色の濃淡は確度だけに使おう。出どころは、札の下に一行ずつ明記する。返書で明言されたものは濃く、紙から推定するほかないものは淡く。…この札は、『そうらしい』までの色。これなら、図の整い方に判断を預けずに済む。",
-              "reading": "……なるほどね。では、いろののうたんはかくどだけにつかおう。でどころは、ふだのしたにいちぎょうずつめいきする。へんしょでめいげんされたものはこく、かみからすいていするほかないものはあわく。…このふだは、『そうらしい』までのいろ。これなら、ずのととのいかたにはんだんをあずけずにすむ。",
-              "english": "…I see. Then shade carries confidence only; the source is written under every tab. Dark for what the reply states, pale for what the paper permits us to infer. …This tab goes only as far as 'apparently.' The diagram no longer gets to make the judgment for us."
+              "japanese": "……なるほど。じゃあ、無理に一つにしないで、地図にしようか。手紙で本人が言ってるところは濃く、紙を見て『たぶん』までなら薄く。ここは……色なし。分からないんだもの。",
+              "reading": "……なるほど。じゃあ、むりにひとつにしないで、ちずにしようか。てがみでほんにんがいってるところはこく、かみをみて『たぶん』までならうすく。ここは……いろなし。わからないんだもの。",
+              "english": "…I see. Then let's not force them into one account. Let's make a map: dark where she says it in the letter, pale where the paper gets us only to 'probably.' And here… no colour. We don't know."
             }
           },
           "support": {
@@ -193,7 +193,7 @@
           "id": "activity-node:map-of-claims:build-evidence-map",
           "beatId": "beat:map-of-claims:map-attempt",
           "hook": {
-            "componentType": "transfer",
+            "componentType": "writing",
             "exerciseId": "activity:s4e02-map-of-claims-evidence-map"
           },
           "requiredEvidence": {
@@ -227,14 +227,14 @@
           "attentionTarget": "the uncoloured cell and the legend entry that explains it",
           "variants": {
             "n2": {
-              "japanese": "うん、色と出どころがちゃんと合ってる。ここが無色なのも、凡例の『資料なし』を見れば迷わない。前の俺なら、見栄えをそろえたくて薄い色を置いたかもしれないけど、それじゃ推測が一件増えるだけだ。……このままでいこう。",
-              "reading": "うん、いろとでどころがちゃんとあってる。ここがむしょくなのも、はんれいの『しりょうなし』をみればまよわない。まえのおれなら、みばえをそろえたくてうすいいろをおいたかもしれないけど、それじゃすいそくがいっけんふえるだけだ。……このままでいこう。",
-              "english": "Yeah, the colours match their sources. No one will misread this uncoloured cell once they see 'no source found' in the legend. The old me might have added a pale tab just to make the grid look even, but that only creates one more guess. …Keep it as it is."
+              "japanese": "うん。色と出どころが合ってる。空白も、凡例を見れば『資料なし』だ。前なら薄い色を足してたかも。でも、それじゃ推測が一つ増える。このままで。",
+              "reading": "うん。いろとでどころがあってる。くうはくも、はんれいをみれば『しりょうなし』だ。まえならうすいいろをたしてたかも。でも、それじゃすいそくがひとつふえる。このままで。",
+              "english": "Yeah. The colours match the sources, and the legend makes the blank 'no source.' I might have added a pale tab before. But that would add one more guess. Leave it."
             },
             "n1": {
-              "japanese": "うん、色と出どころがきちんと対応してる。ここが無着色なのも、凡例の『該当資料なし』まで見れば迷わない。前の俺なら、見栄えをそろえるために淡い色を置いたかもしれない。でも、それでは推測を一件増やすだけだ。……このままでいこう。",
-              "reading": "うん、いろとでどころがきちんとたいおうしてる。ここがむちゃくしょくなのも、はんれいの『がいとうしりょうなし』までみればまよわない。まえのおれなら、みばえをそろえるためにあわいいろをおいたかもしれない。でも、それではすいそくをいっけんふやすだけだ。……このままでいこう。",
-              "english": "Yeah, each colour corresponds properly to its source. No one will misread the uncoloured cell once they reach 'no corresponding source' in the legend. The old me might have added a pale colour for visual balance. But that would only add one more inference. …Keep it as it is."
+              "japanese": "うん。色を見れば、どこから出た話か分かる。空白も、凡例を見れば『資料なし』だ。前なら見栄えで薄い色を足したかもしれないけど……それ、推測を一個増やすだけだな。このままで。",
+              "reading": "うん。いろをみれば、どこからでたはなしかわかる。くうはくも、はんれいをみれば『しりょうなし』だ。まえならみばえでうすいいろをたしたかもしれないけど……それ、すいそくをいっこふやすだけだな。このままで。",
+              "english": "Yeah. The colour shows where each claim came from, and the legend makes the blank 'no source.' Before, I might have added a pale tab for appearances, but… that just adds another guess. Leave it."
             }
           },
           "support": {
@@ -287,19 +287,19 @@
           "attentionTarget": "the empty cell that reads 'we don't know this yet,' and the notebook it grew out of",
           "variants": {
             "n3": {
-              "japanese": "見て、ここ。まだ色をつけてない。前の私なら、空いているのが嫌で、何か書いて埋めてたと思う。でも、調べた資料のどこにもないなら、『まだ分からない』のままでいい。……あの数字のノートと同じだね。数字だけじゃなく、どこで数えたかを書く。今度は、空白にも理由を書く。",
-              "reading": "みて、ここ。まだいろをつけてない。まえのわたしなら、あいているのがいやで、なにかかいてうめてたとおもう。でも、しらべたしりょうのどこにもないなら、『まだわからない』のままでいい。……あのすうじのノートとおなじだね。すうじだけじゃなく、どこでかぞえたかをかく。こんどは、くうはくにもりゆうをかく。",
-              "english": "Look here. I haven't coloured it in. The old me would have hated the empty cell and written something just to fill it. But if it appears nowhere in the records we checked, it can stay 'still unknown.' …It's the same as the number notebook: not just the number, but where we counted it. This time, even the blank gets a reason."
+              "japanese": "ここ、まだ色がない。前なら何か書いて埋めてた。でも、どの資料にもないなら、『まだ分からない』でいい。数字のノートと同じ。数えた場所も一緒に残したよね。",
+              "reading": "ここ、まだいろがない。まえならなにかかいてうめてた。でも、どのしりょうにもないなら、『まだわからない』でいい。すうじのノートとおなじ。かぞえたばしょもいっしょにのこしたよね。",
+              "english": "This one still has no colour. Before, I would have filled it with something. But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept where each count came from too."
             },
             "n2": {
-              "japanese": "見て、ここ。色はない。でも、この空白には理由がある。前の私なら、全部のマスを埋めようとしてた。今は、確認した資料のどこにもないなら、『まだ分からない』を残せる。……あの数字のノートの続きだね。数字だけでなく、どの場面で数えたかを書く。今度は、色を置かない理由まで書く。",
-              "reading": "みて、ここ。いろはない。でも、このくうはくにはりゆうがある。まえのわたしなら、ぜんぶのマスをうめようとしてた。いまは、かくにんしたしりょうのどこにもないなら、『まだわからない』をのこせる。……あのすうじのノートのつづきだね。すうじだけでなく、どのばめんでかぞえたかをかく。こんどは、いろをおかないりゆうまでかく。",
-              "english": "Look here. There is no colour, but the blank has a reason. The old me would have tried to fill every cell. Now, if it appears nowhere in the records we checked, I can leave 'still unknown' in place. …It's the next page of the number notebook: not just the number, but where we counted it. This time we also write why no colour belongs there."
+              "japanese": "この空白、前なら埋めてた。全部そろってるほうが正確に見えたから。でも、どの資料にもないなら、『まだ分からない』でいい。数字のノートと同じ。数と場所を一緒に残したでしょう。",
+              "reading": "このくうはく、まえならうめてた。ぜんぶそろってるほうがせいかくにみえたから。でも、どのしりょうにもないなら、『まだわからない』でいい。すうじのノートとおなじ。かずとばしょをいっしょにのこしたでしょう。",
+              "english": "I would have filled this blank before. A complete grid looked more accurate. But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept the count and its source together."
             },
             "n1": {
-              "japanese": "見て、ここ。無着色だけど、理由のある空白。以前の私なら、全欄を埋めることを正確さだと思ってた。今は、照合した資料のどこにも見当たらないなら、『現時点では不明』をそのまま残せる。……あの数字のノートの続きだね。数字だけでなく、どの場面で数えたかを併記した。今度は、色を置かない根拠まで記す。",
-              "reading": "みて、ここ。むちゃくしょくだけど、りゆうのあるくうはく。いぜんのわたしなら、ぜんらんをうめることをせいかくさだとおもってた。いまは、しょうごうしたしりょうのどこにもみあたらないなら、『げんじてんではふめい』をそのままのこせる。……あのすうじのノートのつづきだね。すうじだけでなく、どのばめんでかぞえたかをへいきした。こんどは、いろをおかないこんきょまでしるす。",
-              "english": "Look here. It is uncoloured, but the blank has a reason. I used to think accuracy meant filling every field. Now, if something appears nowhere in the records we cross-checked, I can leave 'unknown at present' exactly as it is. …It's the next page of the number notebook: not only the number, but where it was counted. This time we record the grounds for leaving the colour out."
+              "japanese": "この空白、前なら埋めてたな。全部そろってるほうが正確に見えたから。……でも、どこにも書いてないなら、ここは『まだ分からない』でいい。数字のノートのときと同じ。数と一緒に、どこで数えたかも残したでしょう。",
+              "reading": "このくうはく、まえならうめてたな。ぜんぶそろってるほうがせいかくにみえたから。……でも、どこにもかいてないなら、ここは『まだわからない』でいい。すうじのノートのときとおなじ。かずといっしょに、どこでかぞえたかものこしたでしょう。",
+              "english": "I would have filled this blank before. A complete grid looked more accurate. …But if none of the records say it, 'we don't know yet' is enough. Same as the number notebook. We kept where each count came from, remember?"
             }
           },
           "support": {
@@ -329,12 +329,12 @@
               "next": "checkpoint:map-of-claims:before-mechanism"
             },
             {
-              "id": "option:map-of-claims:infer-at-low-confidence",
-              "action": "Add what the paper alone suggests at the palest confidence, with her declining written into the same cell.",
+              "id": "option:map-of-claims:separate-boundary-note",
+              "action": "Keep the claim cell empty and put her decision not to answer in the source margin, so it cannot be mistaken for a missing record.",
               "japaneseByBand": {
-                "n3": "断られた点も、紙から推せる範囲でなら、いちばん薄い色で『推測』って添えておかない? 本人が答えなかったことも、一緒に書いた上で。",
-                "n2": "答えを控えられた点も、紙から推せるぶんだけ、いちばん薄い色で『あくまで推測』と添えておかない? 本人が答えなかった事実も、必ず同じ欄に並べて書いた上で。",
-                "n1": "答えを控えられた点についても、紙から推せる範囲でなら、いちばん薄い色で『あくまで推測』と添えておくのはどうかな。……ただし、本人が答えなかったという事実を、必ず同じ欄に並べて書いておく前提で。"
+                "n3": "主張のマスは空けたままにして、横の出典メモに『本人は回答を控えた』と書こうか。資料がない空白とは違うって、見れば分かるように。",
+                "n2": "主張のマスは空けたまま、出典の欄に『本人は回答を控えた』と残すのはどう? 記録が見つからない空白とは、そこで分けられる。",
+                "n1": "主張のマスは空けたまま、脇の出典欄に『本人は回答を控えた』と残そうか。資料が見つからない空白とは、そこで区別できる。"
               },
               "records": [
                 "stance",
@@ -360,14 +360,14 @@
           "attentionTarget": "the same empty cell rendered empty on the laptop, and the dated version label",
           "variants": {
             "n2": {
-              "japanese": "地図のデータのほう、俺が組んでおくよ。空いてるマスは、空いてるまま画面に出す。気を利かせて勝手に埋める処理は入れない。あと、版はちゃんと日付で分けておく。……この前みたいに、誰かが『こっちのほうが見栄えがいい』って古い版をうっかり出しちゃう、ああいうのはもう起こしたくないから。確かじゃない情報は、確かじゃないって、画面のほうにもちゃんと出しておく。",
-              "reading": "ちずのデータのほう、おれがくんでおくよ。あいてるマスは、あいてるままがめんにだす。きをきかせてかってにうめるしょりはいれない。あと、はんはちゃんとひづけでわけておく。……このまえみたいに、だれかが『こっちのほうがみばえがいい』ってふるいはんをうっかりだしちゃう、ああいうのはもうおこしたくないから。たしかじゃないじょうほうは、たしかじゃないって、がめんのほうにもちゃんとだしておく。",
-              "english": "I'll build the map's data side. Empty cells go on screen empty. No helpful auto-fill routine. And I'll keep the versions split by date. …I don't want another time like before, where someone pulls up an old version because it 'looks nicer' by mistake. Where information isn't certain, the screen says so too."
+              "japanese": "じゃ、空欄は空欄のまま出す。勝手に補う処理はなし。版の日付も見えるようにする。古い版に戻るのは、もうなし。",
+              "reading": "じゃ、くうらんはくうらんのままだす。かってにおぎなうしょりはなし。はんのひづけもみえるようにする。ふるいはんにもどるのは、もうなし。",
+              "english": "Then blank cells stay blank on screen. No automatic filling-in. I'll make the version date visible too. No going back to the old version again."
             },
             "n1": {
-              "japanese": "データのほうは、俺が組んでおく。空いてるマスは、空いてるまま画面に出すよ。気を利かせて自動で埋める、みたいな処理は一切入れない。……版も、きちんと日付で切り分けておく。この前みたいに、誰かが『こっちのほうが見栄えがいいから』って古い版をうっかり出しちゃう、ああいうのはもう二度と起こしたくないんだよね。確かじゃない情報は、確かじゃないと、ちゃんと画面のほうにも出しておくよ。",
-              "reading": "データのほうは、おれがくんでおく。あいてるマスは、あいてるままがめんにだすよ。きをきかせてじどうでうめる、みたいなしょりはいっさいいれない。……はんも、きちんとひづけできりわけておく。このまえみたいに、だれかが『こっちのほうがみばえがいいから』ってふるいはんをうっかりだしちゃう、ああいうのはもうにどとおこしたくないんだよね。たしかじゃないじょうほうは、たしかじゃないと、ちゃんとがめんのほうにもだしておくよ。",
-              "english": "I'll put the data side together. Empty cells go on screen empty. Not a single auto-fill routine trying to be helpful. …And I'll cut the versions apart cleanly by date. I really don't want a repeat of last time, someone pulling up an old version by mistake because it 'looks better.' Where the information isn't certain, the screen will say it isn't, too."
+              "japanese": "じゃ、空欄は空欄のまま出す。勝手に補う処理はなし。版の日付も見えるようにするよ。前みたいに『古いほうが見やすい』で戻るの、もう嫌だから。",
+              "reading": "じゃ、くうらんはくうらんのままだす。かってにおぎなうしょりはなし。はんのひづけもみえるようにするよ。まえみたいに『ふるいほうがみやすい』でもどるの、もういやだから。",
+              "english": "Then blank cells stay blank on screen. No helpful filling-in. I'll make the version date visible too. I don't want us going back again because 'the old one is easier to read.'"
             }
           },
           "support": {
@@ -385,14 +385,14 @@
           "attentionTarget": "the letter and the physical page side by side, and the line the map draws between what can and cannot be said",
           "variants": {
             "n2": {
-              "japanese": "うん。手紙が言うのはここ。紙が示すのはここ。『最初の一人』は、どちらにもない。……よし。会場から何を頼まれても、返事を書く前に、この凡例を先に見る。",
-              "reading": "うん。てがみがいうのはここ。かみがしめすのはここ。『さいしょのひとり』は、どちらにもない。……よし。かいじょうからなにをたのまれても、へんじをかくまえに、このはんれいをさきにみる。",
-              "english": "Right. The letter gets us here. The paper gets us here. 'The first single person' appears in neither. …Good. Whatever the venue asks for, we read this legend before we write back."
+              "japanese": "うん。手紙にあるのはここまで。紙から読めるのもここまで。『最初の一人』は、どちらにもない。会場への返事は、この凡例を見てから書こう。",
+              "reading": "うん。てがみにあるのはここまで。かみからよめるのもここまで。『さいしょのひとり』は、どちらにもない。かいじょうへのへんじは、このはんれいをみてからかこう。",
+              "english": "Right. This is as far as the letter goes, and this is as far as the paper takes us. Neither has 'the first person.' Let's check this legend before replying to the venue."
             },
             "n1": {
-              "japanese": "うん。手紙が証言しているのはここ。紙面から読み取れるのはここ。『最初の一人』は、どちらにも存在しない。……よし。会場からどんな注文が来ても、返事より先に、この凡例を通す。",
-              "reading": "うん。てがみがしょうげんしているのはここ。しめんからよみとれるのはここ。『さいしょのひとり』は、どちらにもそんざいしない。……よし。かいじょうからどんなちゅうもんがきても、へんじよりさきに、このはんれいをとおす。",
-              "english": "Right. The letter testifies to this. The paper lets us infer this. 'The first single person' exists in neither. …Good. Whatever the venue orders, it goes through this legend before we answer."
+              "japanese": "うん。手紙に書いてあるのはここまで。紙から読めるのもここまで。『最初の一人』には、どちらの資料も触れてない。……よし。会場から何を言われても、返事を書く前にこの凡例を見よう。",
+              "reading": "うん。てがみにかいてあるのはここまで。かみからよめるのもここまで。『さいしょのひとり』には、どちらのしりょうもふれてない。……よし。かいじょうからなにをいわれても、へんじをかくまえにこのはんれいをみよう。",
+              "english": "Right. This is as far as the letter goes. This is as far as the paper takes us. Neither source mentions 'the first person.' …Good. Whatever the venue asks, we check this legend before writing back."
             }
           },
           "support": {
@@ -461,7 +461,7 @@
       "id": "outcome:map-of-claims:transfer-return",
       "kind": "curriculum-return",
       "transferId": "activity:s4e02-map-of-claims-evidence-map",
-      "description": "Synthesis, source-quality weighing, and calibrated-certainty evidence returns through the chapter's transfer activity; the story emits no lesson-completion command."
+      "description": "Synthesis, source-quality weighing, and calibrated-certainty evidence returns only after the learner assembles all three source, confidence, and Japanese evidence-phrase rows in the chapter's transfer activity; the story emits no lesson-completion command."
     }
   ],
   "replay": {
