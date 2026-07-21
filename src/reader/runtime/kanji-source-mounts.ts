@@ -9,6 +9,7 @@ import {
     KANJI_RTK_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
+    KANJI_WANIKANI_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
     orderedKanjiSourceIds,
 } from '../sources/sections';
@@ -19,6 +20,7 @@ const KANJI_STATIC_SOURCE_MOUNTS: Partial<Record<string, string>> = {
     [KANJI_RTK_SOURCE_ID]: '<div data-kanji-rtk-mount></div>',
     [KANJI_ORIGINS_SOURCE_ID]: '<div data-kanji-origin-mount></div>',
     [KANJI_UCHISEN_SOURCE_ID]: '<div data-kanji-uchisen-mount></div>',
+    [KANJI_WANIKANI_SOURCE_ID]: '<div data-kanji-wanikani-mount></div>',
     [KANJI_DICTIONARIES_SOURCE_ID]: '<div data-kanji-definitions-mount></div>',
 };
 

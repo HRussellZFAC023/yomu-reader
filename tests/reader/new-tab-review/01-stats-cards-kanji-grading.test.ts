@@ -34,7 +34,7 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
     it('keeps new-tab source load fallback policy explicit', () => {
         expect(newTabSourceLoadPlan('auto', 3)).toEqual({
             kind: 'auto-review',
-            primarySources: ['yomu-local', 'jpdb', 'bunpro', 'anki'],
+            primarySources: ['yomu-local', 'jpdb', 'bunpro', 'wanikani', 'anki'],
             studyFallback: { kind: 'unconfigured-auto-study' },
         });
         expect(newTabSourceLoadPlan('jpdb', 3)).toEqual({

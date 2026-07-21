@@ -386,6 +386,7 @@ function visibleStatsSources(snapshot: StatsDashboardSnapshot): Array<[Exclude<S
         ['jiten', snapshot.jiten],
         ['yomu-local', snapshot.yomuLocal],
         ['bunpro', snapshot.bunpro],
+        ['wanikani', snapshot.wanikani],
         ['anki', snapshot.anki],
     ] as Array<[Exclude<StatsSourceId, 'combined'>, StatsSourceSnapshot]>).filter(([, source]) => statsSourceHasVisibleData(source));
 }
@@ -401,6 +402,7 @@ function fallbackStatsSourceLabel(source: Exclude<StatsSourceId, 'combined'>): s
     if (source === 'jpdb') return 'JPDB';
     if (source === 'jiten') return 'Jiten';
     if (source === 'bunpro') return 'Bunpro';
+    if (source === 'wanikani') return 'WaniKani';
     if (source === 'yomu-local') return ACADEMY_SRS_LABEL;
     return 'Anki';
 }

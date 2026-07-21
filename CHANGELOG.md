@@ -11,6 +11,17 @@
 - Academy Google linking now rolls back paid-code redemption and every account/profile write on conflicts or later failures and logs only a fixed failure category. Signed session-bound export traversals terminate beyond 24,000 records without shared-NAT budget coupling, and account holders can delete encrypted profile data without deleting their identity.
 - Academy lifecycle proof deletion now requires an expiring, single-use server grant bound to the authenticated production test account and run nonce. The supervised proof compares the active immutable Worker version and script digest with a locally reproduced reviewed bundle, exports large encrypted histories through a bounded stream, protects export creation as a same-origin POST, and prunes 90-day receipts on an observable scheduled retry path.
 
+## [1.6.273] - 2026-07-21
+
+### Added
+
+- WaniKani is now a complete optional account integration alongside Jiten, JPDB, and Bunpro. A personal access token connects directly from the browser to WaniKani without a proxy; Yomu respects the account's available level, shows WaniKani meanings, readings, mnemonics, hints, components, visually similar kanji, related vocabulary, context sentences, audio, assignment stage and review accuracy, and adds currently due assignments to Study and My Cards. Submitted reviews use WaniKani's incorrect meaning/reading counts, are sent only while online, and cannot be accidentally replayed or locally undone.
+- Uchisen kanji support is available throughout the reader, including normal popovers, the Study experience, and page enhancements, with its keyword, component groups, generated stroke image, and stroke-order carousel kept together as one coherent source.
+
+### Security
+
+- WaniKani tokens remain in browser storage, are masked in Settings, never appear in request URLs or logs, and are sent only as bearer credentials to `https://api.wanikani.com` with the official API revision header.
+
 ## [1.6.272] - 2026-07-21
 
 ### Changed

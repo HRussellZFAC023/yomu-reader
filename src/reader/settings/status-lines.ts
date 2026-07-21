@@ -2,7 +2,7 @@ import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { hasUserscriptAnkiBridge } from '../anki/index';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, readApiCredentialsFromFormData, type BunproCredentialSettings } from './api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired, readApiCredentialsFromFormData, type BunproCredentialSettings, type WanikaniCredentialSettings } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
@@ -40,6 +40,18 @@ export function renderJpdbStatusLine(settings: ReaderSettings): string {
 export function renderBunproStatusLine(settings: ReaderSettings): string {
     const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+}
+
+export function renderWanikaniStatusLine(settings: ReaderSettings): string {
+    const line = wanikaniStatusLineForSettings(settings, settings.interfaceLanguage);
+    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-wanikani-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+}
+
+export function wanikaniStatusLineForSettings(settings: WanikaniCredentialSettings, language: InterfaceLanguage): SettingsStatusLine {
+    const japanese = resolveUiLanguage(language) === 'ja';
+    return hasWanikaniApiCredential(settings)
+        ? { message: japanese ? 'WaniKaniトークン保存済み（確認中）。' : 'WaniKani token saved (checking).', tone: 'pending' }
+        : { message: japanese ? 'WaniKaniトークンなし。' : 'No WaniKani token.', tone: 'pending' };
 }
 
 function formatStatusTemplate(template: string, values: Record<string, string>): string {

@@ -9,7 +9,9 @@ description: Everything よむ does — popup dictionary lookup and mining, Yomi
 
 ## Popup Lookup And Mining
 
-Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten, Bunpro, and JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten, Bunpro, JPDB, and WaniKani definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+
+With a WaniKani personal access token, matching vocabulary and kanji can also show the account's level and SRS stage, meanings and readings, mnemonics and hints, components and visually similar subjects, context sentences, pronunciation, review accuracy, and your own synonyms and notes. The token is stored with your other local settings and sent only to the official WaniKani API; requests never use Yomu's proxy.
 
 Pitch decoration follows the available evidence: an exact whole-word accent takes priority, while a compound with no exact accent can show separate sourced underlines for fully aligned components. Partial component data stays undecorated rather than being combined into a guessed whole-word contour.
 
@@ -62,7 +64,7 @@ Examples can show Japanese, translations, thumbnails, audio, and source filters.
 
 ## Kanji Drilldown
 
-Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten and optional JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
+Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten and optional JPDB facts, WaniKani level/readings/mnemonics/components, stroke count, grade, JLPT level, RTK data, related words, Uchisen mnemonic illustrations and component groups, KanjiVG stroke tracing, and a small drawing pad.
 
 At the top, keyword pills compare the primary Jiten or JPDB keyword with RTK, imported dictionaries, and an official Kanji Alive gloss. Matching text merges into one sourced pill; genuinely different glosses remain separate.
 
@@ -145,7 +147,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## Study Page
 
-Open the [Study page](/study/) whenever you want a focused Japanese review session. The browser extension leaves your new tabs alone and puts **Open Study** in its toolbar menu; the hosted page can also be bookmarked, added to a Home Screen, or deliberately chosen as a home page. Study pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. A fresh standalone session begins at **Word**, then follows the rest of your configured steps. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. The old `/newtab/` URL remains a compatibility route.
+Open the [Study page](/study/) whenever you want a focused Japanese review session. The browser extension leaves your new tabs alone and puts **Open Study** in its toolbar menu; the hosted page can also be bookmarked, added to a Home Screen, or deliberately chosen as a home page. Study pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, WaniKani, or the local dictionary words already in your browser — so it works even with no account. A fresh standalone session begins at **Word**, then follows the rest of your configured steps. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. WaniKani cards come only from assignments currently due on the account: Okay, Good, and Easy submit a clean answer, while anything below Okay records one incorrect meaning attempt and, except for radicals, one incorrect reading attempt. WaniKani writes are live-only and are never replayed later from the offline queue. The old `/newtab/` URL remains a compatibility route.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 

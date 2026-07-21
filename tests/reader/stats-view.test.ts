@@ -46,6 +46,7 @@ function snapshot(): StatsDashboardSnapshot {
         jpdb: statsSource('jpdb'),
         jiten: statsSource('jiten'),
         bunpro: statsSource('bunpro'),
+        wanikani: statsSource('wanikani'),
         yomuLocal: statsSource('yomu-local'),
         anki: statsSource('anki'),
         combined: { ...statsSource('jpdb'), id: 'combined' },
@@ -90,6 +91,6 @@ describe('new tab stats view', () => {
         });
         const tabs = Array.from(root.querySelectorAll<HTMLElement>('[data-stats-source]')).map(tab => tab.dataset.statsSource);
 
-        expect(tabs).toEqual(['combined', 'jpdb', 'jiten', 'yomu-local']);
+        expect(tabs).toEqual(['combined', 'jpdb', 'jiten', 'yomu-local', 'wanikani']);
     });
 });

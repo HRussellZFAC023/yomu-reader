@@ -43,6 +43,7 @@ export const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 export const JITEN_DEFINITION_SOURCE_ID = '__jiten__';
 export const BUNPRO_DEFINITION_SOURCE_ID = '__bunpro__';
+export const WANIKANI_DEFINITION_SOURCE_ID = '__wanikani__';
 export const ANKI_SOURCE_ID = '__anki__';
 export const STUDY_TRANSLATION_SOURCE_ID = '__study_translation__';
 export const STUDY_GRAMMAR_SOURCE_ID = '__study_grammar__';

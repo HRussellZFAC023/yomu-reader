@@ -1,4 +1,4 @@
-import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { hasJitenApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -7,6 +7,7 @@ export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
 export const KANJI_JPDB_SOURCE_ID = '__kanji_jpdb__';
 export const KANJI_RTK_SOURCE_ID = '__kanji_rtk__';
 export const KANJI_UCHISEN_SOURCE_ID = '__kanji_uchisen__';
+export const KANJI_WANIKANI_SOURCE_ID = '__kanji_wanikani__';
 export const KANJI_DICTIONARIES_SOURCE_ID = '__kanji_dictionaries__';
 export const KANJI_SIMILAR_WORDS_SOURCE_ID = '__kanji_similar_words__';
 export const KANJI_ORIGINS_SOURCE_ID = '__kanji_origins__';
@@ -67,6 +68,16 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: 'bunproDefinitions',
             readonly: true,
             help: uiText(language, 'sourceHelpBunpro'),
+        },
+        {
+            id: WANIKANI_DEFINITION_SOURCE_ID,
+            name: 'WaniKani',
+            alias: settings.wanikaniDefinitionsAlias,
+            enabled: settings.wanikaniDefinitionsEnabled,
+            priority: settings.wanikaniDefinitionsPriority,
+            prefix: 'wanikaniDefinitions',
+            readonly: true,
+            help: uiText(language, 'sourceHelpWanikani'),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -198,6 +209,16 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             readonly: true,
             help: uiText(language, 'sourceHelpUchisen'),
         },
+        {
+            id: KANJI_WANIKANI_SOURCE_ID,
+            name: 'WaniKani',
+            alias: settings.wanikaniKanjiAlias,
+            enabled: settings.wanikaniKanjiEnabled,
+            priority: settings.wanikaniKanjiPriority,
+            prefix: 'wanikaniKanji',
+            readonly: true,
+            help: uiText(language, 'sourceHelpWanikaniKanji'),
+        },
         ...(kanjiDictionaryRows.length ? [] : [{
             id: KANJI_DICTIONARIES_SOURCE_ID,
             name: uiText(language, 'sourceNameImportedKanjiDictionaries'),
@@ -248,6 +269,12 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
             enabled: settings.bunproDefinitionsEnabled,
             priority: settings.bunproDefinitionsPriority,
             name: 'Bunpro',
+        },
+        {
+            id: WANIKANI_DEFINITION_SOURCE_ID,
+            enabled: settings.wanikaniDefinitionsEnabled,
+            priority: settings.wanikaniDefinitionsPriority,
+            name: 'WaniKani',
         },
         {
             id: ANKI_SOURCE_ID,

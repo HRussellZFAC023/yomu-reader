@@ -1,6 +1,6 @@
 import type { CardState, JPDBGrade, JPDBMeaning } from '../app/types';
 
-export type YomuSrsProviderId = 'jpdb' | 'jiten' | 'anki' | 'bunpro' | 'yomu-local';
+export type YomuSrsProviderId = 'jpdb' | 'jiten' | 'anki' | 'bunpro' | 'yomu-local' | 'wanikani';
 export type YomuSrsReviewableKind = 'vocabulary' | 'grammar' | 'kanji' | 'sentence' | 'unknown';
 export type YomuSrsGrade = JPDBGrade | 'again' | 'good';
 

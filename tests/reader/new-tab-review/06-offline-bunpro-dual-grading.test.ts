@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -567,6 +568,74 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             expect(review).toHaveBeenCalledOnce();
             expect(internals.lastUndoableReview).toBeUndefined();
             expect(internals.canUndoLastReview()).toBe(false);
+
+            await internals.undoLastReview(root);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            await Promise.resolve();
+
+            expect(review).toHaveBeenCalledOnce();
+            expect(internals.allWords).not.toContain(card);
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('never restores or re-caches a consumed WaniKani due assignment', async () => {
+        const card = newTabTestCard({
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            source: 'wanikani',
+            reviewSource: 'wanikani-api',
+            wanikaniAssignmentId: 7701,
+            wanikaniSubjectId: 8801,
+            wanikaniSubjectType: 'vocabulary',
+            wanikaniSrsStage: 'apprentice',
+            cardState: ['due'],
+        });
+        const review = vi.fn(async ({ card: reviewable }: { card: { state: JPDBCard['cardState'] } }) => ({
+            card: { ...reviewable, state: ['learning'] as JPDBCard['cardState'] },
+        }));
+        const { controller, root } = newTabVisibleWordFixture(() => ({
+            ...DEFAULT_SETTINGS,
+            wanikaniApiToken: 'wanikani-token',
+            wanikaniReviewEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }), {
+            card,
+            allWords: [card],
+            reviewCountMode: true,
+            sourceLabel: 'WaniKani',
+            source: 'wanikani',
+            controllerOverrides: {
+                srsAdapters: { wanikani: { hasCredential: () => true, review } as never },
+            },
+        });
+        const reload = vi.fn(async () => undefined);
+        const internals = controller as unknown as {
+            gradeCurrentCard(grade: 'pass'): Promise<boolean>;
+            undoLastReview(root: HTMLElement): Promise<void>;
+            canUndoLastReview(): boolean;
+            lastUndoableReview?: { card: JPDBCard };
+            loadWordsInto: typeof reload;
+            allWords: JPDBCard[];
+            sourceResultCache: Map<string, unknown>;
+        };
+        internals.loadWordsInto = reload;
+        internals.sourceResultCache.set('wanikani', { signature: 'stale', result: { cards: [card] } });
+
+        try {
+            expect((controller as unknown as { reviewTargetsForCard(card: JPDBCard): string[] }).reviewTargetsForCard(card)).toEqual(['wanikani-api']);
+            const gradeControls = (controller as unknown as { gradeControlButtons(card: JPDBCard): HTMLElement[] }).gradeControlButtons(card);
+            expect(gradeControls[0]).toMatchObject({ dataset: { wanikaniGradeMappingHelp: 'true' } });
+            expect(gradeControls[0]?.textContent).toContain('Anything below Okay submits one incorrect meaning answer');
+            expect(gradeControls[1]).toMatchObject({ dataset: { grade: 'nothing' } });
+            await expect(internals.gradeCurrentCard('pass')).resolves.toBe(true);
+            expect(review).toHaveBeenCalledOnce();
+            expect(internals.lastUndoableReview).toBeUndefined();
+            expect(internals.canUndoLastReview()).toBe(false);
+            expect(internals.sourceResultCache.has('wanikani')).toBe(false);
 
             await internals.undoLastReview(root);
             window.dispatchEvent(new PopStateEvent('popstate'));

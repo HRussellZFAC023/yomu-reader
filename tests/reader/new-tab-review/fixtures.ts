@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { AnkiConnectClient, type AnkiLookupResult } from '../../../src/reader/anki/index';
@@ -101,6 +102,11 @@ export function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         bunproReviewInputMode,
         bunproReviewEndpoint,
         bunproSrsLevel,
+        wanikaniSubjectId,
+        wanikaniAssignmentId,
+        wanikaniSubjectType,
+        wanikaniSrsStage,
+        wanikaniAudioUrls,
         fallbackLookupTerms,
         sourceDeckName,
         lastReviewAt,
@@ -139,6 +145,11 @@ export function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         bunproReviewInputMode,
         bunproReviewEndpoint,
         bunproSrsLevel,
+        wanikaniSubjectId,
+        wanikaniAssignmentId,
+        wanikaniSubjectType,
+        wanikaniSrsStage,
+        wanikaniAudioUrls,
         fallbackLookupTerms,
         sourceDeckName,
         lastReviewAt,

@@ -77,13 +77,16 @@ const COPY = {
         apiCredentialJiten: 'Jiten API key',
         apiCredentialBunpro: 'Bunpro frontend API token',
         apiCredentialBunproLegacy: 'Bunpro API key',
+        apiCredentialWanikani: 'WaniKani personal access token',
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
         apiAccessHelp: 'Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.',
+        wanikaniTokenHelp: 'Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         bunproSettings: 'Bunpro settings',
+        wanikaniSettings: 'WaniKani settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
         jpdbAndJitenApiKeysConfigured: 'Jiten and JPDB keys are set.',
         jpdbConnected: 'Connected to JPDB.',
@@ -95,6 +98,8 @@ const COPY = {
         disabledControlDescription: 'Controlled by another setting.',
         jpdbMiningEnabled: 'Allow API review/deck changes',
         bunproMiningEnabled: 'Allow Bunpro review/mining',
+        wanikaniReviewEnabled: 'Allow WaniKani review (due assignments only)',
+        wanikaniGradeMappingHelp: 'Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.',
         yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
@@ -104,6 +109,7 @@ const COPY = {
         gradeTargetJpdb: 'Grades JPDB',
         gradeTargetJiten: 'Grades Jiten',
         gradeTargetBunpro: 'Grades Bunpro',
+        gradeTargetWanikani: 'Grades WaniKani',
         gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
@@ -161,6 +167,7 @@ const COPY = {
         newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
         newTabApiSrs: 'API SRS (Jiten / JPDB)',
         newTabBunpro: 'Bunpro',
+        newTabWanikani: 'WaniKani',
         newTabYomuLocal: ACADEMY_SRS_LABEL,
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
@@ -855,6 +862,7 @@ const COPY = {
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
         addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
         addBunproApiKeyReview: 'Add a Bunpro frontend API token to review Bunpro cards.',
+        addWanikaniApiKeyReview: 'Add a WaniKani personal access token to review due WaniKani assignments.',
         actionFailed: 'Action failed.',
         dictionary: 'Dictionary',
         dictionariesExported: 'Dictionaries exported.',
@@ -1029,10 +1037,12 @@ const COPY = {
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
         jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
         bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
+        wanikaniAddApiKeyRequired: 'Add a WaniKani personal access token to review due assignments.',
         yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
         addedToBunpro: 'Added to Bunpro.',
+        addedToWanikani: 'Recorded on WaniKani.',
         addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
@@ -1076,6 +1086,7 @@ const COPY = {
         sourceHelpJpdb: 'JPDB meanings from the current card.',
         sourceHelpJiten: 'Jiten meanings, examples, and related words.',
         sourceHelpBunpro: 'Bunpro vocabulary and grammar meanings, nuance, and examples.',
+        sourceHelpWanikani: 'WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account.',
         sourceHelpAnki: 'Matching Anki card content and status.',
         sourceHelpTranslation: 'Sentence translation.',
         sourceHelpGrammar: 'Local grammar hints.',
@@ -1094,6 +1105,7 @@ const COPY = {
         sourceHelpJitenKanjiFacts: 'Jiten kanji facts, frequency, readings, words.',
         sourceHelpRtk: 'RTK keywords, elements, and stories.',
         sourceHelpUchisen: 'Uchisen mnemonic image carousel.',
+        sourceHelpWanikaniKanji: 'WaniKani kanji meaning/reading mnemonics, level, and SRS status.',
         uchisenMnemonicImages: 'Uchisen mnemonic images',
         uchisenMnemonicFor: 'Uchisen mnemonic for {kanji}',
         noUchisenImagesYet: 'No Uchisen images yet.',
@@ -1262,6 +1274,7 @@ apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
+addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
 dictionary	辞書
@@ -1618,10 +1631,12 @@ addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
+wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
 yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
+addedToWanikani	WaniKaniに記録しました。
 addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
@@ -1703,6 +1718,8 @@ apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
 apiCredentialBunpro	Bunpro frontend API token
+apiCredentialWanikani	WaniKaniパーソナルアクセストークン
+wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
@@ -1711,6 +1728,7 @@ apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
+wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -1721,6 +1739,8 @@ statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
 bunproMiningEnabled	Bunproの復習・採掘を許可
+wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
+wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
 yomuLocalSrsEnabled	Academyを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
@@ -1730,6 +1750,7 @@ gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
+gradeTargetWanikani	WaniKaniを採点
 gradeTargetYomuLocal	Academyに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
@@ -1782,6 +1803,7 @@ newTabSource	学習の復習ソース
 newTabAuto	自動: Academy・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
+newTabWanikani	WaniKani
 newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
@@ -2302,6 +2324,7 @@ frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや�
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
+sourceHelpWanikani	あなたのアカウントのWaniKani語彙の意味、覚え方、SRS状態です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -2320,6 +2343,7 @@ sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
+sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
 uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
 noUchisenImagesYet	Uchisen画像はまだありません。

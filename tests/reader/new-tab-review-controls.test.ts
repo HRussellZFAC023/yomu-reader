@@ -71,7 +71,7 @@ describe('new-tab review controls', () => {
             selectorLabel: 'Grade target',
             keyHints: { nothing: 'Z', okay: 'K' },
             selectedOption: undefined,
-            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasYomuLocal: false, hasAnki: false },
+            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasWanikani: false, hasYomuLocal: false, hasAnki: false },
             targetLabel: 'Grades JPDB',
             targetOptions: [],
         });
@@ -95,7 +95,7 @@ describe('new-tab review controls', () => {
             selectorLabel: 'Grade target',
             keyHints: { okay: 'K' },
             selectedOption: undefined,
-            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasYomuLocal: false, hasAnki: false },
+            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasWanikani: false, hasYomuLocal: false, hasAnki: false },
             targetLabel: 'Grades JPDB',
             targetOptions: [],
         });
@@ -117,7 +117,7 @@ describe('new-tab review controls', () => {
             keyHints: { okay: 'K' },
             selectedOption: undefined,
             showShortcutHints: false,
-            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasYomuLocal: false, hasAnki: false },
+            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasWanikani: false, hasYomuLocal: false, hasAnki: false },
             targetLabel: 'Grades JPDB',
             targetOptions: [],
         });
