@@ -187,6 +187,7 @@ export class NewTabReviewSubmitter {
         this.deps.publishGradedCardState(card);
     }
 
+    // fallow-ignore-next-line complexity
     private newTabCardToSrsReviewable(card: JPDBCard, source: NewTabSrsAdapterSource): YomuSrsReviewable {
         const expression = card.spelling.trim();
         const reading = newTabCardReading(card).trim() || expression;

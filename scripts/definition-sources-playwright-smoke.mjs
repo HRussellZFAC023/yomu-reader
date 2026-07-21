@@ -154,6 +154,7 @@ try {
         term: TERM,
         reading: READING,
         scenarios: reports,
+        // fallow-ignore-next-line code-duplication
         artifactDir: ARTIFACT_DIR,
     };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
@@ -162,6 +163,7 @@ try {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
 
+// fallow-ignore-next-line complexity
 async function runScenario(browser, fixture, scenario) {
     const settings = createSettings(scenario.settings);
     const requestedSurface = process.env.YOMU_DEFINITION_SOURCE_SURFACE?.trim() ?? '';
@@ -316,6 +318,7 @@ async function installPage(browser, scenario, settings, surface, viewport) {
     return { context, page, requests };
 }
 
+// fallow-ignore-next-line complexity
 async function waitForSources(root, expected) {
     if (expected.jpdb) await root.locator('[data-source="jpdb"]').waitFor({ state: 'attached', timeout: 20_000 });
     if (expected.jiten) await root.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 20_000 });
@@ -678,6 +681,7 @@ async function handleSmokeRoute(route, scenario, requests, surface) {
     });
 }
 
+// fallow-ignore-next-line complexity
 function handleSmokeRequest(request, scenario, requests, transport, surface) {
     const summary = requestSummary(request, transport, surface);
     requests.push(summary);
@@ -689,6 +693,7 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
 }
 
+// fallow-ignore-next-line complexity
 function mockWanikaniResponse(summary) {
     if (summary.method !== 'GET') return textResponse(405, 'method not allowed');
     if (summary.path === '/v2/user') {
@@ -1129,6 +1134,7 @@ function sourceStateSettings(settings) {
 function requestSummary(request, transport, surface) {
     const url = new URL(request.url);
     const authorization = authorizationHeader(request.headers);
+    // fallow-ignore-next-line code-duplication
     return {
         transport,
         surface,
@@ -1160,6 +1166,7 @@ function normalizeKana(value) {
     return value.replace(/[ァ-ヶ]/g, char => String.fromCharCode(char.charCodeAt(0) - 0x60));
 }
 
+// fallow-ignore-next-line complexity
 function isMockedExternalUrl(url) {
     return url.host === 'api.jiten.moe'
         || url.host === 'jpdb.io'

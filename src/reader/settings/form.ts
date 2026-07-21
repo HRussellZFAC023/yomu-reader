@@ -28,6 +28,7 @@ import {
 } from './status-lines';
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
+import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
@@ -43,7 +44,6 @@ export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, Sett
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
-const WANIKANI_TOKEN_SETTINGS_URL = 'https://www.wanikani.com/settings/personal_access_tokens';
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';

@@ -41,6 +41,7 @@ export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
 }
 
 export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
+    // fallow-ignore-next-line code-duplication
     if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
     if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'wanikani';

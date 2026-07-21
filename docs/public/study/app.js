@@ -53,7 +53,7 @@
       }
     }
   }
-  function unique(items) {
+  function unique$1(items) {
     return [...new Set(items)];
   }
   function chunkArray(items, size) {
@@ -98,6 +98,7 @@
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
   const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
+  const WANIKANI_DEFINITION_SOURCE_ID = "__wanikani__";
   const ANKI_SOURCE_ID = "__anki__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
@@ -1524,13 +1525,16 @@
       apiCredentialJiten: "Jiten API key",
       apiCredentialBunpro: "Bunpro frontend API token",
       apiCredentialBunproLegacy: "Bunpro API key",
+      apiCredentialWanikani: "WaniKani personal access token",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
       apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
+      wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
+      wanikaniSettings: "WaniKani settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
       jpdbConnected: "Connected to JPDB.",
@@ -1542,6 +1546,8 @@
       disabledControlDescription: "Controlled by another setting.",
       jpdbMiningEnabled: "Allow API review/deck changes",
       bunproMiningEnabled: "Allow Bunpro review/mining",
+      wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
+      wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
       yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
@@ -1551,6 +1557,7 @@
       gradeTargetJpdb: "Grades JPDB",
       gradeTargetJiten: "Grades Jiten",
       gradeTargetBunpro: "Grades Bunpro",
+      gradeTargetWanikani: "Grades WaniKani",
       gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
@@ -1608,6 +1615,7 @@
       newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
       newTabApiSrs: "API SRS (Jiten / JPDB)",
       newTabBunpro: "Bunpro",
+      newTabWanikani: "WaniKani",
       newTabYomuLocal: ACADEMY_SRS_LABEL,
       dictionaryFallback: "Dictionary fallback",
       newTabJpdbReviewMode: "API review mode",
@@ -2302,6 +2310,7 @@
       addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
       addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
       addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
+      addWanikaniApiKeyReview: "Add a WaniKani personal access token to review due WaniKani assignments.",
       actionFailed: "Action failed.",
       dictionary: "Dictionary",
       dictionariesExported: "Dictionaries exported.",
@@ -2476,10 +2485,12 @@
       jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
       jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
       bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+      wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
       yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
       chooseJitenStudyDeck: "Choose a Jiten study deck first.",
       addedToJiten: "Added to Jiten.",
       addedToBunpro: "Added to Bunpro.",
+      addedToWanikani: "Recorded on WaniKani.",
       addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
       loadingDictionaryDetails: "Loading dictionary details...",
@@ -2523,6 +2534,7 @@
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
       sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
+      sourceHelpWanikani: "WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -2541,6 +2553,7 @@
       sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
+      sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
       uchisenMnemonicImages: "Uchisen mnemonic images",
       uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
       noUchisenImagesYet: "No Uchisen images yet.",
@@ -2704,6 +2717,7 @@ apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
+addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
 dictionary	辞書
@@ -3060,10 +3074,12 @@ addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
+wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
 yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
+addedToWanikani	WaniKaniに記録しました。
 addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
@@ -3144,6 +3160,8 @@ apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
 apiCredentialBunpro	Bunpro frontend API token
+apiCredentialWanikani	WaniKaniパーソナルアクセストークン
+wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
@@ -3152,6 +3170,7 @@ apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
+wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -3162,6 +3181,8 @@ statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
 bunproMiningEnabled	Bunproの復習・採掘を許可
+wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
+wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
 yomuLocalSrsEnabled	Academyを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
@@ -3171,6 +3192,7 @@ gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
+gradeTargetWanikani	WaniKaniを採点
 gradeTargetYomuLocal	Academyに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
@@ -3223,6 +3245,7 @@ newTabSource	学習の復習ソース
 newTabAuto	自動: Academy・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
+newTabWanikani	WaniKani
 newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
@@ -3744,6 +3767,7 @@ frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや�
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
+sourceHelpWanikani	あなたのアカウントのWaniKani語彙の意味、覚え方、SRS状態です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -3762,6 +3786,7 @@ sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
+sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
 uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
 noUchisenImagesYet	Uchisen画像はまだありません。
@@ -4825,6 +4850,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const expiresAt = Date.parse(raw);
     return Number.isFinite(expiresAt) && expiresAt <= now;
   }
+  function effectiveWanikaniApiToken(settings) {
+    return settings.wanikaniApiToken?.trim() ?? "";
+  }
+  function hasWanikaniApiCredential(settings) {
+    return Boolean(effectiveWanikaniApiToken(settings));
+  }
   function splitApiCredential(value) {
     const credential = value.trim();
     if (!credential) return { apiKey: "", jitenApiKey: "" };
@@ -4832,21 +4863,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function readApiCredentialsFromFormData(data) {
     const bunpro = readBunproCredentialsFromFormData(data);
+    const wanikani = readWanikaniCredentialsFromFormData(data);
     if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
       return {
         ...mergeApiCredentialValues(
           String(data.get("apiCredentialJpdb") ?? ""),
           String(data.get("apiCredentialJiten") ?? "")
         ),
-        ...bunpro
+        ...bunpro,
+        ...wanikani
       };
     }
-    if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro };
+    if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro, ...wanikani };
     return {
       apiKey: String(data.get("apiKey") ?? "").trim(),
       jitenApiKey: String(data.get("jitenApiKey") ?? "").trim(),
-      ...bunpro
+      ...bunpro,
+      ...wanikani
     };
+  }
+  function readWanikaniCredentialsFromFormData(data) {
+    return { wanikaniApiToken: String(data.get("apiCredentialWanikani") ?? data.get("wanikaniApiToken") ?? "").trim() };
   }
   function mergeApiCredentialValues(jpdbValue, jitenValue) {
     const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
@@ -5298,7 +5335,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
   }
   function noteCardExpressionTargets(card) {
-    return unique([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+    return unique$1([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
   }
   function noteFieldValues(fields) {
     return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
@@ -5314,7 +5351,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return fieldName ? fields[fieldName] ?? "" : "";
   }
   function lookupKeyTermsForCard(card) {
-    return unique([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+    return unique$1([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
   }
   function isKanaStatusLookupSurface(value) {
     return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
@@ -5495,14 +5532,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ) && !isKanaStatusLookupSurface(spelling)) {
       return false;
     }
-    const readings2 = unique([
+    const readings2 = unique$1([
       mappedNoteField(fields, mapping, "reading"),
       firstNoteReading(fields)
     ].filter(Boolean));
     return Boolean(readingTarget && readingTarget.length >= 2 && readings2.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
   }
   function noteExpressionValues(fields, mapping) {
-    return unique(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
+    return unique$1(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
   }
   function noteExpressionCandidates(fields, mapping) {
     const candidates = [];
@@ -7218,7 +7255,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { once: true }
     );
   }
-  function escapeHtml$1(value) {
+  function escapeHtml$2(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function sanitizeChildren(parent, ownerDocument) {
@@ -7627,7 +7664,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function trimmedText(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function stringValue$3(value) {
+  function stringValue$4(value) {
     return typeof value === "string" ? value : "";
   }
   function finiteNumber$1(value, fallback) {
@@ -7918,9 +7955,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizeDictionaryPreference(item, index) {
     const record = objectRecord$4(item);
     if (!record) return null;
-    const name = stringValue$3(record.name);
+    const name = stringValue$4(record.name);
     if (!name.trim()) return null;
-    const alias = stringValue$3(record.alias);
+    const alias = stringValue$4(record.alias);
     return {
       name,
       alias: alias.trim() ? alias : name,
@@ -8333,7 +8370,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANJI_BOOLEAN_SETTING_KEYS = [
     "jpdbKanjiEnabled",
     "kanjiImmersionKitEnabled",
-    "uchisenEnabled"
+    "uchisenEnabled",
+    "wanikaniKanjiEnabled"
   ];
   const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
     "jpdbPageEnhancementsEnabled",
@@ -8343,20 +8381,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
     "jpdbDefinitionsEnabled",
     "jitenDefinitionsEnabled",
-    "bunproDefinitionsEnabled"
+    "bunproDefinitionsEnabled",
+    "wanikaniDefinitionsEnabled"
   ];
   const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
     jitenDefinitionsPriority: { min: 0, max: 999 },
-    bunproDefinitionsPriority: { min: 0, max: 999 }
+    bunproDefinitionsPriority: { min: 0, max: 999 },
+    wanikaniDefinitionsPriority: { min: 0, max: 999 }
   };
   const SOURCE_ALIAS_SETTING_KEYS = [
     "jpdbDefinitionsAlias",
     "jitenDefinitionsAlias",
     "bunproDefinitionsAlias",
+    "wanikaniDefinitionsAlias",
     "jpdbKanjiAlias",
     "kanjiImmersionKitAlias",
     "uchisenAlias",
+    "wanikaniKanjiAlias",
     "rtkAlias",
     "kanjivgAlias",
     "kanjiOriginsAlias",
@@ -8369,6 +8411,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const MINING_BOOLEAN_SETTING_KEYS = [
     "jpdbMiningEnabled",
     "bunproMiningEnabled",
+    "wanikaniReviewEnabled",
     "yomuLocalSrsEnabled",
     "dictionarySourcesInitiallyExpanded"
   ];
@@ -8400,6 +8443,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     jpdbKanjiPriority: { min: 0, max: 999 },
     kanjiImmersionKitPriority: { min: 0, max: 999 },
     uchisenPriority: { min: 0, max: 999 },
+    wanikaniKanjiPriority: { min: 0, max: 999 },
     rtkPriority: { min: 0, max: 999 },
     kanjivgPriority: { min: 0, max: 999 },
     kanjiOriginsPriority: { min: 0, max: 999 },
@@ -8434,7 +8478,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
   const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
   const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-  const NEW_TAB_SOURCES = ["jpdb", "bunpro", "yomu-local", "anki", "auto", "dictionary"];
+  const NEW_TAB_SOURCES = ["jpdb", "bunpro", "wanikani", "yomu-local", "anki", "auto", "dictionary"];
   const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
   const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
@@ -8465,6 +8509,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     bunproApiKey: "",
     bunproFrontendApiToken: "",
     bunproFrontendApiTokenExpiresAt: "",
+    wanikaniApiToken: "",
     onboardingSeen: false,
     interfaceLanguage: "en",
     accentColor: DEFAULT_ACCENT_COLOR,
@@ -8489,6 +8534,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     bunproDefinitionsEnabled: true,
     bunproDefinitionsAlias: "",
     bunproDefinitionsPriority: 2,
+    wanikaniDefinitionsEnabled: true,
+    wanikaniDefinitionsAlias: "",
+    wanikaniDefinitionsPriority: 3,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -8501,6 +8549,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     uchisenEnabled: true,
     uchisenAlias: "",
     uchisenPriority: 50,
+    wanikaniKanjiEnabled: true,
+    wanikaniKanjiAlias: "",
+    wanikaniKanjiPriority: 55,
     rtkEnabled: true,
     rtkAlias: "",
     rtkPriority: 20,
@@ -8697,6 +8748,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // JPDB parity: the credential is the real gate, so importing a Bunpro
     // token makes grading work without hunting for a second checkbox.
     bunproMiningEnabled: true,
+    wanikaniReviewEnabled: true,
     yomuLocalSrsEnabled: true,
     apiGradingProvider: "jiten",
     miningDeck: "forq",
@@ -8795,8 +8847,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const bunproApiKey = trimmedStringSetting(value, "bunproApiKey", DEFAULT_SETTINGS.bunproApiKey);
     const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
     const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
-    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
-    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
+    const wanikaniApiToken = trimmedStringSetting(value, "wanikaniApiToken", DEFAULT_SETTINGS.wanikaniApiToken);
+    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
+    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
   }
   function stripUnsupportedSettings(value) {
     if (!value) return null;
@@ -9629,8 +9682,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!isAudioSourceType(record.type)) return null;
     return {
       type: record.type,
-      url: stringValue$3(record.url),
-      voice: stringValue$3(record.voice),
+      url: stringValue$4(record.url),
+      voice: stringValue$4(record.voice),
       enabled: audioSourceEnabled(record.enabled)
     };
   }
@@ -13797,18 +13850,18 @@ ${spelling}`);
       html += renderTokenHtml(text2.slice(token.start, token.end), token, settings, miningInsightKeys);
       offset = token.end;
     }
-    if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
+    if (offset < text2.length) html += escapeHtml$2(text2.slice(offset));
     return html;
   }
   function plainTextBeforeTokenHtml(gap) {
     const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
-    if (!digits) return escapeHtml$1(gap);
+    if (!digits) return escapeHtml$2(gap);
     const prefix = gap.slice(0, gap.length - digits.length);
-    return `${escapeHtml$1(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$1(digits)}</span>`;
+    return `${escapeHtml$2(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$2(digits)}</span>`;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
     const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
-    if (!text2 || !needles.length) return escapeHtml$1(text2);
+    if (!text2 || !needles.length) return escapeHtml$2(text2);
     return renderHighlightChunks(text2, needles, className);
   }
   function renderHighlightChunks(text2, needles, className) {
@@ -13820,13 +13873,13 @@ ${spelling}`);
       html += renderHighlightChunk(text2, className, offset, match);
       offset = match.index + match.needle.length;
     }
-    if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
+    if (offset < text2.length) html += escapeHtml$2(text2.slice(offset));
     return html;
   }
   function renderHighlightChunk(text2, className, offset, match) {
-    const prefix = match.index > offset ? escapeHtml$1(text2.slice(offset, match.index)) : "";
+    const prefix = match.index > offset ? escapeHtml$2(text2.slice(offset, match.index)) : "";
     const marked = text2.slice(match.index, match.index + match.needle.length);
-    return `${prefix}<mark class="${escapeHtml$1(className)}">${escapeHtml$1(marked)}</mark>`;
+    return `${prefix}<mark class="${escapeHtml$2(className)}">${escapeHtml$2(marked)}</mark>`;
   }
   function nextHighlightMatch(text2, needles, offset) {
     let best = null;
@@ -13994,7 +14047,7 @@ ${spelling}`);
   function renderTokenHtml(surface, token, settings, miningInsightKeys) {
     const state2 = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
-    const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
+    const content = hasRuby ? renderRuby(surface, token) : escapeHtml$2(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
     const classes2 = [
@@ -14002,22 +14055,22 @@ ${spelling}`);
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
-    const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
+    const source = ` data-card-source="${escapeHtml$2(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml$1(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
+    const cardState = ` data-card-state="${escapeHtml$2(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
     const tokenRange2 = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
-    const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
+    const surfaceAttr = ` data-surface="${escapeHtml$2(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
-    const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
-    const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
+    const expression = token.card.spelling ? ` data-expression="${escapeHtml$2(token.card.spelling)}"` : "";
+    const reading = token.card.reading ? ` data-reading="${escapeHtml$2(token.card.reading)}"` : "";
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
+    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml$2(pitchAccent)}"` : "";
     const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-    const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$1(pitchComponentGradient)}"` : "";
+    const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$2(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml$2(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function applyPitchComponentGradient(word, card) {
     const gradient = pitchComponentUnderlineGradient(card);
@@ -14028,8 +14081,8 @@ ${spelling}`);
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
     if (!membership.member) return "";
-    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml$1(membership.names.join(", "))}"` : "";
-    return ` data-deck-member="true" data-deck-source="${escapeHtml$1(membership.source)}"${deckNames}`;
+    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml$2(membership.names.join(", "))}"` : "";
+    return ` data-deck-member="true" data-deck-source="${escapeHtml$2(membership.source)}"${deckNames}`;
   }
   function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
     if (!allowRuby) return false;
@@ -14081,7 +14134,7 @@ ${spelling}`);
       const start = ruby.start - token.start;
       const end = ruby.end - token.start;
       html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(ruby.text)}</rt><rp>)</rp></ruby>`;
+      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
       localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -14096,7 +14149,7 @@ ${spelling}`);
       html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
       html += '<span class="jpdb-reader-detached-ruby">';
       html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$1(ruby.text)}</span>`;
+      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
       html += "</span>";
       localOffset = end;
     }
@@ -14371,14 +14424,14 @@ ${spelling}`);
     };
   }
   function renderKanjiNavigationText(value, options) {
-    if (!options?.enabled) return escapeHtml$1(value);
+    if (!options?.enabled) return escapeHtml$2(value);
     return Array.from(value).map(
-      (character) => isKanjiForInlineNavigation(character) ? renderKanjiNavigationCharacter(character, options.label) : escapeHtml$1(character)
+      (character) => isKanjiForInlineNavigation(character) ? renderKanjiNavigationCharacter(character, options.label) : escapeHtml$2(character)
     ).join("");
   }
   function renderKanjiNavigationCharacter(character, label) {
-    const safeCharacter = escapeHtml$1(character);
-    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml$1(`${label}: ${character}`)}">${safeCharacter}</button>`;
+    const safeCharacter = escapeHtml$2(character);
+    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml$2(`${label}: ${character}`)}">${safeCharacter}</button>`;
   }
   function isKanjiForInlineNavigation(value) {
     const code = value.codePointAt(0) ?? 0;
@@ -15354,7 +15407,7 @@ ${item.sequence ?? ""}`;
       return url;
     }
   }
-  function isRecord(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
@@ -15383,7 +15436,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -15475,9 +15528,9 @@ ${item.sequence ?? ""}`;
   }
   function renderGlossaryValue(value, context) {
     if (value == null) return "";
-    if (isStructuredPrimitive(value)) return escapeHtml(String(value));
+    if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord(value)) return "";
+    if (!isRecord$3(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -15503,7 +15556,7 @@ ${item.sequence ?? ""}`;
     return null;
   }
   function renderTextGlossaryRecord(record) {
-    return typeof record.text === "string" ? escapeHtml(record.text) : null;
+    return typeof record.text === "string" ? escapeHtml$1(record.text) : null;
   }
   function renderStructuredContentGlossaryRecord(record, context) {
     return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
@@ -15515,7 +15568,7 @@ ${item.sequence ?? ""}`;
     return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
   }
   function renderStructuredContent(record, context) {
-    const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
+    const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml$1(context.dictionary)}"` : "";
     return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, context)}</span>`;
   }
   function renderTaggedGlossaryRecord(record, context) {
@@ -15535,7 +15588,7 @@ ${item.sequence ?? ""}`;
     return tag === "br" ? "" : renderGlossaryValue(record.content, context);
   }
   function structuredFallbackContent(record, content) {
-    return content || escapeHtml(glossaryValueToText(record));
+    return content || escapeHtml$1(glossaryValueToText(record));
   }
   function structuredRecordTag(record) {
     if (typeof record.tag === "string") return record.tag.toLowerCase();
@@ -15553,7 +15606,7 @@ ${item.sequence ?? ""}`;
   }
   function renderStructuredElementAttributes(record, tag, dictionary) {
     return [
-      ` class="gloss-sc-${escapeHtml(tag)}"`,
+      ` class="gloss-sc-${escapeHtml$1(tag)}"`,
       dictionaryDataAttribute(dictionary),
       renderStructuredDataAttributes(record.data),
       renderDirectDataAttributes(record),
@@ -15564,14 +15617,14 @@ ${item.sequence ?? ""}`;
     ].filter(Boolean).join("");
   }
   function dictionaryDataAttribute(dictionary) {
-    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+    return dictionary ? ` data-dictionary="${escapeHtml$1(dictionary)}"` : "";
   }
   function structuredStyleAttribute(value) {
     const style = renderStructuredStyle(value);
-    return style ? ` style="${escapeHtml(style)}"` : "";
+    return style ? ` style="${escapeHtml$1(style)}"` : "";
   }
   function structuredStringAttribute(name, value) {
-    return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
+    return typeof value === "string" ? ` ${name}="${escapeHtml$1(value)}"` : "";
   }
   function structuredStateAttributes(record, tag) {
     return [
@@ -15592,7 +15645,7 @@ ${item.sequence ?? ""}`;
     return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
   }
   function renderStructuredDataAttribute(key, rawValue) {
-    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
+    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml$1(String(rawValue))}"` : "";
   }
   function isStructuredAttributeValue(value) {
     return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
@@ -15601,7 +15654,7 @@ ${item.sequence ?? ""}`;
     return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
   }
   function renderDirectDataAttribute([key, value]) {
-    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml$1(String(value))}"` : "";
   }
   function isDirectDataAttribute(key, value) {
     return key.startsWith("data-") && isStructuredAttributeValue(value);
@@ -15632,7 +15685,7 @@ ${item.sequence ?? ""}`;
     return "";
   }
   function renderStructuredLink(record, context) {
-    const content = renderGlossaryValue(record.content, context) || escapeHtml(glossaryValueToText(record));
+    const content = renderGlossaryValue(record.content, context) || escapeHtml$1(glossaryValueToText(record));
     const link = structuredLinkModel(record, context);
     const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
     return `<a${structuredLinkAttrs(link, context.dictionary, record.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
@@ -15677,34 +15730,34 @@ ${item.sequence ?? ""}`;
     ].join("");
   }
   function kanjiReferenceActionAttribute(link) {
-    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml$1(link.kanjiReference.kanji)}"` : "";
   }
   function dictionaryAttribute(dictionary) {
-    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+    return dictionary ? ` data-dictionary="${escapeHtml$1(dictionary)}"` : "";
   }
   function searchReferenceQueryAttribute(link) {
-    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
+    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml$1(link.searchReference.query)}"` : "";
   }
   function searchReferenceReadingAttribute(link) {
-    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
+    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml$1(link.searchReference.reading)}"` : "";
   }
   function hrefAttribute(href) {
-    return href ? ` href="${escapeHtml(href)}"` : "";
+    return href ? ` href="${escapeHtml$1(href)}"` : "";
   }
   function externalLinkAttributes(external) {
     return external ? ' target="_blank" rel="noopener noreferrer"' : "";
   }
   function langAttribute(lang) {
-    return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
+    return typeof lang === "string" ? ` lang="${escapeHtml$1(lang)}"` : "";
   }
   function renderStructuredImage(record, dictionary) {
     const path = typeof record.path === "string" ? record.path : "";
     const title = typeof record.title === "string" ? record.title : "";
     const description = structuredImageDescription(record);
     const src = structuredImageSrc(path);
-    const alt = escapeHtml(description || title || "Dictionary image");
-    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
-    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+    const alt = escapeHtml$1(description || title || "Dictionary image");
+    const titleAttribute = title ? ` title="${escapeHtml$1(title)}"` : "";
+    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml$1(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
   }
   function renderStructuredImageAttributes(record, dictionary) {
     return [
@@ -15777,7 +15830,7 @@ ${item.sequence ?? ""}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function escapeHtml(value) {
+  function escapeHtml$1(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function glossaryToText(value) {
@@ -18866,11 +18919,11 @@ ${entry.reading || ""}`;
     const fieldContext = ankiFieldContext(context);
     const jpdbUrl = jpdbVocabularyUrl$2(card);
     return {
-      Expression: escapeHtml$1(card.spelling),
+      Expression: escapeHtml$2(card.spelling),
       Reading: renderCardReading(card),
       Meaning: renderJpdbMeanings(card),
       Sentence: renderSentence(sentence, sentenceHighlightTargets(card, fieldContext)),
-      Url: escapeHtml$1(fieldContext.sourceUrl),
+      Url: escapeHtml$2(fieldContext.sourceUrl),
       Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
       PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
       Image: "",
@@ -18905,13 +18958,13 @@ ${entry.reading || ""}`;
     return Object.keys(fields).length ? fields : yomuFields;
   }
   function renderCardReading(card) {
-    return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
+    return card.reading && card.reading !== card.spelling ? escapeHtml$2(card.reading) : "";
   }
   function renderPartOfSpeech(partOfSpeech) {
-    return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
+    return escapeHtml$2(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
   }
   function renderJpdbLink(jpdbUrl, language) {
-    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$1(uiText(language, "openOnJpdb"))}</a>` : "";
+    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$2(uiText(language, "openOnJpdb"))}</a>` : "";
   }
   function ankiFieldContext(context) {
     return {
@@ -18935,16 +18988,16 @@ ${entry.reading || ""}`;
     return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
   }
   function renderCardStatus(card, language) {
-    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
+    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$2(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
     if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
-    return card.cardState.map((state2) => `<span class="yomu-chip">${escapeHtml$1(state2)}</span>`).join(" ");
+    return card.cardState.map((state2) => `<span class="yomu-chip">${escapeHtml$2(state2)}</span>`).join(" ");
   }
   function renderJpdbMeanings(card) {
     return card.meanings.slice(0, 8).map((meaning) => {
       const pos = formatPartOfSpeech(meaning.partOfSpeech);
       return `<div class="yomu-definition">
-            ${pos ? `<span class="yomu-pos">${escapeHtml$1(pos)}</span>` : ""}
-            <div>${escapeHtml$1(meaning.glosses.join("; "))}</div>
+            ${pos ? `<span class="yomu-pos">${escapeHtml$2(pos)}</span>` : ""}
+            <div>${escapeHtml$2(meaning.glosses.join("; "))}</div>
         </div>`;
     }).join("");
   }
@@ -18954,8 +19007,8 @@ ${entry.reading || ""}`;
   function renderSentence(sentence, targets) {
     if (!sentence) return "";
     const target = firstSentenceHighlightTarget(sentence, targets);
-    if (!target) return escapeHtml$1(sentence);
-    return sentence.split(target).map((part) => escapeHtml$1(part)).join(`<span class="yomu-highlight">${escapeHtml$1(target)}</span>`);
+    if (!target) return escapeHtml$2(sentence);
+    return sentence.split(target).map((part) => escapeHtml$2(part)).join(`<span class="yomu-highlight">${escapeHtml$2(target)}</span>`);
   }
   function firstSentenceHighlightTarget(sentence, targets) {
     const seen = /* @__PURE__ */ new Set();
@@ -18971,15 +19024,15 @@ ${entry.reading || ""}`;
     const groups = Array.from(groupTermEntriesByDictionary(entries2).entries()).slice(0, 6);
     return groups.map(([dictionary, items]) => `
         <div class="yomu-dict-group">
-            <h3 class="yomu-dict-label">${escapeHtml$1(dictionaryLabel(dictionary, preferences))}</h3>
+            <h3 class="yomu-dict-label">${escapeHtml$2(dictionaryLabel(dictionary, preferences))}</h3>
             ${items.slice(0, 6).map((entry) => `
                 <div class="yomu-dict-entry">
                     <div class="yomu-dict-head">
-                        <span class="yomu-dict-expression">${escapeHtml$1(entry.expression)}</span>
-                        ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
-                        ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml$1([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(" · "))}</span>` : ""}
+                        <span class="yomu-dict-expression">${escapeHtml$2(entry.expression)}</span>
+                        ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml$2(entry.reading)}</span>` : ""}
+                        ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml$2([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(" · "))}</span>` : ""}
                     </div>
-                    <div class="yomu-glossary" data-dictionary="${escapeHtml$1(entry.dictionary)}">${entry.glossary.slice(0, 5).map((item) => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join("")}</div>
+                    <div class="yomu-glossary" data-dictionary="${escapeHtml$2(entry.dictionary)}">${entry.glossary.slice(0, 5).map((item) => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join("")}</div>
                 </div>
             `).join("")}
         </div>
@@ -18995,15 +19048,15 @@ ${entry.reading || ""}`;
     return Array.from(byCharacter.entries()).slice(0, 8).map(([character, items]) => `
         <div class="yomu-kanji-entry">
             <div class="yomu-dict-head">
-                <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
-                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
+                <span class="yomu-kanji-char">${escapeHtml$2(character)}</span>
+                <span class="yomu-dict-label">${escapeHtml$2(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
             </div>
             ${items.slice(0, 3).map((item) => `
                 <div>
-                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
-                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
-                    <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$1(meaning)).join("; ")}</div>
-                    ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$1(item.tags.join(" · "))}</span>` : ""}
+                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$2(uiText(language, "onReading"))} ${escapeHtml$2(item.onyomi.join("、"))}</span>` : ""}
+                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$2(uiText(language, "kunReading"))} ${escapeHtml$2(item.kunyomi.join("、"))}</span>` : ""}
+                    <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$2(meaning)).join("; ")}</div>
+                    ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$2(item.tags.join(" · "))}</span>` : ""}
                 </div>
             `).join("")}
         </div>
@@ -19021,7 +19074,7 @@ ${entry.reading || ""}`;
   function appendFrequencyChip(chips, entry, preferences) {
     if (entry.mode !== "freq") return;
     const value = formatMetaFrequency(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$2(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$2(value)}</span>`);
   }
   function renderPitchField(card, entries2, preferences) {
     const chips = firstJpdbPitchChip(card);
@@ -19035,17 +19088,17 @@ ${entry.reading || ""}`;
     const pitch = card.pitchAccent.find(Boolean);
     if (!pitch) return [];
     const reading = card.reading && card.reading !== card.spelling ? `${card.reading} ` : "";
-    return [`<span class="yomu-chip">JPDB ${escapeHtml$1(reading)}${escapeHtml$1(pitch)}</span>`];
+    return [`<span class="yomu-chip">JPDB ${escapeHtml$2(reading)}${escapeHtml$2(pitch)}</span>`];
   }
   function appendPitchChip(chips, entry, preferences) {
     if (entry.mode !== "pitch") return;
     const value = formatMetaPitch(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$2(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$2(value)}</span>`);
   }
   function renderSource(sourceUrl, sourceTitle) {
     const source = ankiSourceLink(sourceUrl, sourceTitle);
     if (!source.label) return "";
-    return source.href ? `<a href="${escapeHtml$1(source.href)}">${escapeHtml$1(source.label)}</a>` : escapeHtml$1(source.label);
+    return source.href ? `<a href="${escapeHtml$2(source.href)}">${escapeHtml$2(source.label)}</a>` : escapeHtml$2(source.label);
   }
   function ankiSourceLink(sourceUrl, sourceTitle) {
     return { href: sourceUrl, label: sourceTitle || sourceUrl };
@@ -19058,7 +19111,7 @@ ${entry.reading || ""}`;
   }
   function safeGlossaryHtml(value, dictionary) {
     const html = glossaryToHtml(value, dictionary);
-    return html || escapeHtml$1(glossaryToText(value));
+    return html || escapeHtml$2(glossaryToText(value));
   }
   function formatMetaPitch(value) {
     const record = metaRecord(value);
@@ -19117,7 +19170,7 @@ ${entry.reading || ""}`;
     return Object.values(note.fields).some((value) => value.trim());
   }
   function ankiRenderedCardMediaFilenames(card) {
-    return unique([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
+    return unique$1([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
   }
   function ankiCardTemplateLabel(card) {
     const explicit = [card.cardName, card.card, card.template, card.name].map((value) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "").find(Boolean);
@@ -19273,7 +19326,7 @@ ${entry.reading || ""}`;
     return ankiMediaMimeType(filename).startsWith("image/");
   }
   function ankiNoteDeckNames(noteCards) {
-    return unique(noteCards.map((item) => item.deckName).filter(Boolean));
+    return unique$1(noteCards.map((item) => item.deckName).filter(Boolean));
   }
   function ankiNotePrimaryCardId(note, noteCards) {
     return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
@@ -19452,7 +19505,7 @@ ${entry.reading || ""}`;
     const db = await openAnkiStatusIndexDb();
     try {
       const records = [];
-      for (const chunk of chunkArray(unique(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
+      for (const chunk of chunkArray(unique$1(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
         const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
         const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
         const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
@@ -19564,7 +19617,7 @@ ${entry.reading || ""}`;
   function statusIndexKeysForCard(card) {
     const keys = noteCardExpressionTargets(card).map(statusIndexKey);
     if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
-    return unique(keys);
+    return unique$1(keys);
   }
   function statusIndexEntryForCard(index, card, entries2) {
     for (const key of statusIndexKeysForCard(card)) {
@@ -19654,11 +19707,11 @@ ${entry.reading || ""}`;
     const expression = firstNoteExpressionValue(fields, mapping);
     const reading = mappedNoteField(fields, mapping, "reading") || firstNoteReading(fields);
     const preferred = (expression ? [expression] : [reading]).map(normalizeFieldValue).filter(Boolean);
-    if (preferred.length) return unique(preferred);
+    if (preferred.length) return unique$1(preferred);
     return noteFieldValues(fields).filter((value) => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
   }
   function statusIndexReadingFieldValues(fields, mapping) {
-    return unique([
+    return unique$1([
       mappedNoteField(fields, mapping, "reading"),
       firstNoteReading(fields)
     ].map(normalizeFieldValue).filter((value) => value.length >= 2));
@@ -19814,7 +19867,7 @@ ${entry.reading || ""}`;
 <main class="yomu-card yomu-front">
     {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
     ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
+    <div class="yomu-prompt">${escapeHtml$2(uiText(language, "ankiPromptRecallWord"))}</div>
 </main>`;
     const back = `
 {{FrontSide}}
@@ -19824,15 +19877,15 @@ ${entry.reading || ""}`;
         {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
         {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
     </section>
-    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
+    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$2(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$2(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$2(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
     <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
+        {{#Frequency}}<div><strong>${escapeHtml$2(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
+        {{#Pitch}}<div><strong>${escapeHtml$2(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
+        {{#PartOfSpeech}}<div><strong>${escapeHtml$2(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+        {{#JPDB}}<div><strong>${escapeHtml$2(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+        {{#Source}}<div><strong>${escapeHtml$2(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
     </section>
 </main>`;
     const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
@@ -20122,7 +20175,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async sampleModelNotes(modelName) {
       const noteIds = await this.invokeOrDefault("findNotes", { query: `note:${quoteAnkiSearch$1(modelName)}` }, []);
-      const sampleIds = Array.isArray(noteIds) ? unique(noteIds.map(Number).filter(Number.isFinite)).slice(0, ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT) : [];
+      const sampleIds = Array.isArray(noteIds) ? unique$1(noteIds.map(Number).filter(Number.isFinite)).slice(0, ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT) : [];
       if (!sampleIds.length) return [];
       return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
     }
@@ -20365,7 +20418,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async loadStatusEntriesForCards(index, cards) {
       if (!index) return null;
       if (index.entryStore !== "indexeddb") return null;
-      const keys = unique(cards.flatMap(statusIndexKeysForCard));
+      const keys = unique$1(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
         log$D.warn("Anki status entry failed", error);
@@ -20675,7 +20728,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
       const fast = await this.loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey);
       if (fast) return fast;
-      const cardChunks = chunkArray(unique(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
+      const cardChunks = chunkArray(unique$1(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
       const cardsByChunk = Array.from({ length: cardChunks.length }, () => []);
       await runLimited(cardChunks, ANKI_STATUS_INDEX_CARD_CONCURRENCY, async (chunk, index) => {
         const cards = await this.invokeOrDefault("cardsInfo", { cards: chunk }, []);
@@ -20685,7 +20738,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return cardsByNoteId(cardsByChunk.flat());
     }
     async loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
-      const cardIds = unique(allCardIds).map(Number).filter(Number.isFinite);
+      const cardIds = unique$1(allCardIds).map(Number).filter(Number.isFinite);
       if (!cardIds.length) return /* @__PURE__ */ new Map();
       try {
         const [noteIds, decks, relearning] = await Promise.all([
@@ -20725,7 +20778,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return Number.isFinite(cardId) ? { ...card, isDue: sets.due.has(cardId) } : card;
     }
     async loadStatusIndexCardSets(allCardIds) {
-      const all = new Set(unique(allCardIds).map(Number).filter(Number.isFinite));
+      const all = new Set(unique$1(allCardIds).map(Number).filter(Number.isFinite));
       if (!all.size) return { all, due: /* @__PURE__ */ new Set(), learning: /* @__PURE__ */ new Set(), new: /* @__PURE__ */ new Set(), suspended: /* @__PURE__ */ new Set() };
       const [due, learning, newCards, suspended] = await Promise.all([
         this.findCardIdSet("deck:* is:due"),
@@ -20808,7 +20861,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     uniqueLookupNoteIds(noteIdsByKey) {
-      return unique(Array.from(noteIdsByKey.values()).flatMap((noteIds) => [...noteIds]));
+      return unique$1(Array.from(noteIdsByKey.values()).flatMap((noteIds) => [...noteIds]));
     }
     matchingNotesByLookupKey(groups, noteIdsByKey, notes, trustedNoteIdsByKey) {
       const notesById = new Map(notes.map((note) => [note.noteId, note]));
@@ -20838,7 +20891,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (existing.length) await this.hydrateExistingNoteRenderedMedia(existing);
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
-      await this.rememberStatusIndexNotes(unique([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
+      await this.rememberStatusIndexNotes(unique$1([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
         log$D.warn("Anki status cache update failed", error);
       });
       return results;
@@ -21014,7 +21067,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async loadCardsByNote(notes) {
       if (this.isDestroyed) return /* @__PURE__ */ new Map();
-      const cardIds = unique(notes.flatMap((note) => note.cards ?? []));
+      const cardIds = unique$1(notes.flatMap((note) => note.cards ?? []));
       const cards = cardIds.length ? await this.invokeOrDefault("cardsInfo", { cards: cardIds }, []) : [];
       if (this.isDestroyed) return /* @__PURE__ */ new Map();
       return cardsByNoteId(await this.annotateDueCards(cards));
@@ -24046,6 +24099,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
   const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
   const KANJI_UCHISEN_SOURCE_ID = "__kanji_uchisen__";
+  const KANJI_WANIKANI_SOURCE_ID = "__kanji_wanikani__";
   const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
   const KANJI_SIMILAR_WORDS_SOURCE_ID = "__kanji_similar_words__";
   const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
@@ -24092,6 +24146,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         prefix: "bunproDefinitions",
         readonly: true,
         help: uiText(language, "sourceHelpBunpro")
+      },
+      {
+        id: WANIKANI_DEFINITION_SOURCE_ID,
+        name: "WaniKani",
+        alias: settings.wanikaniDefinitionsAlias,
+        enabled: settings.wanikaniDefinitionsEnabled,
+        priority: settings.wanikaniDefinitionsPriority,
+        prefix: "wanikaniDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpWanikani")
       },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
@@ -24220,6 +24284,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         readonly: true,
         help: uiText(language, "sourceHelpUchisen")
       },
+      {
+        id: KANJI_WANIKANI_SOURCE_ID,
+        name: "WaniKani",
+        alias: settings.wanikaniKanjiAlias,
+        enabled: settings.wanikaniKanjiEnabled,
+        priority: settings.wanikaniKanjiPriority,
+        prefix: "wanikaniKanji",
+        readonly: true,
+        help: uiText(language, "sourceHelpWanikaniKanji")
+      },
       ...kanjiDictionaryRows.length ? [] : [{
         id: KANJI_DICTIONARIES_SOURCE_ID,
         name: uiText(language, "sourceNameImportedKanjiDictionaries"),
@@ -24266,6 +24340,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         enabled: settings.bunproDefinitionsEnabled,
         priority: settings.bunproDefinitionsPriority,
         name: "Bunpro"
+      },
+      {
+        id: WANIKANI_DEFINITION_SOURCE_ID,
+        enabled: settings.wanikaniDefinitionsEnabled,
+        priority: settings.wanikaniDefinitionsPriority,
+        name: "WaniKani"
       },
       {
         id: ANKI_SOURCE_ID,
@@ -24389,7 +24469,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
     if (!mobileHandoff && ankiLookup.trusted === false) return "";
     const label = mobileHandoff ? mobileAnkiHandoffButtonLabel$1(settings.interfaceLanguage) : uiText(settings.interfaceLanguage, "addToAnki");
-    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>`;
+    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$2(label)}</button></div>`;
   }
   function mobileAnkiHandoffButtonLabel$1(language) {
     const app = mobileAnkiHandoffAppName();
@@ -24410,8 +24490,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${notes.length > 1 ? ` (${notes.length})` : ""}</span>
-                <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$2(title)}${notes.length > 1 ? ` (${notes.length})` : ""}</span>
+                <small class="jpdb-reader-source-status">${escapeHtml$2(summary)}</small>
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ""}
             ${notes.length === 1 ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options) : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join("")}
@@ -24427,8 +24507,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml$1(title)}</span>
-                <small class="jpdb-reader-source-status">${escapeHtml$1(ankiNewCardSummary(settings))}</small>
+                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml$2(title)}</span>
+                <small class="jpdb-reader-source-status">${escapeHtml$2(ankiNewCardSummary(settings))}</small>
             </summary>
             <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">
                 ${fieldPreview}
@@ -24459,10 +24539,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return count > 1 ? `${summary} · ${count} matches` : summary;
   }
   function renderAnkiCollisionSummary(notes, language) {
-    return `<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml$1(uiText(language, "ankiMatches"))}">
+    return `<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml$2(uiText(language, "ankiMatches"))}">
         ${notes.map((note) => `<div class="jpdb-reader-anki-match-summary-row">
-            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</span>
-            <small>${escapeHtml$1(ankiExistingSummary(note, language))}</small>
+            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml$2(ankiNoteIdentityLabel(note, language))}</span>
+            <small>${escapeHtml$2(ankiExistingSummary(note, language))}</small>
         </div>`).join("")}
     </div>`;
   }
@@ -24484,8 +24564,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
         <summary class="jpdb-reader-anki-existing-note-title">
-            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
-            <small>${escapeHtml$1(preview.summary)}</small>
+            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$2(ankiNoteIdentityLabel(note, language))}</strong></span>
+            <small>${escapeHtml$2(preview.summary)}</small>
         </summary>
         ${content}
     </details>`;
@@ -24510,13 +24590,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderAnkiDetailsStatus(note, language) {
     const key = note.detailsUnavailable ? "ankiCardDetailsUnavailable" : "ankiCardDetailsPending";
-    return `<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$1(uiText(language, key))}</div>`;
+    return `<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$2(uiText(language, key))}</div>`;
   }
   function renderAnkiStoredFieldsFallback(note, language) {
     const fields = renderAnkiFields(note, language);
     if (!fields) return "";
     return `<details class="jpdb-reader-anki-stored-fields" open>
-        <summary>${escapeHtml$1(uiText(language, "ankiStoredFields"))}</summary>
+        <summary>${escapeHtml$2(uiText(language, "ankiStoredFields"))}</summary>
         ${fields}
     </details>`;
   }
@@ -24576,7 +24656,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     const title = renderedCardTitle(card, index);
     return `<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index === 0 ? " open" : ""}>
-        <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml$1(title)}">${escapeHtml$1(title)}</summary>
+        <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml$2(title)}">${escapeHtml$2(title)}</summary>
         ${content}
     </details>`;
   }
@@ -24682,10 +24762,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     </div>`;
   }
   function previewField(label, value, language, options = {}) {
-    return `<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$1(label)}">${escapeHtml$1(displayAnkiFieldLabel(label))}</strong><span>${renderFieldText(value, language, options)}</span></div>`;
+    return `<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$2(label)}">${escapeHtml$2(displayAnkiFieldLabel(label))}</strong><span>${renderFieldText(value, language, options)}</span></div>`;
   }
   function renderFieldText(value, language, options = {}) {
-    const html = options.renderHtml ? sanitizeAnkiCardHtml(value, [], language) : escapeHtml$1(value);
+    const html = options.renderHtml ? sanitizeAnkiCardHtml(value, [], language) : escapeHtml$2(value);
     return html.replace(
       /\[sound:([^\]]+)]/gi,
       (_, filename) => renderAnkiSoundChip(filename, language)
@@ -24693,26 +24773,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderAnkiSoundChip(filename, language) {
     const title = ankiAudioLabel(filename, language);
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}</button>`;
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$2(filename)}" title="${escapeHtml$2(title)}" aria-label="${escapeHtml$2(title)}">${speakerIcon()}</button>`;
   }
   function renderAnkiNoteActions(note, language) {
     if (!Number.isFinite(note.noteId) || note.noteId <= 0) return "";
     return `<div class="jpdb-reader-anki-note-actions">
         ${renderAnkiAudioMergeSelect(note, language)}
         <div class="jpdb-reader-anki-note-action-row">
-            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
-            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$1(uiText(language, "editInAnki"))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$2(uiText(language, "mergeYomuTitle"))}">${escapeHtml$2(uiText(language, "mergeYomu"))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$2(uiText(language, "editInAnki"))}</button>
         </div>
     </div>`;
   }
   function renderAnkiAudioMergeSelect(note, language) {
     if (!noteHasAudio(note)) return "";
     return `<label class="jpdb-reader-anki-audio-merge">
-        <span>${escapeHtml$1(uiText(language, "audio"))}</span>
+        <span>${escapeHtml$2(uiText(language, "audio"))}</span>
         <select data-anki-audio-merge>
-            <option value="both">${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
-            <option value="theirs">${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
-            <option value="ours">${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
+            <option value="both">${escapeHtml$2(uiText(language, "keepBothAudio"))}</option>
+            <option value="theirs">${escapeHtml$2(uiText(language, "keepAnkiAudio"))}</option>
+            <option value="ours">${escapeHtml$2(uiText(language, "useYomuAudio"))}</option>
         </select>
     </label>`;
   }
@@ -24724,7 +24804,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function sanitizeAnkiCardHtml(value, soundFilenames, language, mediaDataUrls = {}, options = POPOVER_ANKI_SANITIZE) {
     const trimmed = value.trim();
     if (!trimmed) return "";
-    if (typeof document === "undefined") return escapeHtml$1(trimmed);
+    if (typeof document === "undefined") return escapeHtml$2(trimmed);
     const template = ankiCardTemplate(trimmed);
     sanitizeAnkiCardFragment(template.content, mediaDataUrls, options);
     installAnkiMediaFallbackButtons(template.content, language, ankiPlaybackMarkerFilenames(template.content, soundFilenames));
@@ -24939,7 +25019,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return /^(javascript|vbscript):/i.test(trimmed) || /^data:text\/html/i.test(trimmed);
   }
   function renderLastMiningContext(context, language) {
-    return `<div class="jpdb-reader-anki-context"><strong>${escapeHtml$1(uiText(language, "lastSeen"))}</strong><span>${escapeHtml$1(localizedContextLabel(context, language))}</span><small>${escapeHtml$1(context.sentence)}</small></div>`;
+    return `<div class="jpdb-reader-anki-context"><strong>${escapeHtml$2(uiText(language, "lastSeen"))}</strong><span>${escapeHtml$2(localizedContextLabel(context, language))}</span><small>${escapeHtml$2(context.sentence)}</small></div>`;
   }
   function localizedContextLabel(context, language) {
     const immersionLabel = localizedImmersionContextLabel(context);
@@ -24960,12 +25040,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderReviewButtons$1(settings, ankiNote = null, options = {}) {
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
     const grades = reviewButtonGrades$1(settings);
-    const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>` : "";
+    const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$2(options.targetLabel)}</div>` : "";
     const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
     const intervalSpan = (grade) => {
       const interval = intervals?.[grade];
       const label = interval?.buttonLabel || interval?.intervalLabel || "";
-      return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$1(label)}</span>` : "";
+      return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$2(label)}</span>` : "";
     };
     return `
         ${target}
@@ -24977,8 +25057,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function reviewButtonAttrs(options, buttonLabel, language) {
     const title = options.title || options.targetLabel || "";
     const disabled = options.disabled ? ` disabled` : "";
-    const titleAttr = options.disabled || title ? ` title="${escapeHtml$1(options.disabled ? title || uiText(language, "unavailable") : title)}"` : "";
-    const aria = title ? ` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"` : "";
+    const titleAttr = options.disabled || title ? ` title="${escapeHtml$2(options.disabled ? title || uiText(language, "unavailable") : title)}"` : "";
+    const aria = title ? ` aria-label="${escapeHtml$2(`${buttonLabel}: ${title}`)}"` : "";
     return `${disabled}${titleAttr}${aria}`;
   }
   function reviewButtonGrades$1(settings) {
@@ -25034,9 +25114,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
+  function httpStatusFromError(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const value = error;
+    const status = value.status ?? value.statusCode;
+    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
+  }
   const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
   const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
-  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const REQUEST_TIMEOUT_MS$5 = 3e4;
   const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
   const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
   const TRANSPORT_FAILURE_MESSAGE_RE = /NetworkError|Failed to fetch|load failed|cross-origin|CORS/i;
@@ -25060,10 +25146,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.getFrontendToken = options.getFrontendToken ?? (() => "");
       this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
       this.getProxyUrl = options.getProxyUrl ?? (() => "");
-      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
-      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
+      this.frontendBaseUrl = trimBaseUrl$1(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
+      this.legacyBaseUrl = trimBaseUrl$1(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
-      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$5;
     }
     hasFrontendCredential() {
       return Boolean(this.getFrontendToken().trim());
@@ -25205,7 +25291,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       try {
         response = await this.frontendRequest(path, options, token);
       } catch (error) {
-        const status = error instanceof BunproApiError ? error.status : errorStatus$1(error);
+        const status = error instanceof BunproApiError ? error.status : httpStatusFromError(error);
         if (!optionalAuth || !token || status !== 401 && status !== 403) throw error;
         response = await this.frontendRequest(path, options, "");
       }
@@ -25263,23 +25349,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   function isBunproTransportFailure(error) {
-    if (errorStatus$1(error) !== void 0) return false;
+    if (httpStatusFromError(error) !== void 0) return false;
     if (error instanceof BunproApiError) return false;
     return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
   }
   function normalizeBunproError(error) {
     if (error instanceof BunproApiError) return error;
-    const status = errorStatus$1(error);
+    const status = httpStatusFromError(error);
     if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
     if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
     return error;
   }
-  function errorStatus$1(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const status = error.status ?? error.statusCode;
-    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
-  }
-  function trimBaseUrl(value) {
+  function trimBaseUrl$1(value) {
     return value.replace(/\/+$/u, "");
   }
   function urlWithQuery(url, query) {
@@ -26209,10 +26290,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const spelling = cleanCardHighlightValue(card.spelling);
     if (!spelling) return "";
     return [
-      `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
-      `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
-      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
-      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
+      `data-card-highlight-spelling="${escapeHtml$2(spelling)}"`,
+      `data-card-highlight-reading="${escapeHtml$2(cleanCardHighlightValue(card.reading))}"`,
+      card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$2(String(card.vid))}"` : "",
+      card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$2(String(card.sid))}"` : ""
     ].filter(Boolean).join(" ");
   }
   function highlightCardTargetWords(root, card) {
@@ -26423,7 +26504,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, "exampleSentences"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -26438,31 +26519,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderProviderExample(example) {
     const hasAudio = Boolean(example.audio);
     return `
-        <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$1(example.id)}">
+        <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$2(example.id)}">
             <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
                 <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
                     <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
+                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$2(example.translation)}</div>` : ""}
                 </div>
             </div>
         </li>
     `;
   }
   function renderProviderExampleAudio(audio) {
-    const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$1(value)}"`).join("");
-    return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml$1(audio.action)}"${attributes} title="${escapeHtml$1(audio.label)}" aria-label="${escapeHtml$1(audio.label)}">${speakerIcon()}</button>`;
+    const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$2(value)}"`).join("");
+    return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml$2(audio.action)}"${attributes} title="${escapeHtml$2(audio.label)}" aria-label="${escapeHtml$2(audio.label)}">${speakerIcon()}</button>`;
   }
   function classes(...values) {
     return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
   }
   function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
-    const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
+    const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$2(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey$2(JPDB_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml$2(title)}</summary>
             ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
             ${extras}
         </details>
@@ -26497,8 +26578,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                             <a
                                 class="gloss-link jpdb-reader-jpdb-compound"
                                 href="#jpdb-reader-dictionary-lookup"
-                                data-dictionary-lookup="${escapeHtml$1(compound.term)}"
-                                data-dictionary-reading="${escapeHtml$1(compound.reading)}"
+                                data-dictionary-lookup="${escapeHtml$2(compound.term)}"
+                                data-dictionary-reading="${escapeHtml$2(compound.reading)}"
                                 data-dictionary="JPDB"
                                 data-external="false"
                             >
@@ -26506,7 +26587,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                                     ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
                                 </span>
                             </a>
-                            ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
+                            ${compound.meaning ? `<small>${escapeHtml$2(compound.meaning)}</small>` : ""}
                         </span>
                     </li>
                 `).join("")}
@@ -26519,7 +26600,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return entries2.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$2(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "usedInVocabulary"))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, "usedInVocabulary"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries2.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -26528,8 +26609,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? " has-audio" : ""}">
                         ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
                         <span class="jpdb-reader-jpdb-used-in-main">
-                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.term)}" data-dictionary-reading="${escapeHtml$1(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
-                            ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$2(entry.term)}" data-dictionary-reading="${escapeHtml$2(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url, entry.termHtml)}</span></a>
+                            ${entry.meaning ? `<small>${escapeHtml$2(entry.meaning)}</small>` : ""}
                         </span>
                     </li>
                 `).join("")}
@@ -26560,7 +26641,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderJpdbExampleAudioButton(audioIds, sentence, language) {
     const audio = audioIds?.join(",") ?? "";
     const label = uiText(language, "playJpdbExampleAudio");
-    return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>` : "";
+    return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$2(audio)}" data-jpdb-example-sentence="${escapeHtml$2(sentence)}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${speakerIcon()}</button>` : "";
   }
   function renderJpdbExampleSentence(example, card) {
     if (example.sentenceHtml) return example.sentenceHtml;
@@ -26573,7 +26654,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const before = sentence.slice(0, start);
     const after = sentence.slice(start + term.length);
     const url = Number.isFinite(card.vid) && card.vid > 0 ? `/vocabulary/${card.vid}` : "";
-    return `${escapeHtml$1(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? "", url, { sentence })}${escapeHtml$1(after)}`;
+    return `${escapeHtml$2(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? "", url, { sentence })}${escapeHtml$2(after)}`;
   }
   function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
@@ -26581,9 +26662,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
     const vid = jpdbVocabularyVidFromUrl(url);
     const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
-    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$2(reading)}"` : "";
     const { classes: classes2, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$2(options.sentence ?? term)}" data-expression="${escapeHtml$2(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function passiveJpdbRelatedWordContent(term, reading, options) {
     const termHtml = options.termHtml?.trim() ?? "";
@@ -26598,10 +26679,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function passiveJpdbRelatedClasses(hasFuri, className = "") {
     const extra = className.trim();
-    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$1(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
+    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$2(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
   }
   function passiveJpdbRelatedPlainContent(term, visibleReading) {
-    return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(term);
+    return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$2(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$2(term);
   }
   function jpdbVocabularyVidFromUrl(value) {
     try {
@@ -26631,19 +26712,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const heading = title ?? uiText(language, "kanjiDictionaries");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(heading)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(heading)}</summary>
             ${entries2.map((entry) => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
-                        <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
-                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
+                        <span class="jpdb-reader-kanji-char">${escapeHtml$2(entry.character)}</span>
+                        <span class="jpdb-reader-local-dict">${escapeHtml$2(dictionaryLabel2(entry.dictionary))}</span>
                     </div>
                     <div class="jpdb-reader-kanji-readings">
-                        ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
-                        ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
+                        ${entry.onyomi.length ? `<span>${escapeHtml$2(uiText(language, "onReading"))} ${escapeHtml$2(entry.onyomi.join("、"))}</span>` : ""}
+                        ${entry.kunyomi.length ? `<span>${escapeHtml$2(uiText(language, "kunReading"))} ${escapeHtml$2(entry.kunyomi.join("、"))}</span>` : ""}
                     </div>
-                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
-                        ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
+                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$2(entry.dictionary)}">
+                        ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$2(meaning)}</div>`).join("")}
                     </div>
                 </div>
             `).join("")}
@@ -26665,10 +26746,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
     const entryCount = groups.length;
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore>
-                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$2(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$2(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore>
+                <span>${escapeHtml$2(dictionaryLabel2(dictionary))}</span>
+                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$2(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
             </summary>
             <div class="jpdb-reader-local-terms">
                 ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
@@ -26688,7 +26769,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderLocalTermHead(group, reference) {
     if (repeatsLookupHeadword$1(group, reference)) return "";
     return `<div class="jpdb-reader-local-head">
-        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
+        <span class="jpdb-reader-local-expression">${escapeHtml$2(group.expression)}</span>
         ${renderLocalTermReading(group)}
         ${renderLocalTermFrequency(group)}
     </div>`;
@@ -26707,12 +26788,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return group.reading === group.expression;
   }
   function renderLocalTermReading(group) {
-    return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
+    return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$2(group.reading)}</span>` : "";
   }
   function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag, language) {
     const tagItems = [
-      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
-      ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
+      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$2(dictionaryLabel2(dictionary))}</span>` : "",
+      ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$2(tag)}">${escapeHtml$2(tag)}</span>`)
     ].filter(Boolean);
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
   }
@@ -26723,13 +26804,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         ${group.meanings.slice(0, 8).map((meaning, index) => `
             <div class="jpdb-reader-local-sense">
                 ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
-                <span>${escapeHtml$1(meaning)}</span>
+                <span>${escapeHtml$2(meaning)}</span>
             </div>
         `).join("")}
     </div>`;
   }
   function renderLocalTermFrequency(group) {
-    return group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}</span>` : "";
+    return group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$2(String(group.frequency))}</span>` : "";
   }
   function renderLocalGlossaryEntries(dictionary, entries2, options = {}) {
     const showIndex = options.showIndex ?? entries2.length > 1;
@@ -26745,7 +26826,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }).filter(Boolean).join("");
     if (!entryHtml) return "";
     return `
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(dictionary)}">
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$2(dictionary)}">
             ${entryHtml}
         </div>
     `;
@@ -26768,17 +26849,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderFrequencyPill(entry, dictionaryLabel2) {
     const label = dictionaryLabel2(entry.dictionary);
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
-    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(`${label} local frequency`)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
+    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$2(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$2(`${label} local frequency`)}">${escapeHtml$2(label)} ${escapeHtml$2(value)}</span>` : "";
   }
   function renderPassiveReference(view) {
     const reading = visibleReferenceReading(view.text, view.reading);
-    const identity = Object.entries(view.identityAttributes ?? {}).map(([name, value]) => `${name}="${escapeHtml$1(value)}"`).join(" ");
-    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+    const identity = Object.entries(view.identityAttributes ?? {}).map(([name, value]) => `${name}="${escapeHtml$2(value)}"`).join(" ");
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$2(reading)}"` : "";
     const identityAttributes = identity ? ` ${identity}` : "";
     const extraClass = view.className?.trim();
-    const classes2 = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
+    const classes2 = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$2(extraClass)}` : ""}`;
     const content = reading && view.annotatedReading && /\[[^\]]+\]/.test(view.annotatedReading) ? renderAnnotatedReadingRuby(view.annotatedReading) : renderPassiveReferenceContent(view.text, reading);
-    return `<span class="${classes2}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="${escapeHtml$1(view.dictionary)}" data-pitch-class="" data-sentence="${escapeHtml$1(view.sentence ?? view.text)}" data-expression="${escapeHtml$1(view.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="${escapeHtml$2(view.dictionary)}" data-pitch-class="" data-sentence="${escapeHtml$2(view.sentence ?? view.text)}" data-expression="${escapeHtml$2(view.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function renderAnnotatedReadingRuby(value) {
     const source = value.trim();
@@ -26788,15 +26869,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const regex = /([一-龯々-〇]+)\[([^\]]+)\]/g;
     let match;
     while ((match = regex.exec(source)) !== null) {
-      html += escapeHtml$1(source.slice(offset, match.index));
-      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
+      html += escapeHtml$2(source.slice(offset, match.index));
+      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$2(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
       offset = match.index + match[0].length;
     }
-    html += escapeHtml$1(source.slice(offset));
+    html += escapeHtml$2(source.slice(offset));
     return html;
   }
   function renderPassiveReferenceContent(text2, reading) {
-    return reading ? renderRuby(text2, referenceRubyToken(text2, reading)) : escapeHtml$1(text2);
+    return reading ? renderRuby(text2, referenceRubyToken(text2, reading)) : escapeHtml$2(text2);
   }
   function referenceRubyToken(text2, reading) {
     return {
@@ -26877,7 +26958,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const attributes = objectRecord$2(objectRecord$2(objectRecord$2(raw)?.data)?.attributes);
     if (!attributes) return;
     info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
-    info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list) => ({ list, rank: numberValue$2(attributes[`frequency_${list}`]) })).filter((entry) => entry.rank > 0);
+    info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list) => ({ list, rank: numberValue$3(attributes[`frequency_${list}`]) })).filter((entry) => entry.rank > 0);
     info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
     info.caution = stripBunproMarkup(textValue(attributes.caution));
     info.register = textValue(attributes.register);
@@ -26891,7 +26972,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function bunproCoverageVocabIds(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.map((value) => numberValue$2(value)).filter((id) => id > 0).slice(0, 50);
+    return raw.map((value) => numberValue$3(value)).filter((id) => id > 0).slice(0, 50);
   }
   const BUNPRO_USED_IN_LIMIT = 5;
   const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
@@ -26950,7 +27031,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function bunproRelatedGrammarPoint(raw) {
     const record = objectRecord$2(raw);
-    const id = numberValue$2(record?.id);
+    const id = numberValue$3(record?.id);
     const title = textValue(record?.title);
     if (!id || !title) return null;
     return { id, title, slug: textValue(record?.slug) || title };
@@ -27018,7 +27099,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Array.from(unique2.values());
   }
   function bunproExampleFailureReason(error) {
-    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+    const status = error instanceof BunproApiError ? error.status : httpStatusFromError(error);
     if (status === 401 || status === 403) return "auth";
     if (status === 404) return "schema";
     return "network";
@@ -27060,7 +27141,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ].filter((item) => item !== null);
   }
   function selectBunproDefinitionById(candidates, selection) {
-    const expectedId = numberValue$2(selection.id);
+    const expectedId = numberValue$3(selection.id);
     if (!expectedId) return null;
     const info = candidates.find((item) => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
     return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
@@ -27091,9 +27172,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const japanese = resolveUiLanguage(language) === "ja";
     const registerTag = japanese ? info.register : info.registerTranslation || info.register;
     const details = [
-      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
-      ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`),
-      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : ""
+      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$2(info.jlptLevel)}</span>` : "",
+      ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$2(value)}</span>`),
+      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$2(registerTag)}</span>` : ""
     ].filter(Boolean).join("");
     const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
     const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
@@ -27101,15 +27182,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
                 ${renderBunproHeadword(card, info)}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
-                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
-                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
-                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
+                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$2(glosses.meaning)}</span></div></div>` : ""}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$2(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
+                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$2(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$2).join(" · ")}</div></div>` : ""}
                 ${renderBunproStructures(info, language)}
-                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$1(info.caution)}</div></div>` : ""}
+                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$2(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$2(info.caution)}</div></div>` : ""}
             </article>
             <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
         </details>
@@ -27126,35 +27207,35 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
   }
   function renderBunproGlossText(value) {
-    if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
-    return `<div class="jpdb-reader-parseable">${escapeHtml$1(stripBunproFurigana(value))}</div>`;
+    if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$2(value)}</div>`;
+    return `<div class="jpdb-reader-parseable">${escapeHtml$2(stripBunproFurigana(value))}</div>`;
   }
   function renderBunproStructures(info, language) {
     if (!info.structures.length) return "";
     const blocks = info.structures.map((structure) => `
         <div class="jpdb-reader-bunpro-structure" data-structure="${structure.label}">
-            ${structure.lines.map((line) => `<div class="jpdb-reader-parseable">${escapeHtml$1(line)}</div>`).join("")}
+            ${structure.lines.map((line) => `<div class="jpdb-reader-parseable">${escapeHtml$2(line)}</div>`).join("")}
         </div>
     `).join("");
-    return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
+    return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$2(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
   }
   function renderBunproUsedInVocab(info, sourceAttributes, language) {
     if (!info.usedInVocab.length) return "";
     const rows = info.usedInVocab.map((entry) => `
         <li class="jpdb-reader-jpdb-used-in-row">
             <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$2(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$2(entry.text)}</span>
                 </a>
-                ${entry.reading ? `<small lang="ja">${escapeHtml$1(entry.reading)}</small>` : ""}
-                ${entry.meaning ? `<small>${escapeHtml$1(entry.meaning)}</small>` : ""}
+                ${entry.reading ? `<small lang="ja">${escapeHtml$2(entry.reading)}</small>` : ""}
+                ${entry.meaning ? `<small>${escapeHtml$2(entry.meaning)}</small>` : ""}
             </span>
         </li>
     `).join("");
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, "bunproUsedInVocab"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -27168,17 +27249,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const rows = info.relatedWords.map((entry) => `
         <li class="jpdb-reader-jpdb-used-in-row">
             <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.text)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.text)}</span>
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$2(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$2(entry.text)}</span>
                 </a>
-                ${entry.relation === "antonym" ? `<small>${escapeHtml$1(uiText(language, "antonymWord"))}</small>` : ""}
+                ${entry.relation === "antonym" ? `<small>${escapeHtml$2(uiText(language, "antonymWord"))}</small>` : ""}
             </span>
         </li>
     `).join("");
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-words`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedWords"))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, "relatedWords"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedWords.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -27192,8 +27273,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const rows = info.relatedGrammar.map((entry) => `
         <li class="jpdb-reader-jpdb-used-in-row">
             <span class="jpdb-reader-jpdb-used-in-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.title)}" data-dictionary="Bunpro" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry.title)}</span>
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$2(entry.title)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$2(entry.title)}</span>
                 </a>
             </span>
         </li>
@@ -27201,7 +27282,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:related-grammar`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "relatedGrammar"))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, "relatedGrammar"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedGrammar.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -27217,7 +27298,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderBunproExamplePart(part, sentence) {
     const plain = stripBunproFurigana(part.text);
-    if (!part.target) return escapeHtml$1(plain);
+    if (!part.target) return escapeHtml$2(plain);
     return renderPassiveReference({
       text: plain,
       reading: bunproAnnotatedKana(part.text),
@@ -27261,7 +27342,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const record = objectRecord$2(value);
     const attributes = objectRecord$2(record?.attributes) ?? record;
     if (!attributes) return null;
-    const id = numberValue$2(attributes.id ?? record?.id);
+    const id = numberValue$3(attributes.id ?? record?.id);
     const expression = textValue(attributes.title ?? attributes.grammar_point ?? attributes.word);
     if (!id || !expression) return null;
     const reading = textValue(attributes.kana ?? attributes.furigana ?? attributes.reading) || expression;
@@ -27352,15 +27433,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function textValue(value) {
     return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
   }
-  function numberValue$2(value) {
+  function numberValue$3(value) {
     const number = Number(value);
     return Number.isInteger(number) && number > 0 ? number : 0;
-  }
-  function errorStatus(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const value = error;
-    const status = value.status ?? value.statusCode;
-    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
   }
   function objectRecord$2(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -27612,10 +27687,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return info;
   }
   function parseKanjiMapInfo(raw, kanji, sourceUrl) {
-    const record = asRecord$1(raw);
+    const record = asRecord$2(raw);
     if (!record) return void 0;
-    const kanjiAlive = asRecord$1(record.kanjialiveData);
-    const jisho = asRecord$1(record.jishoData);
+    const kanjiAlive = asRecord$2(record.kanjialiveData);
+    const jisho = asRecord$2(record.jishoData);
     const radical = readKanjiMapRadical(kanjiAlive, jisho);
     const examples = readKanjiMapExamples(kanjiAlive, jisho);
     const references = readKanjiMapReferences(kanjiAlive, jisho);
@@ -27626,37 +27701,37 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...metrics,
       ...readings2,
       parts: readKanjiMapParts(jisho, kanji),
-      hint: stripHtml(stringValue$2(kanjiAlive?.mn_hint)),
+      hint: stripHtml(stringValue$3(kanjiAlive?.mn_hint)),
       radical,
       examples,
       references,
       sourceUrl,
       kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
-      jishoUrl: stringValue$2(jisho?.uri)
+      jishoUrl: stringValue$3(jisho?.uri)
     };
   }
   function readKanjiMapMetrics(kanjiAlive, jisho) {
     return {
       meaning: kanjiMapMeaning(kanjiAlive, jisho),
       grade: kanjiMapGrade(kanjiAlive, jisho),
-      jlpt: normalizeJlpt(stringValue$2(jisho?.jlptLevel)) ?? "",
+      jlpt: normalizeJlpt(stringValue$3(jisho?.jlptLevel)) ?? "",
       strokeCount: kanjiMapStrokeCount(kanjiAlive, jisho),
-      frequencyRank: normalizeFrequency(stringValue$2(jisho?.newspaperFrequencyRank))
+      frequencyRank: normalizeFrequency(stringValue$3(jisho?.newspaperFrequencyRank))
     };
   }
   function kanjiMapMeaning(kanjiAlive, jisho) {
-    return stringValue$2(jisho?.meaning) || stringValue$2(kanjiAlive?.meaning);
+    return stringValue$3(jisho?.meaning) || stringValue$3(kanjiAlive?.meaning);
   }
   function kanjiMapGrade(kanjiAlive, jisho) {
-    return normalizeGrade(stringValue$2(jisho?.taughtIn) || numberValue$1(kanjiAlive?.grade)) ?? "";
+    return normalizeGrade(stringValue$3(jisho?.taughtIn) || numberValue$2(kanjiAlive?.grade)) ?? "";
   }
   function kanjiMapStrokeCount(kanjiAlive, jisho) {
-    return numberValue$1(jisho?.strokeCount) ?? numberValue$1(kanjiAlive?.kstroke);
+    return numberValue$2(jisho?.strokeCount) ?? numberValue$2(kanjiAlive?.kstroke);
   }
   function readKanjiMapReadings(kanjiAlive, jisho) {
     return {
-      kunyomi: stringArray$2(jisho?.kunyomi, stringValue$2(kanjiAlive?.kunyomi_ja) || stringValue$2(kanjiAlive?.kunyomi)),
-      onyomi: stringArray$2(jisho?.onyomi, stringValue$2(kanjiAlive?.onyomi_ja) || stringValue$2(kanjiAlive?.onyomi))
+      kunyomi: stringArray$2(jisho?.kunyomi, stringValue$3(kanjiAlive?.kunyomi_ja) || stringValue$3(kanjiAlive?.kunyomi)),
+      onyomi: stringArray$2(jisho?.onyomi, stringValue$3(kanjiAlive?.onyomi_ja) || stringValue$3(kanjiAlive?.onyomi))
     };
   }
   function readKanjiMapParts(jisho, kanji) {
@@ -27787,12 +27862,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function kanjiMapRadicalContext(kanjiAlive, jisho) {
     return {
       kanjiAlive,
-      aliveRadical: asRecord$1(kanjiAlive?.radical),
-      jishoRadical: asRecord$1(jisho?.radical)
+      aliveRadical: asRecord$2(kanjiAlive?.radical),
+      jishoRadical: asRecord$2(jisho?.radical)
     };
   }
   function readKanjiMapRadicalNames(context) {
-    const name = asRecord$1(context.aliveRadical?.name);
+    const name = asRecord$2(context.aliveRadical?.name);
     return {
       name: firstStringValue$1([name?.romaji, context.kanjiAlive?.rad_name]),
       reading: firstStringValue$1([name?.hiragana, context.kanjiAlive?.rad_name_ja])
@@ -27810,19 +27885,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return firstStringValue$1([context.jishoRadical?.symbol, context.kanjiAlive?.rad_utf, context.aliveRadical?.character]);
   }
   function readKanjiMapRadicalMeaning(context) {
-    const meaning = asRecord$1(context.aliveRadical?.meaning);
+    const meaning = asRecord$2(context.aliveRadical?.meaning);
     return firstStringValue$1([meaning?.english, context.jishoRadical?.meaning, context.kanjiAlive?.rad_meaning]);
   }
   function readKanjiMapRadicalStrokes(context) {
     return firstNormalizedNumber([context.aliveRadical?.strokes, context.kanjiAlive?.rad_stroke]);
   }
   function readKanjiMapRadicalPosition(context) {
-    const position = asRecord$1(context.aliveRadical?.position);
+    const position = asRecord$2(context.aliveRadical?.position);
     return firstStringValue$1([position?.hiragana, context.kanjiAlive?.rad_position_ja]);
   }
   function firstStringValue$1(values) {
     for (const value of values) {
-      const text2 = stringValue$2(value);
+      const text2 = stringValue$3(value);
       if (text2) return text2;
     }
     return "";
@@ -27835,7 +27910,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return "";
   }
   function safeMediaValue(value) {
-    return safeMediaUrl(stringValue$2(value));
+    return safeMediaUrl$1(stringValue$3(value));
   }
   function safeMediaValues(value) {
     return unknownArray(value).map(safeMediaValue).filter(Boolean);
@@ -27847,28 +27922,28 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const examples = [];
     const add = (expression, reading, meaning) => {
       const item = {
-        expression: stringValue$2(expression),
-        reading: stringValue$2(reading),
-        meaning: stringValue$2(meaning)
+        expression: stringValue$3(expression),
+        reading: stringValue$3(reading),
+        meaning: stringValue$3(meaning)
       };
       if (!item.expression || examples.some((existing) => existing.expression === item.expression)) return;
       examples.push(item);
     };
     unknownArray(kanjiAlive?.examples).forEach((example) => {
-      const record = asRecord$1(example);
-      add(record?.japanese, "", asRecord$1(record?.meaning)?.english);
+      const record = asRecord$2(example);
+      add(record?.japanese, "", asRecord$2(record?.meaning)?.english);
     });
     [...unknownArray(jisho?.onyomiExamples), ...unknownArray(jisho?.kunyomiExamples)].forEach((example) => {
-      const record = asRecord$1(example);
+      const record = asRecord$2(example);
       add(record?.example, record?.reading, record?.meaning);
     });
     return examples.slice(0, 6);
   }
   function readKanjiMapReferences(kanjiAlive, jisho) {
-    const references = asRecord$1(kanjiAlive?.references);
+    const references = asRecord$2(kanjiAlive?.references);
     const facts = [];
     const add = (label, value, source) => {
-      const text2 = stringValue$2(value);
+      const text2 = stringValue$3(value);
       if (text2) facts.push({ label, value: text2, source });
     };
     add("Kodansha", references?.kodansha, "Kanji Alive");
@@ -27982,12 +28057,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function stringArray$2(value, fallback = "") {
     const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
-    return values.map((item) => stringValue$2(item)).map((item) => item.trim()).filter(Boolean);
+    return values.map((item) => stringValue$3(item)).map((item) => item.trim()).filter(Boolean);
   }
   function unknownArray(value) {
     return Array.isArray(value) ? value : [];
   }
-  function stringValue$2(value) {
+  function stringValue$3(value) {
     if (value === void 0 || value === null) return "";
     if (typeof value === "string") return value.trim();
     if (isFiniteNumber(value)) return String(value);
@@ -27996,15 +28071,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
   }
-  function numberValue$1(value) {
+  function numberValue$2(value) {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     const match = String(value ?? "").match(/\d+/);
     return match ? Number(match[0]) : void 0;
   }
-  function safeMediaUrl(value) {
+  function safeMediaUrl$1(value) {
     return /^https:\/\/media\.kanjialive\.com\//i.test(value) ? value : "";
   }
-  function asRecord$1(value) {
+  function asRecord$2(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
   function parseJson$1(value) {
@@ -28015,10 +28090,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   async function fetchKanjiAlivePrimaryGlosses() {
-    const payload = asRecord$1(parseJson$1(await requestText$6(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
-    const meanings = asRecord$1(payload?.meanings);
+    const payload = asRecord$2(parseJson$1(await requestText$6(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+    const meanings = asRecord$2(payload?.meanings);
     if (!meanings) return {};
-    return Object.fromEntries(Object.entries(meanings).map(([kanji, meaning]) => [kanji, stringValue$2(meaning)]).filter((entry) => Boolean(entry[1])));
+    return Object.fromEntries(Object.entries(meanings).map(([kanji, meaning]) => [kanji, stringValue$3(meaning)]).filter((entry) => Boolean(entry[1])));
   }
   function requestText$6(url) {
     return requestText$7(url, {
@@ -28276,7 +28351,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       svg: renderPitchGraphSvg(component.reading, component.pitch, { centerContent: true })
     })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
             ${entry.svg}
-            <span class="jpdb-reader-pitch-component-label">${escapeHtml$1(entry.component.text)}</span>
+            <span class="jpdb-reader-pitch-component-label">${escapeHtml$2(entry.component.text)}</span>
         </span>`);
     if (!graphs.length) return "";
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join("")}</div>`;
@@ -28293,7 +28368,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         ${highs.length > 1 ? `<polyline class="${cls}" points="${points}"></polyline>` : ""}
         ${highs.map((_, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
-        ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
+        ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$2(mora)}</text>`).join("")}
     </svg>`;
   }
   function cardPronunciationReading(card) {
@@ -28353,17 +28428,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const shown = all.slice(0, MAX_VISIBLE_KANJI_KEYWORDS);
     const overflow = all.slice(MAX_VISIBLE_KANJI_KEYWORDS);
     const chips = shown.map((keyword) => renderKanjiKeywordChip(keyword)).join("") + renderKanjiKeywordOverflowChip(overflow);
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$2(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
   }
   function renderKanjiKeywordChip(keyword) {
-    return `<span class="jpdb-reader-kanji-keyword"${keyword.canonical ? ' data-canonical=""' : ""} title="${escapeHtml$1(keyword.labels.join(" · "))}"><small class="jpdb-reader-kanji-keyword-source">${escapeHtml$1(keyword.labels.join("/"))}</small><span class="jpdb-reader-kanji-keyword-text">${escapeHtml$1(keyword.text)}</span></span>`;
+    return `<span class="jpdb-reader-kanji-keyword"${keyword.canonical ? ' data-canonical=""' : ""} title="${escapeHtml$2(keyword.labels.join(" · "))}"><small class="jpdb-reader-kanji-keyword-source">${escapeHtml$2(keyword.labels.join("/"))}</small><span class="jpdb-reader-kanji-keyword-text">${escapeHtml$2(keyword.text)}</span></span>`;
   }
   function renderKanjiKeywordOverflowChip(overflow) {
     if (!overflow.length) return "";
-    return `<span class="jpdb-reader-kanji-keyword jpdb-reader-kanji-keyword-more" title="${escapeHtml$1(overflow.map((keyword) => keyword.text).join(" · "))}">+${overflow.length}</span>`;
+    return `<span class="jpdb-reader-kanji-keyword jpdb-reader-kanji-keyword-more" title="${escapeHtml$2(overflow.map((keyword) => keyword.text).join(" · "))}">+${overflow.length}</span>`;
   }
   function sourceStateAttribute$1(sourceStateKey, initiallyExpanded) {
-    return sourceStateKey ? `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : "";
+    return sourceStateKey ? `data-source-state-key="${escapeHtml$2(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : "";
   }
   function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries2) {
     const elementKeywords = splitRtkElements(rtkInfo?.elements ?? "").filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(rtkInfo?.keyword ?? ""));
@@ -28450,8 +28525,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry">
                 <div class="jpdb-reader-rtk-head">
-                    <strong>${escapeHtml$1(info.keyword)}</strong>
-                    ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
+                    <strong>${escapeHtml$2(info.keyword)}</strong>
+                    ${info.frameNumber ? `<span>${escapeHtml$2(info.frameNumber)}</span>` : ""}
                 </div>
                 ${readings2}
                 ${elementSection}
@@ -28463,22 +28538,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderRtkReadings(info, language) {
     if (!info.onYomi && !info.kunYomi) return "";
     return `<div class="jpdb-reader-kanji-readings">
-        ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
-        ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
+        ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$2(info.onYomi)}</span>` : ""}
+        ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$2(info.kunYomi)}</span>` : ""}
     </div>`;
   }
   function renderRtkElementSection(elementChips, language) {
     return elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">${elementChips.map((chip) => renderRtkElementChip(chip, language)).join("")}</div>` : "";
   }
   function renderRtkElementChip(chip, language) {
-    const content = `${chip.glyph ? `<strong>${escapeHtml$1(chip.glyph)}</strong>` : ""}<span>${escapeHtml$1(chip.keyword)}</span>`;
-    return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(chip.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
+    const content = `${chip.glyph ? `<strong>${escapeHtml$2(chip.glyph)}</strong>` : ""}<span>${escapeHtml$2(chip.keyword)}</span>`;
+    return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$2(chip.kanji)}" title="${escapeHtml$2(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
   }
   function renderRtkStories(info, language) {
     return [
-      info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : "",
-      info.heisigComment ? `<details open><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : "",
-      info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""
+      info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$2(info.heisigStory)}</p></details>` : "",
+      info.heisigComment ? `<details open><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$2(info.heisigComment)}</p></details>` : "",
+      info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$2(story)}</p>`).join("")}</details>` : ""
     ].join("");
   }
   const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
@@ -28990,29 +29065,29 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderUchisenLinkRow(model) {
     return `
         <span class="yomu-jpdb-uchisen-link-row">
-            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
+            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml$2(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
             ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
         </span>
     `;
   }
   function renderUchisenGenerateToggle(model) {
-    return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml$1(uiText(model.language, "generateUchisenImage"))}">${escapeHtml$1(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
+    return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml$2(uiText(model.language, "generateUchisenImage"))}">${escapeHtml$2(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
   }
   function renderUchisenNavigationControls(model) {
     if (!model.total) return "";
     const previousLabel = uiText(model.language, "previousExample");
     const nextLabel = uiText(model.language, "nextExample");
-    return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$1(uiText(model.language, "uchisenMnemonicImages"))}">
-        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">&lsaquo;</button>
-        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">&rsaquo;</button>
+    return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$2(uiText(model.language, "uchisenMnemonicImages"))}">
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$2(previousLabel)}" aria-label="${escapeHtml$2(previousLabel)}">&lsaquo;</button>
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$2(nextLabel)}" aria-label="${escapeHtml$2(nextLabel)}">&rsaquo;</button>
     </span>`;
   }
   function renderUchisenImageOrEmpty(model) {
-    if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml$1(uiText(model.language, "noUchisenImagesYet"))}</div>`;
+    if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml$2(uiText(model.language, "noUchisenImagesYet"))}</div>`;
     const story = model.item.story && model.item.story !== "No story available" ? model.item.story : uiText(model.language, "noStoryAvailable");
     const alt = formatUchisenTemplate(uiText(model.language, "uchisenMnemonicFor"), { kanji: model.kanji });
-    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml$1(alt)}" data-uchisen-image src="${escapeHtml$1(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
-        <div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>`;
+    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml$2(alt)}" data-uchisen-image src="${escapeHtml$2(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
+        <div class="yomu-jpdb-story">${escapeHtml$2(story)}</div>`;
   }
   function attachRenderedUchisenImage(container, item, index, currentImages, proxyUrl, cleanup, setCurrentImageUrl) {
     const image = container.querySelector("[data-uchisen-image]");
@@ -29119,20 +29194,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, "")}${noTextSuffix}`;
   }
   function renderUchisenGeneratePanel(fields, status, busy, language) {
-    const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml$1(status.tone)}">${escapeHtml$1(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "uchisenGenerateHint"))}</div>`;
+    const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml$2(status.tone)}">${escapeHtml$2(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$2(uiText(language, "uchisenGenerateHint"))}</div>`;
     return `
         <div class="yomu-jpdb-uchisen-generator">
             <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml$1(uiText(language, "uchisenMnemonicStory"))}</span>
-                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.mnemonic)}</textarea>
+                <span>${escapeHtml$2(uiText(language, "uchisenMnemonicStory"))}</span>
+                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml$2(fields.mnemonic)}</textarea>
             </label>
             <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml$1(uiText(language, "uchisenImagePrompt"))}</span>
-                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.imagePrompt)}</textarea>
+                <span>${escapeHtml$2(uiText(language, "uchisenImagePrompt"))}</span>
+                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml$2(fields.imagePrompt)}</textarea>
             </label>
             <div class="yomu-jpdb-uchisen-generator-footer">
                 ${statusHtml}
-                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml$1(uiText(language, "generateUchisenImage"))}</button>
+                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml$2(uiText(language, "generateUchisenImage"))}</button>
             </div>
         </div>
     `;
@@ -29179,7 +29254,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function uchisenPromptFieldValue(value) {
-    return escapeHtml$1(value).replace(/'/g, "&#039;");
+    return escapeHtml$2(value).replace(/'/g, "&#039;");
   }
   function safeUchisenImagePrompt(value) {
     let prompt = value;
@@ -29247,9 +29322,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...groups.filter((group) => group.components.length)
     ];
     if (!visibleGroups.length) return "";
-    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml$1(uiText(language, "readingsComponents"))}">
+    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml$2(uiText(language, "readingsComponents"))}">
         ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
-            <span class="yomu-jpdb-component-group-label">${escapeHtml$1(localizedUchisenComponentGroupTitle(group.title, language))}</span>
+            <span class="yomu-jpdb-component-group-label">${escapeHtml$2(localizedUchisenComponentGroupTitle(group.title, language))}</span>
             <div class="yomu-jpdb-component-list">
                 ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
             </div>
@@ -29284,10 +29359,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderUchisenComponentChip(component) {
     const label = [component.name, component.symbol].filter(Boolean).join(": ");
     const content = `
-        ${component.symbol ? `<strong>${escapeHtml$1(component.symbol)}</strong>` : ""}
-        ${component.name ? `<span>${escapeHtml$1(component.name)}</span>` : ""}
+        ${component.symbol ? `<strong>${escapeHtml$2(component.symbol)}</strong>` : ""}
+        ${component.name ? `<span>${escapeHtml$2(component.name)}</span>` : ""}
     `;
-    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml$1(label)}">${content}</span>`;
+    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml$2(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$2(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml$2(label)}">${content}</span>`;
   }
   function preferredUchisenIndex(storedIndex, images) {
     if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
@@ -30499,7 +30574,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!paths.length) return null;
     const strokeShapes = parsedPaths.map((path) => path.shape);
     const numbers = readKanjiVGStrokeNumbers(sourceSvg);
-    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$1(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$1(kanji)}">
+    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$2(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$2(kanji)}">
         <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
         <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
     </svg>`;
@@ -30526,7 +30601,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Boolean(pathData && KANJIVG_SAFE_PATH_DATA.test(pathData));
   }
   function renderKanjiVGPath(pathData, index) {
-    return `<path d="${escapeHtml$1(pathData)}" style="--stroke-index:${index}" />`;
+    return `<path d="${escapeHtml$2(pathData)}" style="--stroke-index:${index}" />`;
   }
   function readKanjiVGStrokeNumbers(sourceSvg) {
     return Array.from(sourceSvg.querySelectorAll("text")).map(readKanjiVGStrokeNumber).filter(Boolean);
@@ -30541,7 +30616,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return KANJIVG_STROKE_LABEL.test(label) && KANJIVG_TEXT_TRANSFORM.test(transform);
   }
   function renderKanjiVGStrokeNumber(transform, label) {
-    return `<text transform="${escapeHtml$1(transform)}">${escapeHtml$1(label)}</text>`;
+    return `<text transform="${escapeHtml$2(transform)}">${escapeHtml$2(label)}</text>`;
   }
   function readKanjiVGStrokeShape(pathData, viewBox) {
     const box = parseViewBox(viewBox);
@@ -31123,7 +31198,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$3(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record, provider = "immersion-kit") {
     const id = text$1(record.id);
@@ -31164,18 +31239,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord(data) ? data : null;
+    return isRecord$3(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord(includes) ? includes.media : void 0;
-    return isRecord(media) ? media : {};
+    const media = isRecord$3(includes) ? includes.media : void 0;
+    return isRecord$3(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord(value)) return null;
+    if (!isRecord$3(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids = nadeshikoExampleIds(value);
@@ -31212,7 +31287,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord(value) ? value : {};
+    return isRecord$3(value) ? value : {};
   }
   function nadeshikoSourceTitle(record, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -31231,7 +31306,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function nestedText(record, key, fields) {
     const value = record[key];
-    return isRecord(value) ? firstText(value, fields) : "";
+    return isRecord$3(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -32107,7 +32182,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const next = uiText(language, "nextExample");
     const audio = uiText(language, "playExampleAudio");
     return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$2(uiText(language, "immersionExampleControls"))}">
             ${renderImmersionActionButtonHtml("previous", previous, "‹")}
             ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
             ${renderImmersionActionButtonHtml("next", next, "›")}
@@ -32152,7 +32227,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return button2;
   }
   function renderImmersionActionButtonHtml(action, label, content) {
-    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
   }
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
@@ -34673,16 +34748,16 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const image = renderExampleImageHtml(container, imageUrl, sentence);
       return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(immersionExampleProviderLabel(example, language))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(immersionExampleProviderLabel(example, language))}</span>
             </summary>
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
-                    <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
+                    <span class="jpdb-reader-example-title">${escapeHtml$2(sourceLabel)}</span>
                     <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
                 </div>
                 ${renderImmersionExampleActionsHtml(hasAudio, language)}
             </div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
+            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$2(example.sentence)}" data-immersion-source-title="${escapeHtml$2(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$2(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$2(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
                     ${image}
                     ${image ? "" : sentence}
@@ -34954,7 +35029,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function renderExampleImageHtml(container, imageUrl, overlay = "") {
     if (!imageUrl) return "";
     const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$2(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
   }
   function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
     const classes2 = [
@@ -34980,7 +35055,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
   }
   function heldExampleSourceAttribute(image) {
-    return image.src ? ` src="${escapeHtml$1(image.src)}"` : "";
+    return image.src ? ` src="${escapeHtml$2(image.src)}"` : "";
   }
   function heldExampleImage(container) {
     const currentImage = container.querySelector("[data-immersion-image]");
@@ -35033,11 +35108,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function renderExampleTranslation(translation, settings) {
     if (!settings.immersionKitShowTranslation || !translation) return "";
-    const escaped = escapeHtml$1(translation);
+    const escaped = escapeHtml$2(translation);
     if (!settings.immersionKitRevealTranslationOnClick) {
       return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
     }
-    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
+    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
   }
   function setTranslationBlurAttributes(element2, blurred, key, language) {
     if (blurred) {
@@ -35069,7 +35144,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}
@@ -35086,59 +35161,59 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function renderJpdbKanjiFactSection(facts) {
     if (!facts.length) return "";
     return `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span title="${escapeHtml$1(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml$1(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(value)}</span></span>`).join("")}
+        ${facts.map(([label, value]) => `<span title="${escapeHtml$2(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml$2(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$2(value)}</span></span>`).join("")}
     </div>`;
   }
   function renderJpdbKanjiReadings(info) {
     if (!info.readings.length) return "";
     return `<div class="jpdb-reader-kanji-readings">
-        ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
+        ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$2(reading.reading)}${reading.share ? ` ${escapeHtml$2(reading.share)}` : ""}</span>`).join("")}
     </div>`;
   }
   function renderJpdbKanjiComponents(info, language) {
     if (!info.components.length) return "";
     return `<div class="jpdb-reader-component-grid">
-        ${info.components.map((component) => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-            <strong>${escapeHtml$1(component.kanji)}</strong>
-            <span>${escapeHtml$1(component.keyword)}</span>
+        ${info.components.map((component) => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml$2(component.kanji)}" title="${escapeHtml$2(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+            <strong>${escapeHtml$2(component.kanji)}</strong>
+            <span>${escapeHtml$2(component.keyword)}</span>
         </button>`).join("")}
     </div>`;
   }
   function renderJpdbKanjiVocabulary(info, language) {
     if (!info.vocabulary.length) return "";
     return `<section data-kanji-similar-words>
-        <div class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(uiText(language, "sourceNameWordsUsingKanji"))}</div>
+        <div class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(uiText(language, "sourceNameWordsUsingKanji"))}</div>
         <div class="jpdb-reader-similar-grid">
             ${info.vocabulary.slice(0, 8).map((item) => `<button
                 class="jpdb-reader-similar-word"
                 type="button"
                 data-action="similar-word"
-                data-expression="${escapeHtml$1(item.expression)}"
-                data-reading="${escapeHtml$1(item.reading)}">
+                data-expression="${escapeHtml$2(item.expression)}"
+                data-reading="${escapeHtml$2(item.reading)}">
                 <span class="jpdb-reader-similar-word-head">
-                    <span>${escapeHtml$1(item.expression)}</span>
-                    ${item.reading ? `<small>${escapeHtml$1(item.reading)}</small>` : ""}
+                    <span>${escapeHtml$2(item.expression)}</span>
+                    ${item.reading ? `<small>${escapeHtml$2(item.reading)}</small>` : ""}
                 </span>
-                ${item.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml$1(item.meaning)}</span>` : ""}
+                ${item.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml$2(item.meaning)}</span>` : ""}
             </button>`).join("")}
         </div>
     </section>`;
   }
   function renderJpdbKanjiMnemonic(info, language) {
-    return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : "";
+    return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$2(info.mnemonic)}</p></details>` : "";
   }
   function renderJpdbKanjiMiningControls(info, language) {
     const actions = visibleJpdbKanjiActions(info);
     if (!actions.length) return "";
     return `
-        <div class="jpdb-reader-mining-details jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
+        <div class="jpdb-reader-mining-details jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml$2(uiText(language, "deckActions"))}">
             <div class="jpdb-reader-row jpdb-reader-mining-action-row jpdb-reader-kanji-mining-row" style="--cols: ${actions.length}">
                 ${actions.map((action) => `<button
-                    class="jpdb-reader-btn ${escapeHtml$1(jpdbKanjiActionClass(action))}"
+                    class="jpdb-reader-btn ${escapeHtml$2(jpdbKanjiActionClass(action))}"
                     type="button"
                     data-action="jpdb-kanji-action"
-                    data-kanji-action-id="${escapeHtml$1(action.id)}"
-                    title="${escapeHtml$1(jpdbKanjiActionLabel(action, language))}">${escapeHtml$1(jpdbKanjiActionLabel(action, language))}</button>`).join("")}
+                    data-kanji-action-id="${escapeHtml$2(action.id)}"
+                    title="${escapeHtml$2(jpdbKanjiActionLabel(action, language))}">${escapeHtml$2(jpdbKanjiActionLabel(action, language))}</button>`).join("")}
             </div>
         </div>
     `;
@@ -35673,9 +35748,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return toggles.length ? `<div class="jpdb-reader-origin-graph-toggles">${toggles.join("")}</div>` : "";
   }
   function renderOriginGraphToggle(label, attribute) {
-    return `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml$1(label)}">
+    return `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml$2(label)}">
         <input type="checkbox" ${attribute} checked>
-        <span>${escapeHtml$1(label)}</span>
+        <span>${escapeHtml$2(label)}</span>
     </label>`;
   }
   const SIMPLIFIED_ONLY_COMPONENTS = /* @__PURE__ */ new Set(["讠", "钅", "饣", "纟", "门", "车", "贝", "见", "长", "马", "鸟", "鱼"]);
@@ -35799,8 +35874,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const outboundAttrs = outbound ? ' data-origin-outbound="true"' : "";
     const subcomponentAttrs = subcomponent ? ' data-origin-subcomponent="true"' : "";
     const markerId = outbound ? model.outboundMarkerId : subcomponent ? model.subcomponentMarkerId : model.markerId;
-    return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}${subcomponent ? " subcomponent" : ""}" data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" data-label="${escapeHtml$1(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
-        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml$1(label)}</title></path>
+    return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}${subcomponent ? " subcomponent" : ""}" data-from="${escapeHtml$2(edge.from)}" data-to="${escapeHtml$2(edge.to)}" data-label="${escapeHtml$2(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
+        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml$2(label)}</title></path>
     </g>`;
   }
   function renderOriginGraphNodeButtons(model) {
@@ -35811,7 +35886,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const style = `left:${formatGraphNumber(x2)}%;top:${formatGraphNumber(y)}%`;
     const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
     const subcomponentOnly = node.id !== model.current.id && model.subcomponentIds.has(node.id) && !model.primaryIds.has(node.id) && !model.outboundIds.has(node.id);
-    const attrs = `data-graph-node="${escapeHtml$1(node.id)}" data-label-length="${originGraphLabelLengthAttribute(node.label)}" data-x="${formatGraphNumber(x2)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ""}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ""} style="${style}"`;
+    const attrs = `data-graph-node="${escapeHtml$2(node.id)}" data-label-length="${originGraphLabelLengthAttribute(node.label)}" data-x="${formatGraphNumber(x2)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ""}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ""} style="${style}"`;
     if (node.kind === "related") return renderRelatedOriginGraphNode(node, attrs);
     return renderKanjiOriginGraphNode(node, attrs);
   }
@@ -35820,11 +35895,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return length > 2 ? "many" : String(length || 1);
   }
   function renderRelatedOriginGraphNode(node, attrs) {
-    return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml$1(node.detail)}">${escapeHtml$1(node.label)}</span>`;
+    return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml$2(node.detail)}">${escapeHtml$2(node.label)}</span>`;
   }
   function renderKanjiOriginGraphNode(node, attrs) {
     const title = [node.detail, node.source].filter(Boolean).join(" · ");
-    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" ${attrs} title="${escapeHtml$1(title)}">${escapeHtml$1(node.label)}</button>`;
+    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$2(node.id)}" ${attrs} title="${escapeHtml$2(title)}">${escapeHtml$2(node.label)}</button>`;
   }
   function chooseOriginGraphNodes(nodes, edges, currentId) {
     const current = nodes.find((node) => node.id === currentId) ?? nodes[0];
@@ -35903,7 +35978,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const map = sourceInfo?.kanjiMap;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
             ${renderKanjiFactPills(facts, language, excludeFactLabels)}
@@ -35922,7 +35997,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         ${visibleFacts.map((fact2) => {
       const label = kanjiFactLabel(fact2.label, language);
       const title = [fact2.source, `${label}: ${fact2.value}`].filter(Boolean).join(" · ");
-      return `<span title="${escapeHtml$1(title)}"><strong>${escapeHtml$1(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(fact2.value)}</span></span>`;
+      return `<span title="${escapeHtml$2(title)}"><strong>${escapeHtml$2(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$2(fact2.value)}</span></span>`;
     }).join("")}
     </div>`;
   }
@@ -35981,18 +36056,18 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         ${renderKanjiRadicalGlyph(radical, language)}
         <div>
             ${renderKanjiRadicalSummary(radical, language)}
-            ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
+            ${map.hint ? `<span>${escapeHtml$2(map.hint)}</span>` : ""}
             ${renderKanjiRadicalFrames(radicalFrameUrls(radical, settings))}
         </div>
     </div>`;
   }
   function renderKanjiRadicalGlyph(radical, language) {
-    return radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : "";
+    return radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$2(radical.symbol || uiText(language, "radical"))}</strong>` : "";
   }
   function renderKanjiRadicalSummary(radical, language) {
     if (!radical) return "";
     const values = [radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""];
-    return `<strong>${escapeHtml$1(values.filter(Boolean).join(" · "))}</strong>`;
+    return `<strong>${escapeHtml$2(values.filter(Boolean).join(" · "))}</strong>`;
   }
   function radicalFrameUrls(radical, settings) {
     return settings.kanjiOriginRadicalImagesEnabled && radical ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4) : [];
@@ -36000,17 +36075,17 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function renderKanjiRadicalFrames(radicalFrames) {
     if (!radicalFrames.length) return "";
     return `<div class="jpdb-reader-radical-frames">
-        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml$1(url)}">`).join("")}
+        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml$2(url)}">`).join("")}
     </div>`;
   }
   function renderKanjiPractice(info, kanji, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "strokePractice")) {
-    const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
+    const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$2(kanji)}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$2(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$2(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${info ? `${info.strokeCount} ${uiText(language, "strokes")}` : uiText(language, "textTrace")}</span>
@@ -36906,17 +36981,17 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function renderStudySentenceBlock(sentence, language, options, attrs = "") {
     return renderStudyBlock("jpdb-reader-study-sentence-block", `
         <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
-            <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
+            <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$2(sentence)}</div>
             ${renderStudySentenceAudioButton(language, options)}
         </div>`, attrs);
   }
   function renderStudyMeaningBlock(text2, language, resultAttrs = "") {
     return renderStudyBlock("jpdb-reader-study-meaning-block", `
-        <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div>
-        <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`);
+        <div class="jpdb-reader-study-label">${escapeHtml$2(uiText(language, "meaning"))}</div>
+        <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$2(text2)}</div>`);
   }
   function renderStudyEmpty(text2) {
-    return `<div class="jpdb-reader-study-empty">${escapeHtml$1(text2)}</div>`;
+    return `<div class="jpdb-reader-study-empty">${escapeHtml$2(text2)}</div>`;
   }
   function renderStudyList(items, attrs = "") {
     return `<ol class="jpdb-reader-study-list"${studyAttrs(attrs)}>
@@ -36925,8 +37000,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function renderStudySentenceAudioButton(language, options) {
     const readSentence = uiText(language, options.audioEnabled ? "readSentenceAloud" : "audioPlaybackDisabled");
-    const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml$1(options.sentence)}"` : "";
-    return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr} type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}"${options.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>`;
+    const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml$2(options.sentence)}"` : "";
+    return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr} type="button" title="${escapeHtml$2(readSentence)}" aria-label="${escapeHtml$2(readSentence)}"${options.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>`;
   }
   function studyBlockClassName(className) {
     return ["jpdb-reader-study-block", className.trim()].filter(Boolean).join(" ");
@@ -37603,7 +37678,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const hiddenKnownCount = showKnown ? 0 : knownCount;
     return `
         <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-            <div class="jpdb-reader-grammar-summary">${escapeHtml$1(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
+            <div class="jpdb-reader-grammar-summary">${escapeHtml$2(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
             ${renderGrammarKnownVisibilityButton(knownCount, showKnown, language)}
         </div>`;
   }
@@ -37622,24 +37697,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const details = await grammarHintDetails(hint, language);
     const displayName = grammarDisplayName(hint, language);
     return `
-            <li class="jpdb-reader-study-item${known ? " known" : ""}" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}">
+            <li class="jpdb-reader-study-item${known ? " known" : ""}" data-grammar-rule-id="${escapeHtml$2(hint.ruleId)}">
                 <div class="jpdb-reader-study-name">
-                    <span>${escapeHtml$1(displayName)}</span>
-                    <span class="jpdb-reader-grammar-level">${escapeHtml$1(grammarLevelText(hint.level, language))}</span>
+                    <span>${escapeHtml$2(displayName)}</span>
+                    <span class="jpdb-reader-grammar-level">${escapeHtml$2(grammarLevelText(hint.level, language))}</span>
                 </div>
                 <div class="jpdb-reader-study-body">
                     <div class="jpdb-reader-study-item-head">
-                        <div class="jpdb-reader-study-kind">${escapeHtml$1(details.kind)}</div>
+                        <div class="jpdb-reader-study-kind">${escapeHtml$2(details.kind)}</div>
                         <div class="jpdb-reader-grammar-actions">
                             ${renderGrammarRepeatCount(count)}
-                            <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known ? "true" : "false"}" aria-pressed="${known ? "true" : "false"}">${known ? uiText(language, "grammarReview") : uiText(language, "grammarKnown")}</button>
+                            <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$2(hint.ruleId)}" data-grammar-known="${known ? "true" : "false"}" aria-pressed="${known ? "true" : "false"}">${known ? uiText(language, "grammarReview") : uiText(language, "grammarKnown")}</button>
                         </div>
                     </div>
-                    <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml$1(details.short)}</div>
+                    <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml$2(details.short)}</div>
                     <details class="jpdb-reader-grammar-more">
-                        <summary>${escapeHtml$1(uiText(language, "grammarDetails"))}</summary>
-                        <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$1(details.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>${escapeHtml$1(uiText(language, "grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$1(hint.match)}</span></div>
+                        <summary>${escapeHtml$2(uiText(language, "grammarDetails"))}</summary>
+                        <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$2(details.detail)}</div>
+                        <div class="jpdb-reader-study-match"><span>${escapeHtml$2(uiText(language, "grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$2(hint.match)}</span></div>
                         ${renderGrammarHintExamples(details.examples, language, audioEnabled)}
                         ${renderGrammarHintGuide(details.url ?? "", language)}
                     </details>
@@ -37690,21 +37765,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderGrammarHintExamples(examples, language, audioEnabled) {
     const visibleExamples = examples.slice(0, 2);
     if (!visibleExamples.length) return "";
-    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml$1(uiText(language, "grammarExample"))}</span>${visibleExamples.map((example) => renderGrammarExample(example, language, audioEnabled)).join("")}</div>`;
+    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml$2(uiText(language, "grammarExample"))}</span>${visibleExamples.map((example) => renderGrammarExample(example, language, audioEnabled)).join("")}</div>`;
   }
   function renderGrammarExample(example, language, audioEnabled) {
-    const english = language === "ja" || !example.english ? "" : `<div>${escapeHtml$1(example.english)}</div>`;
-    const note = language === "ja" || !example.note || ENGLISH_TEXT_RE.test(example.note) ? "" : `<div>${escapeHtml$1(example.note)}</div>`;
+    const english = language === "ja" || !example.english ? "" : `<div>${escapeHtml$2(example.english)}</div>`;
+    const note = language === "ja" || !example.note || ENGLISH_TEXT_RE.test(example.note) ? "" : `<div>${escapeHtml$2(example.note)}</div>`;
     return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable">
         <div class="jpdb-reader-grammar-example-japanese">
-            <span class="jpdb-reader-parseable">${escapeHtml$1(example.japanese)}</span>
+            <span class="jpdb-reader-parseable">${escapeHtml$2(example.japanese)}</span>
             ${renderStudySentenceAudioButton(language, { audioEnabled, sentence: example.japanese })}
         </div>
         ${english}${note}
     </div>`;
   }
   function renderGrammarHintGuide(url, language) {
-    return url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language, "grammarGuide"))}</a>` : "";
+    return url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$2(url)}" target="_blank" rel="noopener">${escapeHtml$2(uiText(language, "grammarGuide"))}</a>` : "";
   }
   const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
   const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
@@ -38108,7 +38183,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const title = definitionSourceLabel(settings, STUDY_TRANSLATION_SOURCE_ID, uiText(settings.interfaceLanguage, "translation"));
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -38119,7 +38194,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const title = definitionSourceLabel(settings, STUDY_GRAMMAR_SOURCE_ID, uiText(settings.interfaceLanguage, "grammar"));
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
                 ${this.renderGrammarPanel()}
             </details>
         `;
@@ -38164,7 +38239,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const language = this.settings().interfaceLanguage;
       return `
             <div class="jpdb-reader-study-panel" data-study-grammar-panel>
-                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "findingGrammar"))}</div>
+                <div class="jpdb-reader-help">${escapeHtml$2(uiText(language, "findingGrammar"))}</div>
             </div>
         `;
     }
@@ -39940,7 +40015,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
   }
   function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
+    const regionRecord = asRecord$1(region);
     if (!regionRecord) return [];
     const regionBox = normalizeOcrRegion(regionRecord, width, height);
     const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
@@ -40126,7 +40201,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }, width, height);
   }
   function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
+    const record = asRecord$1(value);
     if (!record) return null;
     const text2 = simpleLineText(record);
     const box = simpleLineBox(record, width, height);
@@ -40159,7 +40234,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(record.is_vertical ?? record.box?.isVertical);
   }
   function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
+    const lineRecord = asRecord$1(item);
     if (!lineRecord) return null;
     const text2 = structuredOcrLineText(lineRecord);
     const box = structuredOcrLineBox(lineRecord, width, height);
@@ -40231,8 +40306,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
   }
   function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
+    const position = asRecord$1(record.position);
+    const dimensions = asRecord$1(record.dimensions);
     if (!position || !dimensions) return null;
     return boxFromNumbers({
       left: numberFrom(position.left),
@@ -40257,7 +40332,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
   }
   function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord$1(record[key])).filter((point) => Boolean(point));
     if (points.length < 2) return null;
     const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
     const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
@@ -40392,7 +40467,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function stringFrom(value) {
     return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
   }
-  function asRecord(value) {
+  function asRecord$1(value) {
     return value && typeof value === "object" ? value : null;
   }
   const LENS_PLATFORM_WEB = 3;
@@ -44561,7 +44636,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     setOcrWordPlainText(word, surface) {
       word.classList.remove("jpdb-reader-has-furi");
-      setInnerHtml(word, escapeHtml$1(surface));
+      setInnerHtml(word, escapeHtml$2(surface));
       normalizeOcrRenderedText(word);
     }
     // Drop every paused-frame and image overlay when YouTube navigates so no
@@ -44863,7 +44938,7 @@ ${spelling}`);
   function createOcrLineText(line, tokens, settings) {
     const textElement = document.createElement("span");
     textElement.className = "jpdb-ocr-line-text";
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml$1(line.text));
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml$2(line.text));
     normalizeOcrRenderedText(textElement);
     return textElement;
   }
@@ -45949,30 +46024,320 @@ ${spelling}`);
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
+  const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
+  const WANIKANI_REVISION = "20170710";
+  const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
+  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const FREE_TIER_MAX_LEVEL = 3;
+  class WanikaniApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+      this.name = "WanikaniApiError";
+    }
+  }
+  const MIN_REQUEST_INTERVAL_MS = 1100;
+  function fingerprintWanikaniToken(value) {
+    const token = value.trim();
+    if (!token) return "";
+    let first2 = 2166136261;
+    let second = 2654435769;
+    for (let index = 0; index < token.length; index += 1) {
+      const code = token.charCodeAt(index);
+      first2 = Math.imul(first2 ^ code, 16777619) >>> 0;
+      second = Math.imul(second ^ code, 2246822507) >>> 0;
+    }
+    return `${first2.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${token.length}`;
+  }
+  class WanikaniClient {
+    getToken;
+    baseUrl;
+    requestImpl;
+    timeoutMs;
+    minRequestIntervalMs;
+    now;
+    sleep;
+    lastRequestAt = 0;
+    requestStartQueue = Promise.resolve();
+    pending = /* @__PURE__ */ new Map();
+    responseCache = /* @__PURE__ */ new Map();
+    verifiedUser = null;
+    verifiedFingerprint = "";
+    constructor(options = {}) {
+      this.getToken = options.getToken ?? (() => "");
+      this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
+      this.requestImpl = options.requestImpl ?? requestHttp;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
+      this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? MIN_REQUEST_INTERVAL_MS);
+      this.now = options.now ?? Date.now;
+      this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    }
+    hasCredential() {
+      return Boolean(this.getToken().trim());
+    }
+    tokenFingerprint() {
+      return fingerprintWanikaniToken(this.getToken());
+    }
+    async getUser(force = false) {
+      const fingerprint = this.currentFingerprint();
+      if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
+      const raw = await this.request("/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
+      const user = parseWanikaniUser(raw);
+      this.verifiedUser = user;
+      this.verifiedFingerprint = fingerprint;
+      return user;
+    }
+    async effectiveMaxLevel() {
+      const user = this.verifiedUser ?? await this.getUser();
+      const subscription = user.subscription;
+      if (!subscription.active) return FREE_TIER_MAX_LEVEL;
+      if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
+      if (subscription.type === "free") return FREE_TIER_MAX_LEVEL;
+      const granted = Number(subscription.max_level_granted);
+      return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
+    }
+    async getSummary() {
+      await this.ensureUser();
+      return this.request("/summary", {}, { cacheTtlMs: 3e4 });
+    }
+    async getAssignments(options = {}) {
+      await this.ensureUser();
+      return this.collect("/assignments", options, 3e4);
+    }
+    async getSubjects(options = {}) {
+      await this.ensureUser();
+      const maxLevel = await this.effectiveMaxLevel();
+      const requestedLevels = options.levels?.filter((level) => level >= 1 && level <= maxLevel);
+      if (options.levels?.length && !requestedLevels?.length) return [];
+      const levels = requestedLevels?.length ? requestedLevels : Array.from({ length: maxLevel }, (_, index) => index + 1);
+      const subjects = await this.collect("/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
+      return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
+    }
+    async getStudyMaterials(options = {}) {
+      await this.ensureUser();
+      return this.collect("/study_materials", options, 6e4);
+    }
+    async getReviewStatistics(options = {}) {
+      await this.ensureUser();
+      return this.collect("/review_statistics", options, 6e4);
+    }
+    async createReview(body) {
+      await this.ensureUser();
+      const response = await this.request("/reviews", {
+        method: "POST",
+        body: { review: body }
+      });
+      this.invalidateReviewStateCaches();
+      return response;
+    }
+    async ensureUser() {
+      return this.getUser();
+    }
+    async collect(path, options, cacheTtlMs = 0) {
+      const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
+      const cachedResponse = this.responseCache.get(dedupeKey);
+      if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
+      const cached = this.pending.get(dedupeKey);
+      if (cached) return cached;
+      const promise = this.collectUncached(path, options).then((items) => {
+        if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+        return items;
+      }).finally(() => this.pending.delete(dedupeKey));
+      this.pending.set(dedupeKey, promise);
+      return promise;
+    }
+    async collectUncached(path, options) {
+      const items = [];
+      let url = `${this.baseUrl}${path}${queryString(options)}`;
+      const visited = /* @__PURE__ */ new Set();
+      while (url) {
+        if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
+        if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
+        if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+        visited.add(url);
+        const page = await this.requestUrl(url);
+        if (Array.isArray(page.data)) items.push(...page.data);
+        url = typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+      }
+      return items;
+    }
+    request(path, options = {}, cache2 = {}) {
+      const url = `${this.baseUrl}${path}`;
+      if (!cache2.cacheTtlMs || options.method === "POST") return this.requestUrl(url, options);
+      const key = `${this.currentFingerprint()}:${url}`;
+      const cached = this.responseCache.get(key);
+      if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+      const pending = this.pending.get(key);
+      if (pending) return pending;
+      const request = this.requestUrl(url, options).then((value) => {
+        this.responseCache.set(key, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
+        return value;
+      }).finally(() => this.pending.delete(key));
+      this.pending.set(key, request);
+      return request;
+    }
+    async requestUrl(url, options = {}) {
+      const token = this.getToken().trim();
+      if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
+      if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
+      let attempt = 0;
+      while (true) {
+        await this.throttle();
+        try {
+          return await this.requestImpl(url, {
+            method: options.method ?? "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Wanikani-Revision": WANIKANI_REVISION,
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+            responseType: "json",
+            timeoutMs: this.timeoutMs,
+            preferFetch: true,
+            allowDirectCrossOrigin: true,
+            proxyUrl: "",
+            allowPublicProxies: false,
+            allowConfiguredProxy: false,
+            credentials: "omit",
+            referrerPolicy: "no-referrer",
+            failureLabel: "WaniKani request",
+            statusFailureMessage: (status) => status === 401 ? "WaniKani token expired or was denied (401)." : status === 403 ? "WaniKani token lacks permission for this request (403)." : `WaniKani API request failed (${status}).`
+          });
+        } catch (error) {
+          const normalized = normalizeWanikaniError(error);
+          if (attempt === 0 && isRateLimitError(normalized)) {
+            attempt += 1;
+            await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
+            continue;
+          }
+          throw normalized;
+        }
+      }
+    }
+    throttle() {
+      const scheduled = this.requestStartQueue.then(async () => {
+        const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
+        if (wait > 0) await this.sleep(wait);
+        this.lastRequestAt = this.now();
+      });
+      this.requestStartQueue = scheduled.catch(() => void 0);
+      return scheduled;
+    }
+    currentFingerprint() {
+      const fingerprint = this.tokenFingerprint();
+      if (!fingerprint) throw new WanikaniApiError("WaniKani API token is not set.");
+      if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
+        this.verifiedUser = null;
+        this.verifiedFingerprint = "";
+        this.pending.clear();
+        this.responseCache.clear();
+      }
+      return fingerprint;
+    }
+    invalidateReviewStateCaches() {
+      const fingerprint = this.tokenFingerprint();
+      const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
+      for (const key of this.responseCache.keys()) {
+        if (key === summaryKey || key.startsWith(`${fingerprint}:/assignments?`) || key.startsWith(`${fingerprint}:/review_statistics?`)) {
+          this.responseCache.delete(key);
+        }
+      }
+    }
+    isSafeApiUrl(value) {
+      try {
+        const url = new URL(value);
+        const base = new URL(`${this.baseUrl}/`);
+        return url.protocol === "https:" && url.origin === base.origin && url.pathname.startsWith(base.pathname);
+      } catch {
+        return false;
+      }
+    }
+  }
+  const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
+  function parseWanikaniUser(raw) {
+    const record = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
+    const subscriptionRaw = isRecord$2(record.subscription) ? record.subscription : {};
+    return {
+      id: typeof record.id === "string" ? record.id : "",
+      level: typeof record.level === "number" ? record.level : 0,
+      subscription: {
+        active: subscriptionRaw.active === true,
+        type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
+        max_level_granted: typeof subscriptionRaw.max_level_granted === "number" ? subscriptionRaw.max_level_granted : 0,
+        period_ends_at: typeof subscriptionRaw.period_ends_at === "string" ? subscriptionRaw.period_ends_at : null
+      }
+    };
+  }
+  function queryString(options) {
+    const params = new URLSearchParams();
+    if (options.ids?.length) params.set("ids", options.ids.join(","));
+    if (options.levels?.length) params.set("levels", options.levels.join(","));
+    if (options.types?.length) params.set("types", options.types.join(","));
+    if (options.updatedAfter) params.set("updated_after", options.updatedAfter);
+    if (options.hidden !== void 0) params.set("hidden", String(options.hidden));
+    if (options.immediatelyAvailableForReview !== void 0) params.set("immediately_available_for_review", String(options.immediatelyAvailableForReview));
+    if (options.immediatelyAvailableForLessons !== void 0) params.set("immediately_available_for_lessons", String(options.immediatelyAvailableForLessons));
+    if (options.subjectIds?.length) params.set("subject_ids", options.subjectIds.join(","));
+    if (options.slugs?.length) params.set("slugs", options.slugs.join(","));
+    if (options.srsStages?.length) params.set("srs_stages", options.srsStages.join(","));
+    if (options.availableBefore) params.set("available_before", options.availableBefore);
+    if (options.started !== void 0) params.set("started", String(options.started));
+    if (options.unlocked !== void 0) params.set("unlocked", String(options.unlocked));
+    if (options.page !== void 0) params.set("page", String(options.page));
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
+  function normalizeWanikaniError(error) {
+    if (error instanceof WanikaniApiError) return error;
+    const status = httpStatusFromError(error);
+    if (!(error instanceof Error)) return new WanikaniApiError("WaniKani request failed.", status);
+    if (status === 401) return new WanikaniApiError("WaniKani token expired or was denied.", 401);
+    if (status === 403) return new WanikaniApiError("WaniKani token lacks permission for this request.", 403);
+    if (status !== void 0) return new WanikaniApiError(error.message, status);
+    return error;
+  }
+  function isRateLimitError(error) {
+    return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
+  }
+  function rawSubjectLevel(value) {
+    if (!isRecord$2(value) || !isRecord$2(value.data)) return Number.POSITIVE_INFINITY;
+    return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
+  }
+  function stableOptionsKey(options) {
+    return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
+  }
+  function trimBaseUrl(value) {
+    return value.replace(/\/+$/u, "");
+  }
+  function isRecord$2(value) {
+    return typeof value === "object" && value !== null;
+  }
   const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
   function input(name, label, value, type = "text", attributes = {}) {
     const fieldClass = ["jpdb-reader-settings-field"];
     if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
-    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
+    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$2(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
   }
   function shortcutInput(name, label, value, placeholder = "Press keys") {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$1(label)}"></label>`;
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$2(value)}" placeholder="${escapeHtml$2(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$2(label)}"></label>`;
   }
   function checkbox(name, label, checked, attributes = {}) {
     return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
   }
   function select(name, label, value, options) {
     return `<label>${label}<select name="${name}">${options.map(
-      ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
     ).join("")}</select></label>`;
   }
   function radioGroup(name, label, value, options) {
     return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
-      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$1(text2)}</label>`
+      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$2(text2)}</label>`
     ).join("")}</fieldset>`;
   }
   function settingsTabButton(panel, label, active = false) {
-    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$1(label)}</button>`;
+    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$2(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$2(label)}</button>`;
   }
   function miniIcon(name) {
     const paths = {
@@ -45998,7 +46363,7 @@ ${spelling}`);
     }[panel] ?? "jpdb-reader-settings-panel-api";
   }
   function attributeHtml(attributes) {
-    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$1(String(attributeValue))}"`).join("");
+    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$2(String(attributeValue))}"`).join("");
   }
   function booleanAttributeHtml(attributes) {
     return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
@@ -46232,6 +46597,7 @@ ${spelling}`);
     ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority", "jpdbKanjiAlias"],
     ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority", "kanjiImmersionKitAlias"],
     ["uchisen", "uchisenEnabled", "uchisenPriority", "uchisenAlias"],
+    ["wanikaniKanji", "wanikaniKanjiEnabled", "wanikaniKanjiPriority", "wanikaniKanjiAlias"],
     ["rtk", "rtkEnabled", "rtkPriority", "rtkAlias"],
     ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
     ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
@@ -46257,7 +46623,8 @@ ${spelling}`);
     const apiDefinitionRowsPresent = {
       jpdb: hasSourceRow(has, "jpdbDefinitions"),
       jiten: hasSourceRow(has, "jitenDefinitions"),
-      bunpro: hasSourceRow(has, "bunproDefinitions")
+      bunpro: hasSourceRow(has, "bunproDefinitions"),
+      wanikani: hasSourceRow(has, "wanikaniDefinitions")
     };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
@@ -46326,6 +46693,9 @@ ${spelling}`);
       bunproDefinitionsEnabled: rowsPresent.bunpro ? has("bunproDefinitions.enabled") : current.bunproDefinitionsEnabled,
       bunproDefinitionsAlias: readSourceAlias(reader, "bunproDefinitions", current.bunproDefinitionsAlias),
       bunproDefinitionsPriority: clamped("bunproDefinitions.priority", 0, 999, current.bunproDefinitionsPriority),
+      wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has("wanikaniDefinitions.enabled") : current.wanikaniDefinitionsEnabled,
+      wanikaniDefinitionsAlias: readSourceAlias(reader, "wanikaniDefinitions", current.wanikaniDefinitionsAlias),
+      wanikaniDefinitionsPriority: clamped("wanikaniDefinitions.priority", 0, 999, current.wanikaniDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
       jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
@@ -46424,7 +46794,7 @@ ${spelling}`);
       newTabEnabled: current.newTabEnabled,
       newTabAnkiEnabled: has("newTabAnkiEnabled"),
       newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
-      newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "yomu-local", "anki", "dictionary"], current.newTabSource),
+      newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "wanikani", "yomu-local", "anki", "dictionary"], current.newTabSource),
       newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
       newTabJpdbReviewMode: readOption(get("newTabJpdbReviewMode"), ["auto", "api-vocabulary", "live-review"], current.newTabJpdbReviewMode),
       corsProxyUrl: get("corsProxyUrl").trim(),
@@ -46576,6 +46946,7 @@ ${spelling}`);
     return {
       jpdbMiningEnabled: has("jpdbMiningEnabled"),
       bunproMiningEnabled: has("bunproMiningEnabled"),
+      wanikaniReviewEnabled: has("wanikaniReviewEnabled"),
       yomuLocalSrsEnabled: has("yomuLocalSrsEnabled"),
       autoMineOnReview: has("autoMineOnReview"),
       miningDeck: get("miningDeck").trim() || "forq",
@@ -46781,6 +47152,7 @@ ${spelling}`);
     __jpdb__: { helpKey: "sourceHelpJpdb" },
     __jiten__: { helpKey: "sourceHelpJiten" },
     __bunpro__: { helpKey: "sourceHelpBunpro" },
+    __wanikani__: { helpKey: "sourceHelpWanikani" },
     __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
     __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
     __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
@@ -46788,6 +47160,7 @@ ${spelling}`);
     __kanji_stroke__: { nameKey: "sourceNameStrokePractice", helpKey: "sourceHelpStrokePractice" },
     __kanji_rtk__: { helpKey: "sourceHelpRtk" },
     __kanji_uchisen__: { helpKey: "sourceHelpUchisen" },
+    __kanji_wanikani__: { helpKey: "sourceHelpWanikaniKanji" },
     __kanji_dictionaries__: { nameKey: "sourceNameImportedKanjiDictionaries", helpKey: "sourceHelpImportedKanjiDictionaries" },
     __kanji_similar_words__: { nameKey: "sourceNameWordsUsingKanji", helpKey: "sourceHelpWordsUsingKanji" },
     __kanji_origins__: { nameKey: "originStructure", helpKey: "sourceHelpComponentGraph" }
@@ -46795,10 +47168,10 @@ ${spelling}`);
   const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
   function miniIconButton(icon, label, attributes) {
     const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
-    return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</button>`;
+    return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${miniIcon(icon)}</button>`;
   }
   function renderRowOrderTools(options) {
-    const ariaLabel = options.label ? ` aria-label="${escapeHtml$1(options.label)}"` : "";
+    const ariaLabel = options.label ? ` aria-label="${escapeHtml$2(options.label)}"` : "";
     return `<div class="jpdb-reader-row-tools jpdb-reader-row-order-tools"${ariaLabel}>
                     ${options.leading ?? ""}
                     ${miniIconButton("drag", options.labels.drag, 'data-source-drag-handle tabindex="-1"')}
@@ -46822,7 +47195,7 @@ ${spelling}`);
     return `
         <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
             <span>On</span>
-            <span>${escapeHtml$1(options.sourceLabel)}</span>
+            <span>${escapeHtml$2(options.sourceLabel)}</span>
             ${options.showAlias ? "<span>Display name</span>" : ""}
             <span>Order</span>
             ${showRemove ? "<span>Remove</span>" : ""}
@@ -46839,12 +47212,12 @@ ${spelling}`);
   }
   function renderSourceRowsCountInput(options, removableCount) {
     if (!options.countName) return "";
-    return `<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue ?? removableCount}">`;
+    return `<input type="hidden" name="${escapeHtml$2(options.countName)}" value="${options.countValue ?? removableCount}">`;
   }
   function renderSourceRow(row, index, context) {
     const keys = sourceRowCopyKeys(row);
     return `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$2(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? "checked" : ""}>
                     <span>${index + 1}</span>
@@ -46865,8 +47238,8 @@ ${spelling}`);
   }
   function renderSourceAliasControl(row, showAlias, keys) {
     if (!showAlias) return "";
-    const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml$1(keys.nameKey)}"` : "";
-    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml$1(row.name)}"${keyAttribute}>`;
+    const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml$2(keys.nameKey)}"` : "";
+    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml$2(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml$2(row.name)}"${keyAttribute}>`;
   }
   function renderSourceRemoveCell(row, showRemove) {
     if (!showRemove) return "";
@@ -46874,24 +47247,24 @@ ${spelling}`);
   }
   function renderSourceRemoveButton(row) {
     if (!row.removable) return "";
-    return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(row.name)}"`);
+    return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$2(row.name)}"`);
   }
   function renderSourceTypeInput(row) {
     if (!row.removable) return "";
-    return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType ?? "terms")}">`;
+    return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$2(row.dictionaryType ?? "terms")}">`;
   }
   function renderSourceRowHelp(row, keys) {
     if (!row.help) return "";
-    const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml$1(keys.helpKey)}"` : "";
-    return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml$1(row.help)}</div>`;
+    const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml$2(keys.helpKey)}"` : "";
+    return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml$2(row.help)}</div>`;
   }
   function sourceRowDisplayName(row, showAlias) {
     return !showAlias && row.alias ? row.alias : row.name;
   }
   function sourceField(displayValue, formValue, prefix, field, label, nameKey) {
     return `
-        <span class="jpdb-reader-field-display" aria-label="${escapeHtml$1(label)}" ${nameKey ? `data-source-name-key="${escapeHtml$1(nameKey)}"` : ""}>${escapeHtml$1(displayValue)}</span>
-        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$1(formValue)}">
+        <span class="jpdb-reader-field-display" aria-label="${escapeHtml$2(label)}" ${nameKey ? `data-source-name-key="${escapeHtml$2(nameKey)}"` : ""}>${escapeHtml$2(displayValue)}</span>
+        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$2(formValue)}">
     `;
   }
   function sourceRowCopyKeys(row) {
@@ -46920,7 +47293,7 @@ ${spelling}`);
     ["m2", "Male 2"]
   ];
   function escapedUiText$3(language, key) {
-    return escapeHtml$1(uiText(language, key));
+    return escapeHtml$2(uiText(language, key));
   }
   function renderAudioSourceEditor(sources, language = "en") {
     return `
@@ -46953,20 +47326,20 @@ ${spelling}`);
         ${rows.map((source, index) => `
             <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
                 <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
-                    <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
+                    <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$2(uiText(language, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
                     <span>${index + 1}</span>
                 </label>
                 <div class="jpdb-reader-audio-source-choice">
-                    <select name="audioSources.${index}.type" aria-label="${escapeHtml$1(uiText(language, "audioSourceNumber").replace("{number}", String(index + 1)))}">
+                    <select name="audioSources.${index}.type" aria-label="${escapeHtml$2(uiText(language, "audioSourceNumber").replace("{number}", String(index + 1)))}">
                         ${audioSourceSelectOptions(source.type, language).map(
-      ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
     ).join("")}
                     </select>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$3(language, "previewAudio")}" aria-label="${escapedUiText$3(language, "previewAudio")}">${speakerIcon()}</button>
                 </div>
                 <div class="jpdb-reader-audio-source-fields">
-                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                    <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$2(source.url)}" placeholder="${escapeHtml$2(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
+                    <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$2(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$2(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
                         ${audioVoiceSelectOptions(source, language)}
                     </select>
                 </div>
@@ -47011,25 +47384,25 @@ ${spelling}`);
     if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
     if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
     const label = source.voice || uiText(language, "automaticBrowserVoice");
-    return `<option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(label)}</option>`;
+    return `<option value="${escapeHtml$2(source.voice)}">${escapeHtml$2(label)}</option>`;
   }
   function jitenTtsVoiceSelectOptions(selectedVoice) {
     const selected = selectedVoice.trim();
     const options = JITEN_TTS_VOICE_OPTIONS.map(
-      ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+      ([value, label]) => `<option value="${escapeHtml$2(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$2(label)}</option>`
     );
     if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-      options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+      options.push(`<option value="${escapeHtml$2(selected)}" selected>${escapeHtml$2(selected)}</option>`);
     }
     return options.join("");
   }
   function jpdbTtsVoiceSelectOptions(selectedVoice) {
     const selected = selectedVoice.trim();
     const options = JPDB_TTS_VOICE_OPTIONS.map(
-      ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+      ([value, label]) => `<option value="${escapeHtml$2(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$2(label)}</option>`
     );
     if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-      options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+      options.push(`<option value="${escapeHtml$2(selected)}" selected>${escapeHtml$2(selected)}</option>`);
     }
     return options.join("");
   }
@@ -47064,14 +47437,14 @@ ${spelling}`);
     form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
       const selected = select2.value || select2.dataset.selectedVoice || "";
       const options = [
-        `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
+        `<option value="" ${selected ? "" : "selected"}>${escapeHtml$2(text2("automaticBrowserVoice"))}</option>`,
         ...sortedVoices.map((voice) => {
           const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? ` - ${text2("defaultVoiceSuffix")}` : ""}`;
-          return `<option value="${escapeHtml$1(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`;
+          return `<option value="${escapeHtml$2(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$2(label)}</option>`;
         })
       ];
       if (selected && !sortedVoices.some((voice) => voice.name === selected)) {
-        options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
+        options.push(`<option value="${escapeHtml$2(selected)}" selected>${escapeHtml$2(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
       }
       setInnerHtml(select2, options.join(""));
     });
@@ -47137,7 +47510,7 @@ ${spelling}`);
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
       const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$1(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
       const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
@@ -47145,11 +47518,11 @@ ${spelling}`);
                         <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? "checked" : ""}>
                         <span>${index + 1}</span>
                     </label>
-                    <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml$1(link.label)}" aria-label="Lookup pill label">
+                    <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml$2(link.label)}" aria-label="Lookup pill label">
                     ${urlControl}
-                    <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml$1(link.id)}">
-                    <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml$1(link.action ?? "open")}">
-                    <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml$1(String(link.priority ?? index))}">
+                    <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml$2(link.id)}">
+                    <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml$2(link.action ?? "open")}">
+                    <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml$2(String(link.priority ?? index))}">
                     ${orderTools}
                     ${renderRowRemoveTools(removeControl)}
                 </div>
@@ -47286,9 +47659,9 @@ ${spelling}`);
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord$3(body) && Array.isArray(body.files) ? body.files : [];
     const first2 = files[0];
-    return isRecord(first2) && typeof first2.id === "string" ? first2 : null;
+    return isRecord$3(first2) && typeof first2.id === "string" ? first2 : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -47430,7 +47803,7 @@ ${spelling}`);
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord(parsed) ? parsed : null;
+      return isRecord$3(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -47440,7 +47813,7 @@ ${spelling}`);
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord(parsed) ? parsed : null;
+      return isRecord$3(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -47520,12 +47893,12 @@ ${spelling}`);
     } catch {
       return null;
     }
-    if (!isRecord(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord(parsed.settings)) return null;
+    if (!isRecord$3(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord$3(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord(value) && typeof value.id === "string") return value;
+    if (isRecord$3(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -47541,12 +47914,12 @@ ${spelling}`);
     const tags = ankiTagList(value);
     return `
         <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
-            <input type="hidden" name="ankiTags" value="${escapeHtml$1(tags.join(" "))}">
-            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml$1(uiText(language, "ankiTags"))}</label>
+            <input type="hidden" name="ankiTags" value="${escapeHtml$2(tags.join(" "))}">
+            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml$2(uiText(language, "ankiTags"))}</label>
             <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${renderAnkiTagChipHtml(tags, language)}</div>
             <div class="jpdb-reader-tag-add-row">
-                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$1(language === "ja" ? "タグを追加" : "Add tag")}">
-                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language === "ja" ? "追加" : "Add")}</button>
+                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$2(language === "ja" ? "タグを追加" : "Add tag")}">
+                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$2(language === "ja" ? "追加" : "Add")}</button>
             </div>
         </div>
     `;
@@ -47579,8 +47952,8 @@ ${spelling}`);
   }
   function renderAnkiTagChipHtml(tags, language) {
     return tags.map((tag) => `
-        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1(tagRemoveLabel(tag, language))}">
-            <span>${escapeHtml$1(tag)}</span>
+        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$2(tag)}" aria-label="${escapeHtml$2(tagRemoveLabel(tag, language))}">
+            <span>${escapeHtml$2(tag)}</span>
             <span aria-hidden="true">×</span>
         </button>
     `).join("");
@@ -47601,13 +47974,13 @@ ${spelling}`);
   const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   function escapedUiText$2(language, key) {
-    return escapeHtml$1(uiText(language, key));
+    return escapeHtml$2(uiText(language, key));
   }
   function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
     return `
             <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
                 <legend>Anki</legend>
-                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml$1(JSON.stringify(settings.ankiFieldMappings))}">
+                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml$2(JSON.stringify(settings.ankiFieldMappings))}">
                 <input type="hidden" data-anki-scan-fields value="{}">
                 <input type="hidden" data-anki-scan-confidence value="{}">
                 <div class="jpdb-reader-anki-layout">
@@ -47663,7 +48036,7 @@ ${spelling}`);
   }
   function renderAnkiLibraryOptions(options, value, language = "en") {
     const values = uniqueStrings([value, ...options].filter(Boolean));
-    const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
+    const rows = values.map((option) => `<option value="${escapeHtml$2(option)}" ${option === value ? "selected" : ""}>${escapeHtml$2(option)}</option>`);
     return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language, "scanAnkiFirst")}</option>`;
   }
   function renderAnkiDeckLibraryOptions(options, value, language = "en") {
@@ -47675,7 +48048,7 @@ ${spelling}`);
     const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
     const options = (selected = "") => [
       `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language, "notMapped")}</option>`,
-      ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
+      ...fields.map((field) => `<option value="${escapeHtml$2(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$2(field)}</option>`)
     ].join("");
     const rows = ANKI_FIELD_MAPPING_ROLES$1.map((role) => {
       const value = mapping[role] ?? "";
@@ -47684,10 +48057,10 @@ ${spelling}`);
       return `
                 <label>
                     <span class="jpdb-reader-anki-field-role-row">
-                        <span>${escapeHtml$1(roleLabel)}</span>
+                        <span>${escapeHtml$2(roleLabel)}</span>
                         ${confidence ? renderAnkiMappingConfidence(confidence, language) : ""}
                     </span>
-                    <select data-anki-field-role="${escapeHtml$1(role)}" aria-label="${escapeHtml$1(uiText(language, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
+                    <select data-anki-field-role="${escapeHtml$2(role)}" aria-label="${escapeHtml$2(uiText(language, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
                         ${options(value)}
                     </select>
                 </label>
@@ -47695,8 +48068,8 @@ ${spelling}`);
     }).join("");
     const emptyState = fields.length ? "" : `<div class="jpdb-reader-help">${escapedUiText$2(language, "noScannedFields")}</div>`;
     return `
-            <div data-anki-field-mapping-model="${escapeHtml$1(model)}">
-                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "mappingForNoteType").replace("{model}", model || uiText(language, "currentNoteType")))}</div>
+            <div data-anki-field-mapping-model="${escapeHtml$2(model)}">
+                <div class="jpdb-reader-help">${escapeHtml$2(uiText(language, "mappingForNoteType").replace("{model}", model || uiText(language, "currentNoteType")))}</div>
                 <div class="grid">
                     ${rows}
                 </div>
@@ -47741,9 +48114,9 @@ ${spelling}`);
     const merged = hasValue || !value ? options : [[value, savedLabel], ...options];
     return `<label>${label}
         <select name="${name}" ${disabled ? "disabled" : ""}>
-            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
+            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`).join("")}
         </select>
-        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
+        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$2(value)}">` : ""}
     </label>`;
   }
   function renderAnkiTemplatePreview(settings) {
@@ -47776,7 +48149,7 @@ ${spelling}`);
   }
   const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
   function escapedUiText$1(language, key) {
-    return escapeHtml$1(uiText(language, key));
+    return escapeHtml$2(uiText(language, key));
   }
   function renderJpdbStatusLine(settings) {
     const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
@@ -47785,6 +48158,14 @@ ${spelling}`);
   function renderBunproStatusLine(settings) {
     const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+  }
+  function renderWanikaniStatusLine(settings) {
+    const line = wanikaniStatusLineForSettings(settings, settings.interfaceLanguage);
+    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-wanikani-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+  }
+  function wanikaniStatusLineForSettings(settings, language) {
+    const japanese = resolveUiLanguage(language) === "ja";
+    return hasWanikaniApiCredential(settings) ? { message: japanese ? "WaniKaniトークン保存済み（確認中）。" : "WaniKani token saved (checking).", tone: "pending" } : { message: japanese ? "WaniKaniトークンなし。" : "No WaniKani token.", tone: "pending" };
   }
   function formatStatusTemplate(template, values) {
     return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
@@ -47847,10 +48228,10 @@ ${spelling}`);
     return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language);
   }
   function formatSettingsStatusLine(line, language) {
-    return `${escapedUiText$1(language, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$1(line.message)}`;
+    return `${escapedUiText$1(language, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$2(line.message)}`;
   }
   function renderAnkiStatusHtml(line, language) {
-    const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$1(line.state)}">${escapedUiText$1(language, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
+    const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$2(line.state)}">${escapedUiText$1(language, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
     const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language)}</div>`;
     const actions = [...line.details ?? [], ...ankiStatusActions(line.action, language)];
     if (!actions.length) return summary;
@@ -47870,8 +48251,8 @@ ${spelling}`);
     return keys[state2];
   }
   function renderStatusAction(action) {
-    const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
-    return `<li>${label}${action.suffix ? ` <span>${escapeHtml$1(action.suffix)}</span>` : ""}</li>`;
+    const label = action.href ? `<a href="${escapeHtml$2(action.href)}" target="_blank" rel="noopener">${escapeHtml$2(action.label)}</a>` : escapeHtml$2(action.label);
+    return `<li>${label}${action.suffix ? ` <span>${escapeHtml$2(action.suffix)}</span>` : ""}</li>`;
   }
   function ankiStatusActions(action, language) {
     if (action === "anki-unreachable") {
@@ -47961,6 +48342,7 @@ ${spelling}`);
       ["yomu-local", text2("newTabYomuLocal")],
       ["jpdb", text2("newTabApiSrs")],
       ["bunpro", text2("newTabBunpro")],
+      ["wanikani", text2("newTabWanikani")],
       ["anki", "Anki"],
       ["dictionary", text2("dictionaryFallback")]
     ];
@@ -48064,7 +48446,7 @@ ${spelling}`);
     ["subtitleTextColorSource", "subtitleTextColorSource"]
   ];
   function escapedUiText(language, key) {
-    return escapeHtml$1(uiText(language, key));
+    return escapeHtml$2(uiText(language, key));
   }
   function renderHelpLinksPanel(language = "en") {
     return `
@@ -48073,15 +48455,15 @@ ${spelling}`);
                 <div class="jpdb-reader-help-version-row">
                     <div class="jpdb-reader-help-version-copy">
                         <div class="jpdb-reader-local-title" data-help-update-title>Version</div>
-                        <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml$1(CURRENT_YOMU_VERSION)}</span></div>
+                        <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml$2(CURRENT_YOMU_VERSION)}</span></div>
                     </div>
-                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml$1(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml$2(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
                 </div>
                 <div class="jpdb-reader-help-update-meta">
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml$1(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml$1(duplicateRuntimeStatusText("en"))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml$2(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml$2(duplicateRuntimeStatusText("en"))}</div>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml$1(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml$2(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
             <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
                 <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
@@ -48114,8 +48496,8 @@ ${spelling}`);
             </div>
             <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-support-title>Support よむ</div>
-                <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml$1(SUPPORT_COPY)}</div>
-                <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml$1(SUPPORT_COPY_EXTRA)}</div>
+                <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml$2(SUPPORT_COPY)}</div>
+                <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml$2(SUPPORT_COPY_EXTRA)}</div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel("Donate")}</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel("Issues")}</a>
@@ -48185,6 +48567,7 @@ ${spelling}`);
     const text2 = settingsText(language);
     const jpdbStatus = renderJpdbStatusLine(settings);
     const bunproStatus = renderBunproStatusLine(settings);
+    const wanikaniStatus = renderWanikaniStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>${escapedUiText(language, "api")}</legend>
@@ -48194,17 +48577,22 @@ ${spelling}`);
                         ${input("apiCredentialJiten", `${escapedUiText(language, "apiCredentialJiten")} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, "jitenSettings")}</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `${escapedUiText(language, "apiCredentialJpdb")} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, "jpdbSettings")}</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialBunpro", `${escapedUiText(language, "apiCredentialBunpro")} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, "bunproSettings")}</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
-                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$2(settings.bunproFrontendApiTokenExpiresAt)}">
+                        ${input("apiCredentialWanikani", `${escapedUiText(language, "apiCredentialWanikani")} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, "wanikaniSettings")}</a>`, settings.wanikaniApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "wanikani personal access token" })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, "apiAccessHelp")}</div>
+                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, "wanikaniTokenHelp")}</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
+                ${wanikaniStatus}
                 <div data-jpdb-decks>
                     ${renderDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox("jpdbMiningEnabled", text2("jpdbMiningEnabled"), settings.jpdbMiningEnabled)}
                 ${checkbox("bunproMiningEnabled", text2("bunproMiningEnabled"), settings.bunproMiningEnabled)}
+                ${checkbox("wanikaniReviewEnabled", text2("wanikaniReviewEnabled"), settings.wanikaniReviewEnabled)}
+                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(language, "wanikaniGradeMappingHelp")}</div>
                 ${checkbox("addToForq", text2("addToForq"), settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox("enableReviews", text2("enableReviews"), settings.enableReviews)}
                 ${select("apiGradingProvider", text2("apiGradingProvider"), settings.apiGradingProvider === "bunpro" ? "jiten" : settings.apiGradingProvider, [["jiten", "Jiten"], ["jpdb", "JPDB"]])}
@@ -48294,7 +48682,7 @@ ${spelling}`);
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
                         ${input("newTabOfflineLimit", text2("newTabOfflineLimit"), String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
                         ${input("newTabDailyGoalMinutes", text2("newTabDailyGoalMinutes"), String(settings.newTabDailyGoalMinutes), "number", { min: 0, max: 1440, step: 5 })}
-                        <label>${escapedUiText(language, "newTabUrl")}<input name="newTabUrl" type="text" value="${escapeHtml$1(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
+                        <label>${escapedUiText(language, "newTabUrl")}<input name="newTabUrl" type="text" value="${escapeHtml$2(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>${escapedUiText(language, "openNewTabPage")}</a>
@@ -48325,18 +48713,18 @@ ${spelling}`);
   }
   function renderNewTabStudyStepRow(step, index, enabled, language) {
     return `
-                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml$1(step)}">
+                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml$2(step)}">
                                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml$1(step)}" ${enabled ? "checked" : ""}>
+                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml$2(step)}" ${enabled ? "checked" : ""}>
                                     <span>${index + 1}</span>
                                 </label>
-                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_HELP_KEYS[step])}</div>
+                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml$2(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$2(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_HELP_KEYS[step])}</div>
                                 ${renderRowOrderTools({
       upAction: "dictionary-source-up",
       downAction: "dictionary-source-down",
       labels: { drag: uiText(language, "dragToReorder"), up: uiText(language, "moveUp"), down: uiText(language, "moveDown") },
-      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml$1(step)}">`
+      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml$2(step)}">`
     })}
                             </div>
     `;
@@ -48362,7 +48750,7 @@ ${spelling}`);
                         </div>`;
   }
   function renderNewTabAnkiDisabledDecksInput(disabled) {
-    return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml$1(disabled.join(", "))}">`;
+    return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml$2(disabled.join(", "))}">`;
   }
   function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language) {
     const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
@@ -48380,8 +48768,8 @@ ${spelling}`);
   function renderNewTabAnkiDeckToggle(deck, checked) {
     return `
                                 <label class="jpdb-reader-newtab-anki-deck-toggle" data-newtab-anki-deck-row data-active="${checked ? "true" : "false"}">
-                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml$1(deck)}" ${checked ? "checked" : ""}>
-                                    <span>${escapeHtml$1(deck)}</span>
+                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml$2(deck)}" ${checked ? "checked" : ""}>
+                                    <span>${escapeHtml$2(deck)}</span>
                                 </label>`;
   }
   function isNewTabAnkiDeckDisabled(deck, disabledDecks) {
@@ -48546,7 +48934,7 @@ ${spelling}`);
     const options = colorSourceSelectOptions(text2, combinedApiCredentialLabel(settings));
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapeHtml$1(text2("colorChannels"))}</div>
+                    <div class="jpdb-reader-local-title">${escapeHtml$2(text2("colorChannels"))}</div>
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, key]) => select(name, text2(key), settingsColorSourceValue(settings, name), options)).join("")}
                     </div>
@@ -48599,8 +48987,8 @@ ${spelling}`);
   function audioAutoPlayModeSelect(language, value, disabled) {
     const options = localizedOptions(settingsText(language), AUDIO_AUTO_PLAY_MODE_OPTIONS);
     return `<label>${escapedUiText(language, "audioAutoPlayMode")}<select name="audioAutoPlayMode" ${disabled ? "disabled" : ""}>${options.map(
-      ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
-    ).join("")}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml$1(value)}">` : ""}</label>`;
+      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
+    ).join("")}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml$2(value)}">` : ""}</label>`;
   }
   function renderProxySetupGuide(language) {
     return `
@@ -48794,10 +49182,10 @@ ${spelling}`);
                     ${input("ocrFontScale", text2("ocrFontScale"), String(settings.ocrFontScale), "number")}
                     <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">${escapedUiText(language, "ocrLocalHelp")}</div>
                     <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", text2("ocrEngine"), settings.ocrEngine, ocrEngineOptions(text2))}</div>
-                    <label data-local-ocr ${localOcrHidden}>${escapedUiText(language, "ocrEndpointUrl")}<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    <label data-local-ocr ${localOcrHidden}>${escapedUiText(language, "ocrEndpointUrl")}<input name="ocrEndpointUrl" type="url" value="${escapeHtml$2(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">${escapedUiText(language, "ocrCloudHelp")}</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language, "cloudVisionApiKey")}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
-                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
+                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language, "cloudVisionApiKey")}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$2(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$2(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                     <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
                     <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
@@ -48998,7 +49386,7 @@ ${spelling}`);
     return `
             <div class="footer">
                 <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
-                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml$1(CURRENT_YOMU_VERSION)}</div>
+                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml$2(CURRENT_YOMU_VERSION)}</div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">${escapedUiText(language, "cancel")}</button>
                 <button class="jpdb-reader-btn add" type="submit">${escapedUiText(language, "save")}</button>
             </div>
@@ -49010,8 +49398,8 @@ ${spelling}`);
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
             ${select(name, label, selectedValue, fontFamilyOptions(text2))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? "" : "hidden"}>
-                ${escapeHtml$1(text2 ? text2("customFontFamily") : "Custom font stack")}
-                <input name="${name}Custom" type="text" value="${escapeHtml$1(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
+                ${escapeHtml$2(text2 ? text2("customFontFamily") : "Custom font stack")}
+                <input name="${name}Custom" type="text" value="${escapeHtml$2(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
             </label>
         </div>
     `;
@@ -49030,11 +49418,11 @@ ${spelling}`);
   }
   function themeSegmentedControl(value, text2) {
     const isDark = value === "dark";
-    const switchLabel = escapeHtml$1(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
+    const switchLabel = escapeHtml$2(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
     return `
         <div class="jpdb-reader-theme-field" data-theme-field>
-            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml$1(text2("theme"))}</span>
-            <input type="hidden" name="theme" value="${escapeHtml$1(value)}" data-theme-value>
+            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml$2(text2("theme"))}</span>
+            <input type="hidden" name="theme" value="${escapeHtml$2(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
                 <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${switchLabel}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${switchLabel}">
                     <span class="check">
@@ -49658,12 +50046,14 @@ ${spelling}`);
     "apiCredentialJiten",
     "apiCredentialBunproLegacy",
     "apiCredentialBunpro",
+    "apiCredentialWanikani",
     "miningDeck",
     "newTabJpdbDeck",
     "neverForgetDeck",
     "blacklistDeck",
     "jpdbMiningEnabled",
     "bunproMiningEnabled",
+    "wanikaniReviewEnabled",
     "yomuLocalSrsEnabled",
     "addToForq",
     "enableReviews",
@@ -50046,7 +50436,7 @@ ${spelling}`);
     return marker?.dataset.yomuRuntimeKind || "";
   }
   function externalButtonLabel(label) {
-    return `<span>${escapeHtml$1(label)}</span>${externalLinkIcon()}`;
+    return `<span>${escapeHtml$2(label)}</span>${externalLinkIcon()}`;
   }
   function setExternalButtonLabel(element2, label) {
     if (!element2) return;
@@ -50129,13 +50519,13 @@ ${spelling}`);
     const copy2 = uiText(language, "audioHelp");
     const linkLabel = uiText(language, "audioGuideLinkLabel");
     const [before, after = ""] = copy2.split(linkLabel);
-    return `${escapeHtml$1(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(linkLabel)}</a>${escapeHtml$1(after)}`;
+    return `${escapeHtml$2(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$2(linkLabel)}</a>${escapeHtml$2(after)}`;
   }
   function ankiSetupHelpHtml(language) {
     const copy2 = uiText(language, "ankiHelp");
     const addOnLabel = language === "ja" ? "AnkiConnectアドオンを開く" : "Open AnkiConnect add-on";
     const docsLabel = language === "ja" ? "モバイルAnki設定ドキュメント" : "Mobile Anki setup docs";
-    return `${escapeHtml$1(copy2)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
+    return `${escapeHtml$2(copy2)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
   }
   function installShortcutCapture(root) {
     root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
@@ -50254,11 +50644,11 @@ ${spelling}`);
     const hidden = hiddenPreferences.map((preference) => {
       const index = settings.dictionaryPreferences.indexOf(preference);
       return `
-            <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$1(preference.name)}">
-            <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$1(preference.alias)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$2(preference.name)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$2(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$1(String(preference.priority))}">
-            <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$2(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `;
     }).join("");
     const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
@@ -50295,7 +50685,7 @@ ${spelling}`);
       if (!dictionaries.length) return "";
       return `
                 <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title">${escapeHtml$1(label)}</div>
+                    <div class="jpdb-reader-recommended-group-title">${escapeHtml$2(label)}</div>
                     ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
                 </div>
             `;
@@ -50304,14 +50694,14 @@ ${spelling}`);
   }
   function renderRecommendedDictionary(dictionary, installed) {
     const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
-    const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
+    const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$2(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? "Update" : "Install"}
-            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml$1(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
+            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml$2(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml$2(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
                 <div class="jpdb-reader-recommended-name">
-                    <span>${escapeHtml$1(dictionary.name)}</span>
+                    <span>${escapeHtml$2(dictionary.name)}</span>
                 </div>
                 <div class="jpdb-reader-help">${escapedUiText("en", dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
@@ -50748,6 +51138,7 @@ ${spelling}`);
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     jpdbConnectionProbeId = 0;
+    wanikaniConnectionProbeId = 0;
     ankiLibraryScanId = 0;
     yomuUpdateCheckId = 0;
     settingsJapaneseParseRefreshFrame;
@@ -50773,6 +51164,7 @@ ${spelling}`);
       this.syncJpdbStatus(form);
       void this.refreshAnkiConnectionStatus(form);
       if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
+      if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
       void this.refreshDictionaryStatus(form);
       if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
       if (panel === "help") void this.refreshYomuUpdateStatus(form);
@@ -51173,7 +51565,7 @@ ${spelling}`);
       });
       syncJpdbMiningDependentSettings(form);
       syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
+      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
         apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
         apiKeyInput.addEventListener("change", () => {
           reconcileApiCredentialInputs(form);
@@ -51183,6 +51575,7 @@ ${spelling}`);
             if (!this.acceptFirefoxAuthenticationInfoConsent(consent, nextSettings.interfaceLanguage)) return;
             void this.refreshDeckControls(form);
             void this.refreshJpdbConnectionStatus(form);
+            void this.refreshWanikaniConnectionStatus(form);
           });
         });
       }
@@ -51389,6 +51782,42 @@ ${spelling}`);
         const line = bunproStatusLineForSettings(formSettings, language);
         bunproStatus.dataset.statusTone = line.tone;
         bunproStatus.textContent = formatSettingsStatusLine(line, language);
+      }
+      const wanikaniStatus = form.querySelector("[data-wanikani-status]");
+      if (wanikaniStatus) {
+        const line = wanikaniStatusLineForSettings(formSettings, language);
+        wanikaniStatus.dataset.statusTone = line.tone;
+        wanikaniStatus.textContent = formatSettingsStatusLine(line, language);
+      }
+      this.refreshSettingsJapaneseParse(form);
+    }
+    // fallow-ignore-next-line complexity
+    async refreshWanikaniConnectionStatus(form) {
+      this.syncJpdbStatus(form);
+      const status = form.querySelector("[data-wanikani-status]");
+      if (!status) return;
+      const requestId = ++this.wanikaniConnectionProbeId;
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const token = effectiveWanikaniApiToken(formSettings);
+      if (!token) return;
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      try {
+        const client = new WanikaniClient({ getToken: () => token });
+        const user = await client.getUser(true);
+        const maxLevel = await client.effectiveMaxLevel();
+        if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+        const line = {
+          message: language === "ja" ? `WaniKani接続済み。現在レベル${user.level}、アクセス可能レベル${maxLevel}。` : `WaniKani connected. Current level ${user.level}; access through level ${maxLevel}.`,
+          tone: "success"
+        };
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, language);
+      } catch (error) {
+        if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+        const message = error instanceof Error ? error.message : "WaniKani connection failed.";
+        const line = { message, tone: "error" };
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, language);
       }
       this.refreshSettingsJapaneseParse(form);
     }
@@ -53308,9 +53737,9 @@ ${spelling}`);
     const current = chars.slice(split, split + 1).join("");
     const upcoming = chars.slice(split + 1).join("");
     return [
-      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml$1(past)}</span>` : "",
-      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml$1(current)}</span>` : "",
-      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml$1(upcoming)}</span>` : ""
+      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml$2(past)}</span>` : "",
+      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml$2(current)}</span>` : "",
+      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml$2(upcoming)}</span>` : ""
     ].join("");
   }
   function karaokeCharacterProgress(cue, words, time) {
@@ -53974,7 +54403,7 @@ ${spelling}`);
     });
   }
   function escapeWithBreaks(value) {
-    return withBreaks(escapeHtml$1(value));
+    return withBreaks(escapeHtml$2(value));
   }
   function withBreaks(value) {
     return value.replace(/\n/g, "<br>");
@@ -54079,11 +54508,11 @@ ${spelling}`);
   const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
   function renderPanelModeControls(mode, canShowLines, language) {
     return `
-        <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml$1(uiText(language, "subtitlePanelMode"))}">
-            <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(uiText(language, "subtitleLines"))}</button>
-            <button type="button" data-action="panel-shadow" aria-pressed="${mode === "shadow"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(uiText(language, "shadow"))}</button>
-            <button type="button" data-action="panel-mine" aria-pressed="${mode === "mine"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(subtitleText(language, "bmTab"))}</button>
-            <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">${escapeHtml$1(uiText(language, "subtitleTracks"))}</button>
+        <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml$2(uiText(language, "subtitlePanelMode"))}">
+            <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$2(uiText(language, "subtitleLines"))}</button>
+            <button type="button" data-action="panel-shadow" aria-pressed="${mode === "shadow"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$2(uiText(language, "shadow"))}</button>
+            <button type="button" data-action="panel-mine" aria-pressed="${mode === "mine"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$2(subtitleText(language, "bmTab"))}</button>
+            <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">${escapeHtml$2(uiText(language, "subtitleTracks"))}</button>
         </div>
     `;
   }
@@ -54095,14 +54524,14 @@ ${spelling}`);
     const placementLabel = uiText(language, "subtitleTranscriptPlacement");
     return `
         <div class="jpdb-subtitle-panel-options" data-panel-options>
-            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" aria-haspopup="true" aria-expanded="${state2.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state2.placement))}</button>
-            <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml$1(label)}" ${state2.menuOpen ? "" : "hidden"}>
-                <div class="jpdb-subtitle-panel-options-placement" role="group" aria-label="${escapeHtml$1(placementLabel)}">
+            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-haspopup="true" aria-expanded="${state2.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state2.placement))}</button>
+            <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml$2(label)}" ${state2.menuOpen ? "" : "hidden"}>
+                <div class="jpdb-subtitle-panel-options-placement" role="group" aria-label="${escapeHtml$2(placementLabel)}">
                     ${TRANSCRIPT_PLACEMENTS.map((placement) => renderPanelOptionsPlacementItem(placement, state2.placement, placementLabel, language)).join("")}
                 </div>
-                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml$1(autoTitle)}" aria-pressed="${state2.pausePanelEnabled}">
+                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml$2(autoTitle)}" aria-pressed="${state2.pausePanelEnabled}">
                     ${subtitleIcon("auto-hide")}
-                    <span>${escapeHtml$1(autoLabel)}</span>
+                    <span>${escapeHtml$2(autoLabel)}</span>
                 </button>
             </div>
         </div>
@@ -54110,7 +54539,7 @@ ${spelling}`);
   }
   function renderPanelCloseButton(language) {
     const closeLabel = uiText(language, "closeSubtitlePanel");
-    return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml$1(closeLabel)}" aria-label="${escapeHtml$1(closeLabel)}">${subtitleIcon("close")}</button>`;
+    return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml$2(closeLabel)}" aria-label="${escapeHtml$2(closeLabel)}">${subtitleIcon("close")}</button>`;
   }
   function renderDrawerHead(state2) {
     const language = state2.options.language;
@@ -54118,8 +54547,8 @@ ${spelling}`);
         <div class="jpdb-subtitle-drawer-head">
             <div class="jpdb-subtitle-drawer-top">
                 <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(state2.title)}</strong>
-                    <span class="jpdb-subtitle-drawer-meta" title="${escapeHtml$1(state2.metaTitle ?? state2.meta)}">${escapeHtml$1(state2.meta)}</span>
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$2(state2.title)}</strong>
+                    <span class="jpdb-subtitle-drawer-meta" title="${escapeHtml$2(state2.metaTitle ?? state2.meta)}">${escapeHtml$2(state2.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
                     ${renderPanelOptionsControls(state2.options)}
@@ -54139,8 +54568,8 @@ ${spelling}`);
     const nextLabel = uiText(language, "nextSubtitle");
     return `
         <div class="jpdb-subtitle-drawer-playback">
-            <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
-            <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
+            <button type="button" data-action="previous" title="${escapeHtml$2(previousLabel)}" aria-label="${escapeHtml$2(previousLabel)}">‹</button>
+            <button type="button" data-action="next" title="${escapeHtml$2(nextLabel)}" aria-label="${escapeHtml$2(nextLabel)}">›</button>
         </div>
     `;
   }
@@ -54148,49 +54577,49 @@ ${spelling}`);
     const placementLabel = uiText(language, placement);
     const label = `${groupLabel}: ${placementLabel}`;
     return `
-        <button class="jpdb-subtitle-panel-options-item" type="button" data-action="transcript-placement" data-placement="${placement}" title="${escapeHtml$1(label)}" aria-pressed="${placement === currentPlacement}">
+        <button class="jpdb-subtitle-panel-options-item" type="button" data-action="transcript-placement" data-placement="${placement}" title="${escapeHtml$2(label)}" aria-pressed="${placement === currentPlacement}">
             ${subtitleIcon(transcriptPlacementIcon(placement))}
-            <span>${escapeHtml$1(placementLabel)}</span>
+            <span>${escapeHtml$2(placementLabel)}</span>
         </button>
     `;
   }
   function renderSubtitleStyleControls(settings, language) {
     const label = uiText(language, "subtitleStyle");
     return `
-        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
-        <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml$1(label)}" hidden>
+        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
+        <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml$2(label)}" hidden>
             ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
             ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
             ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
-                <span>${escapeHtml$1(uiText(language, "subtitleFontFamily"))}</span>
+                <span>${escapeHtml$2(uiText(language, "subtitleFontFamily"))}</span>
                 <select data-subtitle-style-setting="subtitleFontFamily">
                     ${SUBTITLE_STYLE_FONT_PRESETS.map((preset) => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join("")}
                 </select>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
                 <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause" ${settings.subtitleMiningPause ? "checked" : ""}>
-                <span>${escapeHtml$1(uiText(language, "subtitleMiningPause"))}</span>
+                <span>${escapeHtml$2(uiText(language, "subtitleMiningPause"))}</span>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? "checked" : ""}>
-                <span>${escapeHtml$1(uiText(language, "subtitleHoverPause"))}</span>
+                <span>${escapeHtml$2(uiText(language, "subtitleHoverPause"))}</span>
             </label>
-            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset">${escapeHtml$1(uiText(language, "subtitleResetDefaults"))}</button>
+            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset">${escapeHtml$2(uiText(language, "subtitleResetDefaults"))}</button>
         </div>
     `;
   }
   function renderSubtitleStyleRange(setting, label, value, min, max2, step, suffix) {
     return `
         <label class="jpdb-subtitle-style-field">
-            <span>${escapeHtml$1(label)}</span>
-            <output data-subtitle-style-output="${setting}">${escapeHtml$1(subtitleStyleDisplayValue(value, suffix))}</output>
+            <span>${escapeHtml$2(label)}</span>
+            <output data-subtitle-style-output="${setting}">${escapeHtml$2(subtitleStyleDisplayValue(value, suffix))}</output>
             <input type="range" min="${min}" max="${max2}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">
         </label>
     `;
   }
   function renderSubtitleStyleFontOption(preset, current, language) {
-    return `<option value="${escapeHtml$1(preset.value)}" ${preset.value === current ? "selected" : ""}>${escapeHtml$1(uiText(language, preset.labelKey))}</option>`;
+    return `<option value="${escapeHtml$2(preset.value)}" ${preset.value === current ? "selected" : ""}>${escapeHtml$2(uiText(language, preset.labelKey))}</option>`;
   }
   function subtitleStyleDisplayValue(value, suffix) {
     if (suffix === "weight") return String(Math.round(value));
@@ -56780,17 +57209,17 @@ ${spelling}`);
     })}
         <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
-                <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
-                <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
-                <a href="${escapeHtml$1(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml$1(uiText(language, "searchAnimeSubtitles"))}</a>
+                <button type="button" data-action="load">${escapeHtml$2(uiText(language, "loadJapaneseSubtitles"))}</button>
+                <button type="button" data-action="load-secondary">${escapeHtml$2(uiText(language, "loadNativeSubtitles"))}</button>
+                <a href="${escapeHtml$2(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml$2(uiText(language, "searchAnimeSubtitles"))}</a>
             </div>
-            <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state2.autoDetected, language))}</div>
-            <div class="jpdb-subtitle-track-hint">${escapeHtml$1(uiText(language, "subtitleTracksHint"))}</div>
+            <div class="jpdb-subtitle-track-summary">${escapeHtml$2(trackPanelSummaryText(state2.autoDetected, language))}</div>
+            <div class="jpdb-subtitle-track-hint">${escapeHtml$2(uiText(language, "subtitleTracksHint"))}</div>
             ${state2.virtual ? trackVirtualSpacer(state2.virtual.topSpacer) : ""}
             ${state2.tracks.length ? trackPanelRows(state2).map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
             ${state2.virtual ? trackVirtualSpacer(state2.virtual.bottomSpacer) : ""}
         </div>
-        <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
+        <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
   }
   function trackPanelRows(state2) {
@@ -56817,15 +57246,15 @@ ${spelling}`);
     const isSecondary = track.id === state2.secondaryTrackId;
     const language = state2.language;
     return `
-        <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
+        <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml$2(track.id)}">
             <div class="jpdb-subtitle-track-title">
-                    <strong title="${escapeHtml$1(localizedSubtitleTrackLabel(track, language))}">${escapeHtml$1(compactSubtitleTrackLabel(track, language))}</strong>
-                    <span>${escapeHtml$1(formatTrackKind(track.kind, language))}</span>
+                    <strong title="${escapeHtml$2(localizedSubtitleTrackLabel(track, language))}">${escapeHtml$2(compactSubtitleTrackLabel(track, language))}</strong>
+                    <span>${escapeHtml$2(formatTrackKind(track.kind, language))}</span>
                 </div>
-            <span>${escapeHtml$1(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
+            <span>${escapeHtml$2(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
             <div class="jpdb-subtitle-track-actions">
-                <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml$1(uiText(language, isPrimary ? "unsetPrimarySubtitles" : "primarySubtitles"))}</button>
-                <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml$1(uiText(language, isSecondary ? "unsetNativeSubtitles" : "nativeSubtitles"))}</button>
+                <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml$2(uiText(language, isPrimary ? "unsetPrimarySubtitles" : "primarySubtitles"))}</button>
+                <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml$2(uiText(language, isSecondary ? "unsetNativeSubtitles" : "nativeSubtitles"))}</button>
             </div>
             ${isPrimary || isSecondary ? renderSubtitleTrackTimingControls(track, language) : ""}
         </div>
@@ -56844,13 +57273,13 @@ ${spelling}`);
     const laterLabel = uiText(language, "subtitleOffsetLater");
     const resetLabel = uiText(language, "resetSubtitleOffset");
     return `
-        <div class="jpdb-subtitle-track-offset" role="group" aria-label="${escapeHtml$1(timingLabel)}">
-            <span class="jpdb-subtitle-track-offset-value" title="${escapeHtml$1(timingLabel)}">${escapeHtml$1(formatSubtitleTrackOffset(timing.offsetSeconds))}</span>
-            <button type="button" data-action="offset-previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}" ${timing.canAlignPrevious ? "" : "disabled"}>‹ ${escapeHtml$1(previousShort)}</button>
-            <button type="button" data-action="offset-earlier" title="${escapeHtml$1(earlierLabel)}" aria-label="${escapeHtml$1(earlierLabel)}" ${disabled}>−100</button>
-            <button type="button" data-action="offset-later" title="${escapeHtml$1(laterLabel)}" aria-label="${escapeHtml$1(laterLabel)}" ${disabled}>+100</button>
-            <button type="button" data-action="offset-next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}" ${timing.canAlignNext ? "" : "disabled"}>${escapeHtml$1(nextShort)} ›</button>
-            <button type="button" data-action="offset-reset" title="${escapeHtml$1(resetLabel)}" aria-label="${escapeHtml$1(resetLabel)}" ${disabled}>0</button>
+        <div class="jpdb-subtitle-track-offset" role="group" aria-label="${escapeHtml$2(timingLabel)}">
+            <span class="jpdb-subtitle-track-offset-value" title="${escapeHtml$2(timingLabel)}">${escapeHtml$2(formatSubtitleTrackOffset(timing.offsetSeconds))}</span>
+            <button type="button" data-action="offset-previous" title="${escapeHtml$2(previousLabel)}" aria-label="${escapeHtml$2(previousLabel)}" ${timing.canAlignPrevious ? "" : "disabled"}>‹ ${escapeHtml$2(previousShort)}</button>
+            <button type="button" data-action="offset-earlier" title="${escapeHtml$2(earlierLabel)}" aria-label="${escapeHtml$2(earlierLabel)}" ${disabled}>−100</button>
+            <button type="button" data-action="offset-later" title="${escapeHtml$2(laterLabel)}" aria-label="${escapeHtml$2(laterLabel)}" ${disabled}>+100</button>
+            <button type="button" data-action="offset-next" title="${escapeHtml$2(nextLabel)}" aria-label="${escapeHtml$2(nextLabel)}" ${timing.canAlignNext ? "" : "disabled"}>${escapeHtml$2(nextShort)} ›</button>
+            <button type="button" data-action="offset-reset" title="${escapeHtml$2(resetLabel)}" aria-label="${escapeHtml$2(resetLabel)}" ${disabled}>0</button>
         </div>
     `;
   }
@@ -57630,10 +58059,10 @@ ${spelling}`);
   function renderDeckChoiceOption([value, label]) {
     const [source, ...idParts] = value.split(":");
     const deckId = idParts.join(":");
-    return `<option value="${escapeHtml$1(value)}" data-deck-source="${escapeHtml$1(source)}" data-deck-id="${escapeHtml$1(deckId)}">${escapeHtml$1(label)}</option>`;
+    return `<option value="${escapeHtml$2(value)}" data-deck-source="${escapeHtml$2(source)}" data-deck-id="${escapeHtml$2(deckId)}">${escapeHtml$2(label)}</option>`;
   }
   function deckChoicePlaceholderOption(settings) {
-    return `<option value="" disabled selected>${escapeHtml$1(uiText(settings.interfaceLanguage, "deck"))}</option>`;
+    return `<option value="" disabled selected>${escapeHtml$2(uiText(settings.interfaceLanguage, "deck"))}</option>`;
   }
   function isSpecialJpdbDeck(settings, deck) {
     const neverForgetDeck = settings.neverForgetDeck.trim();
@@ -57650,6 +58079,7 @@ ${spelling}`);
   }
   function apiSrsSwitchableProviderIds(card, settings) {
     if (isBunproUsableCard(card, settings)) return ["bunpro"];
+    if (isWanikaniUsableCard(card, settings)) return ["wanikani"];
     const ids = [];
     const wordLike = !card.bunproReviewableType || card.bunproReviewableType === "vocabulary";
     if (wordLike && hasJpdbApiCredential(settings)) ids.push("jpdb");
@@ -57658,6 +58088,9 @@ ${spelling}`);
   }
   function isBunproUsableCard(card, settings) {
     return isBunproGradeableCard(card) && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+  }
+  function isWanikaniUsableCard(card, settings) {
+    return isWanikaniGradeableCard(card) && settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings);
   }
   function apiSrsProviderView(id, settings) {
     if (id === "yomu-local") {
@@ -57676,19 +58109,30 @@ ${spelling}`);
         hasApiKey: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)
       };
     }
+    if (id === "wanikani") {
+      return {
+        id: "wanikani",
+        label: "WaniKani",
+        deckSource: "wanikani",
+        hasApiKey: settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings)
+      };
+    }
     return id === "jiten" ? { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: hasJitenApiCredential(settings) } : { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: hasJpdbApiCredential(settings) };
   }
   function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
     const jpdbBacked = isJpdbBackedCard(card);
     const jitenBacked = isJitenBackedCard(card);
     const bunproBacked = isBunproBackedCard(card);
+    const wanikaniBacked = isWanikaniBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
     const bunproUsable = isBunproUsableCard(card, settings);
+    const wanikaniUsable = isWanikaniUsableCard(card, settings);
     const override = card.apiGradingProviderOverride;
     if (override === "jpdb" && jpdbUsable) return apiSrsProviderView("jpdb", settings);
     if (override === "jiten" && jitenUsable) return apiSrsProviderView("jiten", settings);
     if (override === "bunpro" && bunproUsable) return apiSrsProviderView("bunpro", settings);
+    if (wanikaniUsable) return apiSrsProviderView("wanikani", settings);
     if (bunproUsable) return apiSrsProviderView("bunpro", settings);
     if (jpdbUsable && jitenUsable) {
       const preferred = apiGradingProviderPreference(settings);
@@ -57696,10 +58140,11 @@ ${spelling}`);
     }
     if (jpdbUsable) return apiSrsProviderView("jpdb", settings);
     if (jitenUsable) return apiSrsProviderView("jiten", settings);
-    if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings);
+    if (!bunproBacked && !wanikaniBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings);
     if (jpdbBacked) return apiSrsProviderView("jpdb", settings);
     if (jitenBacked) return apiSrsProviderView("jiten", settings);
     if (bunproBacked) return { ...apiSrsProviderView("bunpro", settings), hasApiKey: false };
+    if (wanikaniBacked) return { ...apiSrsProviderView("wanikani", settings), hasApiKey: false };
     return null;
   }
   function isApiMiningEnabled(settings) {
@@ -57707,6 +58152,7 @@ ${spelling}`);
   }
   function isApiSrsProviderEnabled(settings, providerId) {
     if (providerId === "yomu-local") return settings.yomuLocalSrsEnabled;
+    if (providerId === "wanikani") return settings.wanikaniReviewEnabled;
     return providerId === "bunpro" ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
   }
   function shouldMineAnkiAlongsideApi(settings) {
@@ -57716,6 +58162,7 @@ ${spelling}`);
     const jpdbProvider = createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings);
     const providers = options.jiten ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider] : [jpdbProvider];
     if (options.bunpro) providers.unshift(createBunproSrsProviderAdapter(options.bunpro, settings));
+    if (options.wanikani) providers.unshift(createWanikaniSrsProviderAdapter(options.wanikani, settings));
     if (options.yomuLocal) providers.push(createYomuLocalSrsProviderAdapter(options.yomuLocal, settings));
     return providers;
   }
@@ -57784,6 +58231,63 @@ ${spelling}`);
       },
       setDeckState: async () => void 0
     };
+  }
+  function createWanikaniSrsProviderAdapter(adapter, settings) {
+    return {
+      id: "wanikani",
+      label: "WaniKani",
+      deckSource: "wanikani",
+      hasApiKey: settings.wanikaniReviewEnabled && adapter.hasCredential(),
+      addApiKeyRequiredKey: "wanikaniAddApiKeyRequired",
+      reviewApiKeyRequiredKey: "addWanikaniApiKeyReview",
+      deckStateApiKeyRequiredKey: "wanikaniAddApiKeyRequired",
+      addedToastKey: "addedToWanikani",
+      supportsCard: isWanikaniGradeableCard,
+      // WaniKani has no API to add arbitrary external subjects: only its own
+      // due assignments can ever be reviewed from Yomu.
+      supportsMiningCard: () => false,
+      supportsDeckState: () => false,
+      selectedDeckId: () => "wanikani",
+      selectedDeckLabel: () => "WaniKani",
+      addToDeck: async () => {
+        throw new Error("WaniKani has no API to add arbitrary words; open the word on wanikani.com instead.");
+      },
+      reviewCard: async (card, grade) => {
+        const result = await adapter.review({ card: wanikaniReviewableFromCard(card), grade });
+        if (result.card) applyWanikaniReviewableToCard(card, result.card);
+        return {};
+      },
+      setDeckState: async () => void 0
+    };
+  }
+  function isWanikaniBackedCard(card) {
+    return card.source === "wanikani" || card.reviewSource === "wanikani-api" || Boolean(card.wanikaniSubjectId);
+  }
+  function isWanikaniGradeableCard(card) {
+    return isWanikaniBackedCard(card) && typeof card.wanikaniAssignmentId === "number" && card.wanikaniAssignmentId > 0;
+  }
+  function wanikaniReviewableFromCard(card) {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim();
+    return {
+      providerId: "wanikani",
+      providerCardId: String(card.wanikaniAssignmentId ?? ""),
+      providerReviewableId: card.wanikaniSubjectId !== void 0 ? String(card.wanikaniSubjectId) : void 0,
+      kind: card.wanikaniSubjectType === "kanji" ? "kanji" : card.wanikaniSubjectType === "radical" ? "unknown" : "vocabulary",
+      expression,
+      reading,
+      meanings: card.meanings,
+      state: card.cardState,
+      srsLevel: card.wanikaniSrsStage,
+      dueAt: card.dueAt,
+      lastReviewAt: card.lastReviewAt,
+      raw: card
+    };
+  }
+  function applyWanikaniReviewableToCard(card, reviewable) {
+    if (reviewable.state.length) card.cardState = reviewable.state;
+    if (reviewable.dueAt !== void 0) card.dueAt = reviewable.dueAt;
+    if (reviewable.srsLevel) card.wanikaniSrsStage = reviewable.srsLevel;
   }
   function isBunproMiningCard(card) {
     return Boolean(card.spelling.trim()) && card.bunproReviewableType !== "sentence";
@@ -58375,7 +58879,7 @@ ${spelling}`);
       meta: batchMiningMetaText(state2),
       canShowLines: state2.hasTranscriptSurface,
       options: { placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language }
-    })}${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+    })}${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language, "resizeTranscriptPanel"))}"></div>`;
   }
   function renderBatchMiningToolbar(state2) {
     const language = state2.language;
@@ -58383,12 +58887,12 @@ ${spelling}`);
     const candidateCount = state2.candidates.length;
     const scanLabel = subtitleText(language, state2.status === "ready" ? "bmRescan" : "bmScan");
     const buttons = [
-      `<button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml$1(scanLabel)}</span></button>`
+      `<button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml$2(scanLabel)}</span></button>`
     ];
     if (candidateCount) {
       buttons.push(
-        `<button type="button" data-action="bm-add" ${selectedCount ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml$1(subtitleText(language, "bmAdd"))}</span></button>`,
-        `<button type="button" data-action="bm-copy" ${selectedCount ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml$1(subtitleText(language, "bmCopy"))}</span></button>`,
+        `<button type="button" data-action="bm-add" ${selectedCount ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml$2(subtitleText(language, "bmAdd"))}</span></button>`,
+        `<button type="button" data-action="bm-copy" ${selectedCount ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml$2(subtitleText(language, "bmCopy"))}</span></button>`,
         renderBatchMiningGradeGroup({
           action: "bm-grade-selected",
           label: subtitleText(language, "bmGradeSelected"),
@@ -58396,27 +58900,27 @@ ${spelling}`);
           disabled: selectedCount === 0,
           className: "jpdb-subtitle-batch-grade-selected"
         }),
-        `<button type="button" data-action="bm-all" ${selectedCount === candidateCount ? "disabled" : ""}>${escapeHtml$1(subtitleText(language, "selectAll"))}</button>`
+        `<button type="button" data-action="bm-all" ${selectedCount === candidateCount ? "disabled" : ""}>${escapeHtml$2(subtitleText(language, "selectAll"))}</button>`
       );
-      if (selectedCount) buttons.push(`<button type="button" data-action="bm-clear">${escapeHtml$1(subtitleText(language, "clearSelection"))}</button>`);
+      if (selectedCount) buttons.push(`<button type="button" data-action="bm-clear">${escapeHtml$2(subtitleText(language, "clearSelection"))}</button>`);
     }
-    return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml$1(subtitleText(language, "bmToolbar"))}">${buttons.join("")}</div>`;
+    return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml$2(subtitleText(language, "bmToolbar"))}">${buttons.join("")}</div>`;
   }
   function renderBatchMiningBody(state2) {
     if (state2.status === "failed") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(state2.errorMessage || subtitleText(state2.language, "bmFailed"))}</div>`;
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(state2.errorMessage || subtitleText(state2.language, "bmFailed"))}</div>`;
     }
     if (state2.status === "scanning") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(formatSubtitleText(state2.language, "bmScanning", {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(formatSubtitleText(state2.language, "bmScanning", {
         count: state2.summary.parsedRows,
         total: state2.summary.rows
       }))}</div>`;
     }
     if (state2.status === "idle") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(subtitleText(state2.language, "bmReady"))}</div>`;
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(subtitleText(state2.language, "bmReady"))}</div>`;
     }
     if (!state2.candidates.length) {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
     }
     return `<div class="jpdb-subtitle-batch-list" role="list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
   }
@@ -58425,12 +58929,12 @@ ${spelling}`);
     const selected = state2.selectedKeys.has(candidate.key);
     const selectLabel = subtitleText(language, selected ? "bmDeselect" : "bmSelect");
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml$1(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$1(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml$1(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml$1(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml$1(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml$1(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml$1(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$1(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml$1(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml$2(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$2(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml$2(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml$2(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml$2(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml$2(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml$2(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$2(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml$2(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
   }
   function renderBatchMiningCandidateGrades(candidate, state2) {
     if (!state2.reviewGrades.length) return "";
     const label = `${subtitleText(state2.language, "bmGradeWord")}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml$1(label)}">${renderBatchMiningGradeButtons({
+    return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml$2(label)}">${renderBatchMiningGradeButtons({
       action: "bm-grade",
       grades: state2.reviewGrades,
       ariaContext: label
@@ -58438,12 +58942,12 @@ ${spelling}`);
   }
   function renderBatchMiningGradeGroup(options) {
     if (!options.grades.length) return "";
-    return `<div class="jpdb-subtitle-batch-grade-group ${escapeHtml$1(options.className ?? "")}" role="group" aria-label="${escapeHtml$1(options.label)}"><span class="jpdb-subtitle-batch-grade-label">${escapeHtml$1(options.label)}</span><div class="jpdb-subtitle-batch-grade-buttons">${renderBatchMiningGradeButtons(options)}</div></div>`;
+    return `<div class="jpdb-subtitle-batch-grade-group ${escapeHtml$2(options.className ?? "")}" role="group" aria-label="${escapeHtml$2(options.label)}"><span class="jpdb-subtitle-batch-grade-label">${escapeHtml$2(options.label)}</span><div class="jpdb-subtitle-batch-grade-buttons">${renderBatchMiningGradeButtons(options)}</div></div>`;
   }
   function renderBatchMiningGradeButtons(options) {
     return options.grades.map(({ grade, label }) => {
       const ariaLabel = options.ariaContext ? `${label}: ${options.ariaContext}` : label;
-      return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml$1(options.action)}" data-grade="${escapeHtml$1(grade)}" ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml$1(ariaLabel)}">${escapeHtml$1(label)}</button>`;
+      return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml$2(options.action)}" data-grade="${escapeHtml$2(grade)}" ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml$2(ariaLabel)}">${escapeHtml$2(label)}</button>`;
     }).join("");
   }
   function batchMiningMetaText(state2) {
@@ -59005,14 +59509,14 @@ ${spelling}`);
         }),
         canShowLines: this.deps.hasTranscriptSurface(),
         options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
-        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
+        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$2(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$2(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
       })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
                 ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.topSpacer) : ""}
                 ${state2.rows.length ? state2.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderWaitingState()}
                 ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.bottomSpacer) : ""}
             </div>
-            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
     }
     renderVirtualSpacer(height) {
@@ -59024,17 +59528,17 @@ ${spelling}`);
       const htmlCache = this.deps.getHtmlCache();
       const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
       const parsed = htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
-      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
+      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$2(parsedKey)}"` : "";
       const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
       const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
       return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(seekLabel)}">
+            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$2(seekLabel)}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$2(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     ${this.renderRowPeekButton(cue, index, settings)}
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$2(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml$2(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
@@ -59046,14 +59550,14 @@ ${spelling}`);
       const secondary = findAlignedCue(this.deps.getSecondaryCues(), cue);
       if (!secondary?.text.trim()) return "";
       const label = uiText(settings.interfaceLanguage, "peekSubtitleTranslation");
-      return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${subtitleIcon("eye")}</button>`;
+      return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${subtitleIcon("eye")}</button>`;
     }
     renderWaitingState() {
       const selected = this.deps.getTracks().find((track) => track.id === this.deps.getSelectedTrackId());
       const language = this.deps.getSettings().interfaceLanguage;
-      const label = selected?.label ? `: ${escapeHtml$1(selected.label)}` : "";
+      const label = selected?.label ? `: ${escapeHtml$2(selected.label)}` : "";
       const status = selected?.loadingState === "loading" ? uiText(language, "loadingSubtitleLines") : uiText(language, "waitingForCaptionLines");
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(status)}${label}. ${escapeHtml$1(uiText(language, "subtitleCurrentLineWillAppear"))}</div>`;
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(status)}${label}. ${escapeHtml$2(uiText(language, "subtitleCurrentLineWillAppear"))}</div>`;
     }
     toggleRowTranslationPeek(target) {
       const button2 = target.closest('[data-action="peek-row"]');
@@ -60231,17 +60735,17 @@ ${spelling}`);
       const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
       const moveControlsLabel = uiText(settings.interfaceLanguage, "moveSubtitleControls");
       const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
-      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
+      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml$2(ocrLabel)}" aria-label="${escapeHtml$2(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
-            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$2(moveLabel)}" aria-label="${escapeHtml$2(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
-                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml$1(moveControlsLabel)}" aria-label="${escapeHtml$1(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon("grip")}</button>
-                <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
-                <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
+                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml$2(moveControlsLabel)}" aria-label="${escapeHtml$2(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon("grip")}</button>
+                <button type="button" data-action="previous" title="${escapeHtml$2(previousLabel)}" aria-label="${escapeHtml$2(previousLabel)}">‹</button>
+                <button type="button" data-action="next" title="${escapeHtml$2(nextLabel)}" aria-label="${escapeHtml$2(nextLabel)}">›</button>
                 ${ocrButton}
-                <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
-                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
+                <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$2(visibilityLabel)}" aria-label="${escapeHtml$2(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
+                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$2(panelLabel)}" aria-label="${escapeHtml$2(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -63963,7 +64467,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-list-scroll jpdb-subtitle-shadow-scroll">
                 ${this.renderShadowPanelBody(state2)}
             </div>
-            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
     }
     renderShadowPanelHead(state2) {
@@ -64008,7 +64512,7 @@ ${spelling}`);
                 ${this.renderShadowContextLine(neighbors.prev, "prev", language)}
                 <div class="jpdb-subtitle-shadow-current">
                     <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
-                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml$1(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
+                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml$2(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
                     ${secondary}
                 </div>
                 ${this.renderShadowContextLine(neighbors.next, "next", language)}
@@ -64026,11 +64530,11 @@ ${spelling}`);
       if (!cue || !text2) return "";
       const japanese = resolveUiLanguage(language) === "ja";
       const label = direction === "prev" ? japanese ? "前の行へ" : "Previous line" : japanese ? "次の行へ" : "Next line";
-      return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
+      return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
     }
     shadowParsedLine(cueText, parseKey, settings) {
       const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
-      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parseKey)}"` : "";
+      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$2(parseKey)}"` : "";
       const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
       return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
     }
@@ -64040,7 +64544,7 @@ ${spelling}`);
       if (!text2) return "";
       const blurClass = state2.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
       const label = uiText(state2.settings.interfaceLanguage, "toggleNativeSubtitleBlur");
-      return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${escapeWithBreaks(text2)}</button>`;
+      return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${escapeWithBreaks(text2)}</button>`;
     }
     renderShadowActions(language) {
       const recording = Boolean(this.shadowRecorder && this.shadowRecorder.state !== "inactive");
@@ -64054,11 +64558,11 @@ ${spelling}`);
             ${this.renderShadowAction("shadow-toggle-text", uiText(language, this.shadowTextVisible ? "hide" : "show"), toggleIcon, !this.shadowTextVisible)}
             ${this.renderShadowAction("shadow-record", recordLabel, recording ? "stop" : "mic", recording)}
             ${this.shadowRecordingUrl ? this.renderShadowAction("shadow-play-recording", this.shadowActionLabel(language, "play-recording"), "play", false) : ""}
-            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml$1(this.shadowActionLabel(language, "record-unavailable"))}</span>` : ""}
+            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml$2(this.shadowActionLabel(language, "record-unavailable"))}</span>` : ""}
         `;
     }
     renderShadowAction(action, label, icon, pressed) {
-      return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml$1(label)}</span></button>`;
+      return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml$2(label)}</span></button>`;
     }
     shadowActionLabel(language, action) {
       const japanese = resolveUiLanguage(language) === "ja";
@@ -67475,7 +67979,7 @@ ${spelling}`);
     return window.ytcfg ?? readYouTubeConfigSourceFromScripts();
   }
   function readYouTubeConfigString(ytcfg, key) {
-    return stringValue$1(readYouTubeConfigValue(ytcfg, key));
+    return stringValue$2(readYouTubeConfigValue(ytcfg, key));
   }
   function readYouTubeConfigValue(ytcfg, key) {
     try {
@@ -67610,7 +68114,7 @@ ${spelling}`);
   }
   function readYouTubeSubscriptionState(value, stateKey) {
     const entity = recordValue(recordValue(value)?.subscriptionStateEntity);
-    if (!entity || stringValue$1(entity.key) !== stateKey || typeof entity.subscribed !== "boolean") return void 0;
+    if (!entity || stringValue$2(entity.key) !== stateKey || typeof entity.subscribed !== "boolean") return void 0;
     return entity.subscribed;
   }
   function youTubeChannelMetadata(data) {
@@ -67730,26 +68234,26 @@ ${spelling}`);
     const thumbnails = recordValue(value)?.thumbnails;
     if (!Array.isArray(thumbnails)) return "";
     const candidates = thumbnails.map((thumbnail) => recordValue(thumbnail)).filter(Boolean).sort((a, b) => Number(b?.width ?? 0) - Number(a?.width ?? 0));
-    return stringValue$1(candidates[0]?.url);
+    return stringValue$2(candidates[0]?.url);
   }
   function textFromYouTubeValue(value) {
     if (typeof value === "string") return value.trim();
     const record = recordValue(value);
     if (!record) return "";
-    const simpleText = stringValue$1(record.simpleText);
+    const simpleText = stringValue$2(record.simpleText);
     if (simpleText) return simpleText;
     const runs = record.runs;
     if (Array.isArray(runs)) {
-      return runs.map((run) => stringValue$1(recordValue(run)?.text)).join("").trim();
+      return runs.map((run) => stringValue$2(recordValue(run)?.text)).join("").trim();
     }
     return "";
   }
-  function stringValue$1(value) {
+  function stringValue$2(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function firstStringValue(...values) {
     for (const value of values) {
-      const text2 = stringValue$1(value);
+      const text2 = stringValue$2(value);
       if (text2) return text2;
     }
     return "";
@@ -69089,7 +69593,7 @@ ${spelling}`);
       exhaustWindow ? candidateCardIds.length : limit
     );
     if (!reviewCards.length) return [];
-    const noteIds = unique(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
+    const noteIds = unique$1(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
     for (const chunk of chunks(noteIds, ANKI_NOTE_INFO_CHUNK_SIZE)) {
       const notes = await client.invoke("notesInfo", { notes: chunk }).catch(() => []);
@@ -69237,7 +69741,7 @@ ${spelling}`);
     ].filter(Boolean).join(" ");
   }
   function ankiCandidateIds(ids) {
-    const uniqueIds = unique(ids).filter((id) => Number.isFinite(Number(id)));
+    const uniqueIds = unique$1(ids).filter((id) => Number.isFinite(Number(id)));
     return uniqueIds;
   }
   function chunks(items, size) {
@@ -69323,7 +69827,7 @@ ${spelling}`);
     for (const card of cards) {
       if (card.deckName) deckNames.push(card.deckName);
     }
-    return unique(deckNames);
+    return unique$1(deckNames);
   }
   function ankiPrimaryCardReps(card) {
     return card?.reps ?? 0;
@@ -69366,7 +69870,7 @@ ${spelling}`);
     };
   }
   function ankiAudioFilenamesFromFields$1(fields) {
-    const filenames = unique(Object.values(fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")).filter(Boolean));
+    const filenames = unique$1(Object.values(fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")).filter(Boolean));
     return filenames.length ? filenames : void 0;
   }
   function classifyAnkiNoteCard(fields, spelling, modelName) {
@@ -69538,6 +70042,7 @@ ${spelling}`);
         "jpdb-example-audio": () => this.performJpdbExampleAudio(button2),
         "jiten-audio": () => this.performJitenAudio(button2, sentence),
         "bunpro-audio": () => this.performBunproAudio(button2, sentence),
+        "wanikani-audio": () => this.performWanikaniAudio(button2),
         "anki-media-audio": () => this.performAnkiMediaAudio(button2)
       };
       return handlers[action];
@@ -69602,6 +70107,14 @@ ${spelling}`);
         }
       }
       await this.options.playSentenceAudio(fallbackSentence);
+      return false;
+    }
+    async performWanikaniAudio(button2) {
+      const audioUrl = button2.dataset.audioUrl?.trim() ?? "";
+      if (!audioUrl || !this.options.playMediaUrl) return false;
+      const url = new URL(audioUrl);
+      if (url.protocol !== "https:") throw new Error("Blocked an unsafe WaniKani audio URL.");
+      await this.options.playMediaUrl(url.href);
       return false;
     }
     async performAnkiMediaAudio(button2) {
@@ -69723,6 +70236,7 @@ ${spelling}`);
         jpdb: this.options.jpdb,
         jiten: this.options.jiten,
         bunpro: this.options.srsAdapters?.bunpro,
+        wanikani: this.options.srsAdapters?.wanikani,
         yomuLocal: this.options.srsAdapters?.["yomu-local"],
         isJpdbBackedCard: this.options.isJpdbBackedCard
       }, settings);
@@ -70326,7 +70840,7 @@ ${spelling}`);
         reading,
         wordWithReading: null
       }, settings, kanjiNavigation);
-      return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$1(pitchClass)}">${content}</span>`;
+      return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$2(pitchClass)}">${content}</span>`;
     }).join("");
   }
   function pickTokenForSelection(tokens = [], selected) {
@@ -70339,8 +70853,8 @@ ${spelling}`);
   }
   function bunproDefinitionStatusAttributes(status) {
     if (!status) return "";
-    const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$1(status.reason)}"` : "";
-    return ` data-bunpro-definition-status="${escapeHtml$1(status.state)}"${reason}`;
+    const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$2(status.reason)}"` : "";
+    return ` data-bunpro-definition-status="${escapeHtml$2(status.state)}"${reason}`;
   }
   class CardPopoverRenderer {
     constructor(dependencies) {
@@ -70426,7 +70940,7 @@ ${spelling}`);
       const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
       const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${spellingContent}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -70443,10 +70957,10 @@ ${spelling}`);
       if (components2) return components2;
       if (data.loading) return "";
       const label = uiText(this.settings().interfaceLanguage, "noExactPitch");
-      return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$1(label)}">${escapeHtml$1(label)}</div>`;
+      return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$2(label)}">${escapeHtml$2(label)}</div>`;
     }
     renderPartOfSpeech(view) {
-      return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
+      return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$2(view.cardPosDetails)}">${escapeHtml$2(view.cardPos)}</div>` : "";
     }
     renderExpressionComponents(card, data, view) {
       const components2 = uniqueExpressionComponents(data.expressionComponents ?? []);
@@ -70454,7 +70968,7 @@ ${spelling}`);
       if (components2.length === 1 && components2[0].text === card.spelling.trim()) return "";
       const rows = components2.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
       return `<div class="jpdb-reader-expression-components">
-            <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$1(uiText(view.language, "composedOf"))}">${rows}</ul>
+            <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$2(uiText(view.language, "composedOf"))}">${rows}</ul>
         </div>`;
     }
     renderExpressionComponent(component, componentPitches) {
@@ -70463,7 +70977,7 @@ ${spelling}`);
       const term = renderExpressionComponentTerm(component, pitchClass);
       return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" role="button" tabindex="0" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" role="button" tabindex="0" data-dictionary-lookup="${escapeHtml$2(component.text)}" data-dictionary-reading="${escapeHtml$2(reading)}" data-external="false">
                     ${term}
                 </a>
             </div>
@@ -70527,7 +71041,7 @@ ${spelling}`);
       return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
     }
     reviewButtonsEarlyResult(card, data, reviewBlockReason) {
-      if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
+      if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$2(reviewBlockReason)}</div>`;
       if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       return void 0;
     }
@@ -70561,7 +71075,7 @@ ${spelling}`);
       const ankiTargets = this.ankiReviewTargets(data, language);
       if (provider?.id === "yomu-local" && ankiTargets.length) return ankiTargets;
       const apiTargets = this.apiReviewTargets(card, provider, language);
-      if (provider?.id === "bunpro" && apiTargets.length) return apiTargets;
+      if ((provider?.id === "bunpro" || provider?.id === "wanikani") && apiTargets.length) return apiTargets;
       if (apiTargets.length && ankiTargets.length) {
         const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
         if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -70584,6 +71098,7 @@ ${spelling}`);
       if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: true };
       if (target.kind === "jiten") return { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: true };
       if (target.kind === "bunpro") return { id: "bunpro", label: "Bunpro", deckSource: "bunpro", hasApiKey: true };
+      if (target.kind === "wanikani") return { id: "wanikani", label: "WaniKani", deckSource: "wanikani", hasApiKey: true };
       if (target.kind === "yomu-local") return { id: "yomu-local", label: ACADEMY_SRS_LABEL, deckSource: "yomu-local", hasApiKey: true };
       return fallback;
     }
@@ -70604,6 +71119,15 @@ ${spelling}`);
           label: uiText(language, "gradeTargetBunpro"),
           shortLabel: provider.label,
           gradeProfile: card.bunproReviewInputMode === "fsrs" ? "bunpro-fsrs" : "bunpro-regular"
+        };
+      }
+      if (provider.id === "wanikani") {
+        return {
+          id: "wanikani",
+          kind: "wanikani",
+          label: uiText(language, "gradeTargetWanikani"),
+          shortLabel: provider.label,
+          gradeProfile: "standard"
         };
       }
       const isJiten = provider.id === "jiten";
@@ -70681,12 +71205,12 @@ ${spelling}`);
       return [
         renderMetaReading(card, settings),
         "",
-        canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
+        canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$2(provider?.label ?? "API")} ${escapeHtml$2(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
     }
     renderLoadingDetails(loading, language) {
-      return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$1(uiText(language, "loadingDictionaryDetails"))}</div>` : "";
+      return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$2(uiText(language, "loadingDictionaryDetails"))}</div>` : "";
     }
     reviewBlockReason(cardStates, language) {
       if (cardStates.includes("blacklisted")) return uiText(language, "reviewBlockedBlacklisted");
@@ -70742,8 +71266,8 @@ ${spelling}`);
     return `<div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row data-review-grade-profile="${profile}"${hidden ? " hidden" : ""}>
         ${targetLabel}
         ${grades.map(([grade, label]) => {
-      const title = selected.label ? ` title="${escapeHtml$1(selected.label)}" aria-label="${escapeHtml$1(`${label}: ${selected.label}`)}"` : "";
-      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$1(label)}</button>`;
+      const title = selected.label ? ` title="${escapeHtml$2(selected.label)}" aria-label="${escapeHtml$2(`${label}: ${selected.label}`)}"` : "";
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$2(label)}</button>`;
     }).join("")}
     </div>`;
   }
@@ -70763,22 +71287,22 @@ ${spelling}`);
     const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         ${targetControl}
-        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button>
+        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml$2(switchLabel)}">⇄</button>` : ""}
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$2(label)}"></button>
     </div>`;
   }
   function renderReviewTargetSelector(targets, language) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language, "gradeTargetSelector"))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$2(uiText(language, "gradeTargetSelector"))}">
+            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
   function renderReviewTargetCurrent(target) {
-    return `<span class="jpdb-reader-review-target-current" data-review-target-current>${escapeHtml$1(target.shortLabel)}</span>`;
+    return `<span class="jpdb-reader-review-target-current" data-review-target-current>${escapeHtml$2(target.shortLabel)}</span>`;
   }
   function renderReviewTargetLabel(target) {
-    return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
+    return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$2(target.label)}</span></div>`;
   }
   function reviewTargetButtonAttrs(target) {
     return ` data-review-target="${target.kind}" data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
@@ -70821,7 +71345,7 @@ ${spelling}`);
       jitenDecks: data.jitenDecks ?? []
     });
     if (!deckOptions) return "";
-    return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
+    return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$2(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
   }
   function renderApiMiningActionDetails(language, state2, addDeckSelect, provider, canToggleDeckState) {
     const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
@@ -70831,9 +71355,9 @@ ${spelling}`);
                         <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>` : "";
     return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
+                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$2(uiText(language, "deckActions"))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${canToggleDeckState ? 3 : 1}">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? "add" : "deck-picker"}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ""} aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>${deckStateButtons}
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? "add" : "deck-picker"}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ""} aria-expanded="false">${escapeHtml$2(addToDeckLabel)}</button>${deckStateButtons}
                     </div>
                     ${addDeckSelect}
                 </div>
@@ -70842,14 +71366,14 @@ ${spelling}`);
   function renderMetaReading(card, settings) {
     const reading = cardPronunciationReading(card);
     if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
+    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
     if (lookup.trusted === false && !lookup.primary) return "";
     if (!lookup.primary && lookup.state === "not-in-deck") return "";
     const language = settings.interfaceLanguage;
-    return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>Anki ${escapeHtml$1(cardStateLabel(lookup.state, language))}</span>`;
+    return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>Anki ${escapeHtml$2(cardStateLabel(lookup.state, language))}</span>`;
   }
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
@@ -70880,9 +71404,9 @@ ${component.reading}`;
       pitchClass ? `jpdb-pitch-${pitchClass}` : "jpdb-pitch-unknown"
     ].filter(Boolean).join(" ");
     const pitchAttribute = pitchClass || "unknown";
-    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-    const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$1(text2);
-    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$2(reading)}"` : "";
+    const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$2(text2);
+    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$2(pitchAttribute)}" data-sentence="${escapeHtml$2(text2)}" data-expression="${escapeHtml$2(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function expressionComponentRubyToken(text2, reading, pitchClass) {
     return {
@@ -70909,14 +71433,14 @@ ${component.reading}`;
   }
   function renderProviderToggle(nextProvider, language, content = "") {
     const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
-    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
+    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$2(label)}" title="${escapeHtml$2(label)}">⇄ ${content}</button>`;
   }
   function canExpandMiningDrawer() {
     return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
   }
   function renderMiningGutter(miningActions, language) {
     const label = uiText(language, "showMiningActions");
-    return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button></div>` : "";
+    return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$2(label)}"></button></div>` : "";
   }
   function jitenDeckLabel(deck) {
     return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
@@ -71908,7 +72432,7 @@ ${component.reading}`;
     if (!body.trim()) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml$2(title)}</summary>
             ${body}
         </details>
     `;
@@ -71999,8 +72523,8 @@ ${component.reading}`;
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, titleKey))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml$1(status)}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language, titleKey))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml$2(status)}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in jpdb-reader-jiten-related-words">
@@ -72023,10 +72547,10 @@ ${component.reading}`;
         <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
             ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
             <span class="jpdb-reader-jpdb-used-in-main jpdb-reader-jiten-related-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(lookup)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-dictionary="Jiten" data-external="false">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$2(lookup)}" data-dictionary-reading="${escapeHtml$2(reading)}" data-dictionary="Jiten" data-external="false">
                     <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${reference || renderJitenAnnotatedReading$1(entry.readingFurigana || entry.reading)}</span>
                 </a>
-                ${entry.frequencyRank ? `<small>#${escapeHtml$1(String(entry.frequencyRank))}${entry.mainDefinition ? ` · ${escapeHtml$1(entry.mainDefinition)}` : ""}</small>` : entry.mainDefinition ? `<small>${escapeHtml$1(entry.mainDefinition)}</small>` : ""}
+                ${entry.frequencyRank ? `<small>#${escapeHtml$2(String(entry.frequencyRank))}${entry.mainDefinition ? ` · ${escapeHtml$2(entry.mainDefinition)}` : ""}</small>` : entry.mainDefinition ? `<small>${escapeHtml$2(entry.mainDefinition)}</small>` : ""}
             </span>
         </li>
     `;
@@ -72061,15 +72585,15 @@ ${component.reading}`;
     const target = example.text.slice(range.start, range.end);
     const after = example.text.slice(range.end);
     const reference = jitenExampleTargetReference(target, card, info);
-    const targetHtml = reference ? renderPassiveJitenReference(reference, { className: "jpdb-reader-example-target jpdb-reader-jiten-example-target", sentence: example.text }) : `<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml$1(target)}</mark>`;
-    return `${escapeHtml$1(before)}${targetHtml}${escapeHtml$1(after)}`;
+    const targetHtml = reference ? renderPassiveJitenReference(reference, { className: "jpdb-reader-example-target jpdb-reader-jiten-example-target", sentence: example.text }) : `<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml$2(target)}</mark>`;
+    return `${escapeHtml$2(before)}${targetHtml}${escapeHtml$2(after)}`;
   }
   function renderJitenAudioButton(text2, language, extraAttributes = "") {
     const audioText = text2.trim();
     if (!audioText) return "";
     const label = uiText(language, "playAudio");
     const attrs = extraAttributes ? ` ${extraAttributes}` : "";
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-jiten-audio" type="button" data-action="jiten-audio" data-study-sentence="${escapeHtml$1(audioText)}"${attrs} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>`;
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-jiten-audio" type="button" data-action="jiten-audio" data-study-sentence="${escapeHtml$2(audioText)}"${attrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${speakerIcon()}</button>`;
   }
   function renderJitenAnnotatedReading$1(value) {
     return renderAnnotatedReadingRuby(value);
@@ -72087,9 +72611,9 @@ ${component.reading}`;
   }
   function jitenWordAudioAttributes(entry) {
     return [
-      `data-jiten-word-id="${escapeHtml$1(String(entry.wordId))}"`,
-      `data-jiten-reading-index="${escapeHtml$1(String(entry.readingIndex))}"`,
-      entry.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml$1(JSON.stringify(entry.audioUrls))}"` : ""
+      `data-jiten-word-id="${escapeHtml$2(String(entry.wordId))}"`,
+      `data-jiten-reading-index="${escapeHtml$2(String(entry.readingIndex))}"`,
+      entry.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml$2(JSON.stringify(entry.audioUrls))}"` : ""
     ].filter(Boolean).join(" ");
   }
   function jitenDefinitionTextReferences(card, info) {
@@ -72187,13 +72711,13 @@ ${component.reading}`;
     return 4;
   }
   function renderJitenTextWithReferences(text2, references) {
-    if (!references.length) return escapeHtml$1(text2);
+    if (!references.length) return escapeHtml$2(text2);
     let html = "";
     let offset = 0;
     while (offset < text2.length) {
       const reference = references.find((candidate) => text2.startsWith(candidate.text, offset));
       if (!reference) {
-        html += escapeHtml$1(text2[offset] ?? "");
+        html += escapeHtml$2(text2[offset] ?? "");
         offset += 1;
         continue;
       }
@@ -72222,11 +72746,300 @@ ${component.reading}`;
   function definitionSourceStateKey(sourceId) {
     return `definition-source:${sourceId}`;
   }
+  function parseWanikaniSubject(raw) {
+    if (!isRecord$1(raw)) return null;
+    const type = typeof raw.object === "string" ? raw.object : "";
+    if (!isSubjectType(type)) return null;
+    const data = isRecord$1(raw.data) ? raw.data : {};
+    const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
+    if (!Number.isFinite(id)) return null;
+    return {
+      id,
+      type,
+      level: typeof data.level === "number" ? data.level : 0,
+      slug: typeof data.slug === "string" ? data.slug : "",
+      characters: typeof data.characters === "string" ? data.characters : null,
+      documentUrl: typeof data.document_url === "string" ? data.document_url : "",
+      meanings: parseMeanings(data.meanings),
+      auxiliaryMeanings: parseAuxiliaryMeanings(data.auxiliary_meanings),
+      readings: type === "radical" ? [] : parseReadings(data.readings),
+      meaningMnemonic: typeof data.meaning_mnemonic === "string" ? data.meaning_mnemonic : "",
+      meaningHint: typeof data.meaning_hint === "string" ? data.meaning_hint : void 0,
+      readingMnemonic: typeof data.reading_mnemonic === "string" ? data.reading_mnemonic : void 0,
+      readingHint: typeof data.reading_hint === "string" ? data.reading_hint : void 0,
+      componentSubjectIds: parseNumberArray(data.component_subject_ids),
+      amalgamationSubjectIds: parseNumberArray(data.amalgamation_subject_ids),
+      visuallySimilarSubjectIds: parseNumberArray(data.visually_similar_subject_ids),
+      contextSentences: parseContextSentences(data.context_sentences),
+      audio: type === "vocabulary" || type === "kana_vocabulary" ? parseAudio(data.pronunciation_audios) : [],
+      hiddenAt: typeof data.hidden_at === "string" ? data.hidden_at : null
+    };
+  }
+  function primaryMeaning(subject) {
+    return subject.meanings.find((meaning) => meaning.primary)?.meaning ?? subject.meanings[0]?.meaning ?? "";
+  }
+  function primaryReading(subject) {
+    return subject.readings.find((reading) => reading.primary)?.reading ?? subject.readings[0]?.reading ?? "";
+  }
+  function subjectsWithinLevel(subjects, maxLevel) {
+    return subjects.filter((subject) => subject.level <= maxLevel);
+  }
+  function isSubjectType(value) {
+    return value === "radical" || value === "kanji" || value === "vocabulary" || value === "kana_vocabulary";
+  }
+  function parseMeanings(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isRecord$1).map((item) => ({
+      meaning: typeof item.meaning === "string" ? item.meaning : "",
+      primary: item.primary === true,
+      acceptedAsCorrect: item.accepted_answer === true || item.accepted_as_correct === true
+    })).filter((item) => item.meaning);
+  }
+  function parseAuxiliaryMeanings(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isRecord$1).map((item) => ({
+      meaning: typeof item.meaning === "string" ? item.meaning : "",
+      type: item.type === "whitelist" || item.type === "blacklist" ? item.type : "unknown"
+    })).filter((item) => item.meaning);
+  }
+  function parseReadings(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isRecord$1).map((item) => {
+      const type = item.type === "onyomi" || item.type === "kunyomi" || item.type === "nanori" ? item.type : void 0;
+      return {
+        reading: typeof item.reading === "string" ? item.reading : "",
+        primary: item.primary === true,
+        acceptedAsCorrect: item.accepted_answer === true || item.accepted_as_correct === true,
+        type
+      };
+    }).filter((item) => item.reading);
+  }
+  function parseNumberArray(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item) => typeof item === "number");
+  }
+  function parseContextSentences(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isRecord$1).map((item) => ({
+      en: typeof item.en === "string" ? item.en : "",
+      ja: typeof item.ja === "string" ? item.ja : ""
+    })).filter((item) => item.en || item.ja);
+  }
+  function parseAudio(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isRecord$1).map((item) => {
+      const metadata = isRecord$1(item.metadata) ? item.metadata : {};
+      return {
+        url: typeof item.url === "string" ? item.url : "",
+        contentType: typeof item.content_type === "string" ? item.content_type : "",
+        sourceId: typeof metadata.source_id === "number" ? metadata.source_id : void 0,
+        pronunciation: typeof metadata.pronunciation === "string" ? metadata.pronunciation : void 0,
+        voiceGender: typeof metadata.gender === "string" ? metadata.gender : void 0,
+        voiceActorName: typeof metadata.voice_actor_name === "string" ? metadata.voice_actor_name : void 0,
+        voiceDescription: typeof metadata.voice_description === "string" ? metadata.voice_description : void 0
+      };
+    }).filter((item) => item.url);
+  }
+  function isRecord$1(value) {
+    return typeof value === "object" && value !== null;
+  }
+  const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
+  const TAG_RE = /<(\/?)(radical|kanji|vocabulary|reading|meaning|ja)>/gu;
+  function renderWanikaniMarkup(text2) {
+    if (!text2) return "";
+    let result = "";
+    let lastIndex = 0;
+    const openTags = [];
+    TAG_RE.lastIndex = 0;
+    let match;
+    while ((match = TAG_RE.exec(text2)) !== null) {
+      const [full, closing, tag] = match;
+      result += escapeHtml(text2.slice(lastIndex, match.index));
+      lastIndex = match.index + full.length;
+      if (!KNOWN_TAGS.has(tag)) continue;
+      if (closing) {
+        if (openTags.at(-1) === tag) {
+          result += "</span>";
+          openTags.pop();
+        } else {
+          result += escapeHtml(full);
+        }
+      } else {
+        result += `<span class="yomu-wanikani-tag yomu-wanikani-tag-${tag}">`;
+        openTags.push(tag);
+      }
+    }
+    result += escapeHtml(text2.slice(lastIndex));
+    while (openTags.pop()) result += "</span>";
+    return result;
+  }
+  function escapeHtml(value) {
+    return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
+  }
+  function renderWanikaniDefinitionMount(card, settings, sourceAttributes) {
+    if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return "";
+    return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml$2(card.spelling)}" data-wanikani-reading="${escapeHtml$2(card.reading)}">
+        ${renderLoadingSource(settings.wanikaniDefinitionsAlias || "WaniKani", sourceAttributes(definitionSourceStateKey$1(WANIKANI_DEFINITION_SOURCE_ID)))}
+    </div>`;
+  }
+  class WanikaniSourceController {
+    constructor(lookup, getSettings, sourceAttributes, onRendered) {
+      this.lookup = lookup;
+      this.getSettings = getSettings;
+      this.sourceAttributes = sourceAttributes;
+      this.onRendered = onRendered;
+    }
+    installDefinitionMounts(root, card) {
+      for (const mount of root.querySelectorAll("[data-wanikani-definition-mount]")) {
+        if (mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") continue;
+        mount.dataset.wanikaniLoading = "true";
+        void this.lookup.lookupCard(card).then((info) => {
+          if (!mount.isConnected) return;
+          if (!info) {
+            mount.remove();
+            return;
+          }
+          const settings = this.getSettings();
+          setInnerHtml(mount, renderWanikaniSource(
+            info,
+            settings,
+            this.sourceAttributes(definitionSourceStateKey$1(WANIKANI_DEFINITION_SOURCE_ID)),
+            // fallow-ignore-next-line code-duplication
+            settings.wanikaniDefinitionsAlias || "WaniKani"
+          ));
+          mount.dataset.wanikaniLoaded = "true";
+          this.onRendered?.();
+        }).catch(() => {
+          if (mount.isConnected) mount.remove();
+        }).finally(() => delete mount.dataset.wanikaniLoading);
+      }
+    }
+    installKanjiMount(root, kanji) {
+      const mount = root.querySelector("[data-kanji-wanikani-mount]");
+      if (!mount || mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") return;
+      const settings = this.getSettings();
+      if (!settings.wanikaniKanjiEnabled || !settings.wanikaniApiToken.trim()) {
+        mount.remove();
+        return;
+      }
+      mount.dataset.wanikaniLoading = "true";
+      setInnerHtml(mount, renderLoadingSource(settings.wanikaniKanjiAlias || "WaniKani", this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
+      void this.lookup.lookupKanji(kanji).then((info) => {
+        if (!mount.isConnected) return;
+        if (!info || info.subject.type !== "kanji") {
+          mount.remove();
+          return;
+        }
+        setInnerHtml(mount, renderWanikaniSource(
+          info,
+          settings,
+          this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
+          // fallow-ignore-next-line code-duplication
+          settings.wanikaniKanjiAlias || "WaniKani"
+        ));
+        mount.dataset.wanikaniLoaded = "true";
+        this.onRendered?.();
+      }).catch(() => {
+        if (mount.isConnected) mount.remove();
+      }).finally(() => delete mount.dataset.wanikaniLoading);
+    }
+  }
+  function renderWanikaniSource(info, settings, attributes, label = "WaniKani") {
+    const subject = info.subject;
+    const meanings = subject.meanings.map((item) => `${escapeHtml$2(item.meaning)}${item.primary ? " <strong>primary</strong>" : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
+    const readings2 = subject.readings.map((item) => `${escapeHtml$2(item.reading)}${item.type ? ` <small>${escapeHtml$2(item.type)}</small>` : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
+    const acceptedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "whitelist").map((item) => escapeHtml$2(item.meaning)).join(", ");
+    const blockedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "blacklist").map((item) => escapeHtml$2(item.meaning)).join(", ");
+    const synonyms = info.studyMaterial?.meaningSynonyms.map(escapeHtml$2).join(", ") ?? "";
+    const stage = info.assignment ? wanikaniStageLabel$1(info.assignment.srsStage) : "";
+    const due = info.assignment?.availableAt ? formatDate(info.assignment.availableAt, settings.interfaceLanguage) : "";
+    const components2 = renderSubjectLinks("Components", info.components);
+    const similar = renderSubjectLinks("Visually similar", info.visuallySimilar);
+    const related = renderSubjectLinks("Related vocabulary", info.relatedVocabulary);
+    const sentences = subject.contextSentences.map((sentence) => `<li><span lang="ja">${escapeHtml$2(sentence.ja)}</span><br>${escapeHtml$2(sentence.en)}</li>`).join("");
+    const audio = preferredWanikaniAudio(subject.audio).map((item, index) => `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml$2(item.url)}" aria-label="Play WaniKani pronunciation ${index + 1}"${item.voiceDescription ? ` title="${escapeHtml$2(item.voiceDescription)}"` : ""}>▶ ${escapeHtml$2(item.voiceActorName || `Audio ${index + 1}`)}</button>`).join(" ");
+    return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
+        <summary class="jpdb-reader-local-title">${escapeHtml$2(label)}</summary>
+        <div class="jpdb-reader-local-entry yomu-wanikani-body">
+            <div class="jpdb-reader-meta">Level ${subject.level}${stage ? ` · ${escapeHtml$2(stage)}` : ""}${due ? ` · due ${escapeHtml$2(due)}` : ""}${info.reviewStatistic ? ` · ${info.reviewStatistic.percentageCorrect}% correct` : ""}</div>
+            <p><strong>Meanings:</strong> ${meanings}</p>
+            ${acceptedAlternatives ? `<p><strong>Also accepted:</strong> ${acceptedAlternatives}</p>` : ""}
+            ${blockedAlternatives ? `<p><strong>Not accepted:</strong> ${blockedAlternatives}</p>` : ""}
+            ${readings2 ? `<p><strong>Readings:</strong> ${readings2}</p>` : ""}
+            ${synonyms ? `<p><strong>Your synonyms:</strong> ${synonyms}</p>` : ""}
+            ${audio ? `<div class="yomu-wanikani-audio">${audio}</div>` : ""}
+            ${renderMnemonic("Meaning mnemonic", subject.meaningMnemonic)}
+            ${renderMnemonic("Meaning hint", subject.meaningHint)}
+            ${renderMnemonic("Reading mnemonic", subject.readingMnemonic)}
+            ${renderMnemonic("Reading hint", subject.readingHint)}
+            ${renderNote("Your meaning note", info.studyMaterial?.meaningNote)}
+            ${renderNote("Your reading note", info.studyMaterial?.readingNote)}
+            ${components2}${similar}${related}
+            ${sentences ? `<div><strong>Context sentences</strong><ul>${sentences}</ul></div>` : ""}
+            ${safeExternalUrl(subject.documentUrl) ? `<p><a href="${escapeHtml$2(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapeHtml$2(subject.characters || subject.slug)} on WaniKani</a></p>` : ""}
+        </div>
+    </details>`;
+  }
+  function renderLoadingSource(label, attributes) {
+    return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}><summary class="jpdb-reader-local-title">${escapeHtml$2(label)}</summary><div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading WaniKani…</div></div></details>`;
+  }
+  function renderMnemonic(label, value) {
+    return value ? `<div class="yomu-wanikani-mnemonic"><strong>${escapeHtml$2(label)}</strong><p>${renderWanikaniMarkup(value)}</p></div>` : "";
+  }
+  function renderNote(label, value) {
+    return value ? `<div><strong>${escapeHtml$2(label)}</strong><p>${escapeHtml$2(value)}</p></div>` : "";
+  }
+  function renderSubjectLinks(label, subjects) {
+    if (!subjects.length) return "";
+    return `<p><strong>${escapeHtml$2(label)}:</strong> ${subjects.map((subject) => safeExternalUrl(subject.documentUrl) ? `<a href="${escapeHtml$2(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml$2(subject.characters || primaryMeaning(subject) || subject.slug)}</a>` : escapeHtml$2(subject.characters || primaryMeaning(subject) || subject.slug)).join(", ")}</p>`;
+  }
+  function wanikaniStageLabel$1(stage) {
+    if (stage <= 0) return "lesson";
+    if (stage <= 4) return `apprentice ${stage}`;
+    if (stage <= 6) return `guru ${stage - 4}`;
+    return stage === 7 ? "master" : stage === 8 ? "enlightened" : "burned";
+  }
+  function formatDate(value, language) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  }
+  function safeMediaUrl(value) {
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  function preferredWanikaniAudio(items) {
+    const preferred = /* @__PURE__ */ new Map();
+    for (const item of items.filter((candidate) => safeMediaUrl(candidate.url))) {
+      const key = item.sourceId !== void 0 ? `source:${item.sourceId}` : item.voiceActorName || item.pronunciation || item.voiceGender ? `voice:${item.voiceActorName ?? ""}:${item.pronunciation ?? ""}:${item.voiceGender ?? ""}` : `url:${item.url}`;
+      const existing = preferred.get(key);
+      if (!existing || audioFormatPreference(item.contentType) > audioFormatPreference(existing.contentType)) {
+        preferred.set(key, item);
+      }
+    }
+    return [...preferred.values()];
+  }
+  function audioFormatPreference(contentType) {
+    if (contentType === "audio/mpeg") return 3;
+    if (contentType === "audio/webm") return 2;
+    if (contentType === "audio/ogg") return 1;
+    return 0;
+  }
+  function safeExternalUrl(value) {
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
   const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeBunproSource", "includeStudySources", "includeImmersionSource"];
   const CORE_DEFINITION_SOURCE_RENDERERS = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
     [BUNPRO_DEFINITION_SOURCE_ID]: renderBunproDefinitionSourceSection,
+    [WANIKANI_DEFINITION_SOURCE_ID]: renderWanikaniDefinitionSourceSection,
     [ANKI_SOURCE_ID]: renderAnkiDefinitionSourceSection,
     [STUDY_TRANSLATION_SOURCE_ID]: renderTranslationDefinitionSourceSection,
     [STUDY_GRAMMAR_SOURCE_ID]: renderGrammarDefinitionSourceSection,
@@ -72242,7 +73055,7 @@ ${component.reading}`;
     const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -72343,6 +73156,9 @@ ${component.reading}`;
       definitionSourceLabel(params.settings, BUNPRO_DEFINITION_SOURCE_ID, "Bunpro")
     );
   }
+  function renderWanikaniDefinitionSourceSection(context, params) {
+    return renderWanikaniDefinitionMount(context.card, params.settings, params.sourceAttributes);
+  }
   function renderAnkiDefinitionSourceSection(context) {
     return context.extraSections[ANKI_SOURCE_ID] ?? "";
   }
@@ -72405,7 +73221,7 @@ ${component.reading}`;
     }
     attributes(sourceStateKey, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded) {
       const isOpen = this.isOpen(sourceStateKey, initiallyExpanded);
-      return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? " open" : ""}`;
+      return `data-source-state-key="${escapeHtml$2(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? " open" : ""}`;
     }
     installTracking(popover) {
       installDictionarySourceTracking(popover, (details) => this.remember(details));
@@ -73241,14 +74057,14 @@ ${component.reading}`;
   }
   function renderLookupReviewTargetButtons(target, grades) {
     const targetLabel = target.label;
-    const label = targetLabel ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(targetLabel)}</span></div>` : "";
+    const label = targetLabel ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$2(targetLabel)}</span></div>` : "";
     const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
     return `
-        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$1(target.id)}" data-review-target-row="${escapeHtml$1(target.id)}">
+        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$2(target.id)}" data-review-target-row="${escapeHtml$2(target.id)}">
             ${label}
             ${grades.map(([grade, buttonLabel]) => {
-      const title = targetLabel ? ` title="${escapeHtml$1(targetLabel)}" aria-label="${escapeHtml$1(`${buttonLabel}: ${targetLabel}`)}"` : "";
-      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$1(buttonLabel)}</button>`;
+      const title = targetLabel ? ` title="${escapeHtml$2(targetLabel)}" aria-label="${escapeHtml$2(`${buttonLabel}: ${targetLabel}`)}"` : "";
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$2(buttonLabel)}</button>`;
     }).join("")}
         </div>
     `;
@@ -73264,15 +74080,15 @@ ${component.reading}`;
   }
   function renderLookupReviewTargetGutter(target) {
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
+        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}">${escapeHtml$2(target.shortLabel)}</span>
         <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="Switch review target" aria-label="Switch review target">⇄</button>
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}"></button>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}"></button>
     </div>`;
   }
   function renderLookupReviewTargetSelector(targets) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target">
-            ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -75237,8 +76053,8 @@ ${component.reading}`;
       if (value === void 0 || value === null || value === "") return;
       params.set(key, String(value));
     });
-    const queryString = params.toString();
-    return queryString ? `${url}?${queryString}` : url;
+    const queryString2 = params.toString();
+    return queryString2 ? `${url}?${queryString2}` : url;
   }
   const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
   const DEFAULT_LIMIT = 240;
@@ -75593,7 +76409,7 @@ ${key}`] = { t: now, v: value };
     if (!isNonNullObject(payload)) return null;
     const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
     const mainReading = isNonNullObject(payload.mainReading) ? payload.mainReading : {};
-    const annotatedReading = stringValue(mainReading.text) || requestedTerm;
+    const annotatedReading = stringValue$1(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
     const pitchComponents = publicJitenPitchComponents(payload.composedOf);
@@ -75658,7 +76474,7 @@ ${key}`] = { t: now, v: value };
     if (!isNonNullObject(value)) return null;
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
-    const originalText = stringValue(value.originalText);
+    const originalText = stringValue$1(value.originalText);
     if (wordId === void 0 || wordId < 0 || readingIndex === void 0 || !originalText) return null;
     return { wordId, readingIndex, originalText };
   }
@@ -75757,9 +76573,9 @@ ${key}`] = { t: now, v: value };
   }
   function publicJitenPitchComponents(value) {
     return arrayRecords(value).flatMap((record) => {
-      const annotated = stringValue(record.readingFurigana);
-      const rawReading = stringValue(record.reading);
-      const spelling = stringValue(record.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
+      const annotated = stringValue$1(record.readingFurigana);
+      const rawReading = stringValue$1(record.reading);
+      const spelling = stringValue$1(record.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
       const reading = (annotated.includes("[") ? cleanJitenAnnotatedReading(annotated) : "") || rawReading || spelling;
       if (!spelling || !reading) return [];
       return [{
@@ -75816,7 +76632,7 @@ ${key}`] = { t: now, v: value };
     if (typeof value === "string") return [value];
     return Array.isArray(value) ? value.filter((item) => typeof item === "string" && Boolean(item.trim())) : [];
   }
-  function stringValue(value) {
+  function stringValue$1(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function finiteInteger(value) {
@@ -75874,7 +76690,7 @@ ${key}`] = { t: now, v: value };
     if (!info) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji jpdb-reader-jiten-kanji" data-source="jiten-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${renderJitenKanjiFacts(info, language)}
                 ${renderJitenKanjiReadings(info, language)}
@@ -75888,7 +76704,7 @@ ${key}`] = { t: now, v: value };
     const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji jpdb-reader-jiten-kanji" data-source="jiten-kanji" ${sourceAttributes(sourceStateKey)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${renderJitenKanjiFacts(info, language)}
                 ${renderJitenKanjiReadings(info, language)}
@@ -76001,19 +76817,19 @@ ${key}`] = { t: now, v: value };
   function renderJitenKanjiFacts(info, language) {
     const facts = jitenKanjiFactRows(info, language);
     return facts.length ? `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span title="${escapeHtml$1(`Jiten · ${label}: ${value}`)}"><strong>${escapeHtml$1(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(value)}</span></span>`).join("")}
+        ${facts.map(([label, value]) => `<span title="${escapeHtml$2(`Jiten · ${label}: ${value}`)}"><strong>${escapeHtml$2(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$2(value)}</span></span>`).join("")}
     </div>` : "";
   }
   function renderJitenKanjiReadings(info, language) {
     const groupedReadings = jitenKanjiGroupedReadingRows(info);
     if (groupedReadings.length) {
-      return `<div class="jpdb-reader-kanji-readings jpdb-reader-jiten-kanji-reading-filter" role="list" aria-label="${escapeHtml$1(uiText(language, "reading"))}">
-            ${groupedReadings.map((reading) => `<button type="button" data-action="jiten-kanji-reading" data-jiten-kanji-character="${escapeHtml$1(info.character)}" data-jiten-kanji-reading="${escapeHtml$1(reading.reading)}" role="listitem" aria-pressed="false"><span>${escapeHtml$1(reading.reading)}</span><small>${escapeHtml$1(reading.share)}</small></button>`).join("")}
+      return `<div class="jpdb-reader-kanji-readings jpdb-reader-jiten-kanji-reading-filter" role="list" aria-label="${escapeHtml$2(uiText(language, "reading"))}">
+            ${groupedReadings.map((reading) => `<button type="button" data-action="jiten-kanji-reading" data-jiten-kanji-character="${escapeHtml$2(info.character)}" data-jiten-kanji-reading="${escapeHtml$2(reading.reading)}" role="listitem" aria-pressed="false"><span>${escapeHtml$2(reading.reading)}</span><small>${escapeHtml$2(reading.share)}</small></button>`).join("")}
         </div>`;
     }
     const readings2 = jitenKanjiReadingRows(info).filter(Boolean);
     return readings2.length ? `<div class="jpdb-reader-kanji-readings">
-        ${readings2.slice(0, 12).map((reading) => `<span>${escapeHtml$1(reading)}</span>`).join("")}
+        ${readings2.slice(0, 12).map((reading) => `<span>${escapeHtml$2(reading)}</span>`).join("")}
     </div>` : "";
   }
   function jitenKanjiGroupedReadingRows(info) {
@@ -76037,20 +76853,20 @@ ${key}`] = { t: now, v: value };
   function renderJitenKanjiVocabularyWord(word, language) {
     const key = `${word.expression}:${word.reading}`;
     const meta = renderJitenKanjiWordMeta(word, language);
-    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(word.expression)}" data-reading="${escapeHtml$1(word.reading)}" data-jiten-kanji-word-key="${escapeHtml$1(key)}" data-jiten-kanji-reading="${escapeHtml$1(word.kanjiReading)}" title="${escapeHtml$1(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml$1(jitenKanjiWordAriaLabel(word))}" role="listitem">
+    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml$2(word.expression)}" data-reading="${escapeHtml$2(word.reading)}" data-jiten-kanji-word-key="${escapeHtml$2(key)}" data-jiten-kanji-reading="${escapeHtml$2(word.kanjiReading)}" title="${escapeHtml$2(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml$2(jitenKanjiWordAriaLabel(word))}" role="listitem">
         <span class="jpdb-reader-similar-word-head jpdb-reader-jiten-kanji-word-main">
-            <span class="jpdb-reader-jiten-kanji-word-term">${word.termHtml || escapeHtml$1(word.expression)}</span>
+            <span class="jpdb-reader-jiten-kanji-word-term">${word.termHtml || escapeHtml$2(word.expression)}</span>
             ${meta}
         </span>
-        ${word.meaning ? `<small class="jpdb-reader-similar-meaning">${escapeHtml$1(word.meaning)}</small>` : ""}
+        ${word.meaning ? `<small class="jpdb-reader-similar-meaning">${escapeHtml$2(word.meaning)}</small>` : ""}
     </button>`;
   }
   function renderJitenKanjiWordMeta(word, language) {
     const state2 = primaryJitenWordState(word.states);
     const items = [
-      state2 ? `<span class="jpdb-reader-jiten-kanji-word-status" title="${escapeHtml$1(`Jiten · ${cardStateLabel(state2, language)}`)}"><span class="jpdb-reader-state-dot jiten-${escapeHtml$1(state2)}"></span>${escapeHtml$1(cardStateLabel(state2, language))}</span>` : "",
-      word.pitchAccents.length ? `<span class="jpdb-reader-jiten-kanji-word-pitch" title="${escapeHtml$1(`Pitch accent: ${word.pitchAccents.join(", ")}`)}">P${escapeHtml$1(word.pitchAccents.join("/"))}</span>` : "",
-      word.frequencyRank ? `<em>#${escapeHtml$1(String(word.frequencyRank))}</em>` : ""
+      state2 ? `<span class="jpdb-reader-jiten-kanji-word-status" title="${escapeHtml$2(`Jiten · ${cardStateLabel(state2, language)}`)}"><span class="jpdb-reader-state-dot jiten-${escapeHtml$2(state2)}"></span>${escapeHtml$2(cardStateLabel(state2, language))}</span>` : "",
+      word.pitchAccents.length ? `<span class="jpdb-reader-jiten-kanji-word-pitch" title="${escapeHtml$2(`Pitch accent: ${word.pitchAccents.join(", ")}`)}">P${escapeHtml$2(word.pitchAccents.join("/"))}</span>` : "",
+      word.frequencyRank ? `<em>#${escapeHtml$2(String(word.frequencyRank))}</em>` : ""
     ].filter(Boolean).join("");
     return items ? `<span class="jpdb-reader-jiten-kanji-word-meta">${items}</span>` : "";
   }
@@ -76071,8 +76887,8 @@ ${key}`] = { t: now, v: value };
     return renderJitenKanjiMoreButtonAttributes(info.character, reading, 2, JITEN_KANJI_WORD_PAGE_SIZE, total, remaining, language);
   }
   function renderJitenKanjiMoreButtonAttributes(character, reading, page, pageSize, total, remaining, language) {
-    return `<button class="jpdb-reader-btn jpdb-reader-jiten-kanji-more" type="button" data-action="jiten-kanji-more" data-jiten-kanji-character="${escapeHtml$1(character)}" data-jiten-kanji-reading="${escapeHtml$1(reading)}" data-jiten-kanji-page="${page}" data-jiten-kanji-page-size="${pageSize}" data-jiten-kanji-total="${total}">
-        ${escapeHtml$1(uiText(language, "more"))} <span class="jpdb-reader-source-status">${remaining}</span>
+    return `<button class="jpdb-reader-btn jpdb-reader-jiten-kanji-more" type="button" data-action="jiten-kanji-more" data-jiten-kanji-character="${escapeHtml$2(character)}" data-jiten-kanji-reading="${escapeHtml$2(reading)}" data-jiten-kanji-page="${page}" data-jiten-kanji-page-size="${pageSize}" data-jiten-kanji-total="${total}">
+        ${escapeHtml$2(uiText(language, "more"))} <span class="jpdb-reader-source-status">${remaining}</span>
     </button>`;
   }
   function jitenKanjiWordsTotal(info) {
@@ -76084,7 +76900,7 @@ ${key}`] = { t: now, v: value };
     return groups.length === 1 ? groups[0]?.reading ?? "" : "";
   }
   function sourceStateAttribute(sourceStateKey, initiallyExpanded) {
-    return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
+    return `data-source-state-key="${escapeHtml$2(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
   }
   function cleanJitenWordSurface(word) {
     return cleanJitenAnnotatedText(word.matchSurface || word.readingFurigana || word.reading);
@@ -76103,11 +76919,11 @@ ${key}`] = { t: now, v: value };
     const regex = /([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g;
     let match;
     while ((match = regex.exec(source)) !== null) {
-      html += escapeHtml$1(source.slice(offset, match.index));
-      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
+      html += escapeHtml$2(source.slice(offset, match.index));
+      html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$2(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
       offset = match.index + match[0].length;
     }
-    html += escapeHtml$1(source.slice(offset));
+    html += escapeHtml$2(source.slice(offset));
     return html;
   }
   function fact$1(label, value) {
@@ -76141,7 +76957,7 @@ ${key}`] = { t: now, v: value };
       const rendered = wordsPage?.items.length ?? 0;
       const total = wordsPage?.total ?? rendered;
       const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, context.language());
-      setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(context.language(), "noSimilarWords"))}</div>`);
+      setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$2(uiText(context.language(), "noSimilarWords"))}</div>`);
       context.afterRender?.();
     } catch (error) {
       context.onError?.({ character, reading }, error);
@@ -76285,7 +77101,7 @@ ${key}`] = { t: now, v: value };
     const matchingRoots = roots.filter((root) => jpdbVocabularyRootMatches(root, spelling, reading));
     const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);
     const patterns = candidates.flatMap(readJpdbPitchPatterns).filter(Boolean);
-    return unique(patterns);
+    return unique$1(patterns);
   }
   function pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading) {
     if (matchingRoots.length) return matchingRoots;
@@ -76363,7 +77179,7 @@ ${normalizedReading}`;
     }
     async fetchPitch(spelling, reading) {
       if (this.requestBackoff.isActive()) return [];
-      for (const query of unique([spelling, reading].filter(Boolean))) {
+      for (const query of unique$1([spelling, reading].filter(Boolean))) {
         const url = jpdbSearchUrl(query);
         const html = await requestText$1(url, this.getCorsProxyUrl()).catch((error) => {
           this.noteRequestFailure("Public JPDB pitch request failed", { query }, error);
@@ -76488,13 +77304,13 @@ ${normalizedReading}`;
     return canUseGenericVocabularyRoot(roots, spelling, reading) || jpdbDocumentMatchesVocabulary(doc, spelling, reading, cleanText$1);
   }
   function jpdbAudioIds(root) {
-    return unique(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+    return unique$1(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
   }
   function jpdbVocabularyAudioIds(html, spelling, reading) {
     const doc = parseHtmlDocument(html);
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return [];
-    return unique(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element2) => !element2.closest(".subsection-used-in, .subsection-examples")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+    return unique$1(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element2) => !element2.closest(".subsection-used-in, .subsection-examples")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
   }
   function shouldRefreshVocabularyEntryAudio(entry) {
     return Boolean(entry.url && parseJpdbVocabularyUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
@@ -76554,7 +77370,7 @@ ${normalizedReading}`;
     return Array.from(root.childNodes).map((node) => jpdbRichTextNodeHtml(node, options)).join("").trim();
   }
   function jpdbRichTextNodeHtml(node, options) {
-    if (node.nodeType === Node.TEXT_NODE) return escapeHtml$1(node.textContent ?? "");
+    if (node.nodeType === Node.TEXT_NODE) return escapeHtml$2(node.textContent ?? "");
     if (node.nodeType !== Node.ELEMENT_NODE) return "";
     return jpdbRichTextElementHtml(node, options);
   }
@@ -76575,7 +77391,7 @@ ${normalizedReading}`;
     let baseHtml = "";
     const flushBase = (reading = "") => {
       if (!baseHtml) return;
-      html += reading ? `<ruby><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : baseHtml;
+      html += reading ? `<ruby><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(reading)}</rt><rp>)</rp></ruby>` : baseHtml;
       baseHtml = "";
     };
     element2.childNodes.forEach((child) => {
@@ -76618,8 +77434,8 @@ ${normalizedReading}`;
     if (vid > 0) {
       urls.push(`${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`);
     }
-    unique([spelling, reading].filter(Boolean)).forEach((query) => urls.push(jpdbSearchUrl(query)));
-    return unique(urls);
+    unique$1([spelling, reading].filter(Boolean)).forEach((query) => urls.push(jpdbSearchUrl(query)));
+    return unique$1(urls);
   }
   function vocabularySupplementUrls(html, spelling, reading, currentUrl = "") {
     const doc = parseHtmlDocument(html);
@@ -76658,7 +77474,7 @@ ${normalizedReading}`;
   }
   function mergeVocabularyInfo(primary, supplemental) {
     return {
-      meanings: unique([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
+      meanings: unique$1([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
       compounds: mergeBy(primary.compounds, supplemental.compounds, (compound) => `${compound.term}	${compound.reading}`, JPDB_COMPOUND_LIMIT),
       usedInVocabulary: mergeBy(
         primary.usedInVocabulary ?? [],
@@ -76913,7 +77729,7 @@ ${normalizedReading}`;
     return JAPANESE_RE.test(reading) ? reading : "";
   }
   function extractPartOfSpeech(root) {
-    return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText$1(element2.textContent ?? "")).filter(Boolean));
+    return unique$1(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText$1(element2.textContent ?? "")).filter(Boolean));
   }
   function extractFrequencyRank(root) {
     for (const tag of Array.from(root.querySelectorAll(".tags .tag, .tag"))) {
@@ -76926,7 +77742,7 @@ ${normalizedReading}`;
   }
   function extractMeanings(root, doc, spelling, reading) {
     const meanings = Array.from(root.querySelectorAll(".subsection-meanings .description")).map((element2) => cleanMeaning(element2.textContent ?? "")).filter(Boolean);
-    if (meanings.length) return unique(meanings).slice(0, 8);
+    if (meanings.length) return unique$1(meanings).slice(0, 8);
     return shouldReadMetaMeanings(spelling, reading) ? metaDescriptionMeanings(doc) : [];
   }
   function shouldReadMetaMeanings(spelling, reading) {
@@ -77046,7 +77862,7 @@ ${normalizedReading}`;
   function usedInRows(section) {
     const rows = Array.from(section.querySelectorAll(".used-in, .subsection > div"));
     const directLinks = Array.from(section.children).filter((child) => child instanceof HTMLElement && vocabularyLink(child) !== null);
-    return unique([...rows, ...directLinks]);
+    return unique$1([...rows, ...directLinks]);
   }
   function vocabularyLink(root) {
     if (root instanceof HTMLAnchorElement && isVocabularyLink(root)) return root;
@@ -77077,7 +77893,7 @@ ${normalizedReading}`;
   function exampleSections(root) {
     const byClass = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
     const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText$1(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section) => section !== null);
-    return unique([...byClass, ...byLabel]);
+    return unique$1([...byClass, ...byLabel]);
   }
   function exampleSectionFromLabel(label) {
     let current = label.parentElement;
@@ -77981,6 +78797,7 @@ ${reading}`);
   function browseSourceForCard(card) {
     if (card.source === "anki" || card.reviewSource === "anki") return "anki";
     if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+    if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
     if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
     if (card.source === "jiten" || card.reviewSource === "jiten-api" || typeof card.jitenWordId === "number") return "jiten";
     return "jpdb";
@@ -78012,6 +78829,7 @@ ${reading}`);
       jpdb: copy2.jpdb,
       jiten: copy2.jiten,
       bunpro: copy2.bunpro,
+      wanikani: copy2.wanikani,
       "yomu-local": copy2.yomuLocal,
       anki: copy2.anki
     };
@@ -78025,7 +78843,7 @@ ${reading}`);
       "div",
       { class: "jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips", role: "group" },
       chip("all", copy2.all, cards.length, active.size === 0),
-      ...["jiten", "jpdb", "bunpro", "yomu-local", "anki"].filter((source) => (counts.get(source) ?? 0) > 0).map((source) => chip(source, labels[source], counts.get(source) ?? 0, active.has(source)))
+      ...["jiten", "jpdb", "bunpro", "wanikani", "yomu-local", "anki"].filter((source) => (counts.get(source) ?? 0) > 0).map((source) => chip(source, labels[source], counts.get(source) ?? 0, active.has(source)))
     );
   }
   function sortBrowseCards(cards, sort, descending) {
@@ -78396,7 +79214,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     }
   }
   function isReviewSource(source) {
-    return source === "anki" || source === "jpdb-api" || source === "jpdb-live" || source === "jiten-api" || source === "bunpro-api" || source === "yomu-local";
+    return source === "anki" || source === "jpdb-api" || source === "jpdb-live" || source === "jiten-api" || source === "bunpro-api" || source === "wanikani-api" || source === "yomu-local";
   }
   function isPositiveJpdbCard(card) {
     return card.source === "jpdb" && card.vid > 0 && card.sid > 0;
@@ -78410,6 +79228,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function newTabCardSourceLabel(card, language) {
     if (card.source === "anki" || card.reviewSource === "anki") return ankiReviewSourceLabel(card, language);
     if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "Bunpro";
+    if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "WaniKani";
     if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return ACADEMY_SRS_LABEL;
     if (card.source === "fallback") return "Yomu";
     if (card.source === "local" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
@@ -78434,6 +79253,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     const add = (target) => {
       if (!targets.includes(target)) targets.push(target);
     };
+    if (isWanikaniReviewCard(card) && card.cardState.includes("due") && settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings)) {
+      return ["wanikani-api"];
+    }
     if (hasBunproReviewSession(card) && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)) {
       return ["bunpro-api"];
     }
@@ -78452,6 +79274,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function queueableNewTabReviewTargets(targets) {
     return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
+  }
+  function isWanikaniReviewCard(card) {
+    return (card.source === "wanikani" || card.reviewSource === "wanikani-api") && typeof card.wanikaniAssignmentId === "number" && card.wanikaniAssignmentId > 0;
   }
   function passingNewTabGrade(grade) {
     return grade === "pass" || grade === "easy" || grade === "okay";
@@ -78672,6 +79497,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_SOURCE_LABELS = {
     jpdb: "JPDB",
     bunpro: "Bunpro",
+    wanikani: "WaniKani",
     "yomu-local": ACADEMY_SRS_LABEL,
     anki: "Anki",
     dictionary: "Dictionary"
@@ -78869,7 +79695,7 @@ ${newTabCardReading(card)}`;
       searchWordDefinitionsHtml(card, detail, context),
       searchWordLoadingHtml(detail, context)
     ].filter(Boolean).join("");
-    return html || `<div class="jpdb-reader-newtab-search-message">${escapeHtml$1(context.text("noLocalResults"))}</div>`;
+    return html || `<div class="jpdb-reader-newtab-search-message">${escapeHtml$2(context.text("noLocalResults"))}</div>`;
   }
   function searchWordDefinitionsHtml(card, detail, context) {
     if (detail.loading) return "";
@@ -78878,7 +79704,7 @@ ${newTabCardReading(card)}`;
   function searchWordLoadingHtml(detail, context) {
     if (!detail.loading) return "";
     const language = context.getSettings().interfaceLanguage;
-    return `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$1(uiText(language, "loadingDictionaryDetails"))}</div>`;
+    return `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$2(uiText(language, "loadingDictionaryDetails"))}</div>`;
   }
   function searchWordHeaderHtml(card, detail, context) {
     const settings = context.getSettings();
@@ -78893,14 +79719,14 @@ ${newTabCardReading(card)}`;
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state2} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, "showKanji") })}</div>
-                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$1(visibleReading)}</div>` : ""}
+                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$2(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
             ${pills}
         </div>
         <div class="jpdb-reader-card-tools">
             ${pitch}
-            <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml$1(cardKey(card))}" type="button" aria-label="${escapeHtml$1(audioTitle)}" title="${escapeHtml$1(audioTitle)}"${settings.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>
+            <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml$2(cardKey(card))}" type="button" aria-label="${escapeHtml$2(audioTitle)}" title="${escapeHtml$2(audioTitle)}"${settings.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>
         </div>
     </div>`;
   }
@@ -78919,7 +79745,7 @@ ${newTabCardReading(card)}`;
     const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
     if (reading.normalize("NFC") === visibleReading.trim().normalize("NFC")) return "";
     if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
+    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
   }
   function searchWordVisibleReading(card, settings) {
     const reading = newTabCardOptionalReading(card);
@@ -78940,7 +79766,7 @@ ${newTabCardReading(card)}`;
   }
   function searchWordStateMeta(source, state2, language) {
     const label = source === "jpdb" ? "JPDB" : source === "jiten" ? "Jiten" : "Anki";
-    return `<span><span class="jpdb-reader-state-dot ${source}-${state2}"></span>${label} ${escapeHtml$1(searchCardStateLabel(state2, language))}</span>`;
+    return `<span><span class="jpdb-reader-state-dot ${source}-${state2}"></span>${label} ${escapeHtml$2(searchCardStateLabel(state2, language))}</span>`;
   }
   function searchFallbackDefinitionSourcesHtml(card, detail, context) {
     const settings = context.getSettings();
@@ -78987,7 +79813,7 @@ ${newTabCardReading(card)}`;
             data-newtab-search-inline-kanji="true"
             ${context.sourceAttributes(kanjiSourceStateKey(`search-word:${cardKey(card)}:kanji`))}
         >
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(context.text("kanji"))}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(context.text("kanji"))}</summary>
         </details>
     `);
   }
@@ -79458,7 +80284,7 @@ ${options.version}`;
   function renderNewTabKanjiInfoSection(card, facts, readings2, localMeanings, fullInfo, sourceAttributes, title, language) {
     const section = htmlToFirstElement(`
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-newtab-kanji-info-source" ${sourceAttributes(kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
         </details>
     `);
     if (!section) return el("div");
@@ -79511,14 +80337,14 @@ ${options.version}`;
     if (source === "auto") {
       return {
         kind: "auto-review",
-        primarySources: ["yomu-local", "jpdb", "bunpro", "anki"],
+        primarySources: ["yomu-local", "jpdb", "bunpro", "wanikani", "anki"],
         studyFallback: { kind: "unconfigured-auto-study" }
       };
     }
     return {
       kind: "explicit-source",
       primarySources: [source],
-      studyFallback: source === "jpdb" || source === "bunpro" || source === "yomu-local" || source === "dictionary" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
+      studyFallback: source === "jpdb" || source === "bunpro" || source === "wanikani" || source === "yomu-local" || source === "dictionary" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
     };
   }
   const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
@@ -79652,7 +80478,7 @@ ${entry.url}`),
     return versioned.length ? versioned : [...value.matchAll(/#?(\d+)/gu)].map((match) => ({ label: "RTK", value: match[1] ?? "" })).filter((frame) => frame.value);
   }
   const newTabKanjiReadings = (fullInfo, localReadings) => fullInfo?.readings.length ? fullInfo.readings.slice(0, 8).map((reading) => `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`) : localReadings;
-  const newTabKanjiSourceAttrs = (sourceStateKey, initiallyExpanded = true) => `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
+  const newTabKanjiSourceAttrs = (sourceStateKey, initiallyExpanded = true) => `data-source-state-key="${escapeHtml$2(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
   function newTabKanjiSourceTitle(settings, sourceId) {
     return kanjiSourceLabel(settings, sourceId, defaultNewTabKanjiSourceTitle(settings, sourceId));
   }
@@ -79845,15 +80671,17 @@ ${entry.url}`),
     const jpdb = emptyStatsSource("jpdb", "JPDB", "Add JPDB data to see stats.");
     const jiten = emptyStatsSource("jiten", "Jiten", "Add Jiten data to see stats.");
     const bunpro = emptyStatsSource("bunpro", "Bunpro", "Connect Bunpro to see stats.");
+    const wanikani = emptyStatsSource("wanikani", "WaniKani", "Connect WaniKani to see stats.");
     const yomuLocal = emptyStatsSource("yomu-local", ACADEMY_SRS_LABEL, "Academy reviews are ready.");
     const anki = emptyStatsSource("anki", "Anki", "Connect Anki to see stats.");
     return {
       jpdb,
       jiten,
       bunpro,
+      wanikani,
       yomuLocal,
       anki,
-      combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, anki)
+      combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, wanikani, anki)
     };
   }
   function emptyStatsSource(id, label, message, status = "setup") {
@@ -79928,7 +80756,7 @@ ${entry.url}`),
       point.reviews += 1;
       if (jitenReviewRatingIsCorrect(review.rating)) point.correct += 1;
       else point.failed += 1;
-      point.minutes += Math.max(0, numberValue(review.reviewDuration)) / 6e4;
+      point.minutes += Math.max(0, numberValue$1(review.reviewDuration)) / 6e4;
     }
     return finalizeStatsSource({
       ...source,
@@ -80255,10 +81083,10 @@ ${entry.url}`),
   function ankiCardBreakdown(stats) {
     const out = { ...EMPTY_CARDS };
     for (const deck of stats) {
-      const newCount = numberValue(deck.new_count);
-      const learnCount = numberValue(deck.learn_count);
-      const reviewCount = numberValue(deck.review_count);
-      const total = numberValue(deck.total_in_deck) || newCount + learnCount + reviewCount;
+      const newCount = numberValue$1(deck.new_count);
+      const learnCount = numberValue$1(deck.learn_count);
+      const reviewCount = numberValue$1(deck.review_count);
+      const total = numberValue$1(deck.total_in_deck) || newCount + learnCount + reviewCount;
       out.total += total;
       out.new += newCount;
       out.learning += learnCount;
@@ -80270,7 +81098,7 @@ ${entry.url}`),
   function ankiReviewedByDayToDaily(value) {
     return value.map((item) => {
       const date = normalizeDateString(item[0]);
-      const reviews = numberValue(item[1]);
+      const reviews = numberValue$1(item[1]);
       return date ? { ...emptyDailyPoint(date), reviews } : null;
     }).filter((point) => point !== null);
   }
@@ -80283,12 +81111,12 @@ ${entry.url}`),
     const daily = /* @__PURE__ */ new Map();
     for (const reviews of Object.values(reviewsByCard ?? {})) {
       for (const review of reviews ?? []) {
-        const timestamp = numberValue(review.id);
+        const timestamp = numberValue$1(review.id);
         if (!timestamp || timestamp < cutoff) continue;
         const point = ensureDailyPoint(daily, dateKey(new Date(timestamp)));
-        if (numberValue(review.ease) >= 2) point.correct += 1;
+        if (numberValue$1(review.ease) >= 2) point.correct += 1;
         else point.failed += 1;
-        point.minutes += numberValue(review.time) / 6e4;
+        point.minutes += numberValue$1(review.time) / 6e4;
       }
     }
     return sortedDailyPoints([...daily.values()]);
@@ -80315,13 +81143,13 @@ ${entry.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord(value)) return [];
+    if (!isRecord$3(value)) return [];
     const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$3(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review) => review !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -80331,10 +81159,10 @@ ${entry.url}`),
       return {
         timestamp: timestamp2,
         grade: reviewGrade(value[3]),
-        minutes: numberValue(value[5]) / 6e4
+        minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord(value)) return null;
+    if (!isRecord$3(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -80349,7 +81177,7 @@ ${entry.url}`),
       const parsed = new Date(value);
       return Number.isFinite(parsed.getTime()) ? parsed : null;
     }
-    const numeric = numberValue(value);
+    const numeric = numberValue$1(value);
     if (!numeric) return null;
     const ms = numeric > 1e10 ? numeric : numeric * 1e3;
     const date = new Date(ms);
@@ -80357,7 +81185,7 @@ ${entry.url}`),
   }
   function reviewGrade(value) {
     if (typeof value === "string") return value.trim().toLowerCase();
-    const numeric = numberValue(value);
+    const numeric = numberValue$1(value);
     if (!numeric) return "fail";
     if (numeric >= 4) return "easy";
     if (numeric >= 3) return "okay";
@@ -80365,9 +81193,9 @@ ${entry.url}`),
     return "fail";
   }
   function reviewMinutes(value) {
-    const ms = numberValue(value.time_spent_ms ?? value.duration_ms);
+    const ms = numberValue$1(value.time_spent_ms ?? value.duration_ms);
     if (ms) return ms / 6e4;
-    const seconds = numberValue(value.time_spent ?? value.duration ?? value.seconds);
+    const seconds = numberValue$1(value.time_spent ?? value.duration ?? value.seconds);
     return seconds ? seconds / 60 : 0;
   }
   function isJpdbSuccessfulGrade(grade) {
@@ -80437,7 +81265,7 @@ ${entry.url}`),
     const parsed = new Date(trimmed);
     return Number.isFinite(parsed.getTime()) ? dateKey(parsed) : null;
   }
-  function numberValue(value) {
+  function numberValue$1(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
   }
@@ -80811,6 +81639,7 @@ ${entry.url}`),
       ["jiten", snapshot.jiten],
       ["yomu-local", snapshot.yomuLocal],
       ["bunpro", snapshot.bunpro],
+      ["wanikani", snapshot.wanikani],
       ["anki", snapshot.anki]
     ].filter(([, source]) => statsSourceHasVisibleData(source));
   }
@@ -80824,6 +81653,7 @@ ${entry.url}`),
     if (source === "jpdb") return "JPDB";
     if (source === "jiten") return "Jiten";
     if (source === "bunpro") return "Bunpro";
+    if (source === "wanikani") return "WaniKani";
     if (source === "yomu-local") return ACADEMY_SRS_LABEL;
     return "Anki";
   }
@@ -80975,7 +81805,7 @@ ${entry.url}`),
     return 3;
   }
   function statsSourceIdFromValue(value) {
-    if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local" || value === "anki" || value === "combined") return value;
+    if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "combined") return value;
     return "combined";
   }
   class NewTabStatsController {
@@ -81021,6 +81851,7 @@ ${entry.url}`),
     selectedStudySource() {
       if (this.selectedSource === "jpdb" || this.selectedSource === "jiten") return "jpdb";
       if (this.selectedSource === "bunpro") return "bunpro";
+      if (this.selectedSource === "wanikani") return "wanikani";
       if (this.selectedSource === "yomu-local") return "yomu-local";
       if (this.selectedSource === "anki") return "anki";
       return "auto";
@@ -81050,16 +81881,18 @@ ${entry.url}`),
         jpdb: hasJpdbApiCredential(settings) ? this.loadingSource(this.snapshot.jpdb) : emptyStatsSource("jpdb", "JPDB", this.deps.text("statsApiKeyMissing"), "setup"),
         jiten: hasJitenApiCredential(settings) ? this.loadingSource(this.snapshot.jiten) : emptyStatsSource("jiten", "Jiten", this.deps.text("statsApiKeyMissing"), "setup"),
         bunpro: this.deps.canUseBunproSource() ? this.loadingSource(this.snapshot.bunpro) : emptyStatsSource("bunpro", "Bunpro", this.deps.text("statsApiKeyMissing"), "setup"),
+        wanikani: this.deps.canUseWanikaniSource() ? this.loadingSource(this.snapshot.wanikani) : emptyStatsSource("wanikani", "WaniKani", this.deps.text("statsApiKeyMissing"), "setup"),
         yomuLocal: this.deps.canUseYomuLocalSource() ? this.loadingSource(this.snapshot.yomuLocal) : emptyStatsSource("yomu-local", ACADEMY_SRS_LABEL, this.deps.text("statsNoData"), "setup"),
         anki: this.shouldLoadAnki(settings) ? this.loadingSource(this.snapshot.anki) : emptyStatsSource("anki", "Anki", this.deps.text("statsConnectAnki"), "setup"),
         combined: this.loadingSource(this.snapshot.combined)
       };
       this.render(root);
-      const [history2, jpdb, jiten, bunpro, yomuLocal, anki] = await Promise.all([
+      const [history2, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
         this.readJpdbHistory(),
         this.loadJpdbSource(),
         this.loadJitenSource(),
         this.loadSrsAdapterSource("bunpro"),
+        this.loadSrsAdapterSource("wanikani"),
         this.loadSrsAdapterSource("yomu-local"),
         this.loadAnkiSource()
       ]);
@@ -81070,9 +81903,10 @@ ${entry.url}`),
         jpdb: jpdbWithHistory,
         jiten: jitenWithHistory,
         bunpro,
+        wanikani,
         yomuLocal,
         anki,
-        combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, anki)
+        combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, wanikani, anki)
       };
       this.loaded = true;
       this.render(root);
@@ -81258,7 +82092,7 @@ ${entry.url}`),
           ...this.snapshot,
           anki: emptyStatsSource("anki", "Anki", this.deps.text("statsAnkiUnavailable"), "error")
         };
-        this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki);
+        this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
         this.render(root);
         return;
       }
@@ -81294,7 +82128,7 @@ ${entry.url}`),
       this.snapshot = {
         ...this.snapshot,
         anki: nextAnki,
-        combined: combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, nextAnki)
+        combined: combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, nextAnki)
       };
       this.render(root);
     }
@@ -81326,9 +82160,10 @@ ${entry.url}`),
           jpdb,
           jiten: this.snapshot.jiten,
           bunpro: this.snapshot.bunpro,
+          wanikani: this.snapshot.wanikani,
           yomuLocal: this.snapshot.yomuLocal,
           anki: this.snapshot.anki,
-          combined: combineStatsSources(jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki)
+          combined: combineStatsSources(jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki)
         };
         this.selectedSource = this.selectedSource === "anki" ? "combined" : this.selectedSource;
         this.loaded = true;
@@ -81342,7 +82177,7 @@ ${entry.url}`),
             message: this.deps.text("statsImportFailed")
           }
         };
-        this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki);
+        this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
       }
       this.render(root);
     }
@@ -82507,6 +83342,7 @@ ${entry.url}`),
       hasJpdb: targets.some((target) => isJpdbReviewTarget(target)),
       hasJiten: targets.includes("jiten-api"),
       hasBunpro: targets.includes("bunpro-api"),
+      hasWanikani: targets.includes("wanikani-api"),
       hasYomuLocal: targets.includes("yomu-local"),
       hasAnki: targets.includes("anki")
     };
@@ -82516,6 +83352,7 @@ ${entry.url}`),
   }
   function newTabGradeTargetLabel(summary, labels) {
     if (summary.hasBunpro) return labels.bunpro;
+    if (summary.hasWanikani) return labels.wanikani;
     if (summary.hasYomuLocal) return labels.yomuLocal;
     if (summary.hasJpdb && summary.hasJiten) return summary.hasAnki ? labels.all : labels.jpdbAndJiten;
     if (summary.hasJiten && summary.hasAnki) return labels.jitenAndAnki;
@@ -82526,6 +83363,7 @@ ${entry.url}`),
   }
   function newTabApiGradeTargetShortLabel(summary) {
     if (summary.hasBunpro) return "Bunpro";
+    if (summary.hasWanikani) return "WaniKani";
     if (summary.hasYomuLocal) return ACADEMY_SRS_LABEL;
     if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
@@ -82560,6 +83398,7 @@ ${entry.url}`),
     if (option.dataset.newtabReviewTarget === "jpdb") return { kind: "jpdb" };
     if (option.dataset.newtabReviewTarget === "jiten") return { kind: "jiten" };
     if (option.dataset.newtabReviewTarget === "bunpro") return { kind: "bunpro" };
+    if (option.dataset.newtabReviewTarget === "wanikani") return { kind: "wanikani" };
     if (option.dataset.newtabReviewTarget === "yomu-local") return { kind: "yomu-local" };
     if (option.dataset.newtabReviewTarget !== "anki") return void 0;
     const ankiCardId = Number(option.dataset.ankiCardId);
@@ -83200,9 +84039,9 @@ ${entry.url}`),
   }
   function iconButton(action, label, extraAttrs = "") {
     const isPlayAction = action.startsWith("listen-play");
-    const content = isPlayAction ? speakerIcon() : escapeHtml$1(label);
+    const content = isPlayAction ? speakerIcon() : escapeHtml$2(label);
     const className = isPlayAction ? "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio jpdb-reader-newtab-listen-btn jpdb-reader-newtab-listen-icon-btn" : "jpdb-reader-newtab-listen-btn";
-    return `<button type="button" class="${className}" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+    return `<button type="button" class="${className}" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
   }
   function renderPositionPicker(item, selectedPosition, revealed, validPositions, t) {
     const moraCount = splitMorae(item.reading).length;
@@ -83220,29 +84059,29 @@ ${entry.url}`),
             <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || "unknown"}${stateClass}" data-newtab-action="listen-pick" data-listen-pos="${position}" data-pitch-class="${className || "unknown"}" aria-pressed="${isSelected}">
                 <span class="jpdb-reader-newtab-listen-pos-num">${position}</span>
                 <span class="jpdb-reader-newtab-listen-pos-graph">${graph}</span>
-                <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml$1(pitchClassLabel(className, t))}</span>
+                <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml$2(pitchClassLabel(className, t))}</span>
             </button>`);
     }
-    return `<div class="jpdb-reader-newtab-listen-picker" role="group" aria-label="${escapeHtml$1(t("listenPerceivePrompt"))}">${buttons.join("")}</div>`;
+    return `<div class="jpdb-reader-newtab-listen-picker" role="group" aria-label="${escapeHtml$2(t("listenPerceivePrompt"))}">${buttons.join("")}</div>`;
   }
   function renderRecordRow(view, t) {
     if (!view.micEnabled) return "";
-    if (view.micUnavailable) return `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicUnavailable"))}</span>`;
+    if (view.micUnavailable) return `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenMicUnavailable"))}</span>`;
     const recordLabel = view.recording ? t("listenMicRecording") : t("listenMicListenBack");
     return `
         <div class="jpdb-reader-newtab-listen-record">
-            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$1(recordLabel)}</button>
+            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$2(recordLabel)}</button>
             ${view.hasRecording ? iconButton("listen-play-recording", t("listenMicYou")) : ""}
             ${renderSpeakingScore(view, t)}
         </div>`;
   }
   function renderSpeakingScore(view, t) {
     if (view.speakingScoring) {
-      return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="pending">${escapeHtml$1(t("listenMicScoring"))}</span>`;
+      return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="pending">${escapeHtml$2(t("listenMicScoring"))}</span>`;
     }
     if (!view.hasRecording) return "";
     if (!view.speakingScore) {
-      return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="unknown">${escapeHtml$1(t("listenMicNoPitch"))}</span>`;
+      return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="unknown">${escapeHtml$2(t("listenMicNoPitch"))}</span>`;
     }
     const labelKey = {
       good: "listenMicScoreGood",
@@ -83252,8 +84091,8 @@ ${entry.url}`),
     const state2 = view.speakingScore.verdict;
     return `
         <div class="jpdb-reader-newtab-listen-score-panel" data-speaking-score-state="${state2}">
-            <span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state2}">${escapeHtml$1(t(labelKey[state2]))} ${view.speakingScore.score}%</span>
-            <span class="jpdb-reader-newtab-listen-score-tip">${escapeHtml$1(t(speakingScoreTipKey(view.speakingScore)))}</span>
+            <span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state2}">${escapeHtml$2(t(labelKey[state2]))} ${view.speakingScore.score}%</span>
+            <span class="jpdb-reader-newtab-listen-score-tip">${escapeHtml$2(t(speakingScoreTipKey(view.speakingScore)))}</span>
             ${state2 === "good" ? "" : renderSpeakingContourComparison(view.item, view.speakingScore, t)}
         </div>`;
   }
@@ -83262,9 +84101,9 @@ ${entry.url}`),
     const observedGraph = renderPitchGraphSvg(item.reading, score.observedPattern);
     return `
         <div class="jpdb-reader-newtab-listen-score-contours">
-            <span>${escapeHtml$1(t("listenMicExpected"))}</span>
+            <span>${escapeHtml$2(t("listenMicExpected"))}</span>
             <span class="jpdb-reader-newtab-listen-score-graph">${expectedGraph}</span>
-            <span>${escapeHtml$1(t("listenMicYouContour"))}</span>
+            <span>${escapeHtml$2(t("listenMicYouContour"))}</span>
             <span class="jpdb-reader-newtab-listen-score-graph">${observedGraph}</span>
         </div>`;
   }
@@ -83281,7 +84120,7 @@ ${entry.url}`),
     const verdict = view.outcome === "correct" ? t("listenCorrect") : t("listenTryAgain");
     const variants = view.variants.length > 1 ? renderPitchVariantGraphs(view.item.reading, view.variants) : "";
     return `<div class="jpdb-reader-newtab-listen-feedback">
-        <div class="jpdb-reader-newtab-listen-verdict" data-listen-outcome="${view.outcome ?? ""}">${escapeHtml$1(verdict)}</div>
+        <div class="jpdb-reader-newtab-listen-verdict" data-listen-outcome="${view.outcome ?? ""}">${escapeHtml$2(verdict)}</div>
         ${variants}
     </div>`;
   }
@@ -83289,26 +84128,26 @@ ${entry.url}`),
     const sections = [];
     if (view.subMode !== "recall" || view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-audio">
-            ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenNoAudio"))}</span>`}
+            ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenNoAudio"))}</span>`}
         </div>`);
     }
     if (view.subMode === "recall") {
       sections.push(`<div class="jpdb-reader-newtab-listen-cue">
-            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.item.displaySpelling)}</span>
-            ${view.meaning ? `<span class="jpdb-reader-newtab-listen-meaning">${escapeHtml$1(view.meaning)}</span>` : ""}
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$2(view.item.displaySpelling)}</span>
+            ${view.meaning ? `<span class="jpdb-reader-newtab-listen-meaning">${escapeHtml$2(view.meaning)}</span>` : ""}
         </div>`);
     }
     if (view.subMode === "shadow") {
       sections.push(`<div class="jpdb-reader-newtab-listen-cue">
-            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.item.displaySpelling)}</span>
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$2(view.item.displaySpelling)}</span>
         </div>`);
       sections.push(renderRecordRow(view, t));
       return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join("")}</div>`;
     }
     if (view.subMode === "perceive") {
       sections.push(`<div class="jpdb-reader-newtab-listen-cue">
-            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.item.displaySpelling)}</span>
-            <span class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t("listenPerceivePrompt"))}</span>
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$2(view.item.displaySpelling)}</span>
+            <span class="jpdb-reader-newtab-listen-prompt">${escapeHtml$2(t("listenPerceivePrompt"))}</span>
         </div>`);
     }
     sections.push(renderPositionPicker(view.item, view.selectedPosition, view.revealed, view.validPositions, t));
@@ -83943,14 +84782,14 @@ ${entry.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord(value)) return [];
+    if (!isRecord$3(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord(value)) return [];
+    if (!isRecord$3(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }
@@ -84324,11 +85163,12 @@ ${entry.url}`),
           undo: notReversible
         },
         "bunpro-api": this.srsAdapterEntry("bunpro-api"),
+        "wanikani-api": this.srsAdapterEntry("wanikani-api"),
         "yomu-local": this.srsAdapterEntry("yomu-local")
       };
     }
     srsAdapterEntry(target) {
-      const source = target === "bunpro-api" ? "bunpro" : "yomu-local";
+      const source = target === "bunpro-api" ? "bunpro" : target === "wanikani-api" ? "wanikani" : "yomu-local";
       return {
         hasCredential: () => Boolean(this.deps.srsAdapters?.[source]?.hasCredential()),
         review: (card, grade) => this.reviewSrsAdapter(source, card, grade),
@@ -84368,32 +85208,38 @@ ${entry.url}`),
     async reviewSrsAdapter(source, card, grade) {
       const adapter = this.deps.srsAdapters?.[source];
       if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text("couldNotSubmitGrade"));
-      await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+      const result = await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+      if (result.card) {
+        card.cardState = result.card.state;
+        card.dueAt = result.card.dueAt;
+        if (source === "wanikani") card.wanikaniSrsStage = result.card.srsLevel;
+      }
       this.deps.publishGradedCardState(card);
     }
+    // fallow-ignore-next-line complexity
     newTabCardToSrsReviewable(card, source) {
       const expression = card.spelling.trim();
       const reading = newTabCardReading(card).trim() || expression;
-      const providerCardId = source === "bunpro" ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card) : card.sourceCardKey || cardKey(card);
+      const providerCardId = source === "bunpro" ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card) : source === "wanikani" ? stringifyPositiveNumber(card.wanikaniAssignmentId) || "" : card.sourceCardKey || cardKey(card);
       return {
         providerId: source,
         providerCardId,
         providerReviewId: source === "bunpro" ? card.bunproReviewId || providerCardId : providerCardId,
-        providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : void 0,
+        providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : source === "wanikani" ? stringifyPositiveNumber(card.wanikaniSubjectId) : void 0,
         reviewSession: source === "bunpro" && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
           id: card.bunproReviewSessionId,
           inputMode: card.bunproReviewInputMode,
           endpoint: card.bunproReviewEndpoint
         } : void 0,
-        kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : "vocabulary",
+        kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : source === "wanikani" && card.wanikaniSubjectType === "kanji" ? "kanji" : source === "wanikani" && card.wanikaniSubjectType === "radical" ? "unknown" : "vocabulary",
         expression,
         reading,
         meanings: card.meanings,
         state: card.cardState,
-        srsLevel: source === "bunpro" ? card.bunproSrsLevel : void 0,
+        srsLevel: source === "bunpro" ? card.bunproSrsLevel : source === "wanikani" ? card.wanikaniSrsStage : void 0,
         dueAt: card.dueAt,
         lastReviewAt: card.lastReviewAt,
-        raw: card
+        raw: source === "wanikani" ? { card, subject: { type: card.wanikaniSubjectType } } : card
       };
     }
   }
@@ -85010,6 +85856,7 @@ ${entry.url}`),
         srsAdapters: this.dependencies.srsAdapters,
         srsReviewableToNewTabCard: (card) => this.srsReviewableToNewTabCard(card),
         canUseBunproSource: () => this.canUseBunproSource(),
+        canUseWanikaniSource: () => this.canUseWanikaniSource(),
         canUseYomuLocalSource: () => this.canUseYomuLocalSource(),
         text: (key) => this.text(key),
         formatText: (key, values) => this.formatNewTabText(key, values),
@@ -86992,6 +87839,8 @@ ${entry.url}`),
       });
       const bunpro = this.srsAdapterBrowsePoolProvider("bunpro");
       if (bunpro) providers.push(bunpro);
+      const wanikani = this.srsAdapterBrowsePoolProvider("wanikani");
+      if (wanikani) providers.push(wanikani);
       const yomuLocal = this.srsAdapterBrowsePoolProvider("yomu-local");
       if (yomuLocal) providers.push(yomuLocal);
       if (settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === "function") {
@@ -87226,7 +88075,7 @@ ${entry.url}`),
     loadWordsFromSourceUncached(source, onProgress) {
       if (source === "anki") return this.loadAnkiWords();
       if (source === "jpdb") return this.loadJpdbWords();
-      if (source === "bunpro" || source === "yomu-local") return this.loadSrsAdapterWords(source);
+      if (source === "bunpro" || source === "wanikani" || source === "yomu-local") return this.loadSrsAdapterWords(source);
       return this.loadDictionaryWords(onProgress);
     }
     cachedSourceResult(source) {
@@ -87245,7 +88094,7 @@ ${entry.url}`),
       if (context && (context.version !== this.sourceCacheVersion(source) || context.signature !== this.sourceCacheSignature(source))) {
         return result;
       }
-      if (result.cards.length || source === "anki" || source === "dictionary" || source === "bunpro" || source === "yomu-local") {
+      if (result.cards.length || source === "anki" || source === "dictionary" || source === "bunpro" || source === "wanikani" || source === "yomu-local") {
         this.sourceResultCache.set(source, {
           signature: context?.signature ?? this.sourceCacheSignature(source),
           result: {
@@ -87267,7 +88116,7 @@ ${entry.url}`),
     }
     clearSourceResultCache() {
       this.sourceResultCache.clear();
-      for (const source of ["jpdb", "bunpro", "yomu-local", "anki", "dictionary"]) {
+      for (const source of ["jpdb", "bunpro", "wanikani", "yomu-local", "anki", "dictionary"]) {
         this.bumpSourceCacheVersion(source);
       }
     }
@@ -87298,6 +88147,8 @@ ${entry.url}`),
         bunproToken: Boolean(settings.bunproFrontendApiToken),
         bunproTokenExpiresAt: settings.bunproFrontendApiTokenExpiresAt,
         bunproMiningEnabled: settings.bunproMiningEnabled,
+        wanikaniTokenFingerprint: fingerprintWanikaniToken(settings.wanikaniApiToken),
+        wanikaniReviewEnabled: settings.wanikaniReviewEnabled,
         yomuLocalSrsEnabled: settings.yomuLocalSrsEnabled,
         dictionaries: settings.localDictionariesEnabled,
         dictionaryPreferences: settings.dictionaryPreferences
@@ -87322,7 +88173,7 @@ ${entry.url}`),
           reviewCountMode: true,
           // Say what is actually missing: for Bunpro that is the token
           // import, not a generic load failure.
-          emptyMessageKey: source === "bunpro" ? "bunproTokenMissing" : "couldNotLoadWords"
+          emptyMessageKey: source === "bunpro" ? "bunproTokenMissing" : source === "wanikani" ? "wanikaniAddApiKeyRequired" : "couldNotLoadWords"
         };
       }
       if (source === "bunpro" && isBunproFrontendCredentialExpired(settings)) {
@@ -87349,7 +88200,7 @@ ${entry.url}`),
       };
     }
     srsReviewableToNewTabCard(card) {
-      if (card.providerId !== "bunpro" && card.providerId !== "yomu-local") return null;
+      if (card.providerId !== "bunpro" && card.providerId !== "wanikani" && card.providerId !== "yomu-local") return null;
       const expression = card.expression.trim();
       if (!expression) return null;
       const reading = card.reading.trim() || expression;
@@ -87370,7 +88221,7 @@ ${entry.url}`),
         lastReviewAt: card.lastReviewAt ?? null,
         wordWithReading: reading && reading !== expression ? `${expression}【${reading}】` : expression,
         source: card.providerId,
-        reviewSource: card.providerId === "bunpro" ? "bunpro-api" : "yomu-local",
+        reviewSource: card.providerId === "bunpro" ? "bunpro-api" : card.providerId === "wanikani" ? "wanikani-api" : "yomu-local",
         sourceDeckName: card.srsLevel,
         sourceCardKey: providerKey,
         bunproReviewId: card.providerId === "bunpro" ? card.providerReviewId : void 0,
@@ -87379,7 +88230,12 @@ ${entry.url}`),
         bunproSrsLevel: card.providerId === "bunpro" ? card.srsLevel : void 0,
         bunproReviewSessionId: card.providerId === "bunpro" ? card.reviewSession?.id : void 0,
         bunproReviewInputMode: card.providerId === "bunpro" ? card.reviewSession?.inputMode : void 0,
-        bunproReviewEndpoint: card.providerId === "bunpro" ? card.reviewSession?.endpoint : void 0
+        bunproReviewEndpoint: card.providerId === "bunpro" ? card.reviewSession?.endpoint : void 0,
+        wanikaniAssignmentId: card.providerId === "wanikani" ? optionalPositiveNumber(card.providerCardId) : void 0,
+        wanikaniSubjectId: card.providerId === "wanikani" ? optionalPositiveNumber(card.providerReviewableId) : void 0,
+        wanikaniSubjectType: card.providerId === "wanikani" ? wanikaniSubjectTypeFromReviewable(card) : void 0,
+        wanikaniSrsStage: card.providerId === "wanikani" ? card.srsLevel : void 0,
+        wanikaniAudioUrls: card.providerId === "wanikani" ? wanikaniAudioUrlsFromReviewable(card) : void 0
       });
     }
     async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT) {
@@ -87836,12 +88692,15 @@ ${entry.url}`),
       if (source === "anki") return false;
       if (source === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
       if (source === "bunpro") return result.sourceLabel.startsWith("Bunpro");
+      if (source === "wanikani") return result.sourceLabel.startsWith("WaniKani");
       if (source === "yomu-local") return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
       return result.sourceLabel === this.text("dictionary");
     }
+    // fallow-ignore-next-line complexity, code-duplication
     cardPrimaryNewTabSource(card) {
       if (card.source === "anki" || card.reviewSource === "anki") return "anki";
       if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+      if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
       if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
       if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
         return "jpdb";
@@ -88403,7 +89262,7 @@ ${entry.url}`),
           const root = this.listenRootEl();
           if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
         }).catch(() => void 0);
-        setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(this.text("listenNoAudio"))}</span></div>`);
+        setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(this.text("listenNoAudio"))}</span></div>`);
         return;
       }
       const isNewCard = !this.listenItem || this.listenItem.key !== item.key;
@@ -89033,12 +89892,13 @@ ${entry.url}`),
         "aria-hidden": "true"
       }));
     }
+    // fallow-ignore-next-line complexity
     statusLightSourceForCard(card) {
       if (this.cardReviewSource(card) === "dictionary" && this.sourceLabel.startsWith("Jiten") && !this.sourceLabel.includes(" + ") || this.shouldShowJitenOnlyApiFallbackSource(card) || isJitenSrsCard(card)) {
         return "jiten";
       }
       const source = this.cardReviewSource(card);
-      return source === "jpdb" || source === "anki" || source === "bunpro" || source === "yomu-local" ? source : null;
+      return source === "jpdb" || source === "anki" || source === "bunpro" || source === "wanikani" || source === "yomu-local" ? source : null;
     }
     reviewTargetSources(card) {
       const summary = this.reviewSourceSummary(card);
@@ -89049,6 +89909,7 @@ ${entry.url}`),
       if (summary.hasJiten) add("jiten");
       if (summary.hasJpdb) add("jpdb");
       if (summary.hasBunpro) add("bunpro");
+      if (summary.hasWanikani) add("wanikani");
       if (summary.hasYomuLocal) add("yomu-local");
       if (summary.hasAnki) add("anki");
       return sources;
@@ -89069,7 +89930,7 @@ ${entry.url}`),
         this.renderPlainStatus(statusSlot, "");
         return;
       }
-      const source = this.state.source === "jpdb" || this.state.source === "bunpro" || this.state.source === "yomu-local" || this.state.source === "anki" ? this.state.source : null;
+      const source = this.state.source === "jpdb" || this.state.source === "bunpro" || this.state.source === "wanikani" || this.state.source === "yomu-local" || this.state.source === "anki" ? this.state.source : null;
       if (!source) {
         this.renderPlainStatus(statusSlot, "");
         return;
@@ -89095,6 +89956,7 @@ ${entry.url}`),
       if (this.canUseYomuLocalSource()) sources.push("yomu-local");
       if (this.canUseJpdbSource()) sources.push("jpdb");
       if (this.canUseBunproSource()) sources.push("bunpro");
+      if (this.canUseWanikaniSource()) sources.push("wanikani");
       if (this.canOfferAnkiSource()) sources.push("anki");
       if (!sources.includes(current)) sources.push(current);
       return sources;
@@ -89105,6 +89967,7 @@ ${entry.url}`),
         this.yomuLocalToggleSource(context),
         this.jpdbToggleSource(context),
         this.bunproToggleSource(context),
+        this.wanikaniToggleSource(context),
         this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context)
       ]);
       if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push("dictionary");
@@ -89137,10 +90000,12 @@ ${entry.url}`),
         hasJpdb: summary.hasJpdb,
         hasJiten: summary.hasJiten,
         hasBunpro: summary.hasBunpro,
+        hasWanikani: summary.hasWanikani,
         hasYomuLocal: summary.hasYomuLocal,
         hasAnki: summary.hasAnki,
         canUseJpdb: this.canUseJpdbSource(),
         canUseBunpro: this.canUseBunproSource(),
+        canUseWanikani: this.canUseWanikaniSource(),
         canUseYomuLocal: this.canUseYomuLocalSource(),
         canUseAnki: this.canUseAnkiSource(),
         canOfferAnki: this.canOfferAnkiSource(),
@@ -89164,6 +90029,9 @@ ${entry.url}`),
     }
     shouldIncludeBunproToggleSource(context) {
       return context.hasBunpro || context.canUseBunpro || context.current === "bunpro" || context.selected === "bunpro";
+    }
+    wanikaniToggleSource(context) {
+      return context.hasWanikani || context.canUseWanikani || context.current === "wanikani" || context.selected === "wanikani" ? "wanikani" : null;
     }
     ankiToggleSource(context) {
       return this.shouldIncludeAnkiToggleSource(context) ? "anki" : null;
@@ -89204,6 +90072,7 @@ ${entry.url}`),
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.jpdb)) return "jpdb";
       if (this.sourceLabel.startsWith("Jiten")) return "jpdb";
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.bunpro)) return "bunpro";
+      if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.wanikani)) return "wanikani";
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS["yomu-local"])) return "yomu-local";
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.anki)) return "anki";
       return this.sourceLabel === this.text("dictionary") ? "dictionary" : null;
@@ -89221,6 +90090,10 @@ ${entry.url}`),
     canUseBunproSource() {
       const adapter = this.dependencies.srsAdapters?.bunpro;
       return Boolean(adapter?.hasCredential());
+    }
+    canUseWanikaniSource() {
+      const settings = this.dependencies.getSettings();
+      return settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings) && Boolean(this.dependencies.srsAdapters?.wanikani?.hasCredential());
     }
     canUseYomuLocalSource() {
       return (this.options.surface === "academy" || this.dependencies.getSettings().yomuLocalSrsEnabled) && Boolean(this.dependencies.srsAdapters?.["yomu-local"]);
@@ -89241,9 +90114,11 @@ ${entry.url}`),
     canOfferAnkiSource(settings = this.dependencies.getSettings()) {
       return settings.ankiEnabled && settings.newTabAnkiEnabled;
     }
+    // fallow-ignore-next-line complexity
     cardReviewSource(card) {
       if (card.source === "anki" || card.reviewSource === "anki") return "anki";
       if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+      if (card.source === "wanikani" || card.reviewSource === "wanikani-api") return "wanikani";
       if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
       if (card.source === "jiten" || card.reviewSource === "jiten-api") return "jpdb";
       if (card.source === "jpdb" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live") return "jpdb";
@@ -89252,6 +90127,7 @@ ${entry.url}`),
     sourceToggleLabel(source) {
       if (source === "jpdb") return this.jpdbSourceToggleLabel();
       if (source === "bunpro") return "Bunpro";
+      if (source === "wanikani") return "WaniKani";
       if (source === "yomu-local") return ACADEMY_SRS_LABEL;
       if (source === "anki") return "Anki";
       return this.text("dictionary");
@@ -90031,6 +90907,7 @@ ${entry.url}`),
       this.appendComposedOfLine(meaning, card);
       void this.renderStudyRevealDefinitionSources(meaning, card);
     }
+    // fallow-ignore-next-line complexity
     async renderStudyRevealDefinitionSources(meaning, card) {
       const loadDetails = this.dependencies.loadCardRenderData;
       const renderSources = this.dependencies.renderStudyDefinitionSources;
@@ -90059,6 +90936,7 @@ ${entry.url}`),
       setInnerHtml(section, html);
       meaning.append(section);
       this.dependencies.installDictionarySourceTracking?.(section);
+      this.dependencies.installWanikaniSources?.(section, card);
       void this.dependencies.parseContent?.(section);
     }
     isCurrentStudyRevealDefinitionRequest(meaning, cardKeyValue, requestId) {
@@ -90917,7 +91795,7 @@ ${entry.url}`),
       const key = cardKey(card);
       const index = this.normalizedImmersionExampleIndex(key, examples);
       const indexes = includeAdjacent && examples.length > 1 ? [index, (index + 1) % examples.length] : [index];
-      uniqueNumbers(indexes).forEach((exampleIndex) => {
+      uniqueNumbers$1(indexes).forEach((exampleIndex) => {
         const sentence = normalizePromptContextSentence(examples[exampleIndex]?.sentence, card);
         if (sentence) this.prefetchNewTabParsedSentence(sentence);
       });
@@ -91720,6 +92598,7 @@ ${entry.url}`),
           jpdb: "JPDB",
           jiten: "Jiten",
           bunpro: "Bunpro",
+          wanikani: "WaniKani",
           yomuLocal: ACADEMY_SRS_LABEL,
           anki: "Anki"
         }),
@@ -91901,6 +92780,7 @@ ${entry.url}`),
     offlineGradeTargets(card) {
       return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
     }
+    // fallow-ignore-next-line complexity
     offlineGradeTargetsForSelection(card, selection) {
       if (!selection) return this.offlineGradeTargets(card);
       if (selection.kind === "anki") {
@@ -91908,7 +92788,7 @@ ${entry.url}`),
         return Number.isFinite(selectedCardId) && selectedCardId > 0 && selectedCardId === this.ankiCardIdForReview(card) && this.reviewTargetsForCard(card).includes("anki") ? ["anki"] : [];
       }
       const target = this.reviewTargetForLookupKind(card, selection.kind);
-      return target && target !== "jpdb-live" && target !== "bunpro-api" ? [target] : [];
+      return target && target !== "jpdb-live" && target !== "bunpro-api" && target !== "wanikani-api" ? [target] : [];
     }
     navigationControlButtons(revealLabel) {
       const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
@@ -92032,6 +92912,7 @@ ${entry.url}`),
         jpdb: this.text("gradeTargetJpdb"),
         jpdbAndAnki: this.formatNewTabText("gradeTargetJpdbAndAnki", { target: ankiTarget }),
         jpdbAndJiten: this.text("gradeTargetJpdbAndJiten"),
+        wanikani: this.text("gradeTargetWanikani"),
         yomuLocal: this.text("gradeTargetYomuLocal")
       });
     }
@@ -92047,6 +92928,7 @@ ${entry.url}`),
         cardId ? `#${cardId}` : ""
       ].filter(Boolean).join(" ");
     }
+    // fallow-ignore-next-line complexity
     lookupReviewTargetsForCard(card, data) {
       const targets = this.reviewTargetsForCard(card);
       const result = [];
@@ -92058,6 +92940,9 @@ ${entry.url}`),
       }
       if (targets.includes("bunpro-api")) {
         result.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
+      }
+      if (targets.includes("wanikani-api")) {
+        result.push({ id: "wanikani", kind: "wanikani", label: this.text("gradeTargetWanikani"), shortLabel: "WaniKani" });
       }
       if (targets.includes("yomu-local")) {
         result.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
@@ -92171,7 +93056,7 @@ ${entry.url}`),
       this.invalidateReviewSourceCache(target.card);
       this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
       if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-      this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
+      this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" || target.card.reviewSource === "wanikani-api" || target.card.source === "wanikani" ? void 0 : {
         card: target.card,
         at: Date.now(),
         serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
@@ -92302,20 +93187,24 @@ ${entry.url}`),
       await this.submitReviewTarget(card, apiTarget, grade);
       return target;
     }
+    // fallow-ignore-next-line complexity
     lookupReviewTargetForSelection(card, selectedTarget) {
       const targets = this.lookupReviewTargetsForCard(card);
       if (selectedTarget.kind === "jpdb") return targets.find((target) => target.kind === "jpdb") ?? null;
       if (selectedTarget.kind === "jiten") return targets.find((target) => target.kind === "jiten") ?? null;
       if (selectedTarget.kind === "bunpro") return targets.find((target) => target.kind === "bunpro") ?? null;
+      if (selectedTarget.kind === "wanikani") return targets.find((target) => target.kind === "wanikani") ?? null;
       if (selectedTarget.kind === "yomu-local") return targets.find((target) => target.kind === "yomu-local") ?? null;
       const selectedCardId = Number(selectedTarget.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
       return targets.find((target) => target.kind === "anki" && target.ankiCardId === selectedCardId) ?? null;
     }
+    // fallow-ignore-next-line complexity
     reviewTargetForLookupKind(card, kind) {
       if (kind === "jpdb") return this.reviewTargetsForCard(card).find((candidate) => candidate === "jpdb-api" || candidate === "jpdb-live") ?? null;
       if (kind === "jiten") return this.reviewTargetsForCard(card).find((candidate) => candidate === "jiten-api") ?? null;
       if (kind === "bunpro") return this.reviewTargetsForCard(card).find((candidate) => candidate === "bunpro-api") ?? null;
+      if (kind === "wanikani") return this.reviewTargetsForCard(card).find((candidate) => candidate === "wanikani-api") ?? null;
       if (kind === "yomu-local") return this.reviewTargetsForCard(card).find((candidate) => candidate === "yomu-local") ?? null;
       return null;
     }
@@ -92505,6 +93394,7 @@ ${entry.url}`),
       if (targets.includes("anki")) this.invalidateSourceResultCache("anki");
       if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live" || target === "jiten-api")) this.invalidateSourceResultCache("jpdb");
       if (targets.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
+      if (targets.includes("wanikani-api") || card.source === "wanikani" || card.reviewSource === "wanikani-api") this.invalidateSourceResultCache("wanikani");
       if (targets.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
     }
     ankiCardIdForReview(card) {
@@ -93210,7 +94100,17 @@ ${entry.url}`),
     return sources.filter((source, index) => Boolean(source) && sources.indexOf(source) === index);
   }
   function concreteNewTabSourceFromValue(value) {
-    return value === "jpdb" || value === "bunpro" || value === "yomu-local" || value === "anki" || value === "dictionary" ? value : null;
+    return value === "jpdb" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "dictionary" ? value : null;
+  }
+  function wanikaniSubjectTypeFromReviewable(card) {
+    const raw = card.raw;
+    const type = raw?.subject?.type;
+    return type === "radical" || type === "kanji" || type === "vocabulary" || type === "kana_vocabulary" ? type : card.kind === "kanji" ? "kanji" : card.kind === "unknown" ? "radical" : "vocabulary";
+  }
+  function wanikaniAudioUrlsFromReviewable(card) {
+    const raw = card.raw;
+    const urls = raw?.subject?.audio?.map((item) => typeof item.url === "string" ? item.url : "").filter(Boolean);
+    return urls?.length ? urls : void 0;
   }
   function srsReviewablePartOfSpeech(card) {
     const existing = uniqueTrimmedStrings(card.meanings.flatMap((meaning) => meaning.partOfSpeech ?? []));
@@ -93332,7 +94232,7 @@ ${entry.url}`),
   function capitalizedSessionSource(source) {
     return source ? `${source[0]?.toUpperCase() ?? ""}${source.slice(1)}` : "";
   }
-  function uniqueNumbers(values) {
+  function uniqueNumbers$1(values) {
     return [...new Set(values)];
   }
   function jitenLatestReviewTimes(reviews) {
@@ -93479,8 +94379,8 @@ ${entry.url}`),
   function renderModalNavigation(options) {
     return `
         <div class="jpdb-reader-modal-nav">
-            <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
-            <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$2(options.backAction)}" title="${escapeHtml$2(options.backTitle)}" aria-label="${escapeHtml$2(options.backTitle)}">←</button>
+            <span title="${escapeHtml$2(options.label)}">${escapeHtml$2(options.label)}</span>
             ${options.controlsHtml ?? ""}
         </div>
     `;
@@ -94274,6 +95174,7 @@ ${entry.url}`),
     [KANJI_RTK_SOURCE_ID]: "<div data-kanji-rtk-mount></div>",
     [KANJI_ORIGINS_SOURCE_ID]: "<div data-kanji-origin-mount></div>",
     [KANJI_UCHISEN_SOURCE_ID]: "<div data-kanji-uchisen-mount></div>",
+    [KANJI_WANIKANI_SOURCE_ID]: "<div data-kanji-wanikani-mount></div>",
     [KANJI_DICTIONARIES_SOURCE_ID]: "<div data-kanji-definitions-mount></div>"
   };
   function renderKanjiSourceMounts(options) {
@@ -94303,22 +95204,22 @@ ${entry.url}`),
     }
     if (sourceId === IMMERSION_KIT_SOURCE_ID) return options.renderImmersionMount?.() ?? "";
     const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
-    return dictionaryName ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml$1(dictionaryName)}" data-kanji-source-id="${escapeHtml$1(sourceId)}"></div>` : "";
+    return dictionaryName ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml$2(dictionaryName)}" data-kanji-source-id="${escapeHtml$2(sourceId)}"></div>` : "";
   }
   function renderKanjiPracticeShell(options, sourceStateKey) {
     const title = options.sourceTitle(KANJI_STROKE_SOURCE_ID);
     const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title)}</summary>
+            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$2(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$2(options.kanji)}</div></div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$2(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
+                <span class="jpdb-reader-help">${escapeHtml$2(uiText(options.language, "textTrace"))}</span>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$2(uiText(options.language, "showTrace"))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$2(uiText(options.language, "clear"))}</button>
             </div>
             <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
         </details>
@@ -94416,9 +95317,9 @@ ${entry.url}`),
 ${rank.detail}` : baseTitle;
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
-      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
+      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$2(title)}" aria-label="${escapeHtml$2(`${title}: ${query}`)}">${escapeHtml$2(label)} ${externalLinkIcon()}</span>`;
     }
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$2(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$2(title)}" aria-label="${escapeHtml$2(`${title}: ${query}`)}">${escapeHtml$2(label)} ${externalLinkIcon()}</a>`;
   }
   function linkPillLiveRank(link, mergedLiveRanks) {
     const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : link.id === "bunpro" ? "bunpro" : null;
@@ -94494,9 +95395,9 @@ ${rank.detail}` : baseTitle;
   function ankiPillButton(options) {
     const styleAttribute = lookupPillStyleAttribute(lookupPillStyle("anki"));
     const label = uiText(options.language, "anki");
-    const title = escapeHtml$1(options.title);
-    const ariaLabel = escapeHtml$1(`${options.title}: ${options.query}`);
-    const content = `${escapeHtml$1(label)} ${ankiIcon()}`;
+    const title = escapeHtml$2(options.title);
+    const ariaLabel = escapeHtml$2(`${options.title}: ${options.query}`);
+    const content = `${escapeHtml$2(label)} ${ankiIcon()}`;
     if (options.inert) {
       return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</span>`;
     }
@@ -94510,9 +95411,9 @@ ${rank.detail}` : baseTitle;
     const copyTitle = uiText(language, "copyWordTitle");
     const styleAttribute = style ? ` style="${style}"` : "";
     if (inert) {
-      return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</span>`;
+      return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$2(copyTitle)}" aria-label="${escapeHtml$2(`${copyTitle}: ${query}`)}">${escapeHtml$2(uiText(language, "copyWord"))} ${copyIcon()}</span>`;
     }
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$2(copyTitle)}" aria-label="${escapeHtml$2(`${copyTitle}: ${query}`)}">${escapeHtml$2(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
   }
   function frequencyPillsByLookupId(options) {
     const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
@@ -94601,8 +95502,174 @@ ${rank.detail}` : baseTitle;
   function isSingleKanji(value) {
     return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
   }
+  const WANIKANI_DASHBOARD_URL = "https://www.wanikani.com/dashboard";
+  function createWanikaniSrsAdapter(client) {
+    return {
+      id: "wanikani",
+      label: "WaniKani",
+      capabilities: { stats: true, queue: true, review: true, mine: false, import: false },
+      hasCredential: () => client.hasCredential(),
+      // /user must be verified before anything else is trusted or fetched.
+      verify: () => client.getUser().then(() => true, () => false),
+      stats: () => wanikaniStats(client),
+      queue: (limit) => wanikaniQueue(client, limit),
+      review: (request) => reviewWanikaniCard(client, request),
+      mine: () => Promise.reject(new WanikaniApiError("WaniKani has no API to add arbitrary words; only due reviews can be graded from Yomu."))
+    };
+  }
+  async function wanikaniStats(client) {
+    await client.getUser();
+    const summary = await client.getSummary();
+    return {
+      providerId: "wanikani",
+      fetchedAt: Date.now(),
+      reviewsDue: summaryDueCount(summary),
+      levelCounts: {},
+      raw: summary
+    };
+  }
+  async function wanikaniQueue(client, limit = 50) {
+    await client.getUser();
+    const maxLevel = await client.effectiveMaxLevel();
+    const summary = await client.getSummary();
+    const dueSubjectIds = summaryDueSubjectIds(summary);
+    const assignments = dueSubjectIds.size ? await client.getAssignments({ subjectIds: [...dueSubjectIds], immediatelyAvailableForReview: true }) : [];
+    const parsedAssignments = parseAssignments(assignments).filter((assignment) => dueSubjectIds.has(assignment.subjectId)).slice(0, Math.max(0, Math.floor(limit)));
+    if (!parsedAssignments.length) {
+      return { providerId: "wanikani", fetchedAt: Date.now(), cards: [], dueCount: 0, newCount: 0, reviewCount: 0 };
+    }
+    const rawSubjects = await client.getSubjects({ ids: parsedAssignments.map((assignment) => assignment.subjectId) });
+    const subjectById = /* @__PURE__ */ new Map();
+    for (const raw of rawSubjects) {
+      const subject = parseWanikaniSubject(raw);
+      if (subject) subjectById.set(subject.id, subject);
+    }
+    const allowedSubjects = new Set(subjectsWithinLevel([...subjectById.values()], maxLevel).map((subject) => subject.id));
+    const cards = parsedAssignments.filter((assignment) => allowedSubjects.has(assignment.subjectId)).map((assignment) => reviewableFromAssignment(assignment, subjectById.get(assignment.subjectId))).filter((card) => card !== null);
+    return {
+      providerId: "wanikani",
+      fetchedAt: Date.now(),
+      cards,
+      dueCount: cards.length,
+      newCount: cards.filter((card) => card.state.includes("new")).length,
+      reviewCount: cards.length
+    };
+  }
+  function reviewableFromAssignment(assignment, subject) {
+    if (!subject) return null;
+    return {
+      providerId: "wanikani",
+      providerCardId: String(assignment.id),
+      providerReviewId: String(assignment.id),
+      providerReviewableId: String(subject.id),
+      kind: subject.type === "radical" ? "unknown" : subject.type === "kanji" ? "kanji" : "vocabulary",
+      expression: subject.characters ?? subject.slug,
+      reading: subject.type === "radical" ? "" : primaryReading(subject) || (subject.characters ?? subject.slug),
+      meanings: [{ glosses: subject.meanings.map((meaning) => meaning.meaning), partOfSpeech: [] }],
+      state: wanikaniAssignmentCardState(assignment),
+      srsLevel: wanikaniStageLabel(assignment.srsStage),
+      dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null,
+      sourceUrl: subject.documentUrl || WANIKANI_DASHBOARD_URL,
+      raw: { assignment, subject }
+    };
+  }
+  function wanikaniAssignmentCardState(assignment) {
+    if (assignment.burnedAt) return ["known"];
+    if (assignment.srsStage === 0) return ["new"];
+    if (assignment.availableAt && Date.parse(assignment.availableAt) <= Date.now()) {
+      return assignment.srsStage >= 7 ? ["due", "mastered"] : ["due", "learning"];
+    }
+    if (assignment.srsStage >= 7) return ["mastered"];
+    return ["learning"];
+  }
+  function wanikaniStageLabel(srsStage) {
+    if (srsStage <= 0) return "lesson";
+    if (srsStage <= 4) return "apprentice";
+    if (srsStage <= 6) return "guru";
+    if (srsStage === 7) return "master";
+    if (srsStage === 8) return "enlightened";
+    return "burned";
+  }
+  function parseAssignments(raw) {
+    return raw.map(parseAssignment$1).filter((assignment) => assignment !== null);
+  }
+  function parseAssignment$1(raw) {
+    if (!isRecord(raw)) return null;
+    const data = isRecord(raw.data) ? raw.data : {};
+    const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
+    const subjectId = typeof data.subject_id === "number" ? data.subject_id : Number(data.subject_id);
+    if (!Number.isFinite(id) || !Number.isFinite(subjectId)) return null;
+    return {
+      id,
+      subjectId,
+      subjectType: typeof data.subject_type === "string" ? data.subject_type : "",
+      srsStage: typeof data.srs_stage === "number" ? data.srs_stage : 0,
+      availableAt: typeof data.available_at === "string" ? data.available_at : null,
+      startedAt: typeof data.started_at === "string" ? data.started_at : null,
+      burnedAt: typeof data.burned_at === "string" ? data.burned_at : null,
+      unlockedAt: typeof data.unlocked_at === "string" ? data.unlocked_at : null
+    };
+  }
+  function summaryDueSubjectIds(summary) {
+    const ids = /* @__PURE__ */ new Set();
+    const reviews = isRecord(summary) && isRecord(summary.data) ? summary.data.reviews : void 0;
+    if (!Array.isArray(reviews)) return ids;
+    const now = Date.now();
+    for (const entry of reviews) {
+      if (!isRecord(entry)) continue;
+      const availableAt = typeof entry.available_at === "string" ? Date.parse(entry.available_at) : NaN;
+      if (Number.isFinite(availableAt) && availableAt > now) continue;
+      const subjectIds = Array.isArray(entry.subject_ids) ? entry.subject_ids : [];
+      for (const subjectId of subjectIds) if (typeof subjectId === "number") ids.add(subjectId);
+    }
+    return ids;
+  }
+  function summaryDueCount(summary) {
+    return summaryDueSubjectIds(summary).size;
+  }
+  function wanikaniReviewInput(card, grade) {
+    const subject = isRecord(card.raw) && isRecord(card.raw.subject) ? card.raw.subject : void 0;
+    const isRadical = subject?.type === "radical" || card.kind === "unknown" && !card.reading;
+    const failed = grade === "nothing" || grade === "again" || grade === "fail" || grade === "something" || grade === "hard";
+    return {
+      incorrectMeaningAnswers: failed ? 1 : 0,
+      incorrectReadingAnswers: !failed || isRadical ? 0 : 1
+    };
+  }
+  async function reviewWanikaniCard(client, request) {
+    if (request.card.providerId !== "wanikani" || !request.card.state.includes("due")) {
+      throw new WanikaniApiError("Only a currently due WaniKani assignment can be reviewed. Reload the WaniKani queue and try again.");
+    }
+    const assignmentId = Number(request.card.providerCardId);
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      throw new WanikaniApiError("WaniKani grading needs a valid assignment id. Reload the WaniKani queue and try again.");
+    }
+    const input2 = wanikaniReviewInput(request.card, request.grade);
+    const raw = await client.createReview({
+      assignment_id: assignmentId,
+      incorrect_meaning_answers: input2.incorrectMeaningAnswers,
+      incorrect_reading_answers: input2.incorrectReadingAnswers
+    });
+    const response = isRecord(raw) ? raw : void 0;
+    const reviewData = response && isRecord(response.data) ? response.data : response;
+    const resourcesUpdated = response && isRecord(response.resources_updated) ? response.resources_updated : reviewData && isRecord(reviewData.resources_updated) ? reviewData.resources_updated : void 0;
+    const assignment = parseAssignment$1(resourcesUpdated && isRecord(resourcesUpdated.assignment) ? resourcesUpdated.assignment : reviewData);
+    if (!assignment) return { card: request.card, raw };
+    return {
+      card: {
+        ...request.card,
+        state: wanikaniAssignmentCardState(assignment),
+        srsLevel: wanikaniStageLabel(assignment.srsStage),
+        dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null
+      },
+      raw
+    };
+  }
+  function isRecord(value) {
+    return typeof value === "object" && value !== null;
+  }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$3(value) || value.version !== 1 || !isRecord$3(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate of Object.values(value.cards)) {
       const normalized = normalizeStoredCard(candidate);
@@ -94708,7 +95775,7 @@ ${rank.detail}` : baseTitle;
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$3(value) || typeof value.expression !== "string") return null;
     let identity;
     try {
       identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -94763,10 +95830,10 @@ ${rank.detail}` : baseTitle;
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord(value)) return {};
+    if (!isRecord$3(value)) return {};
     const result = {};
     for (const candidate of Object.values(value)) {
-      if (!isRecord(candidate)) continue;
+      if (!isRecord$3(candidate)) continue;
       try {
         const normalized = normalizeProvenance({
           id: String(candidate.id ?? ""),
@@ -95108,6 +96175,135 @@ ${rank.detail}` : baseTitle;
     if (Number.isNaN(limit) || limit <= 0) return 0;
     return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
   }
+  class WanikaniLookupClient {
+    constructor(client) {
+      this.client = client;
+    }
+    pending = /* @__PURE__ */ new Map();
+    lookupCard(card) {
+      const key = [this.client.tokenFingerprint(), card.wanikaniSubjectId ?? "", card.spelling.trim(), card.reading.trim()].join(":");
+      const cached = this.pending.get(key);
+      if (cached) return cached;
+      const promise = this.lookup(card).finally(() => this.pending.delete(key));
+      this.pending.set(key, promise);
+      return promise;
+    }
+    lookupKanji(kanji) {
+      return this.lookupCard({
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: kanji,
+        reading: kanji,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: [],
+        pitchAccent: [],
+        wordWithReading: kanji,
+        source: "fallback"
+      });
+    }
+    async lookup(card) {
+      if (!this.client.hasCredential()) return null;
+      const spelling = card.spelling.trim();
+      if (!spelling && !card.wanikaniSubjectId) return null;
+      const rawSubjects = await this.client.getSubjects(card.wanikaniSubjectId ? { ids: [card.wanikaniSubjectId] } : { slugs: unique([spelling, card.reading.trim()]), types: subjectTypesFor(spelling) });
+      const subjects = rawSubjects.map(parseWanikaniSubject).filter((subject2) => Boolean(subject2 && !subject2.hiddenAt));
+      const subject = exactSubject(subjects, spelling, card.reading.trim());
+      if (!subject) return null;
+      const [assignments, materials, statistics, relatedRaw] = await Promise.all([
+        this.client.getAssignments({ subjectIds: [subject.id] }),
+        this.client.getStudyMaterials({ subjectIds: [subject.id] }),
+        this.client.getReviewStatistics({ subjectIds: [subject.id] }),
+        this.relatedSubjects(subject)
+      ]);
+      const related = relatedRaw.map(parseWanikaniSubject).filter((item) => Boolean(item && !item.hiddenAt));
+      const components2 = related.filter((item) => subject.componentSubjectIds.includes(item.id));
+      const visuallySimilar = related.filter((item) => subject.visuallySimilarSubjectIds.includes(item.id));
+      const relatedVocabulary = related.filter((item) => subject.amalgamationSubjectIds.includes(item.id));
+      return {
+        subject,
+        assignment: parseAssignment(assignments[0]),
+        studyMaterial: parseStudyMaterial(materials[0]),
+        reviewStatistic: parseReviewStatistic(statistics[0]),
+        components: components2,
+        visuallySimilar,
+        relatedVocabulary
+      };
+    }
+    relatedSubjects(subject) {
+      const ids = uniqueNumbers([
+        ...subject.componentSubjectIds,
+        ...subject.visuallySimilarSubjectIds,
+        ...subject.amalgamationSubjectIds.slice(0, 24)
+      ]);
+      return ids.length ? this.client.getSubjects({ ids }) : Promise.resolve([]);
+    }
+  }
+  function exactSubject(subjects, spelling, reading) {
+    const exactCharacters = subjects.filter((subject) => subject.characters === spelling || subject.slug === spelling);
+    if (!exactCharacters.length) return subjects.length === 1 ? subjects[0] : null;
+    if (!reading || reading === spelling) {
+      return exactCharacters.find((subject) => subject.type === "kanji") ?? exactCharacters[0];
+    }
+    return exactCharacters.find((subject) => subject.readings.some((candidate) => candidate.reading === reading)) ?? exactCharacters[0];
+  }
+  function subjectTypesFor(spelling) {
+    return Array.from(spelling).length === 1 && /[\u3400-\u9fff\uf900-\ufaff]/u.test(spelling) ? ["kanji", "vocabulary", "kana_vocabulary"] : ["vocabulary", "kana_vocabulary"];
+  }
+  function parseAssignment(raw) {
+    const record = dataRecord(raw);
+    const outer = asRecord(raw);
+    const id = numberValue(outer?.id);
+    if (!record || id === null) return null;
+    return {
+      id,
+      srsStage: numberValue(record.srs_stage) ?? 0,
+      availableAt: stringValue(record.available_at),
+      burnedAt: stringValue(record.burned_at),
+      unlockedAt: stringValue(record.unlocked_at)
+    };
+  }
+  function parseStudyMaterial(raw) {
+    const data = dataRecord(raw);
+    if (!data) return null;
+    return {
+      meaningNote: stringValue(data.meaning_note) ?? "",
+      readingNote: stringValue(data.reading_note) ?? "",
+      meaningSynonyms: Array.isArray(data.meaning_synonyms) ? data.meaning_synonyms.filter((value) => typeof value === "string") : []
+    };
+  }
+  function parseReviewStatistic(raw) {
+    const data = dataRecord(raw);
+    if (!data) return null;
+    return {
+      meaningCorrect: numberValue(data.meaning_correct) ?? 0,
+      meaningIncorrect: numberValue(data.meaning_incorrect) ?? 0,
+      readingCorrect: numberValue(data.reading_correct) ?? 0,
+      readingIncorrect: numberValue(data.reading_incorrect) ?? 0,
+      percentageCorrect: numberValue(data.percentage_correct) ?? 0
+    };
+  }
+  function dataRecord(value) {
+    const record = asRecord(value);
+    return asRecord(record?.data);
+  }
+  function asRecord(value) {
+    return typeof value === "object" && value !== null ? value : null;
+  }
+  function numberValue(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+  function stringValue(value) {
+    return typeof value === "string" ? value : null;
+  }
+  function unique(values) {
+    return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
+  }
+  function uniqueNumbers(values) {
+    return values.filter((value, index) => Number.isFinite(value) && value > 0 && values.indexOf(value) === index);
+  }
   const log = Logger.scope("NewTabRuntime");
   const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 1e4;
@@ -95180,6 +96376,8 @@ ${rank.detail}` : baseTitle;
       getProxyUrl: () => this.settings.corsProxyUrl
     });
     bunproSrs = createBunproSrsAdapter(this.bunpro);
+    wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
+    wanikaniSrs = createWanikaniSrsAdapter(this.wanikani);
     yomuLocalSrsRepository = new LocalYomuSrsRepository();
     yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
     rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
@@ -95189,6 +96387,13 @@ ${rank.detail}` : baseTitle;
       getSettings: () => this.settings,
       onStateChange: () => this.repositionLookupPopover()
     });
+    // fallow-ignore-next-line code-duplication
+    wanikaniSources = new WanikaniSourceController(
+      new WanikaniLookupClient(this.wanikani),
+      () => this.settings,
+      (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+      () => this.repositionLookupPopover()
+    );
     navigation = new PopupNavigationController(() => Boolean(
       this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector(".jpdb-reader-kanji-display")
     ));
@@ -95273,6 +96478,7 @@ ${rank.detail}` : baseTitle;
       anki: this.anki,
       srsAdapters: {
         bunpro: this.bunproSrs,
+        wanikani: this.wanikaniSrs,
         "yomu-local": this.yomuLocalSrs
       },
       dictionaries: this.dictionaries,
@@ -95565,6 +96771,7 @@ ${rank.detail}` : baseTitle;
         jpdbReviewBridge: this.jpdbReviewBridge,
         srsAdapters: {
           bunpro: this.bunproSrs,
+          wanikani: this.wanikaniSrs,
           "yomu-local": this.yomuLocalSrs
         },
         parser: this.parser,
@@ -95626,6 +96833,7 @@ ${rank.detail}` : baseTitle;
           dictionaryLabel: (name) => this.dictionaryLabel(name)
         }),
         installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+        installWanikaniSources: (root, card) => this.wanikaniSources.installDefinitionMounts(root, card),
         lookupStudyCard: (term, reading) => this.lookupCard(term, reading ?? ""),
         renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
           includeStudySources: false,
@@ -95838,6 +97046,7 @@ ${rank.detail}` : baseTitle;
     }
     renderLookupPopoverContent(popover, card, sentence, data) {
       setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, "modal", data));
+      this.wanikaniSources.installDefinitionMounts(popover, card);
       this.refreshNewTabLookupHeader(popover, card, data);
     }
     refreshNewTabLookupHeader(popover, card, data) {
@@ -95961,8 +97170,8 @@ ${rank.detail}` : baseTitle;
                 <div class="jpdb-reader-header">
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
-                            <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
-                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(this.text("loadingKanjiDetails"))}</div></div>
+                            <div class="jpdb-reader-kanji-display">${escapeHtml$2(kanji)}</div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$2(this.text("loadingKanjiDetails"))}</div></div>
                             ${renderWordPills({
         card,
         jpdbUrl,
@@ -96003,7 +97212,7 @@ ${rank.detail}` : baseTitle;
       return `
             <div class="jpdb-reader-actions${actionsClass}" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
                 ${hasReviewTargetGutter ? "" : `<div class="jpdb-reader-actions-gutter" hidden>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(this.text("showMiningActions"))}" aria-label="${escapeHtml$1(this.text("showMiningActions"))}"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$2(this.text("showMiningActions"))}" aria-label="${escapeHtml$2(this.text("showMiningActions"))}"></button>
                 </div>`}
                 <div data-kanji-mining-mount hidden></div>
                 ${reviewButtons}
@@ -96138,6 +97347,7 @@ ${rank.detail}` : baseTitle;
       if (this.settings.uchisenEnabled) {
         void this.renderUchisenInto(popover, kanji, requestId);
       }
+      this.wanikaniSources.installKanjiMount(popover, kanji);
       this.installKanjiLookupImmersionExamples(popover, kanji);
       const renderKeyword = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -96333,7 +97543,7 @@ ${rank.detail}` : baseTitle;
       setInnerHtml(mount, `
             <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source" ${sourceAttributes()}>
                 <summary class="jpdb-reader-local-title">Uchisen</summary>
-                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">${escapeHtml$1(this.text("loadingMnemonicImages"))}</div></div>
+                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">${escapeHtml$2(this.text("loadingMnemonicImages"))}</div></div>
             </details>
         `);
       const data = await this.loadUchisenLookupData(kanji);
@@ -96770,7 +97980,7 @@ ${rank.detail}` : baseTitle;
         settings: this.settings,
         sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: (name) => this.dictionaryLabel(name),
-        noDefinitionsHtml: () => `<div class="jpdb-reader-help jpdb-reader-no-definitions">${escapeHtml$1(this.text("noDefinitionsFound"))}</div>`,
+        noDefinitionsHtml: () => `<div class="jpdb-reader-help jpdb-reader-no-definitions">${escapeHtml$2(this.text("noDefinitionsFound"))}</div>`,
         sentence,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,

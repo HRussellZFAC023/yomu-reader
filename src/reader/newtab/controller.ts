@@ -4032,6 +4032,7 @@ export class NewTabController {
         return result.sourceLabel === this.text('dictionary');
     }
 
+    // fallow-ignore-next-line complexity, code-duplication
     private cardPrimaryNewTabSource(card: JPDBCard): ConcreteNewTabWordSource {
         if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
         if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
@@ -5424,6 +5425,7 @@ export class NewTabController {
         }));
     }
 
+    // fallow-ignore-next-line complexity
     private statusLightSourceForCard(card: JPDBCard): 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki' | null {
         if ((this.cardReviewSource(card) === 'dictionary' && this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + '))
             || this.shouldShowJitenOnlyApiFallbackSource(card)
@@ -5731,7 +5733,9 @@ export class NewTabController {
         return settings.ankiEnabled && settings.newTabAnkiEnabled;
     }
 
+    // fallow-ignore-next-line complexity
     private cardReviewSource(card: JPDBCard): ConcreteNewTabWordSource {
+        // fallow-ignore-next-line code-duplication
         if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
         if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
         if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'wanikani';
@@ -6587,6 +6591,7 @@ export class NewTabController {
         void this.renderStudyRevealDefinitionSources(meaning, card);
     }
 
+    // fallow-ignore-next-line complexity
     private async renderStudyRevealDefinitionSources(meaning: HTMLElement, card: JPDBCard): Promise<void> {
         const loadDetails = this.dependencies.loadCardRenderData;
         const renderSources = this.dependencies.renderStudyDefinitionSources;
@@ -8853,6 +8858,7 @@ export class NewTabController {
         return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
     }
 
+    // fallow-ignore-next-line complexity
     private offlineGradeTargetsForSelection(card: JPDBCard, selection?: NewTabLookupReviewTargetSelection): QueuedNewTabGradeTarget[] {
         if (!selection) return this.offlineGradeTargets(card);
         if (selection.kind === 'anki') {
@@ -8891,6 +8897,7 @@ export class NewTabController {
         const targetOptions = this.mainGradeTargetOptions(card);
         const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
         const grades = newTabGradeOptions(this.dependencies.getSettings(), card);
+        const sourceSummary = this.reviewSourceSummary(card);
         const buttons = renderNewTabGradeControlButtons({
             apiShortLabel: this.apiGradeTargetShortLabel(card),
             bothLabel: this.text('gradeTargetBoth'),
@@ -8900,7 +8907,7 @@ export class NewTabController {
             showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
             selectorLabel: this.text('gradeTargetSelector'),
             selectedOption: targetOptions[0],
-            summary: this.reviewSourceSummary(card),
+            summary: sourceSummary,
             targetLabel,
             targetOptions,
         });
@@ -8908,7 +8915,14 @@ export class NewTabController {
         // learner's manual choice always wins (nothing is submitted here).
         const outcomes = this.studyStepOutcomesForCard(card);
         this.markSuggestedGradeButton(buttons, suggestedStudyGrade(outcomes, grades.map(([grade]) => grade)));
-        return buttons;
+        if (!sourceSummary.hasWanikani) return buttons;
+        return [
+            el('p', {
+                class: 'jpdb-reader-newtab-grade-help',
+                dataset: { wanikaniGradeMappingHelp: true },
+            }, uiText(this.language(), 'wanikaniGradeMappingHelp')),
+            ...buttons,
+        ];
     }
 
     private markSuggestedGradeButton(buttons: HTMLElement[], suggested: JPDBGrade | null): void {
@@ -9019,6 +9033,7 @@ export class NewTabController {
         ].filter(Boolean).join(' ');
     }
 
+    // fallow-ignore-next-line complexity
     private lookupReviewTargetsForCard(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
         const targets = this.reviewTargetsForCard(card);
         const result: NewTabLookupReviewTarget[] = [];
@@ -9375,6 +9390,7 @@ export class NewTabController {
         return target;
     }
 
+    // fallow-ignore-next-line complexity
     private lookupReviewTargetForSelection(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection): NewTabLookupReviewTarget | null {
         const targets = this.lookupReviewTargetsForCard(card);
         if (selectedTarget.kind === 'jpdb') return targets.find(target => target.kind === 'jpdb') ?? null;
@@ -9387,6 +9403,7 @@ export class NewTabController {
         return targets.find(target => target.kind === 'anki' && target.ankiCardId === selectedCardId) ?? null;
     }
 
+    // fallow-ignore-next-line complexity
     private reviewTargetForLookupKind(card: JPDBCard, kind: NewTabLookupReviewTarget['kind']): NewTabReviewTarget | null {
         if (kind === 'jpdb') return this.reviewTargetsForCard(card).find(candidate => candidate === 'jpdb-api' || candidate === 'jpdb-live') ?? null;
         if (kind === 'jiten') return this.reviewTargetsForCard(card).find(candidate => candidate === 'jiten-api') ?? null;

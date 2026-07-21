@@ -59,6 +59,7 @@ export interface WanikaniSubject {
     hiddenAt: string | null;
 }
 
+// fallow-ignore-next-line complexity
 export function parseWanikaniSubject(raw: unknown): WanikaniSubject | null {
     if (!isRecord(raw)) return null;
     const type = typeof raw.object === 'string' ? raw.object : '';

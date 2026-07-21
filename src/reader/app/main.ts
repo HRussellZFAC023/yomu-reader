@@ -793,6 +793,7 @@ export class ReaderApp {
     private bunproSrs = this.bunproCompanion && this.bunpro ? this.bunproCompanion.createBunproSrsAdapter(this.bunpro) : null;
     private wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
     private wanikaniSrs = createWanikaniSrsAdapter(this.wanikani);
+    // fallow-ignore-next-line code-duplication
     private wanikaniSources = new WanikaniSourceController(
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
@@ -2002,6 +2003,7 @@ export class ReaderApp {
         await Promise.all(targets.map(target => this.installJpdbWordPageEnhancement(target, generation)));
     }
 
+    // fallow-ignore-next-line complexity
     private async installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void> {
         const card = this.jpdbPageWordCard(target);
         const renderData = this.cardRenderData.load(card);

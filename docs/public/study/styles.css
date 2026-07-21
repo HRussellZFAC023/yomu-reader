@@ -10890,6 +10890,32 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   background: transparent;
   box-shadow: none;
 }
+
+.yomu-wanikani-body {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.yomu-wanikani-body > p,
+.yomu-wanikani-mnemonic > p {
+  margin: 0;
+}
+
+.yomu-wanikani-audio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.yomu-wanikani-tag-radical,
+.yomu-wanikani-tag-kanji,
+.yomu-wanikani-tag-vocabulary,
+.yomu-wanikani-tag-reading,
+.yomu-wanikani-tag-meaning,
+.yomu-wanikani-tag-ja {
+  color: var(--jpdb-reader-accent);
+  font-weight: 700;
+}
 .jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {
   margin-top: 6px;
 }

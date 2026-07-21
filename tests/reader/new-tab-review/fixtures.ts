@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { AnkiConnectClient, type AnkiLookupResult } from '../../../src/reader/anki/index';

@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -160,6 +161,20 @@ describe('WaniKani API boundary', () => {
         expect(fingerprint).not.toContain(TOKEN);
         expect(fingerprint).toMatch(/^[0-9a-f]{16}:\d+$/);
         expect(fingerprintWanikaniToken(`${TOKEN}2`)).not.toBe(fingerprint);
+    });
+
+    it('reports expired and under-scoped credentials without echoing the token', async () => {
+        for (const [status, message] of [[401, /expired or was denied/i], [403, /lacks permission/i]] as const) {
+            const client = new WanikaniClient({
+                getToken: () => TOKEN,
+                minRequestIntervalMs: 0,
+                requestImpl: async () => {
+                    throw Object.assign(new Error(`HTTP ${status}`), { status });
+                },
+            });
+            await expect(client.getUser()).rejects.toThrow(message);
+            await expect(client.getUser()).rejects.not.toThrow(TOKEN);
+        }
     });
 
     it('invalidates assignment state after a review without discarding subject caches', async () => {
@@ -329,6 +344,8 @@ describe('WaniKani SRS adapter', () => {
             providerId: 'wanikani', providerCardId: '1', providerReviewableId: '2', kind: 'unknown', expression: 'Sun', reading: '', meanings: [], state: ['due'], raw: { subject: { type: 'radical' } },
         };
         expect(wanikaniReviewInput(radical, 'again')).toEqual({ incorrectMeaningAnswers: 1, incorrectReadingAnswers: 0 });
+        expect(wanikaniReviewInput({ ...radical, reading: 'stray', raw: {} }, 'again'))
+            .toEqual({ incorrectMeaningAnswers: 1, incorrectReadingAnswers: 1 });
         const adapter = createWanikaniSrsAdapter(routedClient());
         await expect(adapter.review({ card: { ...radical, state: ['learning'] }, grade: 'good' })).rejects.toThrow(/currently due/i);
     });
@@ -355,6 +372,7 @@ function routedClient(posts: unknown[] = []): WanikaniClient {
     return new WanikaniClient({
         getToken: () => TOKEN,
         minRequestIntervalMs: 0,
+        // fallow-ignore-next-line complexity
         requestImpl: async (url, options) => {
             const path = new URL(url).pathname;
             if (path.endsWith('/user')) return USER;

@@ -1,8 +1,9 @@
 import { requestHttp } from '../network/http-request';
 import type { ReaderHttpOptions } from '../network/http-options';
+import { httpStatusFromError } from '../network/error-status';
 
-export const WANIKANI_API_BASE_URL = 'https://api.wanikani.com/v2';
-export const WANIKANI_REVISION = '20170710';
+const WANIKANI_API_BASE_URL = 'https://api.wanikani.com/v2';
+const WANIKANI_REVISION = '20170710';
 export const WANIKANI_TOKEN_SETTINGS_URL = 'https://www.wanikani.com/settings/personal_access_tokens';
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -27,9 +28,7 @@ export interface WanikaniClientOptions {
     sleep?: (milliseconds: number) => Promise<void>;
 }
 
-export type WanikaniConnectionState = 'not-configured' | 'checking' | 'ok' | 'error';
-
-export interface WanikaniCollection<T> {
+interface WanikaniCollection<T> {
     total_count: number;
     pages?: {
         next_url?: string | null;
@@ -345,6 +344,7 @@ function parseWanikaniUser(raw: unknown): WanikaniUserData {
     };
 }
 
+// fallow-ignore-next-line complexity
 function queryString(options: WanikaniListOptions): string {
     const params = new URLSearchParams();
     if (options.ids?.length) params.set('ids', options.ids.join(','));
@@ -367,7 +367,7 @@ function queryString(options: WanikaniListOptions): string {
 
 function normalizeWanikaniError(error: unknown): Error {
     if (error instanceof WanikaniApiError) return error;
-    const status = errorStatus(error);
+    const status = httpStatusFromError(error);
     if (!(error instanceof Error)) return new WanikaniApiError('WaniKani request failed.', status);
     if (status === 401) return new WanikaniApiError('WaniKani token expired or was denied.', 401);
     if (status === 403) return new WanikaniApiError('WaniKani token lacks permission for this request.', 403);
@@ -386,12 +386,6 @@ function rawSubjectLevel(value: unknown): number {
 
 function stableOptionsKey(options: WanikaniListOptions): string {
     return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
-}
-
-function errorStatus(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') return undefined;
-    const status = (error as { status?: unknown; statusCode?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
-    return typeof status === 'number' && Number.isFinite(status) ? status : undefined;
 }
 
 function trimBaseUrl(value: string): string {

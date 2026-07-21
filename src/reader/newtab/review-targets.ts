@@ -43,6 +43,7 @@ function isJitenGradableCard(card: JPDBCard): boolean {
     return isJitenSrsCard(card) || (typeof card.jitenWordId === 'number' && card.jitenWordId > 0);
 }
 
+// fallow-ignore-next-line complexity
 export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
@@ -72,6 +73,7 @@ export function ankiCardKindLabel(card: JPDBCard, language: ReaderSettings['inte
     return '';
 }
 
+// fallow-ignore-next-line complexity
 export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSettings, ankiCardId: number | null): NewTabReviewTarget[] {
     if (!settings.enableReviews) return [];
     const targets: NewTabReviewTarget[] = [];
@@ -123,7 +125,7 @@ export function queueableNewTabReviewTargets(targets: NewTabReviewTarget[]): Que
         || target === 'yomu-local');
 }
 
-export function isWanikaniReviewCard(card: JPDBCard): boolean {
+function isWanikaniReviewCard(card: JPDBCard): boolean {
     return (card.source === 'wanikani' || card.reviewSource === 'wanikani-api')
         && typeof card.wanikaniAssignmentId === 'number'
         && card.wanikaniAssignmentId > 0;

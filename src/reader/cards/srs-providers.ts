@@ -153,6 +153,7 @@ function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): Api
         : { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: hasJpdbApiCredential(settings) };
 }
 
+// fallow-ignore-next-line complexity
 export function apiSrsProviderViewForCard(
     card: JPDBCard,
     settings: ReaderSettings,
@@ -326,11 +327,11 @@ function createWanikaniSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Rea
     };
 }
 
-export function isWanikaniBackedCard(card: JPDBCard): boolean {
+function isWanikaniBackedCard(card: JPDBCard): boolean {
     return card.source === 'wanikani' || card.reviewSource === 'wanikani-api' || Boolean(card.wanikaniSubjectId);
 }
 
-export function isWanikaniGradeableCard(card: JPDBCard): boolean {
+function isWanikaniGradeableCard(card: JPDBCard): boolean {
     return isWanikaniBackedCard(card) && typeof card.wanikaniAssignmentId === 'number' && card.wanikaniAssignmentId > 0;
 }
 

@@ -8,6 +8,7 @@ import { renderProviderExamples, type ProviderCollection, type ProviderExampleVi
 import { renderPassiveReference } from '../sources/passive-reference';
 import { BunproApiError, type BunproClient } from './bunpro';
 import { LruCache } from '../core/lru-cache';
+import { httpStatusFromError } from '../network/error-status';
 
 export interface BunproExampleSentencePart {
     text: string;
@@ -317,7 +318,7 @@ function dedupeBunproExamples(examples: Array<BunproExampleSentence & { order: n
 }
 
 function bunproExampleFailureReason(error: unknown): 'auth' | 'network' | 'schema' {
-    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+    const status = error instanceof BunproApiError ? error.status : httpStatusFromError(error);
     if (status === 401 || status === 403) return 'auth';
     if (status === 404) return 'schema';
     return 'network';
@@ -774,13 +775,6 @@ function textValue(value: unknown): string {
 function numberValue(value: unknown): number {
     const number = Number(value);
     return Number.isInteger(number) && number > 0 ? number : 0;
-}
-
-function errorStatus(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') return undefined;
-    const value = error as { status?: unknown; statusCode?: unknown };
-    const status = value.status ?? value.statusCode;
-    return typeof status === 'number' && Number.isFinite(status) ? status : undefined;
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {

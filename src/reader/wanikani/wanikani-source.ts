@@ -39,6 +39,7 @@ export class WanikaniSourceController {
                     info,
                     settings,
                     this.sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)),
+                    // fallow-ignore-next-line code-duplication
                     settings.wanikaniDefinitionsAlias || 'WaniKani',
                 ));
                 mount.dataset.wanikaniLoaded = 'true';
@@ -69,6 +70,7 @@ export class WanikaniSourceController {
                 info,
                 settings,
                 this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
+                // fallow-ignore-next-line code-duplication
                 settings.wanikaniKanjiAlias || 'WaniKani',
             ));
             mount.dataset.wanikaniLoaded = 'true';
@@ -155,6 +157,7 @@ function safeMediaUrl(value: string): boolean {
     }
 }
 
+// fallow-ignore-next-line complexity
 function preferredWanikaniAudio(items: WanikaniAudio[]): WanikaniAudio[] {
     const preferred = new Map<string, WanikaniAudio>();
     for (const item of items.filter(candidate => safeMediaUrl(candidate.url))) {

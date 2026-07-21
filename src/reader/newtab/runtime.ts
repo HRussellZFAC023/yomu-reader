@@ -319,6 +319,7 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),
     });
+    // fallow-ignore-next-line code-duplication
     private wanikaniSources = new WanikaniSourceController(
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,

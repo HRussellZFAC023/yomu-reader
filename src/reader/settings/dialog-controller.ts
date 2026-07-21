@@ -1271,14 +1271,18 @@ export class SettingsDialogController {
         this.refreshSettingsJapaneseParse(form);
     }
 
+    // fallow-ignore-next-line complexity
     private async refreshWanikaniConnectionStatus(form: HTMLFormElement): Promise<void> {
         this.syncJpdbStatus(form);
         const status = form.querySelector<HTMLElement>('[data-wanikani-status]');
         if (!status) return;
+        // Invalidate any earlier probe even when the newly-read form has no
+        // token. Otherwise an old request can resolve after the field is
+        // cleared and repaint the blank-token state as connected.
+        const requestId = ++this.wanikaniConnectionProbeId;
         const formSettings = readFormSettings(new FormData(form), this.settings);
         const token = effectiveWanikaniApiToken(formSettings);
         if (!token) return;
-        const requestId = ++this.wanikaniConnectionProbeId;
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         try {
             const client = new WanikaniClient({ getToken: () => token });

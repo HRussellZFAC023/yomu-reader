@@ -14,7 +14,7 @@ import type {
 
 const WANIKANI_DASHBOARD_URL = 'https://www.wanikani.com/dashboard';
 
-export interface WanikaniAssignment {
+interface WanikaniAssignment {
     id: number;
     subjectId: number;
     subjectType: string;
@@ -92,6 +92,7 @@ async function wanikaniQueue(client: WanikaniClient, limit = 50): Promise<YomuSr
     };
 }
 
+// fallow-ignore-next-line complexity
 function reviewableFromAssignment(assignment: WanikaniAssignment, subject: WanikaniSubject | undefined): YomuSrsReviewable | null {
     if (!subject) return null;
     return {
@@ -111,7 +112,7 @@ function reviewableFromAssignment(assignment: WanikaniAssignment, subject: Wanik
     };
 }
 
-export function wanikaniAssignmentCardState(assignment: WanikaniAssignment): CardState[] {
+function wanikaniAssignmentCardState(assignment: WanikaniAssignment): CardState[] {
     if (assignment.burnedAt) return ['known'];
     if (assignment.srsStage === 0) return ['new'];
     if (assignment.availableAt && Date.parse(assignment.availableAt) <= Date.now()) {
@@ -122,7 +123,7 @@ export function wanikaniAssignmentCardState(assignment: WanikaniAssignment): Car
 }
 
 // srs_stage: 0 lesson/new, 1-4 apprentice, 5-6 guru, 7 master, 8 enlightened, 9 burned.
-export function wanikaniStageLabel(srsStage: number): string {
+function wanikaniStageLabel(srsStage: number): string {
     if (srsStage <= 0) return 'lesson';
     if (srsStage <= 4) return 'apprentice';
     if (srsStage <= 6) return 'guru';
@@ -135,6 +136,7 @@ function parseAssignments(raw: unknown[]): WanikaniAssignment[] {
     return raw.map(parseAssignment).filter((assignment): assignment is WanikaniAssignment => assignment !== null);
 }
 
+// fallow-ignore-next-line complexity
 function parseAssignment(raw: unknown): WanikaniAssignment | null {
     if (!isRecord(raw)) return null;
     const data = isRecord(raw.data) ? raw.data : {};
@@ -153,6 +155,7 @@ function parseAssignment(raw: unknown): WanikaniAssignment | null {
     };
 }
 
+// fallow-ignore-next-line complexity
 function summaryDueSubjectIds(summary: unknown): Set<number> {
     const ids = new Set<number>();
     const reviews = isRecord(summary) && isRecord(summary.data) ? summary.data.reviews : undefined;
@@ -184,7 +187,9 @@ interface WanikaniReviewInput {
 // A radical has no reading component and must never record a reading error.
 export function wanikaniReviewInput(card: YomuSrsReviewable, grade: YomuSrsReviewRequest['grade']): WanikaniReviewInput {
     const subject = isRecord(card.raw) && isRecord(card.raw.subject) ? card.raw.subject : undefined;
-    const isRadical = subject?.type === 'radical' || card.kind === 'unknown' && !card.reading;
+    // Only the API subject type is authoritative here. Guessing from an empty
+    // reading could turn malformed vocabulary into a meaning-only review.
+    const isRadical = subject?.type === 'radical';
     const failed = grade === 'nothing' || grade === 'again' || grade === 'fail' || grade === 'something' || grade === 'hard';
     return {
         incorrectMeaningAnswers: failed ? 1 : 0,
@@ -192,6 +197,7 @@ export function wanikaniReviewInput(card: YomuSrsReviewable, grade: YomuSrsRevie
     };
 }
 
+// fallow-ignore-next-line complexity
 async function reviewWanikaniCard(client: WanikaniClient, request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
     if (request.card.providerId !== 'wanikani' || !request.card.state.includes('due')) {
         throw new WanikaniApiError('Only a currently due WaniKani assignment can be reviewed. Reload the WaniKani queue and try again.');

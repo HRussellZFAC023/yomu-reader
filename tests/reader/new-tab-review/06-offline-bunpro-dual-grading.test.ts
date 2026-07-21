@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -626,6 +627,10 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
 
         try {
             expect((controller as unknown as { reviewTargetsForCard(card: JPDBCard): string[] }).reviewTargetsForCard(card)).toEqual(['wanikani-api']);
+            const gradeControls = (controller as unknown as { gradeControlButtons(card: JPDBCard): HTMLElement[] }).gradeControlButtons(card);
+            expect(gradeControls[0]).toMatchObject({ dataset: { wanikaniGradeMappingHelp: 'true' } });
+            expect(gradeControls[0]?.textContent).toContain('Anything below Okay submits one incorrect meaning answer');
+            expect(gradeControls[1]).toMatchObject({ dataset: { grade: 'nothing' } });
             await expect(internals.gradeCurrentCard('pass')).resolves.toBe(true);
             expect(review).toHaveBeenCalledOnce();
             expect(internals.lastUndoableReview).toBeUndefined();
