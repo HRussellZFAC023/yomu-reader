@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.270] - 2026-07-21
+
+### Changed
+
+- Anki-backed Study sessions now open faster and do less work: independent deck checks run together, duplicate note searches are gone, and card details are loaded only as far as the visible study queue needs them. Sparse or incompatible cards still advance through progressively larger bounded windows, so performance does not come at the cost of silently shortening a session.
+
+### Fixed
+
+- Reopening Settings after choosing an Anki note type now keeps that saved note type selected. An automatic Anki scan could replace the visible choice with its highest-scoring suggestion even though saving and card creation still used the original choice, making Settings misleading; scans now preserve any saved type that still exists in Anki.
+
 ## [1.6.269] - 2026-07-21
 
 ### Fixed

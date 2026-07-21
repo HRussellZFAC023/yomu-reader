@@ -21011,8 +21011,97 @@ ${spelling}`);
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
     for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
       const host2 = registeredTextMirrorHostFor(mirror);
-      if (host2?.isConnected) alignAdditiveTextMirrorRun(mirror, host2);
+      if (!host2?.isConnected) continue;
+      alignAdditiveTextMirrorRun(mirror, host2);
+      alignMirrorWordsToSourceRects(mirror, host2);
     }
+  }
+  function isPureTranslateTransform(transform) {
+    const match = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (!match) return false;
+    const parts = match[1].split(",").map((value) => Number.parseFloat(value));
+    if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
+    const [a, b, c, d] = parts;
+    return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
+  }
+  function alignMirrorWordsToSourceRects(mirror, host2) {
+    if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
+    if (mirror.style.getPropertyValue("overflow") === "hidden") return;
+    if (typeof Range.prototype.getClientRects !== "function" || !host2.isConnected) return;
+    const hostRect = host2.getBoundingClientRect();
+    if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
+    for (let node2 = mirror, depth = 0; node2 && depth < 10; depth += 1, node2 = composedAncestorElement(node2)) {
+      const transform = safeComputedStyle(node2).transform;
+      if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
+    }
+    const source2 = hostOriginalTextWithNodeOffsets(host2);
+    if (mirror.dataset.sourceText !== source2.hostText) return;
+    const words = Array.from(mirror.querySelectorAll(
+      ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
+    ));
+    if (!words.length) return;
+    const range2 = host2.ownerDocument.createRange();
+    const mirrorRect = mirror.getBoundingClientRect();
+    const placements = [];
+    let maxDrift = 0;
+    for (const word of words) {
+      const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+      const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source2.hostText.length) continue;
+      const startBoundary = sourceRangeBoundary(source2.nodeOffsets, start, "start");
+      const endBoundary = sourceRangeBoundary(source2.nodeOffsets, end, "end");
+      if (!startBoundary || !endBoundary) continue;
+      range2.setStart(startBoundary.node, startBoundary.offset);
+      range2.setEnd(endBoundary.node, endBoundary.offset);
+      const rects = Array.from(range2.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
+      if (!rects.length) continue;
+      const rect = rects[0];
+      const current = word.getBoundingClientRect();
+      maxDrift = Math.max(
+        maxDrift,
+        Math.abs(current.left - rect.left),
+        Math.abs(current.top - rect.top),
+        Math.abs(current.width - rect.width)
+      );
+      placements.push({
+        word,
+        left: rect.left - mirrorRect.left,
+        top: rect.top - mirrorRect.top,
+        width: rect.width,
+        height: rect.height
+      });
+    }
+    if (!placements.length) return;
+    const DRIFT_TOLERANCE_PX = 1.5;
+    if (maxDrift <= DRIFT_TOLERANCE_PX) {
+      mirror.dataset.yomuAlignedHostW = String(hostRect.width);
+      mirror.dataset.yomuAlignedHostH = String(hostRect.height);
+      return;
+    }
+    for (const { word, left, top, width, height } of placements) {
+      word.style.setProperty("position", "absolute", "important");
+      word.style.setProperty("left", `${left}px`, "important");
+      word.style.setProperty("top", `${top}px`, "important");
+      word.style.setProperty("width", `${width}px`, "important");
+      word.style.setProperty("height", `${height}px`, "important");
+      word.style.setProperty("margin", "0", "important");
+      word.style.setProperty("white-space", "nowrap", "important");
+    }
+    if (mirror.style.getPropertyValue("transform")) {
+      const settled = mirror.getBoundingClientRect();
+      const dx = settled.left - mirrorRect.left;
+      const dy = settled.top - mirrorRect.top;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        for (const { word, left, top } of placements) {
+          word.style.setProperty("left", `${left - dx}px`, "important");
+          word.style.setProperty("top", `${top - dy}px`, "important");
+        }
+      }
+    }
+    mirror.dataset.yomuSourceAligned = "1";
+    const finalHostRect = host2.getBoundingClientRect();
+    mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
+    mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
   }
   let pendingAdditiveMirrorAlignFrame = 0;
   function scheduleAdditiveMirrorRealign() {
@@ -21128,6 +21217,10 @@ ${spelling}`);
     return active;
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
+    if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
+      const alignHost = registeredTextMirrorHostFor(root);
+      if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
+    }
     if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
     settleDetachedReadingLanes(
       Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
@@ -260473,7 +260566,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
   const ANKI_CARD_INFO_CONCURRENCY = 2;
-  const ANKI_CANDIDATE_OVERFETCH = 3;
   const ANKI_CANDIDATE_MIN_WINDOW_SIZE = 24;
   const ANKI_CANDIDATE_MAX_WINDOW_SIZE = ANKI_CARD_INFO_CHUNK_SIZE * ANKI_CARD_INFO_CONCURRENCY;
   const ANKI_NEW_TAB_EXPRESSION_FIELD_NAMES = [
@@ -260546,7 +260638,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadNewTabAnkiCards(client, settings, deckNames, limit, kind) {
     const cards = [];
     const seenCards = /* @__PURE__ */ new Set();
-    for (const query of newTabAnkiQueries(settings, deckNames, kind)) {
+    for (const query of newTabAnkiQueries(deckNames, kind)) {
       const loadedCards = await loadNewTabAnkiCardsForQuery(client, settings, query, limit - cards.length, kind, deckNames, seenCards);
       cards.push(...loadedCards);
       if (cards.length >= limit) break;
@@ -260560,6 +260652,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const cards = [];
     let offset = 0;
     let windowSize = newTabAnkiCandidateWindowSize(limit);
+    let exhaustWindow = false;
     while (offset < candidateCardIds.length && cards.length < limit) {
       const candidateWindow = candidateCardIds.slice(offset, offset + windowSize);
       offset += candidateWindow.length;
@@ -260571,17 +260664,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
         candidateWindow,
         limit - cards.length,
         kind,
-        deckNames
+        deckNames,
+        exhaustWindow
       ));
       if (cards.length === beforeWindow) {
         windowSize = Math.min(ANKI_CANDIDATE_MAX_WINDOW_SIZE, windowSize * 2);
+        exhaustWindow = true;
+      } else {
+        windowSize = newTabAnkiCandidateWindowSize(limit - cards.length);
+        exhaustWindow = false;
       }
     }
     return cards.slice(0, Math.max(1, limit));
   }
-  async function loadNewTabAnkiCardsFromCandidateWindow(client, settings, candidateCardIds, limit, kind, deckNames) {
+  async function loadNewTabAnkiCardsFromCandidateWindow(client, settings, candidateCardIds, limit, kind, deckNames, exhaustWindow = false) {
     if (limit <= 0 || !candidateCardIds.length) return [];
-    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit);
+    const reviewCards = await loadReviewableNewTabAnkiCards(
+      client,
+      candidateCardIds,
+      kind,
+      deckNames,
+      limit,
+      exhaustWindow ? candidateCardIds.length : limit
+    );
     if (!reviewCards.length) return [];
     const noteIds = unique(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
@@ -260602,7 +260707,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function newTabAnkiCandidateWindowSize(limit) {
     return Math.min(
       ANKI_CANDIDATE_MAX_WINDOW_SIZE,
-      Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit) * ANKI_CANDIDATE_OVERFETCH)
+      // Keep each candidate page no larger than the queue it can fill. The
+      // loader marks a whole page consumed after inspecting its notes; a
+      // larger page would skip its unrendered tail when an early note cannot
+      // be adapted. Small queues retain a 24-card floor so sparse decks do
+      // not devolve into one AnkiConnect round trip per unusable card.
+      Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit))
     );
   }
   async function newTabAnkiDeckNames(client, settings) {
@@ -260620,14 +260730,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const scope2 = deckScope.trim();
     return scope2 === "all" ? "" : scope2;
   }
-  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length) {
-    const dueByCardId = kind === "due" ? await ankiDueFlags(client, candidateCardIds) : /* @__PURE__ */ new Map();
-    const deckEligibleIds = await filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames);
+  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length, renderTarget = limit) {
+    const [dueByCardId, deckEligibleIds] = await Promise.all([
+      kind === "due" ? ankiDueFlags(client, candidateCardIds) : Promise.resolve(/* @__PURE__ */ new Map()),
+      filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames)
+    ]);
     const cards = await loadCardInfoChunksUntil(
       client,
       chunks(deckEligibleIds, ANKI_CARD_INFO_STREAM_CHUNK_SIZE),
       (info) => isReviewableAnkiCard(kind === "due" && dueByCardId.has(Number(info.cardId)) ? { ...info, isDue: dueByCardId.get(Number(info.cardId)) === true } : info, kind),
-      Math.max(1, Math.ceil(limit * 1.25))
+      // Stop once the requested queue can be filled. The outer candidate
+      // pager already advances when note fields cannot be adapted, so
+      // rendering another 25% of expensive card templates here only adds
+      // work to the common all-valid path.
+      Math.max(1, renderTarget)
     );
     const cardsById = new Map(cards.map((cardInfo) => [Number(cardInfo.cardId), cardInfo]));
     const reviewableCards = candidateCardIds.map((cardId) => {
@@ -260708,16 +260824,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return flags;
   }
-  function newTabAnkiQueries(settings, deckNames, kind) {
-    const broadQuery = newTabAnkiQuery(deckNames, "", kind);
-    const model2 = settings.ankiModel.trim();
-    const modelQuery = model2 ? newTabAnkiQuery(deckNames, model2, kind) : "";
-    return [...new Set([broadQuery, modelQuery].filter(Boolean))];
+  function newTabAnkiQueries(deckNames, kind) {
+    return [newTabAnkiQuery(deckNames, "", kind)];
   }
   function newTabAnkiQuery(deckNames, model2, kind) {
     return [
       deckNames.length ? `(${deckNames.map((deck) => `deck:${quoteAnkiSearch$1(deck)}`).join(" OR ")})` : "",
-      model2 ? `note:${quoteAnkiSearch$1(model2)}` : "",
+      "",
       "-is:suspended",
       kind === "due" ? "(is:due OR is:learn)" : "is:new"
     ].filter(Boolean).join(" ");
@@ -272666,6 +272779,9 @@ ${component.reading}`;
     if (!shouldRenderRuby(surface, token, settings)) return false;
     return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
   }
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -272706,9 +272822,6 @@ ${component.reading}`;
     if (!url) return true;
     if (!open(url)) location.href = url;
     return true;
-  }
-  function isJitenHost() {
-    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
   }
   function renderPassiveReference(view) {
     const reading = visibleReferenceReading(view.text, view.reading);
@@ -302477,10 +302590,15 @@ ${entry2.url}`),
   function selectedAnkiScanDeck(deckNames, currentDeck) {
     return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
   }
+  function selectedAnkiScanModel(scan, currentModel) {
+    const savedModel = currentModel.trim();
+    if (savedModel && scan.models.some((model2) => model2.modelName === savedModel)) return savedModel;
+    return scan.suggestedModel?.modelName || savedModel;
+  }
   function ankiScanSelection(controls, scan) {
     return {
       selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
-      selectedModel: scan.suggestedModel?.modelName || settingsControlValue(controls.model)
+      selectedModel: selectedAnkiScanModel(scan, settingsControlValue(controls.model))
     };
   }
   function applySettingsControlValue(control2, value) {

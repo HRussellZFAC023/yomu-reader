@@ -16037,7 +16037,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -45703,7 +45702,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.269".trim() ? "1.6.269".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.270".trim() ? "1.6.270".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -50400,10 +50399,15 @@ ${spelling}`);
   function selectedAnkiScanDeck(deckNames, currentDeck) {
     return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
   }
+  function selectedAnkiScanModel(scan, currentModel) {
+    const savedModel = currentModel.trim();
+    if (savedModel && scan.models.some((model) => model.modelName === savedModel)) return savedModel;
+    return scan.suggestedModel?.modelName || savedModel;
+  }
   function ankiScanSelection(controls, scan) {
     return {
       selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
-      selectedModel: scan.suggestedModel?.modelName || settingsControlValue(controls.model)
+      selectedModel: selectedAnkiScanModel(scan, settingsControlValue(controls.model))
     };
   }
   function applySettingsControlValue(control, value) {
@@ -68831,7 +68835,6 @@ ${spelling}`);
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
   const ANKI_CARD_INFO_CONCURRENCY = 2;
-  const ANKI_CANDIDATE_OVERFETCH = 3;
   const ANKI_CANDIDATE_MIN_WINDOW_SIZE = 24;
   const ANKI_CANDIDATE_MAX_WINDOW_SIZE = ANKI_CARD_INFO_CHUNK_SIZE * ANKI_CARD_INFO_CONCURRENCY;
   const ANKI_NEW_TAB_EXPRESSION_FIELD_NAMES = [
@@ -68904,7 +68907,7 @@ ${spelling}`);
   async function loadNewTabAnkiCards(client, settings, deckNames, limit, kind) {
     const cards = [];
     const seenCards = /* @__PURE__ */ new Set();
-    for (const query of newTabAnkiQueries(settings, deckNames, kind)) {
+    for (const query of newTabAnkiQueries(deckNames, kind)) {
       const loadedCards = await loadNewTabAnkiCardsForQuery(client, settings, query, limit - cards.length, kind, deckNames, seenCards);
       cards.push(...loadedCards);
       if (cards.length >= limit) break;
@@ -68918,6 +68921,7 @@ ${spelling}`);
     const cards = [];
     let offset = 0;
     let windowSize = newTabAnkiCandidateWindowSize(limit);
+    let exhaustWindow = false;
     while (offset < candidateCardIds.length && cards.length < limit) {
       const candidateWindow = candidateCardIds.slice(offset, offset + windowSize);
       offset += candidateWindow.length;
@@ -68929,17 +68933,29 @@ ${spelling}`);
         candidateWindow,
         limit - cards.length,
         kind,
-        deckNames
+        deckNames,
+        exhaustWindow
       ));
       if (cards.length === beforeWindow) {
         windowSize = Math.min(ANKI_CANDIDATE_MAX_WINDOW_SIZE, windowSize * 2);
+        exhaustWindow = true;
+      } else {
+        windowSize = newTabAnkiCandidateWindowSize(limit - cards.length);
+        exhaustWindow = false;
       }
     }
     return cards.slice(0, Math.max(1, limit));
   }
-  async function loadNewTabAnkiCardsFromCandidateWindow(client, settings, candidateCardIds, limit, kind, deckNames) {
+  async function loadNewTabAnkiCardsFromCandidateWindow(client, settings, candidateCardIds, limit, kind, deckNames, exhaustWindow = false) {
     if (limit <= 0 || !candidateCardIds.length) return [];
-    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit);
+    const reviewCards = await loadReviewableNewTabAnkiCards(
+      client,
+      candidateCardIds,
+      kind,
+      deckNames,
+      limit,
+      exhaustWindow ? candidateCardIds.length : limit
+    );
     if (!reviewCards.length) return [];
     const noteIds = unique(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
@@ -68960,7 +68976,12 @@ ${spelling}`);
   function newTabAnkiCandidateWindowSize(limit) {
     return Math.min(
       ANKI_CANDIDATE_MAX_WINDOW_SIZE,
-      Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit) * ANKI_CANDIDATE_OVERFETCH)
+      // Keep each candidate page no larger than the queue it can fill. The
+      // loader marks a whole page consumed after inspecting its notes; a
+      // larger page would skip its unrendered tail when an early note cannot
+      // be adapted. Small queues retain a 24-card floor so sparse decks do
+      // not devolve into one AnkiConnect round trip per unusable card.
+      Math.max(ANKI_CANDIDATE_MIN_WINDOW_SIZE, Math.max(1, limit))
     );
   }
   async function newTabAnkiDeckNames(client, settings) {
@@ -68978,14 +68999,20 @@ ${spelling}`);
     const scope = deckScope.trim();
     return scope === "all" ? "" : scope;
   }
-  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length) {
-    const dueByCardId = kind === "due" ? await ankiDueFlags(client, candidateCardIds) : /* @__PURE__ */ new Map();
-    const deckEligibleIds = await filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames);
+  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length, renderTarget = limit) {
+    const [dueByCardId, deckEligibleIds] = await Promise.all([
+      kind === "due" ? ankiDueFlags(client, candidateCardIds) : Promise.resolve(/* @__PURE__ */ new Map()),
+      filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames)
+    ]);
     const cards = await loadCardInfoChunksUntil(
       client,
       chunks(deckEligibleIds, ANKI_CARD_INFO_STREAM_CHUNK_SIZE),
       (info) => isReviewableAnkiCard(kind === "due" && dueByCardId.has(Number(info.cardId)) ? { ...info, isDue: dueByCardId.get(Number(info.cardId)) === true } : info, kind),
-      Math.max(1, Math.ceil(limit * 1.25))
+      // Stop once the requested queue can be filled. The outer candidate
+      // pager already advances when note fields cannot be adapted, so
+      // rendering another 25% of expensive card templates here only adds
+      // work to the common all-valid path.
+      Math.max(1, renderTarget)
     );
     const cardsById = new Map(cards.map((cardInfo) => [Number(cardInfo.cardId), cardInfo]));
     const reviewableCards = candidateCardIds.map((cardId) => {
@@ -69066,16 +69093,13 @@ ${spelling}`);
     }
     return flags;
   }
-  function newTabAnkiQueries(settings, deckNames, kind) {
-    const broadQuery = newTabAnkiQuery(deckNames, "", kind);
-    const model = settings.ankiModel.trim();
-    const modelQuery = model ? newTabAnkiQuery(deckNames, model, kind) : "";
-    return [...new Set([broadQuery, modelQuery].filter(Boolean))];
+  function newTabAnkiQueries(deckNames, kind) {
+    return [newTabAnkiQuery(deckNames, "", kind)];
   }
   function newTabAnkiQuery(deckNames, model, kind) {
     return [
       deckNames.length ? `(${deckNames.map((deck) => `deck:${quoteAnkiSearch$1(deck)}`).join(" OR ")})` : "",
-      model ? `note:${quoteAnkiSearch$1(model)}` : "",
+      "",
       "-is:suspended",
       kind === "due" ? "(is:due OR is:learn)" : "is:new"
     ].filter(Boolean).join(" ");
