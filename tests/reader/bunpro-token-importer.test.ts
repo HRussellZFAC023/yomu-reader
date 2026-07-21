@@ -101,7 +101,7 @@ describe('Bunpro frontend token importer', () => {
 
     it('does not read or save the Bunpro token when Firefox consent is denied', async () => {
         const request = vi.fn().mockResolvedValue(false);
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` }, permissions: { request } });
         const cookieStoreGet = vi.fn(async () => ({ value: 'private-token' }));
         const saveSettings = vi.fn(async () => undefined);
 

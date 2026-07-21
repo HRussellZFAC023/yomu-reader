@@ -44,9 +44,9 @@ export function requestFirefoxAuthenticationInfoForSettings(
 
 /** Call from a deliberate credential-import button before reading the token. */
 export function requestFirefoxAuthenticationInfoPermission(): Promise<FirefoxAuthenticationInfoConsent> {
-    const firefox = firefoxExtensionApi();
-    const request = firefox?.permissions?.request;
-    if (!firefox?.runtime?.id) return Promise.resolve('granted');
+    if (!isFirefoxExtensionRuntime()) return Promise.resolve('granted');
+    const permissions = firefoxExtensionApi()?.permissions;
+    const request = permissions?.request;
     // Content scripts get only a small WebExtension API subset. Firefox
     // exposes runtime there, but not permissions: never interpret that as
     // consent. Account details must be entered from a bundled extension page.
@@ -54,7 +54,7 @@ export function requestFirefoxAuthenticationInfoPermission(): Promise<FirefoxAut
     try {
         // Keep this as the first asynchronous browser call. Awaiting any work
         // before request() would lose Firefox's required user gesture.
-        return Promise.resolve(request.call(firefox.permissions, {
+        return Promise.resolve(request.call(permissions, {
             data_collection: [AUTHENTICATION_INFO_PERMISSION],
         })).then(granted => granted ? 'granted' : 'denied', () => 'denied');
     } catch {
@@ -74,11 +74,12 @@ function settingsContainAuthenticationInfo(settings: ReaderSettings): boolean {
 }
 
 export function firefoxAuthenticationInfoRequiresExtensionPage(): boolean {
-    const firefox = firefoxExtensionApi();
-    return Boolean(firefox?.runtime?.id && typeof firefox.permissions?.request !== 'function');
+    if (!isFirefoxExtensionRuntime()) return false;
+    return typeof firefoxExtensionApi()?.permissions?.request !== 'function';
 }
 
 export function firefoxAuthenticationInfoSettingsPageUrl(): string {
+    if (!isFirefoxExtensionRuntime()) return '';
     const runtime = firefoxExtensionApi()?.runtime;
     if (!runtime?.id || typeof runtime.getURL !== 'function') return '';
     try {
@@ -97,5 +98,32 @@ function firefoxExtensionApi(): FirefoxExtensionApi | undefined {
         return (globalThis as typeof globalThis & { browser?: FirefoxExtensionApi }).browser;
     } catch {
         return undefined;
+    }
+}
+
+// The Firefox 140+ data_collection consent flow is FIREFOX-ONLY, but Safari Web
+// Extensions (including iPad/iPhone) and Chrome also expose `browser.runtime.id`
+// to content scripts WITHOUT `permissions.request`. The old `runtime.id`-only
+// check therefore misidentified Safari as Firefox and stranded Safari users at
+// the "open a Yomu page" extension-page gate, unable to enter any API key.
+// Identify Firefox by its extension URL scheme (moz-extension:// vs Safari's
+// safari-web-extension:// and Chrome's chrome-extension://); fall back to a real
+// Gecko UA only when getURL is unavailable. Safari's UA never contains
+// "Firefox/" (its engine token is "like Gecko"), so it is correctly excluded.
+function isFirefoxExtensionRuntime(): boolean {
+    const firefox = firefoxExtensionApi();
+    if (!firefox?.runtime?.id) return false;
+    const getURL = firefox.runtime.getURL;
+    if (typeof getURL === 'function') {
+        try {
+            return getURL.call(firefox.runtime, '').startsWith('moz-extension://');
+        } catch {
+            // fall through to the UA check
+        }
+    }
+    try {
+        return /\bFirefox\/\d/u.test(navigator.userAgent);
+    } catch {
+        return false;
     }
 }

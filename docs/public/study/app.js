@@ -25621,12 +25621,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return requestFirefoxAuthenticationInfoPermission();
   }
   function requestFirefoxAuthenticationInfoPermission() {
-    const firefox = firefoxExtensionApi();
-    const request = firefox?.permissions?.request;
-    if (!firefox?.runtime?.id) return Promise.resolve("granted");
+    if (!isFirefoxExtensionRuntime()) return Promise.resolve("granted");
+    const permissions = firefoxExtensionApi()?.permissions;
+    const request = permissions?.request;
     if (typeof request !== "function") return Promise.resolve("extension-page-required");
     try {
-      return Promise.resolve(request.call(firefox.permissions, {
+      return Promise.resolve(request.call(permissions, {
         data_collection: [AUTHENTICATION_INFO_PERMISSION]
       })).then((granted) => granted ? "granted" : "denied", () => "denied");
     } catch {
@@ -25643,10 +25643,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return AUTHENTICATION_FIELDS.some((field) => Boolean(normalizedCredential(settings[field])));
   }
   function firefoxAuthenticationInfoRequiresExtensionPage() {
-    const firefox = firefoxExtensionApi();
-    return Boolean(firefox?.runtime?.id && typeof firefox.permissions?.request !== "function");
+    if (!isFirefoxExtensionRuntime()) return false;
+    return typeof firefoxExtensionApi()?.permissions?.request !== "function";
   }
   function firefoxAuthenticationInfoSettingsPageUrl() {
+    if (!isFirefoxExtensionRuntime()) return "";
     const runtime = firefoxExtensionApi()?.runtime;
     if (!runtime?.id || typeof runtime.getURL !== "function") return "";
     try {
@@ -25663,6 +25664,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return globalThis.browser;
     } catch {
       return void 0;
+    }
+  }
+  function isFirefoxExtensionRuntime() {
+    const firefox = firefoxExtensionApi();
+    if (!firefox?.runtime?.id) return false;
+    const getURL = firefox.runtime.getURL;
+    if (typeof getURL === "function") {
+      try {
+        return getURL.call(firefox.runtime, "").startsWith("moz-extension://");
+      } catch {
+      }
+    }
+    try {
+      return /\bFirefox\/\d/u.test(navigator.userAgent);
+    } catch {
+      return false;
     }
   }
   const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
@@ -45592,7 +45609,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.264".trim() ? "1.6.264".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.265".trim() ? "1.6.265".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

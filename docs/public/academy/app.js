@@ -302322,12 +302322,12 @@ ${entry2.url}`),
     return requestFirefoxAuthenticationInfoPermission();
   }
   function requestFirefoxAuthenticationInfoPermission() {
-    const firefox = firefoxExtensionApi();
-    const request2 = firefox?.permissions?.request;
-    if (!firefox?.runtime?.id) return Promise.resolve("granted");
+    if (!isFirefoxExtensionRuntime()) return Promise.resolve("granted");
+    const permissions = firefoxExtensionApi()?.permissions;
+    const request2 = permissions?.request;
     if (typeof request2 !== "function") return Promise.resolve("extension-page-required");
     try {
-      return Promise.resolve(request2.call(firefox.permissions, {
+      return Promise.resolve(request2.call(permissions, {
         data_collection: [AUTHENTICATION_INFO_PERMISSION]
       })).then((granted) => granted ? "granted" : "denied", () => "denied");
     } catch {
@@ -302344,8 +302344,8 @@ ${entry2.url}`),
     return AUTHENTICATION_FIELDS.some((field2) => Boolean(normalizedCredential(settings[field2])));
   }
   function firefoxAuthenticationInfoRequiresExtensionPage() {
-    const firefox = firefoxExtensionApi();
-    return Boolean(firefox?.runtime?.id && typeof firefox.permissions?.request !== "function");
+    if (!isFirefoxExtensionRuntime()) return false;
+    return typeof firefoxExtensionApi()?.permissions?.request !== "function";
   }
   function normalizedCredential(value) {
     return typeof value === "string" ? value.trim() : "";
@@ -302355,6 +302355,22 @@ ${entry2.url}`),
       return globalThis.browser;
     } catch {
       return void 0;
+    }
+  }
+  function isFirefoxExtensionRuntime() {
+    const firefox = firefoxExtensionApi();
+    if (!firefox?.runtime?.id) return false;
+    const getURL = firefox.runtime.getURL;
+    if (typeof getURL === "function") {
+      try {
+        return getURL.call(firefox.runtime, "").startsWith("moz-extension://");
+      } catch {
+      }
+    }
+    try {
+      return /\bFirefox\/\d/u.test(navigator.userAgent);
+    } catch {
+      return false;
     }
   }
   function isSettingsCommandWord(word) {

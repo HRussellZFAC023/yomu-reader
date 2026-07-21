@@ -811,7 +811,7 @@ describe('settings dialog keyboard dismissal', () => {
     it('keeps changed account details unsaved when Firefox consent is denied', async () => {
         const request = vi.fn().mockResolvedValue(false);
         const setValue = vi.fn();
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` }, permissions: { request } });
         vi.stubGlobal('GM_setValue', setValue);
         const { dependencies, dismiss, form } = createSettingsDialog();
         form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!.value = 'jpdb-private-key';
@@ -828,7 +828,7 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('fails closed for account details and settings imports in a Firefox content script', async () => {
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' } });
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` } });
         const setValue = vi.fn();
         vi.stubGlobal('GM_setValue', setValue);
         const { dependencies, dismiss, form } = createSettingsDialog();

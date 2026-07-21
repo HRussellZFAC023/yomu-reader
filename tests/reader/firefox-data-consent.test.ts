@@ -23,9 +23,14 @@ describe('Firefox built-in credential consent', () => {
         expect(addsOrChangesAuthenticationInfo(current, { ...current, ocrCloudVisionApiKey: 'vision-key' })).toBe(true);
     });
 
+    const firefoxBrowser = (permissions?: Record<string, unknown>) => ({
+        runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` },
+        ...(permissions ? { permissions } : {}),
+    });
+
     it('requests Firefox authenticationInfo from the native permission API', async () => {
         const request = vi.fn().mockResolvedValue(true);
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('browser', firefoxBrowser({ request }));
 
         await expect(requestFirefoxAuthenticationInfoPermission()).resolves.toBe('granted');
         expect(request).toHaveBeenCalledWith({ data_collection: ['authenticationInfo'] });
@@ -33,7 +38,7 @@ describe('Firefox built-in credential consent', () => {
 
     it('keeps the integration off when Firefox denies or fails the request', async () => {
         const request = vi.fn().mockResolvedValue(false);
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('browser', firefoxBrowser({ request }));
         await expect(requestFirefoxAuthenticationInfoPermission()).resolves.toBe('denied');
 
         request.mockRejectedValueOnce(new Error('not allowed'));
@@ -46,9 +51,26 @@ describe('Firefox built-in credential consent', () => {
         await expect(requestFirefoxAuthenticationInfoForChangedSettings(current, next)).resolves.toBe('granted');
 
         const request = vi.fn().mockResolvedValue(true);
-        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('browser', firefoxBrowser({ request }));
         await expect(requestFirefoxAuthenticationInfoForChangedSettings(current, current)).resolves.toBe('granted');
         expect(request).not.toHaveBeenCalled();
+    });
+
+    it('treats a Safari Web Extension (safari-web-extension://) as NOT Firefox so credentials can be entered on any page', async () => {
+        // Safari (incl. iPad/iPhone) exposes browser.runtime.id to content
+        // scripts without permissions.request — the same shape as a Firefox
+        // content script. It must NOT hit the Firefox extension-page gate.
+        vi.stubGlobal('browser', {
+            runtime: {
+                id: 'com.yomu.safari (ABCDE)',
+                getURL: (path: string) => `safari-web-extension://YOMU-UUID/${path}`,
+            },
+        });
+        expect(firefoxAuthenticationInfoRequiresExtensionPage()).toBe(false);
+        expect(firefoxAuthenticationInfoSettingsPageUrl()).toBe('');
+        const current = { ...testEnSettings(), jitenApiKey: '' };
+        const next = { ...current, jitenApiKey: 'ak_safari_key' };
+        await expect(requestFirefoxAuthenticationInfoForChangedSettings(current, next)).resolves.toBe('granted');
     });
 
     it('fails closed in Firefox content scripts and links to bundled Study settings', async () => {

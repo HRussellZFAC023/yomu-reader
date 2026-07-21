@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.265] - 2026-07-21
+
+### Fixed
+
+- Safari (including iPad and iPhone) is no longer mistaken for Firefox. A Safari Web Extension exposes the same content-script API shape as a Firefox extension, so Yomu wrongly ran the Firefox data-consent flow and blocked API key entry with an open a Yomu page message. Safari is now told apart by its extension URL scheme, so you can enter your Jiten, JPDB, and other keys directly in Settings on any page, and the JPDB connection status and deck lists load again.
+
 ## [1.6.264] - 2026-07-21
 
 ### Fixed
