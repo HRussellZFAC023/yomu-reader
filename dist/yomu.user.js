@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.266
+// @version 1.6.267
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.c059e2ad754d.user.js#sha256=wFnirXVNTSUB3mjC0uDNK6XsWJftmz74GCN8C4I6y84=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f0de21db490e.user.js#sha256=8N4h20kOrOH5uvmZtjP56QJmtkJ+yNFVeh4ry71zCfg=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.c226e04ff023.user.js#sha256=wibgT/AjBOc3LekotRS68jfH1s2nGRCakkaSS+6MokE=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.dad5a62a170f.user.js#sha256=2tWmKhcPRuHaz1s7jONA574s5v6b/nWZ+GQcFh4Obp0=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.63b3dea958f5.user.js#sha256=Y7PeqVj1ibkpG+lg2ezXvplRhJyiXOwPDtVJ2G828lU=
 // @require https://yomureader.com/greasyfork/yomu-video.7f54e407f4aa.user.js#sha256=f1TkB/SqJa5kZbaMPW+BEq3cbfZhhfksFyUWFsqqPNs=
 // @resource yomuCss  https://yomureader.com/yomu.ca9baff67630.css#sha256=ypuv9nYwqEK5BLTFdMZAFPCI5nMt1Ag5Vx0xYWtZbak=
@@ -34292,8 +34292,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.266"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.266"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.267"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.267"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34425,7 +34425,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.266"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.267"}`;
   } catch {
   return null;
   }
@@ -35576,6 +35576,10 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
+function jitenAddonKeyIdentity(key) {
+  const parts = key.split(":");
+  return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
+}
 class ReaderApp {
   abortController = new AbortController();
   isDestroyed = false;
@@ -36587,7 +36591,23 @@ class ReaderApp {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
   if (!document.querySelector("[data-yomu-jpdb-addon]")) return true;
+  if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
+  }
+  jitenAddonWordIdentityChanged() {
+  const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+  if (!expected.length) return false;
+  const mounted = new Set(
+    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
+  );
+  return !expected.some((identity) => mounted.has(identity));
+  }
+  currentJitenAddonKeys() {
+  if (isCurrentKanjiSurface()) {
+    const kanji = currentPageKanji();
+    return isKanjiCharacter(kanji) ? [`kanji:${kanji}`] : [];
+  }
+  return currentPageLocalDictionaryTargets().map((target) => this.jpdbPageWordAddonKey(target));
   }
   jitenAddonStrandedOnFallbackAnchor() {
   if (!document.querySelector('[data-yomu-jpdb-addon][data-yomu-anchor-fallback="true"]')) return false;

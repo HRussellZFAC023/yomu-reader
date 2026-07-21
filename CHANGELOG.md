@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.267] - 2026-07-21
+
+### Fixed
+
+- The Immersion Kit now refreshes when you move to another card on jiten.moe. Every card in an SRS study session lives at the same page address, so Yomu could not tell that the word had changed and left the previous card's video clip and example sentences in place; it now notices when the card on screen no longer matches the Immersion Kit already added to the page and rebuilds it for the new word.
+
 ## [1.6.266] - 2026-07-21
 
 ### Fixed

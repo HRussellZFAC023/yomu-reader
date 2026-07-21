@@ -693,6 +693,19 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
     return resolution.patterns[0] ?? '';
 }
 
+// Identity of a jiten page-addon key by SPELLING only ("word:食べる:たべる" ->
+// "word:食べる", "kanji:食" -> "kanji:食"). A jiten headword can momentarily
+// resolve its reading from the page title (reading === spelling) or gain
+// furigana after the addon mounts, both of which flip only the reading half of
+// the key. Keying the refresh on the reading too would tear the addon down and
+// refetch the Immersion Kit on every such flip; the spelling is the stable card
+// identity, and same-spelling content is word-keyed so a rare reading-only
+// change is a safe no-op.
+function jitenAddonKeyIdentity(key: string): string {
+    const parts = key.split(':');
+    return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
+}
+
 export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
@@ -1878,7 +1891,32 @@ export class ReaderApp {
         if (location.href !== this.lastEnhancedHref) return true;
         if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
         if (!document.querySelector('[data-yomu-jpdb-addon]')) return true;
+        if (this.jitenAddonWordIdentityChanged()) return true;
         return this.jitenAddonStrandedOnFallbackAnchor();
+    }
+
+    // A jiten SRS study session serves every card under the same /srs/study URL,
+    // so advancing to the next card changes the headword without changing
+    // location.href, and the swipe carousel leaves the previous card's addon in
+    // the DOM. Existence alone can't tell the two words apart, so the addon —
+    // and its Immersion Kit — kept showing the previous card. Refresh whenever
+    // the mounted addon's word/kanji identity no longer matches the current target.
+    private jitenAddonWordIdentityChanged(): boolean {
+        const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+        if (!expected.length) return false;
+        const mounted = new Set(
+            Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
+                .map(element => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
+        );
+        return !expected.some(identity => mounted.has(identity));
+    }
+
+    private currentJitenAddonKeys(): string[] {
+        if (isCurrentKanjiSurface()) {
+            const kanji = currentPageKanji();
+            return isKanjiCharacter(kanji) ? [`kanji:${kanji}`] : [];
+        }
+        return currentPageLocalDictionaryTargets().map(target => this.jpdbPageWordAddonKey(target));
     }
 
     private jitenAddonStrandedOnFallbackAnchor(): boolean {
