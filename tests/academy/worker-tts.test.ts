@@ -5,7 +5,7 @@ import type {
     LearningVoiceLineIdentity,
     LearningVoicePlayback,
 } from '../../src/academy/audio/learning-voice';
-import { WorkerTtsPronunciationService } from '../../src/academy/audio/worker-tts';
+import { WORKER_TTS_CACHE_LIMIT, WorkerTtsPronunciationService } from '../../src/academy/audio/worker-tts';
 import type { Disposable, PronunciationService } from '../../src/academy/integration/yomu-bridge';
 
 function deferred<T>() {
@@ -349,5 +349,53 @@ describe('Academy pronunciation request ownership', () => {
 
         await service.play('未収録の語');
         expect(fallback.play).toHaveBeenCalledOnce();
+    });
+
+    it('refreshes cache recency, revokes an evicted Blob URL, and clears every remaining URL on dispose', async () => {
+        installWorkerMedia();
+        const fallback = { play: vi.fn(async () => disposable()), dispose: vi.fn() };
+        const staticVoice = { playExact: vi.fn(async () => ({ status: 'miss' as const })), dispose: vi.fn() };
+        const service = new WorkerTtsPronunciationService(director().target, fallback, staticVoice);
+
+        for (let index = 0; index < WORKER_TTS_CACHE_LIMIT; index += 1) {
+            await service.play(`語${index}`);
+        }
+        await service.play('語0');
+        await service.play(`語${WORKER_TTS_CACHE_LIMIT}`);
+
+        expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:voice-1');
+
+        service.dispose();
+        service.dispose();
+        expect(URL.revokeObjectURL).toHaveBeenCalledTimes(WORKER_TTS_CACHE_LIMIT + 1);
+        expect(new Set(vi.mocked(URL.revokeObjectURL).mock.calls.map(([url]) => url)).size)
+            .toBe(WORKER_TTS_CACHE_LIMIT + 1);
+        expect(fallback.dispose).toHaveBeenCalledOnce();
+        expect(staticVoice.dispose).toHaveBeenCalledOnce();
+        await expect(service.play('disposed')).rejects.toThrow('disposed');
+    });
+
+    it('aborts an in-flight worker request when the service is disposed', async () => {
+        let fetchSignal: AbortSignal | undefined;
+        vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+            fetchSignal = init?.signal ?? undefined;
+            return new Promise<Response>((_resolve, reject) => {
+                fetchSignal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+            });
+        }));
+        const fallback = { play: vi.fn(async () => disposable()), dispose: vi.fn() };
+        const staticVoice = { playExact: vi.fn(async () => ({ status: 'miss' as const })), dispose: vi.fn() };
+        const service = new WorkerTtsPronunciationService(director().target, fallback, staticVoice);
+
+        const pending = service.play('待機中');
+        await vi.waitFor(() => expect(fetchSignal).toBeDefined());
+        service.dispose();
+        await expect(pending).resolves.toBeDefined();
+
+        expect(fetchSignal?.aborted).toBe(true);
+        expect(fallback.play).not.toHaveBeenCalled();
+        expect(fallback.dispose).toHaveBeenCalledOnce();
+        expect(staticVoice.dispose).toHaveBeenCalledOnce();
     });
 });

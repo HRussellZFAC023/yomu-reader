@@ -76,7 +76,7 @@ export interface LearningVoiceEntry {
     readonly moraOverrides: readonly Readonly<Record<string, number>>[];
     readonly review: Readonly<Record<string, unknown>>;
     readonly reviewStatus: 'accepted';
-    readonly qualityApprovalStatus: 'owner-approved';
+    readonly qualityApprovalStatus: 'codex-accepted';
     readonly disclosure: Readonly<{
         synthetic: true;
         officialCharacterVoice: false;
@@ -89,12 +89,24 @@ export interface LearningVoiceCatalog {
     readonly schema: typeof LEARNING_VOICE_SCHEMA;
     readonly batchId: string;
     readonly qualityApproval: Readonly<{
-        ownerQualityApproved: true;
+        codexQualityAccepted: true;
         scope: string;
         ownerLineByLineReviewed: false;
         humanReviewed: false;
     }>;
-    readonly engine: Readonly<{ name: 'AivisSpeech Engine'; version: string }>;
+    readonly acceptancePolicy: Readonly<{
+        acceptedBy: 'Codex';
+        humanReviewed: false;
+        ownerLineByLineReviewed: false;
+        independentAudioReviewRequired: true;
+        blanketCharacterErrorRateAllowed: false;
+        criticalMorphemeNumeralParticleMismatch: 'hard-fail';
+    }>;
+    readonly engine: Readonly<{
+        name: 'AivisSpeech Engine';
+        version: string;
+        versionResponseSha256: string;
+    }>;
     readonly encoder: Readonly<{
         name: 'ffmpeg/libopus';
         version: string;
@@ -129,6 +141,7 @@ export type ExactLearningVoiceResult =
 export interface ExactLearningVoiceService {
     playExact(term: string, reading?: string, signal?: AbortSignal): Promise<ExactLearningVoiceResult>;
     playLine?(identity: LearningVoiceLineIdentity, signal?: AbortSignal): Promise<ExactLearningVoiceResult>;
+    dispose?(): void;
 }
 
 export interface StaticLearningVoiceOptions {
@@ -178,9 +191,12 @@ export function parseLearningVoiceCatalog(
         || typeof value.batchId !== 'string'
         || !LINE_ID.test(value.batchId)
         || !isLearningVoiceQualityApproval(value.qualityApproval)
+        || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy)
         || !isRecord(value.engine)
         || value.engine.name !== 'AivisSpeech Engine'
         || typeof value.engine.version !== 'string'
+        || typeof value.engine.versionResponseSha256 !== 'string'
+        || !SHA256.test(value.engine.versionResponseSha256)
         || !isRecord(value.encoder)
         || value.encoder.name !== 'ffmpeg/libopus'
         || typeof value.encoder.version !== 'string'
@@ -220,11 +236,17 @@ export function parseLearningVoiceCatalog(
         throw new TypeError('Learning voice playback catalog contains no usable entries.');
     }
     const qualityApproval = value.qualityApproval as LearningVoiceCatalog['qualityApproval'];
+    const acceptancePolicy = value.acceptancePolicy as LearningVoiceCatalog['acceptancePolicy'];
     return Object.freeze({
         schema: LEARNING_VOICE_SCHEMA,
         batchId: value.batchId,
         qualityApproval: deepFreeze({ ...qualityApproval }),
-        engine: Object.freeze({ name: 'AivisSpeech Engine', version: value.engine.version }),
+        acceptancePolicy: deepFreeze({ ...acceptancePolicy }),
+        engine: Object.freeze({
+            name: 'AivisSpeech Engine',
+            version: value.engine.version,
+            versionResponseSha256: value.engine.versionResponseSha256,
+        }),
         encoder: Object.freeze({
             name: 'ffmpeg/libopus',
             version: value.encoder.version,
@@ -286,6 +308,7 @@ export class StaticLearningVoiceService implements ExactLearningVoiceService {
     private active: LearningVoicePlayback | null = null;
     private activeRequest: AbortController | null = null;
     private playGeneration = 0;
+    private disposed = false;
 
     constructor(
         private readonly director: AudioDirector,
@@ -313,6 +336,7 @@ export class StaticLearningVoiceService implements ExactLearningVoiceService {
         resolveEntry: (catalog: LearningVoiceCatalog) => LearningVoiceEntry | null,
         externalSignal?: AbortSignal,
     ): Promise<ExactLearningVoiceResult> {
+        if (this.disposed) return { status: 'superseded' };
         const generation = ++this.playGeneration;
         const request = this.beginRequest(externalSignal);
         this.active?.dispose();
@@ -441,7 +465,7 @@ export class StaticLearningVoiceService implements ExactLearningVoiceService {
     }
 
     private isCurrent(generation: number, signal: AbortSignal): boolean {
-        return generation === this.playGeneration && !signal.aborted;
+        return !this.disposed && generation === this.playGeneration && !signal.aborted;
     }
 
     private outcomeFor(generation: number, signal: AbortSignal): ExactLearningVoiceResult {
@@ -449,11 +473,23 @@ export class StaticLearningVoiceService implements ExactLearningVoiceService {
     }
 
     private async getCatalog(signal: AbortSignal): Promise<LearningVoiceCatalog> {
+        if (this.disposed) throw abortError(signal);
         if (this.catalog) return this.catalog;
         const catalog = await this.catalogSource(signal);
-        if (signal.aborted) throw abortError(signal);
+        if (this.disposed || signal.aborted) throw abortError(signal);
         this.catalog = catalog;
         return catalog;
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.playGeneration += 1;
+        this.activeRequest?.abort(new DOMException('Pronunciation service disposed.', 'AbortError'));
+        this.activeRequest = null;
+        this.active?.dispose();
+        this.active = null;
+        this.catalog = null;
     }
 }
 
@@ -545,7 +581,7 @@ function isLearningVoiceEntry(value: unknown): value is LearningVoiceEntry {
         ))
         && moraOverrides.every(isLearningVoiceMoraOverride)
         && value.reviewStatus === 'accepted'
-        && value.qualityApprovalStatus === 'owner-approved'
+        && value.qualityApprovalStatus === 'codex-accepted'
         && isLearningVoiceReview(value.review)
         && isLearningVoiceDisclosure(value.disclosure)
         && value.provenance === 'Yomu-authored';
@@ -561,13 +597,31 @@ function isLearningVoiceDisclosure(value: unknown): boolean {
 
 function isLearningVoiceQualityApproval(value: unknown): boolean {
     return isRecord(value)
-        && Object.keys(value).sort().join(',') === 'humanReviewed,ownerLineByLineReviewed,ownerQualityApproved,scope'
-        && value.ownerQualityApproved === true
+        && Object.keys(value).sort().join(',') === 'codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope'
+        && value.codexQualityAccepted === true
         && typeof value.scope === 'string'
         && value.scope.trim() === value.scope
         && value.scope.length > 0
         && value.ownerLineByLineReviewed === false
         && value.humanReviewed === false;
+}
+
+function isLearningVoiceAcceptancePolicy(value: unknown): boolean {
+    return isRecord(value)
+        && Object.keys(value).sort().join(',') === [
+            'acceptedBy',
+            'blanketCharacterErrorRateAllowed',
+            'criticalMorphemeNumeralParticleMismatch',
+            'humanReviewed',
+            'independentAudioReviewRequired',
+            'ownerLineByLineReviewed',
+        ].sort().join(',')
+        && value.acceptedBy === 'Codex'
+        && value.humanReviewed === false
+        && value.ownerLineByLineReviewed === false
+        && value.independentAudioReviewRequired === true
+        && value.blanketCharacterErrorRateAllowed === false
+        && value.criticalMorphemeNumeralParticleMismatch === 'hard-fail';
 }
 
 function isLearningVoiceBinding(value: unknown): value is LearningVoiceBinding {
@@ -592,8 +646,8 @@ function isLearningVoiceReview(value: unknown): value is Record<string, unknown>
         && value.accent.status === 'validated-query-plan'
         && value.pause.status === 'validated-query-plan';
     if (!common) return false;
-    return value.listening.status === 'owner-approved-objective-pass'
-        && value.listening.ownerQualityApproved === true
+    return value.listening.status === 'codex-accepted-objective-and-independent-audio-review'
+        && value.listening.codexAccepted === true
         && value.listening.ownerLineByLineReviewed === false
         && typeof value.listening.audioModelReviewed === 'boolean'
         && value.listening.humanReviewed === false

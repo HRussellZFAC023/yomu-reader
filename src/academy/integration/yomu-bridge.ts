@@ -74,6 +74,7 @@ export interface KanjiWritingService {
 
 export interface PronunciationService {
     play(term: string, reading?: string, signal?: AbortSignal): Promise<Disposable>;
+    dispose?(): void;
 }
 
 export interface ImmersionExample {

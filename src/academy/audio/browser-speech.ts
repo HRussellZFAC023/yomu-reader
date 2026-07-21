@@ -3,12 +3,18 @@ import type { AudioDirector } from './director';
 
 /** Release-safe pronunciation fallback using the browser's Japanese voice. */
 export class BrowserSpeechPronunciationService implements PronunciationService {
+    private active: Disposable | null = null;
+    private disposed = false;
+
     constructor(private readonly director: AudioDirector) {}
 
     async play(term: string, reading?: string, signal?: AbortSignal): Promise<Disposable> {
+        if (this.disposed) throw new Error('Pronunciation service has been disposed.');
         if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
             throw new Error('Japanese browser speech is unavailable.');
         }
+        this.active?.dispose();
+        this.active = null;
         throwIfAborted(signal);
         await waitForAbort(this.director.unlock(), signal);
         throwIfAborted(signal);
@@ -18,6 +24,7 @@ export class BrowserSpeechPronunciationService implements PronunciationService {
         utterance.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
         const releaseDuck = this.director.beginExternalLesson();
         let disposed = false;
+        let playback: Disposable;
         let resolveCompletion: () => void = () => undefined;
         const completion = new Promise<void>(resolve => { resolveCompletion = resolve; });
         const release = (completed: boolean) => {
@@ -27,6 +34,7 @@ export class BrowserSpeechPronunciationService implements PronunciationService {
             utterance.removeEventListener('end', onEnd);
             utterance.removeEventListener('error', onError);
             releaseDuck();
+            if (this.active === playback) this.active = null;
             if (completed) resolveCompletion();
         };
         const onEnd = () => release(true);
@@ -49,13 +57,22 @@ export class BrowserSpeechPronunciationService implements PronunciationService {
             release(false);
             throw error;
         }
-        return {
+        playback = {
             completion,
             dispose() {
                 if (!disposed) speechSynthesis.cancel();
                 release(false);
             },
         };
+        this.active = playback;
+        return playback;
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.active?.dispose();
+        this.active = null;
     }
 }
 

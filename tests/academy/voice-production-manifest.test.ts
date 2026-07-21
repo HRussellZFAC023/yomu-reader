@@ -12,7 +12,7 @@ type VoiceEntry = {
     output?: string;
     bindingIds?: string[];
     band?: string;
-    ownerQualityApproved?: boolean;
+    codexAccepted?: boolean;
     ownerLineByLineReviewed?: boolean;
     humanReviewed?: boolean;
 };
@@ -45,11 +45,11 @@ describe('Academy voice production manifest', () => {
 
     it('accounts for the accepted native-band learning slice without inflating human review', () => {
         const learning = manifest.entries.filter(entry => entry.surface === 'learning');
-        expect(learning).toHaveLength(4);
-        expect(learning.flatMap(entry => entry.bindingIds ?? [])).toHaveLength(5);
+        expect(learning).toHaveLength(1);
+        expect(learning.flatMap(entry => entry.bindingIds ?? [])).toHaveLength(1);
         expect(learning.every(entry => entry.status === 'accepted')).toBe(true);
         expect(learning.every(entry => entry.band === 'native')).toBe(true);
-        expect(learning.every(entry => entry.ownerQualityApproved === true)).toBe(true);
+        expect(learning.every(entry => entry.codexAccepted === true)).toBe(true);
         expect(learning.every(entry => entry.ownerLineByLineReviewed === false)).toBe(true);
         expect(learning.every(entry => entry.humanReviewed === false)).toBe(true);
         for (const entry of learning) {

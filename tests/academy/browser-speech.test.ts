@@ -86,4 +86,17 @@ describe('browser speech playback ownership', () => {
         owner.abort();
         expect(release).toHaveBeenCalledOnce();
     });
+
+    it('cancels active speech on service disposal and rejects later playback', async () => {
+        const { director, release, synthesis } = harness();
+        const service = new BrowserSpeechPronunciationService(director);
+        await service.play('停止');
+
+        service.dispose();
+        service.dispose();
+
+        expect(synthesis.cancel).toHaveBeenCalledTimes(2);
+        expect(release).toHaveBeenCalledOnce();
+        await expect(service.play('遅い')).rejects.toThrow('disposed');
+    });
 });

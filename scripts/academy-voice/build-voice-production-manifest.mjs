@@ -22,11 +22,11 @@ const learningToolchainCurrent = Object.entries(learningLocks.toolchain ?? {}).l
     && Object.entries(learningLocks.toolchain).every(([sourcePath, sourceHash]) => (
         existsSync(join(root, sourcePath)) && fileDigest(join(root, sourcePath)) === sourceHash
     ));
-const learningEvidenceCurrent = learningLocks.schema === 'yomu-academy.learning-voice-locks.v4'
+const learningEvidenceCurrent = learningLocks.schema === 'yomu-academy.learning-voice-locks.v5'
     && learningLocks.batchId === learningCatalog.batchId
     && learningLocks.evidence?.catalog?.sha256 === fileDigest(learningCatalogPath)
     && learningLocks.evidence?.objectiveQa?.sha256 === fileDigest(learningAcceptancePath)
-    && learningAcceptance.schema === 'yomu-academy.learning-voice-acceptance.v4'
+    && learningAcceptance.schema === 'yomu-academy.learning-voice-acceptance.v5'
     && learningAcceptance.batchId === learningCatalog.batchId
     && learningAcceptance.catalogSha256 === fileDigest(learningCatalogPath)
     && learningAcceptance.complete === true
@@ -81,7 +81,7 @@ const manifest = {
         learningBindings: learning.reduce((count, entry) => count + entry.bindingIds.length, 0),
         nativeBandLearningLines: learning.filter(entry => entry.band === 'native').length,
         acceptedLearningLines: learning.filter(entry => entry.status === 'accepted').length,
-        ownerQualityApprovedLearningLines: learning.filter(entry => entry.ownerQualityApproved).length,
+        codexAcceptedLearningLines: learning.filter(entry => entry.codexAccepted).length,
         humanReviewedLearningLines: learning.filter(entry => entry.humanReviewed).length,
         locked: entries.filter(entry => entry.status === 'locked').length,
         productionReady: entries.filter(entry => entry.status === 'locked' || entry.status === 'accepted').length,
@@ -108,7 +108,7 @@ function learningEntries(catalog, lockArchive, acceptance, evidenceCurrent) {
             && lock.cacheKey === entry.cacheKey
             && lock.assetSha256 === entry.assetSha256
             && lock.model?.payloadSha256 === entry.modelPayloadSha256
-            && lock.acceptance?.ownerQualityApproved === true
+            && lock.acceptance?.acceptedBy === 'Codex'
             && lock.acceptance?.humanReviewed === false
             && accepted?.verdict === 'pass';
         return {
@@ -130,7 +130,7 @@ function learningEntries(catalog, lockArchive, acceptance, evidenceCurrent) {
             assetSha256: entry.assetSha256,
             output: entry.url,
             status: current ? 'accepted' : 'stale',
-            ownerQualityApproved: entry.review?.listening?.ownerQualityApproved === true,
+            codexAccepted: entry.review?.listening?.codexAccepted === true,
             ownerLineByLineReviewed: entry.review?.listening?.ownerLineByLineReviewed === true,
             audioModelReviewed: entry.review?.listening?.audioModelReviewed === true,
             humanReviewed: entry.review?.listening?.humanReviewed === true,

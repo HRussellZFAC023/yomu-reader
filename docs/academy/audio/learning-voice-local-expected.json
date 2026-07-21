@@ -1,0 +1,32 @@
+{
+  "schema": "yomu-academy.learning-voice-local-expected.v1",
+  "batchId": "academy-learning-native-20260720-01",
+  "scope": "Immutable expectation for loopback browser proof only; this is not deployment evidence.",
+  "catalogSha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02",
+  "productionContractSha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+  "build": {
+    "distApp": "dist/academy/app.js",
+    "hostedApp": "docs/public/academy/app.js",
+    "appSha256": "2369e9db9e121addf825cd9316c1e913efafcb9a0e1c2d65ffeab4eb38a74b07",
+    "byteParityRequired": true
+  },
+  "runtimeSources": {
+    "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
+    "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
+    "src/academy/audio/learning-voice.ts": "33928e0ffbdd05473d1571ec3e7d050c082d91be4c59d429e4491762e83c5619",
+    "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
+    "src/academy/routing/world-flow.ts": "73df9cd39218c41e4cf48b882db76ca79ba14c043570dcc17dddc478d9fc1d5e",
+    "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
+    "src/academy/ui/lesson-screen.ts": "1c4733899c27a6c162e24daf9ffaff60cc9813f134ea45304330dbf93169f9c8",
+    "src/academy/ui/world-screen.ts": "aaa1f2611c9567f7e432c63294ac8de7ee1908bdaadda2754be7863adfc40e07"
+  },
+  "assets": {
+    "/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus": {
+      "sha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+      "bytes": 15916
+    }
+  },
+  "acceptedBindingIds": [
+    "world-practice:cafe-coffee-price"
+  ]
+}

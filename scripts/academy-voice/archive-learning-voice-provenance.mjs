@@ -38,6 +38,7 @@ for (const mapping of production.voiceMappings ?? []) {
         modelVersion: mapping.modelVersion,
         modelPayloadSha256: mapping.modelPayloadSha256,
         modelSourceUrl: mapping.modelSourceUrl,
+        modelDistribution: mapping.modelDistribution,
         modelLicense: mapping.modelLicense,
         mappings: [mapping],
     });
@@ -61,9 +62,17 @@ for (const expected of models.values()) {
         || manifest.model_architecture !== 'Style-Bert-VITS2 (JP-Extra)') {
         throw new Error(`Unexpected embedded manifest identity for ${expected.uuid}.`);
     }
-    if (expected.modelSourceUrl !== `https://hub.aivis-project.com/aivm-models/${manifest.uuid}`
+    if (typeof expected.modelSourceUrl !== 'string'
+        || !expected.modelSourceUrl.startsWith('https://hub.aivis-project.com/')
         || expected.modelLicense !== 'ACML-1.0') {
         throw new Error(`Unexpected source or licence lock for ${expected.uuid}.`);
+    }
+    if (expected.modelDistribution?.kind !== 'installed-aivmx-distribution'
+        || expected.modelDistribution.fileName !== fileName
+        || expected.modelDistribution.bytes !== payload.length
+        || expected.modelDistribution.sha256 !== payloadSha256
+        || expected.modelDistribution.authority !== 'exact-distribution-bytes') {
+        throw new Error(`Unexpected model distribution lock for ${expected.uuid}.`);
     }
     const licenseSha256 = sha256(manifest.license);
     if (archivedLicense && archivedLicense.sha256 !== licenseSha256) {
@@ -133,7 +142,18 @@ for (const expected of models.values()) {
         payloadSha256,
         manifestSha256: sha256(canonicalJson(manifest)),
         licenseSha256,
-        primarySourceUrl: `https://hub.aivis-project.com/aivm-models/${manifest.uuid}`,
+        distribution: {
+            kind: 'installed-aivmx-distribution',
+            fileName,
+            bytes: payload.length,
+            sha256: payloadSha256,
+            authority: 'exact-distribution-bytes',
+        },
+        sourceRecord: {
+            url: expected.modelSourceUrl,
+            authority: 'discovery-record-only',
+            authoritativeForDistributionBytes: false,
+        },
         speakers: (manifest.speakers ?? []).map(speaker => ({
             name: speaker.name,
             styles: (speaker.styles ?? []).map(style => ({
@@ -145,7 +165,7 @@ for (const expected of models.values()) {
 }
 
 const archive = {
-    schema: 'yomu-academy.learning-voice-model-evidence.v2',
+    schema: 'yomu-academy.learning-voice-model-evidence.v3',
     capturedOn: '2026-07-20',
     batchId: production.batchId,
     productionContractSha256: sha256(productionSource),
@@ -153,6 +173,11 @@ const archive = {
     scope: 'Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.',
     license: archivedLicense,
     models: evidence,
+    engine: {
+        ...production.render.engine,
+        versionResponseEncoding: 'utf8-plain-text',
+        versionResponseSha256: sha256(production.render.engine.version),
+    },
     engineStyleSource: {
         kind: 'AivisSpeech Engine aivm_infos_cache.json',
         fileName: basename(engineCachePath),

@@ -10,6 +10,7 @@ import {
 } from './learning-voice';
 
 const TTS_ENDPOINT = 'https://audio.yomureader.com/audio/tts';
+export const WORKER_TTS_CACHE_LIMIT = 8;
 
 class RequestPlayback implements LearningVoicePlayback {
     readonly failure = new Promise<void>(() => undefined);
@@ -74,6 +75,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
     private readonly fallback: PronunciationService;
     private readonly cache = new Map<string, string>();
     private active: RequestPlayback | null = null;
+    private disposed = false;
 
     constructor(
         private readonly director: AudioDirector,
@@ -84,6 +86,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
     }
 
     async play(term: string, reading?: string, signal?: AbortSignal): Promise<Disposable> {
+        this.throwIfDisposed();
         const request = this.beginRequest(signal);
         if (!this.isCurrent(request)) return request;
         try {
@@ -99,6 +102,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
 
     /** A binding miss bypasses generic static lookup and enters the worker/browser ladder directly. */
     async playLine(identity: LearningVoiceLineIdentity, signal?: AbortSignal): Promise<ExactLearningVoiceResult> {
+        this.throwIfDisposed();
         const request = this.beginRequest(signal);
         if (!this.isCurrent(request)) return { status: 'superseded' };
         let exact: ExactLearningVoiceResult;
@@ -145,7 +149,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
     }
 
     private isCurrent(request: RequestPlayback): boolean {
-        return this.active === request && !request.disposed;
+        return !this.disposed && this.active === request && !request.disposed;
     }
 
     private useStaticPlayback(
@@ -210,7 +214,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
         reading?: string,
     ): Promise<LearningVoicePlayback | null> {
         const cacheKey = `${term.trim()}|${(reading ?? '').trim()}`;
-        let objectUrl = this.cache.get(cacheKey);
+        let objectUrl = this.cachedObjectUrl(cacheKey);
         if (!objectUrl) {
             const fetchedObjectUrl = await this.fetchObjectUrl(term, reading, request.signal);
             if (!fetchedObjectUrl) return null;
@@ -221,7 +225,7 @@ export class WorkerTtsPronunciationService implements PronunciationService {
             objectUrl = fetchedObjectUrl;
             // Reuse successful worker audio for the app-lifetime service; canceled
             // fetches are revoked above before they can enter this bounded replay cache.
-            this.cache.set(cacheKey, objectUrl);
+            this.cacheObjectUrl(cacheKey, objectUrl);
         }
         if (!this.isCurrent(request)) return null;
 
@@ -307,6 +311,39 @@ export class WorkerTtsPronunciationService implements PronunciationService {
             return URL.createObjectURL(blob);
         } catch {
             return null;
+        }
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.active?.dispose();
+        this.active = null;
+        this.staticVoice.dispose?.();
+        this.fallback.dispose?.();
+        for (const objectUrl of this.cache.values()) URL.revokeObjectURL(objectUrl);
+        this.cache.clear();
+    }
+
+    private throwIfDisposed(): void {
+        if (this.disposed) throw new Error('Pronunciation service has been disposed.');
+    }
+
+    private cachedObjectUrl(cacheKey: string): string | undefined {
+        const objectUrl = this.cache.get(cacheKey);
+        if (!objectUrl) return undefined;
+        this.cache.delete(cacheKey);
+        this.cache.set(cacheKey, objectUrl);
+        return objectUrl;
+    }
+
+    private cacheObjectUrl(cacheKey: string, objectUrl: string): void {
+        this.cache.set(cacheKey, objectUrl);
+        while (this.cache.size > WORKER_TTS_CACHE_LIMIT) {
+            const oldest = this.cache.entries().next().value as [string, string] | undefined;
+            if (!oldest) return;
+            this.cache.delete(oldest[0]);
+            URL.revokeObjectURL(oldest[1]);
         }
     }
 }

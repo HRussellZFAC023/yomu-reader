@@ -1,8 +1,8 @@
 {
-  "schema": "yomu-academy.learning-voice-model-evidence.v2",
+  "schema": "yomu-academy.learning-voice-model-evidence.v3",
   "capturedOn": "2026-07-20",
   "batchId": "academy-learning-native-20260720-01",
-  "productionContractSha256": "7e6db79034b3fffa53f8ad698a1526ed6793527e8695da6598966d1b3bb67a31",
+  "productionContractSha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
   "sourceKind": "installed-aivmx-embedded-manifest-and-engine-cache",
   "scope": "Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.",
   "license": {
@@ -26,7 +26,18 @@
       "payloadSha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
       "manifestSha256": "1beed22b4a3af97545d6d5adb957c745558d9c588ae0b7b65adf8888d9b5bb01",
       "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
-      "primarySourceUrl": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+      "distribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "9f36ec0d-8dac-42dc-aff4-149c5f99faad.aivmx",
+        "bytes": 257674070,
+        "sha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
+        "authority": "exact-distribution-bytes"
+      },
+      "sourceRecord": {
+        "url": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+        "authority": "discovery-record-only",
+        "authoritativeForDistributionBytes": false
+      },
       "speakers": [
         {
           "name": "らせつん",
@@ -80,7 +91,18 @@
       "payloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
       "manifestSha256": "cf8ed35d58d1f74a0ce1f299855f0632585c835500e66d276139cca1b1c8d261",
       "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
-      "primarySourceUrl": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+      "distribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "47e53151-a378-46f3-abee-ce13aa07feb1.aivmx",
+        "bytes": 251137086,
+        "sha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
+        "authority": "exact-distribution-bytes"
+      },
+      "sourceRecord": {
+        "url": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+        "authority": "discovery-record-only",
+        "authoritativeForDistributionBytes": false
+      },
       "speakers": [
         {
           "name": "阿井田 茂",
@@ -128,7 +150,18 @@
       "payloadSha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
       "manifestSha256": "8be3003366a518864a9445e0ab534cb31dc1d459d41447a7696416845395ac7e",
       "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
-      "primarySourceUrl": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "distribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "e9339137-2ae3-4d41-9394-fb757a7e61e6.aivmx",
+        "bytes": 250837473,
+        "sha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
+        "authority": "exact-distribution-bytes"
+      },
+      "sourceRecord": {
+        "url": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+        "authority": "discovery-record-only",
+        "authoritativeForDistributionBytes": false
+      },
       "speakers": [
         {
           "name": "まい",
@@ -155,7 +188,18 @@
       "payloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
       "manifestSha256": "76a949f72f96fae418d87fa2a392f61cc894af5a6ebc8e8a4395f0cc79c632fb",
       "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
-      "primarySourceUrl": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "distribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "baaae3c0-7b22-4605-8ba5-80c959b41a48.aivmx",
+        "bytes": 251126564,
+        "sha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+        "authority": "exact-distribution-bytes"
+      },
+      "sourceRecord": {
+        "url": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+        "authority": "discovery-record-only",
+        "authoritativeForDistributionBytes": false
+      },
       "speakers": [
         {
           "name": "morioki",
@@ -169,6 +213,12 @@
       ]
     }
   ],
+  "engine": {
+    "name": "AivisSpeech Engine",
+    "version": "1.2.0",
+    "versionResponseSha256": "9f77034b1eb57d24f21ac7deb65c9cc99f63b72775e311f1f280ab2b6c2e06a2",
+    "versionResponseEncoding": "utf8-plain-text"
+  },
   "engineStyleSource": {
     "kind": "AivisSpeech Engine aivm_infos_cache.json",
     "fileName": "aivm_infos_cache.json",

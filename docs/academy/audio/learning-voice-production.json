@@ -1,19 +1,28 @@
 {
-  "schema": "yomu-academy.learning-voice-production.v1",
+  "schema": "yomu-academy.learning-voice-production.v2",
   "batchId": "academy-learning-native-20260720-01",
   "createdOn": "2026-07-20",
-  "scope": "One native-band production slice: four immutable voice units and five reachable Academy bindings.",
+  "scope": "Four reviewed native-band candidates: one accepted voice unit with one reachable binding and three rejected takes retained only as quarantine evidence.",
   "qualityApproval": {
-    "ownerQualityApproved": true,
+    "codexQualityAccepted": true,
     "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
     "ownerLineByLineReviewed": false,
     "humanReviewed": false
+  },
+  "acceptancePolicy": {
+    "acceptedBy": "Codex",
+    "humanReviewed": false,
+    "ownerLineByLineReviewed": false,
+    "independentAudioReviewRequired": true,
+    "blanketCharacterErrorRateAllowed": false,
+    "criticalMorphemeNumeralParticleMismatch": "hard-fail"
   },
   "render": {
     "schema": "yomu-academy.learning-voice-render.v1",
     "engine": {
       "name": "AivisSpeech Engine",
-      "version": "1.2.0"
+      "version": "1.2.0",
+      "versionResponseSha256": "9f77034b1eb57d24f21ac7deb65c9cc99f63b72775e311f1f280ab2b6c2e06a2"
     },
     "encoder": {
       "name": "ffmpeg/libopus",
@@ -39,9 +48,17 @@
     }
   },
   "triage": {
-    "reviewedRequiredVoiceLineIds": [
+    "reviewedCandidateVoiceLineIds": [
       "lesson-textbook-pair-prompt",
       "miller-cafe-price",
+      "mary-cafe-order",
+      "rie-lesson-zero-repeat"
+    ],
+    "acceptedVoiceLineIds": [
+      "miller-cafe-price"
+    ],
+    "rejectedVoiceLineIds": [
+      "lesson-textbook-pair-prompt",
       "mary-cafe-order",
       "rie-lesson-zero-repeat"
     ],
@@ -65,6 +82,13 @@
       "modelVersion": "1.0.0",
       "modelPayloadSha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
       "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+      "modelDistribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "9f36ec0d-8dac-42dc-aff4-149c5f99faad.aivmx",
+        "bytes": 257674070,
+        "sha256": "86690635cf7e8511bf96e53c33049b0266a46b782e6edcfc40c8ad81fde7c75d",
+        "authority": "exact-distribution-bytes"
+      },
       "modelLicense": "ACML-1.0",
       "styleId": 893625024,
       "styleName": "標準",
@@ -84,6 +108,13 @@
       "modelVersion": "1.0.0",
       "modelPayloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
       "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+      "modelDistribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "47e53151-a378-46f3-abee-ce13aa07feb1.aivmx",
+        "bytes": 251137086,
+        "sha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
+        "authority": "exact-distribution-bytes"
+      },
       "modelLicense": "ACML-1.0",
       "styleId": 1310138977,
       "styleName": "Calm",
@@ -103,6 +134,13 @@
       "modelVersion": "1.0.0",
       "modelPayloadSha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
       "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "modelDistribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "e9339137-2ae3-4d41-9394-fb757a7e61e6.aivmx",
+        "bytes": 250837473,
+        "sha256": "eca53a500a70746f649572ec186d3b98665606b13e8e8e648f9b10fa8c0000c4",
+        "authority": "exact-distribution-bytes"
+      },
       "modelLicense": "ACML-1.0",
       "styleId": 1431611904,
       "styleName": "ノーマル",
@@ -124,6 +162,13 @@
       "modelVersion": "1.0.0",
       "modelPayloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
       "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "modelDistribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "baaae3c0-7b22-4605-8ba5-80c959b41a48.aivmx",
+        "bytes": 251126564,
+        "sha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+        "authority": "exact-distribution-bytes"
+      },
       "modelLicense": "ACML-1.0",
       "styleId": 497929760,
       "styleName": "ノーマル",
@@ -147,6 +192,14 @@
       "role": "learning-ui",
       "surface": "lesson-screen",
       "japanese": "では、教科書の五ページを開いて、二人で話してください。",
+      "disposition": {
+        "status": "rejected",
+        "reasonCode": "critical-numeral-asr-mismatch",
+        "criticalPhraseGates": [
+          "五ページ"
+        ],
+        "basis": "Independent waveform review recovered コページ and 後ページ instead of 五ページ. The take is not shipped."
+      },
       "bindings": [
         {
           "lineId": "lesson-screen:textbook-pair-prompt",
@@ -186,6 +239,15 @@
       "role": "textbook-character",
       "surface": "cafe-world",
       "japanese": "コーヒーは三百円です。",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "三百円"
+        ],
+        "independentAudioReview": "Whisper and Vosk both recovered the price exactly after numeric normalization."
+      },
       "bindings": [
         {
           "lineId": "world-practice:cafe-coffee-price",
@@ -225,6 +287,15 @@
       "role": "textbook-character",
       "surface": "cafe-world",
       "japanese": "コーヒーを一つ、お願いします。",
+      "disposition": {
+        "status": "rejected",
+        "reasonCode": "critical-polite-morpheme-asr-mismatch",
+        "criticalPhraseGates": [
+          "一つ",
+          "お願いします"
+        ],
+        "basis": "Independent waveform review recovered お狙いします instead of お願いします. The take is not shipped."
+      },
       "bindings": [
         {
           "lineId": "world-practice:cafe-coffee-counter",
@@ -265,6 +336,15 @@
       "role": "academy-character",
       "surface": "lesson-zero",
       "japanese": "もう一度お願いします。",
+      "disposition": {
+        "status": "rejected",
+        "reasonCode": "critical-particle-polite-morpheme-asr-mismatch",
+        "criticalPhraseGates": [
+          "もう一度",
+          "お願いします"
+        ],
+        "basis": "Whisper recovered the full phrase, but Vosk recovered もう一度は願いします. For this short pedagogical phrase, the inserted particle and changed polite morpheme are a hard failure, so the take is not shipped."
+      },
       "bindings": [
         {
           "lineId": "world-practice:lab-classroom-repair",

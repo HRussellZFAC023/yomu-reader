@@ -88,7 +88,10 @@ def cache_payload(plan, entry, mapping):
     }
     return {
         "schema": plan["render"]["schema"],
-        "engine": plan["render"]["engine"],
+        "engine": {
+            "name": plan["render"]["engine"]["name"],
+            "version": plan["render"]["engine"]["version"],
+        },
         "modelUuid": mapping["modelUuid"],
         "modelVersion": mapping["modelVersion"],
         "modelPayloadSha256": mapping["modelPayloadSha256"],
@@ -109,13 +112,21 @@ def deterministic_cache_key(plan, entry, mapping):
 
 
 def validate_plan(plan):
-    require(plan.get("schema") == "yomu-academy.learning-voice-production.v1", "unexpected production schema")
+    require(plan.get("schema") == "yomu-academy.learning-voice-production.v2", "unexpected production schema")
     require(LINE_ID.fullmatch(plan.get("batchId", "")), "invalid learning voice batch id")
     quality = plan.get("qualityApproval", {})
-    require(quality.get("ownerQualityApproved") is True, "owner output-quality approval is missing")
-    require(quality.get("ownerLineByLineReviewed") is False, "owner approval must not claim line review")
+    require(quality.get("codexQualityAccepted") is True, "Codex output-quality acceptance is missing")
+    require(quality.get("ownerLineByLineReviewed") is False, "contract must not claim owner line review")
     require(quality.get("humanReviewed") is False, "production contract fabricates human review")
-    require(isinstance(quality.get("scope"), str) and quality["scope"].strip(), "owner approval scope is missing")
+    require(isinstance(quality.get("scope"), str) and quality["scope"].strip(), "acceptance scope is missing")
+    require(plan.get("acceptancePolicy") == {
+        "acceptedBy": "Codex",
+        "humanReviewed": False,
+        "ownerLineByLineReviewed": False,
+        "independentAudioReviewRequired": True,
+        "blanketCharacterErrorRateAllowed": False,
+        "criticalMorphemeNumeralParticleMismatch": "hard-fail",
+    }, "Codex acceptance policy is stale")
     render = plan.get("render", {})
     require(render.get("schema") == "yomu-academy.learning-voice-render.v1", "unexpected render schema")
     require(render.get("engine", {}).get("name") == "AivisSpeech Engine", "unexpected render engine")
@@ -138,8 +149,16 @@ def validate_plan(plan):
         require(SHA256.fullmatch(mapping.get("modelPayloadSha256", "")), f"model payload is not pinned: {mapping_id}")
         require(mapping.get("engineFamily") == "AivisSpeech + Style-Bert-VITS2 JP-Extra",
                 f"engine family is stale: {mapping_id}")
-        expected_source = f"https://hub.aivis-project.com/aivm-models/{mapping.get('modelUuid')}"
-        require(mapping.get("modelSourceUrl") == expected_source, f"model source URL is stale: {mapping_id}")
+        require(isinstance(mapping.get("modelSourceUrl"), str)
+                and mapping["modelSourceUrl"].startswith("https://hub.aivis-project.com/"),
+                f"model source record is stale: {mapping_id}")
+        distribution = mapping.get("modelDistribution", {})
+        require(distribution.get("kind") == "installed-aivmx-distribution"
+                and distribution.get("fileName") == f"{mapping['modelUuid']}.aivmx"
+                and isinstance(distribution.get("bytes"), int) and distribution["bytes"] > 0
+                and distribution.get("sha256") == mapping["modelPayloadSha256"]
+                and distribution.get("authority") == "exact-distribution-bytes",
+                f"model distribution bytes are not pinned: {mapping_id}")
         require(mapping.get("modelLicense") == "ACML-1.0", f"model licence is not pinned: {mapping_id}")
         require(type(mapping.get("styleId")) is int, f"style id is not pinned: {mapping_id}")
         require(isinstance(mapping.get("styleName"), str) and mapping["styleName"], f"style name is missing: {mapping_id}")
@@ -153,6 +172,8 @@ def validate_plan(plan):
     entries = plan.get("entries")
     require(isinstance(entries, list) and entries, "learning voice entries are missing")
     line_ids = set()
+    accepted_line_ids = set()
+    rejected_line_ids = set()
     binding_ids = set()
     for entry in entries:
         identity = entry.get("identity", {})
@@ -171,6 +192,22 @@ def validate_plan(plan):
         require(isinstance(entry.get("surface"), str) and entry["surface"].strip(), f"surface is missing: {line_id}")
         require(isinstance(entry.get("japanese"), str) and entry["japanese"].strip() == entry["japanese"],
                 f"Japanese line is invalid: {line_id}")
+        disposition = entry.get("disposition", {})
+        require(disposition.get("status") in {"accepted", "rejected"}, f"line disposition is missing: {line_id}")
+        gates = disposition.get("criticalPhraseGates")
+        require(isinstance(gates, list) and gates
+                and all(isinstance(gate, str) and gate in entry["japanese"] for gate in gates),
+                f"critical phrase gates are invalid: {line_id}")
+        if disposition["status"] == "accepted":
+            require(disposition.get("acceptedBy") == "Codex"
+                    and disposition.get("humanReviewed") is False
+                    and isinstance(disposition.get("independentAudioReview"), str),
+                    f"Codex acceptance is incomplete: {line_id}")
+            accepted_line_ids.add(line_id)
+        else:
+            require(isinstance(disposition.get("reasonCode"), str)
+                    and isinstance(disposition.get("basis"), str), f"rejection is incomplete: {line_id}")
+            rejected_line_ids.add(line_id)
         source_revision = sha256_bytes(entry.get("japanese", "").encode("utf-8"))
         require(identity.get("sourceRevision") == source_revision, f"source revision is stale: {line_id}")
         bindings = entry.get("bindings")
@@ -203,7 +240,12 @@ def validate_plan(plan):
         require(actual_cache_key == entry.get("expectedCacheKey"), f"deterministic cache key is stale: {line_id}")
 
     triage = plan.get("triage", {})
-    require(set(triage.get("reviewedRequiredVoiceLineIds", [])) == line_ids, "required-line triage does not match the batch")
+    require(set(triage.get("reviewedCandidateVoiceLineIds", [])) == line_ids,
+            "candidate-line triage does not match the batch")
+    require(set(triage.get("acceptedVoiceLineIds", [])) == accepted_line_ids,
+            "accepted-line triage does not match the batch")
+    require(set(triage.get("rejectedVoiceLineIds", [])) == rejected_line_ids,
+            "rejected-line triage does not match the batch")
     require(isinstance(triage.get("reviewedExclusions"), list), "reviewed exclusions are missing")
     return mapping_by_id
 
@@ -212,13 +254,15 @@ def validate_catalog(plan, catalog, mapping_by_id, catalog_path, mirror_catalog_
     require(catalog_path.read_bytes() == mirror_catalog_path.read_bytes(), "hosted catalog mirror is stale")
     require(catalog.get("schema") == "yomu-academy.learning-voice-playback.v3", "unexpected playback schema")
     require(catalog.get("batchId") == plan["batchId"], "catalog batch id is stale")
-    require(catalog.get("qualityApproval") == plan["qualityApproval"], "catalog owner approval is stale")
+    require(catalog.get("qualityApproval") == plan["qualityApproval"], "catalog quality acceptance is stale")
+    require(catalog.get("acceptancePolicy") == plan["acceptancePolicy"], "catalog acceptance policy is stale")
     require(catalog.get("engine") == plan["render"]["engine"], "catalog engine lock is stale")
     require(catalog.get("encoder") == plan["render"]["encoder"], "catalog encoder lock is stale")
     catalog_by_id = {entry.get("lineId"): entry for entry in catalog.get("entries", [])}
-    require(len(catalog_by_id) == len(plan["entries"]), "catalog does not have one row per addressable voice unit")
+    accepted_sources = [entry for entry in plan["entries"] if entry["disposition"]["status"] == "accepted"]
+    require(len(catalog_by_id) == len(accepted_sources), "catalog does not contain exactly the accepted voice units")
 
-    for source in plan["entries"]:
+    for source in accepted_sources:
         identity = source["identity"]
         line_id = identity["voiceLineId"]
         entry = catalog_by_id.get(line_id)
@@ -253,11 +297,11 @@ def validate_catalog(plan, catalog, mapping_by_id, catalog_path, mirror_catalog_
         expected_url = f"/academy/audio/learning-lines/{identity['speakerId']}/{line_id}__{source['expectedCacheKey'][:16]}.opus"
         require(entry.get("url") == expected_url, f"catalog URL is not cache-addressed: {line_id}")
         require(entry.get("reviewStatus") == "accepted", f"catalog line is not accepted: {line_id}")
-        require(entry.get("qualityApprovalStatus") == "owner-approved", f"catalog owner approval is missing: {line_id}")
+        require(entry.get("qualityApprovalStatus") == "codex-accepted", f"catalog Codex acceptance is missing: {line_id}")
         listening = entry.get("review", {}).get("listening", {})
-        require(listening.get("ownerQualityApproved") is True, f"line owner approval is missing: {line_id}")
         require(listening.get("ownerLineByLineReviewed") is False, f"line fabricates owner review: {line_id}")
         require(listening.get("humanReviewed") is False, f"line fabricates human review: {line_id}")
+        require(listening.get("codexAccepted") is True, f"line lacks explicit Codex acceptance: {line_id}")
         public_asset = ROOT / "public" / entry["url"].removeprefix("/")
         mirror_asset = ROOT / "docs" / "public" / entry["url"].removeprefix("/")
         require(public_asset.is_file(), f"production asset is missing: {line_id}")
@@ -269,7 +313,11 @@ def validate_catalog(plan, catalog, mapping_by_id, catalog_path, mirror_catalog_
 
 def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_evidence,
                             plan_path, model_evidence_path):
-    require(evidence.get("schema") == "yomu-academy.learning-voice-query-evidence.v1",
+    require(model_evidence.get("schema") == "yomu-academy.learning-voice-model-evidence.v3",
+            "unexpected model evidence schema")
+    require(model_evidence.get("productionContractSha256") == sha256_file(plan_path),
+            "model evidence production contract hash is stale")
+    require(evidence.get("schema") == "yomu-academy.learning-voice-query-evidence.v2",
             "unexpected query evidence schema")
     require(evidence.get("batchId") == plan["batchId"], "query evidence batch id is stale")
     require(evidence.get("productionContractSha256") == sha256_file(plan_path),
@@ -300,6 +348,8 @@ def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_eviden
         require((model.get("name"), model.get("version"))
                 == (mapping["modelName"], mapping["modelVersion"]),
                 f"archived model identity is stale: {mapping_id}")
+        require(model.get("distribution") == mapping["modelDistribution"],
+                f"archived model distribution is stale: {mapping_id}")
         matching_local_styles = [
             style for speaker in model.get("speakers", [])
             if speaker.get("name") == engine_mapping.get("engineSpeakerName")
@@ -327,7 +377,7 @@ def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_eviden
         mapping = mapping_by_id[entry["mappingId"]]
         catalog_entry = catalog_by_id.get(line_id)
         archived = archived_by_id.get(line_id)
-        require(catalog_entry is not None and archived is not None, f"query evidence line is missing: {line_id}")
+        require(archived is not None, f"query evidence line is missing: {line_id}")
         require(archived.get("mappingId") == entry["mappingId"], f"query mapping is stale: {line_id}")
         require(archived.get("text") == entry["japanese"], f"query text is stale: {line_id}")
         require(archived.get("request") == {
@@ -341,16 +391,24 @@ def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_eviden
             "moraOverrides": entry.get("moraOverrides", []),
         }, f"query options are stale: {line_id}")
         query_hash = sha256_bytes(canonical_json(archived.get("audioQuery")).encode("utf-8"))
-        require(query_hash == archived.get("audioQuerySha256") == entry["audioQuerySha256"]
-                == catalog_entry["audioQuerySha256"], f"canonical audio query hash is stale: {line_id}")
+        require(query_hash == archived.get("audioQuerySha256") == entry["audioQuerySha256"],
+                f"canonical audio query hash is stale: {line_id}")
         cache_key = deterministic_cache_key(plan, entry, mapping)
-        require(cache_key == archived.get("cacheKey") == entry["expectedCacheKey"]
-                == catalog_entry["cacheKey"], f"query cache key is stale: {line_id}")
-        require(archived.get("asset") == {
-            "url": catalog_entry["url"],
-            "sha256": catalog_entry["assetSha256"],
-            "bytes": catalog_entry["bytes"],
-        }, f"query asset lock is stale: {line_id}")
+        require(cache_key == archived.get("cacheKey") == entry["expectedCacheKey"],
+                f"query cache key is stale: {line_id}")
+        require(archived.get("disposition") == entry["disposition"]["status"],
+                f"query disposition is stale: {line_id}")
+        if entry["disposition"]["status"] == "accepted":
+            require(catalog_entry is not None, f"accepted query has no catalog line: {line_id}")
+            require(archived.get("asset") == {
+                "url": catalog_entry["url"],
+                "sha256": catalog_entry["assetSha256"],
+                "bytes": catalog_entry["bytes"],
+            }, f"query asset lock is stale: {line_id}")
+        else:
+            require(catalog_entry is None and archived.get("asset") is None
+                    and isinstance(archived.get("rejectedAssetFingerprint"), dict),
+                    f"rejected query is still shippable: {line_id}")
 
 
 def require_loopback_engine(engine):
@@ -401,7 +459,9 @@ def validate_installed_models(engine, mapping_by_id):
         require((mapping["modelName"], mapping["styleName"], mapping["styleId"]) in styles,
                 f"installed style mismatch: {mapping['mappingId']}")
         payload = Path(installed.get("file_path", ""))
-        require(payload.is_file() and sha256_file(payload) == mapping["modelPayloadSha256"],
+        require(payload.is_file()
+                and payload.stat().st_size == mapping["modelDistribution"]["bytes"]
+                and sha256_file(payload) == mapping["modelPayloadSha256"],
                 f"installed model payload mismatch: {mapping['mappingId']}")
 
 
@@ -412,6 +472,9 @@ def render_staging(args, plan, mapping_by_id):
     validate_installed_models(engine, mapping_by_id)
     ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
     require(Path(ffmpeg).is_file(), "ffmpeg is unavailable")
+    accepted_by_id = {
+        entry["lineId"]: entry for entry in read_json(args.catalog.resolve()).get("entries", [])
+    }
     results = []
     for entry in plan["entries"]:
         mapping = mapping_by_id[entry["mappingId"]]
@@ -435,15 +498,25 @@ def render_staging(args, plan, mapping_by_id):
                                 "-c:a", "libopus", "-b:a", "64k", "-application", "voip",
                                 str(temporary_output)], check=True)
                 os.replace(temporary_output, output)
+        asset_sha256 = sha256_file(output)
+        accepted = accepted_by_id.get(identity["voiceLineId"])
         results.append({"voiceLineId": identity["voiceLineId"], "cacheKey": cache_key,
-                        "assetSha256": sha256_file(output), "bytes": output.stat().st_size,
+                        "disposition": entry["disposition"]["status"],
+                        "assetSha256": asset_sha256, "bytes": output.stat().st_size,
+                        "acceptedAssetSha256": accepted.get("assetSha256") if accepted else None,
+                        "matchesAcceptedBytes": asset_sha256 == accepted.get("assetSha256") if accepted else None,
+                        "drift": bool(accepted and asset_sha256 != accepted.get("assetSha256")),
                         "path": str(output.relative_to(ROOT))})
     report_path = staging_audio.parent / "render-report.json"
     report_path.write_text(json.dumps({"schema": "yomu-academy.learning-voice-staging-render.v1",
                                        "batchId": plan["batchId"], "humanReviewed": False,
-                                       "ownerQualityApproved": True, "entries": results},
+                                       "codexAcceptance": {"humanReviewed": False},
+                                       "driftDetected": any(result["drift"] for result in results),
+                                       "entries": results},
                                       ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({"staged": len(results), "report": str(report_path.relative_to(ROOT))}))
+    require(not any(result["drift"] for result in results),
+            "staging rerender drifted from accepted bytes; see render-report.json")
 
 
 def archive_query_evidence(args, plan, mapping_by_id, catalog, model_evidence,
@@ -478,6 +551,9 @@ def archive_query_evidence(args, plan, mapping_by_id, catalog, model_evidence,
             "styleName": mapping["styleName"],
         })
     catalog_by_id = {entry["lineId"]: entry for entry in catalog["entries"]}
+    previous_by_id = {}
+    if output_path.is_file():
+        previous_by_id = {entry["voiceLineId"]: entry for entry in read_json(output_path).get("entries", [])}
     entries = []
     for entry in plan["entries"]:
         line_id = entry["identity"]["voiceLineId"]
@@ -487,7 +563,10 @@ def archive_query_evidence(args, plan, mapping_by_id, catalog, model_evidence,
         query_hash = sha256_bytes(canonical_json(query).encode("utf-8"))
         require(query_hash == entry["audioQuerySha256"], f"Aivis query changed: {line_id}")
         cache_key = deterministic_cache_key(plan, entry, mapping)
-        catalog_entry = catalog_by_id[line_id]
+        catalog_entry = catalog_by_id.get(line_id)
+        previous = previous_by_id.get(line_id, {})
+        previous_fingerprint = previous.get("rejectedAssetFingerprint") or previous.get("asset")
+        disposition = entry["disposition"]["status"]
         entries.append({
             "voiceLineId": line_id,
             "mappingId": entry["mappingId"],
@@ -505,14 +584,16 @@ def archive_query_evidence(args, plan, mapping_by_id, catalog, model_evidence,
             "audioQuery": query,
             "audioQuerySha256": query_hash,
             "cacheKey": cache_key,
+            "disposition": disposition,
             "asset": {
                 "url": catalog_entry["url"],
                 "sha256": catalog_entry["assetSha256"],
                 "bytes": catalog_entry["bytes"],
-            },
+            } if catalog_entry else None,
+            "rejectedAssetFingerprint": previous_fingerprint if disposition == "rejected" else None,
         })
     archive = {
-        "schema": "yomu-academy.learning-voice-query-evidence.v1",
+        "schema": "yomu-academy.learning-voice-query-evidence.v2",
         "capturedOn": "2026-07-20",
         "batchId": plan["batchId"],
         "productionContractSha256": sha256_file(plan_path),
@@ -554,11 +635,15 @@ def main():
     query_evidence = read_json(query_evidence_path)
     validate_query_evidence(plan, catalog, mappings, query_evidence, model_evidence,
                             plan_path, model_evidence_path)
-    print(json.dumps({"validated": len(plan["entries"]),
-                      "bindings": sum(len(entry["bindings"]) for entry in plan["entries"]),
-                      "nativeBand": len(plan["entries"]),
+    accepted = [entry for entry in plan["entries"] if entry["disposition"]["status"] == "accepted"]
+    rejected = [entry for entry in plan["entries"] if entry["disposition"]["status"] == "rejected"]
+    print(json.dumps({"reviewedCandidates": len(plan["entries"]),
+                      "accepted": len(accepted),
+                      "rejected": len(rejected),
+                      "bindings": sum(len(entry["bindings"]) for entry in accepted),
+                      "nativeBand": len(accepted),
                       "archivedQueries": len(query_evidence["entries"]),
-                      "ownerQualityApproved": True,
+                      "acceptedBy": "Codex",
                       "humanReviewed": False}))
 
 

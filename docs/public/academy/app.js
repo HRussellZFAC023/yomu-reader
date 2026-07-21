@@ -997,7 +997,7 @@
       if (!value) return null;
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$7(parsed.envelopes) || !isRecord$7(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$8(parsed.envelopes) || !isRecord$8(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1015,7 +1015,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$7(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$8(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1027,7 +1027,7 @@
       return -1;
     }
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1181,7 +1181,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$6(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$7(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1199,7 +1199,7 @@
     }
     return 0;
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1434,7 +1434,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$5(value) || !isRecord$5(value.volumes)) return cloneDefaults();
+      if (!isRecord$6(value) || !isRecord$6(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1466,7 +1466,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2371,7 +2371,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$4(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$5(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2437,7 +2437,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$4(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$5(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2455,7 +2455,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$4(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$5(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2488,12 +2488,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$4(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$5(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique(values, label) {
@@ -2518,90 +2518,791 @@
     constructor(director) {
       this.director = director;
     }
-    async play(term, reading) {
+    active = null;
+    disposed = false;
+    async play(term, reading, signal) {
+      if (this.disposed) throw new Error("Pronunciation service has been disposed.");
       if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
         throw new Error("Japanese browser speech is unavailable.");
       }
-      await this.director.unlock();
-      const releaseDuck = this.director.beginExternalLesson();
-      let disposed = false;
+      this.active?.dispose();
+      this.active = null;
+      throwIfAborted(signal);
+      await waitForAbort$2(this.director.unlock(), signal);
+      throwIfAborted(signal);
       const utterance = new SpeechSynthesisUtterance(reading?.trim() || term.trim());
       utterance.lang = "ja-JP";
       utterance.rate = 0.84;
       utterance.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
-      const release = () => {
+      const releaseDuck = this.director.beginExternalLesson();
+      let disposed = false;
+      let playback;
+      let resolveCompletion = () => void 0;
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (completed) => {
         if (disposed) return;
         disposed = true;
+        signal?.removeEventListener("abort", onAbort);
+        utterance.removeEventListener("end", onEnd);
+        utterance.removeEventListener("error", onError);
         releaseDuck();
+        if (this.active === playback) this.active = null;
+        if (completed) resolveCompletion();
       };
-      utterance.addEventListener("end", release, { once: true });
-      utterance.addEventListener("error", release, { once: true });
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-      return {
+      const onEnd = () => release(true);
+      const onError = () => release(true);
+      const onAbort = () => {
+        speechSynthesis.cancel();
+        release(false);
+      };
+      utterance.addEventListener("end", onEnd, { once: true });
+      utterance.addEventListener("error", onError, { once: true });
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) {
+        onAbort();
+        throw abortError$3(signal);
+      }
+      try {
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        release(false);
+        throw error;
+      }
+      playback = {
+        completion,
         dispose() {
           if (!disposed) speechSynthesis.cancel();
-          release();
+          release(false);
+        }
+      };
+      this.active = playback;
+      return playback;
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.active?.dispose();
+      this.active = null;
+    }
+  }
+  function throwIfAborted(signal) {
+    if (signal?.aborted) throw abortError$3(signal);
+  }
+  function abortError$3(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort$2(promise, signal) {
+    if (!signal) return promise;
+    if (signal.aborted) return Promise.reject(abortError$3(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$3(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
+  }
+  const LEARNING_VOICE_CATALOG_URL = "/academy/audio/learning-voice-playback.json";
+  const LEARNING_VOICE_SCHEMA = "yomu-academy.learning-voice-playback.v3";
+  const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
+    "lesson-screen:textbook-pair-prompt": Object.freeze({
+      lineId: "lesson-screen:textbook-pair-prompt",
+      japanese: "では、教科書の五ページを開いて、二人で話してください。",
+      sourceSha256: "07d4462d7ea11b73a081590ca76c56e646e602df0caf9beb4fb7e81f19d291ff"
+    }),
+    "world-practice:cafe-coffee-price": Object.freeze({
+      lineId: "world-practice:cafe-coffee-price",
+      japanese: "コーヒーは三百円です。",
+      sourceSha256: "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79"
+    }),
+    "world-practice:cafe-coffee-counter": Object.freeze({
+      lineId: "world-practice:cafe-coffee-counter",
+      japanese: "コーヒーを一つ、お願いします。",
+      sourceSha256: "15ad2f7463775fbdafc5675c97f10e88a95205b0b273aec337d24289eb3ade79"
+    }),
+    "world-practice:lab-classroom-repair": Object.freeze({
+      lineId: "world-practice:lab-classroom-repair",
+      japanese: "もう一度お願いします。",
+      sourceSha256: "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690"
+    }),
+    "world-practice:lab-classroom-repeat": Object.freeze({
+      lineId: "world-practice:lab-classroom-repeat",
+      japanese: "もう一度お願いします。",
+      sourceSha256: "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690"
+    })
+  });
+  const SHA256$2 = /^[a-f0-9]{64}$/u;
+  const MODEL_UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u;
+  const LEARNING_URL = /^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u;
+  const LINE_ID = /^[a-z0-9][a-z0-9._:-]*$/u;
+  const SURFACE_ID = /^[a-z0-9][a-z0-9._-]*$/u;
+  const QUERY_FIELDS = /* @__PURE__ */ new Set([
+    "speedScale",
+    "pitchScale",
+    "intonationScale",
+    "volumeScale",
+    "prePhonemeLength",
+    "postPhonemeLength",
+    "pauseLengthScale"
+  ]);
+  const MORA_OVERRIDE_FIELDS = /* @__PURE__ */ new Set([
+    "accentPhrase",
+    "mora",
+    "pitch",
+    "vowel_length",
+    "consonant_length"
+  ]);
+  async function loadLearningVoiceCatalog(url = LEARNING_VOICE_CATALOG_URL, fetcher = fetch, signal) {
+    const response = await fetcher(url, { credentials: "same-origin", signal });
+    if (!response.ok) throw new Error(`Learning voice catalog request failed (${response.status}).`);
+    return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
+  }
+  function parseLearningVoiceCatalog(value, options = {}) {
+    if (!isRecord$4(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$4(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$2.test(value.engine.versionResponseSha256) || !isRecord$4(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+      throw new TypeError("Invalid learning voice playback catalog.");
+    }
+    const assetLineIds = /* @__PURE__ */ new Set();
+    const bindingLineIds = /* @__PURE__ */ new Set();
+    const entries2 = [];
+    value.entries.forEach((entry2, index) => {
+      if (!isLearningVoiceEntry(entry2)) {
+        if (options.invalidEntry === "skip") {
+          console.warn(`Skipping invalid learning voice playback entry at index ${index}.`);
+          return;
+        }
+        throw new TypeError(`Invalid learning voice playback entry at index ${index}.`);
+      }
+      const duplicateAsset = assetLineIds.has(entry2.lineId);
+      const duplicateBinding = entry2.bindings.find((binding) => bindingLineIds.has(binding.lineId));
+      if (duplicateAsset || duplicateBinding) {
+        const duplicate = duplicateAsset ? entry2.lineId : duplicateBinding?.lineId ?? entry2.lineId;
+        if (options.invalidEntry === "skip") {
+          console.warn(`Skipping duplicate learning voice playback entry at index ${index}: ${duplicate}.`);
+          return;
+        }
+        throw new TypeError(duplicateAsset ? `Duplicate learning voice asset line: ${duplicate}.` : `Duplicate learning voice binding: ${duplicate}.`);
+      }
+      assetLineIds.add(entry2.lineId);
+      for (const binding of entry2.bindings) bindingLineIds.add(binding.lineId);
+      entries2.push(deepFreeze({ ...entry2 }));
+    });
+    if (value.entries.length > 0 && entries2.length === 0) {
+      throw new TypeError("Learning voice playback catalog contains no usable entries.");
+    }
+    const qualityApproval = value.qualityApproval;
+    const acceptancePolicy = value.acceptancePolicy;
+    return Object.freeze({
+      schema: LEARNING_VOICE_SCHEMA,
+      batchId: value.batchId,
+      qualityApproval: deepFreeze({ ...qualityApproval }),
+      acceptancePolicy: deepFreeze({ ...acceptancePolicy }),
+      engine: Object.freeze({
+        name: "AivisSpeech Engine",
+        version: value.engine.version,
+        versionResponseSha256: value.engine.versionResponseSha256
+      }),
+      encoder: Object.freeze({
+        name: "ffmpeg/libopus",
+        version: value.encoder.version,
+        bitrateKbps: 64,
+        application: "voip"
+      }),
+      entries: Object.freeze(entries2)
+    });
+  }
+  async function playLearningVoiceBinding(pronunciation, bindingId, japanese2, signal) {
+    const identity2 = LEARNING_VOICE_BINDING_IDENTITIES[bindingId];
+    if (identity2 && identity2.japanese === japanese2) {
+      const capable = pronunciation;
+      const result = await capable.playLine?.(identity2, signal);
+      if (result?.status === "playing") return result.playback;
+      if (result?.status === "superseded") return null;
+    }
+    return pronunciation.play(japanese2, void 0, signal);
+  }
+  function resolveLearningVoiceEntry(catalog2, term, reading) {
+    const japanese2 = term.trim();
+    const explicitReading = reading?.trim();
+    if (!japanese2 || explicitReading && explicitReading !== japanese2) return null;
+    const matches = catalog2.entries.filter((entry2) => entry2.japanese === japanese2);
+    return matches.length === 1 ? matches[0] : null;
+  }
+  function resolveLearningVoiceLine(catalog2, identity2) {
+    const entry2 = catalog2.entries.find((candidate2) => candidate2.bindings.some((binding) => binding.lineId === identity2.lineId));
+    if (!entry2 || entry2.japanese !== identity2.japanese || entry2.sourceSha256 !== identity2.sourceSha256) return null;
+    return entry2;
+  }
+  class StaticLearningVoiceService {
+    constructor(director, options = {}) {
+      this.director = director;
+      if (options.catalog) {
+        this.catalogSource = () => Promise.resolve(options.catalog).then(parseLearningVoiceCatalog);
+      } else if (options.loadCatalog) {
+        this.catalogSource = (signal) => options.loadCatalog(signal).then(parseLearningVoiceCatalog);
+      } else {
+        this.catalogSource = (signal) => loadLearningVoiceCatalog(LEARNING_VOICE_CATALOG_URL, fetch, signal);
+      }
+      this.createMedia = options.createMedia ?? ((url) => new Audio(url));
+    }
+    catalogSource;
+    createMedia;
+    catalog = null;
+    active = null;
+    activeRequest = null;
+    playGeneration = 0;
+    disposed = false;
+    async playExact(term, reading, signal) {
+      return this.playResolved((catalog2) => resolveLearningVoiceEntry(catalog2, term, reading), signal);
+    }
+    async playLine(identity2, signal) {
+      return this.playResolved((catalog2) => resolveLearningVoiceLine(catalog2, identity2), signal);
+    }
+    async playResolved(resolveEntry, externalSignal) {
+      if (this.disposed) return { status: "superseded" };
+      const generation2 = ++this.playGeneration;
+      const request2 = this.beginRequest(externalSignal);
+      this.active?.dispose();
+      if (request2.signal.aborted) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      let entry2;
+      try {
+        entry2 = resolveEntry(await waitForAbort$1(this.getCatalog(request2.signal), request2.signal));
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      if (!this.isCurrent(generation2, request2.signal)) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      if (!entry2) {
+        request2.release();
+        return { status: "miss" };
+      }
+      try {
+        await waitForAbort$1(this.director.unlock(), request2.signal);
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      if (!this.isCurrent(generation2, request2.signal)) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      this.active?.dispose();
+      let media;
+      try {
+        media = this.createMedia(entry2.url);
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      let releaseDuck;
+      try {
+        releaseDuck = this.director.beginExternalLesson();
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      media.preload = "auto";
+      media.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
+      let disposed = false;
+      let resolveFailure = () => void 0;
+      let resolveCompletion = () => void 0;
+      const failure = new Promise((resolve) => {
+        resolveFailure = resolve;
+      });
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (pause) => {
+        if (disposed) return;
+        disposed = true;
+        if (pause) {
+          media.pause();
+          try {
+            media.currentTime = 0;
+          } catch {
+          }
+        }
+        media.removeEventListener("ended", onEnded);
+        media.removeEventListener("error", onError);
+        request2.signal.removeEventListener("abort", onAbort);
+        releaseDuck();
+        if (this.active === playback) this.active = null;
+        request2.release();
+      };
+      const onEnded = () => {
+        resolveCompletion();
+        release(false);
+      };
+      const onError = () => {
+        resolveFailure();
+        release(false);
+      };
+      const onAbort = () => release(true);
+      const playback = {
+        failure,
+        completion,
+        dispose: () => release(true)
+      };
+      media.addEventListener("ended", onEnded, { once: true });
+      media.addEventListener("error", onError, { once: true });
+      request2.signal.addEventListener("abort", onAbort, { once: true });
+      this.active = playback;
+      if (!this.isCurrent(generation2, request2.signal)) {
+        playback.dispose();
+        return { status: "superseded" };
+      }
+      try {
+        await waitForAbort$1(media.play(), request2.signal);
+        if (!this.isCurrent(generation2, request2.signal)) {
+          playback.dispose();
+          return { status: "superseded" };
+        }
+        return { status: "playing", playback };
+      } catch {
+        playback.dispose();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+    }
+    beginRequest(externalSignal) {
+      this.activeRequest?.abort();
+      const controller = new AbortController();
+      this.activeRequest = controller;
+      const onExternalAbort = () => controller.abort(externalSignal?.reason);
+      if (externalSignal?.aborted) onExternalAbort();
+      else externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+      let released = false;
+      return {
+        signal: controller.signal,
+        release: () => {
+          if (released) return;
+          released = true;
+          externalSignal?.removeEventListener("abort", onExternalAbort);
+          if (this.activeRequest === controller) this.activeRequest = null;
         }
       };
     }
+    isCurrent(generation2, signal) {
+      return !this.disposed && generation2 === this.playGeneration && !signal.aborted;
+    }
+    outcomeFor(generation2, signal) {
+      return this.isCurrent(generation2, signal) ? { status: "miss" } : { status: "superseded" };
+    }
+    async getCatalog(signal) {
+      if (this.disposed) throw abortError$2(signal);
+      if (this.catalog) return this.catalog;
+      const catalog2 = await this.catalogSource(signal);
+      if (this.disposed || signal.aborted) throw abortError$2(signal);
+      this.catalog = catalog2;
+      return catalog2;
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.playGeneration += 1;
+      this.activeRequest?.abort(new DOMException("Pronunciation service disposed.", "AbortError"));
+      this.activeRequest = null;
+      this.active?.dispose();
+      this.active = null;
+      this.catalog = null;
+    }
+  }
+  function abortError$2(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort$1(promise, signal) {
+    if (signal.aborted) return Promise.reject(abortError$2(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$2(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
+  }
+  function isLearningVoiceEntry(value) {
+    if (!isRecord$4(value) || !isRecord$4(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    const queryOverrides = Object.entries(value.queryOverrides);
+    const moraOverrides = value.moraOverrides;
+    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$2.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$2.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$2.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$2.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$2.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
+  }
+  function isLearningVoiceDisclosure(value) {
+    return isRecord$4(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+  }
+  function isLearningVoiceQualityApproval(value) {
+    return isRecord$4(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+  }
+  function isLearningVoiceAcceptancePolicy(value) {
+    return isRecord$4(value) && Object.keys(value).sort().join(",") === [
+      "acceptedBy",
+      "blanketCharacterErrorRateAllowed",
+      "criticalMorphemeNumeralParticleMismatch",
+      "humanReviewed",
+      "independentAudioReviewRequired",
+      "ownerLineByLineReviewed"
+    ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
+  }
+  function isLearningVoiceBinding(value) {
+    if (!isRecord$4(value) || !isRecord$4(value.accessibleReplayLabel)) return false;
+    const labels = value.accessibleReplayLabel;
+    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
+  }
+  function isLearningVoiceReview(value) {
+    if (!isRecord$4(value) || !isRecord$4(value.naturalness) || !isRecord$4(value.accent) || !isRecord$4(value.pause) || !isRecord$4(value.listening)) return false;
+    const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
+    if (!common) return false;
+    return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
+  }
+  function isLearningVoiceMoraOverride(value) {
+    if (!isRecord$4(value)) return false;
+    const keys = Object.keys(value);
+    return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
+  }
+  function isAccessibleLabel(value) {
+    return typeof value === "string" && value.length > 0 && value.trim() === value;
+  }
+  function isConfinedLearningUrl(value) {
+    return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
+  }
+  function isRecord$4(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function deepFreeze(value) {
+    if (Array.isArray(value)) {
+      value.forEach((item2) => deepFreeze(item2));
+      return Object.freeze(value);
+    }
+    if (isRecord$4(value)) {
+      Object.values(value).forEach((item2) => deepFreeze(item2));
+      return Object.freeze(value);
+    }
+    return value;
   }
   const TTS_ENDPOINT = "https://audio.yomureader.com/audio/tts";
+  const WORKER_TTS_CACHE_LIMIT = 8;
+  class RequestPlayback {
+    constructor(onStop, externalSignal) {
+      this.onStop = onStop;
+      this.externalSignal = externalSignal;
+      this.completion = new Promise((resolve) => {
+        this.resolveCompletion = resolve;
+      });
+      if (!externalSignal?.aborted) {
+        externalSignal?.addEventListener("abort", this.onExternalAbort, { once: true });
+      }
+    }
+    failure = new Promise(() => void 0);
+    completion;
+    abortController = new AbortController();
+    playback = null;
+    stopped = false;
+    resolveCompletion = () => void 0;
+    onExternalAbort = () => this.dispose();
+    get disposed() {
+      return this.stopped;
+    }
+    get signal() {
+      return this.abortController.signal;
+    }
+    replace(playback) {
+      if (this.stopped) {
+        playback.dispose();
+        return false;
+      }
+      this.playback?.dispose();
+      this.playback = playback;
+      void playback.completion?.then(() => {
+        if (!this.stopped && this.playback === playback) {
+          this.resolveCompletion();
+          this.dispose();
+        }
+      });
+      return true;
+    }
+    dispose() {
+      if (this.stopped) return;
+      this.stopped = true;
+      this.externalSignal?.removeEventListener("abort", this.onExternalAbort);
+      this.abortController.abort(this.externalSignal?.reason);
+      this.playback?.dispose();
+      this.playback = null;
+      this.onStop();
+    }
+  }
   class WorkerTtsPronunciationService {
-    constructor(director, fallback = new BrowserSpeechPronunciationService(director)) {
+    constructor(director, fallback = new BrowserSpeechPronunciationService(director), staticVoice = new StaticLearningVoiceService(director)) {
       this.director = director;
+      this.staticVoice = staticVoice;
       this.fallback = fallback;
     }
     fallback;
     cache = /* @__PURE__ */ new Map();
-    audio = null;
-    async play(term, reading) {
-      const cacheKey = `${term.trim()}|${(reading ?? "").trim()}`;
-      let objectUrl = this.cache.get(cacheKey);
-      if (!objectUrl) {
-        const fetchedObjectUrl = await this.fetchObjectUrl(term, reading);
-        if (!fetchedObjectUrl) return this.fallback.play(term, reading);
-        objectUrl = fetchedObjectUrl;
-        this.cache.set(cacheKey, objectUrl);
+    active = null;
+    disposed = false;
+    async play(term, reading, signal) {
+      this.throwIfDisposed();
+      const request2 = this.beginRequest(signal);
+      if (!this.isCurrent(request2)) return request2;
+      try {
+        await this.startWorkerOrBrowser(request2, term, reading);
+        return request2;
+      } catch (error) {
+        const aborted = request2.disposed || signal?.aborted;
+        request2.dispose();
+        if (aborted) return request2;
+        throw error;
       }
-      await this.director.unlock();
-      const releaseDuck = this.director.beginExternalLesson();
-      let disposed = false;
-      const release = () => {
-        if (disposed) return;
-        disposed = true;
-        releaseDuck();
-      };
-      const element2 = this.audio ?? (this.audio = new Audio());
-      element2.pause();
+    }
+    /** A binding miss bypasses generic static lookup and enters the worker/browser ladder directly. */
+    async playLine(identity2, signal) {
+      this.throwIfDisposed();
+      const request2 = this.beginRequest(signal);
+      if (!this.isCurrent(request2)) return { status: "superseded" };
+      let exact2;
+      try {
+        exact2 = this.staticVoice.playLine ? await this.staticVoice.playLine(identity2, request2.signal) : { status: "miss" };
+      } catch {
+        if (!this.isCurrent(request2)) return { status: "superseded" };
+        exact2 = { status: "miss" };
+      }
+      if (!this.isCurrent(request2)) {
+        this.disposeExactResult(exact2);
+        return { status: "superseded" };
+      }
+      if (exact2.status === "superseded") {
+        request2.dispose();
+        return exact2;
+      }
+      if (exact2.status === "miss") {
+        try {
+          await this.startWorkerOrBrowser(request2, identity2.japanese);
+        } catch (error) {
+          request2.dispose();
+          throw error;
+        }
+        return this.isCurrent(request2) ? { status: "playing", playback: request2 } : { status: "superseded" };
+      }
+      this.useStaticPlayback(request2, exact2.playback, identity2.japanese);
+      return { status: "playing", playback: request2 };
+    }
+    beginRequest(signal) {
+      this.active?.dispose();
+      let request2;
+      request2 = new RequestPlayback(() => {
+        if (this.active === request2) this.active = null;
+      }, signal);
+      this.active = request2;
+      if (signal?.aborted) request2.dispose();
+      return request2;
+    }
+    isCurrent(request2) {
+      return !this.disposed && this.active === request2 && !request2.disposed;
+    }
+    useStaticPlayback(request2, playback, term, reading) {
+      if (!request2.replace(playback)) return;
+      void playback.failure.then(async () => {
+        if (!this.isCurrent(request2)) return;
+        try {
+          await this.startWorkerOrBrowser(request2, term, reading);
+        } catch {
+          request2.dispose();
+        }
+      });
+    }
+    async startWorkerOrBrowser(request2, term, reading) {
+      const worker = await this.startWorkerPlayback(request2, term, reading);
+      if (!this.isCurrent(request2)) {
+        worker?.dispose();
+        return;
+      }
+      if (!worker) {
+        await this.startBrowserPlayback(request2, term, reading);
+        return;
+      }
+      if (!request2.replace(worker)) return;
+      void worker.failure.then(async () => {
+        if (!this.isCurrent(request2)) return;
+        try {
+          await this.startBrowserPlayback(request2, term, reading);
+        } catch {
+          request2.dispose();
+        }
+      });
+    }
+    async startBrowserPlayback(request2, term, reading) {
+      if (!this.isCurrent(request2)) return;
+      const playback = await this.fallback.play(term, reading, request2.signal);
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return;
+      }
+      request2.replace(playback);
+    }
+    async startWorkerPlayback(request2, term, reading) {
+      const cacheKey = `${term.trim()}|${(reading ?? "").trim()}`;
+      let objectUrl = this.cachedObjectUrl(cacheKey);
+      if (!objectUrl) {
+        const fetchedObjectUrl = await this.fetchObjectUrl(term, reading, request2.signal);
+        if (!fetchedObjectUrl) return null;
+        if (!this.isCurrent(request2)) {
+          URL.revokeObjectURL(fetchedObjectUrl);
+          return null;
+        }
+        objectUrl = fetchedObjectUrl;
+        this.cacheObjectUrl(cacheKey, objectUrl);
+      }
+      if (!this.isCurrent(request2)) return null;
+      try {
+        await waitForAbort(this.director.unlock(), request2.signal);
+      } catch {
+        return null;
+      }
+      if (!this.isCurrent(request2)) return null;
+      const element2 = new Audio();
       element2.src = objectUrl;
       element2.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
-      element2.addEventListener("ended", release, { once: true });
-      element2.addEventListener("error", release, { once: true });
+      let releaseDuck;
       try {
-        await element2.play();
-      } catch (error) {
-        release();
-        return this.fallback.play(term, reading);
+        releaseDuck = this.director.beginExternalLesson();
+      } catch {
+        return null;
       }
-      return {
-        dispose() {
-          if (!disposed) element2.pause();
-          release();
-        }
+      let stopped = false;
+      let resolveFailure = () => void 0;
+      let resolveCompletion = () => void 0;
+      const failure = new Promise((resolve) => {
+        resolveFailure = resolve;
+      });
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (pause) => {
+        if (stopped) return;
+        stopped = true;
+        if (pause) element2.pause();
+        element2.removeEventListener("ended", onEnded);
+        element2.removeEventListener("error", onError);
+        request2.signal.removeEventListener("abort", onAbort);
+        releaseDuck();
       };
+      const onEnded = () => {
+        resolveCompletion();
+        release(false);
+      };
+      const onError = () => {
+        resolveFailure();
+        release(false);
+      };
+      const onAbort = () => release(true);
+      const playback = {
+        failure,
+        completion,
+        dispose: () => release(true)
+      };
+      element2.addEventListener("ended", onEnded, { once: true });
+      element2.addEventListener("error", onError, { once: true });
+      request2.signal.addEventListener("abort", onAbort, { once: true });
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return null;
+      }
+      try {
+        await waitForAbort(element2.play(), request2.signal);
+      } catch {
+        playback.dispose();
+        return null;
+      }
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return null;
+      }
+      return playback;
     }
-    async fetchObjectUrl(term, reading) {
+    disposeExactResult(result) {
+      if (result.status === "playing") result.playback.dispose();
+    }
+    async fetchObjectUrl(term, reading, signal) {
       const params = new URLSearchParams({ term, reading: reading ?? term });
       try {
-        const response = await fetch(`${TTS_ENDPOINT}?${params.toString()}`);
+        const response = await fetch(`${TTS_ENDPOINT}?${params.toString()}`, { signal });
         if (!response.ok) return null;
         const blob = await response.blob();
+        if (signal.aborted) return null;
         return URL.createObjectURL(blob);
       } catch {
         return null;
       }
     }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.active?.dispose();
+      this.active = null;
+      this.staticVoice.dispose?.();
+      this.fallback.dispose?.();
+      for (const objectUrl of this.cache.values()) URL.revokeObjectURL(objectUrl);
+      this.cache.clear();
+    }
+    throwIfDisposed() {
+      if (this.disposed) throw new Error("Pronunciation service has been disposed.");
+    }
+    cachedObjectUrl(cacheKey) {
+      const objectUrl = this.cache.get(cacheKey);
+      if (!objectUrl) return void 0;
+      this.cache.delete(cacheKey);
+      this.cache.set(cacheKey, objectUrl);
+      return objectUrl;
+    }
+    cacheObjectUrl(cacheKey, objectUrl) {
+      this.cache.set(cacheKey, objectUrl);
+      while (this.cache.size > WORKER_TTS_CACHE_LIMIT) {
+        const oldest = this.cache.entries().next().value;
+        if (!oldest) return;
+        this.cache.delete(oldest[0]);
+        URL.revokeObjectURL(oldest[1]);
+      }
+    }
+  }
+  function abortError$1(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort(promise, signal) {
+    if (signal.aborted) return Promise.reject(abortError$1(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$1(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
   }
   function canonicalStudyCardKey(expression, reading = "") {
     return canonicalStudyCardIdentity(expression, reading).key;
@@ -39418,6 +40119,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       completion.replaceChildren(note, directions, next);
     });
     let playback = null;
+    let playbackRequest = null;
+    let playbackGeneration = 0;
+    let disposed = false;
     const revealActivity = () => {
       activityHost.hidden = false;
       prelude.classList.add("is-ready");
@@ -39428,16 +40132,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const status = element("span", "academy-field-error");
       status.setAttribute("role", "status");
       play.addEventListener("click", () => {
+        const generation2 = ++playbackGeneration;
+        playbackRequest?.abort();
         playback?.dispose();
+        playback = null;
+        const request2 = new AbortController();
+        playbackRequest = request2;
         play.disabled = true;
         status.textContent = "";
-        void pronunciation.play("では、教科書の五ページを開いて、二人で話してください。").then((active) => {
+        const japanese2 = "では、教科書の五ページを開いて、二人で話してください。";
+        void playLearningVoiceBinding(
+          pronunciation,
+          "lesson-screen:textbook-pair-prompt",
+          japanese2,
+          request2.signal
+        ).then((active) => {
+          if (!active) return;
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) {
+            active.dispose();
+            return;
+          }
           playback = active;
           revealActivity();
         }).catch(() => {
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) return;
           status.textContent = academyText(language, "sourceForkAudioUnavailable");
           revealActivity();
         }).finally(() => {
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) return;
+          playbackRequest = null;
           play.disabled = false;
         });
       });
@@ -39470,7 +40193,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     source2.append(line2, sourceText);
     content.append(prelude, activityHost, completion, source2);
     screen.addEventListener("academy:dispose", () => {
+      disposed = true;
+      playbackGeneration += 1;
+      playbackRequest?.abort();
+      playbackRequest = null;
       playback?.dispose();
+      playback = null;
       controller.dispose();
     }, { once: true });
     return screen;
@@ -254079,6 +254807,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     listen.type = "button";
     listen.dataset.cafePrimaryAction = "listen";
     listen.textContent = options.language === "ja" ? "注文を聞く" : "Hear the order";
+    listen.setAttribute("aria-label", options.language === "ja" ? "注文を聞く" : "Hear the order");
     const choices2 = element("div", "academy-cafe-order-options");
     choices2.hidden = true;
     choices2.tabIndex = -1;
@@ -254086,6 +254815,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     choices2.setAttribute("aria-labelledby", title2.id);
     const orderScene = cafeOrderScene(options);
     let complete = false;
+    let listening = false;
+    let heardOnce = false;
     options.practice.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-cafe-order-option");
       answer2.type = "button";
@@ -254106,6 +254837,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (choice2.id !== options.practice.correctChoiceId) {
           root.dataset.cafeOrderState = "retry";
           status.textContent = options.language === "ja" ? "もう一度、値段と数に注意して聞いてください。" : "Listen again for the price and quantity.";
+          listen.focus();
           return;
         }
         complete = true;
@@ -254113,6 +254845,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         root.dataset.practiceComplete = "true";
         mark.textContent = choice2.label.ja;
         status.textContent = options.practice.success[options.language];
+        listen.disabled = true;
         choices2.querySelectorAll("button").forEach((button2) => {
           button2.disabled = true;
         });
@@ -254125,16 +254858,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       choices2.append(answer2);
     });
-    listen.addEventListener("click", () => {
+    listen.addEventListener("click", async () => {
+      if (complete || listening) return;
+      listening = true;
+      listen.disabled = true;
+      listen.setAttribute("aria-busy", "true");
       root.dataset.cafeOrderState = "choosing";
       transcript.hidden = false;
       choices2.hidden = false;
-      listen.hidden = true;
-      choices2.focus();
-      void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then((played) => {
+      if (!heardOnce) choices2.focus();
+      let played = false;
+      try {
+        played = await (options.onListen?.(
+          options.practice.audioLine,
+          `world-practice:${options.practice.id}`
+        ) ?? Promise.resolve(false));
+      } catch {
+        played = false;
+      } finally {
+        listening = false;
+        if (root.closest(".academy-world-screen")?.dataset.academyDisposed === "true") return;
+        heardOnce = true;
+        listen.removeAttribute("aria-busy");
+        listen.textContent = options.language === "ja" ? "もう一度聞く" : "Replay order";
+        listen.setAttribute("aria-label", options.language === "ja" ? "注文をもう一度聞く" : "Replay the order");
+        if (!complete) listen.disabled = false;
         if (root.dataset.cafeOrderState !== "choosing") return;
         status.textContent = played ? options.language === "ja" ? "聞こえた内容を注文票に合わせる。" : "Match what you heard to the order slip." : options.language === "ja" ? "音声が使えません。表示された台詞で続けてください。" : "Audio is unavailable. Continue with the shown line.";
-      });
+      }
     });
     root.append(heading, menu, transcript, status, listen, choices2, orderScene.element);
     return root;
@@ -255159,6 +255910,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       screen.dataset.konbiniVisit = String(options.progress.worldVisits?.konbini ?? 0);
     }
     screen.dataset.plate = place2.scene;
+    screen.addEventListener("academy:dispose", () => {
+      screen.dataset.academyDisposed = "true";
+    }, { once: true });
     if (place2.composition) screen.dataset.sceneMotif = place2.composition.motif;
     screen.append(academyBackgroundPicture(place2.scene));
     const stage2 = element("div", "academy-world-stage");
@@ -255605,7 +256359,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         spokenLine.hidden = false;
         repeatButton.disabled = false;
       }
-      void (options.onListen?.(practice2.audioLine) ?? Promise.resolve(false)).then((played) => {
+      void (options.onListen?.(
+        practice2.audioLine,
+        `world-practice:${practice2.id}`
+      ) ?? Promise.resolve(false)).then((played) => {
+        if (root.closest(".academy-world-screen")?.dataset.academyDisposed === "true") return;
         if (speakingCue?.dataset.labSpeaking === "spoken") return;
         status.textContent = played ? options.language === "ja" ? "音声を再生しました。" : "Playing the announcement." : options.language === "ja" ? "この端末では音声を再生できません。文字を読んで続けてください。" : "Speech is unavailable here. Use the transcript and continue.";
       });
@@ -256474,6 +257232,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const characters = projectCharacterDirectory(context2.projection);
       const lessonContext = await this.classroomWeekContext(place2, context2);
       let speech;
+      let listenRequest;
+      let listenGeneration = 0;
       let seenIntroductions = context2.checkpoint.seenIntroductions;
       const markSeen = (id2) => {
         seenIntroductions = markIntroductionSeen(seenIntroductions, id2);
@@ -256509,14 +257269,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
           };
           void (context2.save ? context2.save(update) : context2.go(context2.checkpoint.route, update));
         },
-        onListen: async (line2) => {
+        onListen: async (line2, bindingId) => {
+          const generation2 = ++listenGeneration;
+          listenRequest?.abort();
+          speech?.dispose();
+          speech = void 0;
+          const request2 = new AbortController();
+          listenRequest = request2;
           try {
-            const next = await this.options.pronunciation.play(line2);
-            speech?.dispose();
+            const next = bindingId ? await playLearningVoiceBinding(this.options.pronunciation, bindingId, line2, request2.signal) : await this.options.pronunciation.play(line2, void 0, request2.signal);
+            if (!next) return false;
+            if (request2.signal.aborted || generation2 !== listenGeneration) {
+              next.dispose();
+              return false;
+            }
             speech = next;
             return true;
           } catch {
             return false;
+          } finally {
+            if (generation2 === listenGeneration && listenRequest === request2 && !speech) {
+              listenRequest = void 0;
+            }
           }
         },
         onObjectInteract: () => {
@@ -256548,7 +257322,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         ...context2.checkpoint.route === "campus" ? {} : { onBack: () => void context2.back() }
       });
-      screen.addEventListener("academy:dispose", () => speech?.dispose(), { once: true });
+      screen.addEventListener("academy:dispose", () => {
+        listenGeneration += 1;
+        listenRequest?.abort();
+        listenRequest = void 0;
+        speech?.dispose();
+        speech = void 0;
+      }, { once: true });
       context2.shell.replace(screen);
       return true;
     }
@@ -256748,9 +257528,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sheetVocabulary = libraryStudyVocabulary(sheet2);
       const syllabusState = due.length ? "due" : await this.options.evidence.syllabusState?.(sheetVocabulary);
       let speech;
+      let playRequest;
+      let playGeneration = 0;
       const play = (word) => {
-        void this.options.pronunciation.play(word.expression, word.reading).then((next) => {
-          speech?.dispose();
+        const generation2 = ++playGeneration;
+        playRequest?.abort();
+        speech?.dispose();
+        speech = void 0;
+        const request2 = new AbortController();
+        playRequest = request2;
+        void this.options.pronunciation.play(word.expression, word.reading, request2.signal).then((next) => {
+          if (request2.signal.aborted || generation2 !== playGeneration) {
+            next.dispose();
+            return;
+          }
           speech = next;
         }).catch(() => void 0);
       };
@@ -256763,7 +257554,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onStart: () => void this.startLibraryStudy(context2, sheet2, sheetVocabulary, play),
         onPlay: play
       });
-      screen.addEventListener("academy:dispose", () => speech?.dispose(), { once: true });
+      screen.addEventListener("academy:dispose", () => {
+        playGeneration += 1;
+        playRequest?.abort();
+        playRequest = void 0;
+        speech?.dispose();
+        speech = void 0;
+      }, { once: true });
       context2.shell.replace(screen);
     }
     async restoreDueLibrarySyllabus(context2, sheet2) {
@@ -257211,6 +258008,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     devAuthBypass;
     audio;
     lifecycle = new AbortController();
+    disposed = false;
     language = loadLanguage();
     shell;
     persistence;
@@ -257325,7 +258123,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return refreshedCheckpoint;
     }
     dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
       this.lifecycle.abort();
+      this.pronunciation.dispose?.();
       this.audio.dispose();
       this.persistence?.close();
       this.shell.dispose();
@@ -264749,7 +265550,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

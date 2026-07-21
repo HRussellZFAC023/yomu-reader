@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { build } from 'vite';
 import {
     assert,
     launchSmokeBrowser,
@@ -12,15 +11,14 @@ import {
 } from '../lib/smoke-harness.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
-const PUBLIC_ROOT = path.join(ROOT, 'public');
 const HOSTED_ROOT = path.join(ROOT, 'docs', 'public');
-const BUILD_ROOT = path.join(ROOT, 'qa-artifacts', 'academy-learning-voice', 'build');
 const DIST_APP_PATH = path.join(ROOT, 'dist', 'academy', 'app.js');
 const HOSTED_APP_PATH = path.join(HOSTED_ROOT, 'academy', 'app.js');
-const CONFIG = path.join(ROOT, 'config', 'vite', 'academy.config.ts');
-const CATALOG_PATH = path.join(PUBLIC_ROOT, 'academy', 'audio', 'learning-voice-playback.json');
+const CATALOG_PATH = path.join(ROOT, 'public', 'academy', 'audio', 'learning-voice-playback.json');
 const PRODUCTION_PATH = path.join(ROOT, 'docs', 'academy', 'audio', 'learning-voice-production.json');
-const SMOKE_SCRIPT_PATH = 'scripts/academy-voice/learning-voice-browser-smoke.mjs';
+const EXPECTED_PATH = path.join(ROOT, 'docs', 'academy', 'audio', 'learning-voice-local-expected.json');
+const OBSERVED_PATH = path.resolve(process.env.LEARNING_VOICE_LOCAL_OBSERVED
+    ?? path.join(ROOT, 'qa-artifacts', 'academy-learning-voice', 'local-browser-observed.json'));
 const RUNTIME_SOURCE_PATHS = [
     'src/academy/integration/yomu-bridge.ts',
     'src/academy/audio/browser-speech.ts',
@@ -34,20 +32,6 @@ const RUNTIME_SOURCE_PATHS = [
 const RUN = `learning-voice-${Date.now()}`;
 const scenarios = [
     {
-        name: 'lesson prompt',
-        bindingId: 'lesson-screen:textbook-pair-prompt',
-        route: 'source-activity',
-        context: {
-            lessonId: 'lesson:foundation-00',
-            activityId: 'activity:lesson-zero-reconstruct-repair',
-            selectedFork: 'sound',
-        },
-        selector: '.academy-fork-prelude .academy-button-secondary',
-        ready: '.academy-fork-prelude',
-        asset: '/academy/audio/learning-lines/narrator/lesson-textbook-pair-prompt__e67c2987e27491d3.opus',
-        success: '.academy-activity-host:not([hidden])',
-    },
-    {
         name: 'cafe price',
         bindingId: 'world-practice:cafe-coffee-price',
         route: 'world',
@@ -56,36 +40,6 @@ const scenarios = [
         ready: '[data-world-practice="cafe-coffee-price"]',
         asset: '/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus',
         success: '[data-world-practice="cafe-coffee-price"][data-cafe-order-state="choosing"]',
-    },
-    {
-        name: 'cafe order',
-        bindingId: 'world-practice:cafe-coffee-counter',
-        route: 'world',
-        context: { lessonId: 'lesson:foundation-00', worldPlace: 'cafe', worldVisits: { cafe: 1 } },
-        selector: '.academy-cafe-order-listen',
-        ready: '[data-world-practice="cafe-coffee-counter"]',
-        asset: '/academy/audio/learning-lines/textbook-mary/mary-cafe-order__def2bf7bca63c545.opus',
-        success: '[data-world-practice="cafe-coffee-counter"][data-cafe-order-state="choosing"]',
-    },
-    {
-        name: 'lab repair',
-        bindingId: 'world-practice:lab-classroom-repair',
-        route: 'world',
-        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 0 } },
-        selector: '.academy-world-listen',
-        ready: '[data-world-practice="lab-classroom-repair"]',
-        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus',
-        success: '[data-world-practice="lab-classroom-repair"] .academy-world-transcript:not([hidden])',
-    },
-    {
-        name: 'lab repeat binding',
-        bindingId: 'world-practice:lab-classroom-repeat',
-        route: 'world',
-        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 1 } },
-        selector: '.academy-world-listen',
-        ready: '[data-world-practice="lab-classroom-repeat"]',
-        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus',
-        success: '[data-world-practice="lab-classroom-repeat"] .academy-world-transcript:not([hidden])',
     },
 ];
 const catalogSource = readFileSync(CATALOG_PATH);
@@ -96,30 +50,31 @@ const catalogByBinding = new Map(catalog.entries.flatMap(entry => (
 )));
 for (const scenario of scenarios) {
     assert(catalogByBinding.get(scenario.bindingId)?.url === scenario.asset,
-        `Browser smoke scenario is stale for ${scenario.bindingId}`);
+        `Local proof scenario is stale for ${scenario.bindingId}`);
 }
 assert(catalogByBinding.size === scenarios.length,
-    'Browser smoke does not cover every accepted runtime binding', {
+    'Local proof does not cover every accepted runtime binding', {
         catalogBindings: [...catalogByBinding.keys()],
         scenarioBindings: scenarios.map(scenario => scenario.bindingId),
     });
 
-rmSync(BUILD_ROOT, { recursive: true, force: true });
-await build({
-    configFile: CONFIG,
-    mode: 'production',
-    build: { outDir: BUILD_ROOT, emptyOutDir: true },
-});
-const candidateAppPath = path.join(BUILD_ROOT, 'app.js');
-const candidateApp = readFileSync(candidateAppPath);
+const expectedSource = readFileSync(EXPECTED_PATH);
+const expected = JSON.parse(expectedSource);
+assert(expected.schema === 'yomu-academy.learning-voice-local-expected.v1', 'Local expected evidence schema is stale');
+assert(expected.batchId === catalog.batchId, 'Local expected evidence batch is stale');
+assert(expected.catalogSha256 === sha256(catalogSource), 'Local expected catalog hash is stale');
+assert(expected.productionContractSha256 === sha256(productionSource), 'Local expected production hash is stale');
 const distApp = readFileSync(DIST_APP_PATH);
 const hostedApp = readFileSync(HOSTED_APP_PATH);
-assert(candidateApp.equals(distApp), 'Production-mode candidate differs from dist/academy/app.js');
-assert(candidateApp.equals(hostedApp), 'Production-mode candidate differs from docs/public/academy/app.js');
-const productionAppSha256 = createHash('sha256').update(candidateApp).digest('hex');
+assert(distApp.equals(hostedApp), 'Built dist and hosted Academy app bytes differ');
+assert(sha256(distApp) === expected.build.appSha256, 'Built Academy app differs from immutable local expectation');
+for (const sourcePath of RUNTIME_SOURCE_PATHS) {
+    assert(sha256(readFileSync(path.join(ROOT, sourcePath))) === expected.runtimeSources[sourcePath],
+        `Runtime source differs from immutable local expectation: ${sourcePath}`);
+}
 
 const requests = [];
-const server = await startLoopbackServer(serveAcademy, 'Academy learning voice smoke server could not bind');
+const server = await startLoopbackServer(serveAcademy, 'Academy learning voice local proof server could not bind');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 let context;
 let evidence;
@@ -174,6 +129,10 @@ try {
         ), { timeout: 10_000 });
         await page.locator(scenario.selector).click();
         const response = await assetResponse;
+        const body = await response.body();
+        const contentSha256 = sha256(body);
+        assert(contentSha256 === expected.assets[scenario.asset]?.sha256,
+            `Local response bytes differ from immutable expectation: ${scenario.asset}`);
         await page.locator(scenario.success).waitFor({ state: 'visible' });
         results.push({
             name: scenario.name,
@@ -182,6 +141,8 @@ try {
             asset: scenario.asset,
             status: response.status(),
             contentType: response.headers()['content-type'],
+            bytes: body.length,
+            contentSha256,
         });
     }
 
@@ -191,47 +152,40 @@ try {
         .map(requestUrl => new URL(requestUrl))
         .filter(requestUrl => requestUrl.pathname.startsWith('/academy/api/srs/'))
         .map(requestUrl => `${requestUrl.pathname}${requestUrl.search}`);
-    assert(sourceModuleRequests.length === 0, 'Smoke loaded source modules instead of the built Academy route', { sourceModuleRequests });
-    assert(workerFallbackRequests.length === 0, 'Static learning voice smoke fell through to worker TTS', { workerFallbackRequests });
+    assert(sourceModuleRequests.length === 0, 'Local proof loaded source modules instead of the built Academy route', { sourceModuleRequests });
+    assert(workerFallbackRequests.length === 0, 'Local static voice proof fell through to worker TTS', { workerFallbackRequests });
     assert(syncFixtureRequests.some(requestUrl => requestUrl === '/academy/api/srs/push'),
-        'Linked-account smoke did not exercise its isolated SRS push fixture', { syncFixtureRequests });
+        'Linked-account proof did not exercise its isolated SRS push fixture', { syncFixtureRequests });
     assert(syncFixtureRequests.some(requestUrl => requestUrl.startsWith('/academy/api/srs/pull?')),
-        'Linked-account smoke did not exercise its isolated SRS pull fixture', { syncFixtureRequests });
-    assert(errors.length === 0, 'Academy learning voice smoke saw browser errors', { errors });
+        'Linked-account proof did not exercise its isolated SRS pull fixture', { syncFixtureRequests });
+    assert(errors.length === 0, 'Academy learning voice local proof saw browser errors', { errors });
     evidence = {
-        schema: 'yomu-academy.learning-voice-browser-smoke.v3',
-        generatedOn: '2026-07-20',
+        schema: 'yomu-academy.learning-voice-local-observed.v1',
+        observedAt: new Date().toISOString(),
         batchId: catalog.batchId,
-        catalogSha256: createHash('sha256').update(catalogSource).digest('hex'),
-        productionContractSha256: createHash('sha256').update(productionSource).digest('hex'),
+        immutableExpectedEvidence: path.relative(ROOT, EXPECTED_PATH),
+        immutableExpectedEvidenceSha256: sha256(expectedSource),
+        catalogSha256: sha256(catalogSource),
+        productionContractSha256: sha256(productionSource),
         route: '/academy/?qa-run=<isolated>',
+        proofScope: 'loopback-hosted Academy route; no deployment or production claim',
         authFixture: 'persisted-linked-account-and-valid-worker-session',
         syncFixture: 'isolated-accept-push-empty-pull',
-        productionBuild: {
-            mode: 'production',
-            candidateApp: path.relative(ROOT, candidateAppPath),
+        builtArtifacts: {
             distApp: path.relative(ROOT, DIST_APP_PATH),
             hostedApp: path.relative(ROOT, HOSTED_APP_PATH),
-            candidateAppSha256: productionAppSha256,
-            distAppSha256: createHash('sha256').update(distApp).digest('hex'),
-            hostedAppSha256: createHash('sha256').update(hostedApp).digest('hex'),
+            distAppSha256: sha256(distApp),
+            hostedAppSha256: sha256(hostedApp),
             byteParity: true,
         },
-        smokeScriptSha256: createHash('sha256').update(readFileSync(path.join(ROOT, SMOKE_SCRIPT_PATH))).digest('hex'),
-        runtimeSources: Object.fromEntries(RUNTIME_SOURCE_PATHS.map(sourcePath => [
-            sourcePath,
-            createHash('sha256').update(readFileSync(path.join(ROOT, sourcePath))).digest('hex'),
-        ])),
         sourceModuleRequests,
         workerFallbackRequests,
         syncFixtureRequests,
         results,
         verdict: 'pass',
     };
-    writeFileSync(
-        path.join(ROOT, 'docs', 'academy', 'audio', 'learning-voice-browser-smoke.json'),
-        `${JSON.stringify(evidence, null, 2)}\n`,
-    );
+    mkdirSync(path.dirname(OBSERVED_PATH), { recursive: true });
+    writeFileSync(OBSERVED_PATH, `${JSON.stringify(evidence, null, 2)}\n`);
     console.log(JSON.stringify(evidence, null, 2));
 } finally {
     await context?.close().catch(() => undefined);
@@ -386,4 +340,8 @@ function contentType(file) {
     if (file.endsWith('.png')) return 'image/png';
     if (file.endsWith('.webp')) return 'image/webp';
     return 'application/octet-stream';
+}
+
+function sha256(value) {
+    return createHash('sha256').update(value).digest('hex');
 }

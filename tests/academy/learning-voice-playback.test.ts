@@ -111,13 +111,21 @@ describe('Academy static learning voices', () => {
     it('ships mirrored, hash-verified, exact Yomu-authored assets for every catalog entry', () => {
         expect(readFileSync(docsCatalogPath, 'utf8')).toBe(readFileSync(publicCatalogPath, 'utf8'));
         const catalog = loadCatalog();
-        expect(catalog.entries).toHaveLength(4);
+        expect(catalog.entries).toHaveLength(1);
         expect(catalog.batchId).toBe('academy-learning-native-20260720-01');
         expect(catalog.qualityApproval).toEqual({
-            ownerQualityApproved: true,
+            codexQualityAccepted: true,
             scope: 'AivisSpeech + Style-Bert-VITS2 JP-Extra output quality',
             ownerLineByLineReviewed: false,
             humanReviewed: false,
+        });
+        expect((catalog as unknown as { acceptancePolicy: Record<string, unknown> }).acceptancePolicy).toEqual({
+            acceptedBy: 'Codex',
+            humanReviewed: false,
+            ownerLineByLineReviewed: false,
+            independentAudioReviewRequired: true,
+            blanketCharacterErrorRateAllowed: false,
+            criticalMorphemeNumeralParticleMismatch: 'hard-fail',
         });
         expect(catalog.encoder).toMatchObject({
             name: 'ffmpeg/libopus',
@@ -125,10 +133,7 @@ describe('Academy static learning voices', () => {
             application: 'voip',
         });
         expect(catalog.entries.map(entry => entry.role)).toEqual([
-            'learning-ui',
             'textbook-character',
-            'textbook-character',
-            'academy-character',
         ]);
         for (const entry of catalog.entries) {
             const relative = entry.url.replace('/academy/audio/', '');
@@ -160,7 +165,7 @@ describe('Academy static learning voices', () => {
             expect(entry.modelLicense).toBe('ACML-1.0');
             expect(entry.modelPayloadSha256).toMatch(/^[a-f0-9]{64}$/u);
             expect(entry.reviewStatus).toBe('accepted');
-            expect(entry.qualityApprovalStatus).toBe('owner-approved');
+            expect(entry.qualityApprovalStatus).toBe('codex-accepted');
             expect(entry.disclosure).toEqual({
                 synthetic: true,
                 officialCharacterVoice: false,
@@ -172,8 +177,8 @@ describe('Academy static learning voices', () => {
                 accent: { status: 'validated-query-plan' },
                 pause: { status: 'validated-query-plan' },
                 listening: {
-                    status: 'owner-approved-objective-pass',
-                    ownerQualityApproved: true,
+                    status: 'codex-accepted-objective-and-independent-audio-review',
+                    codexAccepted: true,
                     ownerLineByLineReviewed: false,
                     audioModelReviewed: true,
                     humanReviewed: false,
@@ -219,7 +224,7 @@ describe('Academy static learning voices', () => {
             catalog,
             createMedia: () => audio,
         });
-        const playback = await service.playExact(catalog.entries[1].japanese);
+        const playback = await service.playExact(catalog.entries[0].japanese);
 
         expect(playback.status).toBe('playing');
         expect(audioDirector.target.unlock).toHaveBeenCalledOnce();
@@ -243,7 +248,7 @@ describe('Academy static learning voices', () => {
         const service = new StaticLearningVoiceService(audioDirector.target, { catalog: pendingCatalog, createMedia });
 
         const first = service.playExact(catalog.entries[0].japanese);
-        const second = service.playExact(catalog.entries[1].japanese);
+        const second = service.playExact(catalog.entries[0].japanese);
         releaseCatalog(catalog);
         expect((await second).status).toBe('playing');
         expect(await first).toEqual({ status: 'superseded' });
@@ -290,13 +295,13 @@ describe('Academy static learning voices', () => {
 
         const stale = service.playExact(catalog.entries[0].japanese);
         await vi.waitFor(() => expect(audioDirector.target.unlock).toHaveBeenCalledOnce());
-        const newest = await service.playExact(catalog.entries[1].japanese);
+        const newest = await service.playExact(catalog.entries[0].japanese);
         staleUnlock.resolve(undefined);
 
         expect(newest.status).toBe('playing');
         await expect(stale).resolves.toEqual({ status: 'superseded' });
         expect(createMedia).toHaveBeenCalledOnce();
-        expect(createMedia).toHaveBeenCalledWith(catalog.entries[1].url);
+        expect(createMedia).toHaveBeenCalledWith(catalog.entries[0].url);
         expect(media.play).toHaveBeenCalledOnce();
     });
 
@@ -385,7 +390,8 @@ describe('Academy static learning voices', () => {
             entries: [
                 catalog.entries[0],
                 {
-                    ...catalog.entries[1],
+                    ...catalog.entries[0],
+                    lineId: 'miller-cafe-price-copy',
                     bindings: catalog.entries[0].bindings,
                 },
             ],
@@ -402,7 +408,7 @@ describe('Academy static learning voices', () => {
         })).toThrow('Invalid learning voice playback entry');
     });
 
-    it('accepts owner-approved output without claiming owner or human line review', () => {
+    it('requires explicit Codex acceptance without claiming human line review', () => {
         const catalog = JSON.parse(readFileSync(publicCatalogPath, 'utf8')) as {
             entries: Array<Record<string, unknown> & { review: Record<string, unknown> }>;
         };
@@ -412,12 +418,12 @@ describe('Academy static learning voices', () => {
             entries: [{
                 ...entry,
                 reviewStatus: 'accepted',
-                qualityApprovalStatus: 'owner-approved',
+                qualityApprovalStatus: 'codex-accepted',
                 review: {
                     ...entry.review,
                     listening: {
-                        status: 'owner-approved-objective-pass',
-                        ownerQualityApproved: true,
+                        status: 'codex-accepted-objective-and-independent-audio-review',
+                        codexAccepted: true,
                         ownerLineByLineReviewed: false,
                         audioModelReviewed: true,
                         humanReviewed: false,
@@ -428,10 +434,10 @@ describe('Academy static learning voices', () => {
         });
         expect(accepted.entries[0]).toMatchObject({
             reviewStatus: 'accepted',
-            qualityApprovalStatus: 'owner-approved',
+            qualityApprovalStatus: 'codex-accepted',
             review: {
                 listening: {
-                    ownerQualityApproved: true,
+                    codexAccepted: true,
                     ownerLineByLineReviewed: false,
                     audioModelReviewed: true,
                     humanReviewed: false,
@@ -462,6 +468,32 @@ describe('Academy static learning voices', () => {
         expect(audioDirector.release).toHaveBeenCalledOnce();
     });
 
+    it('aborts a pending catalog load and prevents late media startup after disposal', async () => {
+        const catalog = loadCatalog();
+        const pendingCatalog = deferred<LearningVoiceCatalog>();
+        let catalogSignal: AbortSignal | undefined;
+        const audioDirector = director();
+        const createMedia = vi.fn(() => new FakeMedia());
+        const service = new StaticLearningVoiceService(audioDirector.target, {
+            loadCatalog: signal => {
+                catalogSignal = signal;
+                return pendingCatalog.promise;
+            },
+            createMedia,
+        });
+
+        const pending = service.playExact(catalog.entries[0].japanese);
+        await vi.waitFor(() => expect(catalogSignal).toBeDefined());
+        service.dispose();
+        pendingCatalog.resolve(catalog);
+
+        await expect(pending).resolves.toEqual({ status: 'superseded' });
+        expect(catalogSignal?.aborted).toBe(true);
+        expect(audioDirector.target.unlock).not.toHaveBeenCalled();
+        expect(createMedia).not.toHaveBeenCalled();
+        await expect(service.playExact(catalog.entries[0].japanese)).resolves.toEqual({ status: 'superseded' });
+    });
+
     it('does not synthesize a binding whose exact request was superseded', async () => {
         const fallback = vi.fn(async () => ({ dispose: vi.fn() }));
         const pronunciation = {
@@ -487,17 +519,17 @@ describe('Academy static learning voices', () => {
         const production = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/learning-voice-production.json'), 'utf8'));
         const modelReviews = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/learning-voice-model-reviews.json'), 'utf8'));
         const acceptance = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/learning-voice-acceptance.json'), 'utf8'));
-        const smoke = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/learning-voice-browser-smoke.json'), 'utf8'));
         expect(locks).toMatchObject({
-            schema: 'yomu-academy.learning-voice-locks.v4',
-            ownerQualityApproved: true,
-            ownerLineByLineReviewed: false,
+            schema: 'yomu-academy.learning-voice-locks.v5',
+            acceptedBy: 'Codex',
             humanReviewed: false,
-            audioModelReviewed: true,
+            acceptedEntries: 1,
+            rejectedEntries: 3,
+            acceptedBindings: 1,
         });
-        expect(locks.entries).toHaveLength(4);
-        expect(locks.entries.flatMap((entry: { bindingIds: string[] }) => entry.bindingIds)).toHaveLength(5);
-        expect(Object.keys(locks.toolchain)).toHaveLength(7);
+        expect(locks.entries).toHaveLength(1);
+        expect(locks.rejected).toHaveLength(3);
+        expect(locks.entries.flatMap((entry: { bindingIds: string[] }) => entry.bindingIds)).toHaveLength(1);
         for (const [sourcePath, sourceHash] of Object.entries(locks.toolchain) as Array<[string, string]>) {
             expect(createHash('sha256').update(readFileSync(resolve(root, sourcePath))).digest('hex'))
                 .toBe(sourceHash);
@@ -506,10 +538,11 @@ describe('Academy static learning voices', () => {
             expect(createHash('sha256').update(readFileSync(resolve(root, value.path))).digest('hex')).toBe(value.sha256);
         }
         expect(createHash('sha256').update(modelEvidence.license.text).digest('hex')).toBe(modelEvidence.license.sha256);
-        expect(modelEvidence.schema).toBe('yomu-academy.learning-voice-model-evidence.v2');
-        expect(modelEvidence.models.map((model: { payloadSha256: string }) => model.payloadSha256).sort()).toEqual(
-            loadCatalog().entries.map(entry => entry.modelPayloadSha256).sort(),
-        );
+        expect(modelEvidence.schema).toBe('yomu-academy.learning-voice-model-evidence.v3');
+        expect(modelEvidence.models).toHaveLength(4);
+        expect(modelEvidence.models.every((model: { distribution: { authority: string } }) => (
+            model.distribution.authority === 'exact-distribution-bytes'
+        ))).toBe(true);
         expect(modelEvidence.engineStyleMappings).toHaveLength(4);
         const productionMappings = new Map<string, Record<string, unknown>>(
             production.voiceMappings.map((mapping: Record<string, unknown>) => (
@@ -531,35 +564,25 @@ describe('Academy static learning voices', () => {
                 styleName: mapping.styleName,
             });
         }
-        expect(modelReviews).toMatchObject({ audioModelReviewed: true, humanReviewed: false, overallVerdict: 'pass' });
-        expect(new Set(modelReviews.reviews.map((review: { reviewer: { modelFamily: string } }) => review.reviewer.modelFamily)).size).toBe(2);
-        expect(acceptance).toMatchObject({
-            schema: 'yomu-academy.learning-voice-acceptance.v4',
-            complete: true,
-            ownerQualityApproved: true,
-            ownerLineByLineReviewed: false,
+        expect(modelReviews).toMatchObject({
             audioModelReviewed: true,
             humanReviewed: false,
+            overallVerdict: 'mixed-one-accepted-three-rejected',
+        });
+        expect(new Set(modelReviews.reviews.map((review: { reviewer: { modelFamily: string } }) => review.reviewer.modelFamily)).size).toBe(2);
+        expect(acceptance).toMatchObject({
+            schema: 'yomu-academy.learning-voice-acceptance.v5',
+            complete: true,
+            codexAcceptance: { acceptedBy: 'Codex', humanReviewed: false },
+            counts: { reviewedCandidates: 4, accepted: 1, rejected: 3, bindings: 1 },
         });
         expect(acceptance.entries.every((entry: { verdict: string }) => entry.verdict === 'pass')).toBe(true);
+        expect(acceptance.rejectedCandidates.every((entry: { shipped: boolean }) => entry.shipped === false)).toBe(true);
         expect(acceptance.archivedLicenceEvidence.modelEvidenceSha256).toBe(locks.evidence.modelEvidence.sha256);
-        expect(smoke).toMatchObject({
-            batchId: 'academy-learning-native-20260720-01',
-            catalogSha256: locks.evidence.catalog.sha256,
-            productionContractSha256: locks.evidence.productionContract.sha256,
-            verdict: 'pass',
-            sourceModuleRequests: [],
-            workerFallbackRequests: [],
+        expect(production.triage).toMatchObject({
+            acceptedVoiceLineIds: ['miller-cafe-price'],
+            rejectedVoiceLineIds: ['lesson-textbook-pair-prompt', 'mary-cafe-order', 'rie-lesson-zero-repeat'],
         });
-        expect(smoke.smokeScriptSha256).toBe(createHash('sha256').update(readFileSync(
-            resolve(root, 'scripts/academy-voice/learning-voice-browser-smoke.mjs'),
-        )).digest('hex'));
-        expect(Object.keys(smoke.runtimeSources)).toHaveLength(8);
-        for (const [sourcePath, sourceHash] of Object.entries(smoke.runtimeSources) as Array<[string, string]>) {
-            expect(createHash('sha256').update(readFileSync(resolve(root, sourcePath))).digest('hex'))
-                .toBe(sourceHash);
-        }
-        expect(smoke.results).toHaveLength(5);
     });
 
     it('skips one malformed runtime entry without invalidating the usable catalog', async () => {
@@ -571,15 +594,11 @@ describe('Academy static learning voices', () => {
             ok: true,
             json: async () => ({
                 ...source,
-                entries: [source.entries[0], { ...source.entries[1], role: 'invalid-role' }, ...source.entries.slice(2)],
+                entries: [source.entries[0], { ...source.entries[0], lineId: 'malformed-copy', role: 'invalid-role' }],
             }),
         })) as unknown as typeof fetch);
 
-        expect(catalog.entries.map(entry => entry.lineId)).toEqual([
-            'lesson-textbook-pair-prompt',
-            'mary-cafe-order',
-            'rie-lesson-zero-repeat',
-        ]);
+        expect(catalog.entries.map(entry => entry.lineId)).toEqual(['miller-cafe-price']);
         expect(warn).toHaveBeenCalledOnce();
     });
 
@@ -596,7 +615,7 @@ describe('Academy static learning voices', () => {
             }),
         })) as unknown as typeof fetch);
 
-        expect(catalog.entries).toHaveLength(4);
+        expect(catalog.entries).toHaveLength(1);
         expect(catalog.entries.map(entry => entry.lineId)).toEqual(source.entries.map(entry => entry.lineId));
         expect(warn).toHaveBeenCalledOnce();
     });
@@ -614,9 +633,15 @@ describe('Academy static learning voices', () => {
             'utf8',
         ));
         expect(production.qualityApproval).toMatchObject({
-            ownerQualityApproved: true,
+            codexQualityAccepted: true,
             ownerLineByLineReviewed: false,
             humanReviewed: false,
+        });
+        expect(production.acceptancePolicy).toMatchObject({
+            acceptedBy: 'Codex',
+            humanReviewed: false,
+            blanketCharacterErrorRateAllowed: false,
+            criticalMorphemeNumeralParticleMismatch: 'hard-fail',
         });
         expect(production.voiceMappings.map((mapping: { speakerId: string }) => mapping.speakerId)).toEqual([
             'narrator',
@@ -638,22 +663,21 @@ describe('Academy static learning voices', () => {
         expect(validation.stderr).toBe('');
         expect(validation.status).toBe(0);
         expect(JSON.parse(validation.stdout)).toEqual({
-            validated: 4,
-            bindings: 5,
-            nativeBand: 4,
+            reviewedCandidates: 4,
+            accepted: 1,
+            rejected: 3,
+            bindings: 1,
+            nativeBand: 1,
             archivedQueries: 4,
-            ownerQualityApproved: true,
+            acceptedBy: 'Codex',
             humanReviewed: false,
         });
     });
 
     it('keeps every exact prompt and binding on reachable learner surfaces', () => {
-        const lessonScreen = readFileSync(resolve(root, 'src/academy/ui/lesson-screen.ts'), 'utf8');
         const worldScreen = readFileSync(resolve(root, 'src/academy/ui/world-screen.ts'), 'utf8');
         const worldLocations = readFileSync(resolve(root, 'src/academy/domain/world-locations.ts'), 'utf8');
-        const [instruction, ...speakingLines] = loadCatalog().entries;
-        expect(lessonScreen).toContain(`'${instruction.bindings[0].lineId}'`);
-        expect(lessonScreen).toContain('request.signal');
+        const speakingLines = loadCatalog().entries;
         expect(worldScreen).toContain('`world-practice:${practice.id}`');
         expect(Object.keys(LEARNING_VOICE_BINDING_IDENTITIES)).toEqual([
             'lesson-screen:textbook-pair-prompt',
@@ -661,6 +685,9 @@ describe('Academy static learning voices', () => {
             'world-practice:cafe-coffee-counter',
             'world-practice:lab-classroom-repair',
             'world-practice:lab-classroom-repeat',
+        ]);
+        expect(speakingLines.map(line => line.lineId)).toEqual([
+            'miller-cafe-price',
         ]);
         for (const line of speakingLines) expect(worldLocations).toContain(`audioLine: '${line.japanese}'`);
         for (const binding of speakingLines.flatMap(line => line.bindings)) {

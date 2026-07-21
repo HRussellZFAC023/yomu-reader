@@ -188,6 +188,55 @@ describe('World Cafe route', () => {
         expect(focus).toHaveBeenCalledTimes(focusCallsAtDispose);
     });
 
+    it('keeps an accessible replay control reachable after a wrong Cafe answer', async () => {
+        let resolveListen!: (played: boolean) => void;
+        const onListen = vi.fn(() => new Promise<boolean>(resolve => { resolveListen = resolve; }));
+        const screen = renderWorldPlaceScreen({
+            language: 'en',
+            place: 'cafe',
+            route: 'cafe',
+            progress: {
+                completedScenes: [],
+                completedEncounterIds: [],
+                metCharacterIds: ['aakash', 'felix'],
+                seenIntroductions: ['place:cafe'],
+            },
+            onTravel: vi.fn(),
+            onActivity: vi.fn(),
+            onClaimStamp: vi.fn(),
+            onListen,
+        });
+        document.body.append(screen);
+        const order = screen.querySelector<HTMLElement>('[data-world-practice="cafe-coffee-price"]')!;
+        const replay = order.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')!;
+
+        expect(replay.tagName).toBe('BUTTON');
+        expect(replay.type).toBe('button');
+        expect(replay.getAttribute('aria-label')).toBe('Hear the order');
+        replay.click();
+        expect(replay.disabled).toBe(true);
+        expect(replay.getAttribute('aria-busy')).toBe('true');
+        resolveListen(true);
+        await vi.waitFor(() => expect(replay.disabled).toBe(false));
+        expect(replay.textContent).toBe('Replay order');
+        expect(replay.getAttribute('aria-label')).toBe('Replay the order');
+        expect(replay.hasAttribute('aria-busy')).toBe(false);
+
+        const wrong = [...order.querySelectorAll<HTMLButtonElement>('.academy-cafe-order-option')]
+            .find(button => !button.textContent?.includes('三百円'))!;
+        wrong.click();
+        expect(order.dataset.cafeOrderState).toBe('retry');
+        expect(order.querySelector('[role="status"]')?.textContent).toContain('Listen again');
+        expect(document.activeElement).toBe(replay);
+        expect(replay.disabled).toBe(false);
+
+        replay.click();
+        expect(onListen).toHaveBeenCalledTimes(2);
+        resolveListen(false);
+        await vi.waitFor(() => expect(replay.disabled).toBe(false));
+        expect(replay.hasAttribute('aria-busy')).toBe(false);
+    });
+
     it('records a completed station announcement as an idempotent local stamp', async () => {
         let current: HTMLElement | undefined;
         const shell = {

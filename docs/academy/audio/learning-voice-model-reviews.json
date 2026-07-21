@@ -1,12 +1,13 @@
 {
-  "schema": "yomu-academy.learning-voice-model-reviews.v1",
+  "schema": "yomu-academy.learning-voice-model-reviews.v2",
   "reviewedOn": "2026-07-20",
   "audioModelReviewed": true,
   "humanReviewed": false,
   "policy": {
     "independentModelFamiliesRequired": 2,
-    "maximumCharacterErrorRate": 0.15,
-    "basis": "Each reviewer must process the actual waveform and independently recover the intended Japanese. Signal, codec, clipping, loudness, and silence are assessed by the separate objective QA gate.",
+    "blanketCharacterErrorRateAllowed": false,
+    "criticalMorphemeNumeralParticleMismatch": "hard-fail",
+    "basis": "Each reviewer must process the actual waveform and recover the line-specific critical phrase gates. Aggregate character error rate cannot override a critical mismatch. Signal, codec, clipping, loudness, and silence are assessed separately.",
     "limitation": "Automated speech recognition does not constitute a human naturalness or accent audition."
   },
   "excludedCapabilityChecks": [
@@ -54,7 +55,11 @@
           "heardTranscript": "では、教科書のコページを開いて、二人で話してください。",
           "normalizedTranscript": "では教科書のコページを開いて二人で話してください",
           "characterErrorRate": 0.0417,
-          "verdict": "pass"
+          "criticalPhraseGates": [
+            "五ページ"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
         },
         {
           "lineId": "miller-cafe-price",
@@ -64,6 +69,10 @@
           "heardTranscript": "コーヒーは300円です",
           "normalizedTranscript": "コーヒーは300円です",
           "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "三百円"
+          ],
+          "criticalPhraseGatePassed": true,
           "verdict": "pass"
         },
         {
@@ -74,7 +83,12 @@
           "heardTranscript": "コーヒーを一つ お狙いします",
           "normalizedTranscript": "コーヒーを一つお狙いします",
           "characterErrorRate": 0.0769,
-          "verdict": "pass"
+          "criticalPhraseGates": [
+            "一つ",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
         },
         {
           "lineId": "rie-lesson-zero-repeat",
@@ -84,11 +98,19 @@
           "heardTranscript": "もう一度お願いします",
           "normalizedTranscript": "もう一度お願いします",
           "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "もう一度",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": true,
           "verdict": "pass"
         }
       ],
-      "overallVerdict": "pass",
-      "blockingDefects": []
+      "overallVerdict": "mixed",
+      "blockingDefects": [
+        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
+        "mary-cafe-order: critical polite morpheme お願い was not recovered"
+      ]
     },
     {
       "reviewer": {
@@ -122,7 +144,11 @@
           "heardTranscript": "円 は 教科書 の 後 ページ を 開い て 二人 で 話し て ください",
           "normalizedTranscript": "円は教科書の後ページを開いて二人で話してください",
           "characterErrorRate": 0.0833,
-          "verdict": "pass"
+          "criticalPhraseGates": [
+            "五ページ"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
         },
         {
           "lineId": "miller-cafe-price",
@@ -132,6 +158,10 @@
           "heardTranscript": "コーヒー は 三百 円 です",
           "normalizedTranscript": "コーヒーは300円です",
           "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "三百円"
+          ],
+          "criticalPhraseGatePassed": true,
           "verdict": "pass"
         },
         {
@@ -142,6 +172,11 @@
           "heardTranscript": "コーヒー を 一 つ お 願い し ます",
           "normalizedTranscript": "コーヒーを一つお願いします",
           "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "一つ",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": true,
           "verdict": "pass"
         },
         {
@@ -152,12 +187,44 @@
           "heardTranscript": "もう 一 度 は 願い し ます",
           "normalizedTranscript": "もう一度は願いします",
           "characterErrorRate": 0.1,
-          "verdict": "pass"
+          "criticalPhraseGates": [
+            "もう一度",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
         }
       ],
-      "overallVerdict": "pass",
-      "blockingDefects": []
+      "overallVerdict": "mixed",
+      "blockingDefects": [
+        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
+        "rie-lesson-zero-repeat: particle insertion and polite morpheme mismatch in a short pedagogical phrase"
+      ]
     }
   ],
-  "overallVerdict": "pass"
+  "lineDispositions": [
+    {
+      "lineId": "lesson-textbook-pair-prompt",
+      "verdict": "rejected",
+      "reason": "critical numeral mismatch in both independent waveform reviews"
+    },
+    {
+      "lineId": "miller-cafe-price",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "mary-cafe-order",
+      "verdict": "rejected",
+      "reason": "critical polite morpheme mismatch in one independent waveform review"
+    },
+    {
+      "lineId": "rie-lesson-zero-repeat",
+      "verdict": "rejected",
+      "reason": "critical particle and polite morpheme mismatch in one independent waveform review"
+    }
+  ],
+  "overallVerdict": "mixed-one-accepted-three-rejected"
 }

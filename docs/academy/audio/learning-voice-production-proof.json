@@ -1,0 +1,23 @@
+{
+  "schema": "yomu-academy.learning-voice-production-proof.v1",
+  "batchId": "academy-learning-native-20260720-01",
+  "deploymentStatus": "pending",
+  "verdict": "pending",
+  "base020Status": "open",
+  "deploymentBaseUrl": null,
+  "productionContractSha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+  "catalogSha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02",
+  "requiredCapabilities": [
+    "response-content-sha256",
+    "audio-decode",
+    "natural-playback-completion",
+    "request-cancellation",
+    "service-worker-controlled",
+    "cache-offline-replay",
+    "chromium-desktop",
+    "webkit-mobile",
+    "axe-accessibility"
+  ],
+  "capabilityStatus": "pending-live-release",
+  "promotionPolicy": "A dry check never claims deployment. A later integration lane must release, run the live proof against the non-loopback HTTPS origin, inspect observed output, and intentionally update this record."
+}

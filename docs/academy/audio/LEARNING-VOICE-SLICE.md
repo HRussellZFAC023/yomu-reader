@@ -1,59 +1,35 @@
-# Academy learning voice slice
+# Academy learning voice repair
 
-BASE-020 and AUD-008 close one native-band production slice, not the Academy voice corpus: four Yomu-authored Japanese voice units, five stable runtime bindings, and four 64 kbps mono Opus assets. The reachable surfaces are the Lesson 0 sound fork, two Cafe practices, and two Language Lab practices. No textbook or other third-party source audio is copied.
+This recovered pilot reviews four Yomu-authored Japanese candidates. It accepts one voice unit with one reachable binding and rejects three takes. It does not close BASE-020 or AUD-008, and it makes no deployment claim.
 
-## Production contract
+## Disposition
 
-`learning-voice-production.json` is the reusable per-slice contract. It pins each immutable `voiceLineId` to speaker, intent, `ja-JP` locale, native band, source revision, runtime bindings, exact Aivis model payload, style, ACML-1.0 evidence, all seven query controls, optional mora-level pitch/timing controls, the Aivis query hash, and the Python-canonical deterministic cache key. Required and excluded triage closes only this four-line denominator.
+- `miller-cafe-price` is accepted by Codex with `humanReviewed: false`. Whisper and Vosk independently recover the critical price `三百円` after numeric normalization.
+- `rie-lesson-zero-repeat` is rejected. Whisper recovers the full phrase, but Vosk recovers `もう一度は願いします`; the particle insertion and polite-morpheme mismatch are a hard failure for this short pedagogical phrase.
+- `lesson-textbook-pair-prompt` is rejected. Independent waveform review recovered `コページ` and `後ページ` instead of the critical numeral `五ページ`.
+- `mary-cafe-order` is rejected. One independent waveform review recovered `お狙いします` instead of the critical polite morpheme `お願いします`.
 
-The exact mapping in this slice is:
+Rejected bytes are absent from `public/academy/audio/` and from the runtime catalog. Their query, model, review, and former output fingerprints remain in non-public evidence so the rejection is auditable. Runtime misses continue through the worker/browser fallback ladder.
 
-| Role | Model and style | Covered surface policy | Rendered here |
-| --- | --- | --- | ---: |
-| Academy narrator | `らせつん` / `標準` | UI, learning, lesson, minigame, and worksheet prompts | 1 |
-| Miller | `阿井田 茂` / `Calm` | textbook dialogue and World practice | 1 |
-| Mary | `まい` / `ノーマル` | textbook dialogue and World practice | 1 |
-| Rie-sensei | `morioki` / `ノーマル` | Academy character, lesson/minigame dialogue, and World practice | 1 |
+## Provenance
 
-The minigame and worksheet rows above are an exact narrator mapping policy, not a claim that their remaining corpus has been rendered.
+`learning-voice-production.json` is the candidate contract. It binds every line to source text and revision, runtime bindings, exact model distribution filename/byte length/SHA-256, model and style IDs, ACML-1.0, engine version-response hash, complete query controls, canonical query hash, and deterministic cache key.
 
-## Runtime contract
+`learning-voice-model-evidence.json` is generated from the exact installed `.aivmx` bytes and embedded manifests/licence. Hub URLs are discovery records only, never byte authority. `learning-voice-query-evidence.json` retains all four canonical query payloads and separates accepted assets from rejected fingerprints. A fresh staging render reports byte equality for accepted output or fails with drift; it never replaces accepted bytes.
 
-`src/academy/audio/learning-voice.ts` admits only owner-approved, objectively accepted entries. It resolves only an exact stable binding whose Japanese text and source hash still match the catalog, and reports `playing`, `miss`, or `superseded`; a superseded request never falls through to synthesis.
+`learning-voice-acceptance.json`, `learning-voice-local-expected.json`, and `learning-voice-locks.json` are immutable expected evidence. Their normal commands verify without writing. Intentional refresh requires the explicit `:write` command after source changes and a deterministic Academy build.
 
-`WorkerTtsPronunciationService` owns one abort signal across catalog loading, director unlock, static media startup, worker fetch/media, and browser speech. A superseding request or `academy:dispose` aborts pending work before it may start audio or mutate a disposed screen; late static or worker media errors continue through the same ladder only while that request remains current.
+## Proof Order
 
-The production catalog and assets live under `public/academy/audio/` and are allowlisted into `docs/public/academy/audio/` by `scripts/sync-academy.cjs`.
+From a clean checkout, install first, build once, then run read-only proof:
 
-## Recovery boundary
-
-A prior recovery audit supplied the four Opus takes, Aivis query hashes, cache keys, model/style selections, narrow runtime bindings, QA scripts, and production-manifest foundation reused here. No reproducible census artifact accompanied the earlier candidate/source totals, so this slice makes no claim about those totals. The runtime schema, request cancellation, owner-approval state, reusable contract, deterministic validator/staging renderer, lock format, and manifest accounting were rewritten or completed here.
-
-The existing four-line story pilot from baseline commit `1234743fbaab59fdb99c61bb4ecdcfbeddda6a10` remains in its own manifest tranche. It was not duplicated into this learning slice.
-
-## Acceptance evidence
-
-- `learning-voice-model-evidence.json` archives identity and complete ACML-1.0 text extracted from each exact installed `.aivmx` payload, with payload, manifest, and licence hashes. Model weights, icons, and samples are not copied.
-- `learning-voice-query-evidence.json` archives all four canonical Aivis query payloads plus the engine global-style to embedded model/local-style join. The default contract verifier recomputes query/cache hashes and validates text, options, models, mappings, catalog keys, and audio bytes without contacting Aivis.
-- `learning-voice-acceptance.json` records contract identity, codec, sample rate, channels, duration, LUFS, true peak, silence, mirrors, hashes, provenance, and objective acoustic transcription.
-- `learning-voice-browser-smoke.json` records five visible Listen interactions served from `docs/public/academy/`, with SHA-256 equality between a fresh production-mode candidate, `dist/academy/app.js`, and the hosted `docs/public/academy/app.js`; there is no `/src/` request or worker-TTS fallthrough.
-- `learning-voice-locks.json` binds production identities, exact cast mappings, render inputs, assets, and every current evidence file.
-- `learning-voice-model-reviews.json` remains archived because Whisper and Kaldi/Vosk reviews were genuinely completed for these four takes. It is historical evidence, not a future acceptance gate.
-
-The owner-approved AivisSpeech + Style-Bert-VITS2 JP-Extra output quality is binding. Evidence says `ownerQualityApproved: true`, `ownerLineByLineReviewed: false`, and `humanReviewed: false`; human auditory acceptance remains outstanding and no human line-by-line audition is implied.
-
-## Reproduce
-
-The installed Aivis models and Whisper model are local QA dependencies and are not committed:
-
-```bash
-npm run academy:learning-voice:contract
-WHISPER_MODEL=/path/to/ggml-base.bin npm run academy:learning-voice:qa
-npm run build:academy
-YOMU_SYNC_ACADEMY_FORCE=1 node scripts/sync-academy.cjs
-npm run academy:learning-voice:smoke
-npm run academy:learning-voice:lock
-npm run academy:learning-voice:manifest
+```text
+npm ci
+YOMU_SYNC_ACADEMY_FORCE=1 npm run build:academy
+npm run academy:learning-voice:verify-built
+npm run docs:build
 ```
 
-`npm run academy:learning-voice:contract` is read-only and network-free. `npm run academy:learning-voice:archive-queries` is the explicit loopback-engine command for replacing the archived query artifact. `npm run academy:learning-voice:render` is a separate live mode that writes new Aivis output to `qa-artifacts/academy-learning-voice/staging/`; neither live command replaces accepted production bytes. Full speakable-surface census, the remaining cast roster, corpus rendering, protected delivery, and parity remain tracked by AUD-001 through AUD-005.
+The local browser proof serves `docs/public/academy/`, compares response content hashes and built bundle bytes to committed expectations, exercises every accepted binding, and writes observed output only under `qa-artifacts/academy-learning-voice/`.
+
+`npm run academy:learning-voice:production-proof -- --dry-check` validates the pending production capability contract without network access or mutation. A later integration lane must deploy and then run live proof with `--base-url https://...`; that mode verifies response hashes, decode and natural playback completion, cancellation, service-worker control, cache/offline replay, Chromium desktop, mobile WebKit, and serious/critical axe findings. Until that release and live run happen, `learning-voice-production-proof.json` remains `pending` and BASE-020/AUD-008 remain unchecked.
