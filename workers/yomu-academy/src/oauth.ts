@@ -1,7 +1,7 @@
 import { fromBase64Url, hmacSha256Hex, randomToken, sha256Base64Url, timingSafeEqual } from './crypto';
 import type { Clock, Env } from './env';
 import { clearHostCookie, hostCookie, HttpError, readBoundedText } from './http';
-import { linkGoogleSubject } from './accounts';
+import { AccountLinkFailure, linkGoogleSubject } from './accounts';
 import { clientSubject, enforceRateLimit, OAUTH_RATE } from './rate-limit';
 import { activeSession } from './sessions';
 
@@ -38,6 +38,18 @@ interface GoogleJwk extends JsonWebKey {
     readonly alg?: string;
     readonly use?: string;
 }
+
+export type GoogleCallbackFailureCategory =
+    | 'account_entitlement_conflict'
+    | 'account_profile_conflict'
+    | 'account_recovery_not_found'
+    | 'account_session_conflict'
+    | 'account_transaction_failed'
+    | 'identity_rejected'
+    | 'internal_failure'
+    | 'oauth_request_rejected'
+    | 'provider_unavailable'
+    | 'rate_limited';
 
 let cachedJwks: { expiresAt: number; keys: GoogleJwk[] } | null = null;
 
@@ -141,7 +153,24 @@ export async function handleGoogleCallback(
     const claims = await verifyGoogleIdToken(idToken, env.GOOGLE_OIDC_CLIENT_ID, flow.nonce, now, fetcher);
     await linkGoogleSubject(env, session, claims.sub, now);
 
-    return redirect(`${env.ACADEMY_ORIGIN}/academy/?account=linked`, clearHostCookie(FLOW_COOKIE));
+    return redirect(`${academyOrigin(env)}/academy/?account=linked`, clearHostCookie(FLOW_COOKIE));
+}
+
+/** Scrub provider parameters even when callback verification or linking fails. */
+export function handleGoogleCallbackFailure(): Response {
+    return redirect('/academy/?account=failed', clearHostCookie(FLOW_COOKIE));
+}
+
+/** Project arbitrary callback failures to a fixed, non-sensitive log value. */
+export function googleCallbackFailureCategory(error: unknown): GoogleCallbackFailureCategory {
+    if (error instanceof AccountLinkFailure) return `account_${error.category}`;
+    if (error instanceof HttpError) {
+        if (error.status === 400) return 'oauth_request_rejected';
+        if (error.status === 401 || error.status === 403) return 'identity_rejected';
+        if (error.status === 429) return 'rate_limited';
+        if (error.status === 502 || error.status === 503) return 'provider_unavailable';
+    }
+    return 'internal_failure';
 }
 
 /** Verify Google's RS256 signature and the complete OIDC claim set we rely on. */
@@ -269,13 +298,30 @@ async function flowStateHash(env: Env, state: string): Promise<string> {
 }
 
 function callbackUrl(env: Env): string {
-    return `${env.ACADEMY_ORIGIN}/academy/api/auth/google/callback`;
+    return `${academyOrigin(env)}/academy/api/auth/google/callback`;
 }
 
 function assertGoogleConfig(env: Env): void {
+    academyOrigin(env);
     if (!env.GOOGLE_OIDC_CLIENT_ID?.endsWith('.apps.googleusercontent.com') || !env.GOOGLE_OIDC_CLIENT_SECRET) {
         throw new HttpError(503, 'Google account linking is not configured.');
     }
+}
+
+/** The configured origin is the complete redirect allowlist: one HTTPS origin, no path or credentials. */
+function academyOrigin(env: Env): string {
+    let configured: URL;
+    try {
+        configured = new URL(env.ACADEMY_ORIGIN);
+    } catch {
+        throw new HttpError(503, 'Academy account linking is not configured.');
+    }
+    if (configured.protocol !== 'https:' || configured.origin !== env.ACADEMY_ORIGIN
+        || configured.username || configured.password || configured.pathname !== '/'
+        || configured.search || configured.hash) {
+        throw new HttpError(503, 'Academy account linking is not configured.');
+    }
+    return configured.origin;
 }
 
 function redirect(location: string, cookie: string): Response {

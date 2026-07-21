@@ -9,6 +9,7 @@ import { inviteCodeHash, mintPaidInvite } from '../../workers/yomu-academy/src/i
 import { handleMedia, type MediaManifest } from '../../workers/yomu-academy/src/media';
 import { handleGoogleCallback, handleGoogleStart } from '../../workers/yomu-academy/src/oauth';
 import { handlePaymentClaim, handlePaymentIngress } from '../../workers/yomu-academy/src/payment-ingress';
+import { ensureSessionProfile } from '../../workers/yomu-academy/src/profiles';
 import { activeSession } from '../../workers/yomu-academy/src/sessions';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
@@ -410,7 +411,9 @@ describe('Academy Google account and paid entitlement policy', () => {
                 entitlement: 'academy', status: 'active',
             });
 
-            const exported = await dispatch(env, get(env, '/academy/api/account/export', recoveryCookie));
+            const exported = await dispatch(env, mutation(
+                env, '/academy/api/account/export', 'POST', {}, recoveryCookie,
+            ));
             expect(exported.status).toBe(200);
             expect(await exported.json()).toMatchObject({
                 paidEntitlement: { status: 'paid', amountPence: 1000, redeemedAt: expect.any(Number) },
@@ -515,6 +518,96 @@ describe('Academy Google account and paid entitlement policy', () => {
             expect(academy.db.rows<{ redeemed_by_account_id: string | null }>(
                 'SELECT redeemed_by_account_id FROM purchases WHERE id = ?', purchaseId,
             )[0]?.redeemed_by_account_id).toEqual(expect.any(String));
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('rolls back paidCodeWasBound when an independently encrypted profile causes a 409', async () => {
+        const academy = createSqliteAcademy();
+        const now = Date.now();
+        const subject = 'paid-profile-conflict-subject';
+        try {
+            await seedInvite(academy.env, 'OWNER2026', 'paid-profile-conflict-owner');
+            const owner = await createSession(academy.env, 'OWNER2026');
+            const ownerSession = await activeSession(get(academy.env, '/academy/api/session', owner.cookie), academy.env, now);
+            if (!ownerSession) throw new Error('owner session missing');
+            await linkGoogleSubject(academy.env, ownerSession, subject, now);
+
+            const purchaseId = crypto.randomUUID();
+            await academy.env.ACADEMY_DB.prepare(
+                'INSERT INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
+                + "VALUES (?1, 'profile-conflict-claim', 500, 'paid', ?2, ?2)",
+            ).bind(purchaseId, now).run();
+            const inviteId = await mintPaidInvite(academy.env, purchaseId, now);
+            await academy.env.ACADEMY_DB.prepare('UPDATE purchases SET invite_id = ?1 WHERE id = ?2')
+                .bind(inviteId, purchaseId).run();
+            const paidCode = await derivePaidInviteCode(academy.env.ACADEMY_INVITE_HMAC_KEY, purchaseId);
+            const paid = await createSession(academy.env, paidCode);
+            const paidSession = await activeSession(get(academy.env, '/academy/api/session', paid.cookie), academy.env, now + 1);
+            if (!paidSession) throw new Error('paid session missing');
+            const legacy = await ensureSessionProfile(academy.env, paidSession, now + 1);
+            await academy.env.ACADEMY_DB.prepare(
+                'INSERT INTO srs_events '
+                + '(profile_id, event_id, occurred_at, key_version, nonce, ciphertext, event_hash, received_at) '
+                + 'VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?3)',
+            ).bind(
+                legacy.profile.id,
+                '91919191-9191-4919-8919-919191919191',
+                now,
+                toBase64Url(new Uint8Array(12).fill(9)),
+                toBase64Url(new Uint8Array(32).fill(9)),
+                '9'.repeat(64),
+            ).run();
+
+            await expect(linkGoogleSubject(academy.env, paidSession, subject, now + 2))
+                .rejects.toMatchObject({ status: 409, category: 'profile_conflict' });
+            const paidCodeWasBound = academy.db.rows<{
+                redeemed_by_account_id: string | null;
+                redeemed_at: number | null;
+            }>('SELECT redeemed_by_account_id, redeemed_at FROM purchases WHERE id = ?', purchaseId)[0];
+            expect(paidCodeWasBound).toEqual({ redeemed_by_account_id: null, redeemed_at: null });
+            expect(academy.db.rows('SELECT id FROM accounts')).toHaveLength(1);
+            expect(academy.db.rows('SELECT id FROM profiles')).toHaveLength(2);
+            expect(academy.db.rows<{ account_id: string | null }>(
+                'SELECT account_id FROM sessions WHERE public_id = ?', paidSession.public_id,
+            )[0]?.account_id).toBeNull();
+        } finally {
+            academy.close();
+        }
+    });
+
+    it.each([5, 8, 11])('rolls back every account write when D1 fails after statement %s', async failurePoint => {
+        const academy = createSqliteAcademy();
+        const now = Date.now();
+        try {
+            const purchaseId = crypto.randomUUID();
+            await academy.env.ACADEMY_DB.prepare(
+                'INSERT INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
+                + "VALUES (?1, 'injected-failure-claim', 500, 'paid', ?2, ?2)",
+            ).bind(purchaseId, now).run();
+            const inviteId = await mintPaidInvite(academy.env, purchaseId, now);
+            await academy.env.ACADEMY_DB.prepare('UPDATE purchases SET invite_id = ?1 WHERE id = ?2')
+                .bind(inviteId, purchaseId).run();
+            const paidCode = await derivePaidInviteCode(academy.env.ACADEMY_INVITE_HMAC_KEY, purchaseId);
+            const paid = await createSession(academy.env, paidCode);
+            const paidSession = await activeSession(get(academy.env, '/academy/api/session', paid.cookie), academy.env, now + 1);
+            if (!paidSession) throw new Error('paid session missing');
+
+            academy.db.failNextBatchAfter(failurePoint);
+            await expect(linkGoogleSubject(academy.env, paidSession, 'injected-failure-subject', now + 2))
+                .rejects.toMatchObject({ status: 503, category: 'transaction_failed' });
+
+            expect(academy.db.rows('SELECT id FROM accounts')).toHaveLength(0);
+            expect(academy.db.rows('SELECT id FROM profiles')).toHaveLength(0);
+            expect(academy.db.rows('SELECT id FROM profile_devices')).toHaveLength(0);
+            expect(academy.db.rows('SELECT class_id FROM class_memberships')).toHaveLength(0);
+            expect(academy.db.rows<{ account_id: string | null; profile_id: string | null; device_id: string | null }>(
+                'SELECT account_id, profile_id, device_id FROM sessions WHERE public_id = ?', paidSession.public_id,
+            )[0]).toEqual({ account_id: null, profile_id: null, device_id: null });
+            expect(academy.db.rows<{ redeemed_by_account_id: string | null; redeemed_at: number | null }>(
+                'SELECT redeemed_by_account_id, redeemed_at FROM purchases WHERE id = ?', purchaseId,
+            )[0]).toEqual({ redeemed_by_account_id: null, redeemed_at: null });
         } finally {
             academy.close();
         }

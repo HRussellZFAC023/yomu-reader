@@ -55,19 +55,6 @@ export async function assertSessionEntitlementCanLink(
     throw new HttpError(409, 'This paid code is already bound to another account.');
 }
 
-/** Bind a paid session's purchase to the verified account, idempotently. */
-export async function bindSessionEntitlement(
-    env: Env,
-    session: ActiveSession,
-    accountId: string,
-    now: number,
-): Promise<PaidEntitlementRow | null> {
-    const entitlement = await sessionEntitlement(env, session);
-    if (!entitlement) return null;
-    if (!isActiveEntitlement(entitlement, now)) throw new HttpError(409, 'Payment entitlement is not active.');
-    return bindPaidEntitlement(env, entitlement.id, accountId, now);
-}
-
 /**
  * One conditional UPDATE is the redemption point. The partial unique index in
  * migration 0004 is the race-safe backstop for one paid code per account.

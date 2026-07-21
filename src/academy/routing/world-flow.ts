@@ -703,7 +703,7 @@ class WorldFlow implements AcademyRouteFlow {
             onGoogleLink: () => sync.beginGoogleLink(),
             onStartPairing: () => sync.startPairing(),
             onClaimPairing: async code => { await sync.claimPairing(code); this.renderProfileSync(context); },
-            onExport: async () => downloadExport(await sync.exportData()),
+            onExport: async () => downloadExport(sync),
             onSignOut: async () => { await sync.signOut(); this.renderProfileSync(context); },
             onDelete: async scope => { await sync.deleteRemoteData(scope); this.renderProfileSync(context); },
             onClassBoard: sync.status.account?.classes.length
@@ -966,7 +966,29 @@ function classWeekPackageId(lessonId: string): string {
         : lessonId;
 }
 
-function downloadExport(blob: Blob): void {
+interface AcademyExportFileHandle {
+    createWritable(): Promise<WritableStream<Uint8Array>>;
+}
+
+interface AcademyExportWindow extends Window {
+    showSaveFilePicker?: (options: {
+        suggestedName: string;
+        types: Array<{ description: string; accept: Record<string, string[]> }>;
+    }) => Promise<AcademyExportFileHandle>;
+}
+
+async function downloadExport(sync: AcademySyncClient): Promise<void> {
+    const picker = (window as AcademyExportWindow).showSaveFilePicker;
+    if (picker) {
+        const handle = await picker.call(window, {
+            suggestedName: 'yomu-academy-export.json',
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        await sync.exportData(await handle.createWritable());
+        return;
+    }
+    const blob = await sync.exportData();
+    if (!blob) throw new Error('Academy export produced no download.');
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;

@@ -169,7 +169,8 @@ function appendSessionActions(actions: HTMLElement, screen: HTMLElement, options
             ));
         }
         if (account) actions.append(actionButton(localize(options.language, 'Sign out', 'サインアウト'), async () => options.onSignOut()));
-        actions.append(deleteButton(options, account ? 'account' : 'profile'));
+        if (profile) actions.append(deleteButton(options, 'profile'));
+        if (account) actions.append(deleteButton(options, 'account'));
     }
 }
 
@@ -278,11 +279,19 @@ function pairClaim(options: ProfileSyncScreenOptions): HTMLElement {
 }
 
 function deleteButton(options: ProfileSyncScreenOptions, scope: 'profile' | 'account'): HTMLButtonElement {
-    return actionButton(localize(options.language, scope === 'account' ? 'Delete account' : 'Delete sync data', scope === 'account' ? 'アカウントを削除' : '同期データを削除'), async button => {
+    return actionButton(localize(
+        options.language,
+        scope === 'account' ? 'Delete account' : 'Delete cloud learning data',
+        scope === 'account' ? 'アカウントを削除' : 'クラウド学習データを削除',
+    ), async button => {
         const confirmation = window.confirm(localize(
             options.language,
-            scope === 'account' ? 'Delete your account and encrypted sync data? This cannot be undone.' : 'Delete encrypted sync data? This cannot be undone.',
-            scope === 'account' ? 'アカウントと暗号化された同期記録を削除しますか。この操作は取り消せません。' : '暗号化された同期記録を削除しますか。この操作は取り消せません。',
+            scope === 'account'
+                ? 'Delete your Academy identity, encrypted profile, imported progress and snapshots, study days, and profile-bound sessions? A 90-day deletion receipt and minimal entitlement/payment audit records stay to prevent code reuse and support payment review. This cannot be undone.'
+                : 'Delete the encrypted profile, imported progress and snapshots, study days, and profile-bound sessions? Your Academy identity stays. A 90-day deletion receipt also stays temporarily. This cannot be undone.',
+            scope === 'account'
+                ? 'Academy の本人情報、暗号化プロフィール、取り込んだ進捗とスナップショット、学習日、プロフィールに紐づくセッションを削除しますか。コードの再利用防止と支払い確認のため、削除証明は90日間、最小限の利用権・支払い監査記録は保持されます。この操作は取り消せません。'
+                : '暗号化プロフィール、取り込んだ進捗とスナップショット、学習日、プロフィールに紐づくセッションを削除しますか。Academy の本人情報は残り、削除証明は90日間だけ保持されます。この操作は取り消せません。',
         ));
         if (!confirmation) return;
         button.disabled = true;

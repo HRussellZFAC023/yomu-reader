@@ -6,6 +6,14 @@ export interface Env {
     readonly ACADEMY_MEDIA: R2Bucket;
     /** Public origin the Academy app is served from, e.g. "https://yomureader.com". */
     readonly ACADEMY_ORIGIN: string;
+    /** Deployment boundary used by server-side production-proof grants. */
+    readonly ACADEMY_ENVIRONMENT: 'production' | 'staging' | 'development';
+    /** Cloudflare's immutable metadata for the executing Worker version. */
+    readonly CF_VERSION_METADATA?: {
+        readonly id: string;
+        readonly tag?: string;
+        readonly timestamp?: string;
+    };
     /** Secret: HMAC key for invite codes, session tokens, and claim tokens. */
     readonly ACADEMY_INVITE_HMAC_KEY: string;
     /** Secret: HMAC key for rate-limit client subjects (never store raw IPs). */

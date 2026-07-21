@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Yomu Academy account/profile deletion now returns a privacy-minimized 90-day receipt while retaining declared minimal payment/redemption audit records, and a credential-gated live proof can bind real Google recovery, two-device pairing, deployed-client export, deletion, hosted app bytes, Worker version, migrations, and reviewed git commit without forging provider callbacks.
+
+### Fixed
+
+- Academy Google linking now rolls back paid-code redemption and every account/profile write on conflicts or later failures and logs only a fixed failure category. Signed session-bound export traversals terminate beyond 24,000 records without shared-NAT budget coupling, and account holders can delete encrypted profile data without deleting their identity.
+- Academy lifecycle proof deletion now requires an expiring, single-use server grant bound to the authenticated production test account and run nonce. The supervised proof compares the active immutable Worker version and script digest with a locally reproduced reviewed bundle, exports large encrypted histories through a bounded stream, protects export creation as a same-origin POST, and prunes 90-day receipts on an observable scheduled retry path.
+
 ## [1.6.272] - 2026-07-21
 
 ### Changed

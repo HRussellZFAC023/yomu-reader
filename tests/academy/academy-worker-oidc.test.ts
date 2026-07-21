@@ -3,23 +3,39 @@ import { toBase64Url, sha256Base64Url } from '../../workers/yomu-academy/src/cry
 import { handleGoogleCallback, handleGoogleStart } from '../../workers/yomu-academy/src/oauth';
 import { inviteCodeHash } from '../../workers/yomu-academy/src/invites';
 import { handleCreateSession } from '../../workers/yomu-academy/src/sessions';
-import { createFakeAcademy, jsonRequest } from './helpers/fake-academy-env';
+import { createSqliteAcademy } from './helpers/sqlite-academy-env';
+import worker from '../../workers/yomu-academy/src/index';
 
 const now = Date.UTC(2026, 6, 12, 12);
 
 async function sessionFixture() {
-    const academy = createFakeAcademy();
-    academy.db.classes.push({ id: 'ucl-2026', name: 'UCL Japanese 2026', created_at: now, archived_at: null });
-    academy.db.invites.push({
-        id: 'invite-ucl', code_hash: await inviteCodeHash(academy.env, 'OPEN2026'), uses_remaining: 10,
-        kind: 'seed', created_at: now - 1, expires_at: null, revoked_at: null, purchase_id: null,
-        account_required: 0, class_id: 'ucl-2026',
-    });
+    const academy = createSqliteAcademy();
+    await academy.env.ACADEMY_DB.prepare(
+        'INSERT INTO classes (id, name, created_at) VALUES (?1, ?2, ?3)',
+    ).bind('ucl-2026', 'UCL Japanese 2026', now).run();
+    await academy.env.ACADEMY_DB.prepare(
+        'INSERT INTO invites '
+        + '(id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required, class_id) '
+        + "VALUES ('invite-ucl', ?1, 10, 'seed', ?2, NULL, NULL, 1, 'ucl-2026')",
+    ).bind(await inviteCodeHash(academy.env, 'OPEN2026'), now - 1).run();
     const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, () => now);
     return { academy, sessionCookie: (response.headers.get('set-cookie') ?? '').split(';')[0] };
 }
 
-async function signedIdToken(nonce: string) {
+function jsonRequest(path: string, body: unknown): Request {
+    return new Request(`https://yomureader.com${path}`, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            origin: 'https://yomureader.com',
+            'sec-fetch-site': 'same-origin',
+            'cf-connecting-ip': '198.51.100.24',
+        },
+        body: JSON.stringify(body),
+    });
+}
+
+async function signedIdToken(nonce: string, clientId: string) {
     const pair = await crypto.subtle.generateKey(
         { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
         true,
@@ -30,7 +46,7 @@ async function signedIdToken(nonce: string) {
     const encode = (value: unknown) => toBase64Url(new TextEncoder().encode(JSON.stringify(value)));
     const head = encode({ alg: 'RS256', kid: 'oidc-test-key' });
     const body = encode({
-        iss: 'https://accounts.google.com', aud: 'test.apps.googleusercontent.com',
+        iss: 'https://accounts.google.com', aud: clientId,
         exp: Math.floor(now / 1000) + 3600, iat: Math.floor(now / 1000), nonce,
         sub: 'google-sub-private', email: 'never-store@example.invalid', name: 'Never Store',
     });
@@ -58,7 +74,7 @@ describe('Academy Google OIDC flow', () => {
         expect(start.headers.get('set-cookie')).toContain('HttpOnly');
 
         const nonce = auth.searchParams.get('nonce') ?? '';
-        const signed = await signedIdToken(nonce);
+        const signed = await signedIdToken(nonce, academy.env.GOOGLE_OIDC_CLIENT_ID);
         let verifierSeen = '';
         const fetcher = async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = String(input);
@@ -81,10 +97,11 @@ describe('Academy Google OIDC flow', () => {
         expect(callback.status).toBe(302);
         expect(callback.headers.get('location')).toBe('https://yomureader.com/academy/?account=linked');
         expect(await sha256Base64Url(verifierSeen)).toBe(auth.searchParams.get('code_challenge'));
-        expect(academy.db.accounts).toHaveLength(1);
-        expect(academy.db.accounts[0].google_sub_hash).not.toContain('google-sub-private');
-        expect(JSON.stringify(academy.db.accounts[0])).not.toContain('never-store@example.invalid');
-        expect(JSON.stringify(academy.db.accounts[0])).not.toContain('Never Store');
+        const accounts = academy.db.rows<Record<string, unknown>>('SELECT * FROM accounts');
+        expect(accounts).toHaveLength(1);
+        expect(accounts[0]?.google_sub_hash).not.toContain('google-sub-private');
+        expect(JSON.stringify(accounts[0])).not.toContain('never-store@example.invalid');
+        expect(JSON.stringify(accounts[0])).not.toContain('Never Store');
 
         await expect(handleGoogleCallback(callbackRequest, academy.env, () => now + 2, fetcher)).rejects.toMatchObject({ status: 400 });
     });
@@ -111,5 +128,42 @@ describe('Academy Google OIDC flow', () => {
             headers: { cookie: `${sessionCookie}; ${flowCookie}` },
         });
         await expect(handleGoogleCallback(callback, academy.env, () => now + 1, async () => new Response())).rejects.toMatchObject({ status: 400 });
+    });
+
+    it('scrubs provider parameters from failed callbacks at the deployed Worker boundary', async () => {
+        const { academy, sessionCookie } = await sessionFixture();
+        const start = await handleGoogleStart(new Request('https://yomureader.com/academy/api/auth/google/start', {
+            headers: { cookie: sessionCookie, 'sec-fetch-site': 'same-origin' },
+        }), academy.env, () => now);
+        const flowCookie = (start.headers.get('set-cookie') ?? '').split(';')[0];
+        const failedUrl = new URL('https://yomureader.com/academy/api/auth/google/callback');
+        failedUrl.searchParams.set('code', 'authorization-code-must-disappear');
+        failedUrl.searchParams.set('state', 'substituted-state-must-disappear');
+        failedUrl.searchParams.set('iss', 'https://accounts.google.com');
+
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const response = await worker.fetch(new Request(failedUrl, {
+            headers: { cookie: `${sessionCookie}; ${flowCookie}`, 'cf-connecting-ip': '198.51.100.24' },
+        }), academy.env, { waitUntil: () => undefined });
+        expect(response.status).toBe(302);
+        expect(response.headers.get('location')).toBe('/academy/?account=failed');
+        expect(response.headers.get('location')).not.toMatch(/authorization-code|substituted-state/u);
+        expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+        expect(response.headers.get('set-cookie')).toContain('__Host-academy_oidc=;');
+        expect(await response.text()).toBe('');
+        expect(warning).toHaveBeenCalledWith('academy_google_callback_failed:identity_rejected');
+        expect(JSON.stringify(warning.mock.calls)).not.toMatch(/authorization-code|substituted-state|google-sub|never-store/iu);
+        warning.mockRestore();
+    });
+
+    it('rejects configured redirect origins containing paths or non-HTTPS schemes', async () => {
+        const { academy, sessionCookie } = await sessionFixture();
+        const request = new Request('https://yomureader.com/academy/api/auth/google/start', {
+            headers: { cookie: sessionCookie, 'sec-fetch-site': 'same-origin' },
+        });
+        await expect(handleGoogleStart(request, { ...academy.env, ACADEMY_ORIGIN: 'https://yomureader.com/elsewhere' }, () => now))
+            .rejects.toMatchObject({ status: 503 });
+        await expect(handleGoogleStart(request, { ...academy.env, ACADEMY_ORIGIN: 'http://yomureader.com' }, () => now))
+            .rejects.toMatchObject({ status: 503 });
     });
 });

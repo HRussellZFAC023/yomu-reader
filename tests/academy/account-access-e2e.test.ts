@@ -77,6 +77,157 @@ describe('Academy access client and Worker integration', () => {
         }
     });
 
+    it('proves two-device pairing, complete export, corrupt-key recovery, isolation, revocation, and deletion in D1', async () => {
+        const academy = createSqliteAcademy();
+        const subject = 'lifecycle-owner-subject';
+        try {
+            await seedClassInvite(academy.env);
+            const sourceBrowser = new AcademyAccessBrowser(worker, academy.env);
+            const sourceGateway = new HttpAccessGateway('/academy/api/session', sourceBrowser.request);
+            await sourceGateway.exchange('OPEN2026');
+            const sourceEvents = createMemoryLearnerEventRepository(
+                Array.from({ length: 205 }, (_, index) => lifecycleProgress(index + 1)),
+            );
+            const sourceStorage = memoryStorage();
+            const source = syncClient(sourceBrowser, sourceEvents, sourceStorage);
+            expect((await source.connect()).phase).toBe('sign-in');
+            source.beginGoogleLink();
+            expect((await followGoogleCallback(sourceBrowser, subject, provider)).status).toBe(302);
+            await source.completeGoogleReturn();
+            expect((await source.initializeAccountProfile()).phase).toBe('ready');
+
+            const sourceProfileId = source.status.profile?.profileId;
+            const sourceAccountId = source.status.account?.accountId;
+            if (!sourceProfileId || !sourceAccountId) throw new Error('Source account profile was not persisted.');
+            expect(sourceProfileId).toMatch(/^[0-9a-f-]{36}$/u);
+            expect(sourceAccountId).toMatch(/^[0-9a-f-]{36}$/u);
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM srs_events')[0]?.count).toBe(205);
+
+            const targetBrowser = new AcademyAccessBrowser(worker, academy.env);
+            const targetGateway = new HttpAccessGateway('/academy/api/session', targetBrowser.request);
+            await targetGateway.exchange('OPEN2026');
+            const targetEvents = createMemoryLearnerEventRepository();
+            const targetStorage = memoryStorage();
+            const target = syncClient(targetBrowser, targetEvents, targetStorage);
+            await target.connect();
+            target.beginGoogleLink();
+            expect((await followGoogleCallback(targetBrowser, subject, provider)).status).toBe(302);
+            await target.completeGoogleReturn();
+            expect(target.status.phase).toBe('pair');
+
+            const ticket = await source.startPairing();
+            expect((await target.claimPairing(ticket.code)).phase).toBe('ready');
+            expect(target.status.profile?.profileId).toBe(sourceProfileId);
+            expect((await targetEvents.readAll()).map(event => event.eventId)).toEqual(
+                (await sourceEvents.readAll()).map(event => event.eventId),
+            );
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM profiles')[0]?.count).toBe(1);
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM profile_devices')[0]?.count).toBe(2);
+
+            const targetOnly = lifecycleProgress(206);
+            await targetEvents.append([targetOnly]);
+            target.queueLocalEvents([targetOnly]);
+            expect((await target.retry()).phase).toBe('ready');
+            expect((await source.retry()).phase).toBe('ready');
+            expect((await sourceEvents.readAll()).map(event => event.eventId)).toContain(targetOnly.eventId);
+
+            const completeExportBlob = await source.exportData();
+            if (!completeExportBlob) throw new Error('Account export did not produce the fallback Blob.');
+            const completeExport = JSON.parse(await completeExportBlob.text()) as {
+                account: { accountId: string };
+                profile: { profileId: string };
+                eventPage: { events: unknown[]; hasMore: boolean };
+            };
+            expect(completeExport.account.accountId).toBe(sourceAccountId);
+            expect(completeExport.profile.profileId).toBe(sourceProfileId);
+            expect(completeExport.eventPage).toMatchObject({ hasMore: false });
+            expect(completeExport.eventPage.events).toHaveLength(206);
+
+            await target.signOut();
+            expect(target.status.phase).toBe('signed-out');
+            expect((await targetBrowser.request('/academy/api/session')).status).toBe(401);
+            await target.beginRecovery();
+            expect((await followGoogleCallback(targetBrowser, subject, provider)).status).toBe(302);
+            expect(await target.completeGoogleReturn()).toBe(true);
+            expect(target.status.phase).toBe('ready');
+
+            // Model a malformed persisted key/profile record while the local
+            // canonical learner events remain intact. The client must refuse to
+            // guess a key, expose pairing/reset, and recover through profile deletion.
+            targetStorage.setItem(PROFILE_SYNC_STORAGE_KEY, '{"profile":"corrupt"}');
+            const corrupted = syncClient(targetBrowser, targetEvents, targetStorage);
+            expect((await corrupted.connect()).phase).toBe('pair');
+            await corrupted.deleteRemoteData('profile');
+            const profileReceipt = academy.db.rows<{
+                scope: string;
+                profile_count: number;
+                device_count: number;
+                synced_record_count: number;
+            }>('SELECT scope, profile_count, device_count, synced_record_count FROM deletion_receipts')[0];
+            expect(profileReceipt).toEqual({ scope: 'profile', profile_count: 1, device_count: 3, synced_record_count: 206 });
+
+            await corrupted.beginRecovery();
+            expect((await followGoogleCallback(targetBrowser, subject, provider)).status).toBe(302);
+            await corrupted.completeGoogleReturn();
+            expect(corrupted.status.phase).toBe('pair');
+            expect((await corrupted.initializeAccountProfile()).phase).toBe('ready');
+            expect(corrupted.status.profile?.profileId).not.toBe(sourceProfileId);
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM srs_events')[0]?.count).toBe(206);
+
+            const isolatedBrowser = new AcademyAccessBrowser(worker, academy.env);
+            const isolatedGateway = new HttpAccessGateway('/academy/api/session', isolatedBrowser.request);
+            await isolatedGateway.exchange('OPEN2026');
+            const isolated = syncClient(isolatedBrowser, createMemoryLearnerEventRepository(), memoryStorage());
+            await isolated.connect();
+            isolated.beginGoogleLink();
+            expect((await followGoogleCallback(isolatedBrowser, 'different-lifecycle-subject', provider)).status).toBe(302);
+            await isolated.completeGoogleReturn();
+            expect((await isolated.initializeAccountProfile()).phase).toBe('ready');
+            const isolatedExportBlob = await isolated.exportData();
+            if (!isolatedExportBlob) throw new Error('Isolated export did not produce the fallback Blob.');
+            expect(JSON.parse(await isolatedExportBlob.text()).eventPage.events).toHaveLength(0);
+            const crossAccountTicket = await corrupted.startPairing();
+            await expect(isolated.claimPairing(crossAccountTicket.code)).rejects.toMatchObject({ status: 409 });
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM profiles')[0]?.count).toBe(2);
+
+            const finalExportBlob = await corrupted.exportData();
+            if (!finalExportBlob) throw new Error('Recovered export did not produce the fallback Blob.');
+            const finalExport = JSON.parse(await finalExportBlob.text()) as {
+                eventPage: { events: unknown[] };
+            };
+            expect(finalExport.eventPage.events).toHaveLength(206);
+            const recoveredProfileId = corrupted.status.profile?.profileId;
+            if (!recoveredProfileId) throw new Error('Recovered profile was not persisted.');
+            await corrupted.deleteRemoteData('account');
+            expect((await targetBrowser.request('/academy/api/session')).status).toBe(401);
+            expect(academy.db.rows('SELECT id FROM accounts WHERE public_id = ?', sourceAccountId)).toHaveLength(0);
+            expect(academy.db.rows('SELECT id FROM profiles WHERE public_id = ?', recoveredProfileId)).toHaveLength(0);
+            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM srs_events')[0]?.count).toBe(0);
+            expect(academy.db.rows<{
+                profile_count: number;
+                device_count: number;
+                synced_record_count: number;
+            }>(
+                "SELECT profile_count, device_count, synced_record_count FROM deletion_receipts WHERE scope = 'account'",
+            )[0]).toEqual({ profile_count: 1, device_count: 1, synced_record_count: 206 });
+
+            const retainedReceipts = JSON.stringify(academy.db.rows('SELECT * FROM deletion_receipts'));
+            expect(retainedReceipts).not.toContain(subject);
+            expect(retainedReceipts).not.toContain(sourceAccountId);
+            expect(retainedReceipts).not.toContain(sourceProfileId);
+
+            const afterDeleteBrowser = new AcademyAccessBrowser(worker, academy.env);
+            const afterDelete = syncClient(afterDeleteBrowser, createMemoryLearnerEventRepository(), memoryStorage());
+            await afterDelete.beginRecovery();
+            expect((await followGoogleCallback(afterDeleteBrowser, subject, provider)).status).toBe(302);
+            await afterDelete.completeGoogleReturn();
+            expect(afterDelete.status.phase).toBe('sign-in');
+            expect(academy.db.rows('SELECT id FROM accounts WHERE public_id = ?', sourceAccountId)).toHaveLength(0);
+        } finally {
+            academy.close();
+        }
+    }, 20_000);
+
     it('gates paid codes on Google, limits an account to one redemption, and recovers its retained progress', async () => {
         const academy = createSqliteAcademy();
         try {
@@ -219,7 +370,12 @@ describe('Academy access client and Worker integration', () => {
             const intruder = syncClient(intruderBrowser, createMemoryLearnerEventRepository(), memoryStorage());
             await intruder.beginRecovery();
             const refused = await followGoogleCallback(intruderBrowser, 'intruder-subject', provider);
-            expect(refused.status).toBe(403);
+            expect(refused.status).toBe(302);
+            expect(new URL(intruderBrowser.location).searchParams.get('account')).toBe('failed');
+            expect(await intruder.completeGoogleReturn()).toBe(true);
+            expect(intruder.status).toMatchObject({ phase: 'sign-in' });
+            expect(intruder.status.error).toContain('No account data was changed');
+            expect(intruderBrowser.location).not.toContain('account=');
             expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM accounts')[0]?.count).toBe(1);
 
             // With its own legitimate class session and account, the intruder
@@ -290,6 +446,18 @@ function localProgress(): LearnerEvent {
         at: LOCAL_PROGRESS_AT,
         kind: 'profile-changed',
         profile: { displayName: 'Retained local learner', learningReason: 'private', portraitId: 'map' },
+    };
+}
+
+function lifecycleProgress(index: number): LearnerEvent {
+    const prefix = index.toString(16).padStart(8, '0');
+    const suffix = index.toString(16).padStart(12, '0');
+    return {
+        schemaVersion: 1,
+        eventId: `${prefix}-1111-4111-8111-${suffix}`,
+        at: LOCAL_PROGRESS_AT + index,
+        kind: 'profile-changed',
+        profile: { displayName: `Lifecycle ${index}`, learningReason: 'private', portraitId: 'map' },
     };
 }
 

@@ -80,7 +80,12 @@ describe('Academy canonical payment ingress', () => {
                 'https://academy.test/academy/api/health',
             ), env, ctx);
             expect(health.status).toBe(200);
-            expect(await health.json()).toEqual({ ok: true });
+            expect(await health.json()).toEqual({
+                ok: true,
+                apiBase: 'https://yomureader.com/academy/api',
+                artifactProof: 'cloudflare-version-modules-v1',
+                workerVersionId: null,
+            });
         } finally { academy.close(); }
     });
 

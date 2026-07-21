@@ -904,6 +904,7 @@ export function createFakeAcademy(overrides: Partial<Env> = {}): FakeAcademy {
         GOOGLE_OIDC_CLIENT_ID: 'test.apps.googleusercontent.com',
         GOOGLE_OIDC_CLIENT_SECRET: 'test-google-client-secret',
         ...overrides,
+        ACADEMY_ENVIRONMENT: overrides.ACADEMY_ENVIRONMENT ?? 'production',
     };
     return { env, db, bucket };
 }

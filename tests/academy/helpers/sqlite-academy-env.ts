@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import type { DatabaseSync as NodeDatabaseSync, SQLInputValue } from 'node:sqlite';
@@ -58,6 +58,8 @@ class SqliteStatement implements D1PreparedStatement {
 }
 
 class SqliteD1 implements D1Database {
+    private failNextBatchAfterStatements: number | null = null;
+
     constructor(readonly database: NodeDatabaseSync) {}
 
     prepare(query: string): D1PreparedStatement {
@@ -67,16 +69,29 @@ class SqliteD1 implements D1Database {
     async batch<T>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
         this.database.exec('BEGIN IMMEDIATE');
         try {
-            const results = statements.map(statement => {
+            const results = statements.map((statement, index) => {
                 if (!(statement instanceof SqliteStatement)) throw new TypeError('Unexpected D1 statement implementation.');
-                return statement.execute<T>();
+                const result = statement.execute<T>();
+                if (this.failNextBatchAfterStatements === index + 1) {
+                    throw new Error(`Injected D1 batch failure after statement ${index + 1}.`);
+                }
+                return result;
             });
             this.database.exec('COMMIT');
             return results;
         } catch (error) {
             this.database.exec('ROLLBACK');
             throw error;
+        } finally {
+            this.failNextBatchAfterStatements = null;
         }
+    }
+
+    failNextBatchAfter(statementCount: number): void {
+        if (!Number.isSafeInteger(statementCount) || statementCount < 1) {
+            throw new TypeError('Injected batch failure point must be a positive integer.');
+        }
+        this.failNextBatchAfterStatements = statementCount;
     }
 
     rows<T>(query: string, ...values: SQLInputValue[]): T[] {
@@ -106,26 +121,19 @@ export interface SqliteAcademy {
 
 export function createSqliteAcademy(): SqliteAcademy {
     const database = new DatabaseSync(':memory:');
-    const migrations = [
-        '0001_access.sql',
-        '0002_accounts.sql',
-        '0003_profile_sync.sql',
-        '0004_account_entitlements.sql',
-        '0005_profile_key_commitment.sql',
-        '0006_account_recovery_binding.sql',
-        '0007_invite_account_requirement.sql',
-        '0008_all_invites_require_account.sql',
-        '0010_payment_ingress.sql',
-        '0011_permanent_donation_access.sql',
-    ];
+    const migrationsRoot = resolve(process.cwd(), 'workers/yomu-academy/migrations');
+    const migrations = readdirSync(migrationsRoot)
+        .filter(file => /^\d{4}_[a-z0-9_]+\.sql$/u.test(file))
+        .sort();
     for (const migration of migrations) {
-        database.exec(readFileSync(resolve(process.cwd(), 'workers/yomu-academy/migrations', migration), 'utf8'));
+        database.exec(readFileSync(resolve(migrationsRoot, migration), 'utf8'));
     }
     const db = new SqliteD1(database);
     const env: Env = {
         ACADEMY_DB: db,
         ACADEMY_MEDIA: new EmptyR2(),
         ACADEMY_ORIGIN: 'https://yomureader.com',
+        ACADEMY_ENVIRONMENT: 'production',
         ACADEMY_INVITE_HMAC_KEY: 'sqlite-test-invite-hmac-key',
         ACADEMY_RATE_HMAC_KEY: 'sqlite-test-rate-hmac-key',
         ACADEMY_ADMIN_TOKEN: 'sqlite-test-admin-token',

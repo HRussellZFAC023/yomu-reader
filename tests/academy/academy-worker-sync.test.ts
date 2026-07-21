@@ -4,6 +4,7 @@ import { linkGoogleSubject } from '../../workers/yomu-academy/src/accounts';
 import { toBase64Url } from '../../workers/yomu-academy/src/crypto';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { ensureSessionProfile } from '../../workers/yomu-academy/src/profiles';
+import { pruneLifecycleRecords } from '../../workers/yomu-academy/src/lifecycle';
 import { activeSession } from '../../workers/yomu-academy/src/sessions';
 import { createSqliteAcademy, type SqliteAcademy } from './helpers/sqlite-academy-env';
 
@@ -230,7 +231,7 @@ describe('Academy profile pairing and event-log sync', () => {
         expect(JSON.stringify(academy.db.rows<Record<string, unknown>>('SELECT * FROM srs_events'))).not.toContain('plaintext-secret');
 
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [privateEvent] }, anonymousCookie));
-        const exported = await dispatch(academy.env, get('/academy/api/profile/export?limit=20', anonymousCookie));
+        const exported = await dispatch(academy.env, request('/academy/api/profile/export', 'POST', {}, anonymousCookie));
         expect(exported.status).toBe(200);
         const exportText = await exported.text();
         expect(exportText).toContain(privateEvent.ciphertext);
@@ -241,14 +242,23 @@ describe('Academy profile pairing and event-log sync', () => {
             '/academy/api/profile', 'DELETE', { confirmation: 'delete-profile' }, anonymousCookie,
         ));
         expect(deleted.status).toBe(200);
+        expect(await deleted.clone().json()).toMatchObject({
+            deleted: true,
+            scope: 'profile',
+            deletionReceipt: { profileCount: 1, deviceCount: 1, syncedRecordCount: 1 },
+        });
         expect(deleted.headers.get('set-cookie')).toContain('Max-Age=0');
         expect(academy.db.rows('SELECT * FROM profiles')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM srs_events')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM sessions')).toHaveLength(0);
+        const receipts = academy.db.rows<Record<string, unknown>>('SELECT * FROM deletion_receipts');
+        expect(receipts).toHaveLength(1);
+        expect(JSON.stringify(receipts)).not.toContain('export-delete-subject');
+        expect(JSON.stringify(receipts)).not.toContain(privateEvent.id);
         expect((await dispatch(academy.env, get('/academy/api/session', anonymousCookie))).status).toBe(401);
     });
 
-    it('exports and fully deletes an optional account, and resumes the anonymous device session in place', async () => {
+    it('exports and deletes optional account learning data, and resumes the device session in place', async () => {
         const [accountCookie] = await enrolled(academy);
         const sessionRequest = get('/academy/api/session', accountCookie);
         const session = await activeSession(sessionRequest, academy.env, Date.now());
@@ -258,7 +268,7 @@ describe('Academy profile pairing and event-log sync', () => {
         const accountEvent = event('44444444-4444-4444-8444-444444444444', 7);
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [accountEvent] }, accountCookie));
 
-        const accountExport = await dispatch(academy.env, get('/academy/api/account/export', accountCookie));
+        const accountExport = await dispatch(academy.env, request('/academy/api/account/export', 'POST', {}, accountCookie));
         expect(accountExport.status).toBe(200);
         expect(await accountExport.json()).toMatchObject({
             account: { displayName: 'Learner' },
@@ -284,12 +294,39 @@ describe('Academy profile pairing and event-log sync', () => {
             '/academy/api/account', 'DELETE', { confirmation: 'delete-account' }, resumedCookie,
         ));
         expect(deleted.status).toBe(200);
+        expect(await deleted.clone().json()).toMatchObject({
+            deleted: true,
+            scope: 'account',
+            deletionReceipt: { profileCount: 1, deviceCount: 1, syncedRecordCount: 1 },
+        });
         expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM profiles')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM srs_events')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM sessions')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM oauth_flows')).toHaveLength(0);
+        expect(academy.db.rows('SELECT * FROM deletion_receipts')).toHaveLength(1);
         expect((await dispatch(academy.env, get('/academy/api/session', resumedCookie))).status).toBe(401);
+    });
+
+    it('prunes expired deletion receipts without making a paid-code tombstone reusable', async () => {
+        const deletedAt = Date.now() - 100 * 24 * 60 * 60_000;
+        await academy.env.ACADEMY_DB.prepare(
+            'INSERT INTO deletion_receipts '
+            + '(id, scope, deleted_at, profile_count, device_count, synced_record_count, prune_after) '
+            + "VALUES (?1, 'account', ?2, 1, 1, 1, ?3)",
+        ).bind(crypto.randomUUID(), deletedAt, deletedAt + 90 * 24 * 60 * 60_000).run();
+        await academy.env.ACADEMY_DB.prepare(
+            'INSERT INTO purchases '
+            + '(id, claim_hash, amount_pence, status, created_at, fulfilled_at, redeemed_by_account_id, redeemed_at) '
+            + "VALUES ('retained-redemption', 'retained-redemption-claim', 500, 'paid', ?1, ?1, NULL, ?1)",
+        ).bind(deletedAt).run();
+
+        await pruneLifecycleRecords(academy.env, () => Date.now());
+
+        expect(academy.db.rows('SELECT id FROM deletion_receipts')).toHaveLength(0);
+        expect(academy.db.rows<{ redeemed_at: number | null }>(
+            "SELECT redeemed_at FROM purchases WHERE id = 'retained-redemption'",
+        )[0]?.redeemed_at).toBe(deletedAt);
     });
 
     it('deletes account-profile learning data while retaining the optional identity', async () => {

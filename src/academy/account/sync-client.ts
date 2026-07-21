@@ -21,6 +21,7 @@ import type { LearnerEvent, LearnerEventRepository } from '../domain/learner-rec
 const STORAGE_KEY = 'yomu:academy:profile-sync:v1';
 const SYNC_BATCH_SIZE = 50;
 const PAIRING_INFO = 'yomu-academy-device-pairing-v1';
+export const ACADEMY_EXPORT_FALLBACK_MAX_BYTES = 32 * 1024 * 1024;
 
 /**
  * Observable states for the paid-account and sync surface.
@@ -94,6 +95,8 @@ export interface AcademySyncClientOptions {
     readonly currentUrl?: () => string;
     readonly replaceUrl?: (url: string) => void;
     readonly onRemoteEvents?: () => Promise<void> | void;
+    /** Tests may lower, but never raise, the production in-memory export cap. */
+    readonly exportFallbackByteLimit?: number;
 }
 
 /**
@@ -111,6 +114,7 @@ export class AcademySyncClient {
     private readonly navigate: (url: string) => void;
     private readonly currentUrl: () => string;
     private readonly replaceUrl: (url: string) => void;
+    private readonly exportFallbackByteLimit: number;
     private state: StoredSyncState | null;
     private account: AcademyAccountView | null = null;
     private entitlement: AcademyEntitlementView | null = null;
@@ -134,6 +138,10 @@ export class AcademySyncClient {
         this.navigate = options.navigate ?? (url => window.location.assign(url));
         this.currentUrl = options.currentUrl ?? (() => window.location.href);
         this.replaceUrl = options.replaceUrl ?? (url => window.history.replaceState(window.history.state, '', url));
+        this.exportFallbackByteLimit = Number.isSafeInteger(options.exportFallbackByteLimit)
+            && (options.exportFallbackByteLimit ?? 0) > 0
+            ? Math.min(options.exportFallbackByteLimit as number, ACADEMY_EXPORT_FALLBACK_MAX_BYTES)
+            : ACADEMY_EXPORT_FALLBACK_MAX_BYTES;
         this.state = loadState(this.storage);
     }
 
@@ -175,10 +183,14 @@ export class AcademySyncClient {
     /** Rehydrate account state after the Worker returns from Google OIDC. */
     async completeGoogleReturn(): Promise<boolean> {
         const url = new URL(this.currentUrl());
-        if (url.searchParams.get('account') !== 'linked') return false;
+        const outcome = url.searchParams.get('account');
+        if (outcome !== 'linked' && outcome !== 'failed') return false;
         url.searchParams.delete('account');
         this.replaceUrl(`${url.pathname}${url.search}${url.hash}`);
         await this.connect();
+        if (outcome === 'failed') {
+            this.error = 'Google sign-in could not be completed. No account data was changed.';
+        }
         return true;
     }
 
@@ -344,12 +356,74 @@ export class AcademySyncClient {
         this.navigate('/academy/api/auth/google/start');
     }
 
-    async exportData(): Promise<Blob> {
+    async exportData(destination?: WritableStream<Uint8Array>): Promise<Blob | null> {
         await this.connect();
         const endpoint = this.account ? '/academy/api/account/export' : '/academy/api/profile/export';
-        const response = await this.authorizedRequest(endpoint, { credentials: 'same-origin' });
-        if (!response.ok) throw await responseError(response);
-        return response.blob();
+        let cursor: string | null = null;
+        let numericCursor = 0;
+        let firstEvent = true;
+        let wroteHeader = false;
+        const encoder = new TextEncoder();
+        const writer = destination?.getWriter() ?? null;
+        const chunks: BlobPart[] = [];
+        let bufferedBytes = 0;
+        const write = async (value: string): Promise<void> => {
+            const bytes = encoder.encode(value);
+            if (writer) {
+                await writer.write(bytes);
+                return;
+            }
+            if (bufferedBytes + bytes.byteLength > this.exportFallbackByteLimit) {
+                throw new Error(
+                    `Academy export exceeds the ${Math.floor(this.exportFallbackByteLimit / (1024 * 1024))} MiB in-memory safety limit. Use a browser with streaming file export.`,
+                );
+            }
+            bufferedBytes += bytes.byteLength;
+            chunks.push(bytes);
+        };
+        try {
+            while (true) {
+                const response = await this.authorizedRequest(endpoint, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(cursor === null ? {} : { cursor }),
+                });
+                if (!response.ok) throw await responseError(response);
+                const body: unknown = await response.json();
+                if (!isRecord(body)) throw new Error('Academy export response was malformed.');
+                const page = parseAcademyExportPage(body.eventPage);
+                if (!wroteHeader) {
+                    const { eventPage: _eventPage, ...metadata } = body;
+                    const serializedMetadata = JSON.stringify(metadata);
+                    await write(serializedMetadata === '{}'
+                        ? '{"eventPage":{"events":['
+                        : `${serializedMetadata.slice(0, -1)},"eventPage":{"events":[`);
+                    wroteHeader = true;
+                }
+                for (const event of page.events) {
+                    if (!firstEvent) await write(',');
+                    await write(JSON.stringify(event));
+                    firstEvent = false;
+                }
+                if (!page.hasMore) {
+                    await write(`],"nextCursor":${page.nextCursor},"hasMore":false,"exportCursor":null}}`);
+                    if (writer) {
+                        await writer.close();
+                        return null;
+                    }
+                    return new Blob(chunks, { type: 'application/json' });
+                }
+                if (page.nextCursor <= numericCursor || !page.exportCursor) {
+                    throw new Error('Academy export pagination did not advance.');
+                }
+                numericCursor = page.nextCursor;
+                cursor = page.exportCursor;
+            }
+        } catch (error) {
+            if (writer) await writer.abort(error).catch(() => undefined);
+            throw error;
+        }
     }
 
     async updateClassBoardProfile(update: AcademyClassBoardProfileUpdate): Promise<AcademyAccountView> {
@@ -781,6 +855,20 @@ async function responseError(response: Response): Promise<AcademyRequestError> {
         if (typeof body.error === 'string') message = body.error;
     } catch { /* keep the safe generic message */ }
     return new AcademyRequestError(response.status, message);
+}
+
+function parseAcademyExportPage(value: unknown): ReturnType<typeof parseAcademySyncPage> & { exportCursor: string | null } {
+    const record = isRecord(value) ? value : {};
+    const page = parseAcademySyncPage(value);
+    const exportCursor = record.exportCursor;
+    if (page.hasMore) {
+        if (typeof exportCursor !== 'string' || exportCursor.length < 80 || exportCursor.length > 256) {
+            throw new TypeError('Academy export continuation cursor is invalid.');
+        }
+        return { ...page, exportCursor };
+    }
+    if (exportCursor !== null) throw new TypeError('Completed Academy export retained a cursor.');
+    return { ...page, exportCursor: null };
 }
 
 function safeStorage(): AcademySyncStorage | null {

@@ -14,7 +14,14 @@
     { "pattern": "yomureader.com/academy/media/*", "zone_name": "yomureader.com" }
   ],
   "vars": {
-    "ACADEMY_ORIGIN": "https://yomureader.com"
+    "ACADEMY_ORIGIN": "https://yomureader.com",
+    "ACADEMY_ENVIRONMENT": "production"
+  },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "triggers": {
+    // Exact 90-day receipt retention is enforced by this daily maintenance
+    // event. Session-time pruning remains only a backup.
+    "crons": ["17 3 * * *"]
   },
   // Deploy-time contract: every value below is a Worker secret set with
   // `npx wrangler secret put <NAME> --config wrangler.academy.jsonc`.

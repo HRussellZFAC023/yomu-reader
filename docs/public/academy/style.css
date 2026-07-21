@@ -40047,7 +40047,7 @@ html.jpdb-reader-doodle-active * {
 .academy-account-summary dt { color: var(--academy-ink-soft); font-size: .85rem; }
 .academy-account-summary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-weight: 700; }
 .academy-profile-sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.academy-profile-sync-actions .academy-button { min-height: 42px; }
+.academy-profile-sync-actions .academy-button { min-height: 44px; }
 .academy-button-danger { border-color: #a43e36; color: #812d27; }
 .academy-code-section { display: grid; gap: 10px; padding-block: 14px; border-top: 1px solid rgba(55, 49, 37, 0.22); }
 .academy-code-heading { margin: 0; font: 720 1rem/1.3 var(--academy-font); letter-spacing: 0; }
@@ -43328,6 +43328,23 @@ details.academy-code-section > summary {
 .academy-advanced-rail-copy {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.academy-advanced-rail-requirement {
+    grid-column: 1 / -1;
+    min-width: 0;
+    color: rgba(255, 253, 245, 0.68);
+    font-size: 0.68rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.academy-advanced-rail-stop[data-rail-state="gated"] .academy-advanced-rail-entry {
+    border-left-color: #e6c763;
+}
+
+.academy-advanced-rail-stop[data-rail-state="recommended"] .academy-advanced-rail-entry {
+    border-left-color: #7bd19d;
 }
 
 .academy-advanced-rail-eyebrow {
@@ -49444,6 +49461,6 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 }
 
 @keyframes academy-advanced-paper-enter {
-    from { opacity: 0; transform: translateY(18px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { transform: translateY(18px); }
+    to { transform: translateY(0); }
 }

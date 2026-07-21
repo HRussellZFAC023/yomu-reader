@@ -43,13 +43,6 @@ interface ProfileContextRow {
     readonly device_revoked_at: number | null;
 }
 
-interface DisposableProfileRow {
-    readonly account_id: string | null;
-    readonly event_count: number;
-    readonly device_count: number;
-    readonly session_count: number;
-}
-
 /** Authorize Academy resources: every invite session must be signed in. */
 export async function requireAcademyAccessSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
@@ -127,101 +120,6 @@ export function profileView(context: ProfileContext): Record<string, unknown> {
         keyVersion: context.profile.sync_key_version,
         createdAt: context.profile.created_at,
     };
-}
-
-/**
- * Make the session's anonymous profile the account profile, or move its empty
- * provisional device onto the account's existing profile. Encrypted events
- * from two independently keyed profiles are never mixed server-side.
- */
-export async function attachSessionProfileToAccount(
-    env: Env,
-    session: ActiveSession,
-    accountId: string,
-    now: number,
-): Promise<ProfileContext> {
-    let current = await ensureSessionProfile(env, session, now);
-    if (current.profile.account_id && current.profile.account_id !== accountId) {
-        throw new HttpError(409, 'Log out before linking a different Academy account.');
-    }
-
-    let accountProfile = await profileByAccount(env, accountId);
-    if (!accountProfile) {
-        const linked = await env.ACADEMY_DB.prepare(
-            'UPDATE OR IGNORE profiles SET account_id = ?1, updated_at = ?2 '
-            + 'WHERE id = ?3 AND (account_id IS NULL OR account_id = ?1)',
-        ).bind(accountId, now, current.profile.id).run();
-        if ((linked.meta.changes ?? 0) === 1) {
-            const result = await profileContextBySession(env, session);
-            if (!result) throw new HttpError(500, 'Academy profile link failed.');
-            return result;
-        }
-
-        // A concurrent callback may have claimed the account's unique profile.
-        accountProfile = await profileByAccount(env, accountId);
-        current = await ensureSessionProfile(env, session, now);
-        if (!accountProfile) throw new HttpError(409, 'Academy profile could not be linked.');
-    }
-    if (accountProfile.id === current.profile.id) return current;
-
-    const disposable = await env.ACADEMY_DB.prepare(
-        'SELECT p.account_id, '
-        + '(SELECT COUNT(*) FROM srs_events e WHERE e.profile_id = p.id) AS event_count, '
-        + '(SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = p.id AND d.revoked_at IS NULL) AS device_count, '
-        + '(SELECT COUNT(*) FROM sessions s WHERE s.profile_id = p.id AND s.revoked_at IS NULL) AS session_count '
-        + 'FROM profiles p WHERE p.id = ?1',
-    ).bind(current.profile.id).first<DisposableProfileRow>();
-    if (
-        !disposable
-        || disposable.account_id
-        || disposable.event_count !== 0
-        || disposable.device_count !== 1
-        || disposable.session_count !== 1
-    ) {
-        throw new HttpError(409, 'Pair or export this profile before linking the existing account.');
-    }
-
-    const results = await env.ACADEMY_DB.batch([
-        env.ACADEMY_DB.prepare(
-            'UPDATE profile_devices SET profile_id = ?1, last_seen_at = ?2 '
-            + 'WHERE id = ?3 AND profile_id = ?4 AND revoked_at IS NULL '
-            + 'AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = ?4 AND p.account_id IS NULL) '
-            + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4) '
-            + 'AND 1 = (SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = ?4 AND d.revoked_at IS NULL) '
-            + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = ?4 AND s.revoked_at IS NULL) '
-            + 'AND EXISTS (SELECT 1 FROM sessions s WHERE s.public_id = ?5 AND s.profile_id = ?4 '
-            + 'AND s.device_id = ?3 AND s.revoked_at IS NULL)',
-        ).bind(accountProfile.id, now, current.device.id, current.profile.id, current.session.public_id),
-        env.ACADEMY_DB.prepare(
-            'UPDATE sessions SET profile_id = ?1, account_id = ?2 '
-            + 'WHERE public_id = ?3 AND profile_id = ?4 AND device_id = ?5 AND revoked_at IS NULL '
-            + 'AND EXISTS (SELECT 1 FROM profile_devices d WHERE d.id = ?5 AND d.profile_id = ?1 AND d.revoked_at IS NULL) '
-            + 'AND NOT EXISTS (SELECT 1 FROM profile_devices d WHERE d.profile_id = ?4 AND d.revoked_at IS NULL) '
-            + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = ?4 AND s.revoked_at IS NULL) '
-            + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4)',
-        ).bind(accountProfile.id, accountId, current.session.public_id, current.profile.id, current.device.id),
-        env.ACADEMY_DB.prepare('UPDATE profiles SET updated_at = ?1 WHERE id = ?2').bind(now, accountProfile.id),
-        env.ACADEMY_DB.prepare(
-            'DELETE FROM profiles WHERE id = ?1 AND account_id IS NULL '
-            + 'AND NOT EXISTS (SELECT 1 FROM srs_events WHERE profile_id = ?1) '
-            + 'AND NOT EXISTS (SELECT 1 FROM profile_devices WHERE profile_id = ?1 AND revoked_at IS NULL) '
-            + 'AND NOT EXISTS (SELECT 1 FROM sessions WHERE profile_id = ?1 AND revoked_at IS NULL)',
-        ).bind(current.profile.id),
-    ]);
-    if (
-        (results[0]?.meta.changes ?? 0) !== 1
-        || (results[1]?.meta.changes ?? 0) !== 1
-        || (results[3]?.meta.changes ?? 0) !== 1
-    ) throw new HttpError(409, 'Pair or export this profile before linking the existing account.');
-    const merged = await profileContextBySession(env, session);
-    if (!merged || merged.profile.id !== accountProfile.id) throw new HttpError(500, 'Academy profile merge failed.');
-    return merged;
-}
-
-async function profileByAccount(env: Env, accountId: string): Promise<ProfileRow | null> {
-    return env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, account_id, sync_key_version, created_at, updated_at FROM profiles WHERE account_id = ?1',
-    ).bind(accountId).first<ProfileRow>();
 }
 
 async function profileContextBySession(env: Env, session: ActiveSession): Promise<ProfileContext | null> {

@@ -225,6 +225,25 @@ describe('Academy encrypted profile sync client', () => {
         expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile')).toHaveLength(1);
     });
 
+    it('scrubs a failed Google callback without claiming that the account changed', async () => {
+        let currentUrl = 'https://yomureader.com/academy/?qa-run=stream-7&account=failed#journal';
+        const replaceUrl = vi.fn((url: string) => {
+            currentUrl = new URL(url, currentUrl).href;
+        });
+        const client = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: fakeApi({ profileStatus: 401 }),
+            currentUrl: () => currentUrl,
+            replaceUrl,
+        });
+
+        expect(await client.completeGoogleReturn()).toBe(true);
+        expect(client.status.phase).toBe('sign-in');
+        expect(client.status.error).toContain('No account data was changed');
+        expect(replaceUrl).toHaveBeenCalledWith('/academy/?qa-run=stream-7#journal');
+        expect(currentUrl).not.toContain('account=');
+    });
+
     it('does not touch browser history or account endpoints outside a Google return', async () => {
         const request = fakeApi();
         const replaceUrl = vi.fn();
@@ -584,15 +603,122 @@ describe('Academy encrypted profile sync client', () => {
     });
 
     it('exports the selected profile and sends an explicit delete confirmation', async () => {
-        const request = fakeApi({ exportBody: { schemaVersion: 1, eventPage: { events: [] } } });
+        const request = fakeApi({
+            exportBody: { schemaVersion: 2, eventPage: { events: [], nextCursor: 0, hasMore: false, exportCursor: null } },
+        });
         const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
         await client.connect();
 
-        expect(await readBlobText(await client.exportData())).toContain('schemaVersion');
+        const blob = await client.exportData();
+        if (!blob) throw new Error('fallback export blob missing');
+        expect(await readBlobText(blob)).toContain('schemaVersion');
         await client.deleteRemoteData('profile');
         const deletion = request.mock.calls.find(([path, init]) => path === '/academy/api/profile' && init?.method === 'DELETE');
         expect(JSON.parse(String(deletion?.[1]?.body))).toEqual({ confirmation: 'delete-profile' });
         expect(client.status.phase).toBe('local');
+    });
+
+    it('assembles every bounded export page into one complete download', async () => {
+        const first = await encryptedRemoteEnvelope(event('export-page-one', 'One'));
+        const second = await encryptedRemoteEnvelope(event('export-page-two', 'Two'));
+        const continuation = `v1.${'a'.repeat(43)}.7.${'b'.repeat(64)}`;
+        const request = fakeApi({
+            exportPages: {
+                start: {
+                    schemaVersion: 2,
+                    profile: profile(),
+                    eventPage: { events: [{ ...first, cursor: 7 }], nextCursor: 7, hasMore: true, exportCursor: continuation },
+                },
+                [continuation]: {
+                    schemaVersion: 2,
+                    eventPage: { events: [{ ...second, cursor: 9 }], nextCursor: 9, hasMore: false, exportCursor: null },
+                },
+            },
+        });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+        await client.connect();
+
+        const blob = await client.exportData();
+        if (!blob) throw new Error('fallback export blob missing');
+        const exported = JSON.parse(await readBlobText(blob)) as {
+            eventPage: { events: Array<{ id: string }>; nextCursor: number; hasMore: boolean };
+        };
+        expect(exported.eventPage.events.map(item => item.id)).toEqual([first.id, second.id]);
+        expect(exported.eventPage).toMatchObject({ nextCursor: 9, hasMore: false });
+        const exportCalls = request.mock.calls.filter(([path]) => path === '/academy/api/profile/export');
+        expect(exportCalls).toHaveLength(2);
+        expect(exportCalls.every(([, init]) => init?.method === 'POST')).toBe(true);
+        expect(JSON.parse(String(exportCalls[1]?.[1]?.body))).toEqual({ cursor: continuation });
+    });
+
+    it('streams meaningful large ciphertext volume without retaining an aggregate browser copy', async () => {
+        const pageCount = 12;
+        const rowsPerPage = 200;
+        const ciphertext = 'A'.repeat(8 * 1024);
+        const base = await encryptedRemoteEnvelope(event('large-export', 'Large'));
+        const exportPages: Record<string, unknown> = {};
+        let pageKey = 'start';
+        for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+            const nextCursor = (pageIndex + 1) * rowsPerPage;
+            const continuation = pageIndex === pageCount - 1
+                ? null
+                : `v1.${'a'.repeat(43)}.${nextCursor.toString(36)}.${String(pageIndex).padStart(64, 'b')}`;
+            exportPages[pageKey] = {
+                ...(pageIndex === 0 ? { schemaVersion: 2, profile: profile() } : { schemaVersion: 2 }),
+                eventPage: {
+                    events: Array.from({ length: rowsPerPage }, (_, rowIndex) => ({
+                        ...base,
+                        cursor: pageIndex * rowsPerPage + rowIndex + 1,
+                        ciphertext,
+                    })),
+                    nextCursor,
+                    hasMore: continuation !== null,
+                    exportCursor: continuation,
+                },
+            };
+            if (continuation) pageKey = continuation;
+        }
+        const request = fakeApi({ exportPages });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+        await client.connect();
+
+        let totalBytes = 0;
+        let largestChunk = 0;
+        let writes = 0;
+        const destination = new WritableStream<Uint8Array>({
+            write(chunk) {
+                totalBytes += chunk.byteLength;
+                largestChunk = Math.max(largestChunk, chunk.byteLength);
+                writes += 1;
+            },
+        });
+        expect(await client.exportData(destination)).toBeNull();
+        expect(totalBytes).toBeGreaterThan(18 * 1024 * 1024);
+        expect(largestChunk).toBeLessThan(10 * 1024);
+        expect(writes).toBeGreaterThan(pageCount * rowsPerPage);
+        expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile/export')).toHaveLength(pageCount);
+    }, 20_000);
+
+    it('fails the bounded Blob fallback with an explicit safety error', async () => {
+        const envelope = await encryptedRemoteEnvelope(event('fallback-cap', 'Cap'));
+        const request = fakeApi({
+            exportBody: {
+                schemaVersion: 2,
+                eventPage: {
+                    events: [{ ...envelope, cursor: 1, ciphertext: 'A'.repeat(2048) }],
+                    nextCursor: 1,
+                    hasMore: false,
+                    exportCursor: null,
+                },
+            },
+        });
+        const client = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request,
+            exportFallbackByteLimit: 1024,
+        });
+        await client.connect();
+        await expect(client.exportData()).rejects.toThrow('in-memory safety limit');
     });
 
     it('keeps source and target pairing controls keyboard-ready in the Journal', async () => {
@@ -639,6 +765,8 @@ describe('Academy encrypted profile sync client', () => {
         expect(target.querySelector(`label[for="${input.id}"]`)?.textContent).toContain('One-time pairing code');
         expect(input.autocomplete).toBe('one-time-code');
         expect(target.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('device that already has your history');
+        expect(target.textContent).toContain('Delete cloud learning data');
+        expect(target.textContent).toContain('Delete account');
         input.value = PAIRING_CODE;
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await Promise.resolve();
@@ -829,6 +957,7 @@ function fakeApi(options: {
     pairingPut?: (envelope: { keyVersion: number; salt: string; nonce: string; ciphertext: string }) => void;
     pull?: unknown[];
     exportBody?: unknown;
+    exportPages?: Readonly<Record<string, unknown>>;
     profileStatus?: number;
     profileError?: string;
     redeemStatus?: number;
@@ -886,7 +1015,12 @@ function fakeApi(options: {
             return response({ accepted, inserted: accepted, duplicates: 0, conflicts }, conflicts.length ? 409 : 200);
         }
         if (url.startsWith('/academy/api/srs/pull')) return response({ events: options.pull ?? [], nextCursor: options.pull?.length ? 1 : 0, hasMore: false });
-        if (url.endsWith('/export')) return response(options.exportBody ?? { schemaVersion: 1 });
+        if (url.endsWith('/export')) {
+            const cursor = (JSON.parse(String(init?.body ?? '{}')) as { cursor?: string }).cursor ?? 'start';
+            return response(options.exportPages?.[cursor]
+                ?? options.exportBody
+                ?? { schemaVersion: 2, eventPage: { events: [], nextCursor: 0, hasMore: false, exportCursor: null } });
+        }
         if (url === '/academy/api/logout' || url === '/academy/api/profile') return response({ deleted: true });
         return response({ error: `Unhandled ${url}` }, 404);
     });
