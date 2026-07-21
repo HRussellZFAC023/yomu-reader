@@ -903,6 +903,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   vertical-align: baseline;
   white-space: nowrap;
 }
+/* The detached-ruby box is an atomic inline (display:inline-block), so the
+   word's text-decoration underline — the pitch/status signal — does not paint
+   into it. That left only bare-kana remainders underlined while every kanji run
+   carrying a reading lost the line (reported on YouTube: "only hiragana and
+   katakana words get the underline"). Give the box the word's own underline so
+   the line runs under the whole word. The .jpdb-reader-detached-furi child is
+   position:absolute (out of flow) and sets text-decoration:none, so the reading
+   itself is never underlined; inherit keeps the base line the word's own colour,
+   thickness, and offset so it is visually continuous with the bare-kana part. */
+.jpdb-reader-word .jpdb-reader-detached-ruby {
+  text-decoration-line: underline !important;
+  text-decoration-style: inherit !important;
+  text-decoration-color: inherit !important;
+  text-decoration-thickness: inherit !important;
+  text-underline-offset: inherit !important;
+  text-decoration-skip-ink: none !important;
+}
 .jpdb-reader-detached-furi {
   position: absolute !important;
   z-index: 2;

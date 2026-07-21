@@ -11623,7 +11623,7 @@ ${spelling}`);
         openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
       }
-      alignAdditiveTextMirrorRun(mirror, host);
+      scheduleAdditiveMirrorRealign();
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
       rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -11664,6 +11664,25 @@ ${spelling}`);
     if (y) parts.push(`translateY(${y})`);
     if (parts.length) mirror.style.setProperty("transform", parts.join(" "));
     else mirror.style.removeProperty("transform");
+  }
+  function realignAdditiveTextMirrorRuns(root = document) {
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+    for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
+      const host = registeredTextMirrorHostFor(mirror);
+      if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
+    }
+  }
+  let pendingAdditiveMirrorAlignFrame = 0;
+  function scheduleAdditiveMirrorRealign() {
+    if (typeof requestAnimationFrame !== "function") {
+      realignAdditiveTextMirrorRuns(document);
+      return;
+    }
+    if (pendingAdditiveMirrorAlignFrame) return;
+    pendingAdditiveMirrorAlignFrame = requestAnimationFrame(() => {
+      pendingAdditiveMirrorAlignFrame = 0;
+      realignAdditiveTextMirrorRuns(document);
+    });
   }
   function firstFragmentLeft(rects) {
     let left = null;
@@ -45573,7 +45592,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.262".trim() ? "1.6.262".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.263".trim() ? "1.6.263".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

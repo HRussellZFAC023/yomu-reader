@@ -2765,12 +2765,15 @@ function mountNonDestructiveTextMirror(
             openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
-        // Correct the mirror's inline offset once it is connected and laid out:
-        // the source run may begin inside the padding box (leading icon sibling,
-        // centred/RTL control), which styleTextMirror's cross-axis-only anchor
-        // leaves uncorrected. Runs at rest before the visibility sync, while the
-        // mirror still inherits the host's visibility and reports real boxes.
-        alignAdditiveTextMirrorRun(mirror, host);
+        // Correct the mirror's inline offset (a source run beginning inside the
+        // padding box — leading icon sibling, centred/RTL control — that
+        // styleTextMirror's cross-axis-only anchor leaves uncorrected). Measuring
+        // it here forced a layout inside the synchronous mount task, on the boot
+        // scan's critical path (the WebKit frame-lane cost). Defer to a single
+        // coalesced post-paint realign instead: the mount still stamps the
+        // mirror, and alignment lands next frame (idempotent with the
+        // settle-driven realign, so a hidden mount aligns when it is shown).
+        scheduleAdditiveMirrorRealign();
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2850,6 +2853,25 @@ export function realignAdditiveTextMirrorRuns(root: ParentNode = document): void
         const host = registeredTextMirrorHostFor(mirror);
         if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
     }
+}
+
+// Coalesce every freshly-mounted mirror's run-alignment into ONE post-paint
+// pass. Aligning at mount forced a synchronous layout read per mirror inside the
+// boot scan task; batching to a single rAF moves that work off the critical
+// path while still landing alignment on the next frame. Idempotent with the
+// settle-driven realign, so a mirror mounted while its host is hidden is aligned
+// by the settle pass once it becomes visible.
+let pendingAdditiveMirrorAlignFrame = 0;
+function scheduleAdditiveMirrorRealign(): void {
+    if (typeof requestAnimationFrame !== 'function') {
+        realignAdditiveTextMirrorRuns(document);
+        return;
+    }
+    if (pendingAdditiveMirrorAlignFrame) return;
+    pendingAdditiveMirrorAlignFrame = requestAnimationFrame(() => {
+        pendingAdditiveMirrorAlignFrame = 0;
+        realignAdditiveTextMirrorRuns(document);
+    });
 }
 
 // The inline-start (leftmost) live edge across a fragment list. Degenerate

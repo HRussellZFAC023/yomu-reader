@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.263] - 2026-07-21
+
+### Fixed
+
+- On page-owned text such as site buttons, video titles, and labels, the pitch or status underline now runs under the whole word, including the kanji that carry furigana, instead of appearing only under trailing kana. The detached reading box was an atomic inline that swallowed the word's underline, so kanji that paired with a reading lost the line; the box now carries the word's own underline while the reading above it stays undecorated.
+
 ## [1.6.262] - 2026-07-21
 
 ### Fixed
