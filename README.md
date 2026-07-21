@@ -9,7 +9,7 @@
 <p>
   よむ is a Japanese popup reader for websites, manga, game text, PDFs, and subtitles.
   It runs as a userscript, works on desktop and mobile, and connects to the tools
-  Japanese learners already use: Yomitan dictionaries, Anki, Jiten, Bunpro, and JPDB.
+  Japanese learners already use: Yomitan dictionaries, Anki, Jiten, Bunpro, JPDB, and WaniKani.
 </p>
 
 <p>
@@ -47,8 +47,8 @@
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
-- **Mine while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; grade Bunpro safely from its live Study queue.
-- **Keep connected sources consistent:** Bunpro definitions use the same compact example rows as Jiten and JPDB, expose labelled per-corpus frequency and pitch evidence, and offer pronunciation recordings as an audio source that stays off until you enable it.
+- **Mine and review while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
+- **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
@@ -81,7 +81,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
-| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, supported-provider offline review queues, and the hosted study page |
+| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, live due-only WaniKani reviews, supported-provider offline review queues, and the hosted study page |
 | Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
 
 ## Hosted Tools
@@ -97,7 +97,7 @@ The reader built into yomureader.com is only a no-install fallback. When the よ
 
 ## Privacy
 
-よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
+よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.
 
 The imported Bunpro frontend token grants account read/write access for reviews. Treat it like a password. Bunpro support uses an authenticated private frontend endpoint rather than a documented public API, so it can change without notice; no Bunpro corpus is bundled.
 
@@ -200,7 +200,7 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as reference only.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.
 - [Yomikiri](https://github.com/BlueGreenMagick/yomikiri), [Tofugu grammar guides](https://www.tofugu.com/japanese-grammar/), Ultimate Yomitan Audio, and local audio server references for workflow inspiration.
-- [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), [AnkiConnect](https://foosoft.net/projects/anki-connect/), [Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), and [JPDB](https://jpdb.io) for external services users can connect to.
+- [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), [AnkiConnect](https://foosoft.net/projects/anki-connect/), [Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), and [WaniKani](https://www.wanikani.com/) for external services users can connect to.
 
 | Source | License / terms used by よむ |
 | --- | --- |
@@ -214,6 +214,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | No repository license is declared upstream; optional runtime data and referenced upstream media retain their own terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
-| [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), and [JPDB](https://jpdb.io/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. Bunpro uses a private, unsupported frontend endpoint that may change. Its opt-in pronunciation recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy. |
+| [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), [JPDB](https://jpdb.io/), and [WaniKani](https://www.wanikani.com/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. WaniKani uses its documented API directly with the user's personal token, respects the account's granted level, and does not use よむ's proxy. Bunpro uses a private, unsupported frontend endpoint that may change. Its opt-in pronunciation recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy. |
 
 </details>

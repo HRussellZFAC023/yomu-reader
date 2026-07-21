@@ -2,8 +2,9 @@ import type { ReaderSettings } from '../app/types';
 
 export type ApiCredentialSettings =
     Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>
-    & Partial<Pick<ReaderSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'>>;
+    & Partial<Pick<ReaderSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'>>;
 export type BunproCredentialSettings = Partial<Pick<ReaderSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'>>;
+export type WanikaniCredentialSettings = Partial<Pick<ReaderSettings, 'wanikaniApiToken'>>;
 
 const JITEN_API_KEY_PREFIX = 'ak_';
 
@@ -61,6 +62,14 @@ export function isBunproFrontendCredentialExpired(settings: BunproCredentialSett
     return Number.isFinite(expiresAt) && expiresAt <= now;
 }
 
+export function effectiveWanikaniApiToken(settings: WanikaniCredentialSettings): string {
+    return settings.wanikaniApiToken?.trim() ?? '';
+}
+
+export function hasWanikaniApiCredential(settings: WanikaniCredentialSettings): boolean {
+    return Boolean(effectiveWanikaniApiToken(settings));
+}
+
 function splitApiCredential(value: string): ApiCredentialSettings {
     const credential = value.trim();
     if (!credential) return { apiKey: '', jitenApiKey: '' };
@@ -71,6 +80,7 @@ function splitApiCredential(value: string): ApiCredentialSettings {
 
 export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSettings {
     const bunpro = readBunproCredentialsFromFormData(data);
+    const wanikani = readWanikaniCredentialsFromFormData(data);
     // UT-56: dedicated per-provider fields; values still auto-route by
     // prefix so a Jiten key pasted into the JPDB field lands correctly.
     if (data.has('apiCredentialJpdb') || data.has('apiCredentialJiten')) {
@@ -80,14 +90,20 @@ export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSet
                 String(data.get('apiCredentialJiten') ?? ''),
             ),
             ...bunpro,
+            ...wanikani,
         };
     }
-    if (data.has('apiCredential')) return { ...splitApiCredential(String(data.get('apiCredential') ?? '')), ...bunpro };
+    if (data.has('apiCredential')) return { ...splitApiCredential(String(data.get('apiCredential') ?? '')), ...bunpro, ...wanikani };
     return {
         apiKey: String(data.get('apiKey') ?? '').trim(),
         jitenApiKey: String(data.get('jitenApiKey') ?? '').trim(),
         ...bunpro,
+        ...wanikani,
     };
+}
+
+function readWanikaniCredentialsFromFormData(data: FormData): WanikaniCredentialSettings {
+    return { wanikaniApiToken: String(data.get('apiCredentialWanikani') ?? data.get('wanikaniApiToken') ?? '').trim() };
 }
 
 export function mergeApiCredentialValues(jpdbValue: string, jitenValue: string): ApiCredentialSettings {

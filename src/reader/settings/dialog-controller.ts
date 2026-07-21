@@ -14,7 +14,8 @@ import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersion
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
-import { effectiveJpdbApiKey, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
+import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
+import { WanikaniClient } from '../wanikani/wanikani';
 import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
@@ -41,6 +42,7 @@ import {
     renderSettingsForm,
     bunproStatusLineForSettings,
     jpdbStatusLineForSettings,
+    wanikaniStatusLineForSettings,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
     syncDisabledSettingsControlDescriptions,
@@ -557,6 +559,7 @@ export class SettingsDialogController {
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
     private jpdbConnectionProbeId = 0;
+    private wanikaniConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
     private yomuUpdateCheckId = 0;
     private settingsJapaneseParseRefreshFrame: number | undefined;
@@ -588,6 +591,7 @@ export class SettingsDialogController {
         this.syncJpdbStatus(form);
         void this.refreshAnkiConnectionStatus(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
+        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
@@ -1015,7 +1019,7 @@ export class SettingsDialogController {
         });
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
+        for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="apiCredentialWanikani"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
             apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
             apiKeyInput.addEventListener('change', () => {
                 reconcileApiCredentialInputs(form);
@@ -1027,6 +1031,7 @@ export class SettingsDialogController {
                     if (!this.acceptFirefoxAuthenticationInfoConsent(consent, nextSettings.interfaceLanguage)) return;
                     void this.refreshDeckControls(form);
                     void this.refreshJpdbConnectionStatus(form);
+                    void this.refreshWanikaniConnectionStatus(form);
                 });
             });
         }
@@ -1256,6 +1261,44 @@ export class SettingsDialogController {
             const line = bunproStatusLineForSettings(formSettings, language);
             bunproStatus.dataset.statusTone = line.tone;
             bunproStatus.textContent = formatSettingsStatusLine(line, language);
+        }
+        const wanikaniStatus = form.querySelector<HTMLElement>('[data-wanikani-status]');
+        if (wanikaniStatus) {
+            const line = wanikaniStatusLineForSettings(formSettings, language);
+            wanikaniStatus.dataset.statusTone = line.tone;
+            wanikaniStatus.textContent = formatSettingsStatusLine(line, language);
+        }
+        this.refreshSettingsJapaneseParse(form);
+    }
+
+    private async refreshWanikaniConnectionStatus(form: HTMLFormElement): Promise<void> {
+        this.syncJpdbStatus(form);
+        const status = form.querySelector<HTMLElement>('[data-wanikani-status]');
+        if (!status) return;
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const token = effectiveWanikaniApiToken(formSettings);
+        if (!token) return;
+        const requestId = ++this.wanikaniConnectionProbeId;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        try {
+            const client = new WanikaniClient({ getToken: () => token });
+            const user = await client.getUser(true);
+            const maxLevel = await client.effectiveMaxLevel();
+            if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+            const line: SettingsStatusLine = {
+                message: language === 'ja'
+                    ? `WaniKani接続済み。現在レベル${user.level}、アクセス可能レベル${maxLevel}。`
+                    : `WaniKani connected. Current level ${user.level}; access through level ${maxLevel}.`,
+                tone: 'success',
+            };
+            status.dataset.statusTone = line.tone;
+            status.textContent = formatSettingsStatusLine(line, language);
+        } catch (error) {
+            if (this.currentForm !== form || !form.isConnected || requestId !== this.wanikaniConnectionProbeId) return;
+            const message = error instanceof Error ? error.message : 'WaniKani connection failed.';
+            const line: SettingsStatusLine = { message, tone: 'error' };
+            status.dataset.statusTone = line.tone;
+            status.textContent = formatSettingsStatusLine(line, language);
         }
         this.refreshSettingsJapaneseParse(form);
     }

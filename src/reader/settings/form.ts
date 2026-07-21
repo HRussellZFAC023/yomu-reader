@@ -24,6 +24,7 @@ import {
     renderAnkiStatusHtml,
     renderBunproStatusLine,
     renderJpdbStatusLine,
+    renderWanikaniStatusLine,
 } from './status-lines';
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
@@ -36,12 +37,13 @@ export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
-export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './status-lines';
+export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';
 export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
+const WANIKANI_TOKEN_SETTINGS_URL = 'https://www.wanikani.com/settings/personal_access_tokens';
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
@@ -68,6 +70,7 @@ function newTabSourceOptions(text: SettingsText): [ReaderSettings['newTabSource'
         ['yomu-local', text('newTabYomuLocal')],
         ['jpdb', text('newTabApiSrs')],
         ['bunpro', text('newTabBunpro')],
+        ['wanikani', text('newTabWanikani')],
         ['anki', 'Anki'],
         ['dictionary', text('dictionaryFallback')],
     ];
@@ -307,6 +310,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
     const text = settingsText(language);
     const jpdbStatus = renderJpdbStatusLine(settings);
     const bunproStatus = renderBunproStatusLine(settings);
+    const wanikaniStatus = renderWanikaniStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>${escapedUiText(language, 'api')}</legend>
@@ -317,16 +321,21 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${input('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                         ${input('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
+                        ${input('apiCredentialWanikani', `${escapedUiText(language, 'apiCredentialWanikani')} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'wanikaniSettings')}</a>`, settings.wanikaniApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'wanikani personal access token' })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
+                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
+                ${wanikaniStatus}
                 <div data-jpdb-decks>
                     ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox('jpdbMiningEnabled', text('jpdbMiningEnabled'), settings.jpdbMiningEnabled)}
                 ${checkbox('bunproMiningEnabled', text('bunproMiningEnabled'), settings.bunproMiningEnabled)}
+                ${checkbox('wanikaniReviewEnabled', text('wanikaniReviewEnabled'), settings.wanikaniReviewEnabled)}
+                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(language, 'wanikaniGradeMappingHelp')}</div>
                 ${checkbox('addToForq', text('addToForq'), settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox('enableReviews', text('enableReviews'), settings.enableReviews)}
                 ${select('apiGradingProvider', text('apiGradingProvider'), settings.apiGradingProvider === 'bunpro' ? 'jiten' : settings.apiGradingProvider, [['jiten', 'Jiten'], ['jpdb', 'JPDB']])}
@@ -1964,8 +1973,8 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 }
 
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
-    'jpdbMiningEnabled', 'bunproMiningEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
+    'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'apiCredentialWanikani', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'jpdbMiningEnabled', 'bunproMiningEnabled', 'wanikaniReviewEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',

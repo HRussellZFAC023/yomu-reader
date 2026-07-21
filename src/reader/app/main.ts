@@ -346,6 +346,10 @@ import {
 } from '../settings/api-credential';
 
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
+import { createWanikaniSrsAdapter } from '../srs/wanikani';
+import { WanikaniClient } from '../wanikani/wanikani';
+import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
+import { WanikaniSourceController } from '../wanikani/wanikani-source';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
@@ -787,6 +791,14 @@ export class ReaderApp {
         getProxyUrl: () => this.settings.corsProxyUrl,
     }) : null;
     private bunproSrs = this.bunproCompanion && this.bunpro ? this.bunproCompanion.createBunproSrsAdapter(this.bunpro) : null;
+    private wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
+    private wanikaniSrs = createWanikaniSrsAdapter(this.wanikani);
+    private wanikaniSources = new WanikaniSourceController(
+        new WanikaniLookupClient(this.wanikani),
+        () => this.settings,
+        (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+        () => this.repositionActivePopover(),
+    );
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtkInstance: InstanceType<KanjiStudyCompanionSlot['RtkClient']> | null = null;
@@ -862,6 +874,7 @@ export class ReaderApp {
         jiten: this.jiten,
         srsAdapters: {
             bunpro: this.bunproSrs ?? undefined,
+            wanikani: this.wanikaniSrs,
             'yomu-local': this.yomuLocalSrs,
         },
         anki: this.anki,
@@ -2019,6 +2032,7 @@ export class ReaderApp {
             data?.bunproDefinitionInfo ?? null,
         );
         if (!this.updateJpdbPageAddonHtml(root, html)) return;
+        this.wanikaniSources.installDefinitionMounts(root, card);
         this.installJpdbPageAddonHandlers(root, card);
         this.dictionarySourceState.installTracking(root);
         // Without loaders the translation/grammar sections render their
@@ -6790,6 +6804,7 @@ export class ReaderApp {
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
+        this.wanikaniSources.installDefinitionMounts(popover, card);
         this.restorePreservedImmersionMount(popover, preservedImmersion);
         refreshForcedReaderPopoverSurface(popover, this.settings);
 
@@ -7384,6 +7399,7 @@ export class ReaderApp {
         const uchisenMount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
         const definitionsMounts = Array.from(popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]'));
         this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
+        this.wanikaniSources.installKanjiMount(popover, kanji);
 
         const renderKeyword = () => {
             if (!popover.isConnected || !keywordMount?.isConnected) return;

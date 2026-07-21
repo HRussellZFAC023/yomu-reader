@@ -135,6 +135,7 @@ const KANJI_BOOLEAN_SETTING_KEYS = [
     'jpdbKanjiEnabled',
     'kanjiImmersionKitEnabled',
     'uchisenEnabled',
+    'wanikaniKanjiEnabled',
 ] as const;
 const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
     'jpdbPageEnhancementsEnabled',
@@ -145,19 +146,23 @@ const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
     'jpdbDefinitionsEnabled',
     'jitenDefinitionsEnabled',
     'bunproDefinitionsEnabled',
+    'wanikaniDefinitionsEnabled',
 ] as const;
 const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
     jitenDefinitionsPriority: { min: 0, max: 999 },
     bunproDefinitionsPriority: { min: 0, max: 999 },
+    wanikaniDefinitionsPriority: { min: 0, max: 999 },
 } as const;
 const SOURCE_ALIAS_SETTING_KEYS = [
     'jpdbDefinitionsAlias',
     'jitenDefinitionsAlias',
     'bunproDefinitionsAlias',
+    'wanikaniDefinitionsAlias',
     'jpdbKanjiAlias',
     'kanjiImmersionKitAlias',
     'uchisenAlias',
+    'wanikaniKanjiAlias',
     'rtkAlias',
     'kanjivgAlias',
     'kanjiOriginsAlias',
@@ -170,6 +175,7 @@ const SOURCE_ALIAS_SETTING_KEYS = [
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
     'bunproMiningEnabled',
+    'wanikaniReviewEnabled',
     'yomuLocalSrsEnabled',
     'dictionarySourcesInitiallyExpanded',
 ] as const;
@@ -201,6 +207,7 @@ const KANJI_NUMBER_SETTING_RANGES = {
     jpdbKanjiPriority: { min: 0, max: 999 },
     kanjiImmersionKitPriority: { min: 0, max: 999 },
     uchisenPriority: { min: 0, max: 999 },
+    wanikaniKanjiPriority: { min: 0, max: 999 },
     rtkPriority: { min: 0, max: 999 },
     kanjivgPriority: { min: 0, max: 999 },
     kanjiOriginsPriority: { min: 0, max: 999 },
@@ -235,7 +242,7 @@ const IMMERSION_EXAMPLE_SOURCES = ['nadeshiko', 'combined', 'immersion-kit'] as 
 const OCR_OVERLAY_THEMES = ['auto', 'dark', 'light'] as const satisfies readonly OcrOverlayTheme[];
 const SUBTITLE_CONTROL_MODES = ['always', 'hidden', 'auto'] as const satisfies readonly ReaderSettings['subtitleControlsMode'][];
 const SUBTITLE_TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
-const NEW_TAB_SOURCES = ['jpdb', 'bunpro', 'yomu-local', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
+const NEW_TAB_SOURCES = ['jpdb', 'bunpro', 'wanikani', 'yomu-local', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
 const NEW_TAB_JPDB_REVIEW_MODES = ['auto', 'api-vocabulary', 'live-review'] as const satisfies readonly ReaderSettings['newTabJpdbReviewMode'][];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ['auto', 'rtk', 'jpdb', 'local'] as const satisfies readonly ReaderSettings['newTabKanjiKeywordSource'][];
 export const DEFAULT_NEW_TAB_STUDY_STEP_ORDER: NewTabStudyChallengeStep[] = [
@@ -273,6 +280,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     bunproApiKey: '',
     bunproFrontendApiToken: '',
     bunproFrontendApiTokenExpiresAt: '',
+    wanikaniApiToken: '',
     onboardingSeen: false,
     interfaceLanguage: 'en',
     accentColor: DEFAULT_ACCENT_COLOR,
@@ -297,6 +305,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     bunproDefinitionsEnabled: true,
     bunproDefinitionsAlias: '',
     bunproDefinitionsPriority: 2,
+    wanikaniDefinitionsEnabled: true,
+    wanikaniDefinitionsAlias: '',
+    wanikaniDefinitionsPriority: 3,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -309,6 +320,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     uchisenEnabled: true,
     uchisenAlias: '',
     uchisenPriority: 50,
+    wanikaniKanjiEnabled: true,
+    wanikaniKanjiAlias: '',
+    wanikaniKanjiPriority: 55,
     rtkEnabled: true,
     rtkAlias: '',
     rtkPriority: 20,
@@ -505,6 +519,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // JPDB parity: the credential is the real gate, so importing a Bunpro
     // token makes grading work without hunting for a second checkbox.
     bunproMiningEnabled: true,
+    wanikaniReviewEnabled: true,
     yomuLocalSrsEnabled: true,
     apiGradingProvider: 'jiten',
     miningDeck: 'forq',
@@ -605,18 +620,19 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
     return mergeSettings(value as LegacyReaderSettings | null);
 }
 
-function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'> {
+function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {
     const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
     const bunproApiKey = trimmedStringSetting(value, 'bunproApiKey', DEFAULT_SETTINGS.bunproApiKey);
     const bunproFrontendApiToken = trimmedStringSetting(value, 'bunproFrontendApiToken', DEFAULT_SETTINGS.bunproFrontendApiToken);
     const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
+    const wanikaniApiToken = trimmedStringSetting(value, 'wanikaniApiToken', DEFAULT_SETTINGS.wanikaniApiToken);
     // UT-56: Jiten and JPDB credentials COEXIST — the study queue loads both
     // providers in parallel, so a Jiten key must not wipe the JPDB key (that
     // wipe made the study page silently diverge from jpdb Learn). A
     // jiten-prefixed value in the JPDB slot still routes to the Jiten slot.
-    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
-    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
+    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
+    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
 }
 
 function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
@@ -780,7 +796,7 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
     };
 }
 
-function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority' | 'bunproDefinitionsPriority'> {
+function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority' | 'bunproDefinitionsPriority' | 'wanikaniDefinitionsPriority'> {
     const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
     const ordered = isLegacyDefaultDefinitionSourceOrder(value)
         ? {

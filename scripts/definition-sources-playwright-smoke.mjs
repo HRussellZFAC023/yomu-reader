@@ -26,6 +26,7 @@ const GLOSS = 'review; revision';
 const JITEN_API_KEY = 'ak_jiten-definition-source-smoke';
 const JPDB_API_KEY = 'jpdb-definition-source-smoke';
 const BUNPRO_TOKEN = 'bunpro-definition-source-smoke';
+const WANIKANI_TOKEN = 'wanikani-definition-source-smoke';
 const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const JPDB_VID = 1500800;
 const JPDB_SID = 3100;
@@ -99,6 +100,24 @@ const SCENARIOS = [
         expect: { jpdb: true, jiten: true, bunpro: true },
     },
     {
+        id: 'all-four-sources',
+        label: 'Jiten, JPDB, Bunpro, and WaniKani definitions enabled',
+        settings: {
+            apiKey: JPDB_API_KEY,
+            jitenApiKey: JITEN_API_KEY,
+            bunproFrontendApiToken: BUNPRO_TOKEN,
+            bunproMiningEnabled: true,
+            wanikaniApiToken: WANIKANI_TOKEN,
+            wanikaniDefinitionsEnabled: true,
+            showPitchAccent: true,
+        },
+        expect: { jpdb: true, jiten: true, bunpro: true, wanikani: true },
+        // The new-tab Study runtime starts its own queue/stats probes; those
+        // are covered by the dedicated integration tests. Keep this visual
+        // matrix scenario focused on the stable popup definition surface.
+        skipSearch: true,
+    },
+    {
         id: 'anonymous-bunpro',
         label: 'Anonymous Bunpro definitions enabled',
         settings: { bunproDefinitionsEnabled: true, bunproFrontendApiToken: '', showPitchAccent: true },
@@ -147,7 +166,7 @@ async function runScenario(browser, fixture, scenario) {
     const settings = createSettings(scenario.settings);
     const requestedSurface = process.env.YOMU_DEFINITION_SOURCE_SURFACE?.trim() ?? '';
     const popover = requestedSurface === 'search' ? null : await runPopoverSurface(browser, fixture, scenario, settings);
-    const search = requestedSurface === 'popover' ? null : await runSearchSurface(browser, fixture, scenario, settings);
+    const search = requestedSurface === 'popover' || scenario.skipSearch ? null : await runSearchSurface(browser, fixture, scenario, settings);
     return {
         id: scenario.id,
         label: scenario.label,
@@ -187,6 +206,8 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
         const bunproMining = scenario.id === 'all-three-sources'
             ? await minePopoverToBunpro(popover, requests)
             : null;
+        const wanikaniSource = popover.locator('.yomu-wanikani-source');
+        if (await wanikaniSource.count()) await wanikaniSource.scrollIntoViewIfNeeded();
         const screenshot = artifactPath(scenario.id, 'popover.png');
         await page.screenshot({ path: screenshot, fullPage: true });
         const domPath = artifactPath(scenario.id, 'popover-dom.json');
@@ -291,7 +312,7 @@ async function installPage(browser, scenario, settings, surface, viewport) {
             }));
         }, { key: NEW_TAB_UI_KEY });
     }
-    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*api\.bunpro\.jp|[^/]*jpdb\.io|[^/]*workers\.dev|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
+    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*api\.bunpro\.jp|api\.wanikani\.com|[^/]*jpdb\.io|[^/]*workers\.dev|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
     return { context, page, requests };
 }
 
@@ -299,6 +320,7 @@ async function waitForSources(root, expected) {
     if (expected.jpdb) await root.locator('[data-source="jpdb"]').waitFor({ state: 'attached', timeout: 20_000 });
     if (expected.jiten) await root.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 20_000 });
     if (expected.bunpro) await root.locator('[data-source="bunpro"]').waitFor({ state: 'attached', timeout: 20_000 });
+    if (expected.wanikani) await root.locator('[data-wanikani-definition-mount][data-wanikani-loaded="true"] .yomu-wanikani-source').waitFor({ state: 'attached', timeout: 30_000 });
     await root.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 20_000 }).catch(() => undefined);
     await root.page().waitForTimeout(350);
 }
@@ -401,6 +423,7 @@ function summarizeSourceDom(node) {
     const jpdb = node.querySelector('[data-source="jpdb"]');
     const jiten = node.querySelector('[data-source="jiten"]');
     const bunpro = node.querySelector('[data-source="bunpro"]');
+    const wanikani = node.querySelector('.yomu-wanikani-source');
     const jpdbText = sourceText(jpdb);
     const jitenText = sourceText(jiten);
     return {
@@ -410,6 +433,9 @@ function summarizeSourceDom(node) {
         hasJpdb: Boolean(jpdb),
         hasJiten: Boolean(jiten),
         hasBunpro: Boolean(bunpro),
+        hasWanikani: Boolean(wanikani),
+        wanikaniText: sourceText(wanikani),
+        wanikaniAudioButtonCount: queryCount(wanikani, '[data-action="wanikani-audio"]'),
         jpdbText,
         jitenText,
         ...summarizeBunpro(node, bunpro),
@@ -438,6 +464,7 @@ function assertSurface(scenario, dom, requests, surface) {
     assertJpdbSurface(scenario, dom, surface, expected, settings);
     assertJitenSurface(scenario, dom, surface, expected);
     assertBunproSurface(scenario, dom, surface, expected, settings);
+    assertWanikaniSurface(scenario, dom, surface, expected);
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
     assertRequestAuthState(scenario, surface, surfaceRequests);
@@ -447,6 +474,15 @@ function assertSourcePresence(scenario, dom, surface, expected) {
     assert(dom.hasJpdb === expected.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
     assert(dom.hasJiten === expected.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
     assert(dom.hasBunpro === expected.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
+    assert(dom.hasWanikani === Boolean(expected.wanikani), `${scenario.label} ${surface}: WaniKani source state mismatch`, dom);
+}
+
+function assertWanikaniSurface(scenario, dom, surface, expected) {
+    if (!expected.wanikani) return;
+    for (const text of ['Level 10', 'Guru 1', '100% correct', 'review', 'ふくしゅう', 'Also accepted', 'revision', 'Not accepted', 'Your synonyms', 'Meaning mnemonic', 'Reading mnemonic', 'Context sentences']) {
+        assert(dom.wanikaniText.toLowerCase().includes(text.toLowerCase()), `${scenario.label} ${surface}: WaniKani source omitted ${text}`, dom);
+    }
+    assert(dom.wanikaniAudioButtonCount === 1, `${scenario.label} ${surface}: WaniKani source did not collapse alternate formats for the same pronunciation`, dom);
 }
 
 function assertJpdbSurface(scenario, dom, surface, expected, settings) {
@@ -521,6 +557,22 @@ function assertRequestAuthState(scenario, surface, requests) {
     assertJpdbRequestAuthState(scenario, surface, requests, settings);
     assertJitenRequestAuthState(scenario, surface, requests, settings);
     assertBunproRequestAuthState(scenario, surface, requests, settings);
+    assertWanikaniRequestAuthState(scenario, surface, requests, settings);
+}
+
+function assertWanikaniRequestAuthState(scenario, surface, requests, settings) {
+    const wanikaniRequests = requests.filter(request => request.host === 'api.wanikani.com');
+    if (scenario.expect.wanikani) {
+        for (const path of ['/v2/user', '/v2/subjects', '/v2/assignments', '/v2/study_materials', '/v2/review_statistics']) {
+            assert(wanikaniRequests.some(request => request.path.startsWith(path)), `${scenario.label} ${surface}: missing WaniKani ${path} request`, wanikaniRequests);
+        }
+    } else {
+        assert(wanikaniRequests.length === 0, `${scenario.label} ${surface}: disabled WaniKani source made a request`, wanikaniRequests);
+    }
+    assert(wanikaniRequests.every(request => request.hasAuthorization === Boolean(settings.wanikaniApiToken)
+        && request.authorizationScheme === 'Bearer'
+        && request.wanikaniRevision === '20170710'
+        && !request.url.includes(settings.wanikaniApiToken)), `${scenario.label} ${surface}: WaniKani request security headers were wrong`, wanikaniRequests);
 }
 
 function assertJpdbRequestAuthState(scenario, surface, requests, settings) {
@@ -592,7 +644,7 @@ function bunproSearchOmitsPrivateData(request) {
 }
 
 function summarizeRequests(requests) {
-    return requests.map(({ transport, surface, method, host, path, hasAuthorization, authorizationScheme }) => ({
+    return requests.map(({ transport, surface, method, host, path, hasAuthorization, authorizationScheme, wanikaniRevision }) => ({
         transport,
         surface,
         method,
@@ -600,6 +652,7 @@ function summarizeRequests(requests) {
         path,
         hasAuthorization,
         authorizationScheme,
+        wanikaniRevision,
     }));
 }
 
@@ -630,9 +683,90 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
     requests.push(summary);
     if (summary.host === 'api.jiten.moe') return mockJitenResponse(summary, request);
     if (summary.host === 'api.bunpro.jp') return mockBunproResponse(summary, request);
+    if (summary.host === 'api.wanikani.com') return mockWanikaniResponse(summary, request);
     if (summary.host === 'jpdb.io') return mockJpdbResponse(summary, request);
     if (summary.host === 'audio.example.test') return { status: 204, responseText: '', contentType: 'text/plain; charset=utf-8' };
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
+}
+
+function mockWanikaniResponse(summary) {
+    if (summary.method !== 'GET') return textResponse(405, 'method not allowed');
+    if (summary.path === '/v2/user') {
+        return jsonHttpResponse({ object: 'user', data: { id: 'smoke-user', level: 10, subscription: { active: true, type: 'lifetime', max_level_granted: 60, period_ends_at: null } } });
+    }
+    if (summary.path === '/v2/summary') {
+        return jsonHttpResponse({ object: 'report', data: { lessons: [], reviews: [] } });
+    }
+    if (summary.path.startsWith('/v2/subjects')) {
+        const url = new URL(`https://api.wanikani.com${summary.path}`);
+        const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean).map(Number);
+        const data = ids.length ? wanikaniRelatedSubjects().filter(subject => ids.includes(subject.id)) : [wanikaniVocabularySubject()];
+        return wanikaniCollection(data);
+    }
+    if (summary.path.startsWith('/v2/assignments')) return wanikaniCollection([{ id: 700, object: 'assignment', data: { subject_id: 500, srs_stage: 5, available_at: '2026-07-21T18:00:00.000000Z', burned_at: null, unlocked_at: '2026-07-01T12:00:00.000000Z' } }]);
+    if (summary.path.startsWith('/v2/study_materials')) return wanikaniCollection([{ id: 701, object: 'study_material', data: { subject_id: 500, meaning_note: 'Remember the review ritual.', reading_note: 'Long vowels stay clear.', meaning_synonyms: ['revision'] } }]);
+    if (summary.path.startsWith('/v2/review_statistics')) return wanikaniCollection([{ id: 702, object: 'review_statistic', data: { subject_id: 500, meaning_correct: 8, meaning_incorrect: 0, reading_correct: 8, reading_incorrect: 0, percentage_correct: 100 } }]);
+    return textResponse(404, 'unknown WaniKani endpoint');
+}
+
+function wanikaniCollection(data) {
+    return jsonHttpResponse({ object: 'collection', total_count: data.length, pages: { next_url: null }, data });
+}
+
+function wanikaniVocabularySubject() {
+    return {
+        id: 500,
+        object: 'vocabulary',
+        data: {
+            level: 10,
+            slug: TERM,
+            characters: TERM,
+            document_url: 'https://www.wanikani.com/vocabulary/%E5%BE%A9%E7%BF%92',
+            meanings: [{ meaning: 'Review', primary: true, accepted_answer: true }],
+            auxiliary_meanings: [
+                { meaning: 'revision', type: 'whitelist' },
+                { meaning: 'revise', type: 'blacklist' },
+            ],
+            readings: [{ reading: READING, primary: true, accepted_answer: true }],
+            meaning_mnemonic: 'A <radical>review</radical> helps memory.',
+            meaning_hint: 'Repeat it tomorrow.',
+            reading_mnemonic: 'Say <reading>ふくしゅう</reading> clearly.',
+            reading_hint: 'Keep the long vowel.',
+            component_subject_ids: [501],
+            amalgamation_subject_ids: [502],
+            visually_similar_subject_ids: [],
+            context_sentences: [{ ja: '毎日復習する。', en: 'Review every day.' }],
+            pronunciation_audios: [
+                { url: 'https://audio.example.test/wanikani-review.ogg', content_type: 'audio/ogg', metadata: { gender: 'female', source_id: 77, pronunciation: READING, voice_actor_name: 'Kyoko' } },
+                { url: 'https://audio.example.test/wanikani-review.mp3', content_type: 'audio/mpeg', metadata: { gender: 'female', source_id: 77, pronunciation: READING, voice_actor_name: 'Kyoko' } },
+            ],
+            hidden_at: null,
+        },
+    };
+}
+
+function wanikaniRelatedSubjects() {
+    const subject = (id, object, characters, meaning) => ({
+        id,
+        object,
+        data: {
+            level: 5,
+            slug: characters,
+            characters,
+            document_url: `https://www.wanikani.com/${object}/${encodeURIComponent(characters)}`,
+            meanings: [{ meaning, primary: true, accepted_answer: true }],
+            auxiliary_meanings: [],
+            readings: object === 'radical' ? [] : [{ reading: 'ふく', primary: true, accepted_answer: true, type: 'onyomi' }],
+            meaning_mnemonic: '',
+            component_subject_ids: [],
+            amalgamation_subject_ids: [],
+            visually_similar_subject_ids: [],
+            context_sentences: [],
+            pronunciation_audios: [],
+            hidden_at: null,
+        },
+    });
+    return [subject(501, 'kanji', '復', 'Restore'), subject(502, 'vocabulary', '復習会', 'Review meeting')];
 }
 
 function mockBunproResponse(summary, request) {
@@ -949,10 +1083,12 @@ function createSettings(overrides = {}) {
         jitenApiKey: '',
         bunproFrontendApiToken: '',
         bunproFrontendApiTokenExpiresAt: '',
+        wanikaniApiToken: '',
         jpdbDefinitionsEnabled: true,
         jitenDefinitionsEnabled: true,
         bunproDefinitionsEnabled: true,
         bunproMiningEnabled: false,
+        wanikaniDefinitionsEnabled: false,
         jpdbMiningEnabled: false,
         localDictionariesEnabled: false,
         showPitchAccent: false,
@@ -979,9 +1115,11 @@ function sourceStateSettings(settings) {
         apiKey: settings.apiKey,
         jitenApiKey: settings.jitenApiKey,
         bunproFrontendApiToken: settings.bunproFrontendApiToken ? '[set]' : '',
+        wanikaniApiToken: settings.wanikaniApiToken ? '[set]' : '',
         jpdbDefinitionsEnabled: settings.jpdbDefinitionsEnabled,
         jitenDefinitionsEnabled: settings.jitenDefinitionsEnabled,
         bunproDefinitionsEnabled: settings.bunproDefinitionsEnabled,
+        wanikaniDefinitionsEnabled: settings.wanikaniDefinitionsEnabled,
         localDictionariesEnabled: settings.localDictionariesEnabled,
         newTabSource: settings.newTabSource,
         interfaceLanguage: settings.interfaceLanguage,
@@ -1000,11 +1138,17 @@ function requestSummary(request, transport, surface) {
         path: `${url.pathname}${url.search}`,
         hasAuthorization: Boolean(authorization),
         authorizationScheme: authorization ? authorization.split(/\s+/)[0] : '',
+        wanikaniRevision: headerValue(request.headers, 'wanikani-revision'),
     };
 }
 
 function authorizationHeader(headers = {}) {
     const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === 'authorization');
+    return entry ? String(entry[1]) : '';
+}
+
+function headerValue(headers = {}, name) {
+    const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase());
     return entry ? String(entry[1]) : '';
 }
 
@@ -1020,6 +1164,7 @@ function isMockedExternalUrl(url) {
     return url.host === 'api.jiten.moe'
         || url.host === 'jpdb.io'
         || url.host === 'api.bunpro.jp'
+        || url.host === 'api.wanikani.com'
         || url.host.endsWith('workers.dev')
         || url.host === 'audio.example.test';
 }

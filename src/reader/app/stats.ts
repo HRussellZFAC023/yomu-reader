@@ -3,7 +3,7 @@ import { primaryCardState } from '../cards/state';
 import { ACADEMY_SRS_LABEL } from './constants';
 import type { CardState, JPDBCard } from './types';
 
-export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
+export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
 export type StatsSourceStatus = 'setup' | 'loading' | 'ready' | 'partial' | 'error';
 export type StatsActivityMetric = 'reviews' | 'minutes' | 'newCards';
 
@@ -70,6 +70,7 @@ export interface StatsDashboardSnapshot {
     jpdb: StatsSourceSnapshot;
     jiten: StatsSourceSnapshot;
     bunpro: StatsSourceSnapshot;
+    wanikani: StatsSourceSnapshot;
     yomuLocal: StatsSourceSnapshot;
     anki: StatsSourceSnapshot;
     combined: StatsCombinedSnapshot;
@@ -132,15 +133,17 @@ export function emptyStatsDashboardSnapshot(): StatsDashboardSnapshot {
     const jpdb = emptyStatsSource('jpdb', 'JPDB', 'Add JPDB data to see stats.');
     const jiten = emptyStatsSource('jiten', 'Jiten', 'Add Jiten data to see stats.');
     const bunpro = emptyStatsSource('bunpro', 'Bunpro', 'Connect Bunpro to see stats.');
+    const wanikani = emptyStatsSource('wanikani', 'WaniKani', 'Connect WaniKani to see stats.');
     const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, 'Academy reviews are ready.');
     const anki = emptyStatsSource('anki', 'Anki', 'Connect Anki to see stats.');
     return {
         jpdb,
         jiten,
         bunpro,
+        wanikani,
         yomuLocal,
         anki,
-        combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, anki),
+        combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, wanikani, anki),
     };
 }
 
@@ -825,4 +828,3 @@ function numberValue(value: unknown): number {
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
 }
-

@@ -143,7 +143,10 @@ import { addWindowEventListener, removeWindowEventListener } from '../platform/w
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { BunproClient } from '../bunpro/bunpro';
-import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
+import { createBunproSrsAdapter, createWanikaniSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
+import { WanikaniClient } from '../wanikani/wanikani';
+import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
+import { WanikaniSourceController } from '../wanikani/wanikani-source';
 
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -305,6 +308,8 @@ export class NewTabRuntime {
         getProxyUrl: () => this.settings.corsProxyUrl,
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
+    private wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
+    private wanikaniSrs = createWanikaniSrsAdapter(this.wanikani);
     private yomuLocalSrsRepository = new LocalYomuSrsRepository();
     private yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
@@ -314,6 +319,12 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),
     });
+    private wanikaniSources = new WanikaniSourceController(
+        new WanikaniLookupClient(this.wanikani),
+        () => this.settings,
+        (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+        () => this.repositionLookupPopover(),
+    );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
     ));
@@ -400,6 +411,7 @@ export class NewTabRuntime {
         anki: this.anki,
         srsAdapters: {
             bunpro: this.bunproSrs,
+            wanikani: this.wanikaniSrs,
             'yomu-local': this.yomuLocalSrs,
         },
         dictionaries: this.dictionaries,
@@ -708,6 +720,7 @@ export class NewTabRuntime {
             jpdbReviewBridge: this.jpdbReviewBridge,
             srsAdapters: {
                 bunpro: this.bunproSrs,
+                wanikani: this.wanikaniSrs,
                 'yomu-local': this.yomuLocalSrs,
             },
             parser: this.parser,
@@ -770,6 +783,7 @@ export class NewTabRuntime {
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+            installWanikaniSources: (root, card) => this.wanikaniSources.installDefinitionMounts(root, card),
             lookupStudyCard: (term, reading) => this.lookupCard(term, reading ?? ''),
             renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
                 includeStudySources: false,
@@ -1010,6 +1024,7 @@ export class NewTabRuntime {
         data: CardRenderData & { loading: boolean },
     ): void {
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
+        this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
     }
 
@@ -1361,6 +1376,7 @@ export class NewTabRuntime {
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji, requestId);
         }
+        this.wanikaniSources.installKanjiMount(popover, kanji);
         this.installKanjiLookupImmersionExamples(popover, kanji);
 
         const renderKeyword = () => {

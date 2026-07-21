@@ -11,7 +11,7 @@ import type { JitenApiClient } from '../dictionaries/jiten';
 import type { YomuSrsAdapter, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs/types';
 
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
-type NewTabSrsAdapterSource = 'bunpro' | 'yomu-local';
+type NewTabSrsAdapterSource = 'bunpro' | 'wanikani' | 'yomu-local';
 type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
 
 // Cycle-9 unification: one uniform shape for every SRS provider's grading path
@@ -119,12 +119,17 @@ export class NewTabReviewSubmitter {
                 undo: notReversible,
             },
             'bunpro-api': this.srsAdapterEntry('bunpro-api'),
+            'wanikani-api': this.srsAdapterEntry('wanikani-api'),
             'yomu-local': this.srsAdapterEntry('yomu-local'),
         };
     }
 
-    private srsAdapterEntry(target: 'bunpro-api' | 'yomu-local'): NewTabReviewProviderAdapter {
-        const source: NewTabSrsAdapterSource = target === 'bunpro-api' ? 'bunpro' : 'yomu-local';
+    private srsAdapterEntry(target: 'bunpro-api' | 'wanikani-api' | 'yomu-local'): NewTabReviewProviderAdapter {
+        const source: NewTabSrsAdapterSource = target === 'bunpro-api'
+            ? 'bunpro'
+            : target === 'wanikani-api'
+                ? 'wanikani'
+                : 'yomu-local';
         return {
             hasCredential: () => Boolean(this.deps.srsAdapters?.[source]?.hasCredential()),
             review: (card, grade) => this.reviewSrsAdapter(source, card, grade),
@@ -173,7 +178,12 @@ export class NewTabReviewSubmitter {
     private async reviewSrsAdapter(source: NewTabSrsAdapterSource, card: JPDBCard, grade: JPDBGrade): Promise<void> {
         const adapter = this.deps.srsAdapters?.[source];
         if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text('couldNotSubmitGrade'));
-        await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+        const result = await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+        if (result.card) {
+            card.cardState = result.card.state;
+            card.dueAt = result.card.dueAt;
+            if (source === 'wanikani') card.wanikaniSrsStage = result.card.srsLevel;
+        }
         this.deps.publishGradedCardState(card);
     }
 
@@ -182,26 +192,38 @@ export class NewTabReviewSubmitter {
         const reading = newTabCardReading(card).trim() || expression;
         const providerCardId = source === 'bunpro'
             ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card)
+            : source === 'wanikani'
+                ? stringifyPositiveNumber(card.wanikaniAssignmentId) || ''
             : card.sourceCardKey || cardKey(card);
         return {
             providerId: source,
             providerCardId,
             providerReviewId: source === 'bunpro' ? card.bunproReviewId || providerCardId : providerCardId,
-            providerReviewableId: source === 'bunpro' ? stringifyPositiveNumber(card.bunproReviewableId) : undefined,
+            providerReviewableId: source === 'bunpro'
+                ? stringifyPositiveNumber(card.bunproReviewableId)
+                : source === 'wanikani'
+                    ? stringifyPositiveNumber(card.wanikaniSubjectId)
+                    : undefined,
             reviewSession: source === 'bunpro' && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
                 id: card.bunproReviewSessionId,
                 inputMode: card.bunproReviewInputMode,
                 endpoint: card.bunproReviewEndpoint,
             } : undefined,
-            kind: source === 'bunpro' ? bunproReviewableKind(card.bunproReviewableType) : 'vocabulary',
+            kind: source === 'bunpro'
+                ? bunproReviewableKind(card.bunproReviewableType)
+                : source === 'wanikani' && card.wanikaniSubjectType === 'kanji'
+                    ? 'kanji'
+                    : source === 'wanikani' && card.wanikaniSubjectType === 'radical'
+                        ? 'unknown'
+                        : 'vocabulary',
             expression,
             reading,
             meanings: card.meanings,
             state: card.cardState,
-            srsLevel: source === 'bunpro' ? card.bunproSrsLevel : undefined,
+            srsLevel: source === 'bunpro' ? card.bunproSrsLevel : source === 'wanikani' ? card.wanikaniSrsStage : undefined,
             dueAt: card.dueAt,
             lastReviewAt: card.lastReviewAt,
-            raw: card,
+            raw: source === 'wanikani' ? { card, subject: { type: card.wanikaniSubjectType } } : card,
         };
     }
 }

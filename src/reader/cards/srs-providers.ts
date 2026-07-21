@@ -1,6 +1,6 @@
 import { normalizeCardStates } from './state';
 import { jpdbDeckLabel } from './deck-choice';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
@@ -8,7 +8,7 @@ import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings 
 import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 
-export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local';
+export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local';
 export type ApiSrsDeckSource = ApiSrsProviderId;
 export type ApiSrsToggleDeckState = 'never-forget' | 'blacklisted';
 export type ApiSrsDeckState = ApiSrsToggleDeckState | 'mining' | 'suspended' | 'forgotten';
@@ -58,6 +58,7 @@ export interface ApiSrsProviderAdapterOptions {
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
     bunpro?: YomuSrsAdapter;
+    wanikani?: YomuSrsAdapter;
     yomuLocal?: YomuSrsAdapter;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
@@ -86,6 +87,10 @@ export function apiSrsSwitchableProviderIds(card: JPDBCard, settings: ReaderSett
     // change id/kind after a grade. Keep that obligation exclusive; duplicate
     // JPDB/Jiten/Anki obligations appear as their own Study cards.
     if (isBunproUsableCard(card, settings)) return ['bunpro'];
+    // A WaniKani due assignment is a real WaniKani review obligation; grading
+    // it elsewhere would desync WaniKani's own SRS schedule, so it is exclusive
+    // the same way a Bunpro session is.
+    if (isWanikaniUsableCard(card, settings)) return ['wanikani'];
     const ids: ApiSrsProviderId[] = [];
     const wordLike = !card.bunproReviewableType || card.bunproReviewableType === 'vocabulary';
     if (wordLike && hasJpdbApiCredential(settings)) ids.push('jpdb');
@@ -97,6 +102,10 @@ function isBunproUsableCard(card: JPDBCard, settings: ReaderSettings): boolean {
     return isBunproGradeableCard(card)
         && hasBunproFrontendCredential(settings)
         && !isBunproFrontendCredentialExpired(settings);
+}
+
+function isWanikaniUsableCard(card: JPDBCard, settings: ReaderSettings): boolean {
+    return isWanikaniGradeableCard(card) && settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings);
 }
 
 // Which providers can actually grade this card: a configured key AND the card
@@ -131,6 +140,14 @@ function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): Api
             hasApiKey: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
         };
     }
+    if (id === 'wanikani') {
+        return {
+            id: 'wanikani',
+            label: 'WaniKani',
+            deckSource: 'wanikani',
+            hasApiKey: settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings),
+        };
+    }
     return id === 'jiten'
         ? { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: hasJitenApiCredential(settings) }
         : { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: hasJpdbApiCredential(settings) };
@@ -144,9 +161,11 @@ export function apiSrsProviderViewForCard(
     const jpdbBacked = isJpdbBackedCard(card);
     const jitenBacked = isJitenBackedCard(card);
     const bunproBacked = isBunproBackedCard(card);
+    const wanikaniBacked = isWanikaniBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
     const bunproUsable = isBunproUsableCard(card, settings);
+    const wanikaniUsable = isWanikaniUsableCard(card, settings);
     // The popover ⇄ toggle stores its choice on the card so a Bunpro-backed
     // card can grade to another usable service (and back) without flipping the
     // global preference for every other word.
@@ -154,6 +173,7 @@ export function apiSrsProviderViewForCard(
     if (override === 'jpdb' && jpdbUsable) return apiSrsProviderView('jpdb', settings);
     if (override === 'jiten' && jitenUsable) return apiSrsProviderView('jiten', settings);
     if (override === 'bunpro' && bunproUsable) return apiSrsProviderView('bunpro', settings);
+    if (wanikaniUsable) return apiSrsProviderView('wanikani', settings);
     if (bunproUsable) return apiSrsProviderView('bunpro', settings);
     // Both services can grade this word and both keys are set -> follow the
     // toggle. Otherwise prefer whichever service has a usable key. A word may be
@@ -170,12 +190,13 @@ export function apiSrsProviderViewForCard(
     // still lets the learner mine/review in this browser without an account.
     // Keep expired/disabled Bunpro-backed cards labelled as Bunpro so token
     // expiry remains visible instead of being hidden behind the local fallback.
-    if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView('yomu-local', settings);
+    if (!bunproBacked && !wanikaniBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView('yomu-local', settings);
     // Neither key is usable: surface the backing provider for the status label
     // only (no grading UI renders without a key).
     if (jpdbBacked) return apiSrsProviderView('jpdb', settings);
     if (jitenBacked) return apiSrsProviderView('jiten', settings);
     if (bunproBacked) return { ...apiSrsProviderView('bunpro', settings), hasApiKey: false };
+    if (wanikaniBacked) return { ...apiSrsProviderView('wanikani', settings), hasApiKey: false };
     return null;
 }
 
@@ -185,6 +206,7 @@ export function isApiMiningEnabled(settings: ReaderSettings): boolean {
 
 export function isApiSrsProviderEnabled(settings: ReaderSettings, providerId: ApiSrsProviderId | undefined): boolean {
     if (providerId === 'yomu-local') return settings.yomuLocalSrsEnabled;
+    if (providerId === 'wanikani') return settings.wanikaniReviewEnabled;
     return providerId === 'bunpro' ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
 }
 
@@ -198,6 +220,7 @@ export function createApiSrsProviderAdapters(options: ApiSrsProviderAdapterOptio
         ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider]
         : [jpdbProvider];
     if (options.bunpro) providers.unshift(createBunproSrsProviderAdapter(options.bunpro, settings));
+    if (options.wanikani) providers.unshift(createWanikaniSrsProviderAdapter(options.wanikani, settings));
     if (options.yomuLocal) providers.push(createYomuLocalSrsProviderAdapter(options.yomuLocal, settings));
     return providers;
 }
@@ -272,6 +295,68 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
         },
         setDeckState: async () => undefined,
     };
+}
+
+function createWanikaniSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
+    return {
+        id: 'wanikani',
+        label: 'WaniKani',
+        deckSource: 'wanikani',
+        hasApiKey: settings.wanikaniReviewEnabled && adapter.hasCredential(),
+        addApiKeyRequiredKey: 'wanikaniAddApiKeyRequired',
+        reviewApiKeyRequiredKey: 'addWanikaniApiKeyReview',
+        deckStateApiKeyRequiredKey: 'wanikaniAddApiKeyRequired',
+        addedToastKey: 'addedToWanikani',
+        supportsCard: isWanikaniGradeableCard,
+        // WaniKani has no API to add arbitrary external subjects: only its own
+        // due assignments can ever be reviewed from Yomu.
+        supportsMiningCard: () => false,
+        supportsDeckState: () => false,
+        selectedDeckId: () => 'wanikani',
+        selectedDeckLabel: () => 'WaniKani',
+        addToDeck: async () => {
+            throw new Error('WaniKani has no API to add arbitrary words; open the word on wanikani.com instead.');
+        },
+        reviewCard: async (card, grade) => {
+            const result = await adapter.review({ card: wanikaniReviewableFromCard(card), grade });
+            if (result.card) applyWanikaniReviewableToCard(card, result.card);
+            return {};
+        },
+        setDeckState: async () => undefined,
+    };
+}
+
+export function isWanikaniBackedCard(card: JPDBCard): boolean {
+    return card.source === 'wanikani' || card.reviewSource === 'wanikani-api' || Boolean(card.wanikaniSubjectId);
+}
+
+export function isWanikaniGradeableCard(card: JPDBCard): boolean {
+    return isWanikaniBackedCard(card) && typeof card.wanikaniAssignmentId === 'number' && card.wanikaniAssignmentId > 0;
+}
+
+function wanikaniReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim();
+    return {
+        providerId: 'wanikani',
+        providerCardId: String(card.wanikaniAssignmentId ?? ''),
+        providerReviewableId: card.wanikaniSubjectId !== undefined ? String(card.wanikaniSubjectId) : undefined,
+        kind: card.wanikaniSubjectType === 'kanji' ? 'kanji' : card.wanikaniSubjectType === 'radical' ? 'unknown' : 'vocabulary',
+        expression,
+        reading,
+        meanings: card.meanings,
+        state: card.cardState,
+        srsLevel: card.wanikaniSrsStage,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        raw: card,
+    };
+}
+
+function applyWanikaniReviewableToCard(card: JPDBCard, reviewable: YomuSrsReviewable): void {
+    if (reviewable.state.length) card.cardState = reviewable.state;
+    if (reviewable.dueAt !== undefined) card.dueAt = reviewable.dueAt;
+    if (reviewable.srsLevel) card.wanikaniSrsStage = reviewable.srsLevel;
 }
 
 export function isBunproMiningCard(card: JPDBCard): boolean {

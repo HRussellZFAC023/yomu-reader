@@ -46,7 +46,7 @@ const log = Logger.scope('NewTab');
 const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
-type NewTabSrsAdapterSource = Extract<NewTabConcreteSource, 'bunpro' | 'yomu-local'>;
+type NewTabSrsAdapterSource = Extract<NewTabConcreteSource, 'bunpro' | 'wanikani' | 'yomu-local'>;
 type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
 
 // A single labelled card fetcher used to build a stats pool. Also the shape of
@@ -86,7 +86,7 @@ function newTabStatsProviderLabelRank(label: string): number {
 }
 
 function statsSourceIdFromValue(value: string | undefined): StatsSourceId {
-    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local' || value === 'anki' || value === 'combined') return value;
+    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'wanikani' || value === 'yomu-local' || value === 'anki' || value === 'combined') return value;
     return 'combined';
 }
 
@@ -115,6 +115,7 @@ export interface NewTabStatsControllerDeps {
     srsAdapters?: Partial<Record<NewTabSrsAdapterSource, NewTabSrsQueueAdapter>>;
     srsReviewableToNewTabCard(card: YomuSrsReviewable): JPDBCard | null;
     canUseBunproSource(): boolean;
+    canUseWanikaniSource(): boolean;
     canUseYomuLocalSource(): boolean;
     text(key: NewTabStatsTextKey): string;
     formatText(key: NewTabCopyKey, values: Record<string, string>): string;
@@ -174,6 +175,7 @@ export class NewTabStatsController {
     selectedStudySource(): NewTabUiState['source'] {
         if (this.selectedSource === 'jpdb' || this.selectedSource === 'jiten') return 'jpdb';
         if (this.selectedSource === 'bunpro') return 'bunpro';
+        if (this.selectedSource === 'wanikani') return 'wanikani';
         if (this.selectedSource === 'yomu-local') return 'yomu-local';
         if (this.selectedSource === 'anki') return 'anki';
         return 'auto';
@@ -205,16 +207,18 @@ export class NewTabStatsController {
             jpdb: hasJpdbApiCredential(settings) ? this.loadingSource(this.snapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.deps.text('statsApiKeyMissing'), 'setup'),
             jiten: hasJitenApiCredential(settings) ? this.loadingSource(this.snapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.deps.text('statsApiKeyMissing'), 'setup'),
             bunpro: this.deps.canUseBunproSource() ? this.loadingSource(this.snapshot.bunpro) : emptyStatsSource('bunpro', 'Bunpro', this.deps.text('statsApiKeyMissing'), 'setup'),
+            wanikani: this.deps.canUseWanikaniSource() ? this.loadingSource(this.snapshot.wanikani) : emptyStatsSource('wanikani', 'WaniKani', this.deps.text('statsApiKeyMissing'), 'setup'),
             yomuLocal: this.deps.canUseYomuLocalSource() ? this.loadingSource(this.snapshot.yomuLocal) : emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.deps.text('statsNoData'), 'setup'),
             anki: this.shouldLoadAnki(settings) ? this.loadingSource(this.snapshot.anki) : emptyStatsSource('anki', 'Anki', this.deps.text('statsConnectAnki'), 'setup'),
             combined: this.loadingSource(this.snapshot.combined),
         };
         this.render(root);
-        const [history, jpdb, jiten, bunpro, yomuLocal, anki] = await Promise.all([
+        const [history, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
             this.readJpdbHistory(),
             this.loadJpdbSource(),
             this.loadJitenSource(),
             this.loadSrsAdapterSource('bunpro'),
+            this.loadSrsAdapterSource('wanikani'),
             this.loadSrsAdapterSource('yomu-local'),
             this.loadAnkiSource(),
         ]);
@@ -225,9 +229,10 @@ export class NewTabStatsController {
             jpdb: jpdbWithHistory,
             jiten: jitenWithHistory,
             bunpro,
+            wanikani,
             yomuLocal,
             anki,
-            combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, anki),
+            combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, wanikani, anki),
         };
         this.loaded = true;
         this.render(root);
@@ -440,7 +445,7 @@ export class NewTabStatsController {
                 ...this.snapshot,
                 anki: emptyStatsSource('anki', 'Anki', this.deps.text('statsAnkiUnavailable'), 'error'),
             };
-            this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki);
+            this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
             this.render(root);
             return;
         }
@@ -478,7 +483,7 @@ export class NewTabStatsController {
         this.snapshot = {
             ...this.snapshot,
             anki: nextAnki,
-            combined: combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, nextAnki),
+            combined: combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, nextAnki),
         };
         this.render(root);
     }
@@ -513,9 +518,10 @@ export class NewTabStatsController {
                 jpdb,
                 jiten: this.snapshot.jiten,
                 bunpro: this.snapshot.bunpro,
+                wanikani: this.snapshot.wanikani,
                 yomuLocal: this.snapshot.yomuLocal,
                 anki: this.snapshot.anki,
-                combined: combineStatsSources(jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki),
+                combined: combineStatsSources(jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki),
             };
             this.selectedSource = this.selectedSource === 'anki' ? 'combined' : this.selectedSource;
             this.loaded = true;
@@ -529,7 +535,7 @@ export class NewTabStatsController {
                     message: this.deps.text('statsImportFailed'),
                 },
             };
-            this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.anki);
+            this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
         }
         this.render(root);
     }

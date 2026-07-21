@@ -39,7 +39,7 @@ interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
-    srsAdapters?: Partial<Record<'bunpro' | 'yomu-local', YomuSrsAdapter>>;
+    srsAdapters?: Partial<Record<'bunpro' | 'wanikani' | 'yomu-local', YomuSrsAdapter>>;
     anki: AnkiConnectClient;
     dictionaries: YomitanDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
@@ -168,6 +168,7 @@ export class CardActionController {
             'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
             'jiten-audio': () => this.performJitenAudio(button, sentence),
             'bunpro-audio': () => this.performBunproAudio(button, sentence),
+            'wanikani-audio': () => this.performWanikaniAudio(button),
             'anki-media-audio': () => this.performAnkiMediaAudio(button),
         };
         return handlers[action];
@@ -244,6 +245,15 @@ export class CardActionController {
             }
         }
         await this.options.playSentenceAudio(fallbackSentence);
+        return false;
+    }
+
+    private async performWanikaniAudio(button: HTMLButtonElement): Promise<boolean> {
+        const audioUrl = button.dataset.audioUrl?.trim() ?? '';
+        if (!audioUrl || !this.options.playMediaUrl) return false;
+        const url = new URL(audioUrl);
+        if (url.protocol !== 'https:') throw new Error('Blocked an unsafe WaniKani audio URL.');
+        await this.options.playMediaUrl(url.href);
         return false;
     }
 
@@ -391,6 +401,7 @@ export class CardActionController {
             jpdb: this.options.jpdb,
             jiten: this.options.jiten,
             bunpro: this.options.srsAdapters?.bunpro,
+            wanikani: this.options.srsAdapters?.wanikani,
             yomuLocal: this.options.srsAdapters?.['yomu-local'],
             isJpdbBackedCard: this.options.isJpdbBackedCard,
         }, settings);

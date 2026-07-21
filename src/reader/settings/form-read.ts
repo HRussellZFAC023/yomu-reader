@@ -88,6 +88,7 @@ const KANJI_ADDON_SOURCE_ROWS = [
     ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority', 'jpdbKanjiAlias'],
     ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority', 'kanjiImmersionKitAlias'],
     ['uchisen', 'uchisenEnabled', 'uchisenPriority', 'uchisenAlias'],
+    ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority', 'wanikaniKanjiAlias'],
     ['rtk', 'rtkEnabled', 'rtkPriority', 'rtkAlias'],
     ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],
     ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority', 'kanjiOriginsAlias'],
@@ -117,6 +118,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
         bunpro: hasSourceRow(has, 'bunproDefinitions'),
+        wanikani: hasSourceRow(has, 'wanikaniDefinitions'),
     };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
@@ -179,7 +181,7 @@ function hasSourceRow(has: (key: string) => boolean, prefix: string): boolean {
 function readApiDefinitionFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
-    rowsPresent: { jpdb: boolean; jiten: boolean; bunpro: boolean },
+    rowsPresent: { jpdb: boolean; jiten: boolean; bunpro: boolean; wanikani: boolean },
 ): Partial<ReaderSettings> {
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
@@ -193,6 +195,9 @@ function readApiDefinitionFormSettings(
         bunproDefinitionsEnabled: rowsPresent.bunpro ? has('bunproDefinitions.enabled') : current.bunproDefinitionsEnabled,
         bunproDefinitionsAlias: readSourceAlias(reader, 'bunproDefinitions', current.bunproDefinitionsAlias),
         bunproDefinitionsPriority: clamped('bunproDefinitions.priority', 0, 999, current.bunproDefinitionsPriority),
+        wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has('wanikaniDefinitions.enabled') : current.wanikaniDefinitionsEnabled,
+        wanikaniDefinitionsAlias: readSourceAlias(reader, 'wanikaniDefinitions', current.wanikaniDefinitionsAlias),
+        wanikaniDefinitionsPriority: clamped('wanikaniDefinitions.priority', 0, 999, current.wanikaniDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
         jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageKanjiEnhancementsEnabled'),
@@ -307,7 +312,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabEnabled: current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
-        newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'bunpro', 'yomu-local', 'anki', 'dictionary'] as const, current.newTabSource),
+        newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'bunpro', 'wanikani', 'yomu-local', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         newTabJpdbReviewMode: readOption(get('newTabJpdbReviewMode'), ['auto', 'api-vocabulary', 'live-review'] as const, current.newTabJpdbReviewMode),
         corsProxyUrl: get('corsProxyUrl').trim(),
@@ -484,6 +489,7 @@ function readMiningFormSettings(reader: SettingsFormReader, current: ReaderSetti
     return {
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
         bunproMiningEnabled: has('bunproMiningEnabled'),
+        wanikaniReviewEnabled: has('wanikaniReviewEnabled'),
         yomuLocalSrsEnabled: has('yomuLocalSrsEnabled'),
         autoMineOnReview: has('autoMineOnReview'),
         miningDeck: get('miningDeck').trim() || 'forq',

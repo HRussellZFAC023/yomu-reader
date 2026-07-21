@@ -29,9 +29,11 @@ Click a kanji inside the popup headword and the drilldown opens. Depending on yo
 - **RTK data** for [Remembering the Kanji](https://en.wikipedia.org/wiki/Remembering_the_Kanji) users — keyword and frame.
 - **Source-labelled keywords** from Jiten or JPDB, RTK, imported dictionaries, and Kanji Alive; matching glosses merge while distinct glosses remain separate.
 - **Component hints** so you can see what the kanji is built from.
+- **Uchisen mnemonic illustrations and component groups** in the same reorderable drilldown stack.
+- **WaniKani account details** — level, readings, meanings, mnemonics, components, visually similar kanji, personal notes, and SRS status — when you add a personal token.
 - **Related words** that use the kanji, so you learn it where it actually appears.
 
-Kanji origin sources are modular and license-aware: you can turn optional public sources on or off independently.
+Kanji sources are modular and independently reorderable. Uchisen can be enabled without a WaniKani account; WaniKani is opt-in and queries the official API directly with the token stored in your browser.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
