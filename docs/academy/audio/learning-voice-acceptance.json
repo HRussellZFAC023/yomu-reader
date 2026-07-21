@@ -1,0 +1,207 @@
+{
+  "schema": "yomu-academy.learning-voice-acceptance.v5",
+  "generatedOn": "2026-07-21",
+  "batchId": "academy-learning-native-20260720-01",
+  "codexAcceptance": {
+    "acceptedBy": "Codex",
+    "humanReviewed": false,
+    "ownerLineByLineReviewed": false,
+    "basis": "Objective audio checks plus independent waveform review with line-specific critical phrase gates."
+  },
+  "objectiveQa": {
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "archivedLicenceEvidence": {
+    "path": "docs/academy/audio/learning-voice-model-evidence.json",
+    "schema": "yomu-academy.learning-voice-model-evidence.v3",
+    "id": "ACML-1.0",
+    "sha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
+    "modelEvidenceSha256": "74b9769ac7ffff03c3d83f9e2a777b4ee4b4754dd6c203de3525010e0db9f379",
+    "engine": {
+      "name": "AivisSpeech Engine",
+      "version": "1.2.0",
+      "versionResponseSha256": "9f77034b1eb57d24f21ac7deb65c9cc99f63b72775e311f1f280ab2b6c2e06a2",
+      "versionResponseEncoding": "utf8-plain-text"
+    },
+    "engineStyleSource": {
+      "kind": "AivisSpeech Engine aivm_infos_cache.json",
+      "fileName": "aivm_infos_cache.json",
+      "fileSha256": "8ee2593469ca72fea969bde27c9b76d8c8c4c99f6bcc36d6cc8eaf3f38a9a8a6",
+      "relevantMappingsSha256": "4b3f5aad8bfbc4026326c02531c7d5e7c3f47c55fbfa3798b1d1405286475b8b"
+    }
+  },
+  "archivedQueryEvidence": {
+    "path": "docs/academy/audio/learning-voice-query-evidence.json",
+    "schema": "yomu-academy.learning-voice-query-evidence.v2",
+    "sha256": "829a49930e50ebde28c65fd7b657f11fff098273c523fafa06a8525a14e82799",
+    "candidates": 4,
+    "styleMappings": 4
+  },
+  "productionContract": {
+    "path": "docs/academy/audio/learning-voice-production.json",
+    "sha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+    "validation": {
+      "reviewedCandidates": 4,
+      "accepted": 1,
+      "rejected": 3,
+      "bindings": 1,
+      "nativeBand": 1,
+      "archivedQueries": 4,
+      "acceptedBy": "Codex",
+      "humanReviewed": false
+    }
+  },
+  "historicalModelReviewEvidence": {
+    "path": "docs/academy/audio/learning-voice-model-reviews.json",
+    "schema": "yomu-academy.learning-voice-model-reviews.v2",
+    "sha256": "45b9607ceb2d23ee2a7c677e6b716e2e871684d2689825b9181c22d3ea4f5ae5",
+    "audioModelReviewed": true,
+    "humanReviewed": false,
+    "independentReviewerFamilies": 2,
+    "blanketCharacterErrorRateAllowed": false
+  },
+  "catalogSha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02",
+  "entries": [
+    {
+      "lineId": "miller-cafe-price",
+      "bindingIds": [
+        "world-practice:cafe-coffee-price"
+      ],
+      "intent": "Model a concise, matter-of-fact cafe price as a textbook-character speaking turn.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79",
+      "sourceRevision": "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79",
+      "audioQuerySha256": "bc254a0fb56730940c5acd12860a92a3bd52de1332795c4541000ffac56fd0a5",
+      "cacheKey": "28b3358c342c6ef950cbc432dd50515635e7d21ecfba8d2a7f0c5e258b3fb2a6",
+      "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+      "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+      "modelPayloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.090063,
+        "integratedLufs": -17.1,
+        "truePeakDbfs": -2.1,
+        "leadingSeconds": 0.284,
+        "trailingSeconds": 0.336,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-base.bin",
+            "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "コーヒーは300円です",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "三百円"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "コーヒー は 三百 円 です",
+          "normalizedTranscript": "コーヒーは300円です",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "三百円"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "independentCriticalPhraseReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    }
+  ],
+  "rejectedCandidates": [
+    {
+      "lineId": "lesson-textbook-pair-prompt",
+      "reasonCode": "critical-numeral-asr-mismatch",
+      "criticalPhraseGates": [
+        "五ページ"
+      ],
+      "basis": "Independent waveform review recovered コページ and 後ページ instead of 五ページ. The take is not shipped.",
+      "rejectedAssetFingerprint": {
+        "url": "/academy/audio/learning-lines/narrator/lesson-textbook-pair-prompt__e67c2987e27491d3.opus",
+        "sha256": "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+        "bytes": 45553
+      },
+      "shipped": false
+    },
+    {
+      "lineId": "mary-cafe-order",
+      "reasonCode": "critical-polite-morpheme-asr-mismatch",
+      "criticalPhraseGates": [
+        "一つ",
+        "お願いします"
+      ],
+      "basis": "Independent waveform review recovered お狙いします instead of お願いします. The take is not shipped.",
+      "rejectedAssetFingerprint": {
+        "url": "/academy/audio/learning-lines/textbook-mary/mary-cafe-order__def2bf7bca63c545.opus",
+        "sha256": "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "bytes": 20392
+      },
+      "shipped": false
+    },
+    {
+      "lineId": "rie-lesson-zero-repeat",
+      "reasonCode": "critical-particle-polite-morpheme-asr-mismatch",
+      "criticalPhraseGates": [
+        "もう一度",
+        "お願いします"
+      ],
+      "basis": "Whisper recovered the full phrase, but Vosk recovered もう一度は願いします. For this short pedagogical phrase, the inserted particle and changed polite morpheme are a hard failure, so the take is not shipped.",
+      "rejectedAssetFingerprint": {
+        "url": "/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
+        "sha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "bytes": 16585
+      },
+      "shipped": false
+    }
+  ],
+  "counts": {
+    "reviewedCandidates": 4,
+    "accepted": 1,
+    "rejected": 3,
+    "objectivePassed": 1,
+    "nativeBand": 1,
+    "bindings": 1
+  },
+  "complete": true
+}

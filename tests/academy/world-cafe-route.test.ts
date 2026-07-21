@@ -104,7 +104,10 @@ describe('World Cafe route', () => {
         expect(onIntroductionComplete).toHaveBeenCalledWith('place:cafe');
         first.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')?.click();
         await Promise.resolve();
-        expect(onListen).toHaveBeenCalledWith('コーヒーは三百円です。');
+        expect(onListen).toHaveBeenCalledWith(
+            'コーヒーは三百円です。',
+            'world-practice:cafe-coffee-price',
+        );
         expect(first.querySelector<HTMLElement>('.academy-cafe-order-options')?.hidden).toBe(false);
         expect(first.querySelectorAll('.academy-cafe-order-option .academy-assessed-japanese')).toHaveLength(3);
         expect(first.querySelectorAll('.academy-cafe-order-option [data-jpdb-reader-surface-ignore]')).toHaveLength(3);
@@ -151,6 +154,89 @@ describe('World Cafe route', () => {
         expect(replay.querySelector<HTMLButtonElement>('.academy-cafe-order-prop-trigger')?.disabled).toBe(false);
     });
 
+    it('does not mutate or refocus a disposed Cafe screen when playback settles late', async () => {
+        let resolveListen!: (played: boolean) => void;
+        const onListen = vi.fn(() => new Promise<boolean>(resolve => { resolveListen = resolve; }));
+        const screen = renderWorldPlaceScreen({
+            language: 'en',
+            place: 'cafe',
+            route: 'cafe',
+            progress: {
+                completedScenes: [],
+                completedEncounterIds: [],
+                metCharacterIds: ['aakash', 'felix'],
+                seenIntroductions: ['place:cafe'],
+            },
+            onTravel: vi.fn(),
+            onActivity: vi.fn(),
+            onClaimStamp: vi.fn(),
+            onListen,
+        });
+        document.body.append(screen);
+        const status = screen.querySelector<HTMLElement>('[role="status"]')!;
+        const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+
+        screen.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')?.click();
+        await vi.waitFor(() => expect(onListen).toHaveBeenCalledOnce());
+        const statusAtDispose = status.textContent;
+        const focusCallsAtDispose = focus.mock.calls.length;
+        screen.dispatchEvent(new CustomEvent('academy:dispose'));
+
+        resolveListen(false);
+        await Promise.resolve();
+        expect(status.textContent).toBe(statusAtDispose);
+        expect(focus).toHaveBeenCalledTimes(focusCallsAtDispose);
+    });
+
+    it('keeps an accessible replay control reachable after a wrong Cafe answer', async () => {
+        let resolveListen!: (played: boolean) => void;
+        const onListen = vi.fn(() => new Promise<boolean>(resolve => { resolveListen = resolve; }));
+        const screen = renderWorldPlaceScreen({
+            language: 'en',
+            place: 'cafe',
+            route: 'cafe',
+            progress: {
+                completedScenes: [],
+                completedEncounterIds: [],
+                metCharacterIds: ['aakash', 'felix'],
+                seenIntroductions: ['place:cafe'],
+            },
+            onTravel: vi.fn(),
+            onActivity: vi.fn(),
+            onClaimStamp: vi.fn(),
+            onListen,
+        });
+        document.body.append(screen);
+        const order = screen.querySelector<HTMLElement>('[data-world-practice="cafe-coffee-price"]')!;
+        const replay = order.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')!;
+
+        expect(replay.tagName).toBe('BUTTON');
+        expect(replay.type).toBe('button');
+        expect(replay.getAttribute('aria-label')).toBe('Hear the order');
+        replay.click();
+        expect(replay.disabled).toBe(true);
+        expect(replay.getAttribute('aria-busy')).toBe('true');
+        resolveListen(true);
+        await vi.waitFor(() => expect(replay.disabled).toBe(false));
+        expect(replay.textContent).toBe('Replay order');
+        expect(replay.getAttribute('aria-label')).toBe('Replay the order');
+        expect(replay.hasAttribute('aria-busy')).toBe(false);
+
+        const wrong = [...order.querySelectorAll<HTMLButtonElement>('.academy-cafe-order-option')]
+            .find(button => !button.textContent?.includes('三百円'))!;
+        wrong.click();
+        expect(order.dataset.cafeOrderState).toBe('retry');
+        expect(order.querySelector('[role="status"]')?.textContent).toContain('Listen again');
+        expect(document.activeElement).toBe(replay);
+        expect(replay.disabled).toBe(false);
+
+        replay.click();
+        expect(onListen).toHaveBeenCalledTimes(2);
+        resolveListen(false);
+        await vi.waitFor(() => expect(replay.disabled).toBe(false));
+        expect(replay.hasAttribute('aria-busy')).toBe(false);
+    });
+
     it('records a completed station announcement as an idempotent local stamp', async () => {
         let current: HTMLElement | undefined;
         const shell = {
@@ -186,7 +272,11 @@ describe('World Cafe route', () => {
         await flow.render('station', context);
         current?.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
         await Promise.resolve();
-        expect(play).toHaveBeenCalledWith('駅の前に本屋があります。');
+        expect(play).toHaveBeenCalledWith(
+            '駅の前に本屋があります。',
+            undefined,
+            expect.any(AbortSignal),
+        );
         vi.useFakeTimers();
         try {
             const stationBoard = current!;

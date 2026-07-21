@@ -63,6 +63,7 @@ export class AcademyApp {
     private readonly devAuthBypass: boolean;
     private readonly audio: AudioDirector;
     private readonly lifecycle = new AbortController();
+    private disposed = false;
     private language: AcademyLanguage = loadLanguage();
     private shell: AcademyShell;
     private persistence!: AcademyPersistence;
@@ -185,7 +186,10 @@ export class AcademyApp {
     }
 
     dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
         this.lifecycle.abort();
+        this.pronunciation.dispose?.();
         this.audio.dispose();
         this.persistence?.close();
         this.shell.dispose();

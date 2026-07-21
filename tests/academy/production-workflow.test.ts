@@ -43,7 +43,7 @@ describe('Academy production workflow', () => {
 
     it('reports literal canonical completion without converting it to an effort claim', () => {
         const tasks = parseBacklog(fs.readFileSync(backlogPath, 'utf8'), config);
-        expect(progressSummary(tasks)).toMatchObject({ complete: 20, total: 126, percent: 15.9 });
+        expect(progressSummary(tasks)).toMatchObject({ complete: 19, total: 126, percent: 15.1 });
     });
 
     it('selects only dependency-ready tasks while respecting lane and global capacity', () => {

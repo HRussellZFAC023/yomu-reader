@@ -11,6 +11,18 @@ const templates = [
     ['public/academy/index.html', 'index.html'],
     ['public/academy/sw.js', 'sw.js'],
 ];
+const learningVoiceCatalogSource = 'public/academy/audio/learning-voice-playback.json';
+const learningVoiceCatalog = JSON.parse(fs.readFileSync(path.join(root, learningVoiceCatalogSource), 'utf8'));
+if (!Array.isArray(learningVoiceCatalog.entries)) throw new Error('Invalid Academy learning voice catalog.');
+const learningVoiceAssetSources = [...new Set(learningVoiceCatalog.entries.map(entry => entry.url))]
+    .map(url => {
+        if (typeof url !== 'string'
+            || !/^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u.test(url)
+            || url.split('/').includes('..')) {
+            throw new Error(`Invalid Academy learning voice asset URL: ${url}`);
+        }
+        return [`public${url}`, url.slice('/academy/'.length)];
+    });
 const runtimeSources = [
     ['public/academy/manifest.webmanifest', 'manifest.webmanifest'],
     ['public/academy/art/ACADEMY-ASSET-REGISTRY.json', 'art/ACADEMY-ASSET-REGISTRY.json'],
@@ -33,6 +45,8 @@ const runtimeSources = [
     ['public/academy/content/n2-extensive-reading', 'content/n2-extensive-reading'],
     ['public/academy/content/n2-moving-priority-listening', 'content/n2-moving-priority-listening'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
+    [learningVoiceCatalogSource, 'audio/learning-voice-playback.json'],
+    ...learningVoiceAssetSources,
     ['public/academy/vendor', 'vendor'],
     ['dist/academy/app.js', 'app.js'],
     ['dist/academy/style.css', 'style.css'],

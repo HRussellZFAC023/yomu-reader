@@ -997,7 +997,7 @@
       if (!value) return null;
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$7(parsed.envelopes) || !isRecord$7(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$9(parsed.envelopes) || !isRecord$9(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1015,7 +1015,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$7(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$9(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1027,7 +1027,7 @@
       return -1;
     }
   }
-  function isRecord$7(value) {
+  function isRecord$9(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1181,7 +1181,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$6(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$8(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1199,7 +1199,7 @@
     }
     return 0;
   }
-  function isRecord$6(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1434,7 +1434,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$5(value) || !isRecord$5(value.volumes)) return cloneDefaults();
+      if (!isRecord$7(value) || !isRecord$7(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1466,7 +1466,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$5(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2371,7 +2371,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$4(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$6(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2437,7 +2437,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$4(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$6(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2455,7 +2455,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$4(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$6(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2488,12 +2488,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$4(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$6(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$4(value) {
+  function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique(values, label) {
@@ -2518,90 +2518,791 @@
     constructor(director) {
       this.director = director;
     }
-    async play(term, reading) {
+    active = null;
+    disposed = false;
+    async play(term, reading, signal) {
+      if (this.disposed) throw new Error("Pronunciation service has been disposed.");
       if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
         throw new Error("Japanese browser speech is unavailable.");
       }
-      await this.director.unlock();
-      const releaseDuck = this.director.beginExternalLesson();
-      let disposed = false;
+      this.active?.dispose();
+      this.active = null;
+      throwIfAborted(signal);
+      await waitForAbort$2(this.director.unlock(), signal);
+      throwIfAborted(signal);
       const utterance = new SpeechSynthesisUtterance(reading?.trim() || term.trim());
       utterance.lang = "ja-JP";
       utterance.rate = 0.84;
       utterance.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
-      const release = () => {
+      const releaseDuck = this.director.beginExternalLesson();
+      let disposed = false;
+      let playback;
+      let resolveCompletion = () => void 0;
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (completed) => {
         if (disposed) return;
         disposed = true;
+        signal?.removeEventListener("abort", onAbort);
+        utterance.removeEventListener("end", onEnd);
+        utterance.removeEventListener("error", onError);
         releaseDuck();
+        if (this.active === playback) this.active = null;
+        if (completed) resolveCompletion();
       };
-      utterance.addEventListener("end", release, { once: true });
-      utterance.addEventListener("error", release, { once: true });
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-      return {
+      const onEnd = () => release(true);
+      const onError = () => release(true);
+      const onAbort = () => {
+        speechSynthesis.cancel();
+        release(false);
+      };
+      utterance.addEventListener("end", onEnd, { once: true });
+      utterance.addEventListener("error", onError, { once: true });
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) {
+        onAbort();
+        throw abortError$3(signal);
+      }
+      try {
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        release(false);
+        throw error;
+      }
+      playback = {
+        completion,
         dispose() {
           if (!disposed) speechSynthesis.cancel();
-          release();
+          release(false);
+        }
+      };
+      this.active = playback;
+      return playback;
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.active?.dispose();
+      this.active = null;
+    }
+  }
+  function throwIfAborted(signal) {
+    if (signal?.aborted) throw abortError$3(signal);
+  }
+  function abortError$3(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort$2(promise, signal) {
+    if (!signal) return promise;
+    if (signal.aborted) return Promise.reject(abortError$3(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$3(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
+  }
+  const LEARNING_VOICE_CATALOG_URL = "/academy/audio/learning-voice-playback.json";
+  const LEARNING_VOICE_SCHEMA = "yomu-academy.learning-voice-playback.v3";
+  const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
+    "lesson-screen:textbook-pair-prompt": Object.freeze({
+      lineId: "lesson-screen:textbook-pair-prompt",
+      japanese: "では、教科書の五ページを開いて、二人で話してください。",
+      sourceSha256: "07d4462d7ea11b73a081590ca76c56e646e602df0caf9beb4fb7e81f19d291ff"
+    }),
+    "world-practice:cafe-coffee-price": Object.freeze({
+      lineId: "world-practice:cafe-coffee-price",
+      japanese: "コーヒーは三百円です。",
+      sourceSha256: "6d93b616889866689095753a9b7580236729c693ba52936613e2191526e72f79"
+    }),
+    "world-practice:cafe-coffee-counter": Object.freeze({
+      lineId: "world-practice:cafe-coffee-counter",
+      japanese: "コーヒーを一つ、お願いします。",
+      sourceSha256: "15ad2f7463775fbdafc5675c97f10e88a95205b0b273aec337d24289eb3ade79"
+    }),
+    "world-practice:lab-classroom-repair": Object.freeze({
+      lineId: "world-practice:lab-classroom-repair",
+      japanese: "もう一度お願いします。",
+      sourceSha256: "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690"
+    }),
+    "world-practice:lab-classroom-repeat": Object.freeze({
+      lineId: "world-practice:lab-classroom-repeat",
+      japanese: "もう一度お願いします。",
+      sourceSha256: "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690"
+    })
+  });
+  const SHA256$3 = /^[a-f0-9]{64}$/u;
+  const MODEL_UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u;
+  const LEARNING_URL = /^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u;
+  const LINE_ID = /^[a-z0-9][a-z0-9._:-]*$/u;
+  const SURFACE_ID = /^[a-z0-9][a-z0-9._-]*$/u;
+  const QUERY_FIELDS = /* @__PURE__ */ new Set([
+    "speedScale",
+    "pitchScale",
+    "intonationScale",
+    "volumeScale",
+    "prePhonemeLength",
+    "postPhonemeLength",
+    "pauseLengthScale"
+  ]);
+  const MORA_OVERRIDE_FIELDS = /* @__PURE__ */ new Set([
+    "accentPhrase",
+    "mora",
+    "pitch",
+    "vowel_length",
+    "consonant_length"
+  ]);
+  async function loadLearningVoiceCatalog(url = LEARNING_VOICE_CATALOG_URL, fetcher = fetch, signal) {
+    const response = await fetcher(url, { credentials: "same-origin", signal });
+    if (!response.ok) throw new Error(`Learning voice catalog request failed (${response.status}).`);
+    return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
+  }
+  function parseLearningVoiceCatalog(value, options = {}) {
+    if (!isRecord$5(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$5(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$5(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+      throw new TypeError("Invalid learning voice playback catalog.");
+    }
+    const assetLineIds = /* @__PURE__ */ new Set();
+    const bindingLineIds = /* @__PURE__ */ new Set();
+    const entries2 = [];
+    value.entries.forEach((entry2, index) => {
+      if (!isLearningVoiceEntry(entry2)) {
+        if (options.invalidEntry === "skip") {
+          console.warn(`Skipping invalid learning voice playback entry at index ${index}.`);
+          return;
+        }
+        throw new TypeError(`Invalid learning voice playback entry at index ${index}.`);
+      }
+      const duplicateAsset = assetLineIds.has(entry2.lineId);
+      const duplicateBinding = entry2.bindings.find((binding) => bindingLineIds.has(binding.lineId));
+      if (duplicateAsset || duplicateBinding) {
+        const duplicate = duplicateAsset ? entry2.lineId : duplicateBinding?.lineId ?? entry2.lineId;
+        if (options.invalidEntry === "skip") {
+          console.warn(`Skipping duplicate learning voice playback entry at index ${index}: ${duplicate}.`);
+          return;
+        }
+        throw new TypeError(duplicateAsset ? `Duplicate learning voice asset line: ${duplicate}.` : `Duplicate learning voice binding: ${duplicate}.`);
+      }
+      assetLineIds.add(entry2.lineId);
+      for (const binding of entry2.bindings) bindingLineIds.add(binding.lineId);
+      entries2.push(deepFreeze({ ...entry2 }));
+    });
+    if (value.entries.length > 0 && entries2.length === 0) {
+      throw new TypeError("Learning voice playback catalog contains no usable entries.");
+    }
+    const qualityApproval = value.qualityApproval;
+    const acceptancePolicy = value.acceptancePolicy;
+    return Object.freeze({
+      schema: LEARNING_VOICE_SCHEMA,
+      batchId: value.batchId,
+      qualityApproval: deepFreeze({ ...qualityApproval }),
+      acceptancePolicy: deepFreeze({ ...acceptancePolicy }),
+      engine: Object.freeze({
+        name: "AivisSpeech Engine",
+        version: value.engine.version,
+        versionResponseSha256: value.engine.versionResponseSha256
+      }),
+      encoder: Object.freeze({
+        name: "ffmpeg/libopus",
+        version: value.encoder.version,
+        bitrateKbps: 64,
+        application: "voip"
+      }),
+      entries: Object.freeze(entries2)
+    });
+  }
+  async function playLearningVoiceBinding(pronunciation, bindingId, japanese2, signal) {
+    const identity2 = LEARNING_VOICE_BINDING_IDENTITIES[bindingId];
+    if (identity2 && identity2.japanese === japanese2) {
+      const capable = pronunciation;
+      const result = await capable.playLine?.(identity2, signal);
+      if (result?.status === "playing") return result.playback;
+      if (result?.status === "superseded") return null;
+    }
+    return pronunciation.play(japanese2, void 0, signal);
+  }
+  function resolveLearningVoiceEntry(catalog2, term, reading) {
+    const japanese2 = term.trim();
+    const explicitReading = reading?.trim();
+    if (!japanese2 || explicitReading && explicitReading !== japanese2) return null;
+    const matches = catalog2.entries.filter((entry2) => entry2.japanese === japanese2);
+    return matches.length === 1 ? matches[0] : null;
+  }
+  function resolveLearningVoiceLine(catalog2, identity2) {
+    const entry2 = catalog2.entries.find((candidate2) => candidate2.bindings.some((binding) => binding.lineId === identity2.lineId));
+    if (!entry2 || entry2.japanese !== identity2.japanese || entry2.sourceSha256 !== identity2.sourceSha256) return null;
+    return entry2;
+  }
+  class StaticLearningVoiceService {
+    constructor(director, options = {}) {
+      this.director = director;
+      if (options.catalog) {
+        this.catalogSource = () => Promise.resolve(options.catalog).then(parseLearningVoiceCatalog);
+      } else if (options.loadCatalog) {
+        this.catalogSource = (signal) => options.loadCatalog(signal).then(parseLearningVoiceCatalog);
+      } else {
+        this.catalogSource = (signal) => loadLearningVoiceCatalog(LEARNING_VOICE_CATALOG_URL, fetch, signal);
+      }
+      this.createMedia = options.createMedia ?? ((url) => new Audio(url));
+    }
+    catalogSource;
+    createMedia;
+    catalog = null;
+    active = null;
+    activeRequest = null;
+    playGeneration = 0;
+    disposed = false;
+    async playExact(term, reading, signal) {
+      return this.playResolved((catalog2) => resolveLearningVoiceEntry(catalog2, term, reading), signal);
+    }
+    async playLine(identity2, signal) {
+      return this.playResolved((catalog2) => resolveLearningVoiceLine(catalog2, identity2), signal);
+    }
+    async playResolved(resolveEntry, externalSignal) {
+      if (this.disposed) return { status: "superseded" };
+      const generation2 = ++this.playGeneration;
+      const request2 = this.beginRequest(externalSignal);
+      this.active?.dispose();
+      if (request2.signal.aborted) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      let entry2;
+      try {
+        entry2 = resolveEntry(await waitForAbort$1(this.getCatalog(request2.signal), request2.signal));
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      if (!this.isCurrent(generation2, request2.signal)) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      if (!entry2) {
+        request2.release();
+        return { status: "miss" };
+      }
+      try {
+        await waitForAbort$1(this.director.unlock(), request2.signal);
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      if (!this.isCurrent(generation2, request2.signal)) {
+        request2.release();
+        return { status: "superseded" };
+      }
+      this.active?.dispose();
+      let media;
+      try {
+        media = this.createMedia(entry2.url);
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      let releaseDuck;
+      try {
+        releaseDuck = this.director.beginExternalLesson();
+      } catch {
+        request2.release();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+      media.preload = "auto";
+      media.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
+      let disposed = false;
+      let resolveFailure = () => void 0;
+      let resolveCompletion = () => void 0;
+      const failure = new Promise((resolve) => {
+        resolveFailure = resolve;
+      });
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (pause) => {
+        if (disposed) return;
+        disposed = true;
+        if (pause) {
+          media.pause();
+          try {
+            media.currentTime = 0;
+          } catch {
+          }
+        }
+        media.removeEventListener("ended", onEnded);
+        media.removeEventListener("error", onError);
+        request2.signal.removeEventListener("abort", onAbort);
+        releaseDuck();
+        if (this.active === playback) this.active = null;
+        request2.release();
+      };
+      const onEnded = () => {
+        resolveCompletion();
+        release(false);
+      };
+      const onError = () => {
+        resolveFailure();
+        release(false);
+      };
+      const onAbort = () => release(true);
+      const playback = {
+        failure,
+        completion,
+        dispose: () => release(true)
+      };
+      media.addEventListener("ended", onEnded, { once: true });
+      media.addEventListener("error", onError, { once: true });
+      request2.signal.addEventListener("abort", onAbort, { once: true });
+      this.active = playback;
+      if (!this.isCurrent(generation2, request2.signal)) {
+        playback.dispose();
+        return { status: "superseded" };
+      }
+      try {
+        await waitForAbort$1(media.play(), request2.signal);
+        if (!this.isCurrent(generation2, request2.signal)) {
+          playback.dispose();
+          return { status: "superseded" };
+        }
+        return { status: "playing", playback };
+      } catch {
+        playback.dispose();
+        return this.outcomeFor(generation2, request2.signal);
+      }
+    }
+    beginRequest(externalSignal) {
+      this.activeRequest?.abort();
+      const controller = new AbortController();
+      this.activeRequest = controller;
+      const onExternalAbort = () => controller.abort(externalSignal?.reason);
+      if (externalSignal?.aborted) onExternalAbort();
+      else externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+      let released = false;
+      return {
+        signal: controller.signal,
+        release: () => {
+          if (released) return;
+          released = true;
+          externalSignal?.removeEventListener("abort", onExternalAbort);
+          if (this.activeRequest === controller) this.activeRequest = null;
         }
       };
     }
+    isCurrent(generation2, signal) {
+      return !this.disposed && generation2 === this.playGeneration && !signal.aborted;
+    }
+    outcomeFor(generation2, signal) {
+      return this.isCurrent(generation2, signal) ? { status: "miss" } : { status: "superseded" };
+    }
+    async getCatalog(signal) {
+      if (this.disposed) throw abortError$2(signal);
+      if (this.catalog) return this.catalog;
+      const catalog2 = await this.catalogSource(signal);
+      if (this.disposed || signal.aborted) throw abortError$2(signal);
+      this.catalog = catalog2;
+      return catalog2;
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.playGeneration += 1;
+      this.activeRequest?.abort(new DOMException("Pronunciation service disposed.", "AbortError"));
+      this.activeRequest = null;
+      this.active?.dispose();
+      this.active = null;
+      this.catalog = null;
+    }
+  }
+  function abortError$2(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort$1(promise, signal) {
+    if (signal.aborted) return Promise.reject(abortError$2(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$2(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
+  }
+  function isLearningVoiceEntry(value) {
+    if (!isRecord$5(value) || !isRecord$5(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    const queryOverrides = Object.entries(value.queryOverrides);
+    const moraOverrides = value.moraOverrides;
+    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
+  }
+  function isLearningVoiceDisclosure(value) {
+    return isRecord$5(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+  }
+  function isLearningVoiceQualityApproval(value) {
+    return isRecord$5(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+  }
+  function isLearningVoiceAcceptancePolicy(value) {
+    return isRecord$5(value) && Object.keys(value).sort().join(",") === [
+      "acceptedBy",
+      "blanketCharacterErrorRateAllowed",
+      "criticalMorphemeNumeralParticleMismatch",
+      "humanReviewed",
+      "independentAudioReviewRequired",
+      "ownerLineByLineReviewed"
+    ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
+  }
+  function isLearningVoiceBinding(value) {
+    if (!isRecord$5(value) || !isRecord$5(value.accessibleReplayLabel)) return false;
+    const labels = value.accessibleReplayLabel;
+    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
+  }
+  function isLearningVoiceReview(value) {
+    if (!isRecord$5(value) || !isRecord$5(value.naturalness) || !isRecord$5(value.accent) || !isRecord$5(value.pause) || !isRecord$5(value.listening)) return false;
+    const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
+    if (!common) return false;
+    return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
+  }
+  function isLearningVoiceMoraOverride(value) {
+    if (!isRecord$5(value)) return false;
+    const keys = Object.keys(value);
+    return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
+  }
+  function isAccessibleLabel(value) {
+    return typeof value === "string" && value.length > 0 && value.trim() === value;
+  }
+  function isConfinedLearningUrl(value) {
+    return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
+  }
+  function isRecord$5(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function deepFreeze(value) {
+    if (Array.isArray(value)) {
+      value.forEach((item2) => deepFreeze(item2));
+      return Object.freeze(value);
+    }
+    if (isRecord$5(value)) {
+      Object.values(value).forEach((item2) => deepFreeze(item2));
+      return Object.freeze(value);
+    }
+    return value;
   }
   const TTS_ENDPOINT = "https://audio.yomureader.com/audio/tts";
+  const WORKER_TTS_CACHE_LIMIT = 8;
+  class RequestPlayback {
+    constructor(onStop, externalSignal) {
+      this.onStop = onStop;
+      this.externalSignal = externalSignal;
+      this.completion = new Promise((resolve) => {
+        this.resolveCompletion = resolve;
+      });
+      if (!externalSignal?.aborted) {
+        externalSignal?.addEventListener("abort", this.onExternalAbort, { once: true });
+      }
+    }
+    failure = new Promise(() => void 0);
+    completion;
+    abortController = new AbortController();
+    playback = null;
+    stopped = false;
+    resolveCompletion = () => void 0;
+    onExternalAbort = () => this.dispose();
+    get disposed() {
+      return this.stopped;
+    }
+    get signal() {
+      return this.abortController.signal;
+    }
+    replace(playback) {
+      if (this.stopped) {
+        playback.dispose();
+        return false;
+      }
+      this.playback?.dispose();
+      this.playback = playback;
+      void playback.completion?.then(() => {
+        if (!this.stopped && this.playback === playback) {
+          this.resolveCompletion();
+          this.dispose();
+        }
+      });
+      return true;
+    }
+    dispose() {
+      if (this.stopped) return;
+      this.stopped = true;
+      this.externalSignal?.removeEventListener("abort", this.onExternalAbort);
+      this.abortController.abort(this.externalSignal?.reason);
+      this.playback?.dispose();
+      this.playback = null;
+      this.onStop();
+    }
+  }
   class WorkerTtsPronunciationService {
-    constructor(director, fallback = new BrowserSpeechPronunciationService(director)) {
+    constructor(director, fallback = new BrowserSpeechPronunciationService(director), staticVoice = new StaticLearningVoiceService(director)) {
       this.director = director;
+      this.staticVoice = staticVoice;
       this.fallback = fallback;
     }
     fallback;
     cache = /* @__PURE__ */ new Map();
-    audio = null;
-    async play(term, reading) {
-      const cacheKey = `${term.trim()}|${(reading ?? "").trim()}`;
-      let objectUrl = this.cache.get(cacheKey);
-      if (!objectUrl) {
-        const fetchedObjectUrl = await this.fetchObjectUrl(term, reading);
-        if (!fetchedObjectUrl) return this.fallback.play(term, reading);
-        objectUrl = fetchedObjectUrl;
-        this.cache.set(cacheKey, objectUrl);
+    active = null;
+    disposed = false;
+    async play(term, reading, signal) {
+      this.throwIfDisposed();
+      const request2 = this.beginRequest(signal);
+      if (!this.isCurrent(request2)) return request2;
+      try {
+        await this.startWorkerOrBrowser(request2, term, reading);
+        return request2;
+      } catch (error) {
+        const aborted = request2.disposed || signal?.aborted;
+        request2.dispose();
+        if (aborted) return request2;
+        throw error;
       }
-      await this.director.unlock();
-      const releaseDuck = this.director.beginExternalLesson();
-      let disposed = false;
-      const release = () => {
-        if (disposed) return;
-        disposed = true;
-        releaseDuck();
-      };
-      const element2 = this.audio ?? (this.audio = new Audio());
-      element2.pause();
+    }
+    /** A binding miss bypasses generic static lookup and enters the worker/browser ladder directly. */
+    async playLine(identity2, signal) {
+      this.throwIfDisposed();
+      const request2 = this.beginRequest(signal);
+      if (!this.isCurrent(request2)) return { status: "superseded" };
+      let exact2;
+      try {
+        exact2 = this.staticVoice.playLine ? await this.staticVoice.playLine(identity2, request2.signal) : { status: "miss" };
+      } catch {
+        if (!this.isCurrent(request2)) return { status: "superseded" };
+        exact2 = { status: "miss" };
+      }
+      if (!this.isCurrent(request2)) {
+        this.disposeExactResult(exact2);
+        return { status: "superseded" };
+      }
+      if (exact2.status === "superseded") {
+        request2.dispose();
+        return exact2;
+      }
+      if (exact2.status === "miss") {
+        try {
+          await this.startWorkerOrBrowser(request2, identity2.japanese);
+        } catch (error) {
+          request2.dispose();
+          throw error;
+        }
+        return this.isCurrent(request2) ? { status: "playing", playback: request2 } : { status: "superseded" };
+      }
+      this.useStaticPlayback(request2, exact2.playback, identity2.japanese);
+      return { status: "playing", playback: request2 };
+    }
+    beginRequest(signal) {
+      this.active?.dispose();
+      let request2;
+      request2 = new RequestPlayback(() => {
+        if (this.active === request2) this.active = null;
+      }, signal);
+      this.active = request2;
+      if (signal?.aborted) request2.dispose();
+      return request2;
+    }
+    isCurrent(request2) {
+      return !this.disposed && this.active === request2 && !request2.disposed;
+    }
+    useStaticPlayback(request2, playback, term, reading) {
+      if (!request2.replace(playback)) return;
+      void playback.failure.then(async () => {
+        if (!this.isCurrent(request2)) return;
+        try {
+          await this.startWorkerOrBrowser(request2, term, reading);
+        } catch {
+          request2.dispose();
+        }
+      });
+    }
+    async startWorkerOrBrowser(request2, term, reading) {
+      const worker = await this.startWorkerPlayback(request2, term, reading);
+      if (!this.isCurrent(request2)) {
+        worker?.dispose();
+        return;
+      }
+      if (!worker) {
+        await this.startBrowserPlayback(request2, term, reading);
+        return;
+      }
+      if (!request2.replace(worker)) return;
+      void worker.failure.then(async () => {
+        if (!this.isCurrent(request2)) return;
+        try {
+          await this.startBrowserPlayback(request2, term, reading);
+        } catch {
+          request2.dispose();
+        }
+      });
+    }
+    async startBrowserPlayback(request2, term, reading) {
+      if (!this.isCurrent(request2)) return;
+      const playback = await this.fallback.play(term, reading, request2.signal);
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return;
+      }
+      request2.replace(playback);
+    }
+    async startWorkerPlayback(request2, term, reading) {
+      const cacheKey = `${term.trim()}|${(reading ?? "").trim()}`;
+      let objectUrl = this.cachedObjectUrl(cacheKey);
+      if (!objectUrl) {
+        const fetchedObjectUrl = await this.fetchObjectUrl(term, reading, request2.signal);
+        if (!fetchedObjectUrl) return null;
+        if (!this.isCurrent(request2)) {
+          URL.revokeObjectURL(fetchedObjectUrl);
+          return null;
+        }
+        objectUrl = fetchedObjectUrl;
+        this.cacheObjectUrl(cacheKey, objectUrl);
+      }
+      if (!this.isCurrent(request2)) return null;
+      try {
+        await waitForAbort(this.director.unlock(), request2.signal);
+      } catch {
+        return null;
+      }
+      if (!this.isCurrent(request2)) return null;
+      const element2 = new Audio();
       element2.src = objectUrl;
       element2.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
-      element2.addEventListener("ended", release, { once: true });
-      element2.addEventListener("error", release, { once: true });
+      let releaseDuck;
       try {
-        await element2.play();
-      } catch (error) {
-        release();
-        return this.fallback.play(term, reading);
+        releaseDuck = this.director.beginExternalLesson();
+      } catch {
+        return null;
       }
-      return {
-        dispose() {
-          if (!disposed) element2.pause();
-          release();
-        }
+      let stopped = false;
+      let resolveFailure = () => void 0;
+      let resolveCompletion = () => void 0;
+      const failure = new Promise((resolve) => {
+        resolveFailure = resolve;
+      });
+      const completion = new Promise((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const release = (pause) => {
+        if (stopped) return;
+        stopped = true;
+        if (pause) element2.pause();
+        element2.removeEventListener("ended", onEnded);
+        element2.removeEventListener("error", onError);
+        request2.signal.removeEventListener("abort", onAbort);
+        releaseDuck();
       };
+      const onEnded = () => {
+        resolveCompletion();
+        release(false);
+      };
+      const onError = () => {
+        resolveFailure();
+        release(false);
+      };
+      const onAbort = () => release(true);
+      const playback = {
+        failure,
+        completion,
+        dispose: () => release(true)
+      };
+      element2.addEventListener("ended", onEnded, { once: true });
+      element2.addEventListener("error", onError, { once: true });
+      request2.signal.addEventListener("abort", onAbort, { once: true });
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return null;
+      }
+      try {
+        await waitForAbort(element2.play(), request2.signal);
+      } catch {
+        playback.dispose();
+        return null;
+      }
+      if (!this.isCurrent(request2)) {
+        playback.dispose();
+        return null;
+      }
+      return playback;
     }
-    async fetchObjectUrl(term, reading) {
+    disposeExactResult(result) {
+      if (result.status === "playing") result.playback.dispose();
+    }
+    async fetchObjectUrl(term, reading, signal) {
       const params = new URLSearchParams({ term, reading: reading ?? term });
       try {
-        const response = await fetch(`${TTS_ENDPOINT}?${params.toString()}`);
+        const response = await fetch(`${TTS_ENDPOINT}?${params.toString()}`, { signal });
         if (!response.ok) return null;
         const blob = await response.blob();
+        if (signal.aborted) return null;
         return URL.createObjectURL(blob);
       } catch {
         return null;
       }
     }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.active?.dispose();
+      this.active = null;
+      this.staticVoice.dispose?.();
+      this.fallback.dispose?.();
+      for (const objectUrl of this.cache.values()) URL.revokeObjectURL(objectUrl);
+      this.cache.clear();
+    }
+    throwIfDisposed() {
+      if (this.disposed) throw new Error("Pronunciation service has been disposed.");
+    }
+    cachedObjectUrl(cacheKey) {
+      const objectUrl = this.cache.get(cacheKey);
+      if (!objectUrl) return void 0;
+      this.cache.delete(cacheKey);
+      this.cache.set(cacheKey, objectUrl);
+      return objectUrl;
+    }
+    cacheObjectUrl(cacheKey, objectUrl) {
+      this.cache.set(cacheKey, objectUrl);
+      while (this.cache.size > WORKER_TTS_CACHE_LIMIT) {
+        const oldest = this.cache.entries().next().value;
+        if (!oldest) return;
+        this.cache.delete(oldest[0]);
+        URL.revokeObjectURL(oldest[1]);
+      }
+    }
+  }
+  function abortError$1(signal) {
+    return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
+  }
+  function waitForAbort(promise, signal) {
+    if (signal.aborted) return Promise.reject(abortError$1(signal));
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        signal.removeEventListener("abort", onAbort);
+        reject(abortError$1(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void promise.then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      }, (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
   }
   function canonicalStudyCardKey(expression, reading = "") {
     return canonicalStudyCardIdentity(expression, reading).key;
@@ -6700,10 +7401,10 @@
     generation,
     entries: entries$1
   };
-  const SHA256$1 = /^[a-f0-9]{64}$/;
+  const SHA256$2 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$3(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$4(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$1);
@@ -6734,7 +7435,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$1(value) {
-    if (!isRecord$3(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$4(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$3(value.provenance, `${locator}.provenance`);
@@ -6755,7 +7456,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$3(value.source) || !isRecord$3(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$4(value.source) || !isRecord$4(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -6786,7 +7487,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$3(value) || value.mode !== "packaged-static") {
+    if (!isRecord$4(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -6802,7 +7503,7 @@
   }
   function hash$1(value, label) {
     const result = requiredText$4(value, label);
-    if (!SHA256$1.test(result)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
+    if (!SHA256$2.test(result)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
     return result;
   }
   function stringArray$3(value, label) {
@@ -6822,10 +7523,10 @@
     if (!Number.isInteger(result)) throw new TypeError(`${label} must be an integer.`);
     return result;
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
-  const SHA256 = /^[a-f0-9]{64}$/;
+  const SHA256$1 = /^[a-f0-9]{64}$/;
   const bindings = parseListeningTaskBindings(manifestJson$1);
   const bindingByTask = new Map(bindings.entries.map((entry2) => [`${entry2.packageId}/${entry2.sourceQuestionId}`, entry2]));
   function resolvePackagedListeningTask(packageId, sourceQuestionId2, locator) {
@@ -6836,7 +7537,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$2(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$3(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry(entry2, `entries[${index}]`));
@@ -6845,7 +7546,7 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry(value, owner) {
-    if (!isRecord$2(value) || !isRecord$2(value.source) || !isRecord$2(value.verification) || !isRecord$2(value.learnerContract) || !isRecord$2(value.delivery)) {
+    if (!isRecord$3(value) || !isRecord$3(value.source) || !isRecord$3(value.verification) || !isRecord$3(value.learnerContract) || !isRecord$3(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
     const packageId = text$j(value.packageId, `${owner}.packageId`);
@@ -6854,10 +7555,10 @@
     const audioSha256 = text$j(value.source.audioSha256, `${owner}.source.audioSha256`);
     const taskEvidenceSha256 = text$j(value.verification.taskEvidenceSha256, `${owner}.verification.taskEvidenceSha256`);
     const supportEvidenceSha256 = text$j(value.verification.supportEvidenceSha256, `${owner}.verification.supportEvidenceSha256`);
-    if (value.source.corpus !== "soya" && value.source.corpus !== "moodle" && value.source.corpus !== "minna" || !SHA256.test(audioSha256)) {
+    if (value.source.corpus !== "soya" && value.source.corpus !== "moodle" && value.source.corpus !== "minna" || !SHA256$1.test(audioSha256)) {
       throw new TypeError(`Listening task binding ${owner} has invalid source evidence.`);
     }
-    if (value.verification.answerGate !== "after-attempt" || !SHA256.test(taskEvidenceSha256) || !SHA256.test(supportEvidenceSha256)) {
+    if (value.verification.answerGate !== "after-attempt" || !SHA256$1.test(taskEvidenceSha256) || !SHA256$1.test(supportEvidenceSha256)) {
       throw new TypeError(`Listening task binding ${owner} has invalid verification evidence.`);
     }
     if (value.learnerContract.response !== "single-choice" && value.learnerContract.response !== "structured-grid" && value.learnerContract.response !== "structured-cloze" && value.learnerContract.response !== "direction-phrase" && value.learnerContract.response !== "meal-survey" && value.learnerContract.response !== "comparison-log" && value.learnerContract.response !== "speaker-shelf" && value.learnerContract.response !== "conversation-check" && value.learnerContract.response !== "true-false" || value.learnerContract.transcriptReveal !== "after-attempt" || value.learnerContract.hintReveal !== "after-attempt" || value.learnerContract.grading !== "deterministic") {
@@ -6919,7 +7620,7 @@
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$2(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -14224,14 +14925,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueTrimmedStrings(values) {
     return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
-  function isRecord$1(value) {
+  function isRecord$2(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$1(value) || value.version !== 1 || !isRecord$1(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$2(value) || value.version !== 1 || !isRecord$2(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
@@ -14337,7 +15038,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$1(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$2(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -14392,10 +15093,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$1(value)) return {};
+    if (!isRecord$2(value)) return {};
     const result = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$1(candidate2)) continue;
+      if (!isRecord$2(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -34563,6 +35264,12 @@ ${spelling}`);
     readingToggle.type = "button";
     readingToggle.className = "academy-vn-reading-toggle";
     readingToggle.disabled = true;
+    const voiceReplay = document.createElement("button");
+    voiceReplay.type = "button";
+    voiceReplay.className = "academy-vn-log-button academy-vn-voice-replay";
+    voiceReplay.textContent = "▶";
+    voiceReplay.disabled = true;
+    setToolLabel(voiceReplay, options.uiLanguage === "ja" ? "音声をもう一度聞く" : "Replay voice line");
     const logButton = document.createElement("button");
     logButton.type = "button";
     logButton.className = "academy-vn-log-button";
@@ -34608,7 +35315,7 @@ ${spelling}`);
     back.hidden = !backControl;
     const actionSlot = node("div", "academy-vn-action-slot");
     actionSlot.dataset.empty = "true";
-    lineTools.append(logButton, readingToggle, translationToggle);
+    lineTools.append(logButton, voiceReplay, readingToggle, translationToggle);
     dialogueHeader.append(speakerTab, lineTools);
     lineBody.append(japanese2);
     navigation.append(back, actionSlot);
@@ -34629,6 +35336,7 @@ ${spelling}`);
     let textRevealTimer;
     let activeTextRevealLineId;
     let activeTextRevealToken = 0;
+    let voiceLineToken = 0;
     const readingSurfaces = /* @__PURE__ */ new Map();
     const history2 = [];
     const inertSnapshots = /* @__PURE__ */ new Map();
@@ -34653,6 +35361,10 @@ ${spelling}`);
     const renderHistory = () => {
       logEntries.replaceChildren(...history2.map((line2) => historyEntry(line2, readingVisible, translationVisible)));
     };
+    const releaseVoiceStatus = options.voice?.onStatus((snapshot) => {
+      root.dataset.voiceStatus = snapshot.status;
+      voiceReplay.dataset.voiceStatus = snapshot.status;
+    });
     const syncToolAvailability = () => {
       logButton.disabled = history2.length === 0;
       const transcriptMode = !logPanel.hidden;
@@ -34664,6 +35376,10 @@ ${spelling}`);
     };
     root.addEventListener("pointerdown", markUserInteraction, { capture: true, signal: lifecycle.signal });
     root.addEventListener("keydown", markUserInteraction, { capture: true, signal: lifecycle.signal });
+    voiceReplay.addEventListener("click", () => {
+      hasUserInteraction = true;
+      if (!voiceReplay.disabled) void options.voice?.play();
+    }, { signal: lifecycle.signal });
     back.addEventListener("click", () => backControl?.onBack(), { signal: lifecycle.signal });
     lineBody.addEventListener("click", (event) => {
       if (japanese2.dataset.performanceText !== "revealing") return;
@@ -34913,6 +35629,7 @@ ${spelling}`);
       const changesLine = currentLine?.id !== line2?.id;
       const advancesLine = Boolean(currentLine && line2 && changesLine);
       currentLine = line2;
+      syncVoiceLine(line2);
       dialogue2.hidden = !line2;
       if (!line2) {
         delete dialogue2.dataset.line;
@@ -34946,6 +35663,25 @@ ${spelling}`);
       }
       applyTranslationState(translationVisible);
       performBeat(changesLine ? [...advancesLine ? ["vn.advance"] : [], ...line2.sfx ?? []] : []);
+    };
+    const syncVoiceLine = (line2) => {
+      const token = ++voiceLineToken;
+      voiceReplay.disabled = true;
+      root.dataset.voiceAvailable = "false";
+      const voiceLine = line2?.voice && line2.speakerId ? {
+        lineId: line2.id,
+        speakerId: line2.speakerId,
+        japanese: line2.japanese,
+        ...line2.voice.band ? { band: line2.voice.band } : {},
+        ...line2.voice.sourceSha256 ? { sourceSha256: line2.voice.sourceSha256 } : {}
+      } : null;
+      if (!options.voice) return;
+      void options.voice.setLine(voiceLine).then((available) => {
+        if (disposed || token !== voiceLineToken) return;
+        voiceReplay.disabled = !available;
+        root.dataset.voiceAvailable = String(available);
+        if (available && hasUserInteraction) void options.voice?.play();
+      });
     };
     const performBeat = (automaticSfx = []) => {
       const visibleSpeaker = currentLine?.speakerId && sprites.has(currentLine.speakerId) ? currentLine.speakerId : void 0;
@@ -35051,10 +35787,16 @@ ${spelling}`);
     const dispose = () => {
       if (disposed) return;
       disposed = true;
+      voiceLineToken += 1;
       clearTextRevealTimer();
       activeTextRevealLineId = void 0;
       lifecycle.abort();
-      const disposers = [objectMount?.content.dispose, actionMount?.content.dispose];
+      const disposers = [
+        objectMount?.content.dispose,
+        actionMount?.content.dispose,
+        () => options.voice?.dispose(),
+        releaseVoiceStatus
+      ];
       objectMount = null;
       actionMount = null;
       sprites.clear();
@@ -39330,7 +40072,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$1(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -39348,7 +40090,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$1(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -39363,7 +40105,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       message: value.message
     };
   }
-  function isRecord(value) {
+  function isRecord$1(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -39553,6 +40295,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       completion.replaceChildren(note, directions, next);
     });
     let playback = null;
+    let playbackRequest = null;
+    let playbackGeneration = 0;
+    let disposed = false;
     const revealActivity = () => {
       activityHost.hidden = false;
       prelude.classList.add("is-ready");
@@ -39563,16 +40308,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const status = element("span", "academy-field-error");
       status.setAttribute("role", "status");
       play.addEventListener("click", () => {
+        const generation2 = ++playbackGeneration;
+        playbackRequest?.abort();
         playback?.dispose();
+        playback = null;
+        const request2 = new AbortController();
+        playbackRequest = request2;
         play.disabled = true;
         status.textContent = "";
-        void pronunciation.play("では、教科書の五ページを開いて、二人で話してください。").then((active) => {
+        const japanese2 = "では、教科書の五ページを開いて、二人で話してください。";
+        void playLearningVoiceBinding(
+          pronunciation,
+          "lesson-screen:textbook-pair-prompt",
+          japanese2,
+          request2.signal
+        ).then((active) => {
+          if (!active) return;
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) {
+            active.dispose();
+            return;
+          }
           playback = active;
           revealActivity();
         }).catch(() => {
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) return;
           status.textContent = academyText(language, "sourceForkAudioUnavailable");
           revealActivity();
         }).finally(() => {
+          if (disposed || request2.signal.aborted || generation2 !== playbackGeneration) return;
+          playbackRequest = null;
           play.disabled = false;
         });
       });
@@ -39605,7 +40369,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     source2.append(line2, sourceText);
     content.append(prelude, activityHost, completion, source2);
     screen.addEventListener("academy:dispose", () => {
+      disposed = true;
+      playbackGeneration += 1;
+      playbackRequest?.abort();
+      playbackRequest = null;
       playback?.dispose();
+      playback = null;
       controller.dispose();
     }, { once: true });
     return screen;
@@ -212431,7 +213200,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:return-address:letter-on-table",
           beatId: "beat:return-address:arrival-image",
           cueId: "cue:reply-with-declined-line",
-          description: "A printed reply sits squared on the classroom table. The class had mailed a former learner five questions about the old caption. Three paragraphs answer. One of the five goes unmentioned. The last paragraph stops at 「その理由については、お答えしかねます」. Peter is already in the window seat nobody uses, the pages lined up in front of him."
+          description: "A rain-spotted envelope has arrived with the class's five questions folded inside the reply. Three answers are numbered in the margin. Number four is absent. Beside number five, one sentence stands alone: 「その理由については、お答えしかねます」. Peter has taken the window seat nobody noticed was occupied and set three paper clips beside the page."
         },
         {
           kind: "line",
@@ -212442,19 +213211,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the reply's paragraphs and its declined last line",
           variants: {
             n3: {
-              japanese: "返事、来ましたね。…でも、全部には答えてない。答えたのが三つ。触れてないことが一つ。で、最後は『お答えしかねます』って、はっきり断ってある。何を書いたかだけじゃなくて、どこで線を引いたか、そこを読みたいんです。",
-              reading: "へんじ、きましたね。…でも、ぜんぶにはこたえてない。こたえたのがみっつ。ふれてないことがひとつ。で、さいごは『おこたえしかねます』って、はっきりことわってある。なにをかいたかだけじゃなくて、どこでせんをひいたか、そこをよみたいんです。",
-              english: "The reply's here. …Only, it doesn't answer everything. Three questions answered. One thing left untouched. And the last one it turns down flat: 'I must decline to answer.' What I want to read is where they drew the line, not just the wording."
+              japanese: "返事、来ましたね。三つは答えてある。四番はない。五番は『お答えしかねます』。…まず、書いてある通りに読みましょう。理由は、まだ足さないで。",
+              reading: "へんじ、きましたね。みっつはこたえてある。よんばんはない。ごばんは『おこたえしかねます』。…まず、かいてあるとおりによみましょう。りゆうは、まだたさないで。",
+              english: "The reply's here. Three answered. No number four. Number five says, 'I must decline.' …Let's begin with what's actually on the page. No supplying reasons yet."
             },
             n2: {
-              japanese: "お返事、届きました。ただ、全部に答えてはいないんですよね。答えてくださったのが三つ。触れずにおいてあるのが一つ。そして最後の一つは、はっきり『お答えしかねます』と。…何が書いてあるかより、どう線を引いたか。そこを読みたいんです。",
-              reading: "おへんじ、とどきました。ただ、ぜんぶにこたえてはいないんですよね。こたえてくださったのがみっつ。ふれずにおいてあるのがひとつ。そしてさいごのひとつは、はっきり『おこたえしかねます』と。…なにがかいてあるかより、どうせんをひいたか。そこをよみたいんです。",
-              english: "The reply arrived. Though it doesn't answer all of it. Three they were kind enough to answer. One left untouched on purpose. And the last one, plainly: 'I must decline to answer.' Less what's written than where the line got drawn. That's the part I want to read."
+              japanese: "お返事、届きました。三つには回答がある。四番は抜けている。五番は、はっきり『お答えしかねます』と。…まずは、書かれた通りに読みませんか。抜けた理由を、こちらで先に作らないように。",
+              reading: "おへんじ、とどきました。みっつにはかいとうがある。よんばんはぬけている。ごばんは、はっきり『おこたえしかねます』と。…まずは、かかれたとおりによみませんか。ぬけたりゆうを、こちらでさきにつくらないように。",
+              english: "The reply arrived. Three answers. Number four is absent. Number five says plainly, 'I must decline.' …Shall we read it as written first, before we invent a reason for the missing part ourselves?"
             },
             n1: {
-              japanese: "お返事、拝見しました。もっとも、こちらの問いすべてに答えてくださったわけではなくて。お答えいただけたのが三つ、あえて触れずにおかれたのが一つ。そして最後の一つには、はっきりと『お答えしかねます』と。…何が書かれているか、というより、どこで線を引かれたか。仕事柄、私はまずそちらを読んでしまうんです。",
-              reading: "おへんじ、はいけんしました。もっとも、こちらのといすべてにこたえてくださったわけではなくて。おこたえいただけたのがみっつ、あえてふれずにおかれたのがひとつ。そしてさいごのひとつには、はっきりと『おこたえしかねます』と。…なにがかかれているか、というより、どこでせんをひかれたか。しごとがら、わたしはまずそちらをよんでしまうんです。",
-              english: "I've read the reply. Not that they answered every question we sent, mind. Three they were good enough to answer, one deliberately left untouched. And the last, in plain words: 'I must decline to answer.' What's written matters less to me than where they drew the line. Occupational habit. That's the part I read first."
+              japanese: "お返事、拝見しました。回答があるのは三問。四番には触れず、五番には『お答えしかねます』とある。…まずは文面どおりに扱いましょう。空いた理由まで、こちらで補ってしまわないように。仕事のメールでも、そこを急ぐと読み違えますから。",
+              reading: "おへんじ、はいけんしました。かいとうがあるのはさんもん。よんばんにはふれず、ごばんには『おこたえしかねます』とある。…まずはぶんめんどおりにあつかいましょう。あいたりゆうまで、こちらでおぎなってしまわないように。しごとのメールでも、そこをいそぐとよみちがえますから。",
+              english: "I've read it. Three questions answered. Number four untouched. Number five: 'I must decline.' …Let's handle the wording before we supply a motive for the gap. Rush that part in a work email and you misread the whole thing."
             }
           },
           support: {
@@ -212502,19 +213271,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the reply laid flat, ready to be sorted",
           variants: {
             n3: {
-              japanese: "じゃあ、まず分けましょう。答えてくれたこと。書いてないこと。断ったこと。三つに。…書いてないところは、忘れたんじゃなくて、たぶんわざとなんです。",
-              reading: "じゃあ、まずわけましょう。こたえてくれたこと。かいてないこと。ことわったこと。みっつに。…かいてないところは、わすれたんじゃなくて、たぶんわざとなんです。",
-              english: "Then let's sort it first. What they answered. What they didn't write. What they declined. Into three. …The unwritten part isn't forgotten. Probably on purpose."
+              japanese: "じゃあ、このクリップを使いましょう。答えたもの。書いていないもの。断ったもの。…分けてから、四番が何をしているか見たい。",
+              reading: "じゃあ、このクリップをつかいましょう。こたえたもの。かいていないもの。ことわったもの。…わけてから、よんばんがなにをしているかみたい。",
+              english: "Then let's use these clips. Answered. Unwritten. Declined. …Once they're apart, we can see what number four is doing."
             },
             n2: {
-              japanese: "なら、返事を書く前に、一度分けてみませんか。答えてくださったこと、あえて書かれなかったこと、断られたこと。この三つに。…書かれていない部分は、抜けたんじゃない。おそらく、意図して外してある。",
-              reading: "なら、へんじをかくまえに、いちどわけてみませんか。こたえてくださったこと、あえてかかれなかったこと、ことわられたこと。このみっつに。…かかれていないぶぶんは、ぬけたんじゃない。おそらく、いとしてはずしてある。",
-              english: "Then before we write back, shall we sort it once? What they answered, what they left off on purpose, what they declined. Into these three. …The part that isn't written didn't slip. It was likely left out on purpose."
+              japanese: "なら、お返事を書く前に、この三つへ分けませんか。答えがあるもの、書かれていないもの、明確に断られたもの。…並べてから、四番の働きを読みたいんです。",
+              reading: "なら、おへんじをかくまえに、このみっつへわけませんか。こたえがあるもの、かかれていないもの、めいかくにことわられたもの。…ならべてから、よんばんのはたらきをよみたいんです。",
+              english: "Before we reply, shall we sort them three ways? Answered, unwritten, explicitly declined. …Then we can read what number four actually does in the letter."
             },
             n1: {
-              japanese: "でしたら、こちらから何か書き送る前に、一度整理してみましょうか。お答えいただけたこと、あえて書かずにおかれたこと、そしてお断りになったこと。その三つに分けて。…空いている箇所は、うっかり抜けたわけじゃないでしょう。おそらくは、承知のうえで外してある。",
-              reading: "でしたら、こちらからなにかかきおくるまえに、いちどせいりしてみましょうか。おこたえいただけたこと、あえてかかずにおかれたこと、そしておことわりになったこと。そのみっつにわけて。…あいているかしょは、うっかりぬけたわけじゃないでしょう。おそらくは、しょうちのうえではずしてある。",
-              english: "In that case, before we send anything back, let's put it in order. What they answered, what they chose to leave unwritten, and what they declined. Sorted into three. …The empty spot wasn't an oversight. Left out knowingly, more likely."
+              japanese: "でしたら、こちらから書き送る前に、三つに分けてみましょう。回答のあるもの、文面にないもの、明確にお断りになったもの。…推測は、そのあとで十分です。まず、四番が手紙の中でどう置かれているかを見たい。",
+              reading: "でしたら、こちらからかきおくるまえに、みっつにわけてみましょう。かいとうのあるもの、ぶんめんにないもの、めいかくにおことわりになったもの。…すいそくは、そのあとでじゅうぶんです。まず、よんばんがてがみのなかでどうおかれているかをみたい。",
+              english: "Before we write back, let's divide them three ways: answered, absent from the text, explicitly declined. …Inference can wait. First I want to see where number four sits in the letter."
             }
           },
           support: {
@@ -212568,19 +213337,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the three columns, the short declined one",
           variants: {
             n3: {
-              japanese: "…なるほど。これで見えました。この人は、言えることと、言わないことを、自分で決めてる。断ったのも、書かなかったのも、ちゃんと選んでる。お見事、というか。",
-              reading: "…なるほど。これでみえました。このひとは、いえることと、いわないことを、じぶんできめてる。ことわったのも、かかなかったのも、ちゃんとえらんでる。おみごと、というか。",
-              english: "…I see. Now it's clear. This person decides for themselves what they'll say and what they won't. The refusal, the silence: both of them chosen. Rather splendid, really."
+              japanese: "…なるほど。四番だけ、前後の答えをつなぐ言葉まで避けてある。これは抜けじゃないですね。五番の断りとは、別の止め方だ。…お見事。",
+              reading: "…なるほど。よんばんだけ、ぜんごのこたえをつなぐことばまでさけてある。これはぬけじゃないですね。ごばんのことわりとは、べつのとめかただ。…おみごと。",
+              english: "…There. Number four even avoids the linking phrase used between the other answers. Not an accidental omission. A different kind of stop from number five. …Splendid."
             },
             n2: {
-              japanese: "…なるほど、こうして並べるとよく分かる。この方は、確かめられることと、言わずにおくことを、自分で線引きしている。断りも、あの空白も、選んだうえでのことなんです。……お見事、ですね。",
-              reading: "…なるほど、こうしてならべるとよくわかる。このかたは、たしかめられることと、いわずにおくことを、じぶんでせんびきしている。ことわりも、あのくうはくも、えらんだうえでのことなんです。……おみごと、ですね。",
-              english: "…I see. Laid out like this, it's clear. They draw their own line between what can be checked and what they'll keep unsaid. The refusal, that blank space: both chosen on purpose. ……Splendidly done."
+              japanese: "…なるほど。四番だけ、前後をつなぐ言葉まで意識して外してある。単なる抜けではないですね。五番の明確な断りとは、止め方を変えている。……お見事です。",
+              reading: "…なるほど。よんばんだけ、ぜんごをつなぐことばまでいしきしてはずしてある。たんなるぬけではないですね。ごばんのめいかくなことわりとは、とめかたをかえている。……おみごとです。",
+              english: "…I see. Number four deliberately drops even the phrase that links the surrounding answers. Not a simple omission. They used a different stop from the explicit refusal in number five. …Splendid."
             },
             n1: {
-              japanese: "…ええ、こうして三つに並べてみると、はっきりします。この方は、確かめられることと、口にしないでおくことを、ご自分で引き分けておられる。お断りになったのも、あの空白も、承知のうえで選ばれた線なんですよ。……お見事、というほかない。",
-              reading: "…ええ、こうしてみっつにならべてみると、はっきりします。このかたは、たしかめられることと、くちにしないでおくことを、ごじぶんでひきわけておられる。おことわりになったのも、あのくうはくも、しょうちのうえでえらばれたせんなんですよ。……おみごと、というほかない。",
-              english: "…Yes. Set out in three like this, it's plain. They draw their own line between what may be checked and what they'll leave unspoken. The refusal, that blank space: a line drawn knowingly. ……Nothing for it but to call it splendid."
+              japanese: "…ええ、並べると分かります。四番だけ、前後をつなぐ定型まで外してある。うっかり落ちたのではない。しかも五番の明示的な拒否とは、止め方を変えておられる。……お見事、というほかない。",
+              reading: "…ええ、ならべるとわかります。よんばんだけ、ぜんごをつなぐていけいまではずしてある。うっかりおちたのではない。しかもごばんのめいじてきなきょひとは、とめかたをかえておられる。……おみごと、というほかない。",
+              english: "…Yes. Laid out, it shows. Number four drops even the stock phrase linking the answers. No accident. And they chose a different stop from the explicit refusal in number five. …Splendid is the word."
             }
           },
           support: {
@@ -212785,7 +213554,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:return-address:filed-reply",
           beatId: "beat:return-address:exit-image",
           cueId: "cue:reply-filed-with-marks",
-          description: "The follow-up goes out. The reply is filed with every question marked answered, left unsaid, or declined. The last one is written in as 'declined, not to be reopened.' The window seat is empty again. The pages stay squared where Peter left them."
+          description: "The follow-up goes out in an envelope noticeably thinner than the one that arrived. Peter clips the three confirmed answers to the letter; number four remains marked 'not stated,' and number five 'declined, not to be reopened.' On top he places one card for tomorrow's evidence map: earlier learner added one route; space left intentionally. The other contributor fields stay untouched."
         }
       ],
       exit: {
@@ -213347,7 +214116,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$9 = "yomu-academy.story-package.v2";
   const id$9 = "s4e03-polite-no";
-  const revision$9 = "2026-07-18.1";
+  const revision$9 = "2026-07-19.1";
   const canonicality$9 = "canon";
   const season$9 = 4;
   const chapter$a = 39;
@@ -213439,7 +214208,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:polite-no:venue-ask",
           beatId: "beat:polite-no:arrival-image",
           cueId: "cue:program-proof-with-venue-note",
-          description: "The cafe's long table is covered by the public-evening program proof. Clipped to its final panel is a short printed note from the venue, courteous, asking for a cleaner and more inspirational ending. Beside it lies the class's evidence map from last week, one cell still deliberately blank under a small label reading 「まだわからない」."
+          description: "The cafe's long table is covered by the public-evening proof. The venue's courteous request for one founder and a more moving close is circled in red. Before anyone has taken off a coat, Robert has opened three attachment windows: a founder label, a photograph, and an extra closing caption."
         },
         {
           kind: "line",
@@ -213450,19 +214219,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the venue's note and every addition he can still make to the final panel",
           variants: {
             n3: {
-              japanese: "会場さんからの連絡、読みました。『もっとすっきりした、感動的な終わり方にしてほしい』って。……うーん、じゃあ、最後に一言添えましょうか。締めの言葉と、あと創立者の名前と、写真も一枚。足せるものは、全部足せば……。",
-              reading: "かいじょうさんからのれんらく、よみました。『もっとすっきりした、かんどうてきなおわりかたにしてほしい』って。……うーん、じゃあ、さいごにひとことそえましょうか。しめのことばと、あとそうりつしゃのなまえと、しゃしんもいちまい。たせるものは、ぜんぶたせば……。",
-              english: "I read the message from the venue. 'We'd like a cleaner, more moving ending,' they say. …Hmm, all right, shall we add a line at the end? A closing line, the founder's name, and one photo too. If we add everything we can add…"
+              japanese: "会場さんからの連絡、読みました。『もっとすっきりした、感動的な終わり方に』って。いいご相談ですね。じゃあ、締めの言葉と、創立者の欄と、写真を一枚……あれ、もう添付が三つだ。",
+              reading: "かいじょうさんからのれんらく、よみました。『もっとすっきりした、かんどうてきなおわりかたに』って。いいごそうだんですね。じゃあ、しめのことばと、そうりつしゃのらんと、しゃしんをいちまい……あれ、もうてんぷがみっつだ。",
+              english: "I read the venue's message. 'A cleaner, more moving close,' they say. A welcome request. All right: a closing line, a founder field, and one photograph… Oh. That's three attachments already."
             },
             n2: {
-              japanese: "会場の方からのご連絡、拝見しました。『できれば、もう少しすっきりした、感動的な締めくくりに』とのことで。……なるほど。じゃあ、最後に一言、こちらで添えましょうか。締めの一文に、創立者のお名前、それに写真を一枚。足せるものを全部足していけば、きっと形にはなりますよ。",
-              reading: "かいじょうのかたからのごれんらく、はいけんしました。『できれば、もうすこしすっきりした、かんどうてきなしめくくりに』とのことで。……なるほど。じゃあ、さいごにひとこと、こちらでそえましょうか。しめのいちぶんに、そうりつしゃのおなまえ、それにしゃしんをいちまい。たせるものをぜんぶたしていけば、きっとかたちにはなりますよ。",
-              english: "I've read the message from the venue. 'If possible, a slightly cleaner, more moving close,' is what they'd like. …I see. All right, shall we add a line at the end from our side? A closing sentence, the founder's name, and one photo. Keep adding everything we can add, and it'll surely come together."
+              japanese: "会場の方からのご連絡、拝見しました。『もう少しすっきりと、心に残る締めくくりに』とのことで。いいご相談ですね。こちらで、締めの一文と、創立者欄と、写真を一枚……あれ、依頼は一つなのに、もう添付が三つですね。",
+              reading: "かいじょうのかたからのごれんらく、はいけんしました。『もうすこしすっきりと、こころにのこるしめくくりに』とのことで。いいごそうだんですね。こちらで、しめのいちぶんと、そうりつしゃらんと、しゃしんをいちまい……あれ、いらいはひとつなのに、もうてんぷがみっつですね。",
+              english: "I've read the venue's message. 'A slightly cleaner close, something that stays with people.' A welcome request. From our side, then: a closing sentence, a founder field, and one photograph… Oh. One request, and I already have three attachments."
             },
             n1: {
-              japanese: "会場の方からのご連絡、拝見しましたよ。『叶うなら、もう少しすっきりと、心に残る締めくくりにしていただけたら』と、まあ、そういうご要望でしてね。……うん、なるほど。だったら最後に一言、こちらで添えてしまいましょうか。締めの一文を一つ、それに創立者のお名前を添えて、写真も一枚どこかに。……足せるものを片っ端から足していけば、体裁くらいは、どうにか。",
-              reading: "かいじょうのかたからのごれんらく、はいけんしましたよ。『かなうなら、もうすこしすっきりと、こころにのこるしめくくりにしていただけたら』と、まあ、そういうごようぼうでしてね。……うん、なるほど。だったらさいごにひとこと、こちらでそえてしまいましょうか。しめのいちぶんをひとつ、それにそうりつしゃのおなまえをそえて、しゃしんもいちまいどこかに。……たせるものをかたっぱしからたしていけば、ていさいくらいは、どうにか。",
-              english: "I've read the message from the venue. 'If it's at all possible, could you make the close a little cleaner, something that stays with people' — that, more or less, is the request. …Yes, I see. In that case, shall I just add a line at the end from our side? One closing sentence, the founder's name alongside it, a photo somewhere too. …Add everything there is to add, one after another, and we can at least keep up appearances, somehow."
+              japanese: "会場の方からのご連絡、拝見しましたよ。『もう少しすっきりと、心に残る締めくくりに』とのご要望でして。いいご相談です。では、締めの一文と、創立者欄と、写真を一枚……おや。依頼は一つなのに、もう添付が三つになりましたね。",
+              reading: "かいじょうのかたからのごれんらく、はいけんしましたよ。『もうすこしすっきりと、こころにのこるしめくくりに』とのごようぼうでして。いいごそうだんです。では、しめのいちぶんと、そうりつしゃらんと、しゃしんをいちまい……おや。いらいはひとつなのに、もうてんぷがみっつになりましたね。",
+              english: "I've read the venue's message. They would like 'a slightly cleaner close, something that stays with people.' A welcome request. Then: a closing sentence, a founder field, and one photograph… Dear me. One request, and I have already made three attachments."
             }
           },
           support: {
@@ -213480,19 +214249,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the evidence map's blank cell and the founder the class cannot name",
           variants: {
             n3: {
-              japanese: "ロバートさん、待って。……そこ、まだ埋まってないでしょ。『まだわからない』って、自分たちで書いたところ。創立者を一人に決めたら、それ、無いものを足すことになるよ。足すんじゃなくて……ここは、断る、でいいのかな。",
-              reading: "ロバートさん、まって。……そこ、まだうまってないでしょ。『まだわからない』って、じぶんたちでかいたところ。そうりつしゃをひとりにきめたら、それ、ないものをたすことになるよ。たすんじゃなくて……ここは、ことわる、でいいのかな。",
-              english: "Robert, wait. …That spot's still blank, right? The one we labeled 'we don't know this yet' ourselves. If we settle on a single founder, that's adding something that isn't there. Not adding, but… here, is it okay if we just decline?"
+              japanese: "ロバートさん、依頼は一つなのに、返事が大きくなりすぎてる。創立者の名前は出せない。写真も答えじゃない。まず、『一人には決められません』だけ返そう。……それでいい?",
+              reading: "ロバートさん、いらいはひとつなのに、へんじがおおきくなりすぎてる。そうりつしゃのなまえはだせない。しゃしんもこたえじゃない。まず、『ひとりにはきめられません』だけかえそう。……それでいい?",
+              english: "Robert, it's one request, but the reply is getting too big. We can't provide a founder's name. A photograph isn't an answer. First, let's reply with just: 'we cannot settle on one person.' …All right?"
             },
             n2: {
-              japanese: "ロバートさん、ちょっと待って。……そこ、まだ埋めてないところでしょ。自分たちで『まだわからない』って印をつけた一マス。ここで創立者を一人に絞っちゃうと、無い事実を足すことになる。足すんじゃなくて——今回は、お断りする、でいいんじゃないかな。一回だけ聞くけど、どう?",
-              reading: "ロバートさん、ちょっとまって。……そこ、まだうめてないところでしょ。じぶんたちで『まだわからない』ってしるしをつけたひとマス。ここでそうりつしゃをひとりにしぼっちゃうと、ないじじつをたすことになる。たすんじゃなくて——こんかいは、おことわりする、でいいんじゃないかな。いっかいだけきくけど、どう?",
-              english: "Robert, hold on. …That's the spot we haven't filled, right? The one cell we marked 'we don't know this yet' ourselves. If we narrow it to a single founder here, we're adding a fact that isn't there. Not adding — this time, I think declining is the way. I'll ask just once: what do you think?"
+              japanese: "ロバートさん、依頼は一つなのに、返事がコース料理になってる。創立者名は出せない。写真も論点じゃない。まず、『お一人には絞れません』を一皿だけ出そう。……一度だけ聞くけど、それでいい?",
+              reading: "ロバートさん、いらいはひとつなのに、へんじがコースりょうりになってる。そうりつしゃめいはだせない。しゃしんもろんてんじゃない。まず、『おひとりにはしぼれません』をひとさらだけだそう。……いちどだけきくけど、それでいい?",
+              english: "Robert, it's one request, but the reply has turned into a full-course meal. We can't provide a founder's name. The photograph isn't the point. First, let's serve one dish: 'we cannot narrow it to one person.' …I'll ask once. Is that all right?"
             },
             n1: {
-              japanese: "ロバートさん、ちょっとだけ待って。……そこ、僕らが自分で空けておいたマスでしょ。『まだわからない』って、わざわざ印までつけて。ここで創立者を一人に決めてしまったら、結局、無い事実をこしらえて足すのと同じだよ。足す方向じゃなくて——今回ばかりは、きちんとお断りする、っていうのでいいんじゃないかな。……念のため、一度だけ訊くよ。それでいい?",
-              reading: "ロバートさん、ちょっとだけまって。……そこ、ぼくらがじぶんであけておいたマスでしょ。『まだわからない』って、わざわざしるしまでつけて。ここでそうりつしゃをひとりにきめてしまったら、けっきょく、ないじじつをこしらえてたすのとおなじだよ。たすほうこうじゃなくて——こんかいばかりは、きちんとおことわりする、っていうのでいいんじゃないかな。……ねんのため、いちどだけきくよ。それでいい?",
-              english: "Robert, just wait a second. …That's the cell we deliberately left open ourselves, isn't it. We even went to the trouble of marking it 'we don't know this yet.' If we pin the founder to one person here, in the end it's the same as making up a fact that isn't there and adding it in. So not by adding — just this once, I think the honest move is to decline it, properly. …Just to be sure, I'll ask one time. Is that all right?"
+              japanese: "ロバートさん、依頼は一つなのに、返事がもうコース料理になってる。創立者名は出せないし、写真も論点じゃない。まず、『お一人には絞りかねます』を一皿だけ出そう。……念のため、一度だけ訊くよ。それでいい?",
+              reading: "ロバートさん、いらいはひとつなのに、へんじがもうコースりょうりになってる。そうりつしゃめいはだせないし、しゃしんもろんてんじゃない。まず、『おひとりにはしぼりかねます』をひとさらだけだそう。……ねんのため、いちどだけきくよ。それでいい?",
+              english: "Robert, it's one request, but the reply is already a full-course meal. We can't provide a founder's name, and the photograph isn't the point. First, let's serve one dish: 'we are unable to narrow it to one person.' …Just to be sure, I'll ask once. Is that all right?"
             }
           },
           support: {
@@ -213510,19 +214279,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the pen he is about to write more with, and the refusal he will compose instead",
           variants: {
             n3: {
-              japanese: "……そうだね。僕、また足そうとしてた。すきまを見ると、つい。——ペン、置くよ。じゃあ、こう返そう。『せっかくのご提案だけど、創立者を一人に決めるのは難しい』。その代わりに、終わりは「問い」のままにする。案は一つだけ出して、あとは向こうに決めてもらう。……その断り方、一緒に文にしてくれる?",
-              reading: "……そうだね。ぼく、またたそうとしてた。すきまをみると、つい。——ペン、おくよ。じゃあ、こうかえそう。『せっかくのごていあんだけど、そうりつしゃをひとりにきめるのはむずかしい』。そのかわりに、おわりは「とい」のままにする。あんはひとつだけだして、あとはむこうにきめてもらう。……そのことわりかた、いっしょにぶんにしてくれる?",
-              english: "…You're right. I was about to add again. See a gap, and I just… — I'll put the pen down. Okay, let's reply like this. 'Grateful as we are for the suggestion, settling on a single founder is difficult.' Instead, we leave the ending as a question. Put out just one proposal, and let them decide the rest. …Would you help me put that refusal into words?"
+              japanese: "……コースは取り消し。ペンも置くよ。『せっかくのご提案ですが、一人に決めるのは難しいです。その代わり、問いで終えるのはどうでしょうか』。この三つで返そう。丁寧な文にするの、手伝ってくれる?",
+              reading: "……コースはとりけし。ペンもおくよ。『せっかくのごていあんですが、ひとりにきめるのはむずかしいです。そのかわり、といでおえるのはどうでしょうか』。このみっつでかえそう。ていねいなぶんにするの、てつだってくれる?",
+              english: "…Cancel the full course. The pen goes down too. 'We appreciate the suggestion, but settling on one person would be difficult. Instead, how would ending on the question be?' Let's answer in those three moves. Will you help me make it properly courteous?"
             },
             n2: {
-              japanese: "……そうだね。僕、またすきまを埋めにいくところだった。悪い癖だ。——ペンは置くよ。じゃあ、こう返そう。『せっかくお声がけいただいたのですが、創立者をお一人に絞るのは、難しいかと存じます』。その代わり、締めは「問い」のかたちで残す。案はこちらから一つだけ出して、あとはご判断をお預けする。……この断り方、文面にするの、手伝ってくれる?",
-              reading: "……そうだね。ぼく、またすきまをうめにいくところだった。わるいくせだ。——ペンはおくよ。じゃあ、こうかえそう。『せっかくおこえがけいただいたのですが、そうりつしゃをおひとりにしぼるのは、むずかしいかとぞんじます』。そのかわり、しめは「とい」のかたちでのこす。あんはこちらからひとつだけだして、あとはごはんだんをおあずけする。……このことわりかた、ぶんめんにするの、てつだってくれる?",
-              english: "…You're right. I was about to go fill the gap again. Bad habit. — I'll set the pen down. Okay, let's reply like this. 'Grateful as we are that you reached out, narrowing it to a single founder would, we fear, be difficult.' Instead, we keep the close in the form of a question. We offer just one proposal from our side, and leave the judgment to them. …Would you help me put this refusal into written words?"
+              japanese: "……コースは取り消し。ペンも置くよ。『せっかくお声がけいただいたのですが、創立者をお一人に絞るのは難しいかと存じます。その代わり、問いで締めくくる形ではいかがでしょうか』。この三手で返そう。文面を整えるの、手伝ってくれる?",
+              reading: "……コースはとりけし。ペンもおくよ。『せっかくおこえがけいただいたのですが、そうりつしゃをおひとりにしぼるのはむずかしいかとぞんじます。そのかわり、といでしめくくるかたちではいかがでしょうか』。このさんてでかえそう。ぶんめんをととのえるの、てつだってくれる?",
+              english: "…Cancel the full course. The pen goes down too. 'Grateful as we are that you reached out, narrowing it to a single founder would, we fear, be difficult. Instead, might we close on the question?' Let's reply in those three moves. Will you help me polish the wording?"
             },
             n1: {
-              japanese: "……うん、そうだね。僕、性懲りもなく、またすきまを埋めにいこうとしてた。——ペンは、置く。じゃあ、こう返そうか。『せっかくのお申し出に、水を差すようで恐縮なのですが、創立者をお一人に絞り込むことは、いたしかねます』。その代わり、締めくくりは「問い」の形のまま残しておく。こちらからお出しするのは案を一つだけ、あとのご判断は、そちらにお預けする。……この、断りつつ扉は閉めない言い方、文面に起こすの、付き合ってくれるかな。",
-              reading: "……うん、そうだね。ぼく、しょうこりもなく、またすきまをうめにいこうとしてた。——ペンは、おく。じゃあ、こうかえそうか。『せっかくのおもうしでに、みずをさすようできょうしゅくなのですが、そうりつしゃをおひとりにしぼりこむことは、いたしかねます』。そのかわり、しめくくりは「とい」のかたちのままのこしておく。こちらからおだしするのはあんをひとつだけ、あとのごはんだんは、そちらにおあずけする。……この、ことわりつつとびらはとじないいいかた、ぶんめんにおこすの、つきあってくれるかな。",
-              english: "…Yeah, you're right. Shameless as ever, I was about to go fill the gap again. — The pen goes down. Okay, shall we reply like this. 'Loath as we are to pour cold water on such a kind offer, narrowing the founder down to a single person is something we are unable to do.' Instead, we keep the close in the form of a question. What we offer from our side is one single proposal; the judgment beyond that, we leave with them. …This way of putting it — refusing, but not closing the door — would you sit with me while I get it down?"
+              japanese: "……コースは取り消し。ペンも置く。『せっかくのお申し出に恐縮なのですが、創立者をお一人に絞り込むことはいたしかねます。その代わり、問いで締めくくる形ではいかがでしょうか』。差し出すのは、この三手だけ。文面に起こすの、付き合ってくれるかな。",
+              reading: "……コースはとりけし。ペンもおく。『せっかくのおもうしでにきょうしゅくなのですが、そうりつしゃをおひとりにしぼりこむことはいたしかねます。そのかわり、といでしめくくるかたちではいかがでしょうか』。さしだすのは、このさんてだけ。ぶんめんにおこすの、つきあってくれるかな。",
+              english: "…Cancel the full course. The pen goes down too. 'Grateful as we are for the offer, we are unable to narrow the founder to a single person. Instead, might we close on the question?' Those are the only three moves we serve. Will you sit with me while I put them into writing?"
             }
           },
           support: {
@@ -213576,19 +214345,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the finished reply and the impulse, now refused, to keep adding to it",
           variants: {
             n3: {
-              japanese: "……うん、これでいい。『ご期待に添えなくて、すみません。でも、この終わり方なら、私たちは胸を張って出せます』。——これ以上は、足さない。一人に決めない代わりに、問いで終わる。それを一つ、ちゃんと差し出す。断ってるけど、突き放してはいないよね。",
-              reading: "……うん、これでいい。『ごきたいにそえなくて、すみません。でも、このおわりかたなら、わたしたちはむねをはってだせます』。——これいじょうは、たさない。ひとりにきめないかわりに、といでおわる。それをひとつ、ちゃんとさしだす。ことわってるけど、つきはなしてはいないよね。",
-              english: "…Yeah, this is good. 'We're sorry we can't meet your hopes. But this ending, we can present with our heads held high.' — Nothing more than this. Instead of settling on one person, we end on a question. We offer that, clearly, as one thing. It's a refusal, but it isn't a brush-off, is it."
+              japanese: "……うん、これでいい。添付は三つとも削除。本文は、ありがとう、できません、この案はどうですか。三つだけ。ずいぶん小さな返事になったね。",
+              reading: "……うん、これでいい。てんぷはみっつともさくじょ。ほんぶんは、ありがとう、できません、このあんはどうですか。みっつだけ。ずいぶんちいさなへんじになったね。",
+              english: "…Yes, this works. All three attachments deleted. The message says: thank you, we can't do that, how about this proposal. Three moves. It has become a remarkably small reply."
             },
             n2: {
-              japanese: "……うん、これでいこう。『ご期待に沿えず、心苦しいのですが、この締めくくりであれば、私どもとして自信を持ってお出しできます』。——もう、足さない。お一人に決めない代わりに、問いのまま終える。その案を、一つだけきちんとお渡しする。断ってはいるけど、扉は閉めてない。それが、いちばん正直な終わり方だと思う。",
-              reading: "……うん、これでいこう。『ごきたいにそえず、こころぐるしいのですが、このしめくくりであれば、わたしどもとしてじしんをもっておだしできます』。——もう、たさない。おひとりにきめないかわりに、といのままおえる。そのあんを、ひとつだけきちんとおわたしする。ことわってはいるけど、とびらはとじてない。それが、いちばんしょうじきなおわりかただとおもう。",
-              english: "…Yeah, let's go with this. 'It pains us that we can't meet your expectations, but this close is one we can present with confidence.' — No more adding. Instead of settling on one person, we end it as a question. We hand over that one proposal, properly. It's a refusal, but the door isn't shut. That's the most honest ending, I think."
+              japanese: "……うん、これでいこう。添付は三つとも削除。本文は、謝意、お断り、代案の三手。『ご期待に沿えず心苦しいのですが、この締めくくりであれば自信を持ってお出しできます』。ずいぶん小さな返事になったね。",
+              reading: "……うん、これでいこう。てんぷはみっつともさくじょ。ほんぶんは、しゃい、おことわり、だいあんのさんて。『ごきたいにそえずこころぐるしいのですが、このしめくくりであればじしんをもっておだしできます』。ずいぶんちいさなへんじになったね。",
+              english: "…Yes, let's use this. All three attachments deleted. The message has three moves: thanks, refusal, alternative. 'It pains us that we cannot meet your expectations, but this is a close we can present with confidence.' It has become a remarkably small reply."
             },
             n1: {
-              japanese: "……うん、これで出そう。『ご期待に十分お応えできず、心苦しい限りなのですが、この締めくくりであれば、私どもとしても自信を持ってお届けできます』。——もう、一切足さない。お一人に絞らない、その代わりに、問いを残したまま終える。差し出すのは、その案ただ一つ。……断ってはいる。でも、突き放してはいない。——「足す」のがホストの仕事だと、ずっと思ってたんだけどな、僕は。",
-              reading: "……うん、これでだそう。『ごきたいにじゅうぶんおこたえできず、こころぐるしいかぎりなのですが、このしめくくりであれば、わたしどもとしてもじしんをもっておとどけできます』。——もう、いっさいたさない。おひとりにしぼらない、そのかわりに、といをのこしたままおえる。さしだすのは、そのあんただひとつ。……ことわってはいる。でも、つきはなしてはいない。——「たす」のがホストのしごとだと、ずっとおもってたんだけどな、ぼくは。",
-              english: "…Yeah, let's send this. 'That we can't fully meet your expectations pains us no end, but this close is one we can deliver with confidence.' — Nothing more, not one thing. We don't narrow it to one person; instead, we end with the question left standing. What we offer is that single proposal, and only that. …It is a refusal. But it isn't a brush-off. — And here I always thought adding was a host's whole job."
+              japanese: "……うん、これで出そう。添付は三つとも削除。本文は、謝意、お断り、代案の三手だけ。『ご期待に十分お応えできず心苦しい限りですが、この締めくくりであれば自信を持ってお届けできます』。……ずいぶん小さな返事になったね。ホストの仕事にしては。",
+              reading: "……うん、これでだそう。てんぷはみっつともさくじょ。ほんぶんは、しゃい、おことわり、だいあんのさんてだけ。『ごきたいにじゅうぶんおこたえできずこころぐるしいかぎりですが、このしめくくりであればじしんをもっておとどけできます』。……ずいぶんちいさなへんじになったね。ホストのしごとにしては。",
+              english: "…Yes, let's send this. All three attachments deleted. The message has only three moves: thanks, refusal, alternative. 'It pains us that we cannot fully meet your expectations, but this is a close we can deliver with confidence.' …A remarkably small reply, for a host's work."
             }
           },
           support: {
@@ -213606,19 +214375,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "how the reply lands for the person who has to receive it",
           variants: {
             n3: {
-              japanese: "うん。これ、向こうも受け取りやすいよ。断られた、で終わらない。ちゃんと、次の一手が置いてある。",
-              reading: "うん。これ、むこうもうけとりやすいよ。ことわられた、でおわらない。ちゃんと、つぎのいってがおいてある。",
-              english: "Yeah. This is easy for them to receive, too. It doesn't end at 'we were refused.' There's a clear next move set down for them."
+              japanese: "うん。向こうも答えやすいよ。一人にする案はだめ。問いで終える案なら出せる。選ぶものが、ちゃんと見える。",
+              reading: "うん。むこうもこたえやすいよ。ひとりにするあんはだめ。といでおえるあんならだせる。えらぶものが、ちゃんとみえる。",
+              english: "Yes. It's easy for them to answer. The single-founder proposal is out. We can offer the question ending. They can see exactly what they are deciding."
             },
             n2: {
-              japanese: "うん、いいと思う。これなら、向こうも受け取りやすい。『断られて終わり』じゃなくて、ちゃんと次の一手が、一つ置いてあるから。答えを返す余地が、残ってる。",
-              reading: "うん、いいとおもう。これなら、むこうもうけとりやすい。『ことわられておわり』じゃなくて、ちゃんとつぎのいってが、ひとつおいてあるから。こたえをかえすよちが、のこってる。",
-              english: "Yeah, I think it's good. Like this, it's easy for them to receive. It isn't 'refused, the end' — there's one clear next move set down. Room to send an answer back is left open."
+              japanese: "うん。これなら、向こうも答えやすい。一人にする案はお断りする。問いで終える案なら出せる。判断するものが、一つだけ見えてる。",
+              reading: "うん。これなら、むこうもこたえやすい。ひとりにするあんはおことわりする。といでおえるあんならだせる。はんだんするものが、ひとつだけみえてる。",
+              english: "Yes. This is easy for them to answer. We decline the single-founder proposal. We can offer the question ending. There is exactly one decision in view."
             },
             n1: {
-              japanese: "うん、これでいい。相手からすると、ずっと受け取りやすいはずだよ。『断られて、はい終わり』じゃない。ちゃんと、次の一手が一つだけ、そっと置いてある。——答えを返す余地が、きちんと残してある。それが、いちばん大きいと思う。",
-              reading: "うん、これでいい。あいてからすると、ずっとうけとりやすいはずだよ。『ことわられて、はいおわり』じゃない。ちゃんと、つぎのいってがひとつだけ、そっとおいてある。——こたえをかえすよちが、きちんとのこしてある。それが、いちばんおおきいとおもう。",
-              english: "Yeah, this is right. From their side, it should be far easier to receive. It's not 'refused, and that's that.' There's one clear next move, just one, set down gently. — Room to send an answer back is properly left open. That's the biggest thing, I think."
+              japanese: "うん。これなら、相手も判断しやすい。一人にする案は引き受けない。問いで終える案なら出せる。返事をする対象が、一つだけ見えてる。",
+              reading: "うん。これなら、あいてもはんだんしやすい。ひとりにするあんはひきうけない。といでおえるあんならだせる。へんじをするたいしょうが、ひとつだけみえてる。",
+              english: "Yes. This is easy for the other side to decide. We will not take on the single-founder proposal. We can offer the question ending. There is exactly one thing for them to answer."
             }
           },
           support: {
@@ -213632,7 +214401,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:polite-no:additions-set-aside",
           beatId: "beat:polite-no:changed-image",
           cueId: "cue:reply-holds-one-no",
-          description: "The extra material Robert reached for — a sticky note with a guessed founder name, two spare captions, a photo — is pushed to the far edge of the table, unused. The reply now holds one concession, one no, and one alternative, with a blank line waiting at the bottom for the venue's answer. The evidence map's cell stays blank."
+          description: "Robert closes all three attachment windows. The reply now holds one concession, one no, and one alternative. Sam slides the evidence legend under the laptop where its source lines remain visible; the venue has one specific proposal to answer."
         }
       ],
       exit: {
@@ -213660,7 +214429,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:polite-no:reply-open-line",
           beatId: "beat:polite-no:regroup-image",
           cueId: "cue:reply-with-open-response-line",
-          description: "The reply sits finished on the table, the program's final panel reworked from a founder's box into a single line of question. The last line of the message is still empty — an open space where the venue's answer will go, not a demand for one."
+          description: "The reply is ready on Robert's laptop, its subject line unchanged. On the proof beside it, the founder box has become one question. Robert's cursor hovers over Send while Sam turns the three unused printouts face-down."
         },
         {
           kind: "line",
@@ -213671,19 +214440,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the single unanswered space at the foot of the reply and the relationship it has to keep",
           variants: {
             n3: {
-              japanese: "送るのは、一回でいいと思う。返事を急かさないで、向こうの答えを待とう。……こっちは、まだ一緒にやりたい。それだけは、ちゃんと伝わるように書いておこう。",
-              reading: "おくるのは、いっかいでいいとおもう。へんじをせかさないで、むこうのこたえをまとう。……こっちは、まだいっしょにやりたい。それだけは、ちゃんとつたわるようにかいておこう。",
-              english: "I think we send it just once. Don't rush the reply — let's wait for their answer. …We still want to do this together. That one thing, let's make sure it comes through."
+              japanese: "送るのは一回。件名も変えない。返事が来るまで、追加のメールは送らない。『この案で一緒に進めたいです』は、もう本文に書いてある。これで送ろう。",
+              reading: "おくるのはいっかい。けんめいもかえない。へんじがくるまで、ついかのメールはおくらない。『このあんでいっしょにすすめたいです』は、もうほんぶんにかいてある。これでおくろう。",
+              english: "Send it once. Don't change the subject line. No more email until they reply. 'We would like to proceed together with this proposal' is already in the message. Let's send this."
             },
             n2: {
-              japanese: "送るのは、一回だけでいいと思う。何度も催促しないで、向こうの返事をちゃんと待とう。押したら、たぶん逆効果だし。……こっちはまだ一緒にやりたいんだ、っていうのだけは、伝わるように残しておきたいな。",
-              reading: "おくるのは、いっかいだけでいいとおもう。なんどもさいそくしないで、むこうのへんじをちゃんとまとう。おしたら、たぶんぎゃくこうかだし。……こっちはまだいっしょにやりたいんだ、っていうのだけは、つたわるようにのこしておきたいな。",
-              english: "I think we send it just the once. Don't chase it over and over — let's properly wait for their reply. Push, and it probably backfires anyway. …The one thing I do want to leave through is that we still want to do this together."
+              japanese: "送るのは一回。件名も変えない。返事が来るまで、追伸も催促も送らない。『この案で引き続きご一緒できれば幸いです』は、もう本文に書いてある。行間に任せなくていい。これで送ろう。",
+              reading: "おくるのはいっかい。けんめいもかえない。へんじがくるまで、ついしんもさいそくもおくらない。『このあんでひきつづきごいっしょできればさいわいです』は、もうほんぶんにかいてある。ぎょうかんにまかせなくていい。これでおくろう。",
+              english: "Send it once. Don't change the subject line. No postscript or reminder until they reply. 'We would be pleased to continue working with you on this proposal' is already in the message. We don't need to leave that between the lines. Let's send this."
             },
             n1: {
-              japanese: "送るのは、一度きりでいいと思うんだ。何度も催促を重ねたりせずに、向こうが答えを返してくるのを、こっちは黙って待つ。押せば、たぶん逆に閉じちゃうから。……ただ、『それでもまだ、ご一緒したいと思っています』——そこだけは、行間ににじむように残しておきたい。断りの手紙でも、そこさえ消えてなければ、関係は切れないよ。",
-              reading: "おくるのは、いちどきりでいいとおもうんだ。なんどもさいそくをかさねたりせずに、むこうがこたえをかえしてくるのを、こっちはだまってまつ。おせば、たぶんぎゃくにとじちゃうから。……ただ、『それでもまだ、ごいっしょしたいとおもっています』——そこだけは、ぎょうかんににじむようにのこしておきたい。ことわりのてがみでも、そこさえきえてなければ、かんけいはきれないよ。",
-              english: "I think we send it one time and one time only. No stacking up reminder after reminder — we just wait, quietly, for them to send an answer back. Push, and it probably closes instead. …Only, 'even so, we'd still like to work with you' — that one thing, I want to leave bleeding through between the lines. Even in a letter that says no, as long as that hasn't been erased, the relationship doesn't break."
+              japanese: "一度だけ送る。件名も変えない。返事が来るまで、追伸も催促も送らない。『この案で引き続きご一緒できれば幸いです』は、もう本文に明記してある。行間に背負わせる必要はない。これで送ろう。",
+              reading: "いちどだけおくる。けんめいもかえない。へんじがくるまで、ついしんもさいそくもおくらない。『このあんでひきつづきごいっしょできればさいわいです』は、もうほんぶんにめいきしてある。ぎょうかんにせおわせるひつようはない。これでおくろう。",
+              english: "Send it once. Don't change the subject line. No postscript or reminder until they reply. 'We would be pleased to continue working with you on this proposal' is stated plainly in the message. There is no need to make the space between the lines carry it. Let's send this."
             }
           },
           support: {
@@ -213744,19 +214513,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the deliberately unfilled ending and the warmth that survived the refusal",
           variants: {
             n3: {
-              japanese: "不思議だね。何も足さなかったのに、これがいちばん強い。……終わりを埋めなかったから、かえって誠実に見える。丁寧に断っても、冷たくはならないんだな。",
-              reading: "ふしぎだね。なにもたさなかったのに、これがいちばんつよい。……おわりをうめなかったから、かえってせいじつにみえる。ていねいにことわっても、つめたくはならないんだな。",
-              english: "Funny. We didn't add a thing, and this is the strongest version. …Because we left the ending unfilled, it comes across as more honest, if anything. You can refuse politely and still not come out cold."
+              japanese: "送信ボタン、メニューよりずいぶん小さいね。これで足りるかな。……断る文なのに、ちゃんと次の相談ができる形になってる。押すよ。",
+              reading: "そうしんボタン、メニューよりずいぶんちいさいね。これでたりるかな。……ことわるぶんなのに、ちゃんとつぎのそうだんができるかたちになってる。おすよ。",
+              english: "The Send button is much smaller than the menu. Is this enough, do you think? …Even though the message says no, it gives us a clear next thing to discuss. I'm pressing it."
             },
             n2: {
-              japanese: "妙なもんだね。何一つ足さなかったのに、これがいちばん強い返事になった。……終わりを無理に埋めなかったぶん、かえって誠実に見えるんだ。丁寧にお断りしても、ちゃんと温度は残る。断り方って、冷たさとは別のことなんだな。",
-              reading: "みょうなもんだね。なにひとつたさなかったのに、これがいちばんつよいへんじになった。……おわりをむりにうめなかったぶん、かえってせいじつにみえるんだ。ていねいにおことわりしても、ちゃんとおんどはのこる。ことわりかたって、つめたさとはべつのことなんだな。",
-              english: "Strange thing. We didn't add a single thing, and it turned into the strongest reply of the lot. …Because we didn't force the ending shut, it reads as more honest, if anything. Refuse politely and the warmth still stays. Turns out how you say no is a separate thing from being cold."
+              japanese: "送信ボタンは、メニューよりずいぶん小さいね。これで足りるかな。……お断りの文面なのに、次に相談する項目はちゃんと見えてる。押すよ。",
+              reading: "そうしんボタンは、メニューよりずいぶんちいさいね。これでたりるかな。……おことわりのぶんめんなのに、つぎにそうだんするこうもくはちゃんとみえてる。おすよ。",
+              english: "The Send button is much smaller than the menu. Is this enough, do you think? …Even in a refusal, the next point for discussion is perfectly visible. I'm pressing it."
             },
             n1: {
-              japanese: "妙なものだね。結局、何一つ足さなかった。なのに、これがいちばん強い返事になってしまった。……終わりを無理に埋めずに空けておいたぶん、かえって誠実に映る。丁寧にお断りしたって、温度まで下がるわけじゃない。——「丁重な拒絶」と「冷たさ」は、まるで別物だったんだな。ずいぶん長いこと、同じものだと思い込んでたよ。",
-              reading: "みょうなものだね。けっきょく、なにひとつたさなかった。なのに、これがいちばんつよいへんじになってしまった。……おわりをむりにうめずにあけておいたぶん、かえってせいじつにうつる。ていねいにおことわりしたって、おんどまでさがるわけじゃない。——「ていちょうなきょぜつ」と「つめたさ」は、まるでべつものだったんだな。ずいぶんながいこと、おなじものだとおもいこんでたよ。",
-              english: "Strange thing. In the end, we didn't add a single thing. And yet it became the strongest reply of all. …Because we left the ending open instead of forcing it shut, it reads as more honest, if anything. Refuse politely and the warmth doesn't drop with it. — A courteous 'no' and coldness turned out to be altogether different things. For the longest time I had them confused for the same one."
+              japanese: "送信ボタンというのは、メニューよりずいぶん小さいね。これだけで足りるかな。……お断りの文面なのに、次に相談すべき項目は、ちゃんと一つ見えている。では、押しますよ。",
+              reading: "そうしんボタンというのは、メニューよりずいぶんちいさいね。これだけでたりるかな。……おことわりのぶんめんなのに、つぎにそうだんすべきこうもくは、ちゃんとひとつみえている。では、おしますよ。",
+              english: "A Send button is remarkably small compared with a menu. Will this alone be enough, I wonder. …And yet, though the message is a refusal, exactly one point for our next discussion is clearly visible. Well then. I shall press it."
             }
           },
           support: {
@@ -213774,19 +214543,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the reply about to go, sent one time, with the door left open",
           variants: {
             n3: {
-              japanese: "そうだね。……今日のロバートさん、一つも足さなかった。それが、いちばん効いたよ。じゃあ、これで一回だけ送ろう。あとは、待つだけ。",
-              reading: "そうだね。……きょうのロバートさん、ひとつもたさなかった。それが、いちばんきいたよ。じゃあ、これでいっかいだけおくろう。あとは、まつだけ。",
-              english: "Yeah. …Today, Robert, you didn't add one single thing. And that's what worked best. Okay — let's send this, just once. After that, we just wait."
+              japanese: "足りる。写真を戻す前に、押して。……送った? じゃあ今日は、これで終わり。",
+              reading: "たりる。しゃしんをもどすまえに、おして。……おくった? じゃあきょうは、これでおわり。",
+              english: "It's enough. Press it before you put the photograph back. …Sent? Then we're done for today."
             },
             n2: {
-              japanese: "うん。……今日のロバートさん、結局、何も足さなかったね。その「足さなかった」のが、いちばん効いてる。じゃあ、これで一回だけ送ろう。返事が来るまで、こっちは急かさずに待つ。それでいこう。",
-              reading: "うん。……きょうのロバートさん、けっきょく、なにもたさなかったね。その「たさなかった」のが、いちばんきいてる。じゃあ、これでいっかいだけおくろう。へんじがくるまで、こっちはせかさずにまつ。それでいこう。",
-              english: "Yeah. …Today, Robert, in the end you didn't add anything. And that 'not adding' is what lands hardest. Okay — let's send this, just once. Until a reply comes, we wait without rushing them. Let's go with that."
+              japanese: "足りる。写真を戻す前に、押して。……送信済みになった? じゃあ今日は、これで終わり。明日の昼までは、僕もメールを見ない。",
+              reading: "たりる。しゃしんをもどすまえに、おして。……そうしんずみになった? じゃあきょうは、これでおわり。あしたのひるまでは、ぼくもメールをみない。",
+              english: "It's enough. Press it before you put the photograph back. …Does it say sent? Then we're done for today. I won't check the email before tomorrow afternoon either."
             },
             n1: {
-              japanese: "うん。……今日のロバートさん、とうとう最後まで、何も足さなかった。その、足さなかったことが、いちばん効いてるんだよ。——じゃあ、これで一度だけ、送ろう。あとは急かさずに、向こうが答えを返してくるのを待つ。断ったのに、扉はちゃんと開けたままだ。それで、いい。",
-              reading: "うん。……きょうのロバートさん、とうとうさいごまで、なにもたさなかった。その、たさなかったことが、いちばんきいてるんだよ。——じゃあ、これでいちどだけ、おくろう。あとはせかさずに、むこうがこたえをかえしてくるのをまつ。ことわったのに、とびらはちゃんとあけたままだ。それで、いい。",
-              english: "Yeah. …Today, Robert, right to the end, you didn't add anything at all. And that — the not adding — is what lands hardest. — Okay, let's send this, just once. Then, without rushing them, we wait for them to send an answer back. We refused, and yet the door's still properly open. And that's fine."
+              japanese: "足りる。写真を戻す前に、押して。……送信済みになった? じゃあ今日は、これで終わり。明日の昼までは、僕も受信箱を開かないことにする。",
+              reading: "たりる。しゃしんをもどすまえに、おして。……そうしんずみになった? じゃあきょうは、これでおわり。あしたのひるまでは、ぼくもじゅしんばこをひらかないことにする。",
+              english: "It's enough. Press it before you put the photograph back. …Does it say sent? Then we're done for today. I won't open the inbox before tomorrow afternoon either."
             }
           },
           support: {
@@ -213800,7 +214569,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:polite-no:reply-sent",
           beatId: "beat:polite-no:exit-image",
           cueId: "cue:question-ending-blank-line",
-          description: "The reply goes out once. Its final panel ends on a question rather than a founder, and the last line of the message stays an open space for the venue's answer. Robert caps the pen he never picked back up and sets it down beside the proof. Nothing is added; nothing is crossed out; the evidence map's cell is still blank."
+          description: "The reply goes out once, with no attachments. Robert caps his pen; Sam turns his phone face-down. On the proof, the final panel ends on a question rather than a founder. The venue's answer is now the only item still pending."
         }
       ],
       exit: {
@@ -216647,7 +217416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$3 = "yomu-academy.story-package.v2";
   const id$3 = "s4e09-rehearsal-for-leaving";
-  const revision$3 = "2026-07-18.1";
+  const revision$3 = "2026-07-19.1";
   const canonicality$3 = "canon";
   const season$3 = 4;
   const chapter$4 = 45;
@@ -216751,7 +217520,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:rehearsal-for-leaving:setup-on-the-desk",
           beatId: "beat:rehearsal-for-leaving:arrival-image",
           cueId: "cue:labeled-box-and-run-sheet",
-          description: "Rehearsal is running at the far end of the room. On the front desk sits a taped-shut cardboard box with a projector inside, a labeled run-sheet clipped to its lid, and a small electric fan pushed to one side. Beside the box, an unlabeled handheld recorder that nobody reaches for."
+          description: "The projector lights before Henry reaches the front desk. Shaun is already on cue two, following the labelled run-sheet with the adapter taped beside it. Christian's fan turns on low at the back of the room. Henry stops in the aisle with the equipment box still in his hands."
         },
         {
           kind: "line",
@@ -216762,19 +217531,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the run-sheet clipped to the box lid",
           variants: {
             n3: {
-              japanese: "投影の合図、全部メモにしておきました。順番も、つかない時のことも。だから、僕がいなくても大丈夫だと思います。たぶん。",
-              reading: "とうえいのあいず、ぜんぶメモにしておきました。じゅんばんも、つかないときのことも。だから、ぼくがいなくてもだいじょうぶだとおもいます。たぶん。",
-              english: "The projection cues, I wrote them all in a memo. The order, and what to do if one won't light. So it's fine without me. Probably."
+              japanese: "……もう二番まで行った? 手順書だけで? つかない時の分かれ道も入れてあります。じゃあ僕は、ここで箱を持ったまま見ます。たぶん、そのほうが試験になる。",
+              reading: "……もうにばんまでいった? てじゅんしょだけで? つかないときのわかれみちもいれてあります。じゃあぼくは、ここではこをもったままみます。たぶん、そのほうがしけんになる。",
+              english: "…Already at cue two? From the run-sheet alone? I included a branch for when it doesn't light. Then I'll watch from here with the box still in my hands. That's probably a better test."
             },
             n2: {
-              japanese: "投影の合図、ぜんぶ手順にまとめておきました。回す順番も、つかない時にどうするかも。だから当日は、僕がいなくても動かせると思います。…たぶん、ですけど。",
-              reading: "とうえいのあいず、ぜんぶてじゅんにまとめておきました。まわすじゅんばんも、つかないときにどうするかも。だからとうじつは、ぼくがいなくてもうごかせるとおもいます。…たぶん、ですけど。",
-              english: "The projection cues — I've written all of them up into steps. The order to run them in, and what to do if one won't light. So on the night it'll run without me. …Probably, anyway."
+              japanese: "……もうキュー二まで進んだんですか。手順書だけで? 光らない場合の分岐も入れてあります。じゃあ僕は、ここで箱を持ったまま見ます。たぶん、そのほうが引き継ぎの試験になるので。",
+              reading: "……もうキューにまですすんだんですか。てじゅんしょだけで? ひからないばあいのぶんきもいれてあります。じゃあぼくは、ここではこをもったままみます。たぶん、そのほうがひきつぎのしけんになるので。",
+              english: "…You're already at cue two? From the run-sheet alone? I included a branch for when the light stays dark. Then I'll watch from here with the box still in my hands. That's probably the better handoff test."
             },
             n1: {
-              japanese: "投影のキューは、一通り手順書に落としておいたんです。回す順番も、光らなかった場合の対処も。なので当日は、僕がいなくても回せるようにしてあります。…まあ、たぶん、ですが。",
-              reading: "とうえいのキューは、ひととおりてじゅんしょにおとしておいたんです。まわすじゅんばんも、ひからなかったばあいのたいしょも。なのでとうじつは、ぼくがいなくてもまわせるようにしてあります。…まあ、たぶん、ですが。",
-              english: "The projection cues, I've got them all down in a run-sheet. The order to run them in, and what to do if one doesn't light. So on the night, it's set up to run without me there. …Well — probably, anyway."
+              japanese: "……もうキュー二まで進んだんですか。手順書だけで? 不点灯時の分岐も入れてあります。では僕は、ここで箱を持ったまま見ています。そのほうが、たぶん引き継ぎ試験として正しいので。",
+              reading: "……もうキューにまですすんだんですか。てじゅんしょだけで? ふてんとうじのぶんきもいれてあります。ではぼくは、ここではこをもったままみています。そのほうが、たぶんひきつぎしけんとしてただしいので。",
+              english: "…You're already at cue two? From the run-sheet alone? I included a branch for failure to light. Then I shall watch from here with the box still in my hands. That is probably the correct way to test the handoff."
             }
           },
           support: {
@@ -216792,19 +217561,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the small fan pushed to the side of the desk",
           variants: {
             n3: {
-              japanese: "暑くなったら、これ。扇風機、もう試しました。今回は僕がやるんじゃなくて、誰かにやってもらいます。扇風機は、次のクラスに置いていきます。",
-              reading: "あつくなったら、これ。せんぷうき、もうためしました。こんかいはぼくがやるんじゃなくて、だれかにやってもらいます。せんぷうきは、つぎのクラスにおいていきます。",
-              english: "If it gets hot, this. The fan, I already tested it. This time I won't do it myself — someone else will. I'll leave the fan for the next class."
+              japanese: "後ろ、風は強すぎない? 弱と強、両方試した。今日は僕は触らない。温度計が二十八度になったら『弱』。その紙ごと、次のクラスに置いていく。",
+              reading: "うしろ、かぜはつよすぎない? じゃくときょう、りょうほうためした。きょうはぼくはさわらない。おんどけいがにじゅうはちどになったら『じゃく』。そのかみごと、つぎのクラスにおいていく。",
+              english: "At the back, is the airflow too strong? I tested both low and high. I won't touch it today. When the thermometer reaches twenty-eight, use 'low.' The fan and that note stay for the next class."
             },
             n2: {
-              japanese: "熱がこもったら、これ。扇風機、もう試してあります。今回は僕が回すんじゃなくて、誰かにやってもらおうと思って。これ、次のクラスにも置いていきます。",
-              reading: "ねつがこもったら、これ。せんぷうき、もうためしてあります。こんかいはぼくがまわすんじゃなくて、だれかにやってもらおうとおもって。これ、つぎのクラスにもおいていきます。",
-              english: "If the heat builds up, this. The fan — I've already tested it. This time, instead of running it myself, I thought I'd have someone else do it. I'm leaving it for the next class too."
+              japanese: "後ろ、風は強すぎませんか。弱と強、両方試してあります。今日は僕は触りません。温度計が二十八度になったら『弱』。その手順ごと、次のクラスに置いていきます。",
+              reading: "うしろ、かぜはつよすぎませんか。じゃくときょう、りょうほうためしてあります。きょうはぼくはさわりません。おんどけいがにじゅうはちどになったら『じゃく』。そのてじゅんごと、つぎのクラスにおいていきます。",
+              english: "At the back, is the airflow too strong? I've tested both low and high. I won't touch it today. When the thermometer reaches twenty-eight, use 'low.' The fan and that procedure stay for the next class."
             },
             n1: {
-              japanese: "部屋がこもってきたら、これで。扇風機のほう、ちゃんと通してありますから。今回は自分で抱えるんじゃなくて、誰かに任せてみようかと。…扇風機は、次のクラスに残していきますよ。",
-              reading: "へやがこもってきたら、これで。せんぷうきのほう、ちゃんととおしてありますから。こんかいはじぶんでかかえるんじゃなくて、だれかにまかせてみようかと。…せんぷうきは、つぎのクラスにのこしていきますよ。",
-              english: "If the room gets stuffy, use this. The fan, I've run it through properly, so. This time, rather than carry it myself, I thought I'd hand it to someone. …I'll leave the fan for the next class."
+              japanese: "後方、風量は強すぎませんか。弱と強、どちらも動作確認済みです。今日は僕は触りません。温度計が二十八度を示したら『弱』。その手順書ごと、次のクラスへ残します。",
+              reading: "こうほう、ふうりょうはつよすぎませんか。じゃくときょう、どちらもどうさかくにんずみです。きょうはぼくはさわりません。おんどけいがにじゅうはちどをしめしたら『じゃく』。そのてじゅんしょごと、つぎのクラスへのこします。",
+              english: "At the rear, is the airflow too strong? Both low and high have been tested. I will not touch it today. When the thermometer reads twenty-eight, use 'low.' The fan and its run-sheet remain for the next class."
             }
           },
           support: {
@@ -216822,14 +217591,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the run-sheet's plain, numbered steps",
           variants: {
             n2: {
-              japanese: "アンジェルが、この計画を誰が見ても分かるように直してくれたんです。だから、僕の頭の中じゃなくて、紙の上で回る。…人がいなくても動くって、たぶんそういうことで。",
-              reading: "アンジェルが、このけいかくをだれがみてもわかるようになおしてくれたんです。だから、ぼくのあたまのなかじゃなくて、かみのうえでまわる。…ひとがいなくてもうごくって、たぶんそういうことで。",
-              english: "Angel fixed the plan so anyone can read it. So it runs on paper now, not just inside my head. …Something running even when a person's gone — I think this is what that means."
+              japanese: "アンジェルが、僕の矢印を番号に直してくれたんです。ショーンは質問なしで二番まで来た。これは、たぶん使える証拠です。今は、途中で手を出さないでおきます。",
+              reading: "アンジェルが、ぼくのやじるしをばんごうになおしてくれたんです。ショーンはしつもんなしでにばんまできた。これは、たぶんつかえるしょうこです。いまは、とちゅうでてをださないでおきます。",
+              english: "Angel changed my arrows into numbered steps. Shaun reached cue two without a question. That's probably evidence it works. For now, I won't interfere halfway through."
             },
             n1: {
-              japanese: "アンジェルが、この段取りを誰にでも読める形に直してくれて。おかげで、僕の頭の中じゃなく、紙の上だけで回るようになったんです。…誰かがいなくても動くっていうのは、たぶん、こういうことなんでしょうね。",
-              reading: "アンジェルが、このだんどりをだれにでもよめるかたちになおしてくれて。おかげで、ぼくのあたまのなかじゃなく、かみのうえだけでまわるようになったんです。…だれかがいなくてもうごくっていうのは、たぶん、こういうことなんでしょうね。",
-              english: "Angel reworked the sequence so anyone can read it. Thanks to that, it runs on the page alone now, not inside my head. …Something that keeps running when a person is gone — I suppose this is what that looks like."
+              japanese: "アンジェルが、僕の矢印だらけの段取りを番号付きの手順に直してくれたんです。ショーンは質問せずにキュー二まで来た。これは、たぶん実用できる証拠です。今は途中で介入しないでおきます。",
+              reading: "アンジェルが、ぼくのやじるしだらけのだんどりをばんごうつきのてじゅんになおしてくれたんです。ショーンはしつもんせずにキューにまできた。これは、たぶんじつようできるしょうこです。いまはとちゅうでかいにゅうしないでおきます。",
+              english: "Angel turned my arrow-covered sequence into numbered steps. Shaun reached cue two without asking a question. That's probably evidence it is usable. For now, I won't intervene halfway through."
             }
           },
           support: {
@@ -216937,7 +217706,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:rehearsal-for-leaving:rehearse-goodbye-open-chair",
           beatId: "beat:rehearsal-for-leaving:regroup-image",
           cueId: "cue:goodbye-rehearsal-open-chair",
-          description: "The class runs the closing of the evening once through, the part where they thank the room and step back. Everyone has taken a seat except one; a beat after the rest, someone pulls out the open chair and turns it toward Shaun."
+          description: "Shaun calls cue three and the transparent accounts appear one at a time. Henry stays in the back row, the equipment box under his chair. At cue four, Shaun glances once at the run-sheet, changes the reception slide, and continues without looking toward Henry."
         },
         {
           kind: "line",
@@ -216948,14 +217717,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the run-sheet passing from his hands to the desk",
           variants: {
             n2: {
-              japanese: "本番の日、僕はここにいないかもしれないので。設定は通しておいたので、当日は皆さんで進めていただけますか。何かあったら、手順書の最後に連絡先も書いておきました。",
-              reading: "ほんばんのひ、ぼくはここにいないかもしれないので。せっていはとおしておいたので、とうじつはみなさんですすめていただけますか。なにかあったら、てじゅんしょのさいごにれんらくさきもかいておきました。",
-              english: "On the night, I might not be here. I've run the setup through, so — could you all carry it on that day? If anything comes up, I've put a contact at the end of the run-sheet."
+              japanese: "本番の日、僕はこの教室にはいません。今日は後ろにいるので、ショーンさん、このまま七番まで回していただけますか。読みにくい行があったら、そこで丸をつけてください。",
+              reading: "ほんばんのひ、ぼくはこのきょうしつにはいません。きょうはうしろにいるので、ショーンさん、このままななばんまでまわしていただけますか。よみにくいぎょうがあったら、そこでまるをつけてください。",
+              english: "On the night, I won't be in this classroom. Today I'm at the back, so Shaun, would you run through cue seven from here? If any line is hard to follow, circle it where you stop."
             },
             n1: {
-              japanese: "当日、僕はもうこの教室にはいない予定なので。設定はこちらで通しておきましたから、あとは皆さんで回していただけますか。何かあった場合の連絡先も、手順書の最後に載せておきました。",
-              reading: "とうじつ、ぼくはもうこのきょうしつにはいないよていなので。せっていはこちらでとおしておきましたから、あとはみなさんでまわしていただけますか。なにかあったばあいのれんらくさきも、てじゅんしょのさいごにのせておきました。",
-              english: "On the night, I'm not planning to be in this classroom anymore. I've run the setup through from my end, so — could you all take it from there? I've also put a contact for anything that comes up at the end of the run-sheet."
+              japanese: "当日、僕はこの教室にはいません。今日は後方にいますから、ショーンさん、このままキュー七まで回していただけますか。読解しにくい手順があれば、その場で丸をつけてください。",
+              reading: "とうじつ、ぼくはこのきょうしつにはいません。きょうはこうほうにいますから、ショーンさん、このままキューななまでまわしていただけますか。どっかいしにくいてじゅんがあれば、そのばでまるをつけてください。",
+              english: "On the night, I will not be in this classroom. Today I am at the back, so Shaun, would you run through cue seven from here? If any step is difficult to interpret, circle it on the spot."
             }
           },
           support: {
@@ -217046,14 +217815,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the run-sheet now on the desk, no longer in his hands",
           variants: {
             n2: {
-              japanese: "じゃあ、これで。当日、これを回していただけますか。…ここまで来たら、もう僕がいてもいなくても同じで。ちゃんと、皆さんのものになってるので。",
-              reading: "じゃあ、これで。とうじつ、これをまわしていただけますか。…ここまできたら、もうぼくがいてもいなくてもおなじで。ちゃんと、みなさんのものになってるので。",
-              english: "Then — here. On the night, would you run this? …At this point it's the same whether I'm here or not. It's properly yours now."
+              japanese: "七番まで、止まりませんでしたね。では当日も、これを回していただけますか。ここから先、僕は操作には触りません。必要なら、手順書のほうを直してください。",
+              reading: "ななばんまで、とまりませんでしたね。ではとうじつも、これをまわしていただけますか。ここからさき、ぼくはそうさにはさわりません。ひつようなら、てじゅんしょのほうをなおしてください。",
+              english: "You reached cue seven without stopping. Then would you run it on the night as well? From this point, I won't touch the controls. If something needs changing, revise the run-sheet."
             },
             n1: {
-              japanese: "では、お願いします。当日は、これを回していただけますか。…正直、ここまで来たら、僕がいてもいなくても変わらなくて。もう、皆さんの手で回るものになっているので。",
-              reading: "では、おねがいします。とうじつは、これをまわしていただけますか。…しょうじき、ここまできたら、ぼくがいてもいなくてもかわらなくて。もう、みなさんのてでまわるものになっているので。",
-              english: "Then — please. On the night, would you run this? …Honestly, at this point it makes no difference whether I'm here. It runs in your hands now."
+              japanese: "キュー七まで、一度も止まりませんでしたね。では当日も、これを回していただけますか。ここから先、僕は操作には介入しません。必要があれば、手順書の側を修正してください。",
+              reading: "キューななまで、いちどもとまりませんでしたね。ではとうじつも、これをまわしていただけますか。ここからさき、ぼくはそうさにはかいにゅうしません。ひつようがあれば、てじゅんしょのがわをしゅうせいしてください。",
+              english: "You reached cue seven without stopping once. Then would you run it on the night as well? From this point, I will not intervene in the operation. If necessary, revise the run-sheet rather than working around it."
             }
           },
           support: {
@@ -217071,14 +217840,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the reception sign he named",
           variants: {
             n2: {
-              japanese: "はい、預かります。…その受付のところは、僕が見ておきますね。",
-              reading: "はい、あずかります。…そのうけつけのところは、ぼくがみておきますね。",
-              english: "Right, I'll take it. …That reception part — I'll keep an eye on it."
+              japanese: "はい、預かります。受付の張り紙と、投影キュー七つ。次の通しは、電源を切ったところから僕が始めます。",
+              reading: "はい、あずかります。うけつけのはりがみと、とうえいキューななつ。つぎのとおしは、でんげんをきったところからぼくがはじめます。",
+              english: "Yes, I'll take it. The reception sign and the seven projection cues. On the next full run, I'll start from power off."
             },
             n1: {
-              japanese: "はい、確かに。…受付のあの辺は、僕が見ておきます。それくらいなら、ちゃんと。",
-              reading: "はい、たしかに。…うけつけのあのへんは、ぼくがみておきます。それくらいなら、ちゃんと。",
-              english: "Right, got it. …That corner of the reception, I'll watch. That much, at least, properly."
+              japanese: "はい、引き受けます。受付の張り紙と、投影キュー七つ。次の通し稽古は、電源を落とした状態から僕が始めます。",
+              reading: "はい、ひきうけます。うけつけのはりがみと、とうえいキューななつ。つぎのとおしげいこは、でんげんをおとしたじょうたいからぼくがはじめます。",
+              english: "Yes, I'll take it. The reception sign and the seven projection cues. On the next full rehearsal, I'll begin from a powered-down state."
             }
           },
           support: {
@@ -217092,7 +217861,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:rehearsal-for-leaving:fan-set-aside-closing",
           beatId: "beat:rehearsal-for-leaving:exit-image",
           cueId: "cue:setup-passed-fan-stays",
-          description: "The run-sheet stays on the desk, the box beside it with the cable taped on and a label anyone could read. The fan sits apart, kept for the next class. Henry's hands are empty; the setup is where the class can reach it. The recorder is picked up once, held, and set down again, unexplained."
+          description: "Shaun powers the projector down, waits for the fan to stop, then starts cue one again from a dark screen. Henry remains in the back row with empty hands. The fan's note stays clipped for the next class; the unlabelled recorder is lifted once, held, and set down again."
         }
       ],
       exit: {
@@ -217219,7 +217988,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$2 = "yomu-academy.story-package.v2";
   const id$2 = "s4e10-public-evening";
-  const revision$2 = "2026-07-18.1";
+  const revision$2 = "2026-07-19.1";
   const canonicality$2 = "canon";
   const season$2 = 4;
   const chapter$3 = 46;
@@ -217499,7 +218268,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:public-evening:three-column-board",
           beatId: "beat:public-evening:regroup-image",
           cueId: "cue:heard-inferred-not-yet-sayable",
-          description: "Beside the atlas, on a board Ruparna set up before the doors opened, three columns wait: 聞こえたこと, 推測, まだ言えないこと — heard, inferred, not-yet-sayable. Until tonight it was a rehearsal prop. Now the whole courtyard can read it, the third column and all."
+          description: "Ruparna turns the board toward the courtyard. Its three columns now hold three source cards: Rie's bounded memory, the former learner's letter, and the later contribution record. A final row, uninterrupted chain of stewardship, has no supporting card."
         },
         {
           kind: "line",
@@ -217510,19 +218279,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the room, and the three columns on the board",
           variants: {
             n3: {
-              japanese: "じゃあ、正直に答えますね。全部分かってるわけじゃないんです。分かってること、たぶんそうだと思うこと、まだ言えないこと、分けて話します。",
-              reading: "じゃあ、しょうじきにこたえますね。ぜんぶわかってるわけじゃないんです。わかってること、たぶんそうだとおもうこと、まだいえないこと、わけてはなします。",
-              english: "So, honestly, then. It's not that we know all of it. What we know, what we think is probably so, what we still can't say — we'll keep those separate."
+              japanese: "では、三つの資料を順に見ます。リエさんの記憶、前の学習者の手紙、その後の寄与記録です。どの資料が何を言っているか、分けて答えます。",
+              reading: "では、みっつのしりょうをじゅんにみます。リエさんのきおく、まえのがくしゅうしゃのてがみ、そのごのきよきろくです。どのしりょうがなにをいっているか、わけてこたえます。",
+              english: "Then we'll take the three records in order: Rie's memory, the earlier learner's letter, and the later contribution record. We'll answer by separating what each source says."
             },
             n2: {
-              japanese: "じゃあ、正直にお答えしますね。全部が分かっているわけじゃないんです。分かっていること、たぶんそうだと思うこと、まだ言えないこと――これ、分けてお話しします。",
-              reading: "じゃあ、しょうじきにおこたえしますね。ぜんぶがわかっているわけじゃないんです。わかっていること、たぶんそうだとおもうこと、まだいえないこと――これ、わけておはなしします。",
-              english: "So, we'll answer you honestly. It isn't that all of it is known. What we know, what we think is likely so, what we still can't say — we'll lay those out separately."
+              japanese: "では、三つの資料を順に確認します。リエさんの記憶、以前の学習者の手紙、それ以降の寄与記録です。どの資料が、どこまで支えるかを分けてお答えします。",
+              reading: "では、みっつのしりょうをじゅんにかくにんします。リエさんのきおく、いぜんのがくしゅうしゃのてがみ、それいこうのきよきろくです。どのしりょうが、どこまでささえるかをわけておこたえします。",
+              english: "Then we'll check the three records in order: Rie's memory, the earlier learner's letter, and the subsequent contribution record. We'll answer by separating how far each source supports the account."
             },
             n1: {
-              japanese: "では、分かる範囲で、正直にお答えします。実のところ、すべてが判明しているわけではありません。確かなこと、おそらくそうだろうということ、そしてまだ何とも言えないこと――そこは、はっきり分けてお伝えします。",
-              reading: "では、わかるはんいで、しょうじきにおこたえします。じつのところ、すべてがはんめいしているわけではありません。たしかなこと、おそらくそうだろうということ、そしてまだなんともいえないこと――そこは、はっきりわけておつたえします。",
-              english: "So, we'll answer honestly, as far as we can. In truth, not all of it has been established. What's certain, what is probably the case, and what we still can't say either way — we'll keep those clearly apart for you."
+              japanese: "では、三つの資料を順に確認します。リエさん自身が確認できる範囲の記憶、以前の学習者から届いた手紙、それ以降の寄与記録です。それぞれが、どの範囲まで証言しているかを分けてお答えします。",
+              reading: "では、みっつのしりょうをじゅんにかくにんします。リエさんじしんがかくにんできるはんいのきおく、いぜんのがくしゅうしゃからとどいたてがみ、それいこうのきよきろくです。それぞれが、どのはんいまでしょうげんしているかをわけておこたえします。",
+              english: "Then we'll examine three records in order: Rie's bounded memory, the letter received from an earlier learner, and the subsequent contribution record. We'll answer by distinguishing the extent to which each one testifies."
             }
           },
           support: {
@@ -217540,19 +218309,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the three columns, and the empty third one",
           variants: {
             n3: {
-              japanese: "分かってるのは、ここまでです。最初の白い地図は、先生が授業のために作った。そのあと誰かが最初の道を足した――これはたぶん。そこから先は、まだ分かりません。でも、その空きは、埋めなくていいと思ってます。",
-              reading: "わかってるのは、ここまでです。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。そのあとだれかがさいしょのみちをたした――これはたぶん。そこからさきは、まだわかりません。でも、そのあきは、うめなくていいとおもってます。",
-              english: "What we know reaches this far. The first blank map — the teacher made it, for class. After that, someone added the first route — that's a maybe. Past that, we don't know yet. But I think that gap doesn't need filling."
+              japanese: "リエさんが確認できるのは、白い台紙を渡したことです。手紙には、『最初の道を一本作り、その先を空けておいた』とあります。後の記録には、何人かが直した内容が残っています。だから、時期の違う人たちが守ってきた、と考えられます。でも、全部の印を誰が加えたか、その順番までは分かりません。",
+              reading: "リエさんがかくにんできるのは、しろいだいしをわたしたことです。てがみには、『さいしょのみちをいっぽんつくり、そのさきをあけておいた』とあります。あとのきろくには、なんにんかがなおしたないようがのこっています。だから、じきのちがうひとたちがまもってきた、とかんがえられます。でも、ぜんぶのしるしをだれがくわえたか、そのじゅんばんまではわかりません。",
+              english: "Rie can confirm that she handed over a blank backing sheet. The letter says, 'I made the first route and left the space beyond it open.' Later records preserve some people's revisions. From that, we can infer that people at different times kept it going. But we do not know who added every mark, or in what order."
             },
             n2: {
-              japanese: "聞こえたのは、ここまで。最初の白い地図は、先生が授業のために作った。……たぶん、そのあと誰かが最初の道を足した。ここは、推測です。それより後のことは――正直、まだ分かりません。でも、分からないままで、いいと思ってて。",
-              reading: "きこえたのは、ここまで。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。……たぶん、そのあとだれかがさいしょのみちをたした。ここは、すいそくです。それよりあとのことは――しょうじき、まだわかりません。でも、わからないままで、いいとおもってて。",
-              english: "What we actually caught reaches this far. The first blank map — the teacher made it, for class. …Probably, someone added the first route after that. That part's a guess. Anything later than that — honestly, we still don't know. But I think it's fine left unknown."
+              japanese: "確認できるのは、リエさんが白い台紙を渡したことです。手紙に書かれているのは、以前の学習者が最初の道を一本作り、その先を意図して空けたこと。後の寄与記録には、誰が何を直したかが一部残っています。そこから、異なる時期の複数の人が守ってきたと推測できます。ただし、すべての印の作者と途切れのない全順序は分かりません。",
+              reading: "かくにんできるのは、リエさんがしろいだいしをわたしたことです。てがみにかかれているのは、いぜんのがくしゅうしゃがさいしょのみちをいっぽんつくり、そのさきをいとしてあけたこと。あとのきよきろくには、だれがなにをなおしたかがいちぶのこっています。そこから、ことなるじきのふくすうのひとがまもってきたとすいそくできます。ただし、すべてのしるしのさくしゃととぎれのないぜんじゅんじょはわかりません。",
+              english: "What we can confirm is that Rie handed over a blank backing sheet. The letter says that an earlier learner made the first route and deliberately left the space beyond it open. Later contribution records preserve some of who revised what. From that, we can infer that several people at different times kept it going. We still cannot establish the maker of every mark or a complete uninterrupted sequence."
             },
             n1: {
-              japanese: "はっきりしているのは、ここまでなんです。最初の白紙の地図は、先生が授業用に用意した。……そのあと、誰かが最初の一本を書き足した――ここはもう、推測になります。それ以降は、正直、まだ何とも。ただ、その『まだ言えない』を、無理に埋めないでおきたくて。",
-              reading: "はっきりしているのは、ここまでなんです。さいしょのはくしのちずは、せんせいがじゅぎょうようによういした。……そのあと、だれかがさいしょのいっぽんをかきたした――ここはもう、すいそくになります。それいこうは、しょうじき、まだなんとも。ただ、その『まだいえない』を、むりにうめないでおきたくて。",
-              english: "What's clear only reaches this far. The first blank map — the teacher prepared it, for class. …After that, someone wrote in the first line — that's already a guess. Anything past that, honestly, we can't say. I'd just rather not force that 'not-yet-sayable' full."
+              japanese: "確認できるのは、リエさんが白紙の台紙を渡したことです。以前の学習者の手紙には、自分が最初の道を一本作り、その先を意図的に空けたとある。その後の寄与記録には、誰が何を修正したかが一部残っています。そこから、異なる時期の複数の人が守ってきたと推定できます。ただし、すべての印の帰属と、途切れのない全順序を確定できる資料はありません。",
+              reading: "かくにんできるのは、リエさんがはくしのだいしをわたしたことです。いぜんのがくしゅうしゃのてがみには、じぶんがさいしょのみちをいっぽんつくり、そのさきをいとてきにあけたとある。そのごのきよきろくには、だれがなにをしゅうせいしたかがいちぶのこっています。そこから、ことなるじきのふくすうのひとがまもってきたとすいていできます。ただし、すべてのしるしのきぞくと、とぎれのないぜんじゅんじょをかくていできるしりょうはありません。",
+              english: "What we can confirm is that Rie handed over a blank backing sheet. An earlier learner's letter states that they made the first route and deliberately left the space beyond it open. Subsequent contribution records preserve some of who revised what. From that, we can infer that several people at different times kept it going. No source, however, can establish the attribution of every mark or a complete uninterrupted sequence."
             }
           },
           support: {
@@ -217569,11 +218338,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
           options: [
             {
               id: "option:public-evening:hold-the-line",
-              action: "Answer only to what's confirmed and leave the not-yet-sayable column visibly empty rather than filling it for the audience.",
+              action: "State the exact evidentiary limit aloud: the records do not identify who made the first route, then move the public inquiry to its next question.",
               japaneseByBand: {
-                n3: "今日は、確かなことだけ話します。空いてるところは、そのままにしておきます。今埋めるのは早いので。",
-                n2: "今日は、確かなことだけお話しします。空いているところは、空いたままで。埋めるのは、まだ早いと思うので。",
-                n1: "今夜は、確かなところだけをお伝えします。その空欄は、あえて空けたまま残します。ここを今埋めてしまうのは、まだ早い気がするので。"
+                n3: "今日は、資料で分かることだけ話します。最初の道を作った人は、今の資料では決められません。では、次の質問へ進みます。",
+                n2: "今夜は、資料で確認できることだけをお話しします。最初の道を作った人は、現在の資料からは特定できません。では、次の質問へ進みます。",
+                n1: "今夜お伝えするのは、資料で裏づけられる事実までです。最初の道を作った人物は、現存する資料からは特定できません。では、次のご質問へ進みます。"
               },
               records: [
                 "stance",
@@ -217583,11 +218352,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
             },
             {
               id: "option:public-evening:open-the-record",
-              action: "Invite whoever in the room has kept the atlas going to add what they know, so the third column fills in their words, not the panel's guess.",
+              action: "Invite anyone with first-hand involvement to leave an attributed follow-up note after the event; add nothing live until the account and publication permission are checked.",
               japaneseByBand: {
-                n3: "よかったら、この地図を守ってきた人に、知ってることを足してもらえませんか。三つ目の欄は、私たちの推測より、その人の言葉で埋まったほうがいいので。",
-                n2: "もしよかったら、この地図を守ってきた方に、知っていることを足していただけませんか。三つ目の欄は、私たちの推測より、その方の言葉で埋まったほうがいいと思うので。",
-                n1: "もしよろしければ、この地図を守ってこられた方に、ご存じのことを書き足していただけないでしょうか。三つ目の欄は、私たちの推測でではなく、その方ご自身の言葉で埋まるほうが、ずっといい気がするので。"
+                n3: "この地図に自分で関わった方がいたら、終わったあと、名前つきのメモを残してもらえますか。今ここでは足しません。内容と、公開していいかを確認してから、記録に入れます。",
+                n2: "この地図に直接関わった方がいらしたら、終了後、記名したメモを残していただけますか。今この場では書き足しません。内容と公開の許可を確認した上で、寄与記録に加えます。",
+                n1: "この地図に直接関わった方がいらっしゃいましたら、終了後に、記名した証言をお預けいただけないでしょうか。今この場では追記せず、内容と公開許可を確認した上で、寄与記録へ加えます。"
               },
               records: [
                 "stance",
@@ -217643,19 +218412,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the audience, and the unfinished column left in plain sight",
           variants: {
             n3: {
-              japanese: "今日は、来てくれてありがとうございました。うまく答えられなかったところもありました。でも、それも含めて、今の私たちです。それを見てもらえたなら、よかったです。",
-              reading: "きょうは、きてくれてありがとうございました。うまくこたえられなかったところもありました。でも、それもふくめて、いまのわたしたちです。それをみてもらえたなら、よかったです。",
-              english: "Thanks for coming today. There were parts we couldn't answer well. But that included, that's us right now. If you got to see that, then good."
+              japanese: "今日は、来てくれてありがとうございました。それから、質問をもう一度言ってくれて、ありがとうございます。聞き直したあとの答えのほうが、ちゃんと質問に合いました。今日は、その直した答えで終わります。",
+              reading: "きょうは、きてくれてありがとうございました。それから、しつもんをもういちどいってくれて、ありがとうございます。ききなおしたあとのこたえのほうが、ちゃんとしつもんにあいました。きょうは、そのなおしたこたえでおわります。",
+              english: "Thank you for coming today. And thank you for asking the question again. The answer after we listened again actually fit what you asked. We'll end tonight with that repaired answer."
             },
             n2: {
-              japanese: "今日は、来てくださってありがとうございました。うまく答えられなかったところも、ありました。でも、それも含めて、今の私たちなので。……今夜は、それを見ていただけたなら。",
-              reading: "きょうは、きてくださってありがとうございました。うまくこたえられなかったところも、ありました。でも、それもふくめて、いまのわたしたちなので。……こんやは、それをみていただけたなら。",
-              english: "Thank you all for coming today. There were places we couldn't answer cleanly. But that included, this is who we are now. …Tonight, if you got to see that, then."
+              japanese: "今日は、来てくださってありがとうございました。そして、質問を言い直してくださって、ありがとうございます。聞き直したあとの答えのほうが、きちんとご質問に合いました。今夜は、その修正した答えで閉じます。",
+              reading: "きょうは、きてくださってありがとうございました。そして、しつもんをいいなおしてくださって、ありがとうございます。ききなおしたあとのこたえのほうが、きちんとごしつもんにあいました。こんやは、そのしゅうせいしたこたえでとじます。",
+              english: "Thank you for coming today, and thank you for restating the question. The answer after we listened again properly matched what you asked. Tonight, we'll close with that repaired answer."
             },
             n1: {
-              japanese: "本日は、お越しいただき、ありがとうございました。うまく答えきれなかったところも、正直ありました。ただ、その分からないところも含めて、今の私たちなんだと思います。……それを見ていただけたのなら、それで。",
-              reading: "ほんじつは、おこしいただき、ありがとうございました。うまくこたえきれなかったところも、しょうじきありました。ただ、そのわからないところもふくめて、いまのわたしたちなんだとおもいます。……それをみていただけたのなら、それで。",
-              english: "Thank you for coming this evening. There were places we couldn't quite answer, honestly. But the not-knowing included, I think that's who we are right now. …If you got to see that, then that's enough."
+              japanese: "本日は、お越しいただき、ありがとうございました。また、質問を改めてお聞かせくださったことにも、感謝いたします。聞き直した後の答えで、ようやくご質問に正面からお応えできました。今夜は、その修正された答えをもって閉会とします。",
+              reading: "ほんじつは、おこしいただき、ありがとうございました。また、しつもんをあらためておきかせくださったことにも、かんしゃいたします。ききなおしたあとのこたえで、ようやくごしつもんにしょうめんからおこたえできました。こんやは、そのしゅうせいされたこたえをもってへいかいとします。",
+              english: "Thank you for joining us this evening. We are also grateful that you let us hear the question again. Only after listening again did we answer what you had actually asked. We will close tonight on that repaired answer."
             }
           },
           support: {
@@ -217673,19 +218442,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the class, and the beat they all just held together",
           variants: {
             n3: {
-              japanese: "……ねえ。さっきの間、みんな待ってくれたね。前は、僕が黙ると気まずかったのに。はじめての夜、おぼえてる? あの『もう一回』。今のと同じだよ。",
-              reading: "……ねえ。さっきのま、みんなまってくれたね。まえは、ぼくがだまるときまずかったのに。はじめてのよる、おぼえてる? あの『もういっかい』。いまのとおなじだよ。",
-              english: "…Hey. That pause just now — everyone waited. There was a time my going quiet just made it awkward. Remember the first evening? That 'one more time.' Same thing, this."
+              japanese: "……さっきの間、長さはちょうどよかった。フランシスが待ったから、質問が戻ってきた。……うん。あれでよかった。",
+              reading: "……さっきのま、ながさはちょうどよかった。フランシスがまったから、しつもんがもどってきた。……うん。あれでよかった。",
+              english: "…That pause was exactly long enough. Francis waited, so the question came back. …Yes. That was right."
             },
             n2: {
-              japanese: "……ねえ。さっきの間、みんな、ちゃんと待ってくれた。前は、僕が黙ると気まずかったのに。……はじめての夜、おぼえてる? あの『もう一回』。あれ、今のと同じやつ。",
-              reading: "……ねえ。さっきのま、みんな、ちゃんとまってくれた。まえは、ぼくがだまるときまずかったのに。……はじめてのよる、おぼえてる? あの『もういっかい』。あれ、いまのとおなじやつ。",
-              english: "…Hey. That pause just now — everyone actually waited it out. There was a time my going quiet just made things awkward. …Remember the first evening? That 'one more time.' Same one as just now."
+              japanese: "……さっきの間、長さはちょうどよかった。フランシスが急がずに待ったから、質問が戻ってきた。……うん。あれで合ってた。",
+              reading: "……さっきのま、ながさはちょうどよかった。フランシスがいそがずにまったから、しつもんがもどってきた。……うん。あれであってた。",
+              english: "…That pause was exactly long enough. Francis waited without rushing, so the question came back. …Yes. That was the right timing."
             },
             n1: {
-              japanese: "……ねえ。さっきの一拍、誰も埋めなかったでしょ。前は、僕が黙るとみんな気まずそうだったのに。……はじめての夜、おぼえてる? あの『もう一回、いいですか』。あれ、結局、今のと同じなんだよね。",
-              reading: "……ねえ。さっきのいっぱく、だれもうめなかったでしょ。まえは、ぼくがだまるとみんなきまずそうだったのに。……はじめてのよる、おぼえてる? あの『もういっかい、いいですか』。あれ、けっきょく、いまのとおなじなんだよね。",
-              english: "…Hey. That one beat just now — nobody rushed to fill it, did they. There was a time my going quiet had everyone looking uneasy. …Remember the first evening? That 'one more time, is that okay?' In the end, it's the same thing as just now."
+              japanese: "……さっきの一拍、長さはちょうどよかった。フランシスが先回りせずに待ったから、質問が正しい形で戻ってきた。……うん。あの間で合ってた。",
+              reading: "……さっきのいっぱく、ながさはちょうどよかった。フランシスがさきまわりせずにまったから、しつもんがただしいかたちでもどってきた。……うん。あのまであってた。",
+              english: "…That beat was exactly long enough. Francis waited without getting ahead of it, so the question returned in its proper form. …Yes. That was the right pause."
             }
           },
           support: {
@@ -217699,7 +218468,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:public-evening:evening-holds",
           beatId: "beat:public-evening:exit-image",
           cueId: "cue:column-left-empty-tea-still-warm",
-          description: "This time Mika doesn't step back into the quiet — he stays in it, watching the class hold the pause he taught them. At the reception table Robert catches a mix-up, someone's brought the wrong tray, and instead of replacing it three times over he says which one it is, once, and lets the single correction stand. Rie's tea sits untouched near the back, still warm for now. The not-yet-sayable column stays empty on the board, and the courtyard is easy with it."
+          description: "At the reception table Robert catches a tray mix-up, names the correct one once, and moves no other plate. Any first-hand audience note goes into a sealed follow-up envelope with a name and permission choice, not onto the live board. Rie's tea remains untouched at the back, still warm; Mika stays beside Francis as the microphone is switched off."
         }
       ],
       exit: {
@@ -217843,7 +218612,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$1 = "yomu-academy.story-package.v2";
   const id$1 = "s4e11-atlas-closes";
-  const revision$1 = "2026-07-18.1";
+  const revision$1 = "2026-07-19.1";
   const canonicality$1 = "canon";
   const season$1 = 4;
   const chapter$2 = 47;
@@ -217851,7 +218620,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "The Atlas Closes",
     ja: "地図をとじる"
   };
-  const synopsis$1 = "At a small public inquiry, Rie confirms she made the blank atlas template as an early teaching exercise, attributes the first route to an earlier learner who left space on purpose, and marks the later layers as many hands with no reliable record of who. Shin states exactly how far the physical writing can be ordered and no further; Rie names the apparent responsiveness as Angel and Henry's ordinary projection chain, with no magic in the paper. The learner produces the final synthesis with an explicit uncertainty boundary, and Rose's evidence keeps a labelled blank so the record reaches only as far as the evidence — the atlas closes without inventing an owner.";
+  const synopsis$1 = "At a small public inquiry, Rie confirms that she handed out the blank backing sheet, reads an earlier learner's letter saying one route was already present when they received it, and identifies later contribution records from several classes. Shin states exactly how far the physical writing can be ordered and no further; Rie names the apparent responsiveness as Angel and Henry's ordinary projection chain, with no magic in the paper. The learner produces the final synthesis with an explicit uncertainty boundary, Rose signs only the material finding, and the class closes the atlas without inventing an owner for the first route.";
   const sourceSafety$1 = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -217969,23 +218738,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:atlas-closes:rie-confirms",
           beatId: "beat:atlas-closes:host-want",
           speakerId: "rie",
-          intent: "Confirm plainly that she made the blank template as an early teaching exercise, attribute the first route to an earlier learner who left space on purpose, and mark honestly that the later layers have no reliable record of who added them.",
+          intent: "Confirm plainly what she personally did, distinguish it from the earlier learner's attributed statement and the later contribution records, and state that neither the first route nor a complete sequence can be verified.",
           attentionTarget: "the oldest, near-empty layer of the atlas and the provenance records on the desk",
           variants: {
             n3: {
-              japanese: "この、いちばん下の紙、作ったのは私なんです。ずっと前に、授業の練習用に、わざと何も書かないで配ったものです。でも、最初の道を引いたのは私じゃありません。ある生徒さんが足して、その先はわざと空けておいたんです。そのあとは、クラスが変わるたびに、みんなが少しずつ書き足しました。誰がどこを書いたか、という記録は、正直、残っていないんです。",
-              reading: "この、いちばんしたのかみ、つくったのはわたしなんです。ずっとまえに、じゅぎょうのれんしゅうように、わざとなにもかかないでくばったものです。でも、さいしょのみちをひいたのはわたしじゃありません。あるせいとさんがたして、そのさきはわざとあけておいたんです。そのあとは、クラスがかわるたびに、みんながすこしずつかきたしました。だれがどこをかいたか、というきろくは、しょうじき、のこっていないんです。",
-              english: "This bottom sheet — I made it. A long time ago, for a class exercise, I handed it out blank on purpose. But I'm not the one who drew the first route. A student added it, and left the space after it open on purpose. After that, with each new class, everyone added a little. A record of who wrote which part — honestly, there isn't one."
+              japanese: "私が確認できるのは、白い台紙を授業で渡したことです。以前の学習者の手紙には、『最初の道を一本作り、その先は空けておいた』とあります。その後は、複数のクラスが加えた記録がある。ただ、最初の一本については、この手紙より前の記録がありません。全部の印を誰が、どの順番で加えたかも、確認できません。",
+              reading: "わたしがかくにんできるのは、しろいだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃのてがみには、『さいしょのみちをいっぽんつくり、そのさきはあけておいた』とあります。そのごは、ふくすうのクラスがくわえたきろくがある。ただ、さいしょのいっぽんについては、このてがみよりまえのきろくがありません。ぜんぶのしるしをだれが、どのじゅんばんでくわえたかも、かくにんできません。",
+              english: "What I can confirm is that I handed out a blank backing sheet in class. The earlier learner's letter says, 'I made the first route and left the space beyond it open.' Later records show contributions by several classes. But for that first route, we have no record earlier than the letter. Nor can we confirm who added every mark, or in what order."
             },
             n2: {
-              japanese: "この、いちばん下の台紙ですけど——これ、作ったのは私なんです。何年も前に、授業の練習用として、わざと真っ白なまま配ったものでして。最初の一本を引いたのは、私じゃありません。ある生徒さんが足して、その先はわざと空けて残していったんです。そのあとは、代が変わるたびに、みんなが少しずつ書き足していって。誰がどこを描いたかという記録は、正直、残っていないんですよ。",
-              reading: "この、いちばんしたのだいしですけど——これ、つくったのはわたしなんです。なんねんもまえに、じゅぎょうのれんしゅうようとして、わざとまっしろなままくばったものでして。さいしょのいっぽんをひいたのは、わたしじゃありません。あるせいとさんがたして、そのさきはわざとあけてのこしていったんです。そのあとは、だいがかわるたびに、みんながすこしずつかきたしていって。だれがどこをかいたかというきろくは、しょうじき、のこっていないんですよ。",
-              english: "This bottom sheet — I'm the one who made it. Years ago, as a class exercise, I handed it out deliberately blank. The first route on it wasn't mine; a student added it and left the space beyond it open on purpose. After that, with each new class, people added a little more. A record of who drew which part — honestly, there isn't one."
+              japanese: "私が確認できるのは、白い台紙を授業で渡したことです。以前の学習者の手紙には、『最初の道を一本作り、その先を意図して空けておいた』とある。その後は、複数のクラスによる寄与記録があります。ただ、最初の一本を裏づける、この手紙より前の資料はありません。すべての印の作者と、途切れのない全順序も確認できません。",
+              reading: "わたしがかくにんできるのは、しろいだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃのてがみには、『さいしょのみちをいっぽんつくり、そのさきをいとしてあけておいた』とある。そのごは、ふくすうのクラスによるきよきろくがあります。ただ、さいしょのいっぽんをうらづける、このてがみよりまえのしりょうはありません。すべてのしるしのさくしゃと、とぎれのないぜんじゅんじょもかくにんできません。",
+              english: "What I can confirm is that I handed out a blank backing sheet in class. The earlier learner's letter says, 'I made the first route and deliberately left the space beyond it open.' After that, we have contribution records from several classes. But no source earlier than the letter corroborates that first route. Nor can we establish the maker of every mark or a complete uninterrupted sequence."
             },
             n1: {
-              japanese: "この、いちばん下の台紙——これを作ったのは、私です。何年も前、授業の練習用に、わざと真っ白なまま配った、それだけのものでして。最初の一本を引いたのは、私じゃない。ある生徒さんが足して、その先を、わざと空けて残していった。……そのあとは、代を重ねるごとに、みんなが少しずつ。誰がどこを、という記録は、正直、残っていないんです。",
-              reading: "この、いちばんしたのだいし——これをつくったのは、わたしです。なんねんもまえ、じゅぎょうのれんしゅうように、わざとまっしろなままくばった、それだけのものでして。さいしょのいっぽんをひいたのは、わたしじゃない。あるせいとさんがたして、そのさきを、わざとあけてのこしていった。……そのあとは、だいをかさねるごとに、みんながすこしずつ。だれがどこを、というきろくは、しょうじき、のこっていないんです。",
-              english: "This bottom sheet — the blank one — I'm the one who made it. Years ago, for a class exercise, I handed it out deliberately blank. That's all it was. The first route on it wasn't mine. A student added that, and left the space past it open on purpose. …After that, each class added a little more. An honest record of who did which part — there isn't one."
+              japanese: "私が確認できるのは、白紙の台紙を授業で渡したことです。以前の学習者から届いた手紙には、『最初の道を一本作り、その先を意図的に空けた』とある。その後は、複数のクラスによる寄与記録が残っています。ただ、最初の一本を独立に裏づける、この手紙より前の資料はありません。すべての印の帰属と、途切れのない全順序も確定できません。",
+              reading: "わたしがかくにんできるのは、はくしのだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃからとどいたてがみには、『さいしょのみちをいっぽんつくり、そのさきをいとてきにあけた』とある。そのごは、ふくすうのクラスによるきよきろくがのこっています。ただ、さいしょのいっぽんをどくりつにうらづける、このてがみよりまえのしりょうはありません。すべてのしるしのきぞくと、とぎれのないぜんじゅんじょもかくていできません。",
+              english: "What I can confirm is that I handed out a blank backing sheet in class. The letter received from an earlier learner says, 'I made the first route and deliberately left the space beyond it open.' Subsequent contribution records survive from several classes. But no source earlier than the letter independently corroborates that first route. Nor can we establish the attribution of every mark or a complete uninterrupted sequence."
             }
           },
           support: {
@@ -218003,19 +218772,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the layered ink and stroke habits across the atlas, and the marks he cannot place",
           variants: {
             n3: {
-              japanese: "字は、読めますよ。筆の癖で、こことここは同じ人が書いた、とか、そのくらいは分かります。でも、分かるのはそこまで。読めることと、誰がいつ書いたか分かることは、別なんです。前は『こんなの簡単だよ』って言ってました。今は、はっきり言えます。ここまでは分かる。これ以上は、分かりません。",
-              reading: "じは、よめますよ。ふでのくせで、こことここはおなじひとがかいた、とか、そのくらいはわかります。でも、わかるのはそこまで。よめることと、だれがいつかいたかわかることは、べつなんです。まえは『こんなのかんたんだよ』っていってました。いまは、はっきりいえます。ここまではわかる。これいじょうは、わかりません。",
-              english: "The characters, I can read. From the brush habits — this and that were written by the same person, that much I can tell. But only that far. Being able to read them and knowing who wrote them when are separate. Before, I used to say 'this stuff's easy.' Now I can say it plainly: this far, I know. Past this, I don't."
+              japanese: "字は読めます。こことここが同じ手だ、という組も作れます。でも、名前と日付は出ません。だから、同じ手をA、B、Cと分ける。人の名前にはしない。ここまでは分かる。これ以上は、分かりません。",
+              reading: "じはよめます。こことここがおなじてだ、というくみもつくれます。でも、なまえとひづけはでません。だから、おなじてをエー、ビー、シーとわける。ひとのなまえにはしない。ここまではわかる。これいじょうは、わかりません。",
+              english: "I can read the characters. I can also group this mark and that one as the same hand. But no name or date emerges. So I label the hands A, B, and C, not with people's names. This far, I know. Beyond this, I do not."
             },
             n2: {
-              japanese: "字自体は、読めるんです。筆の運びで、誰の癖か——こことここは同じ手だな、とか、そのくらいまでは並べられます。でも、並べられるのはそこまで。読めることと、誰がいつ書いたのかが分かることは、別の話なんですよね。前なら『こんなの簡単だよ』で片づけてました。今は、はっきり言えます。ここまでは分かる。これ以上は、分かりません。",
-              reading: "じじたいは、よめるんです。ふでのはこびで、だれのくせか——こことここはおなじてだな、とか、そのくらいまではならべられます。でも、ならべられるのはそこまで。よめることと、だれがいつかいたのかがわかることは、べつのはなしなんですよね。まえなら『こんなのかんたんだよ』でかたづけてました。いまは、はっきりいえます。ここまではわかる。これいじょうは、わかりません。",
-              english: "The characters themselves, I can read. From the brushwork, whose habit it is — this hand and that one are the same, that much I can line up. But only that much. Being able to read them and knowing who wrote them when are two different things. Before, I'd have brushed it off with 'this stuff's easy.' Now I can say it plainly: this far, I understand. Past this, I don't."
+              japanese: "字自体は読めます。筆の運びから、こことここが同じ手だ、という組も作れる。ただし、名前と日付は出ません。だから同じ手をA、B、Cと分類する。実名は付けない。ここまでは分かる。これ以上は、分かりません。",
+              reading: "じじたいはよめます。ふでのはこびから、こことここがおなじてだ、というくみもつくれる。ただし、なまえとひづけはでません。だからおなじてをエー、ビー、シーとぶんるいする。じつめいはつけない。ここまではわかる。これいじょうは、わかりません。",
+              english: "I can read the characters themselves. From the brushwork, I can group this mark and that one as the same hand. But no name or date emerges. So I classify the hands A, B, and C, and assign no real names. This far, I know. Beyond this, I do not."
             },
             n1: {
-              japanese: "字はね、読めるんですよ。誰の癖か、筆の運びで、こことここは同じ手だ、とか、この辺までは並べられる。……でも、そこまで。読めることと、誰がいつ書いたかが分かることは、別なんですよね。昔なら『こんなの簡単だよ』で済ませてた。今は、はっきり言えます——ここまでは分かる。これ以上は、分からない。",
-              reading: "じはね、よめるんですよ。だれのくせか、ふでのはこびで、こことここはおなじてだ、とか、このへんまではならべられる。……でも、そこまで。よめることと、だれがいつかいたかがわかることは、べつなんですよね。むかしなら『こんなのかんたんだよ』ですませてた。いまは、はっきりいえます——ここまではわかる。これいじょうは、わからない。",
-              english: "The characters, I can read. From the brushwork, whose habit it is — this hand and that hand are the same, I can line up the writers that far. …But only that far. Being able to read them, and knowing who wrote them and when — those are two different things. Once, I'd have waved it off with 'this stuff's easy.' Now I can say it plainly: this far, I know. Past this, I don't."
+              japanese: "字そのものは読めます。筆の運びから、こことここは同じ手だ、という群も作れる。ただし、そこから実名と日付は出てきません。したがって、手をA、B、Cと分類し、人物名は付さない。ここまでは分かる。これ以上は、分かりません。",
+              reading: "じそのものはよめます。ふでのはこびから、こことここはおなじてだ、というぐんもつくれる。ただし、そこからじつめいとひづけはでてきません。したがって、てをエー、ビー、シーとぶんるいし、じんぶつめいはふさない。ここまではわかる。これいじょうは、わかりません。",
+              english: "I can read the characters themselves. From the brushwork, I can also group this mark and that one as the same hand. But no real name or date emerges from that. Therefore I classify the hands A, B, and C and attach no person's name. This far, I know. Beyond this, I do not."
             }
           },
           support: {
@@ -218033,14 +218802,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the dark projection cart, and the record on the desk rather than the atlas on the wall",
           variants: {
             n2: {
-              japanese: "よく『この地図は生きている』なんて言われましたけど……種を明かしてしまえば、大したことはないんです。反応しているように見えたのは、アンジェルさんとヘンリーさんが組んだ投影の仕掛けのおかげ。台紙そのものは、ただの紙なんですよ。魔法なんて、どこにもありません。最初の夜、あいさつ一つで一か所だけ点きましたよね。あれと同じで、人が動いたから点いた。それだけのことなんです。だから、この記録も、分かるところまでで止めておきましょう。埋まらないところは、無理に埋めないで。",
-              reading: "よく『このちずはいきている』なんていわれましたけど……たねをあかしてしまえば、たいしたことはないんです。はんのうしているようにみえたのは、アンジェルさんとヘンリーさんがくんだとうえいのしかけのおかげ。だいしそのものは、ただのかみなんですよ。まほうなんて、どこにもありません。さいしょのよる、あいさつひとつでいっかしょだけつきましたよね。あれとおなじで、ひとがうごいたからついた。それだけのことなんです。だから、このきろくも、わかるところまででとめておきましょう。うまらないところは、むりにうめないで。",
-              english: "People often said 'this map is alive.' But once you know the trick, it's nothing much. What looked like it responding was thanks to the projection rig Angel and Henry built. The sheet itself is just paper. There's no magic anywhere. The first evening, one greeting lit just one spot, remember? Same as that — it lit because people moved. That's all it was. So let's stop this record where the knowing stops. The parts that won't fill in, let's not force them shut."
+              japanese: "ショーンさん、投影を切ってください。……ほら、光だけ消えて、紙とインクは変わらない。反応していたのは、アンジェルさんとヘンリーさんの投影です。紙そのものではありません。では、この紙に、作者まで証明させないようにしましょう。",
+              reading: "ショーンさん、とうえいをきってください。……ほら、ひかりだけきえて、かみとインクはかわらない。はんのうしていたのは、アンジェルさんとヘンリーさんのとうえいです。かみそのものではありません。では、このかみに、さくしゃまでしょうめいさせないようにしましょう。",
+              english: "Shaun, please switch off the projection. …There. Only the light disappears; the paper and ink do not change. What responded was Angel and Henry's projection, not the paper itself. So let's not ask this paper to prove its authorship too."
             },
             n1: {
-              japanese: "よく、この地図は生きてる、なんて言われましたけど……種を明かせば、なんてことはないんです。反応して見えたのは、アンジェルさんとヘンリーさんが組んだ、あの投影の仕掛け。台紙そのものは、ただの紙です。魔法は、どこにもない。——最初の夜、あいさつ一つで一か所が点いた、あれと同じ。人が動いたから、点いた。それだけ。だからね、この記録も、分かるところまでで止めましょう。埋まらないところは、埋めずに。",
-              reading: "よく、このちずはいきてる、なんていわれましたけど……たねをあかせば、なんてことはないんです。はんのうしてみえたのは、アンジェルさんとヘンリーさんがくんだ、あのとうえいのしかけ。だいしそのものは、ただのかみです。まほうは、どこにもない。——さいしょのよる、あいさつひとつでいっかしょがついた、あれとおなじ。ひとがうごいたから、ついた。それだけ。だからね、このきろくも、わかるところまででとめましょう。うまらないところは、うめずに。",
-              english: "People used to say this map was alive. But once you know the trick, it's nothing much. What looked like it responding was the projection rig Angel and Henry built. The sheet itself is just paper. There's no magic anywhere in it. — The first evening, one greeting lit one spot. Same as that. It lit because people moved. That's all. So let's stop this record where the knowing stops, too. The parts that won't fill in — let's leave them unfilled."
+              japanese: "ショーンさん、投影を切っていただけますか。……ほら、消えたのは光だけで、紙とインクには何の変化もない。反応していたのは、アンジェルさんとヘンリーさんが組んだ投影です。紙そのものではありません。ならば、この紙に作者まで証明させるのもやめましょう。",
+              reading: "ショーンさん、とうえいをきっていただけますか。……ほら、きえたのはひかりだけで、かみとインクにはなんのへんかもない。はんのうしていたのは、アンジェルさんとヘンリーさんがくんだとうえいです。かみそのものではありません。ならば、このかみにさくしゃまでしょうめいさせるのもやめましょう。",
+              english: "Shaun, would you switch off the projection? …There. Only the light disappeared; nothing in the paper or ink changed. What responded was the projection Angel and Henry built, not the paper itself. Then let us also stop asking this paper to prove its authorship."
             }
           },
           support: {
@@ -218067,7 +218836,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             kind: "activity-passed",
             activityId: "activity:s4e11-atlas-closes-provenance-synthesis"
           },
-          resumeContext: "The learner produces the final synthesis with an explicit uncertainty boundary: state what the record supports — Rie made the blank template, an earlier learner added the first route and left space, later classes layered the rest, and Angel and Henry's projection made it appear responsive — and mark the marks that cannot be assigned as unknown, using calibrated hedges (はっきりとはわかりませんが / 〜と思います / ここまでは分かる、これ以上は分からない) and embedded quotation (〜と言っていました / 〜によると) rather than naming an owner the record does not support.",
+          resumeContext: "The learner produces the final synthesis with an explicit uncertainty boundary: state what the record supports — Rie handed out the blank backing sheet, an earlier learner reported receiving it with one route already present and adding another, later contribution records name several classes, and Angel and Henry's projection made it appear responsive — and mark the first route and complete sequence as unknown, using calibrated hedges (はっきりとはわかりませんが / 〜と思います / ここまでは分かる、これ以上は分からない) and embedded quotation (〜と言っていました / 〜によると) rather than naming an owner the record does not support.",
           onReady: "checkpoint:atlas-closes:after-synthesis",
           onRepair: "node:atlas-closes:synthesis-repair",
           onDefer: "checkpoint:atlas-closes:before-synthesis"
@@ -218094,14 +218863,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the atlas's authorship field, and the labelled blank on the map",
           variants: {
             n2: {
-              japanese: "これで、いいと思います。台紙は私。最初の一本は、名前の分かるあの生徒さん。その先は……『大勢の手で』としか書けません。そして、どうしても誰のものか言えないところは、空けたまま残します。自分がやっていないところに、自分の名前を書くわけにはいきませんから。『ここまで』という線が引けたなら、それで閉じられます。中途半端に見えるかもしれませんが、これがいちばん正直な終わり方なんですよ。",
-              reading: "これで、いいとおもいます。だいしはわたし。さいしょのいっぽんは、なまえのわかるあのせいとさん。そのさきは……『おおぜいのてで』としかかけません。そして、どうしてもだれのものかいえないところは、あけたままのこします。じぶんがやっていないところに、じぶんのなまえをかくわけにはいきませんから。『ここまで』というせんがひけたなら、それでとじられます。ちゅうとはんぱにみえるかもしれませんが、これがいちばんしょうじきなおわりかたなんですよ。",
-              english: "This is right, I think. The sheet: me. The first route: that student, whose name we have. Beyond that… all I can write is 'by many hands.' And the parts where I can't say whose they are, we leave open. I can't sign my name to work I didn't do. If we can draw the line at 'this far,' we can close it. It may look unfinished, but this is the most honest way to end it."
+              japanese: "読みますね。『白い台紙は、リエが渡した。以前の学習者は、手紙の中で、最初の道を一本作り、その先を空けておいたと述べている。後の記録には複数のクラスの寄与がある。すべての印の作者と全順序は未確認』。私が署名するのは、最初の文だけです。",
+              reading: "よみますね。『しろいだいしは、リエがわたした。いぜんのがくしゅうしゃは、てがみのなかで、さいしょのみちをいっぽんつくり、そのさきをあけておいたとのべている。あとのきろくにはふくすうのクラスのきよがある。すべてのしるしのさくしゃとぜんじゅんじょはみかくにん』。わたしがしょめいするのは、さいしょのぶんだけです。",
+              english: "I'll read it. 'Rie handed over the blank backing sheet. In their letter, an earlier learner states that they made the first route and left the space beyond it open. Later records show contributions from several classes. The maker of every mark and the full sequence remain unverified.' I sign only the first sentence."
             },
             n1: {
-              japanese: "これで、いいと思います。台紙は、私。最初の一本は、名前の分かるあの生徒さん。その先は……大勢の手、としか書けない。そして、どうしても誰の、と言えないところは——空けたまま。自分のやってないところに、自分の名前を書くわけにはいきませんから。ここまで、というのが引けたなら、それで閉じられます。中途半端に見えても、これがいちばん正直な終わり方なんですよ。",
-              reading: "これで、いいとおもいます。だいしは、わたし。さいしょのいっぽんは、なまえのわかるあのせいとさん。そのさきは……おおぜいのて、としかかけない。そして、どうしてもだれの、といえないところは——あけたまま。じぶんのやってないところに、じぶんのなまえをかくわけにはいきませんから。ここまで、というのがひけたなら、それでとじられます。ちゅうとはんぱにみえても、これがいちばんしょうじきなおわりかたなんですよ。",
-              english: "This is right, I think. The sheet: me. The first route: that one student, whose name we have. Beyond that… all I can write is 'many hands.' And the parts where I truly can't say whose — left open. I can't put my name on work I didn't do. If we can draw the line at 'this far,' then we can close it. It may look unfinished, but this is the most honest way to end it."
+              japanese: "読み上げます。『白紙の台紙は、リエが渡した。以前の学習者は、手紙の中で、最初の道を一本作り、その先を意図的に空けたと述べている。後続の記録には、複数のクラスによる寄与がある。すべての印の帰属と全順序は未確認』。私が署名するのは、第一文だけです。",
+              reading: "よみあげます。『はくしのだいしは、リエがわたした。いぜんのがくしゅうしゃは、てがみのなかで、さいしょのみちをいっぽんつくり、そのさきをいとてきにあけたとのべている。こうぞくのきろくには、ふくすうのクラスによるきよがある。すべてのしるしのきぞくとぜんじゅんじょはみかくにん』。わたしがしょめいするのは、だいいちぶんだけです。",
+              english: "I will read it aloud. 'Rie handed over the blank backing sheet. In their letter, an earlier learner states that they made the first route and deliberately left the space beyond it open. Subsequent records show contributions by several classes. The attribution of every mark and the full sequence remain unverified.' I sign only the first sentence."
             }
           },
           support: {
@@ -218115,7 +218884,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:atlas-closes:field-written",
           beatId: "beat:atlas-closes:changed-image",
           cueId: "cue:authorship-field-honestly-partial",
-          description: "On the atlas's authorship field Rie writes only what holds: her name under the blank template, one learner's name under the first route, 'several classes' under the layers, and beside the marks no one can place, a small blank with a line to the record. She caps the pen. The tea at her elbow has gone cold, untouched."
+          description: "Rie signs beside the handoff of the blank backing sheet and nowhere else. The letter writer's attributed statement and the later contribution record keep their own source lines; first route and complete sequence remain marked unverified. She caps the pen. The tea at her elbow has gone cold, untouched."
         }
       ],
       exit: {
@@ -218241,25 +219010,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:atlas-closes:before-record",
           beatId: "beat:atlas-closes:record-attempt",
-          resume: "The learner has chosen how the record concludes. Rose reads back what it now reaches, and the labelled blank stays where the evidence stopped."
+          resume: "The learner has chosen how the record concludes. Rose checks which rows her material evidence can support and signs only that part."
         },
         {
           kind: "line",
           id: "line:atlas-closes:rose-only-this-far",
           beatId: "beat:atlas-closes:repair",
           speakerId: "rose",
-          intent: "Confirm the record now reaches exactly as far as the evidence and no further, and reframe the labelled blank as the precise result rather than a hole — the class knows the shape of what it does not know.",
-          attentionTarget: "the completed map with its blank cell still blank",
+          intent: "Turn her material finding into a bounded action: colour and sign the material row while refusing to colour the attribution row that her samples cannot support.",
+          attentionTarget: "the material and attribution rows on the evidence map",
           variants: {
             n2: {
-              japanese: "これで、記録が届く範囲と、証拠が届く範囲が、ぴったり重なりました。……その空白は、穴じゃないんです。『ここは分からない』と分かっている、という印。畑と同じで、境目がはっきりしているほうが、かえって信用できるんですよ。埋めた一言より、空けた一マスのほうが正確なこともある。",
-              reading: "これで、きろくがとどくはんいと、しょうこがとどくはんいが、ぴったりかさなりました。……そのくうはくは、あなじゃないんです。『ここはわからない』とわかっている、というしるし。はたけとおなじで、さかいめがはっきりしているほうが、かえってしんようできるんですよ。うめたひとことより、あけたひとますのほうがせいかくなこともある。",
-              english: "Now the record's reach and the evidence's reach line up exactly. …That blank isn't a hole. It's a mark that we know we don't know this. Like a field — clearer boundaries make it more trustworthy. One square left open can be more accurate than a single word filled in."
+              japanese: "材質の行は濃くできます。紙とインクから、複数の時期に手が入ったところまでは確認できました。でも、名前の行には、この色を置けません。私は材質の行にだけ署名します。……ペン、一本返しますね。二本も持っていました。",
+              reading: "ざいしつのぎょうはこくできます。かみとインクから、ふくすうのじきにてがはいったところまではかくにんできました。でも、なまえのぎょうには、このいろをおけません。わたしはざいしつのぎょうにだけしょめいします。……ペン、いっぽんかえしますね。にほんももっていました。",
+              english: "I can shade the material row strongly. The paper and ink confirm that hands worked on it in several periods. But I can't put this colour in the names row. I'll sign only the material row. …Here, one pen back. I seem to have collected two."
             },
             n1: {
-              japanese: "これで、記録が届く先と、証拠が届く先が、ぴったり同じになりました。……その空白、穴じゃないんですよ。『ここは分からない』と、分かっている印。畑と同じで、境目がはっきりしてるほうが、かえって信用できる。埋めた一言より、空けた一マスのほうが、正確なこともあるんです。",
-              reading: "これで、きろくがとどくさきと、しょうこがとどくさきが、ぴったりおなじになりました。……そのくうはく、あなじゃないんですよ。『ここはわからない』と、わかっているしるし。はたけとおなじで、さかいめがはっきりしてるほうが、かえってしんようできる。うめたひとことより、あけたひとますのほうが、せいかくなこともあるんです。",
-              english: "Now the record reaches exactly as far as the evidence does, and no further. …That blank isn't a hole. It's a mark that we know we don't know this. Like a field — clear boundaries are what make it trustworthy. A single filled-in word can be less accurate than one square left open."
+              japanese: "材質の行は、濃くできます。紙とインクで、複数の時期に手が入ったところまでは確認できた。でも、名前の行には、この色を置けません。署名は材質の行だけにします。……ペン、一本返しますね。二本も持ってた。",
+              reading: "ざいしつのぎょうは、こくできます。かみとインクで、ふくすうのじきにてがはいったところまではかくにんできた。でも、なまえのぎょうには、このいろをおけません。しょめいはざいしつのぎょうだけにします。……ペン、いっぽんかえしますね。にほんももってた。",
+              english: "The material row can take the strong colour. The paper and ink confirm that hands worked on it in several periods. But I can't put that colour in the names row. I'll sign only the material row. …Here, one pen back. I had two somehow."
             }
           },
           support: {
@@ -218273,18 +219042,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:atlas-closes:rie-close",
           beatId: "beat:atlas-closes:changed-action",
           speakerId: "rie",
-          intent: "Close the atlas on the record's terms — one honest authorship field pointing back to the map, nothing invented to fill the blank — reframe the whole inquiry as deciding together how far they could honestly say, and leave the actual closing for the class rather than doing it alone.",
-          attentionTarget: "the closed atlas and the record beside it, and the class around her",
+          intent: "Give the record a plain cross-reference, keep her own signature bounded to the handoff she remembers, and ask the class to perform the final physical closure with her.",
+          attentionTarget: "the atlas's name field, the signed record, and the wall latch",
           variants: {
             n2: {
-              japanese: "じゃあ、閉じましょうか。……といっても、私一人でじゃありません。ここまでの線を引いてくれたのは、みなさんですから。地図の名義のところには、『この記録を見てください』と一言だけ添えて、空いたところは埋めない。——長かったですね。ずっと『誰のものか』を突き止める話だと思っていました。でも、違った。『どこまでなら言えるか』を、みんなで決める話だったんです。その線が引けたなら、もう閉じていいんですよ。",
-              reading: "じゃあ、とじましょうか。……といっても、わたしひとりでじゃありません。ここまでのせんをひいてくれたのは、みなさんですから。ちずのめいぎのところには、『このきろくをみてください』とひとことだけそえて、あいたところはうめない。——ながかったですね。ずっと『だれのものか』をつきとめるはなしだとおもっていました。でも、ちがった。『どこまでならいえるか』を、みんなできめるはなしだったんです。そのせんがひけたなら、もうとじていいんですよ。",
-              english: "Then let's close it. …Though not me alone. You're the ones who drew the line this far. On the atlas's name field, I'll add just one line — 'see the record' — and leave the open part open. — It's been a long road. I kept thinking this was about pinning down whose it was. But it wasn't. It was about all of us deciding how far we could honestly say. Once that line's drawn, we can close it."
+              japanese: "名義の欄には、『寄与記録を参照』と書きました。私の署名は、台紙を渡したという文の横だけです。では、壁から外しましょう。私は記録がずれないように押さえます。最後の留め金は、どなたかお願いできますか。",
+              reading: "めいぎのらんには、『きよきろくをさんしょう』とかきました。わたしのしょめいは、だいしをわたしたというぶんのよこだけです。では、かべからはずしましょう。わたしはきろくがずれないようにおさえます。さいごのとめがねは、どなたかおねがいできますか。",
+              english: "In the name field, I've written, 'see contribution record.' My signature is only beside the sentence saying I handed over the backing sheet. Now, let's take it down from the wall. I'll keep the record from slipping. Would someone else take the last latch?"
             },
             n1: {
-              japanese: "じゃあ、閉じましょうか。……といっても、私が一人で、じゃなくて。ここまでを引いてくれたのは、みなさんですから。地図の名義のところには、この記録を見てください、と一言だけ。空いたところは、埋めない。——長かったですね。誰の、を突き止める話だと、ずっと思っていました。違った。どこまでなら言えるか、を一緒に決める話だったんです。それが引けたなら、もう、閉じていい。",
-              reading: "じゃあ、とじましょうか。……といっても、わたしがひとりで、じゃなくて。ここまでをひいてくれたのは、みなさんですから。ちずのめいぎのところには、このきろくをみてください、とひとことだけ。あいたところは、うめない。——ながかったですね。だれの、をつきとめるはなしだと、ずっとおもっていました。ちがった。どこまでならいえるか、をいっしょにきめるはなしだったんです。それがひけたなら、もう、とじていい。",
-              english: "Then let's close it. …Though — not me, alone. You're the ones who drew the line this far. On the atlas's name field, just one line: 'see the record.' The open part, we leave open. — It's been a long road. I always thought this was about pinning down whose it was. It wasn't. It was about deciding together how far we could honestly say. And now that the line's drawn, we can close it."
+              japanese: "名義欄には、『寄与記録を参照』と書きました。私が署名したのは、台紙を渡した、という文の横だけ。では、壁から外しましょう。私は記録を押さえます。最後の留め金、どなたかお願いできますか。",
+              reading: "めいぎらんには、『きよきろくをさんしょう』とかきました。わたしがしょめいしたのは、だいしをわたした、というぶんのよこだけ。では、かべからはずしましょう。わたしはきろくをおさえます。さいごのとめがね、どなたかおねがいできますか。",
+              english: "In the name field, I've written, 'see contribution record.' I signed only beside the sentence saying I handed over the backing sheet. Now, let's take it down from the wall. I'll hold the record. Would someone take the last latch?"
             }
           },
           support: {
@@ -218298,7 +219067,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:atlas-closes:atlas-closed",
           beatId: "beat:atlas-closes:exit-image",
           cueId: "cue:atlas-closed-record-beside-it",
-          description: "The atlas comes down from the wall and closes flat for the last time. Its name field carries three plain attributions and one small blank with a line to the record. On the desk the evidence map stays open beside it, the 'we don't know this yet' cell still blank. Nothing has been filled in that the evidence didn't reach. The cold cup waits at the desk's edge for someone to clear it."
+          description: "The two people nearest the wall lift the atlas free while Rie keeps the signed record from sliding. One lowers the cover; the other closes the last latch. The name field reads only 'see contribution record.' Rose returns the extra pen beside the map. Rie's cold tea remains at the desk's edge."
         }
       ],
       exit: {
@@ -218347,7 +219116,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     {
       id: "outcome:atlas-closes:record-not-invention",
       kind: "story",
-      description: "The atlas closes with an honestly partial authorship field: the blank template attributed to Rie, the first route to a named earlier learner, the later layers to several classes, and the unassignable marks left as a labelled blank pointing to the record. The apparent responsiveness is named as Angel and Henry's ordinary projection chain and the paper as plain, and the provenance is concluded only to the level the record supports, with no ownership invented."
+      description: "The atlas closes with a bounded contribution record: Rie's signature confirms only that she handed over the blank backing sheet; an earlier learner's letter says one route was already present when they received it and that they added another; later records identify contributions by several classes; the first route and complete sequence remain unverified. The apparent responsiveness is named as Angel and Henry's ordinary projection chain and the paper as plain, with no ownership invented."
     },
     {
       id: "outcome:atlas-closes:rie-future",
@@ -218355,7 +219124,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "rie",
       chapter: 47,
       beat: "future",
-      description: "Rie closes the atlas without claiming every mark: she attributes only the blank template to herself, names the one route whose author is known, records the rest as many hands, and leaves the unassignable marks blank — then hands the actual closing to the class rather than finishing it alone. Her next possibility stays open as a teacher who has learned to end a shared work honestly and let others carry it."
+      description: "Rie closes the atlas without claiming every mark: she signs only the backing-sheet handoff she personally remembers, preserves the earlier learner's attributed statement and the later class records as separate sources, and asks the class to work the final latch while she steadies the record. Her next possibility stays open as a teacher who can end a shared work without taking sole possession of it."
     },
     {
       id: "outcome:atlas-closes:shin-future",
@@ -218434,7 +219203,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "The Next Page",
     ja: "次のページ"
   };
-  const synopsis = "The atlas is closed. On the last evening the class leaves one blank page for whoever comes next, under the terms it agreed: one bounded contribution each if they want it, and no one assigned to fill the rest. Jenny drapes a finished scarf over a chair she leaves empty on purpose; Peter says an open question can be an ending. The learner writes or records one thing — thanks, a piece of advice, a question, or a small mark — and the page stays open, unlit, and valid. Someone else locks up while Rie, for once, drinks her tea before it cools.";
+  const synopsis = "The atlas is latched shut and the projection cable coiled. On the last evening, a separate unwired sheet waits under four tone cards: thanks, advice, question, or mark. Rie puts the red pen away; Jenny tests her finished scarf on a chair she leaves for the next arrival; Peter folds his still-unsubmitted December exam form back into his bag without pretending he has decided. The learner writes or records one bounded contribution, Shaun locks up from Henry's run-sheet, and Rie drinks her tea while it is still warm.";
   const sourceSafety = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -218526,7 +219295,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:classroom",
       timeState: "evening",
       weatherState: "summer-evening",
-      goal: "Turn from the closed atlas to the one blank page the class will leave, and state the terms under which it stays open.",
+      goal: "Turn from the latched atlas to a separate graduation sheet, and make its optional one-contribution terms concrete before anyone writes.",
       dramaticQuestion: "Now that the atlas is closed, what does the class leave for whoever comes next, and on whose terms?",
       learnerNeed: "A stance on how to approach writing a bounded final page when every tone is accepted and no one is assigned to fill it.",
       curriculum: {
@@ -218540,30 +219309,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:next-page:last-evening",
           beatId: "beat:next-page:arrival-image",
           cueId: "cue:closed-atlas-blank-page-and-tea",
-          description: "The classroom on the last evening, chairs pushed into a loose ring. On the wall the atlas holds a steady, ordinary light, every route settled. On Rie's desk lies one blank page, and at her elbow a fresh cup of tea, a thin line of steam still coming off it. Nobody is standing at the front."
+          description: "The classroom door opens onto a loose ring of chairs. The atlas is shut in its case on the back table; beside it, Shaun has coiled the projection cable next to Henry's seven-cue run-sheet. A separate sheet in the middle is held against the summer breeze by four cards: THANKS, ADVICE, QUESTION, MARK. Someone has placed a red pen beside Rie's fresh tea. She picks up the pen first and looks around."
         },
         {
           kind: "line",
           id: "line:next-page:rie-states-the-terms",
           beatId: "beat:next-page:human-want",
           speakerId: "rie",
-          intent: "Name graduation plainly — not a test, not a closing speech — and set the terms: each person may leave one thing on the page if they want, then it stays open for the next class, with no one obliged to fill it.",
-          attentionTarget: "the single blank page and the closed atlas behind it",
+          intent: "Put away the marking pen, identify the four usable tones, and set the bounded permission plainly: leave one thing if wanted, or pass the pen on.",
+          attentionTarget: "the red pen, the four cards, and the separate sheet",
           variants: {
             n3: {
-              japanese: "はい、地図はこれで閉じました。で、卒業なんですけど、テストじゃないんです。この一枚に、書きたい人が、書きたいことをひとつ置いていくだけ。残りは次のクラスのために、開けたままにしておきます。埋めなきゃいけない人はいませんよ。",
-              reading: "はい、ちずはこれでとじました。で、そつぎょうなんですけど、テストじゃないんです。このいちまいに、かきたいひとが、かきたいことをひとつおいていくだけ。のこりはつぎのクラスのために、あけたままにしておきます。うめなきゃいけないひとはいませんよ。",
-              english: "Right, the map's closed now. So — graduation. It isn't a test. On this one page, whoever wants to just leaves one thing they want to leave. The rest we keep open, for the next class. Nobody has to fill it."
+              japanese: "この赤ペンを置いたの、誰ですか。卒業の最後まで添削させるつもりですか。……しまいますよ。札は四つ。お礼、助言、質問、絵や音。使いたい札を一つ選んで、何か一つだけ残してください。書かない人は、ペンを次へ渡せば大丈夫です。この紙は次のクラスに渡します。でも、同じことをする決まりにはしません。",
+              reading: "このあかペンをおいたの、だれですか。そつぎょうのさいごまでてんさくさせるつもりですか。……しまいますよ。ふだはよっつ。おれい、じょげん、しつもん、えやおと。つかいたいふだをひとつえらんで、なにかひとつだけのこしてください。かかないひとは、ペンをつぎへわたせばだいじょうぶです。このかみはつぎのクラスにわたします。でも、おなじことをするきまりにはしません。",
+              english: "Who put this red pen here? Are you planning to make me correct things right through graduation? …I'm putting it away. Four cards: thanks, advice, question, picture or sound. Choose one card you want to use and leave just one thing. If you don't want to write, passing the pen on is fine. This sheet will go to the next class, but it will not become a rule that they must do the same."
             },
             n2: {
-              japanese: "はい、これで地図は閉じました。……で、卒業なんですけど、テストでも、締めくくりのスピーチでもないんですよ。この一枚に、書きたい人が、書きたいことをひとつだけ置いていく。それだけ。あとは次のクラスのために、開けたまま置いておきます。埋めなきゃいけない人は、いません。",
-              reading: "はい、これでちずはとじました。……で、そつぎょうなんですけど、テストでも、しめくくりのスピーチでもないんですよ。このいちまいに、かきたいひとが、かきたいことをひとつだけおいていく。それだけ。あとはつぎのクラスのために、あけたままおいておきます。うめなきゃいけないひとは、いません。",
-              english: "Right — the map's closed now. …So, graduation. It isn't a test, and it isn't a closing speech either. On this one page, whoever wants to leaves just one thing they want to leave. That's all. And the rest we keep open, for the next class. Nobody's obliged to fill it."
+              japanese: "この赤ペンを置いたの、誰ですか。卒業の最後まで添削させるつもり？　……しまいますよ。札は四つです。お礼、助言、質問、絵や音。使いたい札を一つ選んで、何か一つだけ残してください。書かないなら、ペンを次へ渡す。それで大丈夫です。この紙は次のクラスに渡しますが、同じことを続ける決まりにはしません。",
+              reading: "このあかペンをおいたの、だれですか。そつぎょうのさいごまでてんさくさせるつもり？　……しまいますよ。ふだはよっつです。おれい、じょげん、しつもん、えやおと。つかいたいふだをひとつえらんで、なにかひとつだけのこしてください。かかないなら、ペンをつぎへわたす。それでだいじょうぶです。このかみはつぎのクラスにわたしますが、おなじことをつづけるきまりにはしません。",
+              english: "Who put this red pen here? Were you planning to make me correct things right through graduation? …I'm putting it away. There are four cards: thanks, advice, question, picture or sound. Choose one you want to use and leave just one thing. If you don't want to write, pass the pen on. That's fine. This sheet will go to the next class, but it will not become a rule that they continue the same practice."
             },
             n1: {
-              japanese: "はい、地図はこれで閉じました。……で、卒業なんですけどね、別に試験でもなければ、立派な締めの言葉でもなくて。このたった一枚に、書きたい方が、書きたいことをひとつだけ置いていく——ええ、それだけのことなんです。あとは次のクラスのために、開けたまま残しておく。誰かが埋めなきゃいけない、なんてことは、ひとつもありませんから。",
-              reading: "はい、ちずはこれでとじました。……で、そつぎょうなんですけどね、べつにしけんでもなければ、りっぱなしめのことばでもなくて。このたったいちまいに、かきたいかたが、かきたいことをひとつだけおいていく——ええ、それだけのことなんです。あとはつぎのクラスのために、あけたままのこしておく。だれかがうめなきゃいけない、なんてことは、ひとつもありませんから。",
-              english: "Yes — the map is closed now. …So, graduation. It's not an exam, and it's not some grand closing speech either. On this one page, anyone who'd like to leaves just one thing they want to leave — yes, that's all it is. The rest we leave open, for the next class. There's no such thing here as someone being obliged to fill it."
+              japanese: "この赤ペンを置いたのは、どなたですか。卒業の最後まで添削させるおつもりで？　……これは、しまいますよ。札は四つ。お礼、助言、質問、それから絵や音。使いたいものを一つ選んで、何か一つだけ残してください。書かない方は、ペンを次へ渡す。それも、きちんと一つの選択です。この紙自体は次のクラスへ渡しますが、同じ形式を引き継ぐ義務までは残しません。",
+              reading: "このあかペンをおいたのは、どなたですか。そつぎょうのさいごまでてんさくさせるおつもりで？　……これは、しまいますよ。ふだはよっつ。おれい、じょげん、しつもん、それからえやおと。つかいたいものをひとつえらんで、なにかひとつだけのこしてください。かかないかたは、ペンをつぎへわたす。それも、きちんとひとつのせんたくです。このかみじたいはつぎのクラスへわたしますが、おなじけいしきをひきつぐぎむまではのこしません。",
+              english: "Who put this red pen here? Were you intending to make me correct things right through graduation? …This is going away. Four cards: thanks, advice, question, and picture or sound. Choose one you want to use and leave just one thing. If you don't want to write, pass the pen on. That, too, is a complete choice. The sheet itself will go to the next class, but we will leave them no obligation to inherit the same format."
             }
           },
           support: {
@@ -218577,23 +219346,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:next-page:jenny-leaves-the-chair",
           beatId: "beat:next-page:obstruction",
           speakerId: "jenny",
-          intent: "Drape the just-finished scarf over one chair and leave the chair empty on purpose, naming that leaving a place open is a whole choice, not a gap, with a plan held lightly.",
+          intent: "Test the just-finished scarf against a chair, decide to leave both for the next arrival, and make the handoff practical rather than ceremonial.",
           attentionTarget: "the empty chair and the finished scarf she sets over it",
           variants: {
             n3: {
-              japanese: "……これ、やっと編み終わった。誰の、ってわけじゃないよ。ここ、掛けとくね。椅子は空けたまま。埋めなくていい席も、あっていいと思うんだ。いつか誰か座ったらいいな、くらいで。",
-              reading: "……これ、やっとあみおわった。だれの、ってわけじゃないよ。ここ、かけとくね。いすはあけたまま。うめなくていいせきも、あっていいとおもうんだ。いつかだれかすわったらいいな、くらいで。",
-              english: "…This, I finally finished knitting it. Not that it's for anyone. I'll hang it here. The chair stays empty. A seat you don't have to fill is fine to have too, I think. If someone sits there someday, that'd be nice — about that much."
+              japanese: "そこ、座る前にちょっと待って。やっと編み終わったから、背もたれに掛けても床につかないか見たいの。……うん、大丈夫。これはここに置いていくね。次に来た人が寒かったら使えるし。椅子も一つ、その人に残しておこう。",
+              reading: "そこ、すわるまえにちょっとまって。やっとあみおわったから、せもたれにかけてもゆかにつかないかみたいの。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむかったらつかえるし。いすもひとつ、そのひとにのこしておこう。",
+              english: "Wait a second before you sit there. I finally finished it, and I want to see if it clears the floor when I hang it over the back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave them one chair too."
             },
             n2: {
-              japanese: "……これ、やっと編み終わったんだ。誰の、とかじゃなくて。ここ、掛けとくね。椅子は、空けたまま。……埋めなくていい席って、あっていいと思うんだよね。いつか誰か座ったら、いいなあ、くらいで。",
-              reading: "……これ、やっとあみおわったんだ。だれの、とかじゃなくて。ここ、かけとくね。いすは、あけたまま。……うめなくていいせきって、あっていいとおもうんだよね。いつかだれかすわったら、いいなあ、くらいで。",
-              english: "…This — I finally finished it. Not for anyone in particular. I'll just drape it here. The chair stays empty. …A seat you don't have to fill — I think it's fine for one of those to exist. If someone sits there someday, that'd be nice. About that much."
+              japanese: "そこ、座る前にちょっと待って。やっと編み終わったから、背もたれに掛けても端が床につかないか見たいんだ。……うん、大丈夫。これはここに置いていくね。次に来た人が寒かったら使えばいいし。椅子も一つ、その人に残しておこう。",
+              reading: "そこ、すわるまえにちょっとまって。やっとあみおわったから、せもたれにかけてもはしがゆかにつかないかみたいんだ。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむかったらつかえばいいし。いすもひとつ、そのひとにのこしておこう。",
+              english: "Wait a second before you sit there. I finally finished it, and I want to see whether the end clears the floor over the chair back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave them one chair too."
             },
             n1: {
-              japanese: "……これ、ようやく編み上がってさ。誰にあげる、とかでもないんだけど。ここに、掛けとくね。椅子はこのまま、空けておく。……無理に埋めなくていい席って、ひとつくらいあってもいいでしょ。いつか、誰かがふらっと座ってくれたらいいな——まあ、それくらいの気持ちで。",
-              reading: "……これ、ようやくあみあがってさ。だれにあげる、とかでもないんだけど。ここに、かけとくね。いすはこのまま、あけておく。……むりにうめなくていいせきって、ひとつくらいあってもいいでしょ。いつか、だれかがふらっとすわってくれたらいいな——まあ、それくらいのきもちで。",
-              english: "…This, I finally got it finished. Not that it's for anyone to have. I'll drape it here. The chair I'll leave as is — empty. …A seat nobody has to fill, there ought to be at least one of those. If someone drifts in and sits there someday, that'd be nice — well, about that much feeling behind it."
+              japanese: "そこ、座る前にちょっと待って。ようやく編み上がったから、背もたれに掛けても端が床につかないか、見ておきたいんだ。……うん、大丈夫。これはここに置いていくね。次に来た人が寒ければ使えばいいし。椅子も一つ、その人のために残しておこう。",
+              reading: "そこ、すわるまえにちょっとまって。ようやくあみあがったから、せもたれにかけてもはしがゆかにつかないか、みておきたいんだ。……うん、だいじょうぶ。これはここにおいていくね。つぎにきたひとがさむければつかえばいいし。いすもひとつ、そのひとのためにのこしておこう。",
+              english: "Wait a second before you sit there. I finally finished it, and I want to make sure the end clears the floor over the chair back. …Good. I'll leave this here. The next person can use it if they're cold. Let's leave one chair for them as well."
             }
           },
           support: {
@@ -218607,23 +219376,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:next-page:peter-open-question",
           beatId: "beat:next-page:attempt",
           speakerId: "peter",
-          intent: "From the overlooked seat, reframe the page: you can leave a question instead of an answer and still finish, and model his own undecided December exam as exactly that kind of open ending.",
-          attentionTarget: "the blank page and the chair Jenny left empty",
+          intent: "Show his still-unsubmitted December exam form, distinguish indecision from a false claim of action, and choose to take the live question home with him.",
+          attentionTarget: "the unsubmitted exam form he unfolds and folds again",
           variants: {
             n3: {
-              japanese: "いい席ですね、それ。……僕、前から思ってたんです。最後に答えを置いていかなきゃいけない、ってわけじゃないでしょう。問いをひとつ、開けたまま残す。それでも、ちゃんと終われるんですよ。僕も、十二月の試験を受けるか、まだ決めてなくて。決めないまま、置いていきます。……それで、いいと思う。",
-              reading: "いいせきですね、それ。……ぼく、まえからおもってたんです。さいごにこたえをおいていかなきゃいけない、ってわけじゃないでしょう。といをひとつ、あけたままのこす。それでも、ちゃんとおわれるんですよ。ぼくも、じゅうにがつのしけんをうけるか、まだきめてなくて。きめないまま、おいていきます。……それで、いいとおもう。",
-              english: "That's a good seat, that. …I've thought so for a while. It's not that you have to leave an answer at the end. Leave one question, open. You can still finish properly. I haven't decided whether I'll sit the December exam either. I'll leave it undecided. …And I think that's fine."
+              japanese: "……僕の十二月の試験の申込書、まだここが白いんです。締切の日も書いてある。受けるかは、まだ決めてません。でも、『出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰ります。",
+              reading: "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだここがしろいんです。しめきりのひもかいてある。うけるかは、まだきめてません。でも、『だした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえります。",
+              english: "…My application for the December exam is still blank here. The deadline's written on it too. I haven't decided whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back in my bag and coming home with me."
             },
             n2: {
-              japanese: "いい席ですね、それ。……僕、前から思ってたんですけどね。最後に必ず答えを置いていく、ってものでもないでしょう。問いをひとつ、開けたまま残していく。それでも、ちゃんと終われるんですよ。僕自身、十二月の試験を受けるかどうか、まだ決めてなくて。決めないまま、置いていきます。……それで、悪くない。",
-              reading: "いいせきですね、それ。……ぼく、まえからおもってたんですけどね。さいごにかならずこたえをおいていく、ってものでもないでしょう。といをひとつ、あけたままのこしていく。それでも、ちゃんとおわれるんですよ。ぼくじしん、じゅうにがつのしけんをうけるかどうか、まだきめてなくて。きめないまま、おいていきます。……それで、わるくない。",
-              english: "That's a good seat, that one. …I've thought this for a while, you know. It's not as though you must leave an answer at the end. Leave one question, open. You can still finish properly. Myself, I haven't decided whether I'll sit the December exam. I'll leave it undecided. …And that's not bad."
+              japanese: "……僕の十二月の試験の申込書、まだこの欄が白いんです。締切の日も、ちゃんと書いてある。受けるかどうかは、まだ決めてません。でも、『提出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰りますよ。",
+              reading: "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだこのらんがしろいんです。しめきりのひも、ちゃんとかいてある。うけるかどうかは、まだきめてません。でも、『ていしゅつした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえりますよ。",
+              english: "…This field on my application for the December exam is still blank. The deadline is properly written there too. I haven't decided whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back in my bag and coming home with me."
             },
             n1: {
-              japanese: "いい席じゃないですか、それ。……前々から思っていたんですがね。終わりに、必ずしも答えを置いていく必要はないでしょう。問いをひとつ、開けたまま残していく——それで、ちゃんと終われるものなんですよ。現に僕も、十二月の試験を受けるかどうか、いまだに決めかねていましてね。決めないまま、ここに置いていくつもりです。……ええ、それで、案外わるくない。",
-              reading: "いいせきじゃないですか、それ。……まえまえからおもっていたんですがね。おわりに、かならずしもこたえをおいていくひつようはないでしょう。といをひとつ、あけたままのこしていく——それで、ちゃんとおわれるものなんですよ。げんにぼくも、じゅうにがつのしけんをうけるかどうか、いまだにきめかねていましてね。きめないまま、ここにおいていくつもりです。……ええ、それで、あんがいわるくない。",
-              english: "That's rather a good seat, isn't it. …I've thought so for a long while, you know. At the end, you don't necessarily have to leave an answer behind. Leave one question, open — and you can still finish, properly. As it happens, I still can't decide whether I'll sit the December exam myself. I mean to leave it undecided, right here. …Yes, and it's surprisingly not bad that way."
+              japanese: "……僕の十二月の試験の申込書、まだこの欄が白いんですよ。締切の日付だけは、きちんと印刷してある。受けるかどうかは、いまだ決めかねています。ただ、『提出した』とは言わない。それだけは決めました。この問いは、かばんに戻して持って帰ります。",
+              reading: "……ぼくのじゅうにがつのしけんのもうしこみしょ、まだこのらんがしろいんですよ。しめきりのひづけだけは、きちんといんさつしてある。うけるかどうかは、いまだきめかねています。ただ、『ていしゅつした』とはいわない。それだけはきめました。このといは、かばんにもどしてもってかえります。",
+              english: "…This field on my application for the December exam is still blank. Only the deadline has been neatly printed. I still can't decide whether I'll take it. But I won't say I've submitted it. That much I have decided. This question is going back into my bag and coming home with me."
             }
           },
           support: {
@@ -218673,30 +219442,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:next-page:before-response",
           beatId: "beat:next-page:response",
-          resume: "The learner has chosen how to approach the page. Rie answers with the one thing she wants them to hear before they write."
+          resume: "The learner has chosen how to approach the sheet. Rie notices everyone looking toward the drawer where she put the red pen."
         },
         {
           kind: "line",
           id: "line:next-page:rie-no-wrong-page",
           beatId: "beat:next-page:repair",
           speakerId: "rie",
-          intent: "Give the one usable reassurance before explanation: whatever tone they pick the page is accepted, there is no best answer, and she is deliberately not drawing a hanamaru because this page is not graded.",
-          attentionTarget: "the learner and the blank page, and the pen she is not marking",
+          intent: "Make non-grading visible by keeping the red pen in the drawer, accept writing, drawing, or sound, and use Robert's dishes for a small practical warning.",
+          attentionTarget: "the closed pen drawer, the recorder, and Robert's dishes",
           variants: {
             n3: {
-              japanese: "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、ひとことでも、問いでも、音でも——どれを置いても、ちゃんと受け取ります。花丸は、今日はなし。点をつける紙じゃないからね。",
-              reading: "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、ひとことでも、といでも、おとでも——どれをおいても、ちゃんとうけとります。はなまるは、きょうはなし。てんをつけるかみじゃないからね。",
-              english: "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word, a question, a sound — whichever you leave, we take it, properly. No hanamaru today. It's not a page you put a mark on."
+              japanese: "赤ペンなら、もう引き出しの中ですよ。読み上げないし、直しません。書いても、描いても、音にしてもいいです。ただ、音を選ぶなら、ロバートのお皿の近くで急に歌わないでね。先にびっくりするから。",
+              reading: "あかペンなら、もうひきだしのなかですよ。よみあげないし、なおしません。かいても、えがいても、おとにしてもいいです。ただ、おとをえらぶなら、ロバートのおさらのちかくできゅうにうたわないでね。さきにびっくりするから。",
+              english: "The red pen is already in the drawer. I won't read anything aloud or correct it. You can write, draw, or make it sound. Just, if you choose sound, don't suddenly sing next to Robert's dishes. They'll be startled first."
             },
             n2: {
-              japanese: "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いても、この授業はちゃんと受け取ります。花丸は、今日はつけません。点数をつける紙じゃ、ないので。",
-              reading: "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいても、このじゅぎょうはちゃんとうけとります。はなまるは、きょうはつけません。てんすうをつけるかみじゃ、ないので。",
-              english: "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this class takes it, properly. No hanamaru today. This isn't a page you put a score on."
+              japanese: "赤ペンなら、もう引き出しの中ですよ。読み上げないし、直しません。書いても、描いても、音にしてもいい。ただ、音を選ぶなら、ロバートのお皿のそばで急に歌わないでね。お皿が先にびっくりしますから。",
+              reading: "あかペンなら、もうひきだしのなかですよ。よみあげないし、なおしません。かいても、えがいても、おとにしてもいい。ただ、おとをえらぶなら、ロバートのおさらのそばできゅうにうたわないでね。おさらがさきにびっくりしますから。",
+              english: "The red pen is already in the drawer. I won't read anything aloud or correct it. You can write, draw, or make it sound. Just, if you choose sound, don't suddenly sing beside Robert's dishes. The dishes will be startled first."
             },
             n1: {
-              japanese: "ええ、どちらでも構いませんよ。……ひとつだけ、先に言っておきますね。ここに『正解』は、ないんです。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いてくださっても、この教室はちゃんと受け取ります。花丸は、今日はなし。点をつけるための紙じゃ、ありませんから。",
-              reading: "ええ、どちらでもかまいませんよ。……ひとつだけ、さきにいっておきますね。ここに『せいかい』は、ないんです。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいてくださっても、このきょうしつはちゃんとうけとります。はなまるは、きょうはなし。てんをつけるためのかみじゃ、ありませんから。",
-              english: "Yes, either way is fine. …Just one thing, before you start. There is no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this room takes it, properly. No hanamaru today. This isn't a page for putting a mark on."
+              japanese: "赤ペンなら、もう引き出しの中ですよ。読み上げもしませんし、直しもしません。書いても、描いても、音にしても構わない。ただ、音を選ぶなら、ロバートのお皿のそばで突然歌わないでくださいね。お皿のほうが先に驚きますから。",
+              reading: "あかペンなら、もうひきだしのなかですよ。よみあげもしませんし、なおしもしません。かいても、えがいても、おとにしてもかまわない。ただ、おとをえらぶなら、ロバートのおさらのそばでとつぜんうたわないでくださいね。おさらのほうがさきにおどろきますから。",
+              english: "The red pen is already in the drawer. I won't read anything aloud or correct it. You may write, draw, or make it sound. But if you choose sound, please don't suddenly sing beside Robert's dishes. The dishes will be startled first."
             }
           },
           support: {
@@ -218710,7 +219479,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:next-page:page-to-the-middle",
           beatId: "beat:next-page:exit-image",
           cueId: "cue:page-moved-into-the-ring",
-          description: "The blank page moves to the middle of the loose ring of chairs. Rie's tea sits at her elbow, still full, still steaming — she hasn't touched it, already turning to hand someone a pen."
+          description: "Jenny moves the sheet and its four cards into the middle of the ring, then takes the blue pen around herself. Before Rie can follow, Jenny nudges the steaming cup into the hand Rie has left empty. Rie catches it with both hands and stays in her chair."
         }
       ],
       exit: {
@@ -218724,8 +219493,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:classroom",
       timeState: "evening",
       weatherState: "summer-evening",
-      goal: "Let the learner leave one bounded contribution in a chosen tone, and let the class close the room around it — the page left open, unlit, and valid.",
-      dramaticQuestion: "With every tone accepted, what does the learner choose to leave, and does the page need to light to count?",
+      goal: "Let the learner leave one bounded contribution in a chosen tone, establish the sheet's ordinary unwired state, and complete the room-closing handoff from Henry to Shaun.",
+      dramaticQuestion: "What does the learner choose to leave, and will Rie actually stay seated while Shaun performs the last cue?",
       learnerNeed: "An integrated N1 production: author one bounded final contribution in a chosen tone under the class's permission terms.",
       curriculum: {
         sectionId: "leave-one-bounded-contribution",
@@ -218738,30 +219507,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:next-page:room-finishing",
           beatId: "beat:next-page:regroup-image",
           cueId: "cue:controlled-montage-around-the-page",
-          description: "The page waits in the middle. Around it the room is quietly finishing, nobody waiting for a speech: Robert sets the last table with one seat and one dish left unchosen on purpose. Felix crouches by the window and tags one small living detail with a question mark. Stasi lays down a small, vivid drawing that leaves space at its edge. Jodi props a card with two captions for one place and crosses out neither. The rest of it goes into the journal, not onto the floor."
+          description: "The sheet makes one slow circuit. Robert tapes 'ask before choosing the dish' beside a one-place setting. Felix notes the time beside a small shape at the window and adds a question mark instead of a species name. Stasi draws the red pen disappearing into Rie's drawer. Jodi props the same station photograph between two captions and keeps both. Shaun checks the door key against cue seven on Henry's run-sheet. The other farewells go into the journal, not into speeches."
         },
         {
           kind: "line",
           id: "line:next-page:rie-hands-the-pen",
           beatId: "beat:next-page:production-want",
           speakerId: "rie",
-          intent: "Hand the pen to the learner, name that the page will not light — the responsiveness was only people matching each other, now closed — and that it does not need to, then offer the four tones.",
-          attentionTarget: "the pen going into the learner's hand, and the page that will not glow",
+          intent: "Set the blue pen and recorder within reach, point to the coiled projection cable as physical proof that the sheet is unwired, and return the learner to one chosen card.",
+          attentionTarget: "the blue pen, the recorder, and the coiled projection cable",
           variants: {
             n3: {
-              japanese: "はい、どうぞ。……この一枚は、光らないよ。前は、みんなの声がそろうと道が点いたでしょ。あれ、機械でも魔法でもなくて、人が合わせてただけ。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなのを、ひとつだけ。",
-              reading: "はい、どうぞ。……このいちまいは、ひからないよ。まえは、みんなのこえがそろうとみちがついたでしょ。あれ、きかいでもまほうでもなくて、ひとがあわせてただけ。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなのを、ひとつだけ。",
-              english: "Here, go ahead. …This page won't light. Before, when everyone's voices lined up, the route came on, right. That was never a machine or magic — just people matching. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+              japanese: "青いペンはここ。音なら、この録音機を使ってください。この紙は投影機につながっていません。コードは後ろの箱です。もし光ったら、ショーンに言ってね。配線トラブルです。……光りませんよ。選んだ札から、一つだけどうぞ。",
+              reading: "あおいペンはここ。おとなら、このろくおんきをつかってください。このかみはとうえいきにつながっていません。コードはうしろのはこです。もしひかったら、ショーンにいってね。はいせんトラブルです。……ひかりませんよ。えらんだふだから、ひとつだけどうぞ。",
+              english: "The blue pen is here. For sound, use this recorder. This sheet isn't connected to the projector; the cable is in the box at the back. If it lights, tell Shaun. We have a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             },
             n2: {
-              japanese: "はい、どうぞ。……この一枚は、光りません。前は、みんなの声がそろうと道が点いたでしょう。あれ、機械でも魔法でもなくて、人が合わせてただけなんです。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ。",
-              reading: "はい、どうぞ。……このいちまいは、ひかりません。まえは、みんなのこえがそろうとみちがついたでしょう。あれ、きかいでもまほうでもなくて、ひとがあわせてただけなんです。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ。",
-              english: "Here — go ahead. …This page won't light. Before, when everyone's voices lined up, the route would come on, remember. That was never a machine or magic — it was just people matching each other. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+              japanese: "青いペンはここ。音なら、この録音機を使ってください。この紙は投影機につながっていません。コードは後ろの箱に入っています。もし光ったら、ショーンに言ってね。配線トラブルですから。……光りません。選んだ札から、一つだけどうぞ。",
+              reading: "あおいペンはここ。おとなら、このろくおんきをつかってください。このかみはとうえいきにつながっていません。コードはうしろのはこにはいっています。もしひかったら、ショーンにいってね。はいせんトラブルですから。……ひかりません。えらんだふだから、ひとつだけどうぞ。",
+              english: "The blue pen is here. For sound, use this recorder. This sheet isn't connected to the projector; the cable is in the box at the back. If it lights, tell Shaun. It would be a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             },
             n1: {
-              japanese: "はい、どうぞ。……この一枚はね、光りませんよ。前は、みんなの声がそろった瞬間に道が点いた——でも、あれは機械でも魔法でもなくて、人が息を合わせていた、それだけのことだったんです。その息の合わせ方も、もう閉じました。だから、この紙は点かない。点かなくて、いいんですよ。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ、置いていってください。",
-              reading: "はい、どうぞ。……このいちまいはね、ひかりませんよ。まえは、みんなのこえがそろったしゅんかんにみちがついた——でも、あれはきかいでもまほうでもなくて、ひとがいきをあわせていた、それだけのことだったんです。そのいきのあわせかたも、もうとじました。だから、このかみはつかない。つかなくて、いいんですよ。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ、おいていってください。",
-              english: "Here — go ahead. …This page, you see, won't light. Before, the moment everyone's voices lined up, the route would come on — but that was never a machine or magic, it was people matching their breath, only that. And that matching, too, is closed now. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, leave just one."
+              japanese: "青いペンはこちら。音を選んだ方は、この録音機を使ってください。この紙は投影機につながっていませんし、コードは後ろの箱に収まっています。万が一光ったら、ショーンに知らせてください。配線トラブルです。……光りませんよ。選んだ札から、一つだけどうぞ。",
+              reading: "あおいペンはこちら。おとをえらんだかたは、このろくおんきをつかってください。このかみはとうえいきにつながっていませんし、コードはうしろのはこにおさまっています。まんがいちひかったら、ショーンにしらせてください。はいせんトラブルです。……ひかりませんよ。えらんだふだから、ひとつだけどうぞ。",
+              english: "The blue pen is here. If you chose sound, use this recorder. This sheet isn't connected to the projector, and the cable is packed in the box at the back. In the unlikely event it lights, notify Shaun. We have a wiring fault. …It won't. Go ahead with one thing from the card you chose."
             }
           },
           support: {
@@ -218870,30 +219639,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:next-page:after-page",
           beatId: "beat:next-page:production-response",
-          resume: "The one thing is on the page. The class does not read it aloud or grade it. Rie sees it set down and lets the room close around it."
+          resume: "The one thing is on the sheet. Rie accepts it without opening the red-pen drawer, then looks to Shaun and the seventh cue."
         },
         {
           kind: "line",
           id: "line:next-page:rie-lets-the-room-close",
           beatId: "beat:next-page:transform",
           speakerId: "rie",
-          intent: "Accept the page without reading or grading it, and — for once — let someone else lock up, naming plainly that she is sitting down while another person closes the room.",
-          attentionTarget: "the page set down, and the still-warm cup in her own hand",
+          intent: "Accept the contribution without reading or correcting it, ask Shaun to perform the final lock-up cue, and choose the still-steaming tea as her own last action.",
+          attentionTarget: "the contribution, Shaun's run-sheet, and the cup in her hands",
           variants: {
             n3: {
-              japanese: "……うん、それでいい。読み上げもしないし、点もつけません。置いてくれたら、それでこの授業はおしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
-              reading: "……うん、それでいい。よみあげもしないし、てんもつけません。おいてくれたら、それでこのじゅぎょうはおしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
-              english: "…Yeah, that's good. I won't read it out, and I won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+              japanese: "……受け取りました。読み上げないし、直しません。これで卒業です。ショーン、七番の戸締まり、お願いしてもいい？　私はこのお茶を飲みます。今日はまだ、湯気があるので。",
+              reading: "……うけとりました。よみあげないし、なおしません。これでそつぎょうです。ショーン、ななばんのとじまり、おねがいしてもいい？　わたしはこのおちゃをのみます。きょうはまだ、ゆげがあるので。",
+              english: "…Received. I won't read it aloud or correct it. That's graduation. Shaun, could you take cue seven, the lock-up? I'm going to drink this tea. Today it still has steam."
             },
             n2: {
-              japanese: "……うん、それでいい。読み上げも、しません。点もつけない。置いてくれたら、それでこの授業は、おしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
-              reading: "……うん、それでいい。よみあげも、しません。てんもつけない。おいてくれたら、それでこのじゅぎょうは、おしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
-              english: "…Yeah, that's good. I won't read it out, either. Won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+              japanese: "……受け取りました。読み上げないし、直しません。これで卒業です。ショーン、七番の戸締まり、お願いしてもいい？　私はこのお茶を飲みます。今日はまだ、湯気が残っているので。",
+              reading: "……うけとりました。よみあげないし、なおしません。これでそつぎょうです。ショーン、ななばんのとじまり、おねがいしてもいい？　わたしはこのおちゃをのみます。きょうはまだ、ゆげがのこっているので。",
+              english: "…Received. I won't read it aloud or correct it. That's graduation. Shaun, could you take cue seven, the lock-up? I'm going to drink this tea. Today it still has steam."
             },
             n1: {
-              japanese: "……ええ、それでいいんです。読み上げたりは、しません。点もつけない。ひとつ置いてくださったら、それでこの授業は、おしまい。……戸締まりも、今日はほかの方がやってくれていてね。めずらしく、私、こうして座っているんですよ。",
-              reading: "……ええ、それでいいんです。よみあげたりは、しません。てんもつけない。ひとつおいてくださったら、それでこのじゅぎょうは、おしまい。……とじまりも、きょうはほかのかたがやってくれていてね。めずらしく、わたし、こうしてすわっているんですよ。",
-              english: "…Yes, that's just fine. I won't read it out. Won't put a mark on it. Once you've left one thing, that's this class, over. …The locking-up, too — someone else has it tonight. For once, I'm sitting here like this."
+              japanese: "……確かに、受け取りました。読み上げもしませんし、直しもしません。これで卒業です。ショーン、七番の戸締まりをお願いしてもいいですか。私は、このお茶を飲みます。今日はまだ、湯気が残っていますから。",
+              reading: "……たしかに、うけとりました。よみあげもしませんし、なおしもしません。これでそつぎょうです。ショーン、ななばんのとじまりをおねがいしてもいいですか。わたしは、このおちゃをのみます。きょうはまだ、ゆげがのこっていますから。",
+              english: "…I have received it, properly. I won't read it aloud or correct it. That's graduation. Shaun, may I ask you to take cue seven, the lock-up? I am going to drink this tea. Today, it still has steam."
             }
           },
           support: {
@@ -218907,7 +219676,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:next-page:room-closes",
           beatId: "beat:next-page:exit-image",
           cueId: "cue:someone-else-locks-up-rie-drinks",
-          description: "At the door, someone else works the latch and the lights, unhurried. Rie lifts the cup at her elbow and drinks — the tea is still warm. The page sits in the middle of the ring, one thing on it, the rest open. Jenny's scarf stays over the empty chair. On the wall the closed atlas holds its steady, ordinary light. Nothing needs to come on."
+          description: "Shaun reads cue seven once, checks the windows, turns off the projector-cart switch that is already dark, and works the door latch. At its click Rie starts to rise, then settles back and drinks. The tea is still warm. Jenny's scarf clears the floor on the chair kept for the next arrival; Peter's form is back in his bag. The atlas case stays latched. On the separate sheet, the learner's one contribution remains exactly as they left it."
         }
       ],
       exit: {
@@ -218924,7 +219693,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "rie",
         "learner"
       ],
-      meaningNow: "A blank page is offered under the class's permission terms with no person assigned to occupy it, and Jenny's deliberately-empty chair makes the same shape concrete: a place kept open is a complete choice, not a gap to fill.",
+      meaningNow: "Jenny tests the finished scarf against a chair, confirms that it clears the floor, and leaves both for the next person who arrives; hospitality is handed forward through a usable object and a real seat rather than a promise about who must take it.",
       priorUse: {
         packageId: "s3e05-chair-not-reserved",
         sceneId: "scene:chair-not-reserved:role-left-open",
@@ -218940,7 +219709,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ownerIds: [
         "rie"
       ],
-      meaningNow: "The blank page does not light and stays valid; Rie names once more that the atlas's responsiveness was people matching each other, not magic, and that mechanism is now closed, so the paper is ordinary and needs no glow to count.",
+      meaningNow: "The atlas stays latched, its cable visibly coiled beside Henry's run-sheet, while the separate graduation sheet is demonstrably unwired; Rie's joke about reporting any glow as a wiring fault pays off the ordinary projection mechanism without restating its whole history.",
       priorUse: {
         packageId: "s4e11-atlas-closes",
         sceneId: "scene:atlas-closes:name-the-mechanism",
@@ -218948,7 +219717,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       useNumber: 5,
       maximumUses: 6,
-      optionalFallback: "Rie says plainly that the last page will not light, that the earlier glow was only the class coordinating, and that an unlit page is still a real contribution."
+      optionalFallback: "The atlas stays latched with its projection cable visibly packed away, and the separate graduation sheet is plainly unwired; the class accepts the learner's contribution without requiring any visual effect."
     },
     {
       id: "callback:cold-tea",
@@ -218975,7 +219744,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "peter",
         "learner"
       ],
-      meaningNow: "Leaving an open question, with no answer attached, is offered to the learner as a fully valid final contribution — Peter's method handed to the player as a legitimate way to end.",
+      meaningNow: "Peter unfolds the still-unsubmitted December exam form, refuses to claim an action he has not taken, and carries the live decision home; the learner may likewise choose a question as one honest contribution rather than manufacture an answer.",
       priorUse: {
         packageId: "s4e06-open-question",
         sceneId: "scene:open-question:wrong-frame",
@@ -218990,7 +219759,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     {
       id: "outcome:next-page:graduation-open-page",
       kind: "story",
-      description: "At graduation the closed atlas is left as it is and one blank page is offered to the next class under the terms this class agreed: one bounded contribution each if wanted, no one assigned to fill the rest, the page unlit and valid. Graduation happens once and is not undone."
+      description: "At graduation the atlas remains latched and the projection cable coiled. A separate unwired sheet circulates under four tone cards, accepting one bounded contribution from each willing participant and a passed pen from anyone who declines. It is handed to the next class without requiring them to repeat the format; the learner's contribution remains in their chosen form, and graduation happens once and is not undone."
     },
     {
       id: "outcome:next-page:jenny-future",
@@ -218998,7 +219767,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "jenny",
       chapter: 48,
       beat: "future",
-      description: "Jenny's finished scarf is handed on over a chair she leaves empty on purpose, and her plan is held lightly rather than promised; the class hears the open place as a complete choice, paying off her arc of stepping back and returning on her own terms without any next possibility closed for her."
+      description: "Jenny checks that her finished scarf clears the floor when draped over a chair, then leaves both for the next arrival to use if needed. She also takes the blue pen around and puts Rie's hot cup into her free hand, carrying her arc through practical, unannounced care while keeping her own next step unpromised."
     },
     {
       id: "outcome:next-page:peter-future",
@@ -219006,7 +219775,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "peter",
       chapter: 48,
       beat: "future",
-      description: "Peter legitimizes leaving an open question as a finished contribution and states his own undecided December exam as exactly that kind of open horizon; the peripheral observer's method is handed to the learner, his future left as one unclosed question rather than a promise."
+      description: "Peter shows the actual unsubmitted December exam form, acknowledges its printed deadline, and distinguishes not deciding from falsely saying he submitted it. He folds it back into his bag and takes the decision home, handing the learner his method without turning his future into a promise."
     },
     {
       id: "outcome:next-page:robert-future",
@@ -219014,7 +219783,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "robert",
       chapter: 48,
       beat: "future",
-      description: "Robert sets the final table with one seat and one dish left unchosen on purpose; the host who once covered every gap now leaves space deliberately, recorded in the journal rather than a spoken roll call."
+      description: "Robert sets one place and tapes 'ask before choosing the dish' beside it; the host who once chose everything in advance now leaves the next preference to the next person, recorded in the journal rather than a spoken roll call."
     },
     {
       id: "outcome:next-page:stasi-future",
@@ -219022,7 +219791,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "stasi",
       chapter: 48,
       beat: "future",
-      description: "Stasi's bounded contribution is visual — a small, vivid drawing that leaves space at its edge — her preference kept as an offering that makes room rather than a claim; recorded in the journal."
+      description: "Stasi's bounded contribution is visual and sharply observed: a small drawing of Rie's red pen disappearing into the drawer, catching the evening's comic action without turning it into a speech; recorded in the journal."
     },
     {
       id: "outcome:next-page:felix-future",
@@ -219030,7 +219799,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "felix",
       chapter: 48,
       beat: "future",
-      description: "Felix spots one small living detail by the window and hands it on as a question rather than an answer; attention kept open for the next class, recorded in the journal."
+      description: "Felix records the time beside a small shape at the window and adds a question mark instead of guessing its species; exact observation and an honest limit are handed forward in the journal."
     },
     {
       id: "outcome:next-page:jodi-future",
@@ -219046,7 +219815,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "shaun",
       chapter: 48,
       beat: "future",
-      description: "Shaun is unremarkably, fully part of the graduating room with one open possibility and no set-piece speech; recorded in the journal without a spoken payoff."
+      description: "Shaun checks the door key against cue seven on Henry's run-sheet and completes the window, switch, and latch sequence while Rie stays seated. The prior rehearsal becomes an ordinary successful handoff, with no set-piece speech required."
     },
     {
       id: "outcome:next-page:transfer-return",
@@ -219073,7 +219842,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "hide-english",
       "replay-compose-step"
     ],
-    withdrawnContentFallback: "Use the same graduation-composition beats with neutral nameplates: a teacher states the page's terms, a classmate leaves a place open, another says an open question can be an ending, and the learner leaves one bounded contribution in a chosen tone on a page kept open for the next class."
+    withdrawnContentFallback: "Use the same graduation-composition beats with neutral nameplates: a teacher puts away the marking pen and states the four optional tones, a classmate leaves a scarf and chair for the next arrival, another carries an undecided application home without claiming it was submitted, and the learner leaves one bounded contribution before someone else locks up."
   };
   const s4e12 = {
     schema,
@@ -250589,6 +251358,189 @@ recommendedJiten	Jiten由来の頻度バッジです。
       needsReviewActivityIds
     };
   }
+  const STORY_VOICE_PLAYBACK_CATALOG_URL = "/academy/audio/story-voice-playback.json";
+  const STORY_VOICE_PLAYBACK_SCHEMA = "yomu-academy.story-voice-playback.v1";
+  const PLAYABLE_DIRECTOR_STATES = /* @__PURE__ */ new Set(["ready", "playing", "silent"]);
+  const SHA256 = /^[a-f0-9]{64}$/u;
+  const PILOT_URL = /^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u;
+  async function loadStoryVoicePlaybackCatalog(url = STORY_VOICE_PLAYBACK_CATALOG_URL, fetcher = fetch) {
+    const response = await fetcher(url, { credentials: "same-origin" });
+    if (!response.ok) throw new Error(`Story voice catalog request failed (${response.status}).`);
+    return parseStoryVoicePlaybackCatalog(await response.json());
+  }
+  function parseStoryVoicePlaybackCatalog(value) {
+    if (!isRecord(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
+      throw new TypeError("Invalid story voice playback catalog.");
+    }
+    const seen = /* @__PURE__ */ new Set();
+    const entries2 = value.entries.map((candidate2, index) => {
+      if (!isPlaybackEntry(candidate2)) throw new TypeError(`Invalid story voice playback entry at index ${index}.`);
+      const identity2 = [candidate2.lineId, candidate2.speakerId, candidate2.japanese, candidate2.band].join("\n");
+      if (seen.has(identity2)) throw new TypeError(`Duplicate story voice playback entry: ${candidate2.lineId}.`);
+      seen.add(identity2);
+      return Object.freeze({ ...candidate2 });
+    });
+    return Object.freeze({ schema: STORY_VOICE_PLAYBACK_SCHEMA, entries: Object.freeze(entries2) });
+  }
+  function resolveStoryVoicePlaybackEntry(catalog2, line2) {
+    return catalog2.entries.find((entry2) => entry2.lineId === line2.lineId && entry2.speakerId === line2.speakerId && entry2.japanese === line2.japanese && (line2.band === void 0 || entry2.band === line2.band) && (line2.sourceSha256 === void 0 || entry2.sourceSha256 === line2.sourceSha256)) ?? null;
+  }
+  function createStoryVoicePlayback(options) {
+    const listeners = /* @__PURE__ */ new Set();
+    const createMedia = options.createMedia ?? ((url) => new Audio(url));
+    const catalogPromise = (options.catalog ? Promise.resolve(options.catalog) : options.loadCatalog?.() ?? loadStoryVoicePlaybackCatalog()).then(parseStoryVoicePlaybackCatalog);
+    let currentLine = null;
+    let currentEntry = null;
+    let active = null;
+    let lineToken = 0;
+    let disposed = false;
+    let snapshotValue = { status: "idle" };
+    const emit = (status, error) => {
+      snapshotValue = {
+        status,
+        ...currentLine ? { lineId: currentLine.lineId } : {},
+        ...currentEntry ? { url: currentEntry.url } : {},
+        ...error === void 0 ? {} : { error }
+      };
+      for (const listener of listeners) listener({ ...snapshotValue });
+    };
+    const releaseActive = (status, pause, error) => {
+      const playback = active;
+      if (!playback) return;
+      active = null;
+      playback.media.removeEventListener("ended", playback.onEnded);
+      playback.media.removeEventListener("error", playback.onError);
+      if (pause) {
+        playback.media.pause();
+        try {
+          playback.media.currentTime = 0;
+        } catch {
+        }
+      }
+      playback.releaseDuck();
+      emit(status, error);
+    };
+    const resolveCurrent = async (token) => {
+      if (!currentLine || token !== lineToken || disposed) return null;
+      if (currentEntry) return currentEntry;
+      try {
+        const catalog2 = await catalogPromise;
+        if (!currentLine || token !== lineToken || disposed) return null;
+        currentEntry = resolveStoryVoicePlaybackEntry(catalog2, currentLine);
+        emit(currentEntry ? "available" : "unavailable");
+        return currentEntry;
+      } catch (error) {
+        if (token === lineToken && !disposed) emit("error", error);
+        return null;
+      }
+    };
+    const unsubscribeDirector = options.director.onEvent((event) => {
+      if (!active) return;
+      if (event.type === "settings") {
+        if (event.settings.muted || event.settings.volumes.lesson <= 0) {
+          releaseActive("muted", true);
+          return;
+        }
+        active.media.volume = event.settings.volumes.lesson;
+        return;
+      }
+      if (event.type === "state" && !PLAYABLE_DIRECTOR_STATES.has(event.state)) {
+        releaseActive("locked", true);
+      }
+    });
+    return {
+      get snapshot() {
+        return { ...snapshotValue };
+      },
+      async setLine(line2) {
+        if (disposed) return false;
+        lineToken += 1;
+        releaseActive("stopped", true);
+        currentLine = line2 ? { ...line2 } : null;
+        currentEntry = null;
+        if (!currentLine) {
+          emit("idle");
+          return false;
+        }
+        emit("loading");
+        return Boolean(await resolveCurrent(lineToken));
+      },
+      async play() {
+        if (disposed || !currentLine) return false;
+        const token = lineToken;
+        const entry2 = await resolveCurrent(token);
+        if (!entry2 || token !== lineToken || disposed) return false;
+        const settings = options.director.settings;
+        if (settings.muted || settings.volumes.lesson <= 0) {
+          emit("muted");
+          return false;
+        }
+        if (!PLAYABLE_DIRECTOR_STATES.has(options.director.state)) {
+          emit("locked");
+          return false;
+        }
+        releaseActive("stopped", true);
+        let media;
+        let releaseDuck;
+        try {
+          media = createMedia(entry2.url);
+          media.preload = "auto";
+          media.volume = settings.volumes.lesson;
+          releaseDuck = options.director.beginExternalLesson();
+        } catch (error) {
+          emit("error", error);
+          return false;
+        }
+        const onEnded = () => {
+          if (active?.media === media) releaseActive("ended", false);
+        };
+        const onError = (event) => {
+          if (active?.media === media) releaseActive("error", true, event);
+        };
+        active = { media, releaseDuck, onEnded, onError };
+        media.addEventListener("ended", onEnded);
+        media.addEventListener("error", onError);
+        emit("playing");
+        try {
+          await media.play();
+          return active?.media === media && token === lineToken && !disposed;
+        } catch (error) {
+          if (active?.media === media) releaseActive("error", true, error);
+          return false;
+        }
+      },
+      stop() {
+        if (!disposed) releaseActive("stopped", true);
+      },
+      onStatus(listener) {
+        if (disposed) {
+          listener({ ...snapshotValue });
+          return () => void 0;
+        }
+        listeners.add(listener);
+        listener({ ...snapshotValue });
+        return () => listeners.delete(listener);
+      },
+      dispose() {
+        if (disposed) return;
+        lineToken += 1;
+        releaseActive("stopped", true);
+        disposed = true;
+        currentLine = null;
+        currentEntry = null;
+        unsubscribeDirector();
+        emit("disposed");
+        listeners.clear();
+      }
+    };
+  }
+  function isPlaybackEntry(value) {
+    if (!isRecord(value)) return false;
+    return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && PILOT_URL.test(value.url) && value.reviewStatus === "locked";
+  }
+  function isRecord(value) {
+    return typeof value === "object" && value !== null;
+  }
   async function loadClassWeekDeliveryCatalog(planValue, fetcher = fetch) {
     const plan = validateClassWeekCastPlan(planValue);
     const canonicalWeekIds = new Set(plan.weeks.map((week) => week.weekId));
@@ -253524,7 +254476,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const cursor = parseStoryCursor(options.sectionId);
     const episode2 = options.story.episode(cursor ? episodeIdForCursor(options.story, cursor) : options.sectionId);
-    screen.append(episode2 ? renderEpisode(options, episode2) : renderEpisodeList(options));
+    const content = episode2 ? renderEpisode(options, episode2) : renderEpisodeList(options);
+    screen.append(content);
+    screen.addEventListener("academy:dispose", () => {
+      content.dispatchEvent(new CustomEvent("academy:dispose"));
+    }, { once: true });
     return screen;
   }
   function renderEpisodeList(options) {
@@ -253592,6 +254548,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       label: arc.title,
       uiLanguage: options.language,
       audio: options.audio,
+      voice: options.createVoicePlayback?.(),
       onBack: options.onBack
     });
     stage2.element.classList.add("academy-story-vn-stage");
@@ -253645,7 +254602,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
             language: "ja",
             reading: storyReadingControl(options.language),
             translation: moment.line.english,
-            translationEarned: true
+            translationEarned: true,
+            ...moment.node.speakerId && moment.node.speakerId !== "learner" ? { voice: { band: moment.line.band } } : {}
           });
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
           return;
@@ -254573,6 +255531,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     listen.type = "button";
     listen.dataset.cafePrimaryAction = "listen";
     listen.textContent = options.language === "ja" ? "注文を聞く" : "Hear the order";
+    listen.setAttribute("aria-label", options.language === "ja" ? "注文を聞く" : "Hear the order");
     const choices2 = element("div", "academy-cafe-order-options");
     choices2.hidden = true;
     choices2.tabIndex = -1;
@@ -254580,6 +255539,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     choices2.setAttribute("aria-labelledby", title2.id);
     const orderScene = cafeOrderScene(options);
     let complete = false;
+    let listening = false;
+    let heardOnce = false;
     options.practice.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-cafe-order-option");
       answer2.type = "button";
@@ -254600,6 +255561,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (choice2.id !== options.practice.correctChoiceId) {
           root.dataset.cafeOrderState = "retry";
           status.textContent = options.language === "ja" ? "もう一度、値段と数に注意して聞いてください。" : "Listen again for the price and quantity.";
+          listen.focus();
           return;
         }
         complete = true;
@@ -254607,6 +255569,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         root.dataset.practiceComplete = "true";
         mark.textContent = choice2.label.ja;
         status.textContent = options.practice.success[options.language];
+        listen.disabled = true;
         choices2.querySelectorAll("button").forEach((button2) => {
           button2.disabled = true;
         });
@@ -254619,16 +255582,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       choices2.append(answer2);
     });
-    listen.addEventListener("click", () => {
+    listen.addEventListener("click", async () => {
+      if (complete || listening) return;
+      listening = true;
+      listen.disabled = true;
+      listen.setAttribute("aria-busy", "true");
       root.dataset.cafeOrderState = "choosing";
       transcript.hidden = false;
       choices2.hidden = false;
-      listen.hidden = true;
-      choices2.focus();
-      void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then((played) => {
+      if (!heardOnce) choices2.focus();
+      let played = false;
+      try {
+        played = await (options.onListen?.(
+          options.practice.audioLine,
+          `world-practice:${options.practice.id}`
+        ) ?? Promise.resolve(false));
+      } catch {
+        played = false;
+      } finally {
+        listening = false;
+        if (root.closest(".academy-world-screen")?.dataset.academyDisposed === "true") return;
+        heardOnce = true;
+        listen.removeAttribute("aria-busy");
+        listen.textContent = options.language === "ja" ? "もう一度聞く" : "Replay order";
+        listen.setAttribute("aria-label", options.language === "ja" ? "注文をもう一度聞く" : "Replay the order");
+        if (!complete) listen.disabled = false;
         if (root.dataset.cafeOrderState !== "choosing") return;
         status.textContent = played ? options.language === "ja" ? "聞こえた内容を注文票に合わせる。" : "Match what you heard to the order slip." : options.language === "ja" ? "音声が使えません。表示された台詞で続けてください。" : "Audio is unavailable. Continue with the shown line.";
-      });
+      }
     });
     root.append(heading, menu, transcript, status, listen, choices2, orderScene.element);
     return root;
@@ -255653,6 +256634,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       screen.dataset.konbiniVisit = String(options.progress.worldVisits?.konbini ?? 0);
     }
     screen.dataset.plate = place2.scene;
+    screen.addEventListener("academy:dispose", () => {
+      screen.dataset.academyDisposed = "true";
+    }, { once: true });
     if (place2.composition) screen.dataset.sceneMotif = place2.composition.motif;
     screen.append(academyBackgroundPicture(place2.scene));
     const stage2 = element("div", "academy-world-stage");
@@ -256099,7 +257083,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         spokenLine.hidden = false;
         repeatButton.disabled = false;
       }
-      void (options.onListen?.(practice2.audioLine) ?? Promise.resolve(false)).then((played) => {
+      void (options.onListen?.(
+        practice2.audioLine,
+        `world-practice:${practice2.id}`
+      ) ?? Promise.resolve(false)).then((played) => {
+        if (root.closest(".academy-world-screen")?.dataset.academyDisposed === "true") return;
         if (speakingCue?.dataset.labSpeaking === "spoken") return;
         status.textContent = played ? options.language === "ja" ? "音声を再生しました。" : "Playing the announcement." : options.language === "ja" ? "この端末では音声を再生できません。文字を読んで続けてください。" : "Speech is unavailable here. Use the transcript and continue.";
       });
@@ -256908,6 +257896,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       context2.shell.setNavigation(true, "story");
       const story = loadStoryRuntime();
       const replayEvents = await this.options.evidence.history?.() ?? [];
+      const createVoicePlayback = typeof this.options.audio.onEvent === "function" && typeof this.options.audio.beginExternalLesson === "function" ? () => createStoryVoicePlayback({ director: this.options.audio }) : void 0;
       context2.shell.replace(renderStoryScreen({
         language: context2.language,
         story,
@@ -256937,6 +257926,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         activityOutcomes: storyActivityOutcomes(context2.projection, replayEvents),
         selectedBand: context2.checkpoint.selectedBand ?? context2.projection.curriculumEntry?.band,
         audio: { playSfx: (cue) => this.options.audio.playSfx(cue) },
+        ...createVoicePlayback ? { createVoicePlayback } : {},
         onCheckpoint: (cursor) => context2.save?.({ sectionId: serializeStoryCursor(cursor) }),
         onOpenActivity: (lessonId, activityId, cursor) => void context2.go("source-activity", {
           lessonId,
@@ -256970,6 +257960,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const characters = projectCharacterDirectory(context2.projection);
       const lessonContext = await this.classroomWeekContext(place2, context2);
       let speech;
+      let listenRequest;
+      let listenGeneration = 0;
       let seenIntroductions = context2.checkpoint.seenIntroductions;
       const markSeen = (id2) => {
         seenIntroductions = markIntroductionSeen(seenIntroductions, id2);
@@ -257005,14 +257997,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
           };
           void (context2.save ? context2.save(update) : context2.go(context2.checkpoint.route, update));
         },
-        onListen: async (line2) => {
+        onListen: async (line2, bindingId) => {
+          const generation2 = ++listenGeneration;
+          listenRequest?.abort();
+          speech?.dispose();
+          speech = void 0;
+          const request2 = new AbortController();
+          listenRequest = request2;
           try {
-            const next = await this.options.pronunciation.play(line2);
-            speech?.dispose();
+            const next = bindingId ? await playLearningVoiceBinding(this.options.pronunciation, bindingId, line2, request2.signal) : await this.options.pronunciation.play(line2, void 0, request2.signal);
+            if (!next) return false;
+            if (request2.signal.aborted || generation2 !== listenGeneration) {
+              next.dispose();
+              return false;
+            }
             speech = next;
             return true;
           } catch {
             return false;
+          } finally {
+            if (generation2 === listenGeneration && listenRequest === request2 && !speech) {
+              listenRequest = void 0;
+            }
           }
         },
         onObjectInteract: () => {
@@ -257044,7 +258050,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         ...context2.checkpoint.route === "campus" ? {} : { onBack: () => void context2.back() }
       });
-      screen.addEventListener("academy:dispose", () => speech?.dispose(), { once: true });
+      screen.addEventListener("academy:dispose", () => {
+        listenGeneration += 1;
+        listenRequest?.abort();
+        listenRequest = void 0;
+        speech?.dispose();
+        speech = void 0;
+      }, { once: true });
       context2.shell.replace(screen);
       return true;
     }
@@ -257244,9 +258256,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sheetVocabulary = libraryStudyVocabulary(sheet2);
       const syllabusState = due.length ? "due" : await this.options.evidence.syllabusState?.(sheetVocabulary);
       let speech;
+      let playRequest;
+      let playGeneration = 0;
       const play = (word) => {
-        void this.options.pronunciation.play(word.expression, word.reading).then((next) => {
-          speech?.dispose();
+        const generation2 = ++playGeneration;
+        playRequest?.abort();
+        speech?.dispose();
+        speech = void 0;
+        const request2 = new AbortController();
+        playRequest = request2;
+        void this.options.pronunciation.play(word.expression, word.reading, request2.signal).then((next) => {
+          if (request2.signal.aborted || generation2 !== playGeneration) {
+            next.dispose();
+            return;
+          }
           speech = next;
         }).catch(() => void 0);
       };
@@ -257259,7 +258282,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onStart: () => void this.startLibraryStudy(context2, sheet2, sheetVocabulary, play),
         onPlay: play
       });
-      screen.addEventListener("academy:dispose", () => speech?.dispose(), { once: true });
+      screen.addEventListener("academy:dispose", () => {
+        playGeneration += 1;
+        playRequest?.abort();
+        playRequest = void 0;
+        speech?.dispose();
+        speech = void 0;
+      }, { once: true });
       context2.shell.replace(screen);
     }
     async restoreDueLibrarySyllabus(context2, sheet2) {
@@ -257710,6 +258739,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     devAuthBypass;
     audio;
     lifecycle = new AbortController();
+    disposed = false;
     language = loadLanguage();
     shell;
     persistence;
@@ -257824,7 +258854,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return refreshedCheckpoint;
     }
     dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
       this.lifecycle.abort();
+      this.pronunciation.dispose?.();
       this.audio.dispose();
       this.persistence?.close();
       this.shell.dispose();
@@ -264463,7 +265496,7 @@ ${item2.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$1(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$2(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -264557,7 +265590,7 @@ ${item2.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$1(value)) return "";
+    if (!isRecord$2(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -265248,6 +266281,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -274374,7 +275408,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$1(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$2(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text(record2.id);
@@ -274415,18 +275449,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$1(data) ? data : null;
+    return isRecord$2(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$1(includes) ? includes.media : void 0;
-    return isRecord$1(media) ? media : {};
+    const media = isRecord$2(includes) ? includes.media : void 0;
+    return isRecord$2(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$1(value)) return null;
+    if (!isRecord$2(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -274463,7 +275497,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$1(value) ? value : {};
+    return isRecord$2(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -274482,7 +275516,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$1(value) ? firstText(value, fields) : "";
+    return isRecord$2(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -283963,13 +284997,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$1(value)) return [];
+    if (!isRecord$2(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$1(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$2(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -283982,7 +285016,7 @@ ${entry2.url}`),
         minutes: numberValue(value[5]) / 6e4
       };
     }
-    if (!isRecord$1(value)) return null;
+    if (!isRecord$2(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -287365,14 +288399,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$1(value)) return [];
+    if (!isRecord$2(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$1(value)) return [];
+    if (!isRecord$2(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }

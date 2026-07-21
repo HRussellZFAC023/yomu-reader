@@ -2,6 +2,8 @@
 
 This is the sole checkbox source of truth for Academy product delivery. Narrative execution lives in [`story/BACKLOG.md`](story/BACKLOG.md) and the Attempt 3 findings live in [`attempt3-adversarial-qa-backlog.md`](attempt3-adversarial-qa-backlog.md), but neither file owns completion state.
 
+Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN.md). The plan delivers one complete chronological day at a time and derives overall progress from a 1,000-point evidence ledger; it does not create a second completion backlog.
+
 ## Counting and closure contract
 
 Progress is the literal count of checked canonical IDs divided by all canonical IDs in this file. It is an item-count indicator, not an effort estimate. Historical process steps, research notes, generated files, isolated tests, and unmounted components are excluded from the denominator.
@@ -78,7 +80,7 @@ These are the only completed items. Their wording is bounded to the existing evi
 <a id="base-019"></a>
 - [x] **BASE-019** Ship the first contextual Reader-power rung from generic Academy teaching: ImmersionKit examples plus the existing kanji relationship graph, exact return context, and non-mastery exploration evidence. **Deps:** `BASE-004`. **Proof:** `C,R,T,O`; catalogue-wide eligibility remains `XYM-001`.
 <a id="base-020"></a>
-- [x] **BASE-020** Ship a four-line runtime-consumed Aivis learning-voice pilot with exact text/model/style locks, pitch/pause parameters, deterministic Opus cache keys, runtime fallback, and focused playback tests. **Deps:** `BASE-002`. **Proof:** `C,R,T,S,O`; full voice production remains `AUD-001` to `AUD-005`.
+- [ ] **BASE-020** Ship a native-band Aivis learning-voice slice with exact source/model/style/licence locks, archived canonical queries, deterministic Opus cache keys, request-owned cancellation and worker/browser fallback, objective acoustic/ASR QA, explicit Codex acceptance with `humanReviewed: false`, and live production proof. **Deps:** `BASE-002`. **Proof:** `C,R,T,Q,S,O,D`; currently 1 of 4 reviewed candidates is accepted on 1 binding. The numeral-mismatched narrator take, polite-morpheme-mismatched Mary take, and particle/polite-morpheme-mismatched Rie take are rejected and not shipped. Deployment, service-worker-controlled offline playback, mobile/WebKit, and production a11y proof remain pending in `learning-voice-production-proof.json`.
 
 ## P0 release truth and learner loop
 
@@ -125,7 +127,7 @@ These are the only completed items. Their wording is bounded to the existing evi
 <a id="aud-005"></a>
 - [ ] **AUD-005** Close full-game voice only at census parity: every required `AUD-002` row is naturalness-locked, assigned to a licensed speaker/model/style, pitch/pause/intonation-reviewed, rendered and Opus-encoded, runtime-bound, and playback-tested for the right speaker/text/model, intelligibility, captions/transcript/timecodes, replay/shadow behavior, mobile controls and accessibility behavior; discovered, manifested, rendered, bound, missing and stale totals reconcile exactly, with zero required missing/stale/silent/duplicated requests. **Deps:** `AUD-004`, `CUR-005`, `STO-005`, `CAST-002`, `WORLD-002`, `GAM-001` to `GAM-012`. **Proof:** `R,T,Q,S,O,D` at 100% of the deterministic speakable-surface census, not 1,787 rows or any fixed tranche.
 <a id="aud-008"></a>
-- [ ] **AUD-008** Establish the per-slice voice production batch contract so a lesson, chapter, game or World beat can ship before global parity: immutable `voiceLineId`, speaker/intent/locale/source revision, required/excluded triage, model/licence lock, deterministic query and render, codec/acoustic checks, delegated Codex acceptance with `humanReviewed: false`, independent review, real runtime playback evidence and stale invalidation. **Deps:** `BASE-020`, `PED-001`. **Proof:** `C,R,T,Q,S,O`; each batch closes only its own reviewed denominator, while `AUD-005` remains the full-game gate.
+- [ ] **AUD-008** Establish the per-slice voice production batch contract so a lesson, chapter, game or World beat can ship before global parity: immutable `voiceLineId`, speaker/intent/locale/native-band/source revision, accepted/rejected triage, exact source distribution/model/style/licence locks, archived canonical query payloads and global/local style joins, deterministic render/cache identity, codec/acoustic checks, explicit Codex acceptance with honest review fields, live route playback evidence and stale invalidation. **Deps:** `BASE-020`, `PED-001`. **Proof:** `C,R,T,Q,S,O,D`; the repaired contract honestly accepts 1 candidate/1 binding and rejects 3, but no deployment proof has run and this item remains open.
 <a id="art-001"></a>
 - [ ] **ART-001** Finish the production art grader as one complete image inventory with correct framing, deduplicated variants, search/filter, per-file JSON verdicts, batch family edits, regenerate/replace notes, and no separate hidden incoming queues. Codex owns final visual acceptance. **Deps:** none. **Proof:** `C,R,T,Q,S,O` against the full asset inventory.
 <a id="art-002"></a>

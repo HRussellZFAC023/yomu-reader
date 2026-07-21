@@ -108,6 +108,7 @@
 
 ### Added
 
+- Academy now ships one Codex-accepted native-band Japanese learning voice on the Cafe price binding with `humanReviewed: false`; the narrator, Mary, and Rie takes are rejected after critical ASR mismatches and are absent from the public catalog. Exact model distributions, licence/query/output hashes, bounded pronunciation caching, request-owned teardown, and a read-only local browser proof are recorded, while deployment verification and the broader voice backlog remain open.
 - The documentation navbar and README now link to Stripe support, with Patreon and Ko-fi entries ready to appear only after their public pages are verified.
 - Yomu Academy now has a canonical, verified-provider foundation for granting payment entitlements without duplicate events. Provider accounts still need to be connected and published, and ordinary Stripe support donations remain support-only unless Academy owns the checkout.
 

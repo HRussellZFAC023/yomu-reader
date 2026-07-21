@@ -12,6 +12,25 @@ const docsRoot = join(root, 'docs/academy/audio');
 const cast = readJson(join(docsRoot, 'aivis-cast-models.json'));
 const locks = readJson(join(docsRoot, 'voice-line-locks.json'));
 const uiLines = readJson(join(audioRoot, 'voice-lines.json'));
+const learningCatalogPath = join(audioRoot, 'learning-voice-playback.json');
+const learningLocksPath = join(docsRoot, 'learning-voice-locks.json');
+const learningAcceptancePath = join(docsRoot, 'learning-voice-acceptance.json');
+const learningCatalog = readJson(learningCatalogPath);
+const learningLocks = readJson(learningLocksPath);
+const learningAcceptance = readJson(learningAcceptancePath);
+const learningToolchainCurrent = Object.entries(learningLocks.toolchain ?? {}).length > 0
+    && Object.entries(learningLocks.toolchain).every(([sourcePath, sourceHash]) => (
+        existsSync(join(root, sourcePath)) && fileDigest(join(root, sourcePath)) === sourceHash
+    ));
+const learningEvidenceCurrent = learningLocks.schema === 'yomu-academy.learning-voice-locks.v5'
+    && learningLocks.batchId === learningCatalog.batchId
+    && learningLocks.evidence?.catalog?.sha256 === fileDigest(learningCatalogPath)
+    && learningLocks.evidence?.objectiveQa?.sha256 === fileDigest(learningAcceptancePath)
+    && learningAcceptance.schema === 'yomu-academy.learning-voice-acceptance.v5'
+    && learningAcceptance.batchId === learningCatalog.batchId
+    && learningAcceptance.catalogSha256 === fileDigest(learningCatalogPath)
+    && learningAcceptance.complete === true
+    && learningToolchainCurrent;
 const modelBySpeaker = new Map(cast.map(entry => [entry.speaker, entry]));
 
 const story = readdirSync(storyRoot)
@@ -30,15 +49,42 @@ const ui = Object.entries(uiLines)
         status: 'remote-ready',
         output: line.url,
     }));
+const learning = learningEntries(
+    learningCatalog,
+    learningLocks,
+    learningAcceptance,
+    learningEvidenceCurrent,
+);
 
-const entries = [...story, ...ui];
+const entries = [...story, ...ui, ...learning];
 const manifest = {
-    schema: 'yomu-academy.voice-production.v1',
+    schema: 'yomu-academy.voice-production.v2',
+    learningVoiceEvidence: {
+        catalog: {
+            path: 'public/academy/audio/learning-voice-playback.json',
+            sha256: fileDigest(learningCatalogPath),
+        },
+        locks: {
+            path: 'docs/academy/audio/learning-voice-locks.json',
+            sha256: fileDigest(learningLocksPath),
+        },
+        acceptance: {
+            path: 'docs/academy/audio/learning-voice-acceptance.json',
+            sha256: fileDigest(learningAcceptancePath),
+        },
+    },
     counts: {
         entries: entries.length,
         storyVariants: story.length,
         uiLines: ui.length,
+        learningVoiceLines: learning.length,
+        learningBindings: learning.reduce((count, entry) => count + entry.bindingIds.length, 0),
+        nativeBandLearningLines: learning.filter(entry => entry.band === 'native').length,
+        acceptedLearningLines: learning.filter(entry => entry.status === 'accepted').length,
+        codexAcceptedLearningLines: learning.filter(entry => entry.codexAccepted).length,
+        humanReviewedLearningLines: learning.filter(entry => entry.humanReviewed).length,
         locked: entries.filter(entry => entry.status === 'locked').length,
+        productionReady: entries.filter(entry => entry.status === 'locked' || entry.status === 'accepted').length,
         pilotRendered: entries.filter(entry => entry.pilotOutput).length,
         staleLocks: entries.filter(entry => entry.status === 'stale').length,
         missingModels: entries.filter(entry => entry.surface === 'story' && !entry.voiceModel?.uuid).length,
@@ -61,6 +107,61 @@ const playbackCatalog = {
 };
 writeFileSync(join(audioRoot, 'story-voice-playback.json'), `${JSON.stringify(playbackCatalog, null, 2)}\n`);
 console.log(JSON.stringify({ ...manifest.counts, playablePilots: playbackCatalog.entries.length }));
+
+function learningEntries(catalog, lockArchive, acceptance, evidenceCurrent) {
+    const lockByLine = new Map(lockArchive.entries.map(entry => [entry.lineId, entry]));
+    const acceptanceByLine = new Map(acceptance.entries.map(entry => [entry.lineId, entry]));
+    return catalog.entries.map(entry => {
+        const lock = lockByLine.get(entry.lineId);
+        const accepted = acceptanceByLine.get(entry.lineId);
+        const current = evidenceCurrent
+            && lock
+            && lock.sourceRevision === entry.sourceRevision
+            && lock.audioQuerySha256 === entry.audioQuerySha256
+            && lock.cacheKey === entry.cacheKey
+            && lock.assetSha256 === entry.assetSha256
+            && lock.model?.payloadSha256 === entry.modelPayloadSha256
+            && lock.acceptance?.acceptedBy === 'Codex'
+            && lock.acceptance?.humanReviewed === false
+            && accepted?.verdict === 'pass';
+        return {
+            key: `learning:${entry.lineId}`,
+            surface: 'learning',
+            sourceId: entry.lineId,
+            lineId: entry.lineId,
+            bindingIds: entry.bindings.map(binding => binding.lineId),
+            speakerId: entry.speakerId,
+            role: entry.role,
+            intent: entry.intent,
+            locale: entry.locale,
+            band: entry.band,
+            japanese: entry.japanese,
+            sourceSha256: entry.sourceSha256,
+            sourceRevision: entry.sourceRevision,
+            audioQuerySha256: entry.audioQuerySha256,
+            cacheKey: entry.cacheKey,
+            assetSha256: entry.assetSha256,
+            output: entry.url,
+            status: current ? 'accepted' : 'stale',
+            codexAccepted: entry.review?.listening?.codexAccepted === true,
+            ownerLineByLineReviewed: entry.review?.listening?.ownerLineByLineReviewed === true,
+            audioModelReviewed: entry.review?.listening?.audioModelReviewed === true,
+            humanReviewed: entry.review?.listening?.humanReviewed === true,
+            voiceModel: {
+                uuid: entry.modelUuid,
+                name: entry.modelName,
+                version: entry.modelVersion,
+                payloadSha256: entry.modelPayloadSha256,
+                sourceUrl: entry.modelSourceUrl,
+                license: entry.modelLicense,
+                styleId: entry.styleId,
+                styleName: entry.styleName,
+            },
+            queryOverrides: entry.queryOverrides,
+            moraOverrides: entry.moraOverrides,
+        };
+    });
+}
 
 function storyEntries(file, source) {
     return source.scenes.flatMap(scene => scene.nodes.flatMap(node => {
@@ -138,6 +239,10 @@ function playbackEntry(entry) {
 
 function readJson(path) {
     return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function fileDigest(path) {
+    return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
 function digest(parts) {

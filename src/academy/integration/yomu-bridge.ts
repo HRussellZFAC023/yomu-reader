@@ -2,6 +2,8 @@ import type { ReviewSeed } from '../domain/activity-runtime';
 import type { ReviewRating } from '../domain/learner-record';
 
 export interface Disposable {
+    /** Resolves after terminal playback; cancellation leaves it pending. */
+    readonly completion?: Promise<void>;
     dispose(): void;
 }
 
@@ -71,7 +73,8 @@ export interface KanjiWritingService {
 }
 
 export interface PronunciationService {
-    play(term: string, reading?: string): Promise<Disposable>;
+    play(term: string, reading?: string, signal?: AbortSignal): Promise<Disposable>;
+    dispose?(): void;
 }
 
 export interface ImmersionExample {

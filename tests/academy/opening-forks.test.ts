@@ -76,4 +76,31 @@ describe('Lesson 0 opening forks', () => {
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledOnce());
         expect(onEvaluation.mock.calls[0][0].attempt.activityId).toBe(openingForkActivityId('text'));
     });
+
+    it('aborts pending sound playback on unmount without revealing or focusing disposed UI', async () => {
+        const content = await loadVerticalSliceContent(contentFetcher());
+        let resolvePlayback: (value: { dispose(): void }) => void = () => undefined;
+        let requestSignal: AbortSignal | undefined;
+        const stalePlayback = { dispose: vi.fn() };
+        const service: PronunciationService = {
+            play: vi.fn((_term, _reading, signal) => {
+                requestSignal = signal;
+                return new Promise(resolve => { resolvePlayback = resolve; });
+            }),
+        };
+        const screen = renderSourceActivityScreen('en', content, 'sound', service, vi.fn(), vi.fn());
+        const host = screen.querySelector<HTMLElement>('.academy-activity-host')!;
+        const play = screen.querySelector<HTMLButtonElement>('.academy-fork-prelude .academy-button-secondary')!;
+        const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+
+        play.click();
+        await vi.waitFor(() => expect(requestSignal).toBeDefined());
+        screen.dispatchEvent(new Event('academy:dispose'));
+        expect(requestSignal?.aborted).toBe(true);
+        resolvePlayback(stalePlayback);
+
+        await vi.waitFor(() => expect(stalePlayback.dispose).toHaveBeenCalledOnce());
+        expect(host.hidden).toBe(true);
+        expect(focus).not.toHaveBeenCalled();
+    });
 });

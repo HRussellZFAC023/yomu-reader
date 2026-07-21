@@ -8,7 +8,7 @@ export interface CafeOrderOptions {
     readonly language: AcademyLanguage;
     readonly practice: WorldPractice;
     readonly stamp: WorldStamp;
-    readonly onListen?: (line: string) => Promise<boolean>;
+    readonly onListen?: (line: string, bindingId?: string) => Promise<boolean>;
     readonly onComplete?: (practiceId: string, stampId: string, evaluation?: ActivityEvaluation) => void;
 }
 
@@ -58,6 +58,7 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
     listen.type = 'button';
     listen.dataset.cafePrimaryAction = 'listen';
     listen.textContent = options.language === 'ja' ? '注文を聞く' : 'Hear the order';
+    listen.setAttribute('aria-label', options.language === 'ja' ? '注文を聞く' : 'Hear the order');
 
     const choices = element('div', 'academy-cafe-order-options');
     choices.hidden = true;
@@ -66,6 +67,8 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
     choices.setAttribute('aria-labelledby', title.id);
     const orderScene = cafeOrderScene(options);
     let complete = false;
+    let listening = false;
+    let heardOnce = false;
     options.practice.choices.forEach((choice, index) => {
         const answer = element('button', 'academy-cafe-order-option');
         answer.type = 'button';
@@ -88,6 +91,7 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
                 status.textContent = options.language === 'ja'
                     ? 'もう一度、値段と数に注意して聞いてください。'
                     : 'Listen again for the price and quantity.';
+                listen.focus();
                 return;
             }
             complete = true;
@@ -95,6 +99,7 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
             root.dataset.practiceComplete = 'true';
             mark.textContent = choice.label.ja;
             status.textContent = options.practice.success[options.language];
+            listen.disabled = true;
             choices.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
             orderScene.unlock();
             options.onComplete?.(
@@ -106,18 +111,36 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
         choices.append(answer);
     });
 
-    listen.addEventListener('click', () => {
+    listen.addEventListener('click', async () => {
+        if (complete || listening) return;
+        listening = true;
+        listen.disabled = true;
+        listen.setAttribute('aria-busy', 'true');
         root.dataset.cafeOrderState = 'choosing';
         transcript.hidden = false;
         choices.hidden = false;
-        listen.hidden = true;
-        choices.focus();
-        void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then(played => {
+        if (!heardOnce) choices.focus();
+        let played = false;
+        try {
+            played = await (options.onListen?.(
+                options.practice.audioLine,
+                `world-practice:${options.practice.id}`,
+            ) ?? Promise.resolve(false));
+        } catch {
+            played = false;
+        } finally {
+            listening = false;
+            if (root.closest<HTMLElement>('.academy-world-screen')?.dataset.academyDisposed === 'true') return;
+            heardOnce = true;
+            listen.removeAttribute('aria-busy');
+            listen.textContent = options.language === 'ja' ? 'もう一度聞く' : 'Replay order';
+            listen.setAttribute('aria-label', options.language === 'ja' ? '注文をもう一度聞く' : 'Replay the order');
+            if (!complete) listen.disabled = false;
             if (root.dataset.cafeOrderState !== 'choosing') return;
             status.textContent = played
                 ? options.language === 'ja' ? '聞こえた内容を注文票に合わせる。' : 'Match what you heard to the order slip.'
                 : options.language === 'ja' ? '音声が使えません。表示された台詞で続けてください。' : 'Audio is unavailable. Continue with the shown line.';
-        });
+        }
     });
 
     root.append(heading, menu, transcript, status, listen, choices, orderScene.element);
