@@ -31,16 +31,16 @@
 
 | Chapter | Registered activity | Evidence represented |
 | --- | --- | --- |
-| `s4e02` | `activity:s4e02-map-of-claims-evidence-map` | Source-bounded reading transfer selected from three options |
+| `s4e02` | `activity:s4e02-map-of-claims-evidence-map` | Structured writing production: assemble source, confidence, and hedge labels for three claims |
 | `s4e04` | `activity:s4e04-three-true-versions-synthesis` | Independent reading recognition selected from three options |
 | `s4e05` | `activity:s4e05-left-unsaid-trim-the-line` | Independent reading recognition selected from three options |
 | `s4e06` | `activity:s4e06-open-question-reframe-premise` | Independent reading recognition selected from three options |
-| `s4e07` | `activity:s4e07-journey-not-everyone-takes-non-comparative-futures` | Independent reading recognition selected from three options |
+| `s4e07` | `activity:s4e07-journey-not-everyone-takes-non-comparative-futures` | Written production: author three Japanese updates with decided, possible, and staying/restarting modalities |
 | `s4e08` | `activity:s4e08-last-revision-vivid-without-restoring` | Independent reading recognition selected from three options; no learner explanation is collected |
 
-Each activity resolves through the in-bundle story-practice catalog and records pass/lapse evidence through the authored-story-practice event path. The five flagged gates now persist `reading` / `recognise`, not speaking or writing production. Their independent flag means the learner selected an answer without support; it does not claim independently authored language. SRS callbacks carry `selected-response` provenance. Existing pass and placement-equivalent state render a direct continuation without another attempt, and an older pass remains authoritative if a later replay lapse is present.
+Each activity resolves through the in-bundle story-practice catalog and records pass/lapse evidence through the authored-story-practice event path. S4E02 and S4E07 persist `writing` / `produce` only after their structured learner-output interactions pass; they schedule `evidence-map` and `written-response` provenance respectively. The four retained choice gates persist `reading` / `recognise` and schedule `selected-response` provenance. Existing pass and placement-equivalent state render a direct continuation without another attempt, and an older pass remains authoritative if a later replay lapse is present.
 
-The runtime accepts only its seven rendered node kinds. S4E07's two Mira thread utterances are supported `line` nodes whose stable IDs preserve saved cursors; the static and runtime validators reject an unknown or raw `message` kind. A DOM regression reloads directly on Mira's first line, advances through both lines and the satisfied gate, and records Mira among the scene's actual canonical attendees.
+The runtime accepts only its seven rendered node kinds. S4E07's two Mira thread utterances are supported `line` nodes whose stable IDs preserve saved cursors; the static and runtime validators reject an unknown or raw `message` kind. A production-flow integration regression reloads through `WorldFlow` and real `LearnerEvidence` on Mira's first line, advances through both lines and the satisfied gate, and records Mira among the scene's actual canonical attendees exactly once.
 
 ## Validation
 

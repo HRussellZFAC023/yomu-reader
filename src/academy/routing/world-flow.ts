@@ -10,7 +10,7 @@ import {
     libraryVocabularyReviewSeeds,
     type LibraryVocabularySheet,
 } from '../content/library-vocabulary-sheet';
-import { serializeStoryCursor } from '../content/story-runner';
+import { serializeStoryCursor, type StoryCursor } from '../content/story-runner';
 import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
 import { storyPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
@@ -126,7 +126,7 @@ class WorldFlow implements AcademyRouteFlow {
             ...(context.projection.profile ? { learner: context.projection.profile } : {}),
             sectionId: context.checkpoint.sectionId,
             openingArcMode: openingArcModeForEntry(context.projection),
-            arcModeForEpisode: episodeId => n3ArcMode(episodeId, replayEvents, context.projection),
+            arcModeForEpisode: (episodeId, cursor) => n3ArcMode(episodeId, cursor, replayEvents, context.projection),
             onOpenEpisode: episodeId => void context.go('story', { sectionId: episodeId }),
             onCompleteEpisode: episodeId => {
                 const episode = story.episode(episodeId);
@@ -778,12 +778,17 @@ function replayCheckpointBand(band: ReplayLanguageBand): JlptBand | undefined {
 
 function n3ArcMode(
     episodeId: string,
+    cursor: StoryCursor | undefined,
     events: readonly import('../domain/learner-record').LearnerEvent[],
     projection: import('../domain/learner-record').LearnerProjection,
 ): 'canonical' | 'chronological-replay' {
-    const seen = events.some(event => event.kind === 'characters-encountered'
-        && (event.encounterId === `story:${episodeId}` || event.encounterId.startsWith(`story:${episodeId}:scene:`)));
-    if (seen) return 'chronological-replay';
+    const episodeSeen = events.some(event => event.kind === 'characters-encountered'
+        && event.encounterId === `story:${episodeId}`);
+    if (episodeSeen) return 'chronological-replay';
+    const sceneSeen = events.some(event => event.kind === 'characters-encountered'
+        && event.encounterId.startsWith(`story:${episodeId}:scene:`));
+    const arcId = loadStoryRuntime().playableArc(episodeId)?.id;
+    if (sceneSeen && cursor?.arcId === arcId) return 'canonical';
     if (episodeId === 's3e01-after-the-applause' && projection.curriculumEntry?.band === 'n3') return 'canonical';
     const ordinal = loadStoryRuntime().episode(episodeId)?.ordinal ?? 0;
     const prior = loadStoryRuntime().episodes.find(episode => episode.ordinal === ordinal - 1);

@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e07-journey-not-everyone-takes",
-  "revision": "2026-07-20.3",
+  "revision": "2026-07-21.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 43,
@@ -402,21 +402,21 @@
           "kind": "checkpoint",
           "id": "checkpoint:journey:before-futures",
           "beatId": "beat:journey:recognition-check",
-          "resume": "Mira has put all three futures in the thread — Alex leaving, Aakash undecided, and herself staying — then invited a lapsed learner into a twenty-minute restart. The learner identifies the line that keeps those futures distinct without ranking them."
+          "resume": "Mira has put all three futures in the thread — Alex leaving, Aakash undecided, and herself staying — then invited a lapsed learner into a twenty-minute restart. The learner writes three short updates that preserve each future's modality without ranking them."
         },
         {
           "kind": "activity",
           "id": "activity-node:journey:non-comparative-futures",
           "beatId": "beat:journey:recognition-check",
           "hook": {
-            "componentType": "recognition",
+            "componentType": "writing",
             "exerciseId": "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
           },
-          "resumeContext": "Mira's two lines put the evidence in the thread: Alex starts in Japan next month, Aakash's camera trip remains a genuine maybe, and Mira is staying while restarting a twenty-minute review next Tuesday. Choose the line that preserves those different modalities without ranking one future above another.",
+          "resumeContext": "Mira's two lines put the evidence in the thread: Alex starts in Japan next month, Aakash's camera trip remains a genuine maybe, and Mira is staying while restarting a twenty-minute review next Tuesday. Write one short Japanese update for each person, preserving those different modalities without ranking one future above another.",
           "onReady": "checkpoint:journey:after-futures",
           "onRepair": "node:journey:futures-repair",
           "onDefer": "checkpoint:journey:before-futures"
@@ -424,15 +424,15 @@
         {
           "kind": "stage",
           "id": "node:journey:futures-repair",
-          "beatId": "beat:journey:recognition-repair",
+          "beatId": "beat:journey:writing-repair",
           "cueId": "cue:three-futures-laid-level",
-          "description": "The three futures sit on cards at the same height: leaving, staying, undecided. Compare the option that ranks one or turns a maybe into a decision with the evidence in the thread."
+          "description": "The three futures sit on cards at the same height: leaving, staying, undecided. The learner checks each written update against the thread: a decided time for Alex, an uncertainty marker for Aakash, and both staying and restarting language for Mira."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:journey:after-futures",
-          "beatId": "beat:journey:recognition-response",
-          "resume": "The selected line keeps all three futures in their own modality. Alex looks at them and returns to the concrete terms of his send-off."
+          "beatId": "beat:journey:writing-response",
+          "resume": "The learner's three written updates keep all three futures in their own modality. Alex looks at them and returns to the concrete terms of his send-off."
         },
         {
           "kind": "line",
@@ -443,14 +443,14 @@
           "attentionTarget": "the group's old 'someday, for work' phrase, now his, and the three futures held level",
           "variants": {
             "n3": {
-              "japanese": "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のは、順番が先に来ただけだよ。偉くもなんともない。行くのも、残るのも、迷うのも、同じだけ本気の話でしょ。",
-              "reading": "みんながずっといってた「いつか、しごとで」ってやつ。おれのは、じゅんばんがさきにきただけだよ。えらくもなんともない。いくのも、のこるのも、まようのも、おなじだけほんきのはなしでしょ。",
-              "english": "That 'someday, for work' thing everyone kept saying. Mine just came up first in the queue, that's all. Nothing admirable about it. Going, staying, still deciding — they're all just as serious."
+              "japanese": "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のには、たまたま先に日付が入っただけ。だから、見出しの『勇気』はやっぱり消して。……カフェの投票だけ残してくれる?",
+              "reading": "みんながずっといってた「いつか、しごとで」ってやつ。おれのには、たまたまさきにひづけがはいっただけ。だから、みだしの『ゆうき』はやっぱりけして。……カフェのとうひょうだけのこしてくれる?",
+              "english": "That 'someday, for work' thing everyone kept saying. Mine just happened to get a date first. So take 'courage' out of the heading after all. …Can we keep only the cafe poll?"
             },
             "n2": {
-              "japanese": "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のはたまたま順番が先に回ってきただけの話でさ。別に偉いわけじゃない。行くのも、残るのも、迷うのも、どれも同じくらい本気なんだよ。",
-              "reading": "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのはたまたまじゅんばんがさきにまわってきただけのはなしでさ。べつにえらいわけじゃない。いくのも、のこるのも、まようのも、どれもおなじくらいほんきなんだよ。",
-              "english": "That 'someday, for work, Japan' line everyone's always said — mine just happened to come round first, that's all. It doesn't make me the admirable one. Going, staying, still deciding — every one of them's just as serious."
+              "japanese": "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のには、たまたま先に日付が入っただけでさ。だから見出しの『勇気』はやっぱり外して。……カフェの投票だけ残してくれる?",
+              "reading": "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのには、たまたまさきにひづけがはいっただけでさ。だからみだしの『ゆうき』はやっぱりはずして。……カフェのとうひょうだけのこしてくれる?",
+              "english": "That 'someday, for work, in Japan' line everyone's always said — mine just happened to get a date first. So take 'courage' out of the heading after all. …Can we keep only the cafe poll?"
             },
             "n1": {
               "japanese": "ほら、みんながずっと口にしてた「いつか、仕事で日本」ってやつ。俺のは、たまたま先に日付が入っただけ。だから、見出しに『勇気』はやっぱり要らない。……カフェの投票だけ残してくれる？",
@@ -559,7 +559,7 @@
     {
       "id": "outcome:journey:transfer-return",
       "kind": "curriculum-return",
-      "description": "Recognition of plans-under-uncertainty and non-comparative futures returns through the chapter's selected-response activity; the story emits no lesson-completion command, and no registered N1 package is claimed."
+      "description": "Written production of plans-under-uncertainty and non-comparative futures returns through the chapter's three-part learner-output activity; the story emits no lesson-completion command, and no registered N1 package is claimed."
     }
   ],
   "replay": {

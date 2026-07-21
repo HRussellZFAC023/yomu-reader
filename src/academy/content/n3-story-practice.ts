@@ -1,16 +1,56 @@
 import type { LearningAction, LearningSkill } from '../domain/learner-record';
 
-export interface StoryPractice {
+interface StoryPracticeBase {
     readonly activityId: string;
     readonly chapterId: string;
     readonly skill: LearningSkill;
     readonly action: LearningAction;
     readonly conceptIds: readonly string[];
     readonly prompt: Readonly<{ en: string; ja: string }>;
+    readonly repair: Readonly<{ en: string; ja: string }>;
+    readonly reviewAnswer: Readonly<{ en: string; ja: string }>;
+}
+
+export interface StoryChoicePractice extends StoryPracticeBase {
+    readonly interaction: 'choice';
     readonly options: readonly Readonly<{ id: string; label: Readonly<{ en: string; ja: string }> }>[];
     readonly correctOptionId: string;
-    readonly repair: Readonly<{ en: string; ja: string }>;
 }
+
+export interface StoryEvidenceMapPractice extends StoryPracticeBase {
+    readonly interaction: 'evidence-map';
+    readonly columns: readonly Readonly<{
+        id: 'source' | 'confidence' | 'hedge';
+        label: Readonly<{ en: string; ja: string }>;
+        options: readonly Readonly<{ id: string; label: Readonly<{ en: string; ja: string }> }>[];
+    }>[];
+    readonly rows: readonly Readonly<{
+        id: string;
+        claim: Readonly<{ en: string; ja: string }>;
+        correct: Readonly<Record<'source' | 'confidence' | 'hedge', string>>;
+    }>[];
+}
+
+export interface StoryWrittenResponsePractice extends StoryPracticeBase {
+    readonly interaction: 'written-response';
+    readonly fields: readonly Readonly<{
+        id: string;
+        label: Readonly<{ en: string; ja: string }>;
+        placeholder: string;
+        requiredTermGroups: readonly (readonly string[])[];
+    }>[];
+    readonly forbiddenTerms: readonly string[];
+}
+
+export type StoryPractice = StoryChoicePractice | StoryEvidenceMapPractice | StoryWrittenResponsePractice;
+
+export type StoryPracticeResponse =
+    | Readonly<{ interaction: 'choice'; optionId: string }>
+    | Readonly<{
+        interaction: 'evidence-map';
+        rows: Readonly<Record<string, Readonly<Record<'source' | 'confidence' | 'hedge', string>>>>;
+    }>
+    | Readonly<{ interaction: 'written-response'; fields: Readonly<Record<string, string>> }>;
 
 /** Compatibility name for the original six N3 story practices. */
 export type N3StoryPractice = StoryPractice;
@@ -76,16 +116,7 @@ const PRACTICES: readonly StoryPractice[] = Object.freeze([
         ], 'mark-pending',
         'When dates disagree, promise the next confirmation rather than a date nobody has confirmed.',
         '日程が一致しないときは、誰も確認していない日付ではなく、次の確認を約束しましょう。'),
-    practice('activity:s4e02-map-of-claims-evidence-map', 's4e02-map-of-claims', 'reading', 'transfer',
-        ['concept:story-n1:source-bounded-claim'],
-        'The letter says the former learner added a route. The paper shows older ink, but neither source names the first contributor. Which evidence-map entry stays within those sources?',
-        '手紙には、以前の学習者が道を足したとあります。紙には古いインクの跡がありますが、どちらの資料にも最初の寄稿者は書かれていません。資料の範囲を越えない記録はどれですか。', [
-            ['source-bounded', 'According to the letter, the learner added a route. The first contributor is not mentioned in either source.', '手紙によると、その学習者は道を足した。最初の寄稿者については、どちらの資料にも記載がない。'],
-            ['infer-founder', 'The old ink probably belongs to the first contributor named in the letter.', '古いインクは、手紙に出てくる最初の寄稿者のものらしい。'],
-            ['refusal-as-proof', 'Because one question was declined, the missing name must be that person.', '一つの質問への回答が控えられたので、記載のない名前はその人に違いない。'],
-        ], 'source-bounded',
-        'Keep each claim inside what its named source states or supports. A declined answer does not license an inference past the boundary.',
-        '主張は、示した資料が述べている範囲にとどめましょう。回答を控えたことは、その先を推測してよい理由にはなりません。'),
+    evidenceMapPractice(),
     practice('activity:s4e04-three-true-versions-synthesis', 's4e04-three-true-versions', 'reading', 'recognise',
         ['concept:story-n1:compatible-accounts'],
         'Rie remembers handing over a blank sheet; the former learner remembers receiving one with a route; the class saw later additions. Which synthesis keeps all three vantage points and the unwitnessed interval?',
@@ -116,16 +147,7 @@ const PRACTICES: readonly StoryPractice[] = Object.freeze([
         ], 'reframe-question',
         'Use the counterfactual to test the premise, then question the sentence that demands one name.',
         '反実仮想で前提を確かめてから、一人の名前を求める文そのものを問い直しましょう。'),
-    practice('activity:s4e07-journey-not-everyone-takes-non-comparative-futures', 's4e07-journey-not-everyone-takes', 'reading', 'recognise',
-        ['concept:story-n1:non-comparative-futures'],
-        'Alex starts work in Japan next month. Aakash may take a camera trip someday. Mira is staying where she is and restarting a twenty-minute review next Tuesday. Which line keeps all three futures in their own modality without ranking them?',
-        'アレックスは来月から日本で働きます。アーカシュの撮影旅行は、まだ「いつか」の話です。ミラは今いる場所に残り、来週火曜に二十分の復習を再開します。三人の未来を比べず、それぞれの確かさで言う文はどれですか。', [
-            ['side-by-side', 'Alex starts next month. Aakash may travel someday. Mira is staying and restarting Tuesday. Each is their own plan.', '「アレックスは来月から。アーカシュは、いつか行くかもしれない。ミラはここに残って、火曜からまた始める。どれも、その人の予定だね。」'],
-            ['departure-wins', 'Alex is one step ahead; the other two still have to catch up.', '「アレックスが一歩先で、ほかの二人はこれからだね。」'],
-            ['force-certainty', 'All three have decided their next step.', '「三人とも、もう次の予定が決まったね。」'],
-        ], 'side-by-side',
-        'Preserve decided, possible, and staying plans as different valid futures. Do not place them on one ladder.',
-        '決まったこと、まだ分からないこと、残ることを、それぞれ別の未来として保ちましょう。一つの順位には並べません。'),
+    writtenFuturesPractice(),
     practice('activity:s4e08-last-revision-vivid-without-restoring', 's4e08-last-revision', 'reading', 'recognise',
         ['concept:story-n1:bounded-public-edit'],
         'The draft reads 「この道は、戻らなかった人の願いを受け継ぎ、今夜も灯る。」 The middle clause restores a withdrawn claim. Which revision stays vivid without restoring it?',
@@ -147,6 +169,28 @@ export function storyPractice(activityId: string): StoryPractice | undefined {
     return PRACTICES.find(practice => practice.activityId === activityId);
 }
 
+export function gradeStoryPractice(practice: StoryPractice, response: StoryPracticeResponse): 'pass' | 'lapse' {
+    if (practice.interaction !== response.interaction) return 'lapse';
+    if (practice.interaction === 'choice' && response.interaction === 'choice') {
+        return response.optionId === practice.correctOptionId ? 'pass' : 'lapse';
+    }
+    if (practice.interaction === 'evidence-map' && response.interaction === 'evidence-map') {
+        const complete = practice.rows.every(row => {
+            const answer = response.rows[row.id];
+            return answer && practice.columns.every(column => answer[column.id] === row.correct[column.id]);
+        });
+        return complete ? 'pass' : 'lapse';
+    }
+    if (practice.interaction === 'written-response' && response.interaction === 'written-response') {
+        const values = practice.fields.map(field => response.fields[field.id]?.trim() ?? '');
+        const includesForbiddenRanking = practice.forbiddenTerms.some(term => values.some(value => value.includes(term)));
+        const complete = practice.fields.every((field, index) => values[index]!.length >= 4
+            && field.requiredTermGroups.every(group => group.some(term => values[index]!.includes(term))));
+        return complete && !includesForbiddenRanking ? 'pass' : 'lapse';
+    }
+    return 'lapse';
+}
+
 function practice(
     activityId: string,
     chapterId: string,
@@ -159,8 +203,11 @@ function practice(
     correctOptionId: string,
     repairEn: string,
     repairJa: string,
-): StoryPractice {
+): StoryChoicePractice {
+    const correct = options.find(([id]) => id === correctOptionId);
+    if (!correct) throw new TypeError(`Story practice ${activityId} has no correct option.`);
     return Object.freeze({
+        interaction: 'choice' as const,
         activityId,
         chapterId,
         skill,
@@ -173,5 +220,126 @@ function practice(
         }))),
         correctOptionId,
         repair: Object.freeze({ en: repairEn, ja: repairJa }),
+        reviewAnswer: Object.freeze({ en: correct[1], ja: correct[2] }),
+    });
+}
+
+function evidenceMapPractice(): StoryEvidenceMapPractice {
+    return Object.freeze({
+        interaction: 'evidence-map' as const,
+        activityId: 'activity:s4e02-map-of-claims-evidence-map',
+        chapterId: 's4e02-map-of-claims',
+        skill: 'writing' as const,
+        action: 'produce' as const,
+        conceptIds: Object.freeze(['concept:story-n1:source-bounded-claim']),
+        prompt: Object.freeze({
+            en: 'Build the evidence map. Give every claim its source, confidence, and Japanese evidence phrase.',
+            ja: '根拠の地図を作ってください。各主張に、出典・確かさ・日本語の根拠表現を付けましょう。',
+        }),
+        columns: Object.freeze([
+            mapColumn('source', 'Source', '出典', [
+                ['letter', 'Former learner\'s letter', '以前の学習者の手紙'],
+                ['paper', 'Physical page', '紙そのもの'],
+                ['none', 'No supporting source', '裏付ける資料なし'],
+            ]),
+            mapColumn('confidence', 'Confidence', '確かさ', [
+                ['stated', 'Directly stated', '本人が明記'],
+                ['observed', 'Directly observed', '資料から確認'],
+                ['unknown', 'Unknown', 'まだ不明'],
+            ]),
+            mapColumn('hedge', 'Evidence phrase', '根拠表現', [
+                ['according-letter', '手紙によると', '手紙によると'],
+                ['paper-shows', '紙を見ると', '紙を見ると'],
+                ['still-unknown', 'まだ分からない', 'まだ分からない'],
+            ]),
+        ]),
+        rows: Object.freeze([
+            mapRow('route-added', 'The former learner added a route.', '以前の学習者が道を足した。', 'letter', 'stated', 'according-letter'),
+            mapRow('older-ink', 'The page has layers of older ink.', '紙には古いインクの層がある。', 'paper', 'observed', 'paper-shows'),
+            mapRow('first-contributor', 'The identity of the first contributor.', '最初の寄稿者が誰か。', 'none', 'unknown', 'still-unknown'),
+        ]),
+        repair: Object.freeze({
+            en: 'Recheck each source. The letter states the route addition, the page shows older ink, and neither identifies the first contributor.',
+            ja: '出典をもう一度確認しましょう。道の追加は手紙、古いインクは紙から確認できます。最初の寄稿者を示す資料はありません。',
+        }),
+        reviewAnswer: Object.freeze({
+            en: 'According to the letter, the learner added a route. The page shows older ink. The first contributor is still unknown.',
+            ja: '手紙によると、その学習者は道を足した。紙を見ると古いインクの層がある。最初の寄稿者はまだ分からない。',
+        }),
+    });
+}
+
+function writtenFuturesPractice(): StoryWrittenResponsePractice {
+    return Object.freeze({
+        interaction: 'written-response' as const,
+        activityId: 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures',
+        chapterId: 's4e07-journey-not-everyone-takes',
+        skill: 'writing' as const,
+        action: 'produce' as const,
+        conceptIds: Object.freeze(['concept:story-n1:non-comparative-futures']),
+        prompt: Object.freeze({
+            en: 'Write three short Japanese updates. Keep Alex decided, Aakash possible, and Mira staying and restarting. Do not rank them.',
+            ja: '三人の短い予定を日本語で書いてください。アレックスは決定、アーカシュは可能性、ミラは残って再開。順位は付けません。',
+        }),
+        fields: Object.freeze([
+            writtenField('alex', 'Alex: decided next month', 'アレックス：来月に決まった予定', '来月から日本で働く。', [['来月'], ['日本', '働', '仕事']]),
+            writtenField('aakash', 'Aakash: a genuine maybe', 'アーカシュ：まだ可能性', 'いつか撮り旅に行くかもしれない。', [['いつか'], ['かもしれ', 'たい', 'たら', 'まだ', '分から', 'わから']]),
+            writtenField('mira', 'Mira: staying and restarting Tuesday', 'ミラ：残って火曜に再開', 'ここに残って、来週火曜からまた始める。', [['火曜', '来週'], ['再開', 'また', '始め'], ['残', 'こっち', 'ここ']]),
+        ]),
+        forbiddenTerms: Object.freeze(['一歩先', '追いつ', '上って', '上だ', '勇気がある', '偉い']),
+        repair: Object.freeze({
+            en: 'Use a decided time for Alex, an uncertainty marker for Aakash, and both staying and restarting language for Mira. Leave comparison out.',
+            ja: 'アレックスには決まった時期、アーカシュには不確かさ、ミラには残ることと再開を書く。比較は入れません。',
+        }),
+        reviewAnswer: Object.freeze({
+            en: 'Alex starts next month. Aakash may travel someday. Mira is staying and restarting Tuesday.',
+            ja: 'アレックスは来月から日本で働く。アーカシュはいつか撮り旅に行くかもしれない。ミラはここに残って、来週火曜からまた始める。',
+        }),
+    });
+}
+
+function mapColumn(
+    id: 'source' | 'confidence' | 'hedge',
+    en: string,
+    ja: string,
+    options: readonly (readonly [string, string, string])[],
+): StoryEvidenceMapPractice['columns'][number] {
+    return Object.freeze({
+        id,
+        label: Object.freeze({ en, ja }),
+        options: Object.freeze(options.map(([optionId, optionEn, optionJa]) => Object.freeze({
+            id: optionId,
+            label: Object.freeze({ en: optionEn, ja: optionJa }),
+        }))),
+    });
+}
+
+function mapRow(
+    id: string,
+    en: string,
+    ja: string,
+    source: string,
+    confidence: string,
+    hedge: string,
+): StoryEvidenceMapPractice['rows'][number] {
+    return Object.freeze({
+        id,
+        claim: Object.freeze({ en, ja }),
+        correct: Object.freeze({ source, confidence, hedge }),
+    });
+}
+
+function writtenField(
+    id: string,
+    en: string,
+    ja: string,
+    placeholder: string,
+    requiredTermGroups: readonly (readonly string[])[],
+): StoryWrittenResponsePractice['fields'][number] {
+    return Object.freeze({
+        id,
+        label: Object.freeze({ en, ja }),
+        placeholder,
+        requiredTermGroups: Object.freeze(requiredTermGroups.map(group => Object.freeze([...group]))),
     });
 }

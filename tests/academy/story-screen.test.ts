@@ -259,11 +259,9 @@ describe('Academy Story screen', () => {
 
     it('renders and records every recovered Season 4 transfer through the story UI', async () => {
         const cases = [
-            ['s4e02-map-of-claims', 'activity:s4e02-map-of-claims-evidence-map', 'source-bounded'],
             ['s4e04-three-true-versions', 'activity:s4e04-three-true-versions-synthesis', 'three-vantages'],
             ['s4e05-left-unsaid', 'activity:s4e05-left-unsaid-trim-the-line', 'stop-at-blank'],
             ['s4e06-open-question', 'activity:s4e06-open-question-reframe-premise', 'reframe-question'],
-            ['s4e07-journey-not-everyone-takes', 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures', 'side-by-side'],
             ['s4e08-last-revision', 'activity:s4e08-last-revision-vivid-without-restoring', 'vivid-bounded'],
         ] as const;
 
@@ -284,6 +282,55 @@ describe('Academy Story screen', () => {
             correct.click();
             await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'pass'));
         }
+    });
+
+    it('requires the learner to assemble the S4E02 evidence map before recording writing production', async () => {
+        const activityId = 'activity:s4e02-map-of-claims-evidence-map';
+        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const { screen } = render('s4e02-map-of-claims', { selectedBand: 'n1', onCompleteStoryPractice });
+        advanceTo(screen, `[data-activity-id="${activityId}"]`);
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        expect(activity.querySelectorAll('[data-evidence-row]')).toHaveLength(3);
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'lapse'));
+        await vi.waitFor(() => expect(activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.disabled).toBe(false));
+
+        const answers = {
+            'route-added': ['letter', 'stated', 'according-letter'],
+            'older-ink': ['paper', 'observed', 'paper-shows'],
+            'first-contributor': ['none', 'unknown', 'still-unknown'],
+        } as const;
+        for (const [rowId, values] of Object.entries(answers)) {
+            const row = activity.querySelector<HTMLElement>(`[data-evidence-row="${rowId}"]`)!;
+            [...row.querySelectorAll<HTMLSelectElement>('select')].forEach((select, index) => {
+                select.value = values[index]!;
+            });
+        }
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, 'pass'));
+    });
+
+    it('requires authored Japanese updates for S4E07 instead of inferring output from recognition', async () => {
+        const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
+        const onCompleteStoryPractice = vi.fn(async () => undefined);
+        const { screen } = render('s4e07-journey-not-everyone-takes', { selectedBand: 'n1', onCompleteStoryPractice });
+        advanceTo(screen, `[data-activity-id="${activityId}"]`);
+        const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
+
+        expect(activity.querySelector('[data-story-practice-option]')).toBeNull();
+        expect(activity.querySelectorAll('[data-story-written-field]')).toHaveLength(3);
+        const values = {
+            alex: '来月から日本で働く。',
+            aakash: 'いつか撮り旅に行くかもしれない。',
+            mira: 'ここに残って、来週火曜からまた始める。',
+        };
+        for (const [fieldId, value] of Object.entries(values)) {
+            activity.querySelector<HTMLTextAreaElement>(`[data-story-written-field="${fieldId}"]`)!.value = value;
+        }
+        activity.querySelector<HTMLButtonElement>('.academy-story-practice-submit')!.click();
+        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(activityId, 'pass'));
     });
 
     it('reloads on Mira\'s supported line and carries her into canonical attendee evidence', async () => {

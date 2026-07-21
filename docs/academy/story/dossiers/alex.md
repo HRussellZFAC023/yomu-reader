@@ -55,9 +55,9 @@ Beat-by-beat, tied to the CONTENT-LINKAGE reservoir:
   - **Activity types:** reading/listening (interpret the venue's polite ask) + speaking transfer (produce a warm, bounded "no") + writing (a short audience-aware reply).
   - **Authentic reason:** a salaryman declines things politely for a living. Alex's return is the credible model that a formal "no" preserves the relationship — the exact language the class needs to keep the venue and the boundary.
 
-- **Ch 43 (reservoir `l4` band — N1 family for Ch 43–45 — *plans under uncertainty, non-comparative futures, extended spontaneous response*).**
+- **Ch 43 (reservoir `l4` band — N1 family for Ch 43–45 — *plans under uncertainty and non-comparative futures*).**
   - **Language functions:** decided-plan and volitional forms (〜ことになった / 〜つもり / 〜予定 / 〜(よ)うと思う), uncertainty hedges (〜かもしれない / 〜かどうか / まだわからない), and **non-comparative future talk** (stating one's path without ranking it above another's).
-  - **Activity types:** listening (parse a flat-toned huge announcement) + extended speaking (respond to a departure without cliché) + reading/writing (a farewell/gratitude register message). The comprehension challenge is deliberately register-based: the learner must catch the load-bearing clause under the calm.
+  - **Activity types:** listening/reading (parse the flat-toned announcement and chat updates) + structured writing production (author separate decided, possible, and staying/restarting updates without ranking them). The current runtime records writing, not speaking; the comprehension challenge remains register-based because the learner must catch the load-bearing clause under the calm before writing it.
   - **Authentic reason:** the real move to Japan for work. 「来月、日本で働くことになったんだ。」 The learner needs 〜ことになった precisely because Alex refuses to dramatise it, and needs non-comparative framing so that "I'm leaving," "I'm staying," and "I don't know yet" can all be said without one becoming the brave answer.
 
 **Cross-beat learning through-line:** direction/sequence (N5) → preparation + selective sequencing (N4) → hearsay + renegotiation (N3) → formal concession/refusal (N2) → decided-plans-under-uncertainty (N1). Alex is a clean difficulty ramp whose *register* difficulty rises even faster than his grammar difficulty — the learner is always training the ear as much as the grammar.

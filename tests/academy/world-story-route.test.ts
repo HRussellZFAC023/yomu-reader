@@ -140,6 +140,81 @@ describe('World Story route', () => {
             event.kind === 'learning-evidence-recorded' && event.activityId === activityId ? [event.outcome] : []);
         expect(outcomes).toEqual(['pass', 'lapse']);
     });
+
+    it('keeps a real mid-episode S4E07 reload canonical and records Mira once', async () => {
+        const episodeId = 's4e07-journey-not-everyone-takes';
+        const activityId = 'activity:s4e07-journey-not-everyone-takes-non-comparative-futures';
+        const repository = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(repository, {
+            async ingest() {},
+            async due() { return []; },
+            async rate() {},
+        });
+        await evidence.initialize();
+        const practice = storyPractice(activityId)!;
+        await evidence.recordAuthoredStoryPractice({ ...practice, reviewSeed: storyReplayReviewSeed(practice) }, 'pass');
+        await evidence.recordEncounter({
+            encounterId: `story:${episodeId}:scene:scene:journey:the-flattest-news`,
+            sceneId: 'scene:journey:the-flattest-news',
+            attendeeIds: ['alex', 'aakash'],
+        });
+
+        const arc = loadStoryRuntime().playableArc(episodeId)!;
+        const sectionId = serializeStoryCursor({
+            version: 1,
+            arcId: arc.id,
+            sceneId: 'scene:journey:non-comparative-futures',
+            nodeId: 'message:journey:mira-returns',
+            choices: {},
+        });
+        let current: HTMLElement | undefined;
+        const shell = {
+            screen: document.createElement('main'),
+            replace(view: HTMLElement) { current = view; },
+            setLanguage() {}, setNavigation() {}, setLearnerActionsVisible() {}, setClassBoardAccess() {},
+            setPresentationMode() {}, setMuted() {}, announce() {}, dispose() {},
+        } satisfies AcademyShell;
+        const flow = createWorldFlow({ evidence, pronunciation: {} as never, audio: {} as never });
+        const renderReload = async () => flow.render('story', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2,
+                route: 'story',
+                routeHistory: [{ route: 'campus' }],
+                presentationMode: 'story',
+                sectionId,
+                selectedBand: 'n1',
+                updatedAt: 4,
+            },
+            projection: evidence.projection,
+            shell,
+            go: vi.fn(async () => undefined),
+            back: vi.fn(async () => undefined),
+            save: vi.fn(async () => undefined),
+        });
+
+        await renderReload();
+        expect(current!.querySelector<HTMLElement>('[data-story-arc-id]')?.dataset.storyMode).toBe('canonical');
+        expect(current!.textContent).toContain('同じチャットなのに、予定表はばらばらだね');
+        finishScene(current!);
+
+        const miraEncounterId = `story:${episodeId}:scene:scene:journey:non-comparative-futures`;
+        await vi.waitFor(async () => {
+            const recorded = (await evidence.history()).filter(event => event.kind === 'characters-encountered'
+                && event.encounterId === miraEncounterId);
+            expect(recorded).toHaveLength(1);
+            expect(recorded[0]).toMatchObject({ attendeeIds: expect.arrayContaining(['alex', 'aakash', 'mira']) });
+        });
+
+        await renderReload();
+        expect(current!.querySelector<HTMLElement>('[data-story-arc-id]')?.dataset.storyMode).toBe('canonical');
+        finishScene(current!);
+        await vi.waitFor(async () => {
+            const recorded = (await evidence.history()).filter(event => event.kind === 'characters-encountered'
+                && event.encounterId === miraEncounterId);
+            expect(recorded).toHaveLength(1);
+        });
+    });
 });
 
 function finishScene(screen: HTMLElement): void {

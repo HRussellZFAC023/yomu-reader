@@ -103,6 +103,7 @@ export interface LearnerEvidence {
 export interface AuthoredStoryPracticeEvidence {
     readonly activityId: string;
     readonly chapterId: string;
+    readonly interaction: 'choice' | 'evidence-map' | 'written-response';
     readonly skill: import('../domain/learner-record').LearningSkill;
     readonly action: import('../domain/learner-record').LearningAction;
     readonly conceptIds: readonly string[];
@@ -362,7 +363,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                     provenance: {
                         activity: practice.activityId,
                         chapter: practice.chapterId,
-                        response: 'selected-response',
+                        response: practice.interaction === 'choice' ? 'selected-response' : practice.interaction,
                     },
                 });
             }

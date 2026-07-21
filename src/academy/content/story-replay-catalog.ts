@@ -64,8 +64,6 @@ export const STORY_REPLAY_SCENES: readonly ReplaySceneDefinition[] = Object.free
  * bridge so story practice never needs a parallel, in-memory scheduler.
  */
 export function storyReplayReviewSeed(practice: StoryPractice): ReviewSeed {
-    const answer = practice.options.find(option => option.id === practice.correctOptionId);
-    if (!answer) throw new TypeError(`Story practice ${practice.activityId} has no correct answer.`);
     const conceptId = practice.conceptIds[0];
     if (!conceptId) throw new TypeError(`Story practice ${practice.activityId} has no review concept.`);
     return Object.freeze({
@@ -74,8 +72,8 @@ export function storyReplayReviewSeed(practice: StoryPractice): ReviewSeed {
         reason: 'new-learning',
         sourceQuestionId: practice.activityId,
         content: Object.freeze({
-            expression: answer.label.ja,
-            meanings: Object.freeze([answer.label.en]),
+            expression: practice.reviewAnswer.ja,
+            meanings: Object.freeze([practice.reviewAnswer.en]),
             sentence: practice.prompt.ja,
         }),
     });

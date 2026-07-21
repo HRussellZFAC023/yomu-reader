@@ -1,4 +1,4 @@
-import { storyPractice } from '../../src/academy/content/n3-story-practice';
+import { gradeStoryPractice, storyPractice } from '../../src/academy/content/n3-story-practice';
 import { loadStoryRuntime } from '../../src/academy/content/story-runtime';
 import { createStoryRunner } from '../../src/academy/content/story-runner';
 import mapOfClaims from '../../src/academy/content/story-sources/s4e02-map-of-claims.v2.json';
@@ -74,6 +74,25 @@ describe('Season 4 story recovery contracts', () => {
         expect(text).not.toContain('どちらにも存在しない');
     });
 
+    it('records S4E02 only after the learner assembles every evidence-map label', () => {
+        const practice = storyPractice('activity:s4e02-map-of-claims-evidence-map')!;
+        expect(practice).toMatchObject({ interaction: 'evidence-map', skill: 'writing', action: 'produce' });
+        if (practice.interaction !== 'evidence-map') throw new Error('Expected evidence-map practice.');
+
+        expect(gradeStoryPractice(practice, {
+            interaction: 'evidence-map',
+            rows: {
+                'route-added': { source: 'letter', confidence: 'stated', hedge: 'according-letter' },
+                'older-ink': { source: 'paper', confidence: 'observed', hedge: 'paper-shows' },
+                'first-contributor': { source: 'letter', confidence: 'unknown', hedge: 'still-unknown' },
+            },
+        })).toBe('lapse');
+        expect(gradeStoryPractice(practice, {
+            interaction: 'evidence-map',
+            rows: Object.fromEntries(practice.rows.map(row => [row.id, row.correct])),
+        })).toBe('pass');
+    });
+
     it('hands the overlay rehearsal into Nanako and the stage test into Alex', () => {
         const chapter40Exit = threeVersions.scenes.at(-1)?.nodes.at(-1);
         const chapter41Entry = leftUnsaid.scenes[0]?.nodes[0];
@@ -85,7 +104,7 @@ describe('Season 4 story recovery contracts', () => {
         expect(chapter42Exit?.description).toContain("Alex's name");
     });
 
-    it('puts Mira\'s three futures and restart invitation before the checkpoint without a typing cue', () => {
+    it('puts Mira\'s three futures and restart invitation before genuine written output', () => {
         const scene = journey.scenes.find(candidate => candidate.id === 'scene:journey:non-comparative-futures')!;
         const checkpointIndex = scene.nodes.findIndex(node => node.id === 'checkpoint:journey:before-futures');
         const returnIndex = scene.nodes.findIndex(node => node.id === 'message:journey:mira-returns');
@@ -103,6 +122,42 @@ describe('Season 4 story recovery contracts', () => {
         expect(spoken).toContain('しばらく勉強から離れてた人');
         expect(spoken).toContain('都合がつかなければ');
         expect(JSON.stringify(scene)).not.toMatch(/typing|時間が合う人/u);
+        expect(scene.nodes.find(node => node.id === 'activity-node:journey:non-comparative-futures'))
+            .toMatchObject({ hook: { componentType: 'writing' } });
+
+        const practice = storyPractice('activity:s4e07-journey-not-everyone-takes-non-comparative-futures')!;
+        expect(practice).toMatchObject({ interaction: 'written-response', skill: 'writing', action: 'produce' });
+        if (practice.interaction !== 'written-response') throw new Error('Expected written response practice.');
+        expect(gradeStoryPractice(practice, {
+            interaction: 'written-response',
+            fields: {
+                alex: '来月から日本で働く。',
+                aakash: 'いつか撮り旅に行くかもしれない。',
+                mira: 'ここに残って、来週火曜からまた始める。',
+            },
+        })).toBe('pass');
+        expect(gradeStoryPractice(practice, {
+            interaction: 'written-response',
+            fields: {
+                alex: 'アレックスが一歩先だ。',
+                aakash: 'いつか撮り旅に行く。',
+                mira: '火曜から再開する。',
+            },
+        })).toBe('lapse');
+    });
+
+    it('gives Alex a concrete callback instead of repeating Mira\'s N2/N3 thesis', () => {
+        const scenes = journey.scenes as unknown as readonly { readonly nodes: readonly { readonly id: string }[] }[];
+        const line = scenes.flatMap(scene => scene.nodes)
+            .find(node => node.id === 'line:journey:alex-just-my-turn');
+        const variants = (line as { variants?: Record<string, { japanese: string }> } | undefined)?.variants;
+
+        for (const band of ['n3', 'n2'] as const) {
+            expect(variants?.[band]?.japanese).toContain('日付');
+            expect(variants?.[band]?.japanese).toContain('勇気');
+            expect(variants?.[band]?.japanese).toContain('カフェの投票');
+            expect(variants?.[band]?.japanese).not.toMatch(/行くのも.*残るのも.*迷うのも/u);
+        }
     });
 
     it('shows the exact caption before the edit and gives each final check a different job', () => {
