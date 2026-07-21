@@ -2851,8 +2851,157 @@ export function realignAdditiveTextMirrorRuns(root: ParentNode = document): void
     if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
     for (const mirror of root.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror')) {
         const host = registeredTextMirrorHostFor(mirror);
-        if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
+        if (!host?.isConnected) continue;
+        // Run-level (whole-mirror translateX) first, then per-word source pinning
+        // for the wrapped multi-line residual the single translate cannot fix.
+        alignAdditiveTextMirrorRun(mirror, host);
+        alignMirrorWordsToSourceRects(mirror, host);
     }
+}
+
+// A prose/label additive mirror re-flows the host's text as a chain of word
+// boxes and can only HOPE that reflow reproduces the host's own line breaking
+// and rhythm. It structurally cannot on wrapped multi-line CJK: the mirror wraps
+// at token boundaries (word-break:keep-all + inter-token <wbr>) while the source
+// breaks between any two ideographs; the inline-block ruby box's line box
+// (line-height:1 on a CJK glyph) does not collapse into the host's text strut,
+// inflating each wrapped line; and an inline host's containing block resolves a
+// few px narrow. The result is cumulative furigana/underline drift down every
+// line past the first. So pin each mirror word to the client rect of ITS OWN
+// source Range — the same source-range authority readerWordSourcePointScore
+// already trusts for hit-testing ("their own boxes are never authoritative").
+// Alignment then no longer depends on the mirror reproducing the host layout at
+// all. Runs from the shared settle sweep (realignAdditiveTextMirrorRuns) so it
+// rides the existing mount rAF + width-gated reflow triggers rather than adding
+// its own observers. Idempotent (absolute values, no accumulation).
+// A computed transform is safe for source-rect pinning only when it is a pure
+// translation: getClientRects is measured in the same viewport space the mirror
+// itself lives in, so a translate cancels out in the (source − mirror) delta,
+// but any scale/rotate/skew (or matrix3d) does not. Anything not recognised as a
+// 2D translate matrix is treated as unsafe so the pin is skipped.
+function isPureTranslateTransform(transform: string): boolean {
+    const match = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (!match) return false;
+    const parts = match[1].split(',').map(value => Number.parseFloat(value));
+    if (parts.length !== 6 || parts.some(value => !Number.isFinite(value))) return false;
+    const [a, b, c, d] = parts;
+    return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
+}
+
+function alignMirrorWordsToSourceRects(mirror: HTMLElement, host: HTMLElement): void {
+    if (!mirror.classList.contains('jpdb-reader-additive-text-mirror')) return;
+    // Absolute words leave the mirror's flow, collapsing its box to zero height.
+    // Harmless when the mirror is overflow:visible (detached prose + ordinary
+    // controls), but an overflow:hidden clamp mirror (constrainMirrorToClampBox)
+    // would then clip EVERY word to nothing. Those clamped rows lay out
+    // single-line and already align, so leave them in flow.
+    if (mirror.style.getPropertyValue('overflow') === 'hidden') return;
+    if (typeof Range.prototype.getClientRects !== 'function' || !host.isConnected) return;
+    // Cheap early-out: a mirror already pinned whose host box is unchanged since
+    // cannot have re-wrapped, so skip the host text walk entirely. This keeps the
+    // all-mirror settle sweep proportional to what actually reflowed.
+    const hostRect = host.getBoundingClientRect();
+    if (mirror.dataset.yomuAlignedHostW !== undefined
+        && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5
+        && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
+    // A CSS transform on the mirror or an ancestor (YouTube hover/transition
+    // scale, a scaled container) makes getClientRects report POST-transform
+    // viewport coordinates; written back as local offsets they would be scaled a
+    // second time. Leave such a mirror in flow rather than double-apply — an
+    // already-pinned mirror keeps its correct offsets under a later transform
+    // (its absolute words transform with it), and a transient animation clears by
+    // the next settle. Runs only for changed/new mirrors (after the early-out).
+    for (let node: HTMLElement | null = mirror, depth = 0; node && depth < 10; depth += 1, node = composedParentElement(node)) {
+        const transform = safeComputedStyle(node).transform;
+        if (transform && transform !== 'none' && !isPureTranslateTransform(transform)) return;
+    }
+    const source = hostOriginalTextWithNodeOffsets(host);
+    // Same guard as the hit-test: if the framework mutated the host text since
+    // render, the stamped offsets no longer map — bail and leave the reflow
+    // layout in place until the next clean render.
+    if (mirror.dataset.sourceText !== source.hostText) return;
+    const words = Array.from(mirror.querySelectorAll<HTMLElement>(
+        '.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]'));
+    if (!words.length) return;
+    const range = host.ownerDocument.createRange();
+    // READ phase: gather every source rect AND the word's current box before
+    // writing, so no interleaved write forces a layout between measurements.
+    const mirrorRect = mirror.getBoundingClientRect();
+    const placements: { word: HTMLElement; left: number; top: number; width: number; height: number }[] = [];
+    let maxDrift = 0;
+    for (const word of words) {
+        const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+        const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
+        const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
+        const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
+        if (!startBoundary || !endBoundary) continue;
+        range.setStart(startBoundary.node, startBoundary.offset);
+        range.setEnd(endBoundary.node, endBoundary.offset);
+        const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+        if (!rects.length) continue;
+        // A wrapped token spans multiple line boxes; pin it to its first, the
+        // same trade-off the in-place underline already accepts for split tokens.
+        const rect = rects[0];
+        const current = word.getBoundingClientRect();
+        // Width is part of the drift: a font/letter-spacing change can move a
+        // word's right edge (and thus its underline span / highlight box) while
+        // its left/top stay put — realign then instead of leaving it stale.
+        maxDrift = Math.max(maxDrift,
+            Math.abs(current.left - rect.left),
+            Math.abs(current.top - rect.top),
+            Math.abs(current.width - rect.width));
+        placements.push({
+            word,
+            left: rect.left - mirrorRect.left,
+            top: rect.top - mirrorRect.top,
+            width: rect.width,
+            height: rect.height,
+        });
+    }
+    if (!placements.length) return;
+    // Only rewrite when the reflow layout has actually drifted off the source
+    // glyphs. A correctly-placed single-line mirror (every fixed-height control
+    // pill/chip — the iPad-fragile surface — and single-line metadata) has ~0
+    // drift and is left untouched in flow. Re-runs are idempotent because a
+    // re-measure of already-pinned words reports ~0 drift.
+    const DRIFT_TOLERANCE_PX = 1.5;
+    if (maxDrift <= DRIFT_TOLERANCE_PX) {
+        mirror.dataset.yomuAlignedHostW = String(hostRect.width);
+        mirror.dataset.yomuAlignedHostH = String(hostRect.height);
+        return;
+    }
+    // WRITE phase.
+    for (const { word, left, top, width, height } of placements) {
+        word.style.setProperty('position', 'absolute', 'important');
+        word.style.setProperty('left', `${left}px`, 'important');
+        word.style.setProperty('top', `${top}px`, 'important');
+        word.style.setProperty('width', `${width}px`, 'important');
+        word.style.setProperty('height', `${height}px`, 'important');
+        word.style.setProperty('margin', '0', 'important');
+        word.style.setProperty('white-space', 'nowrap', 'important');
+    }
+    // A vertically-centred mirror (styleTextMirror's translateY(-50%) on a
+    // flex/button host) shifts its own origin once the words leave flow and its
+    // box collapses to ~0 height. The offsets above were computed against the
+    // pre-collapse origin, so re-anchor against the settled box in one
+    // correction (only when a transform is actually present — the common inset:0
+    // prose mirror never moves and skips this).
+    if (mirror.style.getPropertyValue('transform')) {
+        const settled = mirror.getBoundingClientRect();
+        const dx = settled.left - mirrorRect.left;
+        const dy = settled.top - mirrorRect.top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+            for (const { word, left, top } of placements) {
+                word.style.setProperty('left', `${left - dx}px`, 'important');
+                word.style.setProperty('top', `${top - dy}px`, 'important');
+            }
+        }
+    }
+    mirror.dataset.yomuSourceAligned = '1';
+    const finalHostRect = host.getBoundingClientRect();
+    mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
+    mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
 }
 
 // Coalesce every freshly-mounted mirror's run-alignment into ONE post-paint
@@ -3085,6 +3234,14 @@ function activeAdditiveDecorationSource(): AdditiveDecorationSource | null {
 // can make their kana cover each other), so an unsafe lane hides only the kana
 // overlay. The annotated base, pitch decoration, and lookup hit area remain.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
+    // Pin words to their source rects FIRST, so both the clip filter and the
+    // collision sweep read final base geometry rather than the drifted reflow
+    // layout. The root is the mirror on the mount/replay paths; guard the
+    // reconcile path where it may be a broader collision surface.
+    if (root.classList.contains('jpdb-reader-additive-text-mirror')) {
+        const alignHost = registeredTextMirrorHostFor(root);
+        if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
+    }
     if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
 
     settleDetachedReadingLanes(

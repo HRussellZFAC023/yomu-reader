@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.267
+// @version 1.6.268
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.c059e2ad754d.user.js#sha256=wFnirXVNTSUB3mjC0uDNK6XsWJftmz74GCN8C4I6y84=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f0de21db490e.user.js#sha256=8N4h20kOrOH5uvmZtjP56QJmtkJ+yNFVeh4ry71zCfg=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fa0149fa2dbf.user.js#sha256=+gFJ+i2/ESiMDYdA4HErI+PnxNXyVwKBKO0U6s9LYEc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ee7c513f90d1.user.js#sha256=7nxRP5DRKZvDKOMok2E21mgdgLFwncDtmfG6Ulr6uaE=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.63b3dea958f5.user.js#sha256=Y7PeqVj1ibkpG+lg2ezXvplRhJyiXOwPDtVJ2G828lU=
 // @require https://yomureader.com/greasyfork/yomu-video.7f54e407f4aa.user.js#sha256=f1TkB/SqJa5kZbaMPW+BEq3cbfZhhfksFyUWFsqqPNs=
 // @resource yomuCss  https://yomureader.com/yomu.ca9baff67630.css#sha256=ypuv9nYwqEK5BLTFdMZAFPCI5nMt1Ag5Vx0xYWtZbak=
@@ -8332,8 +8332,97 @@ function realignAdditiveTextMirrorRuns(root = document) {
   if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
   for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
-  if (host?.isConnected) alignAdditiveTextMirrorRun(mirror, host);
+  if (!host?.isConnected) continue;
+  alignAdditiveTextMirrorRun(mirror, host);
+  alignMirrorWordsToSourceRects(mirror, host);
   }
+}
+function isPureTranslateTransform(transform) {
+  const match = transform.match(/^matrix\(([^)]+)\)$/u);
+  if (!match) return false;
+  const parts = match[1].split(",").map((value) => Number.parseFloat(value));
+  if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
+  const [a, b, c, d] = parts;
+  return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
+}
+function alignMirrorWordsToSourceRects(mirror, host) {
+  if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
+  if (mirror.style.getPropertyValue("overflow") === "hidden") return;
+  if (typeof Range.prototype.getClientRects !== "function" || !host.isConnected) return;
+  const hostRect = host.getBoundingClientRect();
+  if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
+  for (let node = mirror, depth = 0; node && depth < 10; depth += 1, node = composedAncestorElement(node)) {
+  const transform = safeComputedStyle(node).transform;
+  if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
+  }
+  const source = hostOriginalTextWithNodeOffsets(host);
+  if (mirror.dataset.sourceText !== source.hostText) return;
+  const words = Array.from(mirror.querySelectorAll(
+  ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
+  ));
+  if (!words.length) return;
+  const range = host.ownerDocument.createRange();
+  const mirrorRect = mirror.getBoundingClientRect();
+  const placements = [];
+  let maxDrift = 0;
+  for (const word of words) {
+  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
+  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
+  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
+  if (!startBoundary || !endBoundary) continue;
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  const rects = Array.from(range.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
+  if (!rects.length) continue;
+  const rect = rects[0];
+  const current = word.getBoundingClientRect();
+  maxDrift = Math.max(
+    maxDrift,
+    Math.abs(current.left - rect.left),
+    Math.abs(current.top - rect.top),
+    Math.abs(current.width - rect.width)
+  );
+  placements.push({
+    word,
+    left: rect.left - mirrorRect.left,
+    top: rect.top - mirrorRect.top,
+    width: rect.width,
+    height: rect.height
+  });
+  }
+  if (!placements.length) return;
+  const DRIFT_TOLERANCE_PX = 1.5;
+  if (maxDrift <= DRIFT_TOLERANCE_PX) {
+  mirror.dataset.yomuAlignedHostW = String(hostRect.width);
+  mirror.dataset.yomuAlignedHostH = String(hostRect.height);
+  return;
+  }
+  for (const { word, left, top, width, height } of placements) {
+  word.style.setProperty("position", "absolute", "important");
+  word.style.setProperty("left", `${left}px`, "important");
+  word.style.setProperty("top", `${top}px`, "important");
+  word.style.setProperty("width", `${width}px`, "important");
+  word.style.setProperty("height", `${height}px`, "important");
+  word.style.setProperty("margin", "0", "important");
+  word.style.setProperty("white-space", "nowrap", "important");
+  }
+  if (mirror.style.getPropertyValue("transform")) {
+  const settled = mirror.getBoundingClientRect();
+  const dx = settled.left - mirrorRect.left;
+  const dy = settled.top - mirrorRect.top;
+  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+    for (const { word, left, top } of placements) {
+      word.style.setProperty("left", `${left - dx}px`, "important");
+      word.style.setProperty("top", `${top - dy}px`, "important");
+    }
+  }
+  }
+  mirror.dataset.yomuSourceAligned = "1";
+  const finalHostRect = host.getBoundingClientRect();
+  mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
+  mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
 }
 let pendingAdditiveMirrorAlignFrame = 0;
 function scheduleAdditiveMirrorRealign() {
@@ -8490,6 +8579,10 @@ function activeAdditiveDecorationSource() {
   return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
+  if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
+  const alignHost = registeredTextMirrorHostFor(root);
+  if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
+  }
   if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
   settleDetachedReadingLanes(
   Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
@@ -34292,8 +34385,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.267"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.267"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.268"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.268"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34425,7 +34518,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.267"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.268"}`;
   } catch {
   return null;
   }

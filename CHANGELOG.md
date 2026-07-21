@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.268] - 2026-07-21
+
+### Fixed
+
+- Furigana and pitch underlines now stay attached to the right word on multi-line titles and descriptions. Where Yomu paints its readings over the page's own text, such as YouTube video titles, Shorts titles, and channel labels, the overlay re-flowed the Japanese text itself and could not reproduce where the page wrapped each line, so on the second and later lines the readings and underlines drifted away from the words they belonged to. Each overlaid word is now pinned to the exact position of the real text it annotates, so alignment stays correct on every line, and it is re-checked when the page reflows after a thumbnail finishes loading or an iPad rotates.
+
 ## [1.6.267] - 2026-07-21
 
 ### Fixed
