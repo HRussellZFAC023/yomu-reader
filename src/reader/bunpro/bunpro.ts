@@ -1,5 +1,6 @@
 import { requestHttp } from '../network/http-request';
 import type { ReaderHttpOptions } from '../network/http-options';
+import { httpStatusFromError } from '../network/error-status';
 
 const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend';
 const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
@@ -240,7 +241,7 @@ export class BunproClient {
             // Public reviewable data must not go down with a stale login: a
             // 401/403 on an optional-auth request retries anonymously, exactly
             // what an expired or revoked token would otherwise silently break.
-            const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+            const status = error instanceof BunproApiError ? error.status : httpStatusFromError(error);
             if (!optionalAuth || !token || (status !== 401 && status !== 403)) throw error;
             response = await this.frontendRequest(path, options, '');
         }
@@ -317,23 +318,17 @@ interface BunproFrontendRequestOptions {
 // wall, dead bridge, offline). An HTTP status — even 401/500 — proves the
 // transport works and must NOT trip the breaker.
 function isBunproTransportFailure(error: unknown): boolean {
-    if (errorStatus(error) !== undefined) return false;
+    if (httpStatusFromError(error) !== undefined) return false;
     if (error instanceof BunproApiError) return false;
     return error instanceof Error && TRANSPORT_FAILURE_MESSAGE_RE.test(`${error.name} ${error.message}`);
 }
 
 function normalizeBunproError(error: unknown): Error {
     if (error instanceof BunproApiError) return error;
-    const status = errorStatus(error);
+    const status = httpStatusFromError(error);
     if (!(error instanceof Error)) return new BunproApiError('Bunpro request failed.', status);
     if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError('Bunpro token expired or was denied.', 401);
     return error;
-}
-
-function errorStatus(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') return undefined;
-    const status = (error as { status?: unknown; statusCode?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
-    return typeof status === 'number' && Number.isFinite(status) ? status : undefined;
 }
 
 function trimBaseUrl(value: string): string {

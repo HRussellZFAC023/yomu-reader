@@ -11,7 +11,7 @@ import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 
 export type BrowseFilter = 'all' | CardState;
-export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
+export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
 export type BrowseSourceChip = 'all' | BrowseSourceFilter;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency' | 'history';
 
@@ -41,8 +41,10 @@ export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
 }
 
 export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
+    // fallow-ignore-next-line code-duplication
     if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
+    if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'wanikani';
     if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'yomu-local';
     if (card.source === 'jiten' || card.reviewSource === 'jiten-api' || typeof card.jitenWordId === 'number') return 'jiten';
     return 'jpdb';
@@ -83,6 +85,7 @@ export interface BrowseSourceFilterCopy {
     jpdb: string;
     jiten: string;
     bunpro: string;
+    wanikani: string;
     yomuLocal: string;
     anki: string;
 }
@@ -97,6 +100,7 @@ export function renderBrowseSourceChips(
         jpdb: copy.jpdb,
         jiten: copy.jiten,
         bunpro: copy.bunpro,
+        wanikani: copy.wanikani,
         'yomu-local': copy.yomuLocal,
         anki: copy.anki,
     };
@@ -108,7 +112,7 @@ export function renderBrowseSourceChips(
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips', role: 'group' },
         chip('all', copy.all, cards.length, active.size === 0),
-        ...(['jiten', 'jpdb', 'bunpro', 'yomu-local', 'anki'] as const)
+        ...(['jiten', 'jpdb', 'bunpro', 'wanikani', 'yomu-local', 'anki'] as const)
             .filter(source => (counts.get(source) ?? 0) > 0)
             .map(source => chip(source, labels[source], counts.get(source) ?? 0, active.has(source))),
     );

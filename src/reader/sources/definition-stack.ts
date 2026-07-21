@@ -1,4 +1,4 @@
-import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from './definition-render';
 import { escapeHtml } from '../dom';
 import { uiText } from '../app/i18n';
@@ -13,6 +13,7 @@ import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import { yomuBunproCompanion } from '../companions/registry';
+import { renderWanikaniDefinitionMount } from '../wanikani/wanikani-source';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
@@ -75,6 +76,7 @@ const CORE_DEFINITION_SOURCE_RENDERERS: Record<string, CoreDefinitionSourceRende
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
     [BUNPRO_DEFINITION_SOURCE_ID]: renderBunproDefinitionSourceSection,
+    [WANIKANI_DEFINITION_SOURCE_ID]: renderWanikaniDefinitionSourceSection,
     [ANKI_SOURCE_ID]: renderAnkiDefinitionSourceSection,
     [STUDY_TRANSLATION_SOURCE_ID]: renderTranslationDefinitionSourceSection,
     [STUDY_GRAMMAR_SOURCE_ID]: renderGrammarDefinitionSourceSection,
@@ -219,6 +221,10 @@ function renderBunproDefinitionSourceSection(context: DefinitionSourceStackConte
         params.jpdbLanguage ?? params.settings.interfaceLanguage,
         definitionSourceLabel(params.settings, BUNPRO_DEFINITION_SOURCE_ID, 'Bunpro'),
     );
+}
+
+function renderWanikaniDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
+    return renderWanikaniDefinitionMount(context.card, params.settings, params.sourceAttributes);
 }
 
 function renderAnkiDefinitionSourceSection(context: DefinitionSourceStackContext): string {

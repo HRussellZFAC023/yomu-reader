@@ -1,10 +1,10 @@
 import { uiText } from '../app/i18n';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
 export type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api' | 'jiten-api' | 'bunpro-api' | 'yomu-local';
-export type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live';
+export type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live' | 'wanikani-api';
 
 export interface NewTabGradeFailure {
     target: NewTabReviewTarget;
@@ -24,6 +24,7 @@ export function isReviewSource(source: JPDBCard['reviewSource']): boolean {
         || source === 'jpdb-live'
         || source === 'jiten-api'
         || source === 'bunpro-api'
+        || source === 'wanikani-api'
         || source === 'yomu-local';
 }
 
@@ -42,9 +43,11 @@ function isJitenGradableCard(card: JPDBCard): boolean {
     return isJitenSrsCard(card) || (typeof card.jitenWordId === 'number' && card.jitenWordId > 0);
 }
 
+// fallow-ignore-next-line complexity
 export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
+    if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'WaniKani';
     if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return ACADEMY_SRS_LABEL;
     // Built-in starter/practice words belong to Yomu, not an imported
     // dictionary — labeling them "Dictionary" made the keyless surface look
@@ -70,12 +73,19 @@ export function ankiCardKindLabel(card: JPDBCard, language: ReaderSettings['inte
     return '';
 }
 
+// fallow-ignore-next-line complexity
 export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSettings, ankiCardId: number | null): NewTabReviewTarget[] {
     if (!settings.enableReviews) return [];
     const targets: NewTabReviewTarget[] = [];
     const add = (target: NewTabReviewTarget): void => {
         if (!targets.includes(target)) targets.push(target);
     };
+    if (isWanikaniReviewCard(card)
+        && card.cardState.includes('due')
+        && settings.wanikaniReviewEnabled
+        && hasWanikaniApiCredential(settings)) {
+        return ['wanikani-api'];
+    }
     if (hasBunproReviewSession(card)
         && settings.bunproMiningEnabled
         && hasBunproFrontendCredential(settings)
@@ -113,6 +123,12 @@ export function queueableNewTabReviewTargets(targets: NewTabReviewTarget[]): Que
         || target === 'jpdb-api'
         || target === 'jiten-api'
         || target === 'yomu-local');
+}
+
+function isWanikaniReviewCard(card: JPDBCard): boolean {
+    return (card.source === 'wanikani' || card.reviewSource === 'wanikani-api')
+        && typeof card.wanikaniAssignmentId === 'number'
+        && card.wanikaniAssignmentId > 0;
 }
 
 export function passingNewTabGrade(grade: JPDBGrade): boolean {

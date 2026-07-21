@@ -52,11 +52,12 @@ describe('study-page card browser (SH-3)', () => {
             card('読む', ['known'], { source: 'jpdb' }),
             card('電車', ['due'], { source: 'jiten', reviewSource: 'jiten-api', jitenWordId: 2700 }),
             card('文法', ['learning'], { source: 'local', reviewSource: 'bunpro-api' }),
+            card('漢字', ['due'], { source: 'wanikani', reviewSource: 'wanikani-api' }),
             card('自習', ['new'], { source: 'yomu-local', reviewSource: 'yomu-local' }),
             card('暗記', ['due'], { source: 'anki', reviewSource: 'anki' }),
         ];
 
-        expect(mixed.map(browseSourceForCard)).toEqual(['jpdb', 'jiten', 'bunpro', 'yomu-local', 'anki']);
+        expect(mixed.map(browseSourceForCard)).toEqual(['jpdb', 'jiten', 'bunpro', 'wanikani', 'yomu-local', 'anki']);
         expect(filterBrowseCards(mixed, new Set(), '', new Set(['bunpro', 'yomu-local'])).map(c => c.spelling)).toEqual(['文法', '自習']);
 
         const chips = renderBrowseSourceChips(mixed, new Set(['bunpro']), {
@@ -64,14 +65,16 @@ describe('study-page card browser (SH-3)', () => {
             jpdb: 'JPDB',
             jiten: 'Jiten',
             bunpro: 'Bunpro',
+            wanikani: 'WaniKani',
             yomuLocal: 'Yomu',
             anki: 'Anki',
         });
         expect([...chips.querySelectorAll('button')].map(button => button.textContent)).toEqual([
-            'All 5',
+            'All 6',
             'Jiten 1',
             'JPDB 1',
             'Bunpro 1',
+            'WaniKani 1',
             'Yomu 1',
             'Anki 1',
         ]);

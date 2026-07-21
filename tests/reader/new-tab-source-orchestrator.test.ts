@@ -23,7 +23,7 @@ function card(overrides: Partial<JPDBCard>): JPDBCard {
 
 describe('new-tab source orchestration', () => {
     it('keeps auto local-first before optional account sources', () => {
-        expect(newTabSourceLoadPlan('auto', 12).primarySources).toEqual(['yomu-local', 'jpdb', 'bunpro', 'anki']);
+        expect(newTabSourceLoadPlan('auto', 12).primarySources).toEqual(['yomu-local', 'jpdb', 'bunpro', 'wanikani', 'anki']);
     });
 
     it('dedupes JPDB and Anki without dropping Bunpro or local source results', () => {

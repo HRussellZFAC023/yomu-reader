@@ -63,7 +63,7 @@ interface ReviewButtonsRenderOptions {
 
 interface PopoverReviewTarget {
     id: string;
-    kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
+    kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
     label: string;
     shortLabel: string;
     gradeProfile: 'standard' | 'bunpro-regular' | 'bunpro-fsrs';
@@ -370,7 +370,7 @@ export class CardPopoverRenderer {
         const ankiTargets = this.ankiReviewTargets(data, language);
         if (provider?.id === 'yomu-local' && ankiTargets.length) return ankiTargets;
         const apiTargets = this.apiReviewTargets(card, provider, language);
-        if (provider?.id === 'bunpro' && apiTargets.length) return apiTargets;
+        if ((provider?.id === 'bunpro' || provider?.id === 'wanikani') && apiTargets.length) return apiTargets;
         if (apiTargets.length && ankiTargets.length) {
             const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
             if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -399,6 +399,7 @@ export class CardPopoverRenderer {
         if (target.kind === 'jpdb') return { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: true };
         if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
         if (target.kind === 'bunpro') return { id: 'bunpro', label: 'Bunpro', deckSource: 'bunpro', hasApiKey: true };
+        if (target.kind === 'wanikani') return { id: 'wanikani', label: 'WaniKani', deckSource: 'wanikani', hasApiKey: true };
         if (target.kind === 'yomu-local') return { id: 'yomu-local', label: ACADEMY_SRS_LABEL, deckSource: 'yomu-local', hasApiKey: true };
         return fallback;
     }
@@ -420,6 +421,15 @@ export class CardPopoverRenderer {
                 label: uiText(language, 'gradeTargetBunpro'),
                 shortLabel: provider.label,
                 gradeProfile: card.bunproReviewInputMode === 'fsrs' ? 'bunpro-fsrs' : 'bunpro-regular',
+            };
+        }
+        if (provider.id === 'wanikani') {
+            return {
+                id: 'wanikani',
+                kind: 'wanikani',
+                label: uiText(language, 'gradeTargetWanikani'),
+                shortLabel: provider.label,
+                gradeProfile: 'standard',
             };
         }
         const isJiten = provider.id === 'jiten';

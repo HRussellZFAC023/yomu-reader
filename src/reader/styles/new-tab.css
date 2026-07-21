@@ -2523,6 +2523,25 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   display: none;
 }
 
+.jpdb-reader-newtab-grade-help {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  width: min(720px, calc(100vw - 40px));
+  margin: 0;
+  padding: 6px 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(139, 160, 177, 0.2);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 94%, transparent);
+  color: var(--jpdb-reader-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  box-shadow: 0 8px 24px rgba(7, 12, 18, 0.16);
+}
+
 .jpdb-reader-newtab-controls button {
   display: grid;
   place-items: center;

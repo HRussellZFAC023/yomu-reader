@@ -75,7 +75,7 @@ export type AnkiFieldMappingRole = 'expression' | 'reading' | 'meaning' | 'sente
 export type AnkiFieldMapping = Partial<Record<AnkiFieldMappingRole, string>>;
 export type AnkiFieldMappings = Record<string, AnkiFieldMapping>;
 
-export type NewTabWordSource = 'auto' | 'jpdb' | 'bunpro' | 'yomu-local' | 'anki' | 'dictionary';
+export type NewTabWordSource = 'auto' | 'jpdb' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki' | 'dictionary';
 
 export type NewTabJpdbReviewMode = 'auto' | 'api-vocabulary' | 'live-review';
 
@@ -175,9 +175,9 @@ export interface JPDBCard {
     // Provider review timestamp (unix milliseconds), used by the My Cards history sort.
     lastReviewAt?: number | null;
     wordWithReading: string | null;
-    source?: 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'local' | 'anki' | 'fallback';
+    source?: 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'local' | 'anki' | 'fallback';
     sentence?: string;
-    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'bunpro-api' | 'yomu-local' | 'anki' | 'dictionary';
+    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'bunpro-api' | 'wanikani-api' | 'yomu-local' | 'anki' | 'dictionary';
     jitenWordId?: number;
     jitenReadingIndex?: number;
     // Provider-neutral deck/list membership names for rendered-word styling.
@@ -213,10 +213,18 @@ export interface JPDBCard {
     bunproReviewSessionId?: string;
     bunproReviewInputMode?: 'regular' | 'fsrs';
     bunproReviewEndpoint?: 'review' | 'ghost-review' | 'self-study-review';
+    // WaniKani subject+assignment identity. A card is WaniKani-gradeable only
+    // when wanikaniAssignmentId is set (it came from a real due assignment);
+    // ordinary popup matches carry only wanikaniSubjectId for lookup/status.
+    wanikaniSubjectId?: number;
+    wanikaniAssignmentId?: number;
+    wanikaniSubjectType?: 'radical' | 'kanji' | 'vocabulary' | 'kana_vocabulary';
+    wanikaniSrsStage?: string;
+    wanikaniAudioUrls?: string[];
     // Transient popover choice: which SRS this card's grade/deck buttons act
     // on, set by the ⇄ provider toggle. Wins over the global apiGradingProvider
     // while the card object lives (not persisted).
-    apiGradingProviderOverride?: 'jpdb' | 'jiten' | 'bunpro';
+    apiGradingProviderOverride?: 'jpdb' | 'jiten' | 'bunpro' | 'wanikani';
     kanjiKeyword?: string;
     sourceCardKey?: string;
     fallbackLookupTerms?: string[];
@@ -284,6 +292,7 @@ export interface ReaderSettings {
     bunproApiKey: string;
     bunproFrontendApiToken: string;
     bunproFrontendApiTokenExpiresAt: string;
+    wanikaniApiToken: string;
     onboardingSeen: boolean;
     interfaceLanguage: InterfaceLanguage;
     accentColor: string;
@@ -313,6 +322,9 @@ export interface ReaderSettings {
     bunproDefinitionsEnabled: boolean;
     bunproDefinitionsAlias: string;
     bunproDefinitionsPriority: number;
+    wanikaniDefinitionsEnabled: boolean;
+    wanikaniDefinitionsAlias: string;
+    wanikaniDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;
@@ -325,6 +337,9 @@ export interface ReaderSettings {
     uchisenEnabled: boolean;
     uchisenAlias: string;
     uchisenPriority: number;
+    wanikaniKanjiEnabled: boolean;
+    wanikaniKanjiAlias: string;
+    wanikaniKanjiPriority: number;
     rtkEnabled: boolean;
     rtkAlias: string;
     rtkPriority: number;
@@ -544,6 +559,7 @@ export interface ReaderSettings {
     autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
     bunproMiningEnabled: boolean;
+    wanikaniReviewEnabled: boolean;
     yomuLocalSrsEnabled: boolean;
     apiGradingProvider: 'jpdb' | 'jiten' | 'bunpro';
     neverForgetDeck: string;

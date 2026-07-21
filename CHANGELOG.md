@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.273] - 2026-07-21
+
+### Added
+
+- WaniKani is now a complete optional account integration alongside Jiten, JPDB, and Bunpro. A personal access token connects directly from the browser to WaniKani without a proxy; Yomu respects the account's available level, shows WaniKani meanings, readings, mnemonics, hints, components, visually similar kanji, related vocabulary, context sentences, audio, assignment stage and review accuracy, and adds currently due assignments to Study and My Cards. Submitted reviews use WaniKani's incorrect meaning/reading counts, are sent only while online, and cannot be accidentally replayed or locally undone.
+- Uchisen kanji support is available throughout the reader, including normal popovers, the Study experience, and page enhancements, with its keyword, component groups, generated stroke image, and stroke-order carousel kept together as one coherent source.
+
+### Security
+
+- WaniKani tokens remain in browser storage, are masked in Settings, never appear in request URLs or logs, and are sent only as bearer credentials to `https://api.wanikani.com` with the official API revision header.
+
 ## [1.6.272] - 2026-07-21
 
 ### Changed
