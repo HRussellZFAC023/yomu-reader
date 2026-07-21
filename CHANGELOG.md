@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.272] - 2026-07-21
+
+### Changed
+
+- Support contributions now use one production Checkout at support.yomureader.com, with a flexible amount in GBP, USD, EUR, CAD, AUD, or JPY. Academy no longer exposes its old test-mode Checkout; every verified contribution is delivered through the private support bridge as permanent Academy access.
+
+### Fixed
+
+- Test-mode Stripe sessions can no longer appear in the live monthly support total. The webhook and progress query both require live-mode sessions, and the banner now shows the genuine production total.
+- The new-tab support banner follows Yomu's selected interface language instead of remote English copy. Japanese users now see Japanese progress text, labels, and call to action, with currency values formatted for the selected contribution currency.
+
 ## [1.6.271] - 2026-07-21
 
 ### Fixed
