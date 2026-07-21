@@ -1,6 +1,8 @@
 import { requestHttp } from '../network/http-request';
 import { isAbortError } from '../core/errors';
+import { PromiseLruCache } from '../core/promise-lru-cache';
 import { recordJitenDailyStats } from './jiten-stats-cache';
+import { JitenParseBatcher } from './jiten-parse-batcher';
 import type { ReaderHttpOptions } from '../network/http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
@@ -10,6 +12,7 @@ export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MISSING_API_KEY_MESSAGE = 'Jiten API key is not set.';
+const PUBLIC_READ_CACHE_LIMIT = 160;
 
 export interface JitenReaderStudyDeck {
     userStudyDeckId: number;
@@ -319,10 +322,21 @@ export type JitenVocabularyDeckState = 'mining' | 'blacklist' | 'neverForget' | 
 export type JitenVocabularyStateAction = 'add' | 'remove';
 
 export class JitenApiClient {
+    private readonly parseBatcher: JitenParseBatcher<JPDBToken[]>;
+    private readonly vocabularyInfoCache = new PromiseLruCache<string, JitenVocabularyInfo | null>(PUBLIC_READ_CACHE_LIMIT);
+    private readonly vocabularySearchCache = new PromiseLruCache<string, JPDBCard[]>(PUBLIC_READ_CACHE_LIMIT);
+    private readonly kanjiCache = new PromiseLruCache<string, JitenKanjiInfo | null>(PUBLIC_READ_CACHE_LIMIT);
+    private readonly kanjiWordsCache = new PromiseLruCache<string, JitenKanjiWordsPage | null>(PUBLIC_READ_CACHE_LIMIT);
+
     constructor(
         private getApiKey: () => string,
         private options: JitenApiClientOptions = {},
-    ) {}
+    ) {
+        this.parseBatcher = new JitenParseBatcher({
+            loadBatch: paragraphs => this.fetchParseBatch(paragraphs),
+            emptyResult: () => [],
+        });
+    }
 
     async ping(): Promise<boolean> {
         await this.request('reader/ping', undefined);
@@ -341,12 +355,15 @@ export class JitenApiClient {
     }
 
     async parse(paragraphs: string[]): Promise<JPDBToken[][]> {
-        const response = await this.request('reader/parse', { text: paragraphs });
-        return jitenParseResultToTokens(paragraphs, response);
+        return this.parseBatcher.load(paragraphs);
     }
 
-    async lookupVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
+    lookupVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const reference = jitenCardReference(card);
+        return this.vocabularyInfoCache.getOrLoad(jitenLookupKey(reference.wordId, reference.readingIndex), () => this.fetchVocabularyInfo(reference));
+    }
+
+    private async fetchVocabularyInfo(reference: JitenCardReference): Promise<JitenVocabularyInfo | null> {
         const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
         // Fire the examples request alongside info rather than after it: the info
         // response already carries the frequency rank and definitions the popover
@@ -379,7 +396,14 @@ export class JitenApiClient {
         return this.lookupVocabularyInfo(jitenCard);
     }
 
-    async searchVocabulary(query: string, limit = 10): Promise<JPDBCard[]> {
+    searchVocabulary(query: string, limit = 10): Promise<JPDBCard[]> {
+        const normalizedQuery = query.trim();
+        if (!normalizedQuery) return Promise.resolve([]);
+        const normalizedLimit = Math.max(1, Math.floor(limit));
+        return this.vocabularySearchCache.getOrLoad(`${normalizedQuery}:${normalizedLimit}`, () => this.fetchVocabularySearch(normalizedQuery, normalizedLimit));
+    }
+
+    private async fetchVocabularySearch(query: string, limit: number): Promise<JPDBCard[]> {
         const response = await this.requestEndpoint<unknown>('vocabulary/search', undefined, {
             method: 'GET',
             query: { query, limit },
@@ -439,16 +463,25 @@ export class JitenApiClient {
         return bestParsedJitenCard(card, spelling, tokens);
     }
 
-    async lookupKanji(character: string): Promise<JitenKanjiInfo | null> {
+    lookupKanji(character: string): Promise<JitenKanjiInfo | null> {
         const kanji = character.trim();
-        if (!kanji) return null;
+        if (!kanji) return Promise.resolve(null);
+        return this.kanjiCache.getOrLoad(kanji, () => this.fetchKanji(kanji));
+    }
+
+    private async fetchKanji(kanji: string): Promise<JitenKanjiInfo | null> {
         const payload = await this.requestEndpoint<unknown>(`kanji/${encodeURIComponent(kanji)}`, undefined, { method: 'GET' });
         return normalizeJitenKanjiInfo(payload);
     }
 
-    async lookupKanjiWords(character: string, options: { reading?: string; page?: number; pageSize?: number } = {}): Promise<JitenKanjiWordsPage | null> {
+    lookupKanjiWords(character: string, options: { reading?: string; page?: number; pageSize?: number } = {}): Promise<JitenKanjiWordsPage | null> {
         const kanji = character.trim();
-        if (!kanji) return null;
+        if (!kanji) return Promise.resolve(null);
+        const key = [kanji, options.reading ?? '', options.page ?? '', options.pageSize ?? ''].join(':');
+        return this.kanjiWordsCache.getOrLoad(key, () => this.fetchKanjiWords(kanji, options));
+    }
+
+    private async fetchKanjiWords(kanji: string, options: { reading?: string; page?: number; pageSize?: number }): Promise<JitenKanjiWordsPage | null> {
         const payload = await this.requestEndpoint<unknown>(`kanji/${encodeURIComponent(kanji)}/words`, undefined, {
             method: 'GET',
             query: {
@@ -458,6 +491,11 @@ export class JitenApiClient {
             },
         });
         return normalizeJitenKanjiWordsPage(payload);
+    }
+
+    private async fetchParseBatch(paragraphs: string[]): Promise<JPDBToken[][]> {
+        const response = await this.request('reader/parse', { text: paragraphs });
+        return jitenParseResultToTokens(paragraphs, response);
     }
 
     async listReaderStudyDecks(): Promise<JitenReaderStudyDeck[]> {
@@ -1807,4 +1845,3 @@ function endpointUrl(baseUrl: string | undefined, endpoint: string, query?: Jite
     const queryString = params.toString();
     return queryString ? `${url}?${queryString}` : url;
 }
-

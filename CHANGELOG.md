@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.275] - 2026-07-21
+
+### Changed
+
+- Overlapping Jiten parsing work is now coalesced into bounded provider batches. Page scans, subtitle preparation, and popup fallbacks that start together share one `reader/parse` request per unique text row instead of each caller issuing its own lookup, while large payloads remain split and concurrency-limited.
+- Repeated Jiten vocabulary details, searches, kanji facts, and kanji word pages now reuse a bounded session cache, including in-flight requests. Failed reads are evicted immediately so a transient outage can still heal on the next lookup.
+
 ## [1.6.274] - 2026-07-21
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.274
+// @version 1.6.275
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.8078164e351c.user.js#sha256=gHgWTjUciJtfNWATOQ2Od6W0TPpwf1qleCoQLkVzgM0=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.834adda55a71.user.js#sha256=g0rdpVpxH4l2UrfWrvIjNMK7r1HH4IAlLGXAHKgKx4g=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.832cf9ae5018.user.js#sha256=gyz5rlAY66IfRPTnNwj0AHWsHJgYlSAiEe+B1XPQ8qM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.5c6c6a6351b3.user.js#sha256=XGxqY1GzfDrzvI9xMOVm1LgzHr405WusCtyEVQlyzOs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d24b88ced86b.user.js#sha256=0kuIzthr6Iv96OLomUf5NWrv1Ds6kXJ0B7BMoA3+4NM=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.804d3c6f38ea.user.js#sha256=gE08bzjqLD9RiE/WkLQUo0EM/lQVKqr0TJ3OZp4CUE8=
 // @require https://yomureader.com/greasyfork/yomu-video.2b32247dff16.user.js#sha256=KzIkff8Wpv/vHJkjgqPD84WdlnAwCygCDZ4g+6L5IRA=
 // @resource yomuCss  https://yomureader.com/yomu.3a89a092ab56.css#sha256=OomgkqtW/j61f7QYjXSxaL3wKlw0cSX1v+SUM8yZLVM=
@@ -25227,6 +25227,37 @@ function intersects(a, b) {
 function isAbortError(error) {
   return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
+class PromiseLruCache {
+  constructor(maxSize) {
+  this.maxSize = maxSize;
+  }
+  entries = new Map();
+  getOrLoad(key, load) {
+  const cached = this.entries.get(key);
+  if (cached) {
+    this.entries.delete(key);
+    this.entries.set(key, cached);
+    return cached;
+  }
+  const promise = load();
+  this.entries.set(key, promise);
+  this.prune();
+  void promise.catch(() => {
+    if (this.entries.get(key) === promise) this.entries.delete(key);
+  });
+  return promise;
+  }
+  clear() {
+  this.entries.clear();
+  }
+  prune() {
+  while (this.entries.size > Math.max(1, this.maxSize)) {
+    const oldest = this.entries.keys().next().value;
+    if (oldest === void 0) return;
+    this.entries.delete(oldest);
+  }
+  }
+}
 const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
 const JITEN_DAILY_STATS_MAX_DAYS = 400;
 function recordJitenDailyStats(counts, now = new Date()) {
@@ -25269,9 +25300,90 @@ function pruneJitenDailyStats(stored) {
 function finiteCount(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
 }
+const DEFAULT_MAX_BATCH_BYTES = 16384;
+const DEFAULT_MAX_BATCH_ITEMS = 80;
+const DEFAULT_CONCURRENCY = 2;
+const JSON_STRING_OVERHEAD_BYTES = 7;
+const utf8Encoder$1 = new TextEncoder();
+class JitenParseBatcher {
+  constructor(options) {
+  this.options = options;
+  this.gate = new ConcurrencyGate(options.concurrency ?? DEFAULT_CONCURRENCY);
+  }
+  pending = new Map();
+  inFlight = new Map();
+  gate;
+  flushScheduled = false;
+  load(paragraphs) {
+  return Promise.all(paragraphs.map((paragraph) => paragraph.trim() ? this.loadParagraph(paragraph) : Promise.resolve(this.options.emptyResult())));
+  }
+  loadParagraph(paragraph) {
+  const existing = this.inFlight.get(paragraph);
+  if (existing) return existing;
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  const entry = { paragraph, promise, resolve, reject };
+  this.pending.set(paragraph, entry);
+  this.inFlight.set(paragraph, promise);
+  void promise.then(
+    () => this.forgetInFlight(paragraph, promise),
+    () => this.forgetInFlight(paragraph, promise)
+  );
+  this.scheduleFlush();
+  return promise;
+  }
+  scheduleFlush() {
+  if (this.flushScheduled) return;
+  this.flushScheduled = true;
+  queueMicrotask(() => this.flush());
+  }
+  flush() {
+  this.flushScheduled = false;
+  const entries2 = [...this.pending.values()];
+  this.pending.clear();
+  for (const batch of this.batches(entries2)) this.loadQueuedBatch(batch);
+  }
+  loadQueuedBatch(batch) {
+  const paragraphs = batch.map((entry) => entry.paragraph);
+  const request = this.gate.run(() => this.options.loadBatch(paragraphs));
+  batch.forEach((entry, index) => {
+    void request.then(
+      (results) => entry.resolve(results[index] ?? this.options.emptyResult()),
+      (error) => entry.reject(error)
+    );
+  });
+  }
+  batches(entries2) {
+  const maxBytes = Math.max(1, this.options.maxBatchBytes ?? DEFAULT_MAX_BATCH_BYTES);
+  const maxItems = Math.max(1, this.options.maxBatchItems ?? DEFAULT_MAX_BATCH_ITEMS);
+  const batches = [];
+  let batch = [];
+  let batchBytes = 0;
+  for (const entry of entries2) {
+    const bytes = utf8Encoder$1.encode(entry.paragraph).length + JSON_STRING_OVERHEAD_BYTES;
+    if (batch.length && (batch.length >= maxItems || batchBytes + bytes > maxBytes)) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
+    }
+    batch.push(entry);
+    batchBytes += bytes;
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
+  }
+  forgetInFlight(paragraph, promise) {
+  if (this.inFlight.get(paragraph) === promise) this.inFlight.delete(paragraph);
+  }
+}
 const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
 const REQUEST_TIMEOUT_MS$4 = 3e4;
 const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
+const PUBLIC_READ_CACHE_LIMIT = 160;
 class JitenApiError extends Error {
   constructor(message, status) {
   super(message);
@@ -25283,7 +25395,16 @@ class JitenApiClient {
   constructor(getApiKey, options = {}) {
   this.getApiKey = getApiKey;
   this.options = options;
+  this.parseBatcher = new JitenParseBatcher({
+    loadBatch: (paragraphs) => this.fetchParseBatch(paragraphs),
+    emptyResult: () => []
+  });
   }
+  parseBatcher;
+  vocabularyInfoCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  vocabularySearchCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  kanjiCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  kanjiWordsCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
   async ping() {
   await this.request("reader/ping", void 0);
   return true;
@@ -25299,11 +25420,13 @@ class JitenApiClient {
   }
   }
   async parse(paragraphs) {
-  const response = await this.request("reader/parse", { text: paragraphs });
-  return jitenParseResultToTokens(paragraphs, response);
+  return this.parseBatcher.load(paragraphs);
   }
-  async lookupVocabularyInfo(card) {
+  lookupVocabularyInfo(card) {
   const reference = jitenCardReference(card);
+  return this.vocabularyInfoCache.getOrLoad(jitenLookupKey(reference.wordId, reference.readingIndex), () => this.fetchVocabularyInfo(reference));
+  }
+  async fetchVocabularyInfo(reference) {
   const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
   const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
   const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
@@ -25325,7 +25448,13 @@ class JitenApiClient {
   }
   return this.lookupVocabularyInfo(jitenCard);
   }
-  async searchVocabulary(query, limit = 10) {
+  searchVocabulary(query, limit = 10) {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return Promise.resolve([]);
+  const normalizedLimit = Math.max(1, Math.floor(limit));
+  return this.vocabularySearchCache.getOrLoad(`${normalizedQuery}:${normalizedLimit}`, () => this.fetchVocabularySearch(normalizedQuery, normalizedLimit));
+  }
+  async fetchVocabularySearch(query, limit) {
   const response = await this.requestEndpoint("vocabulary/search", void 0, {
     method: "GET",
     query: { query, limit }
@@ -25381,15 +25510,22 @@ class JitenApiClient {
   }
   return bestParsedJitenCard(card, spelling, tokens);
   }
-  async lookupKanji(character) {
+  lookupKanji(character) {
   const kanji = character.trim();
-  if (!kanji) return null;
+  if (!kanji) return Promise.resolve(null);
+  return this.kanjiCache.getOrLoad(kanji, () => this.fetchKanji(kanji));
+  }
+  async fetchKanji(kanji) {
   const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}`, void 0, { method: "GET" });
   return normalizeJitenKanjiInfo(payload);
   }
-  async lookupKanjiWords(character, options = {}) {
+  lookupKanjiWords(character, options = {}) {
   const kanji = character.trim();
-  if (!kanji) return null;
+  if (!kanji) return Promise.resolve(null);
+  const key = [kanji, options.reading ?? "", options.page ?? "", options.pageSize ?? ""].join(":");
+  return this.kanjiWordsCache.getOrLoad(key, () => this.fetchKanjiWords(kanji, options));
+  }
+  async fetchKanjiWords(kanji, options) {
   const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}/words`, void 0, {
     method: "GET",
     query: {
@@ -25399,6 +25535,10 @@ class JitenApiClient {
     }
   });
   return normalizeJitenKanjiWordsPage(payload);
+  }
+  async fetchParseBatch(paragraphs) {
+  const response = await this.request("reader/parse", { text: paragraphs });
+  return jitenParseResultToTokens(paragraphs, response);
   }
   async listReaderStudyDecks() {
   const response = await this.request("srs/reader-study-decks", void 0);
@@ -35108,8 +35248,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.274"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.274"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.275"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.275"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35241,7 +35381,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.274"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.275"}`;
   } catch {
   return null;
   }

@@ -45454,7 +45454,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.274".trim() ? "1.6.274".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.275".trim() ? "1.6.275".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73878,7 +73878,7 @@ ${component.reading}`;
   const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
   const JPDB_ALL_DECKS_ID = "all";
   const log$b = Logger.scope("JpdbClient");
-  const utf8Encoder = new TextEncoder();
+  const utf8Encoder$1 = new TextEncoder();
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       this.getApiKey = getApiKey;
@@ -74192,7 +74192,7 @@ ${component.reading}`;
     return batches;
   }
   function parseParagraphRequestBytes(paragraph) {
-    return utf8Encoder.encode(paragraph).length + PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES;
+    return utf8Encoder$1.encode(paragraph).length + PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES;
   }
   function vocabularyPairKey(vid, sid) {
     return `${vid}/${sid}`;
@@ -74289,6 +74289,37 @@ ${component.reading}`;
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";
   }
+  class PromiseLruCache {
+    constructor(maxSize) {
+      this.maxSize = maxSize;
+    }
+    entries = /* @__PURE__ */ new Map();
+    getOrLoad(key, load) {
+      const cached = this.entries.get(key);
+      if (cached) {
+        this.entries.delete(key);
+        this.entries.set(key, cached);
+        return cached;
+      }
+      const promise = load();
+      this.entries.set(key, promise);
+      this.prune();
+      void promise.catch(() => {
+        if (this.entries.get(key) === promise) this.entries.delete(key);
+      });
+      return promise;
+    }
+    clear() {
+      this.entries.clear();
+    }
+    prune() {
+      while (this.entries.size > Math.max(1, this.maxSize)) {
+        const oldest = this.entries.keys().next().value;
+        if (oldest === void 0) return;
+        this.entries.delete(oldest);
+      }
+    }
+  }
   const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
   const JITEN_DAILY_STATS_MAX_DAYS = 400;
   function recordJitenDailyStats(counts, now = /* @__PURE__ */ new Date()) {
@@ -74333,9 +74364,90 @@ ${component.reading}`;
   function finiteCount(value) {
     return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
   }
+  const DEFAULT_MAX_BATCH_BYTES = 16384;
+  const DEFAULT_MAX_BATCH_ITEMS = 80;
+  const DEFAULT_CONCURRENCY = 2;
+  const JSON_STRING_OVERHEAD_BYTES = 7;
+  const utf8Encoder = new TextEncoder();
+  class JitenParseBatcher {
+    constructor(options) {
+      this.options = options;
+      this.gate = new ConcurrencyGate(options.concurrency ?? DEFAULT_CONCURRENCY);
+    }
+    pending = /* @__PURE__ */ new Map();
+    inFlight = /* @__PURE__ */ new Map();
+    gate;
+    flushScheduled = false;
+    load(paragraphs) {
+      return Promise.all(paragraphs.map((paragraph) => paragraph.trim() ? this.loadParagraph(paragraph) : Promise.resolve(this.options.emptyResult())));
+    }
+    loadParagraph(paragraph) {
+      const existing = this.inFlight.get(paragraph);
+      if (existing) return existing;
+      let resolve;
+      let reject;
+      const promise = new Promise((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      });
+      const entry = { paragraph, promise, resolve, reject };
+      this.pending.set(paragraph, entry);
+      this.inFlight.set(paragraph, promise);
+      void promise.then(
+        () => this.forgetInFlight(paragraph, promise),
+        () => this.forgetInFlight(paragraph, promise)
+      );
+      this.scheduleFlush();
+      return promise;
+    }
+    scheduleFlush() {
+      if (this.flushScheduled) return;
+      this.flushScheduled = true;
+      queueMicrotask(() => this.flush());
+    }
+    flush() {
+      this.flushScheduled = false;
+      const entries2 = [...this.pending.values()];
+      this.pending.clear();
+      for (const batch of this.batches(entries2)) this.loadQueuedBatch(batch);
+    }
+    loadQueuedBatch(batch) {
+      const paragraphs = batch.map((entry) => entry.paragraph);
+      const request = this.gate.run(() => this.options.loadBatch(paragraphs));
+      batch.forEach((entry, index) => {
+        void request.then(
+          (results) => entry.resolve(results[index] ?? this.options.emptyResult()),
+          (error) => entry.reject(error)
+        );
+      });
+    }
+    batches(entries2) {
+      const maxBytes = Math.max(1, this.options.maxBatchBytes ?? DEFAULT_MAX_BATCH_BYTES);
+      const maxItems = Math.max(1, this.options.maxBatchItems ?? DEFAULT_MAX_BATCH_ITEMS);
+      const batches = [];
+      let batch = [];
+      let batchBytes = 0;
+      for (const entry of entries2) {
+        const bytes = utf8Encoder.encode(entry.paragraph).length + JSON_STRING_OVERHEAD_BYTES;
+        if (batch.length && (batch.length >= maxItems || batchBytes + bytes > maxBytes)) {
+          batches.push(batch);
+          batch = [];
+          batchBytes = 0;
+        }
+        batch.push(entry);
+        batchBytes += bytes;
+      }
+      if (batch.length) batches.push(batch);
+      return batches;
+    }
+    forgetInFlight(paragraph, promise) {
+      if (this.inFlight.get(paragraph) === promise) this.inFlight.delete(paragraph);
+    }
+  }
   const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$2 = 3e4;
   const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
+  const PUBLIC_READ_CACHE_LIMIT = 160;
   class JitenApiError extends Error {
     constructor(message, status) {
       super(message);
@@ -74347,7 +74459,16 @@ ${component.reading}`;
     constructor(getApiKey, options = {}) {
       this.getApiKey = getApiKey;
       this.options = options;
+      this.parseBatcher = new JitenParseBatcher({
+        loadBatch: (paragraphs) => this.fetchParseBatch(paragraphs),
+        emptyResult: () => []
+      });
     }
+    parseBatcher;
+    vocabularyInfoCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+    vocabularySearchCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+    kanjiCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+    kanjiWordsCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
     async ping() {
       await this.request("reader/ping", void 0);
       return true;
@@ -74363,11 +74484,13 @@ ${component.reading}`;
       }
     }
     async parse(paragraphs) {
-      const response = await this.request("reader/parse", { text: paragraphs });
-      return jitenParseResultToTokens(paragraphs, response);
+      return this.parseBatcher.load(paragraphs);
     }
-    async lookupVocabularyInfo(card) {
+    lookupVocabularyInfo(card) {
       const reference = jitenCardReference(card);
+      return this.vocabularyInfoCache.getOrLoad(jitenLookupKey(reference.wordId, reference.readingIndex), () => this.fetchVocabularyInfo(reference));
+    }
+    async fetchVocabularyInfo(reference) {
       const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
       const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
       const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
@@ -74389,7 +74512,13 @@ ${component.reading}`;
       }
       return this.lookupVocabularyInfo(jitenCard);
     }
-    async searchVocabulary(query, limit = 10) {
+    searchVocabulary(query, limit = 10) {
+      const normalizedQuery = query.trim();
+      if (!normalizedQuery) return Promise.resolve([]);
+      const normalizedLimit = Math.max(1, Math.floor(limit));
+      return this.vocabularySearchCache.getOrLoad(`${normalizedQuery}:${normalizedLimit}`, () => this.fetchVocabularySearch(normalizedQuery, normalizedLimit));
+    }
+    async fetchVocabularySearch(query, limit) {
       const response = await this.requestEndpoint("vocabulary/search", void 0, {
         method: "GET",
         query: { query, limit }
@@ -74445,15 +74574,22 @@ ${component.reading}`;
       }
       return bestParsedJitenCard(card, spelling, tokens);
     }
-    async lookupKanji(character) {
+    lookupKanji(character) {
       const kanji = character.trim();
-      if (!kanji) return null;
+      if (!kanji) return Promise.resolve(null);
+      return this.kanjiCache.getOrLoad(kanji, () => this.fetchKanji(kanji));
+    }
+    async fetchKanji(kanji) {
       const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}`, void 0, { method: "GET" });
       return normalizeJitenKanjiInfo(payload);
     }
-    async lookupKanjiWords(character, options = {}) {
+    lookupKanjiWords(character, options = {}) {
       const kanji = character.trim();
-      if (!kanji) return null;
+      if (!kanji) return Promise.resolve(null);
+      const key = [kanji, options.reading ?? "", options.page ?? "", options.pageSize ?? ""].join(":");
+      return this.kanjiWordsCache.getOrLoad(key, () => this.fetchKanjiWords(kanji, options));
+    }
+    async fetchKanjiWords(kanji, options) {
       const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}/words`, void 0, {
         method: "GET",
         query: {
@@ -74463,6 +74599,10 @@ ${component.reading}`;
         }
       });
       return normalizeJitenKanjiWordsPage(payload);
+    }
+    async fetchParseBatch(paragraphs) {
+      const response = await this.request("reader/parse", { text: paragraphs });
+      return jitenParseResultToTokens(paragraphs, response);
     }
     async listReaderStudyDecks() {
       const response = await this.request("srs/reader-study-decks", void 0);
