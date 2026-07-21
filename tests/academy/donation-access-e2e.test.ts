@@ -68,7 +68,7 @@ describe('support donation to Academy access', () => {
                     amount_total: amountMinor,
                     currency,
                     payment_status: 'paid',
-                    metadata: { yomu_academy_claim_hash: claimHash },
+                    metadata: { yomu_service: 'support', yomu_academy_claim_hash: claimHash },
                 },
             },
         });

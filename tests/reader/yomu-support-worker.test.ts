@@ -652,6 +652,7 @@ describe("Yomu support Worker", () => {
           amount_total: 750,
           currency: "gbp",
           payment_status: "paid",
+          metadata: { yomu_service: "support" },
         },
       },
     });
@@ -724,7 +725,7 @@ describe("Yomu support Worker", () => {
           amount_total: 750,
           currency: "gbp",
           payment_status: "paid",
-          metadata: { yomu_academy_purchase: purchaseId },
+          metadata: { yomu_service: "support", yomu_academy_purchase: purchaseId },
         },
       },
     });
@@ -842,6 +843,25 @@ describe("Yomu support Worker", () => {
     expect(db.rows).toHaveLength(0);
     expect(academy.fetch).not.toHaveBeenCalled();
   });
+
+  it.each([null, "another-service"])(
+    "ignores a signed live Checkout session without the Yomu support marker %#",
+    async supportService => {
+      const db = mockSupportDb();
+      const academy = mockAcademyIngress();
+      const response = await postStripeCheckoutEvent({
+        eventId: `evt_unscoped_${supportService ?? "missing"}`,
+        sessionId: `cs_live_unscoped_${supportService ?? "missing"}`,
+        timestamp: Math.floor(Date.now() / 1000),
+        supportService,
+      }, db, academy);
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+      expect(db.rows).toHaveLength(0);
+      expect(academy.fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it("returns 5xx and defers support accounting when Academy ingestion fails", async () => {
     const db = mockSupportDb();
@@ -1200,8 +1220,12 @@ function stripeCheckoutEventPayload(input: {
   amountMinor?: number;
   currency?: string;
   eventLivemode?: boolean;
+  supportService?: string | null;
 }): string {
-  const metadata = input.purchaseId ? { metadata: { yomu_academy_purchase: input.purchaseId } } : {};
+  const metadata = {
+    ...(input.supportService === null ? {} : { yomu_service: input.supportService ?? "support" }),
+    ...(input.purchaseId ? { yomu_academy_purchase: input.purchaseId } : {}),
+  };
   return JSON.stringify({
     id: input.eventId,
     type: "checkout.session.completed",
@@ -1213,7 +1237,7 @@ function stripeCheckoutEventPayload(input: {
         amount_total: input.amountMinor ?? 500,
         currency: input.currency ?? "gbp",
         payment_status: "paid",
-        ...metadata,
+        ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
       },
     },
   });

@@ -1433,7 +1433,9 @@ function validStripeDonationFields(
   const amountMinor = numberField(session, "amount_total");
   const currency = stringField(session, "currency")?.toLowerCase();
   const paymentStatus = stringField(session, "payment_status");
+  const service = stringField(objectRecord(session?.metadata), "yomu_service");
   if (!id || !sessionId || !amountMinor || amountMinor <= 0 || paymentStatus !== "paid") return null;
+  if (service !== "support") return null;
   if (!/^cs_live_[A-Za-z0-9_-]{3,250}$/u.test(sessionId)) return null;
   if (!isDonationCurrency(currency) || !validDonationMinor(amountMinor, currency)) return null;
   return { id, sessionId, amountMinor, currency };
