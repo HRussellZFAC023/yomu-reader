@@ -31,7 +31,8 @@ Routes:
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
   body). The first verified positive active-membership event grants permanent
   Academy access. Later decline/delete events are audited but never revoke that
-  grant; only pledge-create receipts create unique support-income rows in D1.
+  grant; only current `members:pledge:create` receipts create unique
+  support-income rows in D1. Deprecated v1 `pledges:*` events are ignored.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for

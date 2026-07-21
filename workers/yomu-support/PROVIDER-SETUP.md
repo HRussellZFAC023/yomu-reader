@@ -120,8 +120,11 @@ canonical private ingress is called.
    https://support.yomureader.com/webhooks/patreon
    ```
 
-   Subscribe to the pledge/member triggers (`members:pledge:create`,
-   `members:pledge:update`). Patreon shows a **secret** for the webhook.
+   Subscribe to the current member triggers (`members:create`,
+   `members:update`, `members:delete`, `members:pledge:create`,
+   `members:pledge:update`, and `members:pledge:delete`). Do not enable the
+   deprecated v1 `pledges:*` triggers. Patreon shows a **secret** for the
+   webhook.
 3. Store the secret:
 
    ```bash
@@ -136,7 +139,9 @@ Notes: Patreon signs the raw body with **HMAC-MD5** in the `X-Patreon-Signature`
 header; the Worker verifies it in constant time. The first positive active
 membership event grants permanent Academy access. Declines and deletes are
 audited but never revoke it. Only pledge-create webhooks increment the support
-income total; other membership updates are not counted as new receipts. Pledge
+income total; other membership updates are not counted as new receipts. A
+signed skeletal event from Patreon's webhook tester is acknowledged without
+granting access or recording income. Pledge
 amounts are read from
 `data.attributes.amount_cents` (falling back to
 `currently_entitled_amount_cents` / `will_pay_amount_cents`) and treated as

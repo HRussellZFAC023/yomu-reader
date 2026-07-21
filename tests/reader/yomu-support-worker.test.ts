@@ -651,16 +651,28 @@ describe("Yomu support Worker", () => {
     expect(db.rows[0]).toMatchObject({ provider: "kofi", id: "message-42", amountMinor: 100 });
   });
 
-  it("refuses to count a signed Patreon event without stable membership identity", async () => {
+  it("acknowledges a signed Patreon test event without granting or recording it", async () => {
     const db = mockSupportDb();
+    const academy = mockAcademyIngress();
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
-    const response = await fetchSupportWebhook(
-      await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret"),
-      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db },
-    );
+    const response = await postPatreonEvent(payload, "members:create", db, academy);
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
     expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).not.toHaveBeenCalled();
+  });
+
+  it("ignores deprecated Patreon v1 pledge events", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const payload = patreonMemberPayload("legacy-member", "active_patron", "2026-07-20T01:00:00.000Z");
+    const response = await postPatreonEvent(payload, "pledges:create", db, academy);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).not.toHaveBeenCalled();
   });
 
   it("rejects a Patreon webhook with an invalid signature", async () => {
@@ -759,11 +771,11 @@ describe("Yomu support Worker", () => {
     expect(envelope).not.toHaveProperty("entitlement");
   });
 
-  it("forwards Patreon declines as revocations without recording pledge income", async () => {
+  it("forwards Patreon declined-member updates as revocations without recording pledge income", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const payload = patreonMemberPayload("member-declined", "declined_patron", "2026-07-20T04:00:00.000Z");
-    const response = await postPatreonEvent(payload, "members:pledge:decline", db, academy);
+    const response = await postPatreonEvent(payload, "members:update", db, academy);
 
     await expectPatreonRevocationResponse(response, db);
     await expect(academy.requests[0]!.json()).resolves.toMatchObject({

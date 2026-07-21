@@ -23,6 +23,14 @@ const STRIPE_DONATION_EVENT_TYPES = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
 ]);
+const PATREON_MEMBERSHIP_EVENT_TYPES = new Set([
+  "members:create",
+  "members:update",
+  "members:delete",
+  "members:pledge:create",
+  "members:pledge:update",
+  "members:pledge:delete",
+]);
 const STATUS_CACHE_SECONDS = 300;
 const SUPPORT_CLAIM_COOKIE = "__Host-yomu_support_claim";
 const SUPPORT_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60;
@@ -877,7 +885,10 @@ async function handleVerifiedPatreonWebhook(request: Request, env: Env, db: D1Da
   }
   const parsed = parseJson(raw);
   const academyEnvelope = await patreonAcademyEnvelope(trigger, raw, parsed);
-  if (!academyEnvelope) return textResponse("Patreon membership identity is incomplete.", 422);
+  // Patreon's signed webhook tester intentionally sends a skeletal resource.
+  // A real event without enough verified membership data cannot grant access,
+  // but retrying the same immutable payload cannot make it complete either.
+  if (!academyEnvelope) return jsonResponse(request, { received: true, recorded: false }, 200);
   await forwardAcademyPayment(env, academyEnvelope);
   if (!isPatreonIncomeTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
@@ -1057,7 +1068,7 @@ function patreonActiveEnvelope(
 }
 
 function isPatreonRevocation(trigger: string, status: string): boolean {
-  if (/(?:delete|decline)/i.test(trigger)) return true;
+  if (trigger.trim().toLowerCase().endsWith(":delete")) return true;
   return new Set(["former_patron", "declined_patron"]).has(status);
 }
 
@@ -1098,12 +1109,12 @@ function providerClaimHash(value: unknown): string | null {
 }
 
 function isPatreonMembershipTrigger(trigger: string): boolean {
-  return /^(?:pledges?:|members:(?:pledge:)?(?:create|update|delete|decline))/i.test(trigger);
+  return PATREON_MEMBERSHIP_EVENT_TYPES.has(trigger.trim().toLowerCase());
 }
 
 /** Membership state updates are not receipts. Count only pledge creation. */
 function isPatreonIncomeTrigger(trigger: string): boolean {
-  return /^(?:pledges?|members:pledge):create$/iu.test(trigger.trim());
+  return trigger.trim().toLowerCase() === "members:pledge:create";
 }
 
 function gbpMinorFromProviderAmount(
