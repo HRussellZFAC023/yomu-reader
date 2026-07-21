@@ -6,6 +6,7 @@ import { applyMokuroReaderOcrDefault, installMokuroOcrToggleNote } from '../app/
 import { announceInstalledReaderRuntime } from '../app/runtime-presence';
 import { installUserscriptGmStorageBridgeWhenReady, installUserscriptHttpBridgeWhenReady } from './index';
 import { installPageOpenShadowRootDiscoveryBridge } from '../dom/shadow-scan-registry';
+import { promoteStrandedHostedSettingsToGmStorage } from '../settings';
 
 // The hosted website runs the same readable bundle as a no-install fallback.
 // Signal a real userscript/extension immediately so that fallback never races
@@ -17,6 +18,11 @@ installPreferredJapaneseSiteLanguageFromStoredSettings();
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();
 installUserscriptGmStorageBridgeWhenReady();
+// From the userscript sandbox (direct GM_setValue + same-origin localStorage),
+// promote any API key / theme the hosted-app Settings stranded in this origin's
+// localStorage into the shared GM store, so they reach every other site's
+// userscript. Safe: only fills GM fields still at their default.
+void promoteStrandedHostedSettingsToGmStorage();
 if (!isYomuNewTabUrl(location.href)) {
     installPageOpenShadowRootDiscoveryBridge();
     bootWhenDocumentIsReady();

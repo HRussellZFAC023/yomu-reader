@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.266] - 2026-07-21
+
+### Fixed
+
+- An API key or theme set on the yomureader.com Settings page now reaches youtube.com and every other site. On iPad Safari the hosted-app settings live in that page's own storage while every other site's userscript reads the shared userscript store, so keys and the dark theme were stranded on yomureader.com and other sites fell back to defaults (light theme, no key). The userscript now promotes those stranded values into the shared store the instant it loads on yomureader.com, filling only values still at their default so a choice made on another site is never overwritten.
+
 ## [1.6.265] - 2026-07-21
 
 ### Fixed

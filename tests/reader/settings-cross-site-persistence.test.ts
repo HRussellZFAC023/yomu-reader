@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadSettings, saveSettings } from '../../src/reader/settings/index';
+import { loadSettings, promoteStrandedHostedSettingsToGmStorage, saveSettings } from '../../src/reader/settings/index';
 
 // Simulate a message-based userscript manager (Greasemonkey 4 / Safari
 // Userscripts / FireMonkey): every GM.getValue call structured-clones both the
@@ -70,6 +70,47 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
     afterEach(() => {
         localStorage.clear();
         vi.unstubAllGlobals();
+    });
+
+    it('eagerly promotes a hosted-app jiten key + dark theme into the shared GM store from the userscript sandbox', async () => {
+        // The userscript entry runs this at document-start on yomureader.com;
+        // it must push the key + theme into GM so youtube.com (which reads GM)
+        // no longer falls back to defaults (light theme, no key).
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'hosted-key', theme: 'dark' }));
+
+        const promoted = await promoteStrandedHostedSettingsToGmStorage();
+        expect(promoted).toBe(true);
+        const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
+        expect(shared.jitenApiKey).toBe('hosted-key');
+        expect(shared.theme).toBe('dark');
+
+        // A subsequent load on another site (shared store) now sees them.
+        vi.stubGlobal('location', { href: 'https://www.youtube.com/', hostname: 'www.youtube.com', pathname: '/', origin: 'https://www.youtube.com' });
+        const onYouTube = await loadSettings();
+        expect(onYouTube.jitenApiKey).toBe('hosted-key');
+        expect(onYouTube.theme).toBe('dark');
+    });
+
+    it('is a no-op on a non-hosted origin and never clobbers an explicit GM choice', async () => {
+        // Off yomureader.com: nothing to promote (cross-origin localStorage is
+        // isolated), so it must not run.
+        vi.stubGlobal('location', { href: 'https://www.youtube.com/', hostname: 'www.youtube.com', pathname: '/', origin: 'https://www.youtube.com' });
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'should-not-promote' }));
+        expect(await promoteStrandedHostedSettingsToGmStorage()).toBe(false);
+        expect(store.get('jpdb-popup-reader-settings')).toBeUndefined();
+
+        // On the hosted origin, a stale hosted default must not overwrite an
+        // explicit GM key set elsewhere.
+        vi.stubGlobal('location', hostedLocation);
+        store.set('jpdb-popup-reader-settings', { jitenApiKey: 'real-gm-key' });
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'stale-hosted-key' }));
+        await promoteStrandedHostedSettingsToGmStorage();
+        expect((store.get('jpdb-popup-reader-settings') as Record<string, unknown>).jitenApiKey).toBe('real-gm-key');
     });
 
     it('folds stranded jiten key and theme into an existing shared store, ignoring demo staging keys', async () => {

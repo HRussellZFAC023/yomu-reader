@@ -1662,6 +1662,39 @@ function recoverStrandedHostedSettings(current: ReaderSettings, stranded: Reader
     return { settings, changed };
 }
 
+// Called from the userscript entry at document-start on trusted hosted origins
+// (yomureader.com). Root cause it addresses (iPad Safari): a user's API key and
+// theme entered through the hosted-app Settings land in THIS origin's
+// localStorage, but every other site's userscript reads the shared GM store —
+// so the token/theme never leave yomureader.com and youtube.com falls back to
+// defaults (light theme, no key). The lazy loadSettings recovery only fires
+// when the hosted PAGE re-loads after its bridge is ready, which can miss.
+// The userscript SANDBOX, by contrast, has DIRECT GM_setValue and shares this
+// origin's localStorage, so it can promote the stranded values into GM
+// immediately and unconditionally. Reuses recoverStrandedHostedSettings, so it
+// only fills GM fields still at their default — a stale hosted default can
+// never clobber an explicit choice already in GM.
+export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolean> {
+    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
+    try {
+        const strandedRecord = settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
+        if (!strandedRecord) return false;
+        // gmStorageGet already migrates a whole stranded blob into an EMPTY GM
+        // store as a side effect; running it first fills that case. Then
+        // reconcile field-by-field for a partially-populated GM, filling only
+        // GM fields still at their default so an explicit GM choice is never
+        // clobbered. Either path leaves the shared store holding the hosted
+        // key/theme, so youtube.com stops falling back to defaults.
+        const current = mergeSettings(settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null)));
+        const recovery = recoverStrandedHostedSettings(current, mergeSettings(strandedRecord));
+        if (recovery.changed) await persistSettings(recovery.settings);
+        return true;
+    } catch (error) {
+        log.warn('Stranded hosted settings promotion failed', { error });
+        return false;
+    }
+}
+
 function recoverLegacySettings(current: ReaderSettings, legacy: ReaderSettings): { settings: ReaderSettings; changed: boolean } {
     let settings = current;
     let changed = false;
