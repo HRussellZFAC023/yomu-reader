@@ -100,6 +100,25 @@ describe("Yomu support Worker", () => {
     );
   });
 
+  it("localizes the complete support banner for Japanese-only readers", async () => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status", {
+        headers: { "accept-language": "ja-JP,ja;q=0.9" },
+      }),
+      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_DONATIONS_THIS_MONTH_GBP: "0" },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      banner: { message: string; costLabel: string; goalLabel: string; ctaLabel: string };
+    };
+
+    expect(body.banner.message).toContain("寄付で運営されています");
+    expect(body.banner.costLabel).toBe("寄付目標：月£10");
+    expect(body.banner.goalLabel).toBe("今月：£0 / £10");
+    expect(body.banner.ctaLabel).toBe("寄付する");
+    expect(JSON.stringify(body.banner)).not.toContain("Donation goal");
+  });
+
   it("keeps the £10 floor as the effective goal when the forecast is lower", async () => {
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/goal"),
@@ -134,6 +153,84 @@ describe("Yomu support Worker", () => {
     expect(body.providers.find(p => p.provider === "kofi")?.monthGbp).toBe(12);
     expect(body.providers.find(p => p.provider === "patreon")?.monthGbp).toBe(5);
     expect(body.providers.find(p => p.provider === "bmac")?.monthGbp).toBe(0);
+  });
+
+  it("converts native Stripe totals to estimated GBP without rewriting the native ledger", async () => {
+    const day = `${monthKey()}-01`;
+    const db = mockSupportDb([
+      stripeDonationRow("stripe-gbp", day, 500, "gbp"),
+      stripeDonationRow("stripe-usd", day, 1400, "usd"),
+      stripeDonationRow("stripe-jpy", day, 1000, "jpy"),
+    ]);
+    const kv = mockKv({
+      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-21", rates: { USD: 2, JPY: 200 } }),
+    });
+
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      totalThisMonthGbp: number;
+      providers: Array<{ provider: string; monthGbp: number }>;
+    };
+
+    expect(body.totalThisMonthGbp).toBe(17);
+    expect(body.providers.find(provider => provider.provider === "stripe")?.monthGbp).toBe(17);
+    expect(db.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "stripe-usd", amountMinor: 1400, currency: "usd" }),
+      expect.objectContaining({ id: "stripe-jpy", amountMinor: 1000, currency: "jpy" }),
+    ]));
+  });
+
+  it("quarantines historical test Checkout rows from donation progress", async () => {
+    const day = `${monthKey()}-01`;
+    const db = mockSupportDb([
+      stripeDonationRow("live-gbp", day, 500, "gbp"),
+      { ...stripeDonationRow("test-gbp", day, 1000, "gbp"), stripeSessionId: "cs_test_historical_probe" },
+    ]);
+
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db },
+      { waitUntil: vi.fn() },
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      totalTodayGbp: 0,
+      totalThisMonthGbp: 5,
+    });
+  });
+
+  it("omits only foreign totals with no FX rate and never fetches FX for GBP-only progress", async () => {
+    const day = `${monthKey()}-01`;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const gbpOnly = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: mockSupportDb([stripeDonationRow("gbp-only", day, 500, "gbp")]) },
+      { waitUntil: vi.fn() },
+    );
+    await expect(gbpOnly.json()).resolves.toMatchObject({ totalThisMonthGbp: 5 });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const partial = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      {
+        SUPPORT_DB: mockSupportDb([
+          stripeDonationRow("gbp", day, 500, "gbp"),
+          stripeDonationRow("usd", day, 1400, "usd"),
+          stripeDonationRow("cad-no-rate", day, 1000, "cad"),
+        ]),
+        SUPPORT_KV: mockKv({
+          "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-21", rates: { USD: 2 } }),
+        }),
+      },
+      { waitUntil: vi.fn() },
+    );
+    await expect(partial.json()).resolves.toMatchObject({ totalThisMonthGbp: 12 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("localizes the goal into the visitor currency using a cached FX rate", async () => {
@@ -274,6 +371,25 @@ describe("Yomu support Worker", () => {
     await expect(status.json()).resolves.toMatchObject({ status: "stripe-test-mode" });
   });
 
+  it("fails closed for an unrecognized production Stripe credential", async () => {
+    const stripeFetch = vi.fn();
+    vi.stubGlobal("fetch", stripeFetch);
+    const env = { STRIPE_SECRET_KEY: "not-a-stripe-key" };
+    const checkout = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    expect(checkout.status).toBe(503);
+    expect(stripeFetch).not.toHaveBeenCalled();
+    await expect(status.json()).resolves.toMatchObject({ status: "stripe-unconfigured" });
+  });
+
   it("does not loop through the support page when no Stripe donation path is available", async () => {
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5"),
@@ -300,11 +416,11 @@ describe("Yomu support Worker", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("content-security-policy")).toContain("form-action 'self'");
     const body = await response.text();
-    expect(body).toContain('name="amount_gbp"');
-    expect(body).toContain('min="5"');
-    expect(body).toContain('max="500"');
-    expect(body).toContain('step="0.01"');
-    expect(body).not.toContain('value="5"');
+    expect(body).toContain('name="currency"');
+    expect(body).toContain('<option value="gbp" selected>');
+    expect(body).toContain('<option value="jpy"');
+    expect(body).toContain('name="amount"');
+    expect(body).toContain('JPY ¥1,000–¥100,000');
     expect(stripeFetch).not.toHaveBeenCalled();
   });
 
@@ -319,7 +435,7 @@ describe("Yomu support Worker", () => {
         { waitUntil: vi.fn() },
       );
       expect(response.status).toBe(400);
-      await expect(response.text()).resolves.toContain("Enter an amount from £5 to £500");
+      await expect(response.text()).resolves.toContain("within the range shown for the selected currency");
       expect(stripeFetch).not.toHaveBeenCalled();
     },
   );
@@ -333,13 +449,14 @@ describe("Yomu support Worker", () => {
       const body = init.body as URLSearchParams;
       expect(body.get("mode")).toBe("payment");
       expect(body.get("submit_type")).toBe("donate");
+      expect(body.get("line_items[0][price_data][currency]")).toBe("gbp");
       expect(body.get("line_items[0][price_data][unit_amount]")).toBe("750");
       expect(body.get("success_url")).toBe(
         "https://support.yomureader.com/claim?session_id={CHECKOUT_SESSION_ID}",
       );
       checkoutClaimHash = body.get("metadata[yomu_academy_claim_hash]") ?? "";
       expect(checkoutClaimHash).toMatch(/^[a-f0-9]{64}$/u);
-      return Response.json({ url: "https://checkout.stripe.com/c/session" });
+      return Response.json({ id: "cs_live_currency123", livemode: true, url: "https://checkout.stripe.com/c/session" });
     });
     vi.stubGlobal("fetch", stripeFetch);
 
@@ -361,6 +478,85 @@ describe("Yomu support Worker", () => {
     expect(Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join(""))
       .toBe(checkoutClaimHash);
     expect(stripeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["gbp", "5", "500"], ["gbp", "500", "50000"],
+    ["usd", "7", "700"], ["usd", "700", "70000"],
+    ["eur", "6", "600"], ["eur", "600", "60000"],
+    ["cad", "10", "1000"], ["cad", "1000", "100000"],
+    ["aud", "11", "1100"], ["aud", "1100", "110000"],
+    ["jpy", "1000", "1000"], ["jpy", "100000", "100000"],
+  ])("creates a native %s Checkout amount", async (currency, amount, expectedMinor) => {
+    const stripeFetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = init.body as URLSearchParams;
+      expect(body.get("line_items[0][price_data][currency]")).toBe(currency);
+      expect(body.get("line_items[0][price_data][unit_amount]")).toBe(expectedMinor);
+      return Response.json({ id: "cs_live_currency123", livemode: true, url: "https://checkout.stripe.com/c/session" });
+    });
+    vi.stubGlobal("fetch", stripeFetch);
+
+    const response = await SupportWorker.fetch(
+      new Request(`https://support.yomureader.com/donate?currency=${currency}&amount=${amount}`),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(303);
+    expect(stripeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["gbp", "4.99"], ["gbp", "500.01"],
+    ["usd", "6.99"], ["usd", "700.01"],
+    ["eur", "5.99"], ["eur", "600.01"],
+    ["cad", "9.99"], ["cad", "1000.01"],
+    ["aud", "10.99"], ["aud", "1100.01"],
+    ["jpy", "999"], ["jpy", "100001"], ["jpy", "100000.1"],
+    ["btc", "5"],
+  ])("rejects out-of-range %s amount %s", async (currency, amount) => {
+    const stripeFetch = vi.fn();
+    vi.stubGlobal("fetch", stripeFetch);
+    const response = await SupportWorker.fetch(
+      new Request(`https://support.yomureader.com/donate?currency=${currency}&amount=${amount}`),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+    expect(response.status).toBe(400);
+    expect(stripeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "amount=7&amount=8&currency=usd",
+    "amount_gbp=5&amount=7",
+    "amount=7&currency=usd&currency=eur",
+    "amount_gbp=5&currency=usd",
+  ])("rejects duplicate or mixed donation parameters: %s", async query => {
+    const stripeFetch = vi.fn();
+    vi.stubGlobal("fetch", stripeFetch);
+    const response = await SupportWorker.fetch(
+      new Request(`https://support.yomureader.com/donate?${query}`),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+    expect(response.status).toBe(400);
+    expect(stripeFetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps amount_gbp backwards-compatible and GBP-only", async () => {
+    const stripeFetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = init.body as URLSearchParams;
+      expect(body.get("line_items[0][price_data][currency]")).toBe("gbp");
+      expect(body.get("line_items[0][price_data][unit_amount]")).toBe("500");
+      return Response.json({ id: "cs_live_legacy123", livemode: true, url: "https://checkout.stripe.com/c/session" });
+    });
+    vi.stubGlobal("fetch", stripeFetch);
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate?amount_gbp=5&currency=GBP"),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+    expect(response.status).toBe(303);
   });
 
   it("self-claims a verified Stripe donation only with the HttpOnly browser secret", async () => {
@@ -409,7 +605,9 @@ describe("Yomu support Worker", () => {
   });
 
   it("rejects test Checkout URLs returned to the production support host", async () => {
-    const stripeFetch = vi.fn(async () => Response.json({ url: "https://checkout.stripe.com/c/pay/cs_test_123" }));
+    const stripeFetch = vi.fn(async () => Response.json({
+      id: "cs_test_123", livemode: false, url: "https://checkout.stripe.com/c/pay/cs_test_123",
+    }));
     vi.stubGlobal("fetch", stripeFetch);
 
     const response = await SupportWorker.fetch(
@@ -423,6 +621,22 @@ describe("Yomu support Worker", () => {
     expect(stripeFetch).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { id: "cs_live_123", livemode: true, url: "https://evil.example/c/pay/cs_live_123" },
+    { id: "cs_live_123", livemode: true, url: "https://checkout.stripe.com.evil.example/c/pay/cs_live_123" },
+    { id: "cs_test_123", livemode: true, url: "https://checkout.stripe.com/c/pay/cs_test_123" },
+    { id: "cs_live_123", livemode: false, url: "https://checkout.stripe.com/c/pay/cs_live_123" },
+    { livemode: true, url: "https://checkout.stripe.com/c/pay/cs_live_123" },
+  ])("rejects an untrusted production Checkout response %#", async checkout => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(checkout)));
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+    expect(response.status).toBe(503);
+  });
+
   it("records signed Stripe Checkout donation webhooks once and reflects them in status", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
@@ -430,10 +644,11 @@ describe("Yomu support Worker", () => {
     const payload = JSON.stringify({
       id: "evt_donation_1",
       type: "checkout.session.completed",
+      livemode: true,
       created: timestamp,
       data: {
         object: {
-          id: "cs_test_1",
+          id: "cs_live_donation_1",
           amount_total: 750,
           currency: "gbp",
           payment_status: "paid",
@@ -500,6 +715,7 @@ describe("Yomu support Worker", () => {
     const payload = JSON.stringify({
       id: "evt_academy_1",
       type: "checkout.session.completed",
+      livemode: true,
       created: timestamp,
       data: {
         object: {
@@ -569,6 +785,62 @@ describe("Yomu support Worker", () => {
         amountMinor: 500,
       },
     });
+  });
+
+  it("records and forwards a verified native-currency Stripe donation without consulting FX", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const response = await postStripeCheckoutEvent({
+      eventId: "evt_support_usd",
+      sessionId: "cs_live_support_usd",
+      timestamp,
+      amountMinor: 700,
+      currency: "usd",
+    }, db, academy);
+
+    expectWebhookOutcome(response, db, academy, 200, 1);
+    expect(db.rows[0]).toMatchObject({ amountMinor: 700, currency: "usd" });
+    await expect(academy.requests[0]!.json()).resolves.toMatchObject({
+      transaction: { currency: "usd", amountMinor: 700 },
+    });
+  });
+
+  it("ignores unsupported or out-of-policy Stripe webhook amounts", async () => {
+    for (const input of [
+      { eventId: "evt_bad_currency", sessionId: "cs_live_bad_currency", currency: "btc", amountMinor: 500 },
+      { eventId: "evt_low_usd", sessionId: "cs_live_low_usd", currency: "usd", amountMinor: 699 },
+      { eventId: "evt_fractional", sessionId: "cs_live_fractional", currency: "jpy", amountMinor: 1000.5 },
+    ]) {
+      const db = mockSupportDb();
+      const academy = mockAcademyIngress();
+      const response = await postStripeCheckoutEvent({
+        ...input,
+        timestamp: Math.floor(Date.now() / 1000),
+      }, db, academy);
+      expect(response.status).toBe(200);
+      expect(db.rows).toHaveLength(0);
+      expect(academy.fetch).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    { eventLivemode: false, sessionId: "cs_test_signed_probe" },
+    { eventLivemode: true, sessionId: "cs_test_wrong_mode" },
+  ])("never records a signed Stripe test-mode webhook %#", async ({ eventLivemode, sessionId }) => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const response = await postStripeCheckoutEvent({
+      eventId: `evt_${sessionId}`,
+      sessionId,
+      timestamp: Math.floor(Date.now() / 1000),
+      eventLivemode,
+    }, db, academy);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).not.toHaveBeenCalled();
   });
 
   it("returns 5xx and defers support accounting when Academy ingestion fails", async () => {
@@ -925,17 +1197,21 @@ function stripeCheckoutEventPayload(input: {
   sessionId: string;
   timestamp: number;
   purchaseId?: string;
+  amountMinor?: number;
+  currency?: string;
+  eventLivemode?: boolean;
 }): string {
   const metadata = input.purchaseId ? { metadata: { yomu_academy_purchase: input.purchaseId } } : {};
   return JSON.stringify({
     id: input.eventId,
     type: "checkout.session.completed",
+    livemode: input.eventLivemode ?? true,
     created: input.timestamp,
     data: {
       object: {
         id: input.sessionId,
-        amount_total: 500,
-        currency: "gbp",
+        amount_total: input.amountMinor ?? 500,
+        currency: input.currency ?? "gbp",
         payment_status: "paid",
         ...metadata,
       },
@@ -1010,6 +1286,20 @@ type DonationRow = {
   receivedAt: string;
 };
 
+function stripeDonationRow(id: string, day: string, amountMinor: number, currency: string): DonationRow {
+  return {
+    provider: "stripe",
+    id,
+    day,
+    amountMinor,
+    currency,
+    eventType: "checkout.session.completed",
+    stripeSessionId: `cs_live_${id}`,
+    stripeCreatedAt: Math.floor(Date.now() / 1000),
+    receivedAt: new Date().toISOString(),
+  };
+}
+
 function mockSupportDb(initialRows: DonationRow[] = []) {
   const rows = [...initialRows];
   return {
@@ -1029,14 +1319,18 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
             if (/day >= \? AND day < \?/.test(query)) {
               const start = String(values[dayOffset] ?? "");
               const end = String(values[dayOffset + 1] ?? "");
+              const currency = providerEvents ? "gbp" : String(values[dayOffset + 2] ?? "gbp");
               const total_minor = rows
-                .filter(row => row.provider === provider && row.day >= start && row.day < end && row.currency === "gbp")
+                .filter(row => row.provider === provider && row.day >= start && row.day < end && row.currency === currency)
+                .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
                 .reduce((sum, row) => sum + row.amountMinor, 0);
               return { total_minor } as T;
             }
             const day = String(values[dayOffset] ?? "");
+            const currency = providerEvents ? "gbp" : String(values[dayOffset + 1] ?? "gbp");
             const total_minor = rows
-              .filter(row => row.provider === provider && row.day === day && row.currency === "gbp")
+              .filter(row => row.provider === provider && row.day === day && row.currency === currency)
+              .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
               .reduce((sum, row) => sum + row.amountMinor, 0);
             return { total_minor } as T;
           }

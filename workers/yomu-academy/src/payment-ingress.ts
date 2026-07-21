@@ -2,6 +2,7 @@ import { derivePaidInviteCode, hmacSha256Hex, sha256Hex, timingSafeEqual } from 
 import type { Env } from './env';
 import { HttpError, jsonResponse, readJsonBody } from './http';
 import { mintPaidInvite, requireAdmin } from './invites';
+import { isDonationCurrency, type DonationCurrency } from '../../shared/donation-currencies';
 
 type Provider = 'stripe' | 'kofi' | 'patreon';
 type SubjectKind = 'academy_purchase' | 'payer' | 'member' | 'transaction';
@@ -18,7 +19,7 @@ interface IngressEnvelope {
         readonly reference: string;
         readonly sessionReference?: string;
         readonly claimHash?: string;
-        readonly currency: 'gbp';
+        readonly currency: DonationCurrency;
         readonly amountMinor: number;
     };
     readonly purchaseId?: string;
@@ -448,7 +449,7 @@ function readTransaction(value: unknown): NonNullable<IngressEnvelope['transacti
     if (!isRecord(value) || Object.keys(value).some(key => !['reference', 'sessionReference', 'claimHash', 'currency', 'amountMinor'].includes(key))) {
         throw new HttpError(400, 'Payment transaction is malformed.');
     }
-    if (value.currency !== 'gbp') throw new HttpError(422, 'Only GBP Academy payments are accepted.');
+    const currency = readPaymentCurrency(value.currency);
     const amountMinor = value.amountMinor;
     if (!Number.isSafeInteger(amountMinor) || (amountMinor as number) <= 0) {
         throw new HttpError(422, 'Payment amount must be a positive whole minor-unit value.');
@@ -457,9 +458,16 @@ function readTransaction(value: unknown): NonNullable<IngressEnvelope['transacti
         reference: readReference(value.reference),
         ...(value.sessionReference === undefined ? {} : { sessionReference: readReference(value.sessionReference) }),
         ...(value.claimHash === undefined ? {} : { claimHash: readClaimHash(value.claimHash) }),
-        currency: 'gbp',
+        currency,
         amountMinor: amountMinor as number,
     };
+}
+
+function readPaymentCurrency(value: unknown): DonationCurrency {
+    if (!isDonationCurrency(value)) {
+        throw new HttpError(422, 'Payment currency must be GBP, USD, EUR, CAD, AUD, or JPY.');
+    }
+    return value;
 }
 
 function readClaimHash(value: unknown): string {

@@ -1,3 +1,5 @@
+import type { DonationCurrency } from "../../shared/donation-currencies";
+
 export type AcademyPaymentEnvelope =
   | {
       readonly schemaVersion: 1;
@@ -13,7 +15,7 @@ export type AcademyPaymentEnvelope =
         readonly reference: string;
         readonly sessionReference?: string;
         readonly claimHash?: string;
-        readonly currency: "gbp";
+        readonly currency: DonationCurrency;
         readonly amountMinor: number;
       };
       readonly purchaseId?: string;

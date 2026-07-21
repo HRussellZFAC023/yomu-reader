@@ -12,14 +12,29 @@ describe('support donation to Academy access', () => {
         academy?.close();
     });
 
-    it('carries the checkout commitment through a signed webhook into a refresh-safe claim', async () => {
+    it.each([
+        { currency: 'gbp', amount: '5', amountMinor: 500 },
+        { currency: 'usd', amount: '7', amountMinor: 700 },
+        { currency: 'jpy', amount: '1000', amountMinor: 1000 },
+    ] as const)('carries a native $currency checkout through a signed webhook into a refresh-safe claim', async ({
+        currency,
+        amount,
+        amountMinor,
+    }) => {
         academy = createSqliteAcademy();
         const academyEnv = { ...academy.env, PAYMENT_INGRESS_TOKEN: 'end-to-end-ingress-token' };
+        const sessionId = `cs_live_e2e_${currency}`;
         let claimHash = '';
         vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
             const checkout = new URLSearchParams(String(init?.body ?? ''));
             claimHash = checkout.get('metadata[yomu_academy_claim_hash]') ?? '';
-            return Response.json({ url: 'https://checkout.stripe.com/c/pay/cs_live_e2e' });
+            expect(checkout.get('line_items[0][price_data][currency]')).toBe(currency);
+            expect(checkout.get('line_items[0][price_data][unit_amount]')).toBe(String(amountMinor));
+            return Response.json({
+                id: sessionId,
+                livemode: true,
+                url: `https://checkout.stripe.com/c/pay/${sessionId}`,
+            });
         }));
         const bridge = {
             fetch: (request: Request) => academyPaymentWorker.fetch(request, academyEnv, executionContext()),
@@ -34,7 +49,7 @@ describe('support donation to Academy access', () => {
         };
 
         const checkout = await SupportWorker.fetch(
-            new Request('https://support.yomureader.com/donate?amount_gbp=5'),
+            new Request(`https://support.yomureader.com/donate?currency=${currency}&amount=${amount}`),
             supportEnv,
             executionContext(),
         );
@@ -43,14 +58,15 @@ describe('support donation to Academy access', () => {
 
         const timestamp = Math.floor(Date.now() / 1000);
         const event = JSON.stringify({
-            id: 'evt_support_e2e',
+            id: `evt_support_e2e_${currency}`,
             type: 'checkout.session.completed',
+            livemode: true,
             created: timestamp,
             data: {
                 object: {
-                    id: 'cs_live_e2e',
-                    amount_total: 500,
-                    currency: 'gbp',
+                    id: sessionId,
+                    amount_total: amountMinor,
+                    currency,
                     payment_status: 'paid',
                     metadata: { yomu_academy_claim_hash: claimHash },
                 },
@@ -62,11 +78,14 @@ describe('support donation to Academy access', () => {
         expect(academy.db.rows<{ claim_hash: string }>('SELECT claim_hash FROM purchases')).toEqual([
             { claim_hash: claimHash },
         ]);
+        expect(academy.db.rows<{ currency: string; amount_minor: number }>(
+            'SELECT currency, amount_minor FROM payment_transactions',
+        )).toEqual([{ currency, amount_minor: amountMinor }]);
         expect(academy.db.rows<{ state: string; expires_at: number | null }>(
             'SELECT state, expires_at FROM payment_entitlements',
         )).toEqual([{ state: 'active', expires_at: null }]);
 
-        const claimRequest = new Request('https://support.yomureader.com/claim?session_id=cs_live_e2e', {
+        const claimRequest = new Request(`https://support.yomureader.com/claim?session_id=${sessionId}`, {
             headers: { cookie: `__Host-yomu_support_claim=${claimToken}` },
         });
         const firstClaim = await SupportWorker.fetch(claimRequest.clone(), supportEnv, executionContext());

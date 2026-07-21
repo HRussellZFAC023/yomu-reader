@@ -1,11 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import { AcademySyncClient, type AcademySyncStorage } from '../../src/academy/account/sync-client';
-import { createDonationCheckoutService } from '../../src/academy/access/donation-checkout';
-import { createDonationClaimService } from '../../src/academy/access/donation-claim';
 import { HttpAccessGateway, resumeInviteSession } from '../../src/academy/access/gateway';
 import { createMemoryLearnerEventRepository, type LearnerEvent } from '../../src/academy/domain/learner-record';
-import { derivePaidInviteCode, hmacSha256Hex } from '../../workers/yomu-academy/src/crypto';
+import { derivePaidInviteCode } from '../../workers/yomu-academy/src/crypto';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { inviteCodeHash, mintPaidInvite } from '../../workers/yomu-academy/src/invites';
 import worker from '../../workers/yomu-academy/src/index';
@@ -198,111 +196,6 @@ describe('Academy access client and Worker integration', () => {
         }
     });
 
-    it('carries a Stripe test donation from checkout through webhook, claim, sign-in, and entitlement exactly once', async () => {
-        const academy = createSqliteAcademy();
-        const env: Env = { ...academy.env, STRIPE_SECRET_KEY: 'sk_test_sqlite_e2e' };
-        try {
-            const browser = new AcademyAccessBrowser(worker, env);
-            const checkoutSessionId = 'cs_test_e2e_donation_1';
-
-            // 1. The browser starts checkout and is redirected only to Stripe.
-            const stripeApi = vi.fn(async () => new Response(JSON.stringify({
-                id: checkoutSessionId,
-                livemode: false,
-                url: `https://checkout.stripe.com/c/pay/${checkoutSessionId}`,
-            }), { status: 200 }));
-            vi.stubGlobal('fetch', stripeApi);
-            try {
-                await createDonationCheckoutService(browser.request, url => browser.navigate(url)).start(5);
-            } finally {
-                vi.unstubAllGlobals();
-            }
-            expect(new URL(browser.location).hostname).toBe('checkout.stripe.com');
-            const purchaseId = academy.db.rows<{ id: string; status: string }>('SELECT id, status FROM purchases')[0]!.id;
-
-            // 2. A cancelled return is scrubbed from the address bar and never claims.
-            browser.navigate(`${env.ACADEMY_ORIGIN}/academy/?checkout=cancelled`);
-            const cancelledClaim = donationClaim(browser);
-            expect(cancelledClaim.consumeReturn()).toBeNull();
-            expect(browser.location).toBe(`${env.ACADEMY_ORIGIN}/academy/`);
-
-            // 3. Stripe fulfils through the signed webhook; duplicate and
-            //    concurrent deliveries mint exactly one invite.
-            const event = (eventId: string, type = 'checkout.session.completed') => ({
-                id: eventId,
-                type,
-                livemode: false,
-                data: {
-                    object: {
-                        id: checkoutSessionId,
-                        payment_status: 'paid',
-                        currency: 'gbp',
-                        amount_total: 500,
-                        metadata: { yomu_academy_purchase: purchaseId },
-                    },
-                },
-            });
-            const deliveries = await Promise.all([
-                deliverWebhook(env, event('evt_e2e_1')),
-                deliverWebhook(env, event('evt_e2e_1')),
-                deliverWebhook(env, event('evt_e2e_2', 'checkout.session.async_payment_succeeded')),
-            ]);
-            deliveries.forEach(delivery => expect(delivery.status).toBe(200));
-            expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM invites')[0]?.count).toBe(1);
-            expect(academy.db.rows<{ status: string }>('SELECT status FROM purchases')[0]?.status).toBe('paid');
-
-            // 4. The success return consumes the URL proof immediately and the
-            //    claim needs both the HttpOnly cookie and the session id.
-            browser.navigate(`${env.ACADEMY_ORIGIN}/academy/?checkout=success&session_id=${checkoutSessionId}`);
-            const claimService = donationClaim(browser);
-            const returned = claimService.consumeReturn();
-            expect(returned).toEqual({ sessionId: checkoutSessionId });
-            expect(browser.location).toBe(`${env.ACADEMY_ORIGIN}/academy/`);
-            const claim = await claimService.claim(checkoutSessionId, new AbortController().signal);
-            if (claim.status !== 'paid') throw new Error(`Expected a paid claim, saw ${claim.status}.`);
-            expect(claim.code).toBe(await derivePaidInviteCode(env.ACADEMY_INVITE_HMAC_KEY, purchaseId));
-
-            // The plaintext code exists nowhere at rest and never re-entered a URL.
-            const rest = JSON.stringify({
-                invites: academy.db.rows('SELECT * FROM invites'),
-                purchases: academy.db.rows('SELECT * FROM purchases'),
-            });
-            expect(rest).not.toContain(claim.code);
-            expect(browser.location).not.toContain(claim.code);
-            expect(browser.location).not.toContain(checkoutSessionId);
-
-            // 5. The code opens an auth-only session, Google binds it, and the
-            //    entitlement activates for exactly this account.
-            const gateway = new HttpAccessGateway('/academy/api/session', browser.request);
-            const session = await gateway.exchange(claim.code);
-            expect(session.accountRequired).toBe(true);
-            const events = createMemoryLearnerEventRepository();
-            const storage = memoryStorage();
-            const client = syncClient(browser, events, storage);
-            expect((await client.connect()).phase).toBe('sign-in');
-            client.beginGoogleLink();
-            expect((await followGoogleCallback(browser, 'donor-subject', provider)).status).toBe(302);
-            await client.completeGoogleReturn();
-            const activated = await client.initializeAccountProfile();
-            expect(activated.phase).toBe('ready');
-            expect(activated.entitlement).toMatchObject({ entitlement: 'academy', status: 'active' });
-            expect(academy.db.rows<{ redeemed_by_account_id: string | null; redeemed_at: number | null }>(
-                'SELECT redeemed_by_account_id, redeemed_at FROM purchases',
-            )[0]).toMatchObject({ redeemed_by_account_id: expect.any(String), redeemed_at: expect.any(Number) });
-
-            // Nothing the browser persisted contains the paid code.
-            expect(storage.getItem(PROFILE_SYNC_STORAGE_KEY) ?? '').not.toContain(claim.code);
-
-            // A second exchange of the redeemed code cannot mint a second entitlement.
-            await gateway.exchange(claim.code).then(
-                () => { throw new Error('Redeemed paid code must not be exchangeable again.'); },
-                error => expect(error).toMatchObject({ code: 'invalid' }),
-            );
-        } finally {
-            academy.close();
-        }
-    });
-
     it('refuses recovery and redemption for a Google subject that does not own the entitlement', async () => {
         const academy = createSqliteAcademy();
         try {
@@ -353,27 +246,6 @@ describe('Academy access client and Worker integration', () => {
         }
     });
 });
-
-async function deliverWebhook(env: Env, event: unknown): Promise<Response> {
-    const rawBody = JSON.stringify(event);
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = await hmacSha256Hex(env.STRIPE_WEBHOOK_SECRET, `${timestamp}.${rawBody}`);
-    return worker.fetch(new Request(`${env.ACADEMY_ORIGIN}/academy/api/stripe/webhook`, {
-        method: 'POST',
-        headers: { 'stripe-signature': `t=${timestamp},v1=${signature}` },
-        body: rawBody,
-    }), env, { waitUntil: (promise: Promise<unknown>) => { void promise.catch(() => undefined); } });
-}
-
-function donationClaim(browser: AcademyAccessBrowser) {
-    return createDonationClaimService({
-        request: browser.request,
-        currentUrl: () => browser.location,
-        replaceHistory: url => browser.replaceUrl(url),
-        delaysMs: [0, 0, 0],
-        wait: async () => {},
-    });
-}
 
 function syncClient(
     browser: AcademyAccessBrowser,

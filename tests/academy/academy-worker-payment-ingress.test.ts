@@ -100,9 +100,43 @@ describe('Academy canonical payment ingress', () => {
                 ...membership('membership-001', 'membership.active', now),
                 transaction: { reference: 'not-a-charge', currency: 'gbp', amountMinor: 500 },
             })).status).toBe(422);
+            for (const transaction of [
+                { reference: 'unsupported-currency', currency: 'chf', amountMinor: 500 },
+                { reference: 'zero-amount', currency: 'usd', amountMinor: 0 },
+                { reference: 'fractional-amount', currency: 'eur', amountMinor: 1.5 },
+                { reference: 'unsafe-amount', currency: 'jpy', amountMinor: Number.MAX_SAFE_INTEGER + 1 },
+            ]) {
+                expect((await ingress(env, charge({ transaction }))).status).toBe(422);
+            }
             expect(academy.db.rows('SELECT * FROM payment_events')).toHaveLength(0);
         } finally { academy.close(); }
     });
+
+    it.each(['gbp', 'usd', 'eur', 'cad', 'aud', 'jpy'] as const)(
+        'accepts a positive %s minor-unit grant without reapplying support checkout floors',
+        async currency => {
+            const academy = createSqliteAcademy();
+            const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
+            try {
+                const accepted = await ingress(env, charge({
+                    eventId: `event-${currency}`,
+                    subject: { kind: 'payer', reference: `payer-${currency}` },
+                    transaction: { reference: `transaction-${currency}`, currency, amountMinor: 1 },
+                }));
+
+                expect(accepted.status).toBe(200);
+                expect(academy.db.rows<{ currency: string; amount_minor: number }>(
+                    'SELECT currency, amount_minor FROM payment_transactions',
+                )).toEqual([{ currency, amount_minor: 1 }]);
+                expect(academy.db.rows<{ expires_at: number | null }>(
+                    'SELECT expires_at FROM payment_entitlements',
+                )).toEqual([{ expires_at: null }]);
+                expect(academy.db.rows<{ amount_pence: number }>(
+                    'SELECT amount_pence FROM purchases',
+                )).toEqual([{ amount_pence: 1 }]);
+            } finally { academy.close(); }
+        },
+    );
 
     it('atomically separates a Ko-fi event, actual charge, stable subject, and entitlement', async () => {
         const academy = createSqliteAcademy();
@@ -163,7 +197,7 @@ describe('Academy canonical payment ingress', () => {
         } finally { academy.close(); }
     });
 
-    it('keeps production Stripe ingress separate from test checkout and requires an existing exact purchase', async () => {
+    it('keeps verified Stripe ingress compatible with an exact historical purchase', async () => {
         const academy = createSqliteAcademy();
         const env = { ...academy.env, PAYMENT_INGRESS_TOKEN: ingressToken };
         const body = {

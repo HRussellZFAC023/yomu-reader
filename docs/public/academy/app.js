@@ -28397,81 +28397,6 @@ ${spelling}`);
   function themeForWorldPlace(place2) {
     return worldLocationTheme(place2);
   }
-  const STRIPE_SESSION_ID = /^cs_[A-Za-z0-9_]{8,255}$/u;
-  const CLASS_CODE = /^[A-Z0-9-]{4,64}$/u;
-  const DEFAULT_DELAYS_MS = [0, 750, 1250, 2e3, 3e3, 4e3, 5e3];
-  function createDonationClaimService(dependencies = {}) {
-    const request2 = dependencies.request ?? fetch;
-    const currentUrl = dependencies.currentUrl ?? (() => window.location.href);
-    const replaceHistory = dependencies.replaceHistory ?? ((url) => window.history.replaceState(window.history.state, "", url));
-    const delays = dependencies.delaysMs ?? DEFAULT_DELAYS_MS;
-    const wait = dependencies.wait ?? abortableWait;
-    let consumedReturn;
-    return {
-      consumeReturn() {
-        if (consumedReturn !== void 0) return consumedReturn;
-        const url = new URL(currentUrl());
-        const checkout = url.searchParams.get("checkout");
-        const sessionId = url.searchParams.get("session_id");
-        const hasReturnParameters = url.searchParams.has("checkout") || url.searchParams.has("session_id");
-        if (!hasReturnParameters) return consumedReturn = null;
-        url.searchParams.delete("checkout");
-        url.searchParams.delete("session_id");
-        replaceHistory(`${url.pathname}${url.search}${url.hash}`);
-        if (checkout !== "success" || !sessionId || !STRIPE_SESSION_ID.test(sessionId)) return consumedReturn = null;
-        return consumedReturn = { sessionId };
-      },
-      async claim(sessionId, signal) {
-        if (!STRIPE_SESSION_ID.test(sessionId)) return { status: "unavailable" };
-        let sawRetryableFailure = false;
-        for (const delay2 of delays) {
-          try {
-            await wait(delay2, signal);
-            const response = await request2(`/academy/api/claim?session_id=${encodeURIComponent(sessionId)}`, {
-              method: "GET",
-              credentials: "include",
-              cache: "no-store",
-              signal,
-              headers: { accept: "application/json" }
-            });
-            if (response.status === 202) continue;
-            if (!response.ok) {
-              if (response.status >= 500 || response.status === 429) {
-                sawRetryableFailure = true;
-                continue;
-              }
-              return { status: "unavailable" };
-            }
-            const payload = await response.json();
-            if (payload.status !== "paid" || typeof payload.code !== "string" || !CLASS_CODE.test(payload.code)) {
-              return { status: "unavailable" };
-            }
-            return { status: "paid", code: payload.code };
-          } catch (error) {
-            if (signal.aborted) throw error;
-            sawRetryableFailure = true;
-          }
-        }
-        return { status: sawRetryableFailure ? "unavailable" : "pending" };
-      }
-    };
-  }
-  function abortableWait(delayMs, signal) {
-    if (signal.aborted) return Promise.reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
-    if (delayMs <= 0) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const finish = () => {
-        signal.removeEventListener("abort", abort);
-        resolve();
-      };
-      const abort = () => {
-        window.clearTimeout(timeout);
-        reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
-      };
-      const timeout = window.setTimeout(finish, delayMs);
-      signal.addEventListener("abort", abort, { once: true });
-    });
-  }
   const SKILLS = [
     "kana",
     "kanji",
@@ -31997,32 +31922,13 @@ ${spelling}`);
   function academyText(language, key2) {
     return language === "ja" ? JA[key2] : EN[key2];
   }
-  function createDonationCheckoutService(request2 = fetch, navigate = (url) => window.location.assign(url)) {
+  const SUPPORT_DONATION_URL = "https://support.yomureader.com/donate";
+  function createSupportDonationService(openExternal = (url, target2, features) => window.open(url, target2, features)) {
     return {
-      async start(amountGbp) {
-        const response = await request2("/academy/api/checkout", {
-          method: "POST",
-          credentials: "include",
-          cache: "no-store",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ amountGbp })
-        });
-        if (!response.ok) throw new Error("Checkout could not be started.");
-        const payload = await response.json();
-        if (typeof payload.url !== "string" || !safeStripeCheckoutUrl(payload.url)) {
-          throw new Error("Checkout returned an unexpected address.");
-        }
-        navigate(payload.url);
+      open() {
+        void openExternal(SUPPORT_DONATION_URL, "_blank", "noopener,noreferrer");
       }
     };
-  }
-  function safeStripeCheckoutUrl(value) {
-    try {
-      const url = new URL(value);
-      return url.protocol === "https:" && url.hostname === "checkout.stripe.com";
-    } catch {
-      return false;
-    }
   }
   function screenFrame(options) {
     const screen = element("section", `academy-screen ${options.className}`);
@@ -32128,159 +32034,6 @@ ${spelling}`);
     }
     node2.dataset.jpdbReaderSurfaceIgnore = "";
   }
-  function createDonationDialog(language, checkout) {
-    const lifecycle = new AbortController();
-    const dialog = element("dialog", "academy-donation-dialog");
-    dialog.setAttribute("aria-labelledby", "academy-donation-title");
-    dialog.setAttribute("aria-describedby", "academy-donation-description");
-    const paper = element("section", "academy-donation-paper");
-    const heading = copyElement("h2", "academy-donation-title", language, "donationTitle");
-    heading.id = "academy-donation-title";
-    const close = copyButton(language, "donationClose", "academy-donation-close");
-    close.setAttribute("aria-label", academyText(language, "donationClose"));
-    close.textContent = "×";
-    const form2 = element("form", "academy-donation-form");
-    const amountField = copyElement("label", "academy-donation-amount", language, "donationOtherAmount");
-    const amountInput = element("input", "academy-input");
-    amountInput.type = "number";
-    amountInput.name = "donation-amount";
-    amountInput.min = "5";
-    amountInput.max = "500";
-    amountInput.step = "0.01";
-    amountInput.inputMode = "decimal";
-    amountInput.placeholder = academyText(language, "donationAmountPlaceholder");
-    amountInput.required = true;
-    amountInput.setAttribute("aria-label", academyText(language, "donationOtherAmount"));
-    amountField.append(amountInput);
-    const description = copyElement("p", "academy-donation-description", language, "donationDescription");
-    description.id = "academy-donation-description";
-    const feedback2 = element("div", "academy-form-feedback");
-    const continueButton2 = copyButton(language, "donationContinue", "academy-button academy-button-primary academy-donation-continue");
-    continueButton2.type = "submit";
-    const cancel = copyButton(language, "donationCancel", "academy-button academy-button-quiet");
-    cancel.type = "button";
-    const actions = element("div", "academy-donation-actions");
-    actions.append(continueButton2, cancel);
-    form2.append(amountField, description, feedback2, actions);
-    paper.append(close, heading, form2);
-    dialog.append(paper);
-    let returnFocus = null;
-    let inerted = [];
-    const restoreFocus = () => {
-      dialog.removeAttribute("aria-modal");
-      restoreInert(inerted);
-      inerted = [];
-      const target2 = returnFocus;
-      returnFocus = null;
-      target2?.focus({ preventScroll: true });
-    };
-    const closeDialog2 = () => {
-      if (typeof dialog.close === "function" && dialog.open) dialog.close();
-      else {
-        dialog.removeAttribute("open");
-        restoreFocus();
-      }
-    };
-    close.addEventListener("click", closeDialog2, { signal: lifecycle.signal });
-    cancel.addEventListener("click", closeDialog2, { signal: lifecycle.signal });
-    dialog.addEventListener("close", restoreFocus, { signal: lifecycle.signal });
-    dialog.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      closeDialog2();
-    }, { signal: lifecycle.signal });
-    dialog.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeDialog2();
-        return;
-      }
-      trapFocus(event, dialog);
-    }, { signal: lifecycle.signal });
-    form2.addEventListener("submit", (event) => {
-      event.preventDefault();
-      feedback2.replaceChildren();
-      const amount = Number(amountInput.value);
-      const pence = Math.round(amount * 100);
-      if (!Number.isFinite(amount) || amount < 5 || amount > 500 || Math.abs(pence - amount * 100) > 1e-6) {
-        feedback2.replaceChildren(fieldError(academyText(language, "donationInvalidAmount")));
-        amountInput.focus();
-        return;
-      }
-      setBusy(continueButton2, true, academyText(language, "donationStarting"));
-      void checkout.start(amount).catch(() => {
-        feedback2.replaceChildren(fieldError(academyText(language, "donationUnavailable")));
-        continueButton2.disabled = false;
-        continueButton2.removeAttribute("aria-busy");
-        setCopy(continueButton2, language, "donationContinue");
-      });
-    }, { signal: lifecycle.signal });
-    return {
-      element: dialog,
-      open(trigger) {
-        returnFocus = trigger;
-        inerted = makeBackgroundInert(dialog);
-        dialog.setAttribute("aria-modal", "true");
-        try {
-          if (typeof dialog.showModal === "function") dialog.showModal();
-          else dialog.setAttribute("open", "");
-        } catch {
-          dialog.setAttribute("open", "");
-        }
-        requestAnimationFrame(() => amountInput.focus());
-      },
-      dispose() {
-        lifecycle.abort();
-        restoreInert(inerted);
-        inerted = [];
-        returnFocus = null;
-        dialog.remove();
-      }
-    };
-  }
-  function makeBackgroundInert(dialog) {
-    const screen = dialog.parentElement;
-    const root = dialog.closest(".academy-root");
-    const targets = [
-      ...Array.from(screen?.children ?? []).filter((element2) => element2 !== dialog),
-      ...Array.from(root?.querySelectorAll(":scope > .academy-header, :scope > .academy-navigation") ?? [])
-    ].filter((element2) => element2 instanceof HTMLElement);
-    return targets.map((element2) => {
-      const snapshot = {
-        element: element2,
-        inert: element2.inert === true || element2.hasAttribute("inert"),
-        ariaHidden: element2.getAttribute("aria-hidden")
-      };
-      element2.inert = true;
-      element2.setAttribute("inert", "");
-      element2.setAttribute("aria-hidden", "true");
-      return snapshot;
-    });
-  }
-  function restoreInert(snapshots) {
-    snapshots.forEach(({ element: element2, inert, ariaHidden }) => {
-      element2.inert = inert;
-      if (inert) element2.setAttribute("inert", "");
-      else element2.removeAttribute("inert");
-      if (ariaHidden === null) element2.removeAttribute("aria-hidden");
-      else element2.setAttribute("aria-hidden", ariaHidden);
-    });
-  }
-  function trapFocus(event, root) {
-    if (event.key !== "Tab") return;
-    const controls = Array.from(root.querySelectorAll(
-      'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
-    )).filter((control2) => !control2.closest("[hidden]"));
-    const first2 = controls[0];
-    const last = controls.at(-1);
-    if (!first2 || !last) return;
-    if (event.shiftKey && document.activeElement === first2) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first2.focus();
-    }
-  }
   function renderAccessScreen(options) {
     const lifecycle = new AbortController();
     const { screen, content } = screenFrame({
@@ -32305,20 +32058,8 @@ ${spelling}`);
     const submit = copyButton(options.language, "accessSubmit", "academy-button academy-button-primary");
     submit.type = "submit";
     const getCode = copyButton(options.language, "accessGetCode", "academy-button academy-button-secondary academy-get-code");
+    getCode.type = "button";
     const feedback2 = element("div", "academy-form-feedback");
-    const claimNote = element("section", "academy-donation-claim");
-    claimNote.hidden = true;
-    claimNote.setAttribute("aria-live", "polite");
-    claimNote.setAttribute("aria-atomic", "true");
-    const claimStatus = element("p", "academy-donation-claim-status");
-    claimStatus.setAttribute("role", "status");
-    const claimActions = element("div", "academy-donation-claim-actions");
-    const copyCode = copyButton(options.language, "donationClaimCopy", "academy-button academy-button-secondary academy-donation-claim-copy");
-    const retryClaim = copyButton(options.language, "donationClaimRetry", "academy-button academy-button-secondary academy-donation-claim-retry");
-    copyCode.hidden = true;
-    retryClaim.hidden = true;
-    claimActions.append(copyCode, retryClaim);
-    claimNote.append(claimStatus, claimActions);
     const actions = element("div", "academy-access-actions");
     actions.append(submit, getCode);
     form2.append(label, actions, feedback2);
@@ -32347,67 +32088,12 @@ ${spelling}`);
         input2.focus();
       });
     });
-    const donation = createDonationDialog(options.language, options.checkout ?? createDonationCheckoutService());
-    getCode.addEventListener("click", () => donation.open(getCode));
-    content.append(claimNote, form2);
-    screen.append(donation.element);
+    const supportDonation = options.supportDonation ?? createSupportDonationService();
+    getCode.addEventListener("click", () => supportDonation.open(), { signal: lifecycle.signal });
+    content.append(form2);
     screen.addEventListener("academy:dispose", () => {
       lifecycle.abort();
-      donation.dispose();
     }, { once: true });
-    const claim = options.claim ?? createDonationClaimService();
-    const returned = claim.consumeReturn();
-    let paidCode = "";
-    let claimRunning = false;
-    const showClaimStatus = (key2) => {
-      claimNote.hidden = false;
-      claimNote.dataset.status = key2;
-      claimStatus.textContent = academyText(options.language, key2);
-      claimStatus.lang = options.language;
-    };
-    const runClaim = async () => {
-      if (!returned || claimRunning || lifecycle.signal.aborted) return;
-      claimRunning = true;
-      copyCode.hidden = true;
-      retryClaim.hidden = true;
-      showClaimStatus("donationClaimChecking");
-      try {
-        const result = await claim.claim(returned.sessionId, lifecycle.signal);
-        if (lifecycle.signal.aborted) return;
-        if (result.status === "paid") {
-          paidCode = result.code;
-          input2.value = result.code;
-          claimNote.dataset.status = "paid";
-          claimStatus.textContent = academyText(options.language, "donationClaimReady");
-          copyCode.hidden = false;
-          submit.focus({ preventScroll: true });
-          return;
-        }
-        showClaimStatus(result.status === "pending" ? "donationClaimPending" : "donationClaimUnavailable");
-        retryClaim.hidden = false;
-      } catch {
-        if (lifecycle.signal.aborted) return;
-        showClaimStatus("donationClaimUnavailable");
-        retryClaim.hidden = false;
-      } finally {
-        claimRunning = false;
-      }
-    };
-    retryClaim.addEventListener("click", () => void runClaim(), { signal: lifecycle.signal });
-    copyCode.addEventListener("click", () => {
-      if (!paidCode) return;
-      const copy2 = options.copyText ?? (async (text2) => {
-        if (!navigator.clipboard) throw new Error("Clipboard is unavailable.");
-        await navigator.clipboard.writeText(text2);
-      });
-      void Promise.resolve().then(() => copy2(paidCode)).then(() => {
-        if (!lifecycle.signal.aborted) setCopy(copyCode, options.language, "donationClaimCopied");
-      }).catch(() => {
-        input2.focus();
-        input2.select();
-      });
-    }, { signal: lifecycle.signal });
-    if (returned) void runClaim();
     return screen;
   }
   const JAPANESE_SURFACE_SELECTOR$1 = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface], .academy-japanese';
@@ -40783,9 +40469,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   class EnrollmentFlow {
     constructor(options) {
       this.options = options;
-      this.donationClaim = options.donationClaim ?? createDonationClaimService();
     }
-    donationClaim;
     placementDraft = null;
     releaseExternalListening = null;
     async render(route, context2) {
@@ -40793,8 +40477,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         case "access":
           context2.shell.replace(renderAccessScreen({
             language: context2.language,
-            onSubmit: (code) => this.openSession(code, context2),
-            claim: this.donationClaim
+            onSubmit: (code) => this.openSession(code, context2)
           }));
           return true;
         case "profile":
@@ -264880,6 +264563,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -288798,8 +288482,10 @@ ${entry2.url}`),
     return "";
   }
   function newTabSupportMeta(status, language) {
-    const cost = status.banner?.costLabel || newTabText(language, "supportBannerCost").replace("{amount}", formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10)));
-    const goal = status.banner?.goalLabel || newTabText(language, "supportBannerGoal").replace("{current}", formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)).replace("{goal}", formatNewTabSupportGbp(status.donationGoalGbp ?? 10));
+    const goalText = status.display?.goalText || formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+    const amountText = status.display?.amountText || formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+    const cost = newTabText(language, "supportBannerCost").replace("{amount}", goalText);
+    const goal = newTabText(language, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
     return `${cost} · ${goal}`;
   }
   function newTabSupportDonateUrl(status) {
@@ -289980,7 +289666,7 @@ ${entry2.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
-          el("strong", {}, status.banner?.message || this.text("supportBannerMessage")),
+          el("strong", {}, this.text("supportBannerMessage")),
           el("span", {}, newTabSupportMeta(status, this.language()))
         ),
         el(
@@ -289991,7 +289677,7 @@ ${entry2.url}`),
             href: newTabSupportDonateUrl(status),
             target: "_blank",
             rel: "noopener"
-          }, status.banner?.ctaLabel || this.text("donate")),
+          }, this.text("donate")),
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",

@@ -5,7 +5,6 @@ import { handleAdminCreateInvite } from './invites';
 import { handleMedia } from './media';
 import { pruneRateWindows } from './rate-limit';
 import { handleCreateRecoverySession, handleCreateSession, handleGetSession, handleLogout, handleResumeSession } from './sessions';
-import { handleClaim, handleCreateCheckout, handleStripeWebhook } from './stripe';
 import { handleGetAccount, handlePatchAccount } from './accounts';
 import { handleAdminClass, handleAdminRole, handleClassRoute } from './classes';
 import { handleGoogleCallback, handleGoogleStart } from './oauth';
@@ -21,7 +20,7 @@ const clock = (): number => Date.now();
 
 /**
  * yomu-academy Worker: invite sessions, Google accounts, local-first sync,
- * donation checkout, and protected media. Public Academy assets stay outside
+ * paid-access redemption, and protected media. Public Academy assets stay outside
  * this Worker so the enrollment screen can load before authentication.
  */
 export default {
@@ -49,12 +48,6 @@ export default {
                     return await handleAdminClass(request, env, clock);
                 case 'POST /academy/api/admin/roles':
                     return await handleAdminRole(request, env);
-                case 'POST /academy/api/checkout':
-                    return await handleCreateCheckout(request, env, clock);
-                case 'POST /academy/api/stripe/webhook':
-                    return await handleStripeWebhook(request, env, clock);
-                case 'GET /academy/api/claim':
-                    return await handleClaim(request, env, clock);
                 case 'GET /academy/api/auth/google/start':
                     return await handleGoogleStart(request, env, clock);
                 case 'GET /academy/api/auth/google/callback':

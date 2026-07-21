@@ -129,8 +129,6 @@ export function createSqliteAcademy(): SqliteAcademy {
         ACADEMY_INVITE_HMAC_KEY: 'sqlite-test-invite-hmac-key',
         ACADEMY_RATE_HMAC_KEY: 'sqlite-test-rate-hmac-key',
         ACADEMY_ADMIN_TOKEN: 'sqlite-test-admin-token',
-        STRIPE_SECRET_KEY: 'sk_live_sqlite_test',
-        STRIPE_WEBHOOK_SECRET: 'whsec_sqlite_test',
         GOOGLE_OIDC_CLIENT_ID: 'sqlite-test.apps.googleusercontent.com',
         GOOGLE_OIDC_CLIENT_SECRET: 'sqlite-google-client-secret',
     };

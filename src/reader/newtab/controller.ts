@@ -571,6 +571,10 @@ interface NewTabSupportStatus {
     donationsThisMonthGbp?: number;
     estimatedMonthlyCostGbp?: number;
     donateUrl?: string;
+    display?: {
+        amountText?: string;
+        goalText?: string;
+    };
     banner?: {
         enabled?: boolean;
         dismissVersion?: string;
@@ -627,11 +631,14 @@ function newTabRouteSearchQuery(url: URL): string {
 }
 
 function newTabSupportMeta(status: NewTabSupportStatus, language: InterfaceLanguage): string {
-    const cost = status.banner?.costLabel || newTabText(language, 'supportBannerCost')
-        .replace('{amount}', formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10)));
-    const goal = status.banner?.goalLabel || newTabText(language, 'supportBannerGoal')
-        .replace('{current}', formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0))
-        .replace('{goal}', formatNewTabSupportGbp(status.donationGoalGbp ?? 10));
+    const goalText = status.display?.goalText
+        || formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+    const amountText = status.display?.amountText
+        || formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+    const cost = newTabText(language, 'supportBannerCost').replace('{amount}', goalText);
+    const goal = newTabText(language, 'supportBannerGoal')
+        .replace('{current}', amountText)
+        .replace('{goal}', goalText);
     return `${cost} · ${goal}`;
 }
 
@@ -1916,7 +1923,7 @@ export class NewTabController {
         banner.dataset.supportDismissVersion = version;
         banner.replaceChildren(
             el('div', { class: 'jpdb-reader-newtab-support-copy' },
-                el('strong', {}, status.banner?.message || this.text('supportBannerMessage')),
+                el('strong', {}, this.text('supportBannerMessage')),
                 el('span', {}, newTabSupportMeta(status, this.language())),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },
@@ -1925,7 +1932,7 @@ export class NewTabController {
                     href: newTabSupportDonateUrl(status),
                     target: '_blank',
                     rel: 'noopener',
-                }, status.banner?.ctaLabel || this.text('donate')),
+                }, this.text('donate')),
                 el('button', {
                     class: 'jpdb-reader-newtab-support-close',
                     type: 'button',

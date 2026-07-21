@@ -6,16 +6,12 @@ sync.
 
 ## Payment mode
 
-Checkout is deliberately **Stripe test mode only**. Configure an `sk_test_...`
-key and the matching test-mode webhook signing secret; the Worker rejects
-`sk_live_...`/`rk_live_...` keys, `cs_live_...` checkout sessions, and webhook
-events with `livemode: true` at every origin. Do not add Stripe secrets to the
-repository, client bundle, browser storage, or documentation examples.
-
-An end-to-end test checkout requires separately configured Stripe test
-credentials and a test webhook forwarder to `POST /academy/api/stripe/webhook`.
-The unit suite covers Checkout creation, signed test webhook fulfilment,
-deterministic code claim, and one-account redemption without those credentials.
+Academy does not own a public checkout, Stripe webhook, or browser claim route.
+The access screen opens `https://support.yomureader.com/donate` in a separate
+tab; the support Worker owns live Checkout and provider verification. It sends
+only verified payment envelopes over a private Service binding, while Academy
+keeps code redemption and account binding. Stripe credentials therefore belong
+to the support Worker and are not Academy bindings.
 
 ### Canonical payment ingress
 
@@ -31,7 +27,8 @@ be represented without rounding or product-tier gates.
 It requires `Content-Type: application/json` plus `Authorization: Bearer
 <PAYMENT_INGRESS_TOKEN>`; an absent secret fails closed. The v1 body contains
 `provider`, `eventId`, `eventType`, `occurredAt`, and an opaque provider
-`subject`. `charge.settled` adds a real `transaction`; Patreon instead sends
+`subject`. `charge.settled` adds a real `transaction` in GBP, USD, EUR, CAD,
+AUD, or JPY; Patreon instead sends
 `membership.active` with provider-cycle evidence and a positive amount, or
 `membership.revoked`. Academy stores accepted grants with no entitlement
 expiry; later Patreon cancellation is an audited no-op and cannot create or
@@ -40,9 +37,9 @@ remove access. Exact TypeScript validation lives in
 
 The support Worker declares the private Service binding, and the independent
 bearer secret must be installed on both Workers before provider webhooks are
-enabled. No public provider route targets this internal path. Academy-owned
-Stripe purchases require their exact pre-created purchase, Checkout session,
-and amount. Ordinary support Stripe sessions use a transaction subject and are
+enabled. No public provider route targets this internal path. Historical
+Academy-owned purchase envelopes still require their exact pre-created purchase,
+Checkout session, and amount. Support Stripe sessions use a transaction subject and are
 accepted only after the support Worker has verified Stripe's raw-body HMAC.
 
 Code delivery for Ko-fi and Patreon remains manual and admin-only at
@@ -111,7 +108,7 @@ the `__Host-academy_session` cookie.
 | `GET` | `/academy/api/entitlement` | Current Google account's safe paid-entitlement projection |
 | `POST` | `/academy/api/entitlement/redeem` | Atomically bind `{ "code": "..." }` to the signed-in account |
 
-Existing account, class-board, checkout, media, and
+Existing account, class-board, media, and
 `POST /academy/api/progress/sync` routes remain compatible. The progress route
 is an opted-in aggregate projection for the Class Board; it is not the
 authoritative event log.
@@ -152,20 +149,17 @@ hashes. Encrypted events use the event page's `cursor`, `nextCursor`, and
 
 ## Paid entitlement protocol
 
-1. Checkout inserts a `pending` purchase before calling Stripe. Every origin
-   accepts only a test secret key and test Checkout session; live mode fails
-   closed until it is separately reviewed and activated. Checkout creation is
-   idempotent and uses hosted Stripe Checkout. Payment fulfillment never trusts
-   the success redirect.
-2. A signed `checkout.session.completed` or
-   `checkout.session.async_payment_succeeded` webhook must match mode,
-   metadata, session id, GBP amount, and `payment_status=paid`. Delivery is
-   idempotent and mints one deterministic HMAC-backed paid code; plaintext code
-   is never stored.
-3. `GET /academy/api/claim?session_id=cs_...` requires both the initiating
-   browser's HttpOnly claim cookie and matching Checkout session id. Pending
-   payment returns `202`; fulfilled payment returns the same code on retries.
-   Reading the claim and creating paid auth sessions do not consume it.
+1. The support Worker creates hosted live Checkout and never trusts its success
+   redirect as payment evidence.
+2. After provider verification, support sends an idempotent private payment
+   envelope containing the transaction currency, positive whole minor-unit
+   amount, and a browser claim commitment. Academy accepts only GBP, USD, EUR,
+   CAD, AUD, or JPY and mints one deterministic HMAC-backed paid code; plaintext
+   code is never stored.
+3. The support return page combines its HttpOnly browser token with the settled
+   transaction reference through private `POST /academy/internal/payment-claim`.
+   Pending payment returns `202`; fulfilled payment returns the same code on
+   retries. Reading the claim and creating paid auth sessions do not consume it.
 4. Redemption happens only after verified Google OIDC, or through the explicit
    redeem route from an already signed-in session. One conditional D1 update
    sets `redeemed_by_account_id` and `redeemed_at`; a partial unique index is
@@ -284,8 +278,6 @@ behind a shared school or workplace NAT keep independent limits.
 | Valid session resume (per session family) | 30 per 10 minutes |
 | Invalid resume traffic (coarse client-IP protection) | 30 per 10 minutes |
 | Google OAuth/recovery | 20 per 10 minutes |
-| Checkout | 5 per 10 minutes |
-| Payment claim | 30 per 10 minutes |
 | Entitlement redemption | 10 per 10 minutes |
 | Pairing create | 5 per 10 minutes |
 | Pairing claim | 10 per 10 minutes |
@@ -296,7 +288,7 @@ behind a shared school or workplace NAT keep independent limits.
 
 ## D1 migrations
 
-- `0001_access.sql`: invites, sessions, rate limits, checkout claims.
+- `0001_access.sql`: invites, sessions, rate limits, and legacy purchase claims.
 - `0002_accounts.sql`: Google accounts, classes, aggregate board progress.
 - `0003_profile_sync.sql`: profiles, devices, one-time pairings, encrypted
   append-only events, and nullable links for legacy sessions.
