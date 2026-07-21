@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.264] - 2026-07-21
+
+### Fixed
+
+- SRS status highlighting is visible again on framework controls such as YouTube titles, buttons, and labels. Those overlaid words now show a soft translucent status tint. The earlier solid-block fix had removed every background from overlay words, which left the SRS status with no way to show at all; the restored tint is light enough that the page's own text stays readable through it and the pitch underline is undisturbed.
+
 ## [1.6.263] - 2026-07-21
 
 ### Fixed

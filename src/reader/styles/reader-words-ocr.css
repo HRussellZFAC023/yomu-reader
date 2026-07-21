@@ -1000,6 +1000,41 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
   text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
 }
+/* SRS status on additive mirrors. The opaque status highlight was stripped from
+   mirrors (background-image:none above) because a page-owned source glyph cannot
+   be repainted from an overlay — an opaque fill hid the page's own text (the
+   v1.6.262 solid-block). But that left an active SRS/status highlight channel
+   with NOWHERE to show on framework chrome (YouTube etc.), where every word is a
+   mirror: the underline is already spent on pitch. Restore a SOFT TRANSLUCENT
+   tint only — the explicit --jpdb-reader-source-*-soft (≈16% alpha), never the
+   contrast-adjusted --jpdb-reader-word-accessible-highlight that was opaque — so
+   the status is visible while the page's real glyphs stay readable beneath it,
+   and the pitch underline is untouched. Only the highlight/text SRS channels
+   opt in (status/jpdb/anki); pitch does not paint a background here. */
+.jpdb-reader-word-highlight-status .jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-status-soft, transparent);
+}
+.jpdb-reader-word-highlight-jpdb .jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-jpdb-soft, transparent);
+}
+.jpdb-reader-word-highlight-anki .jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-anki-soft, transparent);
+}
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-anki
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    var(--jpdb-reader-mirror-status-soft, transparent),
+    var(--jpdb-reader-mirror-status-soft, transparent)
+  ) !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 86% !important;
+  border-radius: 3px;
+}
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
   color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
