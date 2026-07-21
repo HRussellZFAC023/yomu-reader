@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.262] - 2026-07-21
+
+### Fixed
+
+- Status highlighting on site buttons, video titles, and other page controls no longer paints a solid coloured block that hides the text underneath. Those overlaid words now show a quiet status underline again instead of an opaque highlight that covered the page's own glyphs.
+
 ## [1.6.261] - 2026-07-21
 
 ### Fixed
