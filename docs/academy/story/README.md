@@ -24,7 +24,7 @@ The `s1e13`–`s1e24` prefixes remain historical IDs after migration; the struct
 - `PRESENTATION-BINDING.json`: recovered scene-level music, ambience, time, and staging bindings.
 - `ASSET-INTEGRATION-MAP.json`: recovered scene-to-art requirements and candidate bindings; the grader JSON remains the per-file verdict authority.
 - `../provenance/CLAUDE-RECOVERY-20260718.md`: source sessions, recovered artifacts, verification, and unfinished Claude workflow state.
-- `BACKLOG.md`: one ordered delivery stream. It is intentionally not divided into stages or phases.
+- [`../BACKLOG.md`](../BACKLOG.md): one ordered delivery stream. It is intentionally not divided into stages or phases.
 
 Read them in that order. The bible decides what happens; the stream decides when it is encountered; cast and relationship documents decide who may participate and at what depth; voice decides how they speak; architecture decides how it is represented; the ledgers prove continuity and grounding.
 

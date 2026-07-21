@@ -21,9 +21,55 @@ export interface WorkflowPlan {
 }
 
 export function parseBacklog(markdown: string, config?: Record<string, unknown>): WorkflowTask[];
+export function resolveConfinedFile(
+    candidate: string,
+    roots: string[],
+): { absolute: string; root: string; realRoot: string };
+export function canonicalizeReservationPath(repoRoot: string, candidate: string): string;
 export function validateWorkflow(tasks: WorkflowTask[], config: Record<string, unknown>): { errors: string[]; warnings: string[] };
 export function buildPlan(tasks: WorkflowTask[], config: Record<string, unknown>, state?: Record<string, unknown>, now?: Date): WorkflowPlan;
+export function taskCompleteForWorkflow(task: WorkflowTask, state?: Record<string, any>): boolean;
 export function progressSummary(tasks: WorkflowTask[]): Record<string, unknown>;
+export function buildProductionLedger(
+    tasks: WorkflowTask[],
+    config: Record<string, any>,
+    state?: Record<string, any>,
+    proofs?: Record<string, any>,
+    routeCounts?: unknown[],
+    metadata?: Record<string, any>,
+): Record<string, any>;
+export function validateGateAttestation(
+    task: WorkflowTask,
+    gate: string,
+    attestation: Record<string, any>,
+    context?: Record<string, any>,
+): string[];
+export function validateReviewAttestation(
+    task: WorkflowTask,
+    attestation: Record<string, any>,
+    context?: Record<string, any>,
+): string[];
+export function validateApprovalAttestation(
+    task: WorkflowTask,
+    requirement: string,
+    attestation: Record<string, any>,
+    context?: Record<string, any>,
+): string[];
+export function ownerApprovalPayload(
+    task: WorkflowTask,
+    requirement: string,
+    attestation: Record<string, any>,
+): Record<string, any>;
+export function canonicalJson(value: unknown): string;
+export function minimalReviewEnvironment(
+    provider: Record<string, any>,
+    source?: Record<string, string | undefined>,
+): Record<string, string>;
+export function reviewPayloadSha256(attestation: Record<string, any>): string;
+export function checkpointIntegrityErrors(
+    promotion: Record<string, any>,
+    actual: Record<string, any>,
+): string[];
 export function proofTemplate(task: WorkflowTask, config: Record<string, unknown>, baseCommit?: string | null): Record<string, any>;
 export function bindProofToClaim(
     task: WorkflowTask,

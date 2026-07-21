@@ -1,6 +1,6 @@
 # Yomu Academy production backlog
 
-This is the sole checkbox source of truth for Academy product delivery. Narrative execution lives in [`story/BACKLOG.md`](story/BACKLOG.md) and the Attempt 3 findings live in [`attempt3-adversarial-qa-backlog.md`](attempt3-adversarial-qa-backlog.md), but neither file owns completion state.
+This is the sole backlog and checkbox source of truth for Academy product delivery. Story sequencing is a non-authoritative execution view in [`story/EXECUTION-LEDGER.md`](story/EXECUTION-LEDGER.md); the original Attempt 3 findings are preserved as dated evidence in [`history/ATTEMPT3-ADVERSARIAL-QA-20260716.md`](history/ATTEMPT3-ADVERSARIAL-QA-20260716.md). Neither document owns completion state.
 
 Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN.md). The plan delivers one complete chronological day at a time and derives overall progress from a 1,000-point evidence ledger; it does not create a second completion backlog.
 

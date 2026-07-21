@@ -32,8 +32,18 @@ const changed = capture('git', ['diff', '--name-only', baseRef]).split('\n').fil
     .concat(capture('git', ['diff', '--name-only']).split('\n').filter(Boolean))
     .concat(capture('git', ['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean));
 const uniqueChanged = [...new Set(changed)];
+const touchesProductionWorkflow = uniqueChanged.some(p => (
+    p === 'config/academy-production-workflow.json'
+    || p === 'scripts/academy-production-workflow.mjs'
+    || p.startsWith('scripts/lib/academy-workflow-')
+    || p.startsWith('tests/academy/production-workflow')
+));
 
 run('typecheck (incremental)', process.execPath, [join(ROOT, 'node_modules/typescript/bin/tsc'), '--noEmit', '--incremental', '--tsBuildInfoFile', 'node_modules/.cache/check-quick.tsbuildinfo']);
+
+if (touchesProductionWorkflow) {
+    run('academy production workflow validation', process.execPath, [join(ROOT, 'scripts/academy-production-workflow.mjs'), 'validate']);
+}
 
 if (!uniqueChanged.length) {
     console.log('[check:quick] no changes vs merge-base; skipping tests.');

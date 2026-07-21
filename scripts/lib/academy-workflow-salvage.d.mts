@@ -26,6 +26,12 @@ export interface SalvageReport {
     baseScan: Record<string, unknown>;
     baseScanSha256: string;
     sourceSnapshot: { path: string; sha256: string } | null;
+    censusSnapshot: {
+        sourceSnapshotSha256: string | null;
+        counts: Record<string, number>;
+        inventorySha256: string;
+        sha256: string;
+    };
     candidateSelection: Record<string, unknown>;
     inventory: {
         categories: Record<string, SalvageSourceRow[]>;
