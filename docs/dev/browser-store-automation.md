@@ -2,13 +2,15 @@
 
 Yomu's `Release` workflow publishes the GitHub release first, then can submit the same reviewed packages to Chrome Web Store and Firefox Add-ons.
 
-Store submission is prepared automatically for semantic-major tags such as `v2.0.0`. For another release, run the workflow manually and select **Also submit this release to Chrome Web Store and Firefox Add-ons**. Both store jobs use the `browser-store-production` GitHub environment, which must require a reviewer: the package waits there until a person approves the actual submission.
+Store submission runs automatically for feature-release tags whose patch number is zero, such as `v1.7.0` or `v2.0.0`. For another release, run the workflow manually and select **Also submit this release to Chrome Web Store and Firefox Add-ons**. Both store jobs use the `browser-store-production` GitHub environment to isolate publishing credentials. Restrict that environment to release tags and trusted maintainers, but do not add a required-reviewer gate if the goal is unattended publishing.
+
+Google and Mozilla do not provide an inbound webhook that publishes a browser extension. The reliable flow is outbound and auditable: a versioned Yomu release tag starts GitHub Actions, and the workflow calls each store's supported publishing API from its protected credential environment. The per-store jobs never cancel an older submission if two releases overlap.
 
 The first public version must still be completed in each store dashboard. Chrome requires the listing, privacy answers, visibility, and first public submission before API publishing can follow the saved visibility. Mozilla requires two-step authentication before it will issue API credentials.
 
 ## GitHub repository settings
 
-Create a GitHub Actions environment named `browser-store-production`, turn on required reviewers, and add the release owner as a reviewer. Do not put store secrets in an unprotected environment.
+Create a GitHub Actions environment named `browser-store-production` and restrict deployments to the repository's release tags. Do not put store secrets in an unrestricted repository environment. A manual patch-release submission must dispatch the workflow from the matching `v*` tag ref so it passes the same environment rule.
 
 Add these Actions variables:
 
@@ -17,14 +19,18 @@ Add these Actions variables:
 
 Add these Actions secrets:
 
-- `CHROME_WEB_STORE_CLIENT_ID`
-- `CHROME_WEB_STORE_CLIENT_SECRET`
-- `CHROME_WEB_STORE_REFRESH_TOKEN`
+- `CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON` — preferred; the complete JSON credential for the one service account linked to the Chrome Web Store publisher.
 - `AMO_JWT_ISSUER`
 - `AMO_JWT_SECRET`
 
-For Chrome, enable Chrome Web Store API v2 in a Google Cloud project, create a Web application OAuth client, and create a refresh token with the `https://www.googleapis.com/auth/chromewebstore` scope. Use the Google account that owns the store item. The workflow exchanges the refresh token, uploads the release ZIP, waits for package processing, then submits it for review.
+For Chrome, enable Chrome Web Store API v2 in a Google Cloud project, create a service account without project roles, and link its email in the publisher's Chrome Web Store developer settings. Google currently allows only one linked service account per publisher. The workflow obtains a short-lived token with the `https://www.googleapis.com/auth/chromewebstore` scope, uploads the release ZIP, waits for package processing, and submits it for normal review. Submission uses `DEFAULT_PUBLISH`, so an approved update goes live automatically, and `blockOnWarnings: true`, so a new store warning stops the release instead of being silently ignored.
+
+The older OAuth refresh-token route remains as a temporary fallback. If it is needed, set `CHROME_WEB_STORE_CLIENT_ID`, `CHROME_WEB_STORE_CLIENT_SECRET`, and `CHROME_WEB_STORE_REFRESH_TOKEN` instead of the service-account secret. Do not configure both routes unless rotating credentials.
 
 For Firefox, create personal API credentials in the Add-on Developer Hub after two-step authentication is enabled. The workflow submits the final hardened XPI with [`config/amo-metadata.json`](../../config/amo-metadata.json), plus a deterministic source archive containing both lockfiles, the pinned compiler source, and exact rebuild instructions for reviewers.
 
 The jobs deliberately download artifacts from the GitHub release instead of rebuilding them. That keeps the browser stores on the same version that was checked and published on the Releases page.
+
+## Apple later
+
+Apple automation starts only after the Apple Developer membership, App Store Connect app record, signing identities, and first Safari container build exist. App Store Connect webhooks can then report build-processing and review-state changes, but they do not publish the extension. A future macOS job will package and sign the Safari Web Extension container, upload it through App Store Connect, and use an `apple-store-production` protected environment for submission. Keep that work separate from the raw Safari Web Extension ZIP until the Apple account is enabled.

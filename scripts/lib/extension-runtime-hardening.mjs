@@ -4,6 +4,7 @@ import { strToU8, unzipSync, zipSync } from 'fflate';
 
 const BACKGROUND_FILE = 'background.js';
 const CONTENT_FILE = 'content.js';
+const POPUP_FILE = 'popup.js';
 const MANIFEST_FILE = 'manifest.json';
 const READER_CSS_FILE = 'yomu.css';
 const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
@@ -50,6 +51,9 @@ export function hardenExtensionContentSource(source) {
     if (source.includes(PACKAGED_READER_CSS_MARKER)) return source;
 
     let hardened = source.replace(
+        "else if (key === 'innerHTML') element.innerHTML = value;",
+        "else if (key === 'innerHTML') element.textContent = String(value ?? '');",
+    ).replace(
         /(function GM_getResourceURL\(name\) \{\s*)/,
         `$1\n    // ${PACKAGED_READER_CSS_MARKER}\n    if (name === "yomuCss") return api?.runtime?.getURL?.("${READER_CSS_FILE}") || "${READER_CSS_FILE}";\n`,
     );
@@ -83,6 +87,16 @@ export function hardenExtensionContentSource(source) {
         throw new Error('Generated content.js still prefers a hosted reader stylesheet on Yomu pages.');
     }
     return hardened;
+}
+
+export function hardenExtensionPopupSource(source, options = {}) {
+    if (options.target !== 'safari') return source;
+    const injectablePattern = 'return /^https?:|^file:/i.test(url);';
+    if (!source.includes(injectablePattern)) {
+        if (source.includes('return /^https?:/i.test(url);')) return source;
+        throw new Error('Generated Safari popup.js no longer contains the expected injectable-tab URL guard.');
+    }
+    return source.replace(injectablePattern, 'return /^https?:/i.test(url);');
 }
 
 function installExtensionScreenshotBridgeSource(source) {
@@ -128,9 +142,13 @@ export function hardenExtensionManifest(manifest, options = {}) {
     const browserSpecificSettings = target === 'firefox'
         ? firefoxBrowserSpecificSettings(manifest.browser_specific_settings)
         : manifest.browser_specific_settings;
+    const contentScripts = target === 'safari'
+        ? safariCompatibleContentScripts(manifest.content_scripts)
+        : manifest.content_scripts;
     const withPermissions = {
         ...manifestWithoutNewTabOverride,
         permissions,
+        ...(contentScripts ? { content_scripts: contentScripts } : {}),
         ...(oauth2 ? { oauth2 } : {}),
         ...(browserSpecificSettings ? { browser_specific_settings: browserSpecificSettings } : {}),
         ...(options.packagedReaderCss ? {
@@ -155,8 +173,54 @@ export function hardenExtensionManifest(manifest, options = {}) {
     };
 }
 
-export function hardenExtensionSubmissionGuide(source) {
-    return String(source)
+function safariCompatibleContentScripts(contentScripts) {
+    if (!Array.isArray(contentScripts)) return contentScripts;
+    return contentScripts.map(contentScript => ({
+        ...contentScript,
+        ...(Array.isArray(contentScript.matches)
+            ? { matches: contentScript.matches.filter(match => !/^file:/i.test(String(match))) }
+            : {}),
+    }));
+}
+
+export function reconcilePackageValidationAudit(audit, options = {}) {
+    const finalSafariManifest = options.safariManifest ?? {};
+    const safariHasBrowserOverride = Boolean(
+        finalSafariManifest.chrome_url_overrides
+        || finalSafariManifest.browser_url_overrides
+        || finalSafariManifest.chrome_settings_overrides,
+    );
+    const targets = (audit.targets ?? []).map(target => {
+        if (target.target !== 'safari' || safariHasBrowserOverride) return target;
+        const issues = (target.issues ?? []).filter(issue => issue.code !== 'safari.newtab.review');
+        return {
+            ...target,
+            status: issues.some(issue => issue.severity === 'error') ? 'error' : 'ok',
+            summary: summarizeValidationIssues(issues),
+            issues,
+        };
+    });
+    return {
+        ...audit,
+        summary: targets.reduce((summary, target) => ({
+            errors: summary.errors + Number(target.summary?.errors ?? 0),
+            warnings: summary.warnings + Number(target.summary?.warnings ?? 0),
+            info: summary.info + Number(target.summary?.info ?? 0),
+        }), { errors: 0, warnings: 0, info: 0 }),
+        targets,
+    };
+}
+
+function summarizeValidationIssues(issues) {
+    return issues.reduce((summary, issue) => {
+        const key = issue.severity === 'error' ? 'errors' : issue.severity === 'warning' ? 'warnings' : 'info';
+        summary[key] += 1;
+        return summary;
+    }, { errors: 0, warnings: 0, info: 0 });
+}
+
+export function hardenExtensionSubmissionGuide(source, evidence = {}) {
+    const hardened = String(source)
         .replace(
             'Safari new-tab behavior must be tested through Apple Safari Web Extension packaging because platform support differs.',
             'The bundled Study page must be tested through Apple Safari Web Extension packaging; Yomu does not replace Safari new tabs.',
@@ -173,6 +237,21 @@ export function hardenExtensionSubmissionGuide(source) {
             '**Remote new tab:** keep new-tab files inside the extension package.',
             '**Study page:** keep Study files inside the extension package; do not add a browser new-tab override.',
         );
+    let guide = hardenSafariSubmissionGuide(hardened, evidence);
+    if (evidence.firefoxHasInnerHtmlAssignment === false) {
+        guide = guide.replace(/^\s*- \[warning\] amo\.innerHTML: .*\n?/gm, '');
+    }
+    if (evidence.safariHasBrowserOverride === false) {
+        guide = guide.replace(/^\s*- \[info\] safari\.newtab\.review.*\n?/gm, '');
+    }
+    return guide;
+}
+
+function hardenSafariSubmissionGuide(source, evidence) {
+    if (evidence.safariHasFileUrlMatch !== false) return source;
+    const sectionPattern = /(## Safari App Store \/ Safari Web Extension Notes[\s\S]*?)(?=\n## |$)/;
+    return source.replace(sectionPattern, section => section
+        .replace(/^\s*- \[info\] permissions\.file-urls: .*\n?/gm, ''));
 }
 
 function firefoxBrowserSpecificSettings(settings = {}) {
@@ -207,10 +286,36 @@ export async function hardenGeneratedExtensionBackgrounds(root, options = {}) {
         if (hardened !== source) await writeFile(file, hardened);
     }
     await hardenGeneratedExtensionContentScripts(root);
+    await hardenGeneratedExtensionPopups(root);
     await hardenGeneratedExtensionManifests(root, { packagedReaderCss: packageAssets.size > 0 });
+    await reconcileGeneratedPackageValidationAudit(root);
     await stageGeneratedExtensionAssets(root, packageAssets);
     await hardenGeneratedReleaseArchives(root, packageAssets, options.archiveTimestamp);
     return files;
+}
+
+async function hardenGeneratedExtensionPopups(root) {
+    const files = await collectNamedFiles(root, POPUP_FILE);
+    for (const file of files) {
+        const source = await readFile(file, 'utf8');
+        const hardened = hardenExtensionPopupSource(source, { target: extensionTargetFromPath(file, root) });
+        if (hardened !== source) await writeFile(file, hardened);
+    }
+}
+
+async function reconcileGeneratedPackageValidationAudit(root) {
+    const auditFile = path.join(root, 'audit', 'package-validation.json');
+    const safariManifestFile = (await collectManifestFiles(path.join(root, 'packages', 'extension', 'safari')))[0];
+    if (!safariManifestFile) return;
+    const [auditSource, manifestSource] = await Promise.all([
+        readFile(auditFile, 'utf8').catch(() => ''),
+        readFile(safariManifestFile, 'utf8'),
+    ]);
+    if (!auditSource) return;
+    const reconciled = reconcilePackageValidationAudit(JSON.parse(auditSource), {
+        safariManifest: JSON.parse(manifestSource),
+    });
+    await writeFile(auditFile, `${JSON.stringify(reconciled, null, 2)}\n`);
 }
 
 async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimestamp) {

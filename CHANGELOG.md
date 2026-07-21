@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.271] - 2026-07-21
+
+### Fixed
+
+- Safari extension packages no longer claim they can inject into local `file://` pages, which Safari does not support, and Apple review notes are now generated from the final hardened manifest instead of carrying a stale new-tab warning. Yomu still packages Study as an ordinary page and never replaces Safari new tabs.
+- Firefox packages no longer trigger Mozilla's three “unsafe assignment to innerHTML” warnings. Yomu's owned templates now pass through a local sanitizer before becoming DOM fragments, and the unused compatibility helper treats HTML-looking input as text, so AMO gets the same rendered interface without the ambiguous dynamic HTML assignments.
+
+### Changed
+
+- Feature releases such as `v1.7.0` can now flow from a protected GitHub Release to Chrome Web Store and Firefox Add-ons without rebuilding the reviewed package. Chrome supports a linked service account, fails closed on new store warnings, and publishes automatically only after approval; Firefox uses its official signed-add-on submission flow. Apple release automation is documented for activation after the developer account and signed container app are available.
+- Yomu's GitHub page now offers the same three optional ways to support ongoing development—direct contribution, Patreon, and Ko-fi—and the browser-store listings make clear that every extension feature remains free.
+
 ## [1.6.270] - 2026-07-21
 
 ### Changed

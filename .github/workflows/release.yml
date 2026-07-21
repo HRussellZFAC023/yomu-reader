@@ -190,7 +190,7 @@ jobs:
           MANUAL_STORE_PUBLISH: ${{ inputs.publish_browser_stores || false }}
         run: |
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.0\.0$ || "$MANUAL_STORE_PUBLISH" == "true" ]]; then
+          if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.0$ || "$MANUAL_STORE_PUBLISH" == "true" ]]; then
             echo "publish_browser_stores=true" >> "$GITHUB_OUTPUT"
           else
             echo "publish_browser_stores=false" >> "$GITHUB_OUTPUT"
@@ -201,8 +201,11 @@ jobs:
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true'
     runs-on: ubuntu-latest
-    # Configure this environment with required reviewers. Major tags prepare
-    # the submission automatically but cannot cross this human checkpoint.
+    concurrency:
+      group: chrome-web-store-production
+      cancel-in-progress: false
+    # Store credentials stay isolated in this environment. Feature-release
+    # tags submit automatically; ordinary patch tags never enter this job.
     environment: browser-store-production
     permissions:
       contents: read
@@ -215,6 +218,7 @@ jobs:
       CHROME_WEB_STORE_CLIENT_ID: ${{ secrets.CHROME_WEB_STORE_CLIENT_ID }}
       CHROME_WEB_STORE_CLIENT_SECRET: ${{ secrets.CHROME_WEB_STORE_CLIENT_SECRET }}
       CHROME_WEB_STORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEB_STORE_REFRESH_TOKEN }}
+      CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON }}
     steps:
       - name: Download the reviewed Chrome package
         run: gh release download "$RELEASE_TAG" --pattern yomureader.com-chrome.zip --dir browser-store-artifacts
@@ -225,9 +229,6 @@ jobs:
           set -euo pipefail
           : "${CHROME_WEB_STORE_PUBLISHER_ID:?Set the CHROME_WEB_STORE_PUBLISHER_ID repository variable}"
           : "${CHROME_WEB_STORE_ITEM_ID:?Set the CHROME_WEB_STORE_ITEM_ID repository variable}"
-          : "${CHROME_WEB_STORE_CLIENT_ID:?Set the CHROME_WEB_STORE_CLIENT_ID repository secret}"
-          : "${CHROME_WEB_STORE_CLIENT_SECRET:?Set the CHROME_WEB_STORE_CLIENT_SECRET repository secret}"
-          : "${CHROME_WEB_STORE_REFRESH_TOKEN:?Set the CHROME_WEB_STORE_REFRESH_TOKEN repository secret}"
 
           json_field() {
             node -e '
@@ -238,13 +239,43 @@ jobs:
             ' "$1"
           }
 
-          token_response="$(curl --fail-with-body --silent --show-error \
-            https://oauth2.googleapis.com/token \
-            --data-urlencode "client_id=$CHROME_WEB_STORE_CLIENT_ID" \
-            --data-urlencode "client_secret=$CHROME_WEB_STORE_CLIENT_SECRET" \
-            --data-urlencode "refresh_token=$CHROME_WEB_STORE_REFRESH_TOKEN" \
-            --data-urlencode grant_type=refresh_token)"
-          access_token="$(json_field access_token <<< "$token_response")"
+          if [[ -n "$CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON" ]]; then
+            jwt_assertion="$(node <<'NODE'
+          const { createSign } = require('node:crypto');
+          const credentials = JSON.parse(process.env.CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON);
+          if (!credentials.client_email || !credentials.private_key) {
+            throw new Error('Chrome Web Store service-account JSON is missing client_email or private_key.');
+          }
+          const now = Math.floor(Date.now() / 1000);
+          const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({
+            iss: credentials.client_email,
+            scope: 'https://www.googleapis.com/auth/chromewebstore',
+            aud: 'https://oauth2.googleapis.com/token',
+            iat: now,
+            exp: now + 3600,
+          })}`;
+          const signature = createSign('RSA-SHA256').update(unsigned).end().sign(credentials.private_key, 'base64url');
+          process.stdout.write(`${unsigned}.${signature}`);
+          NODE
+            )"
+            token_response="$(curl --fail-with-body --silent --show-error \
+              https://oauth2.googleapis.com/token \
+              --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
+              --data-urlencode "assertion=$jwt_assertion")"
+            access_token="$(json_field access_token <<< "$token_response")"
+          else
+            : "${CHROME_WEB_STORE_CLIENT_ID:?Set CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON or the legacy CHROME_WEB_STORE_CLIENT_ID secret}"
+            : "${CHROME_WEB_STORE_CLIENT_SECRET:?Set the legacy CHROME_WEB_STORE_CLIENT_SECRET repository secret}"
+            : "${CHROME_WEB_STORE_REFRESH_TOKEN:?Set the legacy CHROME_WEB_STORE_REFRESH_TOKEN repository secret}"
+            token_response="$(curl --fail-with-body --silent --show-error \
+              https://oauth2.googleapis.com/token \
+              --data-urlencode "client_id=$CHROME_WEB_STORE_CLIENT_ID" \
+              --data-urlencode "client_secret=$CHROME_WEB_STORE_CLIENT_SECRET" \
+              --data-urlencode "refresh_token=$CHROME_WEB_STORE_REFRESH_TOKEN" \
+              --data-urlencode grant_type=refresh_token)"
+            access_token="$(json_field access_token <<< "$token_response")"
+          fi
           item_name="publishers/$CHROME_WEB_STORE_PUBLISHER_ID/items/$CHROME_WEB_STORE_ITEM_ID"
 
           upload_response="$(curl --fail-with-body --silent --show-error \
@@ -278,17 +309,23 @@ jobs:
             exit 1
           fi
 
-          curl --fail-with-body --silent --show-error \
+          publish_response="$(curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Authorization: Bearer $access_token" \
-            "https://chromewebstore.googleapis.com/v2/$item_name:publish" >/dev/null
-          echo "Chrome Web Store accepted $RELEASE_TAG for review."
+            --header "Content-Type: application/json" \
+            --data '{"publishType":"DEFAULT_PUBLISH","skipReview":false,"blockOnWarnings":true}' \
+            "https://chromewebstore.googleapis.com/v2/$item_name:publish")"
+          publish_state="$(json_field state <<< "$publish_response")"
+          echo "Chrome Web Store accepted $RELEASE_TAG for review with state $publish_state."
 
   publish-firefox-add-ons:
     name: Submit Firefox Add-ons update
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: firefox-add-ons-production
+      cancel-in-progress: false
     environment: browser-store-production
     permissions:
       contents: read
@@ -321,6 +358,9 @@ jobs:
           set -euo pipefail
           : "${AMO_JWT_ISSUER:?Set the AMO_JWT_ISSUER repository secret}"
           : "${AMO_JWT_SECRET:?Set the AMO_JWT_SECRET repository secret}"
+          npx --yes web-ext@10.5.0 lint \
+            --source-dir=browser-store-artifacts/firefox \
+            --warnings-as-errors
           npx --yes web-ext@10.5.0 sign \
             --channel=listed \
             --approval-timeout=0 \

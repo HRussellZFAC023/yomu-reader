@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
-import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionSubmissionGuide } from '../../scripts/lib/extension-runtime-hardening.mjs';
+import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
 describe('extension runtime hardening', () => {
     it('uses SOURCE_DATE_EPOCH with a deterministic Git commit fallback', () => {
@@ -50,6 +50,22 @@ describe('extension runtime hardening', () => {
 
         expect(hardened).toContain('yomu-extension-packaged-reader-css');
         expect(hardened).toContain('runtime?.getURL?.("yomu.css")');
+        expect(
+            hardenExtensionContentSource(
+                source.replace(
+                    'function GM_getResourceURL(name) {',
+                    `function GM_addElement(attributes) {
+              const element = document.createElement('div');
+              for (const [key, value] of Object.entries(attributes || {})) {
+                if (key === 'textContent') element.textContent = value;
+                else if (key === 'innerHTML') element.innerHTML = value;
+                else element.setAttribute(key, String(value));
+              }
+            }
+            function GM_getResourceURL(name) {`,
+                ),
+            ),
+        ).not.toContain('element.innerHTML = value');
         expect(hardened).toContain('return [READER_CSS_RESOURCE_URL]');
         expect(hardened).not.toContain('raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css');
         expect(hardened).not.toContain('https://yomureader.com/yomu.012345abcdef.css');
@@ -66,18 +82,31 @@ describe('extension runtime hardening', () => {
         expect(hardened).toContain('yomu-google-drive-settings-sync-bridge');
         expect(hardened).toContain('yomu.googleDriveSettingsSync');
         expect(hardened).toContain('appDataFolder');
-        expect(hardenExtensionBackgroundSource(hardened, {
-            target: 'chrome',
-            googleOAuthClientId: 'client-id.apps.googleusercontent.com',
-        }).match(/yomu-google-drive-settings-sync-bridge/g)).toHaveLength(1);
+        expect(
+            hardenExtensionBackgroundSource(hardened, {
+                target: 'chrome',
+                googleOAuthClientId: 'client-id.apps.googleusercontent.com',
+            }).match(/yomu-google-drive-settings-sync-bridge/g),
+        ).toHaveLength(1);
         expect(hardenExtensionBackgroundSource(source, { target: 'firefox' })).not.toContain('yomu-google-drive-settings-sync-bridge');
     });
 
     it('uses host access for screenshots without requesting browsing-history tabs access', () => {
-        expect(hardenExtensionManifest({ manifest_version: 2, permissions: ['storage'] })).toMatchObject({
+        expect(
+            hardenExtensionManifest({
+                manifest_version: 2,
+                permissions: ['storage'],
+            }),
+        ).toMatchObject({
             permissions: ['storage', '<all_urls>'],
         });
-        expect(hardenExtensionManifest({ manifest_version: 3, permissions: ['storage', 'tabs'], host_permissions: ['https://example.com/*', 'file:///*'] })).toMatchObject({
+        expect(
+            hardenExtensionManifest({
+                manifest_version: 3,
+                permissions: ['storage', 'tabs'],
+                host_permissions: ['https://example.com/*', 'file:///*'],
+            }),
+        ).toMatchObject({
             permissions: ['storage'],
             host_permissions: ['https://example.com/*', '<all_urls>'],
         });
@@ -100,11 +129,30 @@ describe('extension runtime hardening', () => {
         expect(hardenExtensionManifest(manifest, { target: 'chrome' })).not.toHaveProperty('chrome_settings_overrides');
     });
 
+    it('removes unsupported file-page injection only from Safari packages', () => {
+        const manifest = {
+            manifest_version: 3,
+            permissions: ['storage'],
+            host_permissions: ['file:///*'],
+            content_scripts: [{ matches: ['*://*/*', 'file:///*'], js: ['content.js'] }],
+        };
+
+        expect(hardenExtensionManifest(manifest, { target: 'safari' }).content_scripts).toEqual([{ matches: ['*://*/*'], js: ['content.js'] }]);
+        expect(hardenExtensionManifest(manifest, { target: 'chrome' }).content_scripts).toEqual([{ matches: ['*://*/*', 'file:///*'], js: ['content.js'] }]);
+    });
+
+    it('does not offer Safari injection on unsupported file pages', () => {
+        const source = 'function isInjectableTab(url) { return /^https?:|^file:/i.test(url); }';
+        const hardened = hardenExtensionPopupSource(source, { target: 'safari' });
+
+        expect(hardened).toContain('return /^https?:/i.test(url);');
+        expect(hardened).not.toContain('^file:');
+        expect(hardenExtensionPopupSource(hardened, { target: 'safari' })).toBe(hardened);
+        expect(hardenExtensionPopupSource(source, { target: 'chrome' })).toBe(source);
+    });
+
     it('declares Firefox built-in data consent and its supported versions', () => {
-        expect(hardenExtensionManifest(
-            { manifest_version: 2, permissions: ['storage'] },
-            { target: 'firefox' },
-        )).toMatchObject({
+        expect(hardenExtensionManifest({ manifest_version: 2, permissions: ['storage'] }, { target: 'firefox' })).toMatchObject({
             browser_specific_settings: {
                 gecko: {
                     id: 'yomu@yomureader.com',
@@ -120,10 +168,7 @@ describe('extension runtime hardening', () => {
     });
 
     it('exposes the packaged reader stylesheet without adding a remote stylesheet', () => {
-        const manifest = hardenExtensionManifest(
-            { manifest_version: 3, permissions: [], host_permissions: [] },
-            { target: 'chrome', packagedReaderCss: true },
-        );
+        const manifest = hardenExtensionManifest({ manifest_version: 3, permissions: [], host_permissions: [] }, { target: 'chrome', packagedReaderCss: true });
 
         expect(manifest.web_accessible_resources).toContainEqual({
             resources: ['yomu.css'],
@@ -133,33 +178,104 @@ describe('extension runtime hardening', () => {
     });
 
     it('adds Google Drive OAuth manifest fields when configured', () => {
-        expect(hardenExtensionManifest(
-            { manifest_version: 3, permissions: [], host_permissions: [] },
-            { target: 'chrome', googleOAuthClientId: 'client-id.apps.googleusercontent.com' },
-        )).toMatchObject({
+        expect(
+            hardenExtensionManifest(
+                { manifest_version: 3, permissions: [], host_permissions: [] },
+                {
+                    target: 'chrome',
+                    googleOAuthClientId: 'client-id.apps.googleusercontent.com',
+                },
+            ),
+        ).toMatchObject({
             permissions: ['identity'],
             oauth2: {
                 client_id: 'client-id.apps.googleusercontent.com',
                 scopes: ['https://www.googleapis.com/auth/drive.appdata'],
             },
         });
-        expect(hardenExtensionManifest(
-            { manifest_version: 3, permissions: [], host_permissions: [] },
-            { target: 'firefox', googleOAuthClientId: 'client-id.apps.googleusercontent.com' },
-        )).not.toHaveProperty('oauth2');
+        expect(
+            hardenExtensionManifest(
+                { manifest_version: 3, permissions: [], host_permissions: [] },
+                {
+                    target: 'firefox',
+                    googleOAuthClientId: 'client-id.apps.googleusercontent.com',
+                },
+            ),
+        ).not.toHaveProperty('oauth2');
     });
 
     it('keeps generated reviewer copy honest about Study and browser new tabs', () => {
-        const hardened = hardenExtensionSubmissionGuide([
+        const source = [
             'Safari new-tab behavior must be tested through Apple Safari Web Extension packaging because platform support differs.',
             'an extension popup menu, and a packaged new-tab page.',
             'Keep all new-tab content packaged in the extension. Do not redirect the new tab to a remote page.',
             '**Remote new tab:** keep new-tab files inside the extension package.',
-        ].join('\n'));
+            '- [info] safari.newtab.review: A packaged new-tab override needs Apple review.',
+            '## Mozilla Add-ons (AMO)',
+            '- [warning] amo.innerHTML: Review generated innerHTML assignments.',
+            '## Safari App Store / Safari Web Extension Notes',
+            '- [warning] amo.innerHTML: Review generated innerHTML assignments.',
+            '- [info] permissions.file-urls: Safari ignores file URL matches.',
+            '## Reviewer notes',
+            'Keep this section.',
+        ].join('\n');
+        const unresolved = hardenExtensionSubmissionGuide(source);
+        const hardened = hardenExtensionSubmissionGuide(source, {
+            firefoxHasInnerHtmlAssignment: false,
+            safariHasBrowserOverride: false,
+            safariHasFileUrlMatch: false,
+        });
 
+        expect(unresolved).toContain('amo.innerHTML');
+        expect(unresolved).toContain('safari.newtab.review');
+        expect(unresolved).toContain('permissions.file-urls');
         expect(hardened).toContain('packaged Study page that opens only when the user chooses it');
         expect(hardened).toContain('does not declare a new-tab override');
+        expect(hardened).toContain('## Mozilla Add-ons (AMO)');
+        expect(hardened).toMatch(/## Safari App Store \/ Safari Web Extension Notes\n\s*## Reviewer notes/);
+        expect(hardened).toContain('Keep this section.');
         expect(hardened).not.toContain('packaged new-tab page');
         expect(hardened).not.toContain('Safari new-tab behavior');
+        expect(hardened).not.toContain('safari.newtab.review');
+        expect(hardened).not.toContain('permissions.file-urls');
+        expect(hardened).not.toContain('amo.innerHTML');
+    });
+
+    it('reconciles stale Safari new-tab audit findings against the final manifest', () => {
+        const audit = {
+            summary: { errors: 0, warnings: 1, info: 2 },
+            targets: [
+                {
+                    target: 'firefox',
+                    status: 'ok',
+                    summary: { errors: 0, warnings: 1, info: 0 },
+                    issues: [{ severity: 'warning', code: 'amo.innerHTML' }],
+                },
+                {
+                    target: 'safari',
+                    status: 'ok',
+                    summary: { errors: 0, warnings: 0, info: 2 },
+                    issues: [
+                        { severity: 'info', code: 'safari.newtab.review' },
+                        { severity: 'info', code: 'safari.other' },
+                    ],
+                },
+            ],
+        };
+
+        const reconciled = reconcilePackageValidationAudit(audit, {
+            safariManifest: {},
+        });
+        expect(reconciled.summary).toEqual({ errors: 0, warnings: 1, info: 1 });
+        expect(reconciled.targets[1]).toMatchObject({
+            status: 'ok',
+            summary: { errors: 0, warnings: 0, info: 1 },
+            issues: [{ severity: 'info', code: 'safari.other' }],
+        });
+
+        const preserved = reconcilePackageValidationAudit(audit, {
+            safariManifest: { chrome_url_overrides: { newtab: 'newtab/index.html' } },
+        });
+        expect(preserved).toEqual(audit);
     });
 });

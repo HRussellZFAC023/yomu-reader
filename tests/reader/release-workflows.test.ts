@@ -3,22 +3,14 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { USER_SCRIPT_COMPILER_COMMIT } from '../../scripts/build-amo-source-package.mjs';
 
-const buildUserscriptWorkflow = readFileSync(
-    join(process.cwd(), '.github/workflows/build-userscript.yml'),
-    'utf8',
-);
+const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-userscript.yml'), 'utf8');
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
-const releaseGamingWorkflow = readFileSync(
-    join(process.cwd(), '.github/workflows/release-gaming.yml'),
-    'utf8',
-);
+const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 
 describe('release workflow safety', () => {
     it('does not suppress Actions from the generated-assets commit', () => {
-        const commitCommand = buildUserscriptWorkflow
-            .split('\n')
-            .find(line => line.includes('git commit -m'));
+        const commitCommand = buildUserscriptWorkflow.split('\n').find((line) => line.includes('git commit -m'));
 
         expect(commitCommand).toBeDefined();
         expect(commitCommand).not.toMatch(/\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]/i);
@@ -30,18 +22,12 @@ describe('release workflow safety', () => {
         // workflow_dispatch trigger is the recovery path the release flow
         // relies on (gh workflow run "Deploy Docs"); its absence bit 1.6.115
         // when the deploy silently never ran.
-        const deployPagesWorkflow = readFileSync(
-            join(process.cwd(), '.github/workflows/deploy-pages.yml'),
-            'utf8',
-        );
+        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         expect(deployPagesWorkflow).toMatch(/^on:\n(?:.*\n)*?\s*workflow_dispatch:/m);
     });
 
     it('retries transient Pages metadata failures before a required final attempt', () => {
-        const deployPagesWorkflow = readFileSync(
-            join(process.cwd(), '.github/workflows/deploy-pages.yml'),
-            'utf8',
-        );
+        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         const step = (name: string) => {
             const marker = `      - name: ${name}\n`;
             const start = deployPagesWorkflow.indexOf(marker);
@@ -67,10 +53,7 @@ describe('release workflow safety', () => {
     });
 
     it('rebuilds Academy after hosted Reader assets so its revision hashes deployed bytes', () => {
-        const deployPagesWorkflow = readFileSync(
-            join(process.cwd(), '.github/workflows/deploy-pages.yml'),
-            'utf8',
-        );
+        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         const readerSync = deployPagesWorkflow.indexOf('node scripts/sync-docs-userscript.cjs');
         const academyBuild = deployPagesWorkflow.indexOf('npm run build:academy');
         const docsBuild = deployPagesWorkflow.indexOf('npm run docs:build');
@@ -125,11 +108,19 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).toContain('--upload-source-code=browser-store-artifacts/yomureader.com-firefox-source.zip');
     });
 
-    it('keeps automated store submissions behind a protected human checkpoint', () => {
+    it('publishes feature releases through isolated, fail-closed store jobs', () => {
         expect(releaseWorkflow).toContain('environment: browser-store-production');
         expect(releaseWorkflow.match(/environment: browser-store-production/g)).toHaveLength(2);
         expect(releaseWorkflow).toContain('GH_REPO: ${{ github.repository }}');
         expect(releaseWorkflow).toContain('group: release-${{ github.ref }}');
         expect(releaseWorkflow).toContain('TZ: UTC');
+        expect(releaseWorkflow).toContain('^v[0-9]+\\.[0-9]+\\.0$');
+        expect(releaseWorkflow).toContain('CHROME_WEB_STORE_SERVICE_ACCOUNT_JSON');
+        expect(releaseWorkflow).toContain("createSign('RSA-SHA256')");
+        expect(releaseWorkflow).toContain('urn:ietf:params:oauth:grant-type:jwt-bearer');
+        expect(releaseWorkflow).not.toContain('google-github-actions/auth');
+        expect(releaseWorkflow).toContain('web-ext@10.5.0 lint');
+        expect(releaseWorkflow).toContain('--warnings-as-errors');
+        expect(releaseWorkflow).toContain('"blockOnWarnings":true');
     });
 });

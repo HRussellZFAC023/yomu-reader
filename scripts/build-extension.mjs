@@ -103,11 +103,35 @@ async function hardenGeneratedSubmissionGuide() {
     const guide = path.join(out, 'review', 'submission-guide.md');
     if (!existsSync(guide)) return;
     const source = await readFile(guide, 'utf8');
-    const hardened = hardenExtensionSubmissionGuide(source);
+    const hardened = hardenExtensionSubmissionGuide(source, await finalSubmissionGuideEvidence());
     if (/packaged new-tab page|Safari new-tab behavior|Remote new tab:/i.test(hardened)) {
         throw new Error('Extension submission guide still positions Study as a browser new-tab override.');
     }
     await writeFile(guide, hardened);
+}
+
+async function finalSubmissionGuideEvidence() {
+    const firefoxDirectory = path.join(out, 'packages', 'extension', 'firefox');
+    const firefoxFiles = await collectDirectoryFiles(firefoxDirectory);
+    const firefoxExecutableSource = (await Promise.all(firefoxFiles
+        .filter(file => file.endsWith('.js') || file.endsWith('.html'))
+        .map(file => readFile(path.join(firefoxDirectory, file), 'utf8'))))
+        .join('\n');
+    const safariManifest = JSON.parse(await readFile(
+        path.join(out, 'packages', 'extension', 'safari', 'manifest.json'),
+        'utf8',
+    ));
+    const safariMatches = (safariManifest.content_scripts ?? [])
+        .flatMap(contentScript => contentScript.matches ?? []);
+    return {
+        firefoxHasInnerHtmlAssignment: /\.innerHTML\s*=/.test(firefoxExecutableSource),
+        safariHasBrowserOverride: Boolean(
+            safariManifest.chrome_url_overrides
+            || safariManifest.browser_url_overrides
+            || safariManifest.chrome_settings_overrides,
+        ),
+        safariHasFileUrlMatch: safariMatches.some(match => /^file:/i.test(String(match))),
+    };
 }
 
 async function stageNewTabServiceWorker(appHash) {
@@ -299,6 +323,13 @@ function verifyStorePackage(entries, target) {
     if (manifest.chrome_url_overrides || manifest.browser_url_overrides || manifest.chrome_settings_overrides) {
         throw new Error(`${target} store package must not override browser pages, search, or home settings.`);
     }
+    if (target === 'safari') {
+        const contentScriptMatches = (manifest.content_scripts ?? [])
+            .flatMap(contentScript => contentScript.matches ?? []);
+        if (contentScriptMatches.some(match => /^file:/i.test(String(match)))) {
+            throw new Error('Safari store package still advertises unsupported file-page content-script injection.');
+        }
+    }
     if (!entries['yomu.css']) {
         throw new Error(`${target} store package is missing the local reader stylesheet.`);
     }
@@ -335,6 +366,9 @@ function verifyStorePackage(entries, target) {
         .filter(([file]) => file.endsWith('.js') || file.endsWith('.html'))
         .map(([file, bytes]) => `${file}\n${new TextDecoder().decode(bytes)}`)
         .join('\n');
+    if (target === 'firefox' && /\.innerHTML\s*=/.test(executableSource)) {
+        throw new Error('Firefox store package contains an innerHTML assignment that AMO will warn about.');
+    }
     if (!executableSource.includes('yomu-extension-packaged-reader-css')) {
         throw new Error(`${target} store package does not route reader CSS loading to its packaged asset.`);
     }
@@ -351,6 +385,9 @@ function verifyStorePackage(entries, target) {
         .join('\n');
     if (popupSource.includes('video-player/index.html')) {
         throw new Error(`${target} store popup references a video-player page that is not packaged.`);
+    }
+    if (target === 'safari' && /\^file:/.test(popupSource)) {
+        throw new Error('Safari store popup still offers unsupported file-page injection.');
     }
 }
 

@@ -174,6 +174,8 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - Issues: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: https://discord.gg/jD6NPURewD
 - Donate by card or wallet: https://support.yomureader.com/donate
+- Support on Patreon: https://patreon.com/yomureader
+- Support on Ko-fi: https://ko-fi.com/yomureader
 
 If よむ helps you read more Japanese, a star makes it easier for other learners to find.
 
