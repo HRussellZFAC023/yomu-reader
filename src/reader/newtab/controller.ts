@@ -31,6 +31,7 @@ import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popu
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
 import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
+import { renderImmersionSearchLinks } from '../immersion/search-links';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
@@ -309,7 +310,7 @@ export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
 
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
-const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
+const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
 // Immersion Kit applies `limit` per deck (100+ decks), so 48 balloons the
 // response to 1-2 MB and times out; 10 keeps it ~400 KB with hundreds of
 // post-filter candidates. See IMMERSION_POPUP_SEARCH_REQUEST_LIMIT.
@@ -7192,6 +7193,7 @@ export class NewTabController {
             }
             : { class: 'jpdb-reader-newtab-immersion' },
             this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji ? { showSource: true } : {}),
+            renderImmersionSearchLinks(card.spelling, settings.interfaceLanguage),
             this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
         );
         if (!isKanji) this.highlightNewTabImmersionTarget(node, card);
@@ -7613,7 +7615,7 @@ export class NewTabController {
     private newTabImmersionSearchOptions(settings: ReaderSettings): ImmersionKitSearchOptions {
         const resultLimit = this.newTabImmersionResultLimit(settings);
         return {
-            requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, resultLimit),
+            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
             resultLimit,
             fastFirst: true,
         };
@@ -7754,7 +7756,7 @@ export class NewTabController {
             fallback: card.fallbackLookupTerms ?? [],
             source: settings.immersionKitExampleSource,
             nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-            requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, this.newTabImmersionResultLimit(settings)),
+            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
             resultLimit: this.newTabImmersionResultLimit(settings),
             limitEnabled: settings.immersionKitLimitEnabled,
             limit: settings.immersionKitLimit,

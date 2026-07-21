@@ -76,7 +76,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 
 | Workflow | よむ helps with |
 | --- | --- |
-| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples, and kanji drilldown with source-labelled keyword comparisons |
+| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples with public Immersion Kit/Nadeshiko search links, configurable lookup pills, and kanji drilldown with source-labelled keyword comparisons |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |

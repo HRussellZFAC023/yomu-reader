@@ -372,6 +372,7 @@ export interface ReaderSettings {
     immersionKitExampleSource: ImmersionExampleSource;
     nadeshikoApiKey: string;
     immersionKitPriority: number;
+    immersionKitExpandedLimitMigrated20260721: boolean;
     immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
     immersionKitMinLength: number;

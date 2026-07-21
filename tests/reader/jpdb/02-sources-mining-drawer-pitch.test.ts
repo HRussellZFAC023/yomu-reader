@@ -1343,7 +1343,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('href="https://jiten.moe/parse?text=%E8%AA%AD"');
     });
 
-    it('renders optional Immersion Kit and Uchisen lookup pills with provider colors', () => {
+    it('renders optional Immersion Kit, Nadeshiko, and Uchisen lookup pills with provider colors', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1351,7 +1351,7 @@ describe('reader helpers', () => {
                 ...DEFAULT_SETTINGS,
                 interfaceLanguage: 'en',
                 dictionaryLookupLinks: defaultDictionaryLookupLinks('local').map(link => (
-                    link.id === 'immersion-kit' || link.id === 'uchisen' ? { ...link, enabled: true } : link
+                    link.id === 'immersion-kit' || link.id === 'nadeshiko' || link.id === 'uchisen' ? { ...link, enabled: true } : link
                 )),
             },
             isJpdbBackedCard: () => true,
@@ -1359,10 +1359,13 @@ describe('reader helpers', () => {
         });
 
         expect(html).toContain('>Immersion Kit ');
+        expect(html).toContain('>Nadeshiko ');
         expect(html).toContain('>Uchisen ');
         expect(html).toContain('https://www.immersionkit.com/dictionary?keyword=');
+        expect(html).toContain('https://nadeshiko.co/search/');
         expect(html).toContain('https://uchisen.com/kanji/');
         expect(html).toContain('--chip-bg:#0e7490');
+        expect(html).toContain('--chip-bg:#7c3aed');
         expect(html).toContain('--chip-bg:#9a3412');
     });
 

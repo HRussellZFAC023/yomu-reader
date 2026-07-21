@@ -1353,6 +1353,7 @@ describe('reader helpers', () => {
             ['takoboto', false],
             ['wiktionary-ja', false],
             ['immersion-kit', false],
+            ['nadeshiko', false],
             ['uchisen', false],
             ['copy', false],
         ]);
@@ -1370,6 +1371,7 @@ describe('reader helpers', () => {
             ['takoboto', false],
             ['wiktionary-ja', false],
             ['immersion-kit', false],
+            ['nadeshiko', false],
             ['uchisen', false],
             ['copy', true],
         ]);
@@ -1387,6 +1389,7 @@ describe('reader helpers', () => {
             ['takoboto', 'Takoboto', 'https://takoboto.jp/?q={query}'],
             ['wiktionary-ja', 'Wiktionary', 'https://ja.wiktionary.org/wiki/{query}'],
             ['immersion-kit', 'Immersion Kit', 'https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1'],
+            ['nadeshiko', 'Nadeshiko', 'https://nadeshiko.co/search/{query}'],
             ['uchisen', 'Uchisen', 'https://uchisen.com/kanji/{query}'],
             ['copy', 'Copy', ''],
         ]);
@@ -1406,6 +1409,7 @@ describe('reader helpers', () => {
             { id: 'kotobank' },
             { id: 'wiktionary-ja' },
             { id: 'immersion-kit' },
+            { id: 'nadeshiko' },
             { id: 'uchisen' },
             { id: 'copy' },
         ]);
@@ -1443,6 +1447,7 @@ describe('reader helpers', () => {
                 ['takoboto', false],
                 ['wiktionary-ja', false],
                 ['immersion-kit', false],
+                ['nadeshiko', false],
                 ['uchisen', false],
                 ['copy', true],
             ]);

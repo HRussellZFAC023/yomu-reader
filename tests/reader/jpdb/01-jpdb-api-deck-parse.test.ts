@@ -807,6 +807,8 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
         expect(normalizedImmersionCss).toContain('-webkit-box-decoration-break: clone; box-decoration-break: clone;');
         expect(normalizedImmersionCss).toContain('box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
+        expect(normalizedImmersionCss).toContain('touch-action: manipulation; -webkit-tap-highlight-color: transparent;');
+        expect(normalizedImmersionCss).toContain('@media (pointer: coarse) { .jpdb-reader-example-translation[data-immersion-translation-blurred="true"], .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] { min-height: 44px; padding: 10px 8px; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {');
         expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-install-app, .jpdb-reader-language-toggle { width: 44px !important;');

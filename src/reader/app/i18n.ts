@@ -846,6 +846,7 @@ const COPY = {
         reveal: 'Reveal',
         revealTranslation: 'Reveal translation',
         immersionExampleControls: 'Immersion Kit example controls',
+        exampleSearchLinks: 'Example searches',
         loadingKanjiDetails: 'Loading kanji details...',
         loadingMnemonicImages: 'Loading mnemonic images...',
         lookupDialog: `${APP_NAME} lookup`,
@@ -921,6 +922,7 @@ const COPY = {
         discord: 'Discord',
         openOnJpdb: 'Open on JPDB',
         openOnLookup: 'Open on {label}',
+        viewOnLookup: 'View on {label}',
         copyWord: 'Copy',
         copyWordTitle: 'Copy word',
         copiedWord: 'Copied word.',
@@ -1256,6 +1258,7 @@ loading	読み込み中...
 reveal	表示
 revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
+exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
 loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
@@ -1419,6 +1422,7 @@ nextExample	次の例文
 playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
+viewOnLookup	{label}で見る
 copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る

@@ -23,6 +23,7 @@ import { publishImmersionFrameWidth } from './frame-width';
 import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample, type ImmersionKitSearchOptions } from './kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './labels';
 import { nextImmersionExampleIndex, renderImmersionExampleActionsHtml, validImmersionExampleIndex } from './player-view';
+import { renderImmersionSearchLinksHtml } from './search-links';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
@@ -45,7 +46,7 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
+const IMMERSION_POPUP_EXAMPLE_LIMIT = 12;
 // Immersion Kit's `limit` is applied PER DECK (100+ decks), not to the whole
 // result, so a large value balloons the response to 1-2 MB for common words
 // (見る ≈ 2 MB at 48) — that regularly overruns audioTimeoutMs and the aborted
@@ -584,7 +585,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT)
             : IMMERSION_POPUP_EXAMPLE_LIMIT;
         return {
-            requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
+            requestLimit: IMMERSION_POPUP_SEARCH_REQUEST_LIMIT,
             resultLimit,
             fastFirst: true,
             ...(signal ? { signal } : {}),
@@ -736,6 +737,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(immersionExampleProviderLabel(example, language))}</span>
             </summary>
+            ${renderImmersionSearchLinksHtml(card.spelling, language)}
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
                     <span class="jpdb-reader-example-title">${escapeHtml(sourceLabel)}</span>

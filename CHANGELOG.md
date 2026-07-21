@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.300] - 2026-07-21
+
+### Added
+
+- Immersion example cards now include View on Immersion Kit and View on Nadeshiko links in popup lookup, Study, and enhanced jpdb/Jiten pages. Nadeshiko is also available as an optional Settings lookup pill, and its public website search needs no API key.
+
+### Fixed
+
+- Immersion Kit no longer stops at the old untouched three-example default. Existing installs using that default move to All, popup and Study surfaces can keep up to 12 examples, and deliberately configured limits stay unchanged.
+- Blurred Immersion Kit translations now reveal reliably with one tap on phones and tablets, remain revealed after the finger lifts, and use a full-size touch target on coarse-pointer devices.
+
 ## [1.6.275] - 2026-07-21
 
 ### Changed

@@ -355,8 +355,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: true,
-    immersionKitLimit: 3,
+    immersionKitExpandedLimitMigrated20260721: true,
+    immersionKitLimitEnabled: false,
+    immersionKitLimit: 12,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
     immersionKitCategory: 'all',
@@ -998,14 +999,14 @@ function normalizeOptionalIsoDateString(value: unknown): string {
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
     const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
         immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
         nadeshikoApiKey: trimmedStringSetting(value, 'nadeshikoApiKey', DEFAULT_SETTINGS.nadeshikoApiKey),
         immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-        immersionKitLimitEnabled: booleanSetting(value, 'immersionKitLimitEnabled'),
-        immersionKitLimit: clampNumber(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+        ...immersionExampleLimit,
         immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
         immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
         immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
@@ -1023,6 +1024,19 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
         ocrBackgroundOpacity,
         ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
+    };
+}
+
+function normalizeImmersionExampleLimitSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'immersionKitExpandedLimitMigrated20260721' | 'immersionKitLimitEnabled' | 'immersionKitLimit'> {
+    const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true
+        && value?.immersionKitLimitEnabled === true
+        && value?.immersionKitLimit === 3;
+    return {
+        immersionKitExpandedLimitMigrated20260721: true,
+        immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, 'immersionKitLimitEnabled'),
+        immersionKitLimit: legacyDefault
+            ? DEFAULT_SETTINGS.immersionKitLimit
+            : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
     };
 }
 
