@@ -186,7 +186,7 @@ function readApiDefinitionFormSettings(
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
-        jpdbDefinitionsEnabled: true,
+        jpdbDefinitionsEnabled: rowsPresent.jpdb ? has('jpdbDefinitions.enabled') : current.jpdbDefinitionsEnabled,
         jpdbDefinitionsAlias: readSourceAlias(reader, 'jpdbDefinitions', current.jpdbDefinitionsAlias),
         jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
         jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,

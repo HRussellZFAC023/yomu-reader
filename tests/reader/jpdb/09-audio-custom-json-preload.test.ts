@@ -799,6 +799,46 @@ describe('reader helpers', () => {
         }
     });
 
+    it('reuses a pending signal-free prefetch for an abortable review reveal', async () => {
+        const client = new ImmersionKitClient();
+        const response = deferred<{ status: number; responseText: string }>();
+        const requests: string[] = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ url }: { url: string }) => {
+                requests.push(url);
+                return response.promise;
+            },
+        });
+
+        try {
+            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true };
+            const searchOptions = { requestLimit: 12, resultLimit: 2, fastFirst: true };
+            const prefetch = client.search('読む', settings, searchOptions);
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+            const revealController = new AbortController();
+            const reveal = client.search('読む', settings, { ...searchOptions, signal: revealController.signal });
+            expect(requests).toHaveLength(1);
+
+            response.resolve({
+                status: 200,
+                responseText: JSON.stringify({
+                    examples: [{
+                        id: 'anime_steins_gate_000000001',
+                        sentence: '本を読む時間です。',
+                        title: 'steins_gate',
+                    }],
+                }),
+            });
+
+            const [prefetchedExamples, revealedExamples] = await Promise.all([prefetch, reveal]);
+            expect(requests).toHaveLength(1);
+            expect(revealedExamples).toEqual(prefetchedExamples);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('searches Nadeshiko with the configured API key and normalizes media examples', async () => {
         const client = new ImmersionKitClient();
         const requests: Array<{ url: string; method?: string; headers?: Record<string, string>; data?: string }> = [];

@@ -812,9 +812,9 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {');
         expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-install-app, .jpdb-reader-language-toggle { width: 44px !important;');
-        // Immersion Kit controls stay compact on touch (user-reported: 44px
-        // stacked controls wasted study-card space).
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 36px !important; min-width: 36px !important; height: 36px !important; min-height: 36px !important; }');
+        // The inline toolbar keeps its compact row while every touch control
+        // remains a genuine 44px one-tap target.
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; min-height: 44px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-newtab-source-select, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
         expect(normalizedNewTabCss).toContain('min-height: 44px !important; overflow: visible; touch-action: manipulation; }');

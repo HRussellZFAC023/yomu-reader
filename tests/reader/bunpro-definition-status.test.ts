@@ -66,6 +66,18 @@ async function statusFor(settings: Partial<ReaderSettings>, search: (...args: an
 }
 
 describe('Bunpro definition absence status', () => {
+    it('does not request Bunpro when definitions and live frequency are disabled', async () => {
+        const search = vi.fn(async () => ({}));
+        const dictionaryLookupLinks = DEFAULT_SETTINGS.dictionaryLookupLinks.map(link =>
+            link.id === 'bunpro-frequency' ? { ...link, enabled: false } : link);
+
+        await expect(statusFor({
+            bunproDefinitionsEnabled: false,
+            dictionaryLookupLinks,
+        }, search)).resolves.toMatchObject({ state: 'disabled', reason: 'definitions-disabled' });
+        expect(search).not.toHaveBeenCalled();
+    });
+
     it('looks up public definition data regardless of login state', async () => {
         await expect(statusFor({ bunproDefinitionsEnabled: false })).resolves.toMatchObject({ state: 'disabled' });
         // Reviewable data is public: a missing or expired token must not

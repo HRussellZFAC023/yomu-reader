@@ -26,6 +26,20 @@
 - Multiline framework-owned prose now reserves measured room for detached furigana, while clipped previews, titles, and compact controls retain the page's dimensions. The shared source-projection path also removes the duplicate pale underline and keeps late compound pitch such as `登録者数` continuous across wrapped fragments.
 - Detached readings now clear rounded chip and tab edges instead of sitting flush with the clipping boundary. The geometry is shared across sites and verified in Chromium and WebKit.
 
+## [1.7.0] - 2026-07-22
+
+### Changed
+
+- Immersion Kit now mounts immediately in a centred, height-bounded 16:9 area on revealed jpdb, Jiten, and Bunpro review cards, with the same compact treatment on Study. Other dictionaries retain the full card width, and ordinary detail pages keep their established layout.
+- Jiten prefetches one exact current-card Immersion Kit search without exposing it on the question side, reuses that in-flight request on reveal, and leaves fallback fan-out until it is needed. Local and provider definitions then hydrate progressively after the stable review shell mounts.
+- After visible review media decodes, the carousel warms at most one adjacent image; ordinary reader lookups do not make speculative media requests.
+
+### Fixed
+
+- Moving to the next Jiten card removes the previous answer immediately instead of waiting for a resettable 500 ms delay or rebuilding the whole addon after every provider finishes.
+- Turning JPDB or Bunpro definitions off now persists and hides those definition panels; lookup and frequency pills remain independent.
+- Immersion Kit review controls meet the 44 px mobile touch target, blurred translations remain revealed after one tap, and the carousel is no longer limited to two or three examples.
+
 ## [1.6.409] - 2026-07-22
 
 ### Fixed

@@ -165,8 +165,17 @@ export class ImmersionKitClient {
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;
         const cacheInflight = !options.signal;
-        const inflight = cacheInflight ? this.inflight.get(cacheKey) : undefined;
-        if (inflight) return inflight;
+        const inflight = this.inflight.get(cacheKey);
+        if (inflight) {
+            // A hidden review-card prefetch deliberately has no abort signal so
+            // it can finish warming the cache. When reveal arrives while that
+            // request is still running, share it while letting only the reveal
+            // waiter abort; starting a second abortable request here doubled
+            // latency-sensitive traffic and defeated the prefetch.
+            return options.signal
+                ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal)
+                : inflight;
+        }
 
         const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const promise = this.searchEnabledSources(query, settings, options)
@@ -370,6 +379,32 @@ export class ImmersionKitClient {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
         return readBlobAsDataUrl(blob);
     }
+}
+
+function raceSharedImmersionSearchAgainstAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(immersionSearchAbortError());
+    return new Promise<T>((resolve, reject) => {
+        const onAbort = () => {
+            cleanup();
+            reject(immersionSearchAbortError());
+        };
+        const cleanup = () => signal.removeEventListener('abort', onAbort);
+        signal.addEventListener('abort', onAbort, { once: true });
+        promise.then(value => {
+            cleanup();
+            resolve(value);
+        }, error => {
+            cleanup();
+            reject(error);
+        });
+    });
+}
+
+function immersionSearchAbortError(): Error {
+    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
 }
 
 function canSearchImmersionExamples(query: string, settings: ReaderSettings): boolean {

@@ -27,6 +27,10 @@ import {
 export { isBunproHost, isBunproQuizAnswerHidden } from '../bunpro/page-targets';
 export { isJitenHost } from '../jiten/jiten-page-targets';
 
+export type PageEnhancementLayoutContext = 'entry' | 'review';
+
+const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
+
 export function isPageEnhancementHost(): boolean {
     return isJpdbHost() || isJitenHost() || isBunproHost();
 }
@@ -35,6 +39,17 @@ export function isPageEnhancementReady(): boolean {
     if (isJpdbHost()) return true;
     if (isBunproHost()) return isBunproEnhanceablePage();
     return isJitenHost() && isJitenEnhanceablePage();
+}
+
+export function currentPageEnhancementLayoutContext(): PageEnhancementLayoutContext {
+    const pathname = location.pathname;
+    if (isJpdbHost() && pathname.startsWith('/review')) return 'review';
+    if (isJitenHost() && pathname.startsWith('/srs/study')) return 'review';
+    if (!isBunproHost()) return 'entry';
+
+    const bunproPathname = pathname.replace(BUNPRO_LOCALE_PREFIX, '') || '/';
+    const isReviewRoute = bunproPathname === '/reviews' || bunproPathname.startsWith('/reviews/');
+    return isReviewRoute || Boolean(document.querySelector('#js-quiz')) ? 'review' : 'entry';
 }
 
 export function isCurrentKanjiSurface(): boolean {

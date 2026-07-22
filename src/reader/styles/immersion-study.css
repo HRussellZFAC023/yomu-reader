@@ -283,6 +283,123 @@
   margin: 0;
   line-height: 1.35;
 }
+
+/* Review hosts have a fixed grading area below or beside the answer. Keep only
+   the media source compact and centred so dictionary/source panels retain the
+   host column's full readable width. The stage dimensions reserve the final
+   16:9 footprint before an image decodes, avoiding a jump under the pointer. */
+.yomu-jpdb-page-addon[data-yomu-page-context="review"]
+  .jpdb-reader-immersion {
+  --jpdb-reader-example-media-max-height: min(34dvh, 340px);
+  box-sizing: border-box;
+  width: min(100%, 34rem);
+  margin: 10px auto 6px;
+  scroll-margin-block-end: max(96px, env(safe-area-inset-bottom));
+}
+.yomu-jpdb-page-addon[data-yomu-page-context="review"]
+  :is(.jpdb-reader-example-source, .jpdb-reader-example-count, .jpdb-reader-example-translation) {
+  color: var(--jpdb-reader-text);
+}
+.yomu-jpdb-page-addon[data-yomu-page-context="review"]
+  .jpdb-reader-immersion
+  .jpdb-reader-example-card {
+  animation: yomu-review-immersion-fade-in 80ms ease-out both;
+}
+.yomu-jpdb-page-addon[data-yomu-page-context="review"]
+  .jpdb-reader-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-media {
+  box-sizing: border-box;
+  width: min(100%, 60.444dvh, 604px);
+  min-width: 0;
+  /* Carousel swaps temporarily preserve the previous frame height inline.
+     Review rails already reserve their footprint with aspect-ratio, so let a
+     viewport resize recompute that footprint instead of pinning desktop height
+     on tablet/mobile. */
+  min-height: 0 !important;
+  max-height: var(--jpdb-reader-example-media-max-height);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--jpdb-reader-video-frame);
+  box-shadow: inset 0 0 0 1px var(--jpdb-reader-video-grid-line);
+}
+.yomu-jpdb-page-addon[data-yomu-page-context="review"]
+  .jpdb-reader-immersion
+  .jpdb-reader-example-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+
+@keyframes yomu-review-immersion-fade-in {
+  from {
+    opacity: 0.82;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-immersion {
+    --jpdb-reader-example-media-max-height: min(30dvh, 280px);
+    width: min(100%, 30rem);
+  }
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-immersion
+    .jpdb-reader-example-card.has-image
+    .jpdb-reader-example-media {
+    width: min(100%, 53.333dvh, 498px);
+  }
+}
+
+@media (max-width: 520px) {
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-immersion {
+    --jpdb-reader-example-media-max-height: min(26dvh, 220px);
+    width: 100%;
+    margin-block: 8px 4px;
+  }
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-immersion
+    .jpdb-reader-example-card.has-image
+    .jpdb-reader-example-media {
+    width: min(100%, 46.222dvh, 391px);
+    border-radius: 10px;
+  }
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-example-translation[data-immersion-translation-blurred="true"],
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"],
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-example-translation[data-provider-translation-blurred="true"] {
+    min-height: 44px;
+    padding: 10px 8px;
+  }
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-example-actions
+    .jpdb-reader-icon-mini {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yomu-jpdb-page-addon[data-yomu-page-context="review"]
+    .jpdb-reader-immersion
+    .jpdb-reader-example-card {
+    animation: none;
+  }
+}
 .jpdb-reader-example-sentence .jpdb-reader-word {
   display: inline;
   -webkit-box-decoration-break: clone;

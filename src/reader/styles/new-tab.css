@@ -3900,7 +3900,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-immersion {
   margin-top: clamp(6px, 1.6vh, 14px);
-  width: min(640px, 100%);
+  width: min(34rem, 100%);
   display: grid;
   justify-items: stretch;
   gap: 10px;
@@ -3915,6 +3915,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-immersion .jpdb-reader-example-body {
   width: 100%;
   min-width: 0;
+}
+
+.jpdb-reader-newtab-immersion .jpdb-reader-example-card {
+  animation: yomu-review-immersion-fade-in 80ms ease-out both;
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-body {
@@ -3996,13 +4000,19 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   stroke-linejoin: round;
 }
 
-.jpdb-reader-newtab-immersion .jpdb-reader-example-media {
+.jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-media {
   position: relative;
-  width: 100%;
+  box-sizing: border-box;
+  width: min(100%, 60.444dvh, 604px);
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
   display: flex;
   justify-content: center;
   align-items: center;
-  max-height: min(520px, 52vh);
+  max-height: min(340px, 34dvh);
   overflow: hidden;
   border-radius: 18px;
   background:
@@ -4015,10 +4025,43 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-image {
   width: 100%;
-  height: auto;
-  max-height: min(520px, 52vh);
+  height: 100%;
+  max-height: none;
   object-fit: contain;
   display: block;
+}
+
+@media (max-width: 900px) {
+  .jpdb-reader-newtab-immersion:not(.jpdb-reader-newtab-kanji-immersion) {
+    width: min(30rem, 100%);
+  }
+
+  .jpdb-reader-newtab-immersion:not(.jpdb-reader-newtab-kanji-immersion)
+    .jpdb-reader-example-card.has-image
+    .jpdb-reader-example-media {
+    width: min(100%, 53.333dvh, 498px);
+    max-height: min(280px, 30dvh);
+  }
+}
+
+@media (max-width: 520px) {
+  .jpdb-reader-newtab-immersion:not(.jpdb-reader-newtab-kanji-immersion) {
+    width: 100%;
+  }
+
+  .jpdb-reader-newtab-immersion:not(.jpdb-reader-newtab-kanji-immersion)
+    .jpdb-reader-example-card.has-image
+    .jpdb-reader-example-media {
+    width: min(100%, 46.222dvh, 391px);
+    max-height: min(220px, 26dvh);
+    border-radius: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-newtab-immersion .jpdb-reader-example-card {
+    animation: none;
+  }
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-sentence {
@@ -4749,13 +4792,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     justify-content: center;
   }
 
-  /* Immersion Kit controls sit inline with the clip title; 36px visible
-     size keeps the row compact (user-reported) while staying tappable. */
+  /* Review navigation must remain a real one-tap target on phones and tablets;
+     the compact inline toolbar still fits three 44px controls beside metadata. */
   .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
-    width: 36px !important;
-    min-width: 36px !important;
-    height: 36px !important;
-    min-height: 36px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
   }
 
   .jpdb-reader-newtab .jpdb-reader-newtab-overflow,

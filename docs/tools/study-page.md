@@ -55,6 +55,8 @@ Steps that don't fit a card are skipped: a kana-only word has nothing to draw, a
 
 Until you reveal a card, its word, reading, answer, and provider id stay out of the address bar. Reveal creates the deliberate shareable card link; Study embedded inside Academy leaves the Academy URL alone.
 
+On reveal, Immersion Kit uses the same centred, height-bounded 16:9 review frame as jpdb, Jiten, and Bunpro, while dictionary panels keep the full card width. The carousel can retain up to 12 examples, its controls are full-size on phones and tablets, and a blurred translation stays revealed after one tap. **View on Immersion Kit** and **View on Nadeshiko** remain available as public searches without an API key.
+
 ## Pitch practice built in
 
 The listen and speak steps come from a lightweight pitch schedule that grows from the words already feeding your study — Anki, Jiten, Bunpro, JPDB, or local dictionary words with a clear pitch accent. It reviews the pitch shapes that are due first, and plays a same-reading, different-accent word back to back when it can find one, so the contrast is easy to hear.

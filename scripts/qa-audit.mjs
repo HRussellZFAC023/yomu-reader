@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -36,6 +36,7 @@ const SCRIPT_FALLBACK_PATHS = [
 const API_KEY = process.env.YOMU_TEST_API_KEY?.trim() ?? '';
 const MOCK_API_KEY = 'yomu-qa-mock-key';
 const QA_API_KEY = API_KEY || MOCK_API_KEY;
+const QA_ONLY = process.env.YOMU_QA_ONLY?.trim().toLowerCase() ?? '';
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 const QA_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/';
 const TRANSPARENT_CSS_COLORS = new Set(['transparent', 'rgba(0, 0, 0, 0)', 'rgb(0 0 0 / 0)']);
@@ -691,6 +692,12 @@ function immersionSearchRequestCount(requests) {
     return requests.filter(request => /apiv2(?:express)?\.immersionkit\.com\/search/.test(request.url)).length;
 }
 
+function immersionImageRequestUrls(requests) {
+    return requests
+        .map(request => request.url)
+        .filter(url => /(?:\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)(?:$|[?&#])/i.test(decodeURIComponent(url)));
+}
+
 function jpdbParseRequestCount(requests) {
     return requests.filter(request => request.url.includes('jpdb.io/api/v1/parse')).length;
 }
@@ -792,8 +799,8 @@ function immersionMediaLabel(mediaPath) {
         : 'Example';
 }
 
-async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
-    const { page } = await newAutoClosingPage(browser, { viewport, deviceScaleFactor: 1 });
+async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }, contextOptions = {}) {
+    const { page } = await newAutoClosingPage(browser, { viewport, deviceScaleFactor: 1, ...contextOptions });
     page.on('console', message => {
         if (message.type() === 'error') {
             console.error(`[Browser Console Error]: ${browserConsoleMessageText(message)}`);
@@ -1577,9 +1584,9 @@ function mockImmersionKitSearch(url) {
         {
             id: 'anime_steins_gate_000001',
             title: 'steins_gate',
-            sentence: '今日は静かな喫茶店で本を読みました。',
-            sentence_with_furigana: '今日[きょう]は 静[しず]かな 喫茶店[きっさてん]で 本[ほん]を 読[よ]みました。',
-            translation: 'I read a book in a quiet cafe today.',
+            sentence: '静かな喫茶店で新しい本を読む時間が好きです。',
+            sentence_with_furigana: '静[しず]かな 喫茶店[きっさてん]で 新[あたら]しい 本[ほん]を 読[よ]む 時間[じかん]が 好[す]きです。',
+            translation: 'I like spending time reading a new book in a quiet cafe.',
             image: 'qa-1.jpg',
             sound: 'qa-1.mp3',
         },
@@ -1599,8 +1606,52 @@ function mockImmersionKitSearch(url) {
             image: 'qa-3.jpg',
             sound: 'qa-3.mp3',
         },
-    ].filter(example => !query || example.sentence.includes(query) || example.sentence.includes('読') || query === '読む');
-    return { examples, category_count: { anime: 2, drama: 1 }, deck_count: {} };
+        {
+            id: 'anime_qa_story_000004',
+            title: 'qa_story',
+            sentence: '朝に新聞を読む習慣を続けています。',
+            translation: 'I keep up the habit of reading the newspaper in the morning.',
+            image: 'qa-4.jpg',
+            sound: 'qa-4.mp3',
+        },
+        {
+            id: 'anime_qa_story_000005',
+            title: 'qa_story',
+            sentence: '声に出して読むと発音を確認できます。',
+            translation: 'Reading aloud lets you check your pronunciation.',
+            image: 'qa-5.jpg',
+            sound: 'qa-5.mp3',
+        },
+        {
+            id: 'drama_qa_story_000006',
+            title: 'qa_story',
+            sentence: '寝る前に短い物語を読むことにしました。',
+            translation: 'I decided to read a short story before bed.',
+            image: 'qa-6.jpg',
+            sound: 'qa-6.mp3',
+        },
+        {
+            id: 'drama_qa_story_000007',
+            title: 'qa_story',
+            sentence: '分からない漢字があっても最後まで読むつもりです。',
+            translation: 'I plan to read to the end even if there are kanji I do not know.',
+            image: 'qa-7.jpg',
+            sound: 'qa-7.mp3',
+        },
+        {
+            id: 'drama_qa_story_000008',
+            title: 'qa_story',
+            sentence: 'この手紙をもう一度ゆっくり読む必要があります。',
+            translation: 'I need to read this letter slowly one more time.',
+            image: 'qa-8.jpg',
+            sound: 'qa-8.mp3',
+        },
+    ].map(example => !query || example.sentence.includes(query) ? example : {
+        ...example,
+        sentence: `${query}について、${example.sentence}`,
+        sentence_with_furigana: '',
+    });
+    return { examples, category_count: { anime: 5, drama: 3 }, deck_count: {} };
 }
 
 function htmlEscape(value) {
@@ -3709,6 +3760,434 @@ async function auditJpdbSearchCompatibility(browser) {
     record('jpdb.io search compatibility', 'pass', 'native ruby, kanji drilldown, status colors, and reader control isolation work on jpdb.io');
 }
 
+async function auditJitenReviewTransitionPerformance(browser) {
+    const { page, requests } = await newAuditedPage(browser, {
+        ...baseSettings,
+        jpdbPageEnhancementsEnabled: true,
+        jpdbPageWordEnhancementsEnabled: true,
+        jpdbPageKanjiEnhancementsEnabled: true,
+        jpdbDefinitionsEnabled: false,
+        jitenDefinitionsEnabled: false,
+        bunproDefinitionsEnabled: false,
+        localDictionariesEnabled: false,
+        studyTranslationEnabled: false,
+        studyGrammarEnabled: false,
+        immersionKitEnabled: true,
+        immersionKitLimit: 3,
+        immersionKitLimitEnabled: false,
+        immersionKitShowTranslation: true,
+        immersionKitRevealTranslationOnClick: true,
+        immersionKitAutoPlayAudio: false,
+        showFloatingButton: false,
+    }, { width: 1440, height: 900 }, { hasTouch: true });
+    await installMockAudioPlayback(page);
+    await page.route('https://jiten.moe/srs/study', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: jitenReviewPerformanceFixtureHtml(),
+    }));
+    await page.goto('https://jiten.moe/srs/study', { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+
+    assertAudit(await page.locator('[data-yomu-jpdb-addon]').count() === 0, 'Jiten front mounted answer-side enhancements before reveal');
+    await waitForNodeAudit(() => immersionSearchRequestCount(requests) > 0, 3000, 'Jiten hidden-front Immersion prefetch did not start');
+    await waitForNodeAudit(() => immersionImageRequestUrls(requests).length > 0, 3000, 'Jiten hidden-front first-image prefetch did not start');
+    assertAudit(immersionImageRequestUrls(requests).length === 1, `Jiten hidden-front prefetch fetched more than the current image: ${JSON.stringify(immersionImageRequestUrls(requests))}`);
+    const firstPrefetchSearches = immersionSearchRequestCount(requests);
+
+    const first = await measureJitenFixtureReveal(page);
+    await page.waitForSelector('[data-yomu-jpdb-addon] [data-immersion-kit] .jpdb-reader-example-card', { state: 'attached', timeout: 4000 });
+    await page.locator('[data-yomu-jpdb-addon] [data-immersion-kit]').evaluate(details => { details.open = true; });
+    await waitForJitenReviewMediaPaint(page);
+    const firstMediaMs = await page.evaluate(start => performance.now() - start, first.startedAt);
+    assertFastJitenReviewPaint('first reveal', first.shellMs, firstMediaMs);
+    await assertVisibleJitenReviewExampleActions(page, 'desktop');
+    const firstNextMediaMs = await measureJitenImmersionNextMedia(page);
+    assertFastJitenCarouselPaint('first reveal', firstNextMediaMs);
+    assertUniqueJitenImmersionImageRequests(requests, 'first carousel Next');
+    assertAudit(immersionSearchRequestCount(requests) === firstPrefetchSearches, 'Jiten reveal duplicated its current-card Immersion prefetch');
+    await assertJitenReviewSourceSettings(page, requests);
+
+    const desktopLayout = await jitenReviewLayoutSnapshot(page, { width: 1440, height: 900 });
+    assertJitenReviewLayout(desktopLayout, { maxImmersionWidth: 544, minControlSize: 0 });
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jiten-review-immersion-desktop.png'), fullPage: true });
+
+    const searchesAfterFirst = immersionSearchRequestCount(requests);
+    const hidden = await measureJitenFixtureNextFront(page, '読書');
+    assertAudit(hidden < 100, `Jiten stale answer addon remained for ${Math.round(hidden)}ms after Next`);
+    assertAudit(await page.locator('[data-yomu-jpdb-addon]').count() === 0, 'Jiten next-card front retained the previous answer addon');
+    await waitForNodeAudit(
+        () => immersionSearchRequestCount(requests) > searchesAfterFirst,
+        3000,
+        'Jiten next-card hidden-front Immersion prefetch did not start',
+    ).catch(async error => {
+        const debug = await page.evaluate(() => ({
+            title: document.title,
+            headword: document.querySelector('[data-case="headword"]')?.textContent ?? '',
+            extractedHeadwordCandidates: [...document.querySelectorAll('.text-3xl[lang="ja"],.text-4xl[lang="ja"],.text-5xl[lang="ja"],.text-6xl[lang="ja"]')].map(node => node.textContent ?? ''),
+            hasShowAnswer: Boolean(document.querySelector('[data-case="show-answer"]')),
+            addonCount: document.querySelectorAll('[data-yomu-jpdb-addon]').length,
+        }));
+        throw new Error(`${error instanceof Error ? error.message : String(error)}: ${JSON.stringify({ debug, requests: requests.filter(request => /immersionkit\.com\/search/.test(request.url)) })}`);
+    });
+    const secondPrefetchSearches = immersionSearchRequestCount(requests);
+
+    const second = await measureJitenFixtureReveal(page);
+    await page.waitForSelector('[data-yomu-jpdb-addon] [data-immersion-kit] .jpdb-reader-example-card', { state: 'attached', timeout: 4000 });
+    await page.locator('[data-yomu-jpdb-addon] [data-immersion-kit]').evaluate(details => { details.open = true; });
+    await waitForJitenReviewMediaPaint(page);
+    const secondMediaMs = await page.evaluate(start => performance.now() - start, second.startedAt);
+    assertFastJitenReviewPaint('second reveal', second.shellMs, secondMediaMs);
+    const secondNextMediaMs = await measureJitenImmersionNextMedia(page);
+    assertFastJitenCarouselPaint('second reveal', secondNextMediaMs);
+    assertUniqueJitenImmersionImageRequests(requests, 'second carousel Next');
+    assertAudit(immersionSearchRequestCount(requests) === secondPrefetchSearches, 'Jiten second reveal duplicated its current-card Immersion prefetch');
+
+    const tabletLayout = await jitenReviewLayoutSnapshot(page, { width: 768, height: 1024 });
+    assertJitenReviewLayout(tabletLayout, { maxImmersionWidth: 480, minControlSize: 0 });
+    const mobileLayout = await jitenReviewLayoutSnapshot(page, { width: 390, height: 844 });
+    assertJitenReviewLayout(mobileLayout, { maxImmersionWidth: 390, minControlSize: 44 });
+    await assertVisibleJitenReviewExampleActions(page, 'mobile');
+    await assertOneTapImmersionTranslationReveal(page);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jiten-review-immersion-mobile.png'), fullPage: true });
+
+    const regularWidth = await page.evaluate(() => {
+        const root = document.querySelector('[data-yomu-jpdb-addon]');
+        if (!(root instanceof HTMLElement)) return 0;
+        root.dataset.yomuPageContext = 'entry';
+        const width = document.querySelector('[data-immersion-kit]')?.getBoundingClientRect().width ?? 0;
+        root.dataset.yomuPageContext = 'review';
+        return width;
+    });
+    assertAudit(regularWidth >= mobileLayout.immersion.width - 1, 'regular entry-page Immersion geometry was narrowed by review-only rules');
+
+    await assertAccessibleSurface(page, 'Jiten review Immersion Kit', '[data-yomu-jpdb-addon]');
+    await page.close();
+    record(
+        'Jiten review transition performance',
+        'pass',
+        `shell ${Math.round(first.shellMs)}/${Math.round(second.shellMs)}ms, media ${Math.round(firstMediaMs)}/${Math.round(secondMediaMs)}ms, carousel ${Math.round(firstNextMediaMs)}/${Math.round(secondNextMediaMs)}ms, stale removal ${Math.round(hidden)}ms`,
+    );
+}
+
+async function auditJitenReviewMobileWebKit(browser) {
+    const { page, requests } = await newAuditedPage(browser, {
+        ...baseSettings,
+        jpdbPageEnhancementsEnabled: true,
+        jpdbPageWordEnhancementsEnabled: true,
+        jpdbPageKanjiEnhancementsEnabled: true,
+        jpdbDefinitionsEnabled: false,
+        jitenDefinitionsEnabled: false,
+        bunproDefinitionsEnabled: false,
+        localDictionariesEnabled: false,
+        studyTranslationEnabled: false,
+        studyGrammarEnabled: false,
+        immersionKitEnabled: true,
+        immersionKitLimit: 3,
+        immersionKitLimitEnabled: false,
+        immersionKitShowTranslation: true,
+        immersionKitRevealTranslationOnClick: true,
+        immersionKitAutoPlayAudio: false,
+        showFloatingButton: false,
+    }, { width: 390, height: 844 }, { hasTouch: true });
+    await installMockAudioPlayback(page);
+    await page.route('https://jiten.moe/srs/study', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: jitenReviewPerformanceFixtureHtml(),
+    }));
+    await page.goto('https://jiten.moe/srs/study', { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+
+    await waitForNodeAudit(() => immersionSearchRequestCount(requests) > 0, 3000, 'WebKit hidden-front Immersion prefetch did not start');
+    await waitForNodeAudit(() => immersionImageRequestUrls(requests).length > 0, 3000, 'WebKit hidden-front first-image prefetch did not start');
+    assertAudit(immersionImageRequestUrls(requests).length === 1, `WebKit hidden-front prefetch fetched more than the current image: ${JSON.stringify(immersionImageRequestUrls(requests))}`);
+    const prefetchedSearches = immersionSearchRequestCount(requests);
+    const reveal = await measureJitenFixtureReveal(page);
+    await page.waitForSelector('[data-yomu-jpdb-addon] [data-immersion-kit] .jpdb-reader-example-card', { state: 'attached', timeout: 4000 });
+    await page.locator('[data-yomu-jpdb-addon] [data-immersion-kit]').evaluate(details => { details.open = true; });
+    await waitForJitenReviewMediaPaint(page);
+    const mediaMs = await page.evaluate(start => performance.now() - start, reveal.startedAt);
+    assertFastJitenReviewPaint('WebKit mobile reveal', reveal.shellMs, mediaMs);
+    const nextMediaMs = await measureJitenImmersionNextMedia(page);
+    assertFastJitenCarouselPaint('WebKit mobile reveal', nextMediaMs);
+    assertUniqueJitenImmersionImageRequests(requests, 'WebKit carousel Next');
+    assertAudit(immersionSearchRequestCount(requests) === prefetchedSearches, 'WebKit reveal duplicated its current-card Immersion prefetch');
+
+    const layout = await jitenReviewLayoutSnapshot(page, { width: 390, height: 844 });
+    assertJitenReviewLayout(layout, { maxImmersionWidth: 390, minControlSize: 44 });
+    await assertVisibleJitenReviewExampleActions(page, 'WebKit mobile');
+    await assertOneTapImmersionTranslationReveal(page);
+    await assertAccessibleSurface(page, 'Jiten review Immersion Kit on WebKit', '[data-yomu-jpdb-addon]');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jiten-review-immersion-mobile-webkit.png'), fullPage: true });
+    await page.close();
+    record(
+        'Jiten review mobile WebKit',
+        'pass',
+        `one-tap reveal, 44px controls, shell ${Math.round(reveal.shellMs)}ms, media ${Math.round(mediaMs)}ms, carousel ${Math.round(nextMediaMs)}ms`,
+    );
+}
+
+function jitenReviewPerformanceFixtureHtml() {
+    return `<!doctype html><html lang="ja" class="dark-mode"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>
+        :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#11151a;color:#eef2f5;font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+        main{max-width:940px;margin:0 auto;padding:28px 18px 120px}.flex-grow{display:flex;flex-direction:column;gap:16px}.relative.touch-pan-y{position:relative}.pointer-events-none{pointer-events:none}.w-full{width:100%}.mx-auto{margin-inline:auto}
+        [data-case="card"]{display:grid;gap:16px;padding:clamp(16px,3vw,30px);border:1px solid #33404c;border-radius:20px;background:#182027}.text-5xl{font-size:clamp(36px,7vw,64px);font-weight:750;text-align:center}
+        [data-case="native-answer"]{padding-top:14px;border-top:1px solid #34434f}button[data-case="show-answer"]{min-height:48px;border:0;border-radius:12px;background:#5ea780;color:#08120d;font-weight:800}
+    </style><title>読む - Jiten</title></head><body><main><div class="flex-grow flex flex-col"><button type="button" data-case="show-answer">Show Answer</button><div class="relative touch-pan-y"><div class="absolute inset-0 rounded-2xl pointer-events-none z-10"></div><div class="w-full mx-auto"><div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card"><div class="text-5xl" lang="ja" data-case="headword">読む</div></div></div></div></div></main></body></html>`;
+}
+
+function measureJitenFixtureReveal(page) {
+    return page.evaluate(() => new Promise(resolve => {
+        const startedAt = performance.now();
+        const finish = () => {
+            const shell = document.querySelector('[data-yomu-jpdb-addon] [data-immersion-kit]');
+            if (!shell) return false;
+            observer.disconnect();
+            resolve({ startedAt, shellMs: performance.now() - startedAt });
+            return true;
+        };
+        const observer = new MutationObserver(finish);
+        observer.observe(document.body, { childList: true, subtree: true });
+        document.querySelector('[data-case="show-answer"]')?.remove();
+        const answer = document.createElement('div');
+        answer.dataset.case = 'native-answer';
+        answer.innerHTML = '<strong>Meaning</strong><p>to read</p><div>Kanji breakdown</div><div>Composed of</div>';
+        document.querySelector('[data-case="card"]')?.append(answer);
+        if (finish()) return;
+        window.setTimeout(() => {
+            observer.disconnect();
+            resolve({ startedAt, shellMs: performance.now() - startedAt });
+        }, 2000);
+    }));
+}
+
+function measureJitenFixtureNextFront(page, term) {
+    return page.evaluate(nextTerm => new Promise(resolve => {
+        const startedAt = performance.now();
+        const finish = () => {
+            if (document.querySelector('[data-yomu-jpdb-addon]')) return false;
+            observer.disconnect();
+            resolve(performance.now() - startedAt);
+            return true;
+        };
+        const observer = new MutationObserver(finish);
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        const headword = document.querySelector('[data-case="headword"]');
+        if (headword) headword.textContent = nextTerm;
+        document.title = `${nextTerm} - Jiten`;
+        document.querySelector('[data-case="native-answer"]')?.remove();
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.case = 'show-answer';
+        button.textContent = 'Show Answer';
+        document.querySelector('.flex-grow')?.prepend(button);
+        if (finish()) return;
+        window.setTimeout(() => {
+            observer.disconnect();
+            resolve(performance.now() - startedAt);
+        }, 2000);
+    }), term);
+}
+
+async function jitenReviewLayoutSnapshot(page, viewport) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    return page.evaluate(() => {
+        const addon = document.querySelector('[data-yomu-jpdb-addon]');
+        const immersion = document.querySelector('[data-immersion-kit]');
+        const media = document.querySelector('.jpdb-reader-example-media');
+        const image = document.querySelector('.jpdb-reader-example-image');
+        const control = document.querySelector('[data-immersion-action="next"]');
+        const rect = node => {
+            const box = node?.getBoundingClientRect();
+            return box ? { width: box.width, height: box.height, left: box.left, right: box.right } : { width: 0, height: 0, left: 0, right: 0 };
+        };
+        return {
+            viewport: { width: innerWidth, height: innerHeight },
+            addon: rect(addon),
+            immersion: rect(immersion),
+            media: rect(media),
+            image: rect(image),
+            control: rect(control),
+            context: addon instanceof HTMLElement ? addon.dataset.yomuPageContext : '',
+        };
+    });
+}
+
+function assertJitenReviewLayout(layout, { maxImmersionWidth, minControlSize }) {
+    assertAudit(layout.context === 'review', `review context metadata missing: ${JSON.stringify(layout)}`);
+    assertAudit(layout.immersion.width > 0 && layout.immersion.width <= maxImmersionWidth + 1, `review Immersion rail is not bounded: ${JSON.stringify(layout)}`);
+    assertAudit(layout.media.width > 0 && Math.abs(layout.media.width / layout.media.height - 16 / 9) < 0.04, `review media stage is not stable 16:9: ${JSON.stringify(layout)}`);
+    assertAudit(layout.immersion.left >= layout.addon.left - 1 && layout.immersion.right <= layout.addon.right + 1, `review Immersion rail escapes the host card: ${JSON.stringify(layout)}`);
+    if (minControlSize) assertAudit(layout.control.width >= minControlSize && layout.control.height >= minControlSize, `mobile review controls are too small: ${JSON.stringify(layout)}`);
+}
+
+async function assertVisibleJitenReviewExampleActions(page, viewportLabel) {
+    const snapshot = await page.evaluate(() => {
+        const details = document.querySelector('[data-yomu-jpdb-addon] [data-immersion-kit]');
+        const summary = details?.querySelector(':scope > .jpdb-reader-example-summary');
+        const meta = details?.querySelector('.jpdb-reader-example-meta');
+        const title = meta?.querySelector('.jpdb-reader-example-title');
+        const count = meta?.querySelector('.jpdb-reader-example-count');
+        const links = [...(details?.querySelectorAll('.jpdb-reader-immersion-search-link') ?? [])];
+        const hostBackgroundColor = getComputedStyle(document.querySelector('[data-case="card"]') ?? document.body).backgroundColor;
+        const parseRgb = value => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = value => {
+            const [red = 0, green = 0, blue = 0] = parseRgb(value).map(component => {
+                const normalized = component / 255;
+                return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        };
+        const contrast = color => {
+            const foreground = luminance(color);
+            const background = luminance(hostBackgroundColor);
+            return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+        };
+        const describe = node => {
+            if (!(node instanceof HTMLElement)) return null;
+            const rect = node.getBoundingClientRect();
+            const style = getComputedStyle(node);
+            return {
+                text: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                display: style.display,
+                visibility: style.visibility,
+                opacity: Number(style.opacity),
+                color: style.color,
+                contrast: contrast(style.color),
+                backgroundColor: style.backgroundColor,
+                overflow: style.overflow,
+            };
+        };
+        return {
+            hostBackgroundColor,
+            details: describe(details),
+            summary: describe(summary),
+            meta: describe(meta),
+            title: describe(title),
+            count: describe(count),
+            links: links.map(describe),
+        };
+    });
+    const visible = item => Boolean(item
+        && item.rect.width > 0
+        && item.rect.height > 0
+        && item.display !== 'none'
+        && item.visibility !== 'hidden'
+        && item.opacity > 0);
+    const readable = item => visible(item) && item.contrast >= 4.5;
+    assertAudit(visible(snapshot.summary), `${viewportLabel} review Immersion provider summary is not visibly laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(visible(snapshot.meta), `${viewportLabel} review Immersion provider/count metadata is not visibly laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.links.length === 2 && snapshot.links.every(visible), `${viewportLabel} review external example links are missing or not visibly laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.links.some(link => /Immersion Kit/i.test(link?.text ?? ''))
+        && snapshot.links.some(link => /Nadeshiko/i.test(link?.text ?? '')),
+    `${viewportLabel} review external example links have incorrect labels: ${JSON.stringify(snapshot)}`);
+    assertAudit(readable(snapshot.summary)
+        && readable(snapshot.title)
+        && readable(snapshot.count)
+        && snapshot.links.every(readable),
+    `${viewportLabel} review Immersion provider metadata or external links do not meet 4.5:1 text contrast: ${JSON.stringify(snapshot)}`);
+}
+
+function assertFastJitenReviewPaint(label, shellMs, mediaMs) {
+    assertAudit(shellMs < 100, `${label} shell took ${Math.round(shellMs)}ms`);
+    assertAudit(mediaMs < 250, `${label} cached media took ${Math.round(mediaMs)}ms`);
+}
+
+function assertFastJitenCarouselPaint(label, mediaMs) {
+    assertAudit(mediaMs < 150, `${label} prefetched carousel image took ${Math.round(mediaMs)}ms`);
+}
+
+function assertUniqueJitenImmersionImageRequests(requests, label) {
+    const urls = immersionImageRequestUrls(requests);
+    assertAudit(new Set(urls).size === urls.length, `${label} duplicated a prefetched image request: ${JSON.stringify(urls)}`);
+}
+
+async function waitForJitenReviewMediaPaint(page) {
+    await page.waitForFunction(() => {
+        const image = document.querySelector('.jpdb-reader-example-image');
+        return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+    }, null, { timeout: 4000 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
+async function measureJitenImmersionNextMedia(page) {
+    const before = await page.locator('.jpdb-reader-example-card').first().getAttribute('data-immersion-sentence');
+    const startedAt = await page.evaluate(() => performance.now());
+    await page.locator('[data-immersion-action="next"]').click();
+    await page.waitForFunction(previous => {
+        const card = document.querySelector('.jpdb-reader-example-card');
+        const image = card?.querySelector('.jpdb-reader-example-image');
+        return card?.getAttribute('data-immersion-sentence') !== previous
+            && image instanceof HTMLImageElement
+            && image.complete
+            && image.naturalWidth > 0
+            && image.naturalHeight > 0;
+    }, before, { timeout: 4000 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    return page.evaluate(start => performance.now() - start, startedAt);
+}
+
+async function assertJitenReviewSourceSettings(page, requests) {
+    const snapshot = await page.evaluate(() => ({
+        exampleTotal: Number(document.querySelector('[data-immersion-total]')?.getAttribute('data-immersion-total') ?? 0),
+        sourceIds: [...document.querySelectorAll('[data-yomu-jpdb-addon] [data-source]')]
+            .map(node => node.getAttribute('data-source') ?? '')
+            .filter(Boolean),
+        searchLinks: [...document.querySelectorAll('.jpdb-reader-immersion-search-link')].map(node => {
+            const box = node.getBoundingClientRect();
+            const style = getComputedStyle(node);
+            return {
+                text: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                href: node instanceof HTMLAnchorElement ? node.href : '',
+                width: box.width,
+                height: box.height,
+                display: style.display,
+                visibility: style.visibility,
+                opacity: Number(style.opacity),
+                color: style.color,
+                pointerEvents: style.pointerEvents,
+            };
+        }),
+    }));
+    assertAudit(snapshot.exampleTotal > 3, `Jiten review Immersion Kit is still truncated to two or three examples: ${JSON.stringify(snapshot)}`);
+    const disabledSources = snapshot.sourceIds.filter(source => ['jpdb', 'jiten', 'bunpro', 'local-dictionary'].includes(source));
+    assertAudit(disabledSources.length === 0, `disabled definition sources still rendered on Jiten review: ${JSON.stringify(disabledSources)}`);
+    assertAudit(snapshot.searchLinks.length === 2, `Jiten review did not render both public example links: ${JSON.stringify(snapshot.searchLinks)}`);
+    assertAudit(snapshot.searchLinks.some(link => /Immersion Kit/.test(link.text) && /immersionkit\.com/.test(link.href)), `Immersion Kit public link is missing or wrong: ${JSON.stringify(snapshot.searchLinks)}`);
+    assertAudit(snapshot.searchLinks.some(link => /Nadeshiko/.test(link.text) && /nadeshiko\.co/.test(link.href)), `Nadeshiko public link is missing or wrong: ${JSON.stringify(snapshot.searchLinks)}`);
+    assertAudit(snapshot.searchLinks.every(link => link.width > 44
+        && link.height >= 28
+        && link.display !== 'none'
+        && link.visibility === 'visible'
+        && link.opacity > 0
+        && link.color !== 'rgba(0, 0, 0, 0)'
+        && link.pointerEvents !== 'none'), `public example links are not visibly actionable: ${JSON.stringify(snapshot.searchLinks)}`);
+    // JPDB's public search can still tokenize words inside the selected
+    // Immersion sentence. That parser work is not a JPDB definition panel;
+    // the loader unit suite separately proves the disabled JPDB definition
+    // client is never called.
+    const definitionRequests = requests.filter(request => [
+        /api\.jiten\.moe\/api\/vocabulary(?:\/|\?)/,
+        /bunpro\.jp\/api\//,
+    ].some(pattern => pattern.test(request.url)));
+    assertAudit(definitionRequests.length === 0, `disabled definition sources still made provider requests: ${JSON.stringify(definitionRequests)}`);
+}
+
+async function assertOneTapImmersionTranslationReveal(page) {
+    const translation = page.locator('.jpdb-reader-example-translation').first();
+    await translation.waitFor({ state: 'visible', timeout: 3000 });
+    assertAudit(await translation.getAttribute('data-immersion-translation-blurred') === 'true', 'Immersion translation did not start blurred on mobile');
+    const box = await translation.boundingBox();
+    assertAudit(Boolean(box), 'blurred Immersion translation has no mobile tap target');
+    const point = { clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, pointerId: 51, pointerType: 'touch', isPrimary: true, button: 0 };
+    await translation.dispatchEvent('pointerdown', point);
+    await translation.dispatchEvent('pointerup', point);
+    assertAudit(await translation.getAttribute('data-immersion-translation-blurred') === null, 'one mobile tap did not reveal the blurred Immersion translation');
+}
+
 function assertJpdbSearchControlIsolation(snapshot) {
     assertAudit(boxFits(snapshot.button, 44), 'jpdb.io page CSS stretched the reader audio button');
     assertAudit(boxFits(snapshot.svg, 24), 'jpdb.io page CSS stretched the reader icon SVG');
@@ -3864,6 +4343,7 @@ function immersionKitFirstSnapshotFromDom() {
         sectionPresent: Boolean(document.querySelector('[data-immersion-kit]')),
         sectionText: text('[data-immersion-kit]'),
         exampleCards: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card').length,
+        exampleTotal: Number(document.querySelector('[data-immersion-total]')?.getAttribute('data-immersion-total') ?? 0),
         exampleWords: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word').length,
         translationVisible: Boolean(document.querySelector('[data-immersion-kit] .jpdb-reader-example-translation')),
         imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
@@ -3970,6 +4450,7 @@ function nestedImmersionBackSnapshotFromDom() {
 function assertImmersionKitFirstSnapshot(snapshot) {
     assertAudit(snapshot.sectionPresent, 'Immersion Kit section is missing');
     assertAudit(snapshot.exampleCards > 0, `Immersion Kit examples are missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.exampleTotal > 3, `Immersion Kit carousel is still truncated to two or three examples: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.exampleWords >= 2, `Immersion Kit sentence is not recursively tokenized: ${JSON.stringify(snapshot)}`);
     assertAudit(!snapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(snapshot.imageVisible, 'Immersion Kit thumbnail did not render');
@@ -4777,6 +5258,7 @@ function isMobileTranscriptSheet(layout) {
 }
 
 async function runAudit(name, fn, options = {}) {
+    if (QA_ONLY && !name.toLowerCase().includes(QA_ONLY)) return;
     if (shouldSkipAudit(options)) {
         record(name, 'skip', 'YOMU_TEST_API_KEY is not set');
         return;
@@ -4800,6 +5282,7 @@ async function main() {
 
     const server = await startStaticServer(DIST);
     const browser = await chromium.launch({ headless: true });
+    let webkitBrowser;
     try {
         await runAudit('secret leak scan', auditNoSecretLeak);
         await runAudit('mobile onboarding', () => auditOnboardingMobile(browser, server));
@@ -4811,10 +5294,16 @@ async function main() {
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
         await runAudit('jpdb.io search compatibility', () => auditJpdbSearchCompatibility(browser), { requiresApiKey: true });
+        await runAudit('Jiten review transition performance', () => auditJitenReviewTransitionPerformance(browser));
+        if (!QA_ONLY || 'jiten review mobile webkit'.includes(QA_ONLY)) {
+            webkitBrowser = await webkit.launch({ headless: true });
+        }
+        await runAudit('Jiten review mobile WebKit', () => auditJitenReviewMobileWebKit(webkitBrowser));
         await runAudit('Immersion Kit popup examples', () => auditImmersionKitPopover(browser, server), { requiresApiKey: true });
         await runAudit('OCR fixture', () => auditOcrFixture(browser, server), { requiresApiKey: true });
         await runAudit('subtitle player fixture', () => auditVideoFixture(browser, server), { requiresApiKey: true });
     } finally {
+        await webkitBrowser?.close();
         await browser.close();
         await server.close();
     }

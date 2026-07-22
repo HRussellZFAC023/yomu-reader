@@ -12,8 +12,8 @@ import {
     card,
     collectPageSubtitleSources,
     currentPageTermTarget,
+    deferred,
     deinflectJapaneseTerm,
-    emptyCardRenderData,
     findActiveSubtitleCue,
     formatPartOfSpeech,
     graphNodeDataGeometry,
@@ -52,7 +52,6 @@ import {
     visibleJpdbKanjiActions,
 } from './fixtures';
 import type {
-    CardRenderData,
     JPDBCard,
     LocalDictionaryTarget,
     YomitanTermEntry,
@@ -851,7 +850,16 @@ describe('reader helpers', () => {
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPageEnhancementGeneration: number;
-            cardRenderData: { load(card: JPDBCard): { all: Promise<CardRenderData> } };
+            cardRenderData: {
+                loadDefinitionSources(card: JPDBCard): {
+                    localEntries: Promise<YomitanTermEntry[]>;
+                    hydrateLocalEntries(): Promise<YomitanTermEntry[]>;
+                    jpdbVocabularyInfo: Promise<unknown>;
+                    jitenVocabularyInfo: Promise<unknown>;
+                    bunproDefinitionInfo: Promise<null>;
+                    settled: Promise<void>;
+                };
+            };
             lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]>;
             renderDefinitionSources(
                 card: JPDBCard,
@@ -861,18 +869,19 @@ describe('reader helpers', () => {
                 jitenInfo?: unknown,
             ): string;
             parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void>;
-            installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void>;
+            installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): void;
         };
         const renderDefinitionSources = vi.fn(() => '<div class="full-word-info">full-info</div>');
         internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true, immersionKitEnabled: false };
         internals.jpdbPageEnhancementGeneration = 1;
         internals.cardRenderData = {
-            load: () => ({
-                all: Promise.resolve(emptyCardRenderData({
-                    localEntries: [renderEntry],
-                    jpdbVocabularyInfo,
-                    jitenVocabularyInfo,
-                })),
+            loadDefinitionSources: () => ({
+                localEntries: Promise.resolve([renderEntry]),
+                hydrateLocalEntries: () => Promise.resolve([renderEntry]),
+                jpdbVocabularyInfo: Promise.resolve(jpdbVocabularyInfo),
+                jitenVocabularyInfo: Promise.resolve(jitenVocabularyInfo),
+                bunproDefinitionInfo: Promise.resolve(null),
+                settled: Promise.resolve(),
             }),
         };
         internals.lookupJpdbPageLocalEntries = vi.fn(async () => [variantEntry]);
@@ -880,7 +889,7 @@ describe('reader helpers', () => {
         internals.parseJpdbPageAddonJapanese = vi.fn(async () => undefined);
 
         try {
-            await internals.installJpdbWordPageEnhancement({
+            internals.installJpdbWordPageEnhancement({
                 term: '時間',
                 reading: 'じかん',
                 alternates: ['時'],
@@ -889,18 +898,123 @@ describe('reader helpers', () => {
                 anchor,
             }, 1);
 
-            expect(renderDefinitionSources).toHaveBeenCalledWith(
+            await vi.waitFor(() => expect(renderDefinitionSources).toHaveBeenCalledWith(
                 expect.objectContaining({ spelling: '時間', reading: 'じかん', source: 'jpdb' }),
                 expect.arrayContaining([renderEntry, variantEntry]),
                 '時間です。',
                 jpdbVocabularyInfo,
                 jitenVocabularyInfo,
                 null,
-            );
+            ));
+
             expect(document.querySelector('.yomu-jpdb-word-addon .full-word-info')?.textContent).toBe('full-info');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('mounts the review Immersion shell before any dictionary or provider request settles', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jiten.moe/srs/study',
+            origin: 'https://jiten.moe',
+            hostname: 'jiten.moe',
+            pathname: '/srs/study',
+            search: '',
+        });
+        document.body.innerHTML = '<main><div data-case="review-answer"><div data-case="anchor">native answer</div></div></main>';
+        const anchor = document.querySelector<HTMLElement>('[data-case="anchor"]')!;
+        const localEntries = deferred<YomitanTermEntry[]>();
+        const jpdbInfo = deferred<null>();
+        const jitenInfo = deferred<null>();
+        const bunproInfo = deferred<null>();
+        const variantEntries = deferred<YomitanTermEntry[]>();
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPageEnhancementGeneration: number;
+            cardRenderData: {
+                loadDefinitionSources(): {
+                    localEntries: Promise<YomitanTermEntry[]>;
+                    hydrateLocalEntries(): Promise<YomitanTermEntry[]>;
+                    jpdbVocabularyInfo: Promise<null>;
+                    jitenVocabularyInfo: Promise<null>;
+                    bunproDefinitionInfo: Promise<null>;
+                    settled: Promise<void>;
+                };
+            };
+            lookupJpdbPageLocalEntries(): Promise<YomitanTermEntry[]>;
+            renderDefinitionSources(
+                card: JPDBCard,
+                entries: YomitanTermEntry[],
+                sentence?: string,
+                jpdbInfo?: unknown,
+                jitenInfo?: unknown,
+                bunproInfo?: unknown,
+            ): string;
+            installJpdbPageImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries?: string[]): void;
+            parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void>;
+            installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): void;
+        };
+        const renderDefinitionSources = vi.fn(() => `
+            <div class="jpdb-reader-definition-stack">
+                <details class="jpdb-reader-immersion" data-immersion-kit open>
+                    <summary>Immersion Kit</summary>
+                    <div class="jpdb-reader-help">Loading examples…</div>
+                </details>
+            </div>
+        `);
+        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true };
+        internals.jpdbPageEnhancementGeneration = 1;
+        internals.cardRenderData = {
+            loadDefinitionSources: () => ({
+                localEntries: localEntries.promise,
+                hydrateLocalEntries: () => localEntries.promise,
+                jpdbVocabularyInfo: jpdbInfo.promise,
+                jitenVocabularyInfo: jitenInfo.promise,
+                bunproDefinitionInfo: bunproInfo.promise,
+                settled: Promise.allSettled([
+                    localEntries.promise,
+                    jpdbInfo.promise,
+                    jitenInfo.promise,
+                    bunproInfo.promise,
+                ]).then(() => undefined),
+            }),
+        };
+        internals.lookupJpdbPageLocalEntries = () => variantEntries.promise;
+        internals.renderDefinitionSources = renderDefinitionSources;
+        internals.installJpdbPageImmersionExamples = vi.fn();
+        internals.parseJpdbPageAddonJapanese = vi.fn(async () => undefined);
+
+        try {
+            internals.installJpdbWordPageEnhancement({
+                term: '時間',
+                reading: 'じかん',
+                alternates: [],
+                compounds: [],
+                examples: [],
+                anchor,
+            }, 1);
+
+            expect(renderDefinitionSources).toHaveBeenCalledWith(
+                expect.objectContaining({ spelling: '時間', source: 'jiten' }),
+                [],
+                undefined,
+                null,
+                null,
+                null,
+            );
+            expect(document.querySelector('[data-yomu-jpdb-addon] [data-immersion-kit]')).not.toBeNull();
+            expect(internals.installJpdbPageImmersionExamples).toHaveBeenCalledTimes(1);
+        } finally {
+            localEntries.resolve([]);
+            jpdbInfo.resolve(null);
+            jitenInfo.resolve(null);
+            bunproInfo.resolve(null);
+            variantEntries.resolve([]);
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
         }
     });
 

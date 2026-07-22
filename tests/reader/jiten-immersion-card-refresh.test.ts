@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
+import { ImmersionPopoverController } from '../../src/reader/immersion/popover-controller';
+import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { currentJitenLocalDictionaryTargets } from '../../src/reader/jiten/jiten-page-targets';
-import type { ReaderSettings } from '../../src/reader/app/types';
+import { saveMiningContext } from '../../src/reader/study/mining-context';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 // The Immersion Kit is mounted inside Yomu's jiten page addon
 // ([data-yomu-jpdb-addon]) on jiten.moe. A user reported it "doesn't update
@@ -16,7 +19,13 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 interface ReaderAppInternals {
     settings: ReaderSettings;
     lastEnhancedHref: string;
+    jpdbPageEnhancementGeneration: number;
+    immersionKit: ImmersionKitClient | null;
+    immersionPopover: ImmersionPopoverController | null;
     jitenEnhancementsNeedRefresh(): boolean;
+    prefetchJitenStudyImmersion(): void;
+    refreshJpdbPageEnhancements(): Promise<void>;
+    scheduleJpdbPageEnhancements(delay?: number, options?: { preserveEarlier?: boolean }): void;
 }
 
 // Mirror ReaderApp.jpdbPageWordAddonKey without reaching into private state, so
@@ -37,8 +46,11 @@ function stubStudyLocation(): void {
     });
 }
 
-function renderStudyCard(options: { term: string; revealed: boolean }): void {
+function renderStudyCard(options: { term: string; reading?: string; revealed: boolean }): void {
     document.title = `${options.term} - Jiten`;
+    const headword = options.reading
+        ? `<ruby>${options.term}<rt>${options.reading}</rt></ruby>`
+        : options.term;
     document.body.innerHTML = `
         <main>
             <div class="flex-grow flex flex-col">
@@ -47,7 +59,7 @@ function renderStudyCard(options: { term: string; revealed: boolean }): void {
                     <div class="absolute inset-0 rounded-2xl pointer-events-none z-10"></div>
                     <div class="w-full mx-auto">
                         <div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card">
-                            <div class="text-5xl" lang="ja" data-case="headword">${options.term}</div>
+                            <div class="text-5xl" lang="ja" data-case="headword">${headword}</div>
                             <div data-case="kanji-breakdown">Kanji breakdown</div>
                             <div data-case="composed-of">Composed of</div>
                         </div>
@@ -78,6 +90,28 @@ describe('jiten in-place card swap refresh gate', () => {
         vi.unstubAllGlobals();
         document.body.replaceChildren();
         document.title = '';
+    });
+
+    it('keeps the first frame-coalesced refresh instead of debouncing it behind later DOM churn', async () => {
+        vi.useFakeTimers();
+        stubStudyLocation();
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        const refresh = vi.fn(async () => undefined);
+        internals.refreshJpdbPageEnhancements = refresh;
+
+        try {
+            internals.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+            internals.scheduleJpdbPageEnhancements(500, { preserveEarlier: true });
+            internals.scheduleJpdbPageEnhancements(300, { preserveEarlier: true });
+
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(refresh).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            vi.useRealTimers();
+        }
     });
 
     it('re-renders the addon when the study card word changes under the same URL', () => {
@@ -146,7 +180,30 @@ describe('jiten in-place card swap refresh gate', () => {
         }
     });
 
-    it('does not churn during the question phase, when no answer is revealed yet', () => {
+    it('refreshes same-spelling homographs when the revealed reading changes', () => {
+        stubStudyLocation();
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            jpdbPageEnhancementsEnabled: true,
+            jpdbPageWordEnhancementsEnabled: true,
+            immersionKitEnabled: true,
+        };
+
+        try {
+            renderStudyCard({ term: '生', reading: 'なま', revealed: true });
+            expect(currentJitenWordAddonKey()).toBe('word:生:なま');
+            mountAddonForKey('word:生:せい');
+            internals.lastEnhancedHref = location.href;
+
+            expect(internals.jitenEnhancementsNeedRefresh()).toBe(true);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('removes the stale answer addon during the next question phase without mounting a spoiler', async () => {
         stubStudyLocation();
         const app = new ReaderApp();
         const internals = app as unknown as ReaderAppInternals;
@@ -163,19 +220,158 @@ describe('jiten in-place card swap refresh gate', () => {
             internals.lastEnhancedHref = location.href;
 
             // Next card's question phase: a "Show Answer" button appears while
-            // the previous card's addon is still attached. With the answer
-            // hidden there is no target, so the gate must stay quiet (a refresh
-            // here would spoil the front); the stale addon is corrected on
-            // reveal, not before.
+            // the previous card's addon is still attached. There is no target
+            // on the front, but the refresh must still run so it can remove the
+            // stale answer within the same transition without mounting a new
+            // definition/media surface.
             const showAnswer = document.createElement('button');
             showAnswer.type = 'button';
             showAnswer.textContent = 'Show Answer';
             document.querySelector<HTMLElement>('.flex-grow')!.prepend(showAnswer);
             expect(document.querySelector('[data-yomu-jpdb-addon]')).not.toBeNull();
             expect(currentJitenLocalDictionaryTargets()).toEqual([]);
-            expect(internals.jitenEnhancementsNeedRefresh()).toBe(false);
+            expect(internals.jitenEnhancementsNeedRefresh()).toBe(true);
+
+            // The mounted addon belongs to the previous completed generation.
+            internals.jpdbPageEnhancementGeneration = 1;
+            await internals.refreshJpdbPageEnhancements();
+
+            expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
+            expect(currentJitenLocalDictionaryTargets()).toEqual([]);
         } finally {
             app.destroy();
+        }
+    });
+
+    it('removes stale content but does not mount into a phased next-card transition', async () => {
+        stubStudyLocation();
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            jpdbPageEnhancementsEnabled: true,
+            jpdbPageWordEnhancementsEnabled: true,
+            immersionKitEnabled: true,
+        };
+
+        try {
+            renderStudyCard({ term: '食べる', revealed: true });
+            mountAddonForKey(currentJitenWordAddonKey());
+            internals.jpdbPageEnhancementGeneration = 1;
+            internals.lastEnhancedHref = location.href;
+
+            // Jiten can update the new headword one turn before it hides the old
+            // answer. The immediate pass must remove stale content, but the new
+            // Immersion shell must wait for a stable revealed target.
+            renderStudyCardKeepingAddon({ term: '百科事典' });
+            await internals.refreshJpdbPageEnhancements();
+            expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
+
+            const showAnswer = document.createElement('button');
+            showAnswer.type = 'button';
+            showAnswer.textContent = 'Show Answer';
+            document.querySelector<HTMLElement>('.flex-grow')!.prepend(showAnswer);
+            await internals.refreshJpdbPageEnhancements();
+
+            expect(currentJitenLocalDictionaryTargets()).toEqual([]);
+            expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('warms the persisted Immersion example for a hidden Jiten card and only its adjacent review image', async () => {
+        stubStudyLocation();
+        const term = '食べる';
+        const contextKey = `yomu-mining-context:${term}`;
+        localStorage.removeItem(contextKey);
+        const examples: ImmersionKitExample[] = [
+            immersionExample('first', `${term}前。`, 'https://media.test/first.jpg'),
+            immersionExample('second', `${term}途中。`, 'https://media.test/second.jpg'),
+            immersionExample('third', `${term}後。`, 'https://media.test/third.jpg'),
+        ];
+        saveMiningContext(term, {
+            sentence: examples[1]!.sentence,
+            sourceKind: 'immersion-kit',
+            sourceTitle: examples[1]!.sourceTitle,
+            sourceUrl: 'https://www.immersionkit.com/',
+            imageUrl: examples[1]!.imageUrl,
+            audioUrls: [],
+            immersionIndex: 1,
+            immersionTotal: examples.length,
+        });
+
+        const rawMediaRequests: string[] = [];
+        const mediaCache = new Map<string, Promise<string>>();
+        const fetchBlobUrl = vi.fn((url: string | string[]) => {
+            const candidate = Array.isArray(url) ? url[0] ?? '' : url;
+            let cached = mediaCache.get(candidate);
+            if (!cached) {
+                rawMediaRequests.push(candidate);
+                cached = Promise.resolve(`blob:http://localhost/${candidate}`);
+                mediaCache.set(candidate, cached);
+            }
+            return cached;
+        });
+        const client = {
+            search: vi.fn(async () => examples),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'image' ? [example.imageUrl] : []),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient;
+        const controller = new ImmersionPopoverController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: true,
+                immersionKitAutoPlayAudio: false,
+            }),
+            client,
+            audio: { play: vi.fn(async () => undefined), stop: vi.fn() } as never,
+            parseJapanese: vi.fn(async () => []),
+            canParseJapanese: () => false,
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            repositionPopover: vi.fn(),
+            setImmersionTranslationBlurred: vi.fn(),
+            toast: vi.fn(),
+        });
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: true,
+            immersionKitShowImages: true,
+        };
+        internals.immersionKit = client;
+        internals.immersionPopover = controller;
+        renderStudyCard({ term, revealed: false });
+
+        const reviewRoot = document.createElement('div');
+        reviewRoot.dataset.yomuJpdbAddon = 'word';
+        reviewRoot.dataset.yomuPageContext = 'review';
+        reviewRoot.innerHTML = '<details data-immersion-kit open></details>';
+
+        try {
+            internals.prefetchJitenStudyImmersion();
+            await vi.waitFor(() => expect(rawMediaRequests).toEqual(['https://media.test/second.jpg']));
+
+            document.body.append(reviewRoot);
+            await controller.loadExamples(reviewRoot, jitenCard(term));
+            expect(reviewRoot.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionIndex).toBe('1');
+            expect(rawMediaRequests).toEqual(['https://media.test/second.jpg']);
+
+            reviewRoot.querySelector<HTMLImageElement>('[data-immersion-image]')?.dispatchEvent(new Event('load'));
+            await vi.waitFor(() => expect(rawMediaRequests).toEqual([
+                'https://media.test/second.jpg',
+                'https://media.test/third.jpg',
+            ]));
+            expect(rawMediaRequests).not.toContain('https://media.test/first.jpg');
+            expect(fetchBlobUrl.mock.calls.flatMap(([url]) => Array.isArray(url) ? url : [url]).some(url => url.endsWith('.mp3'))).toBe(false);
+        } finally {
+            reviewRoot.remove();
+            app.destroy();
+            localStorage.removeItem(contextKey);
         }
     });
 });
@@ -187,4 +383,37 @@ function renderStudyCardKeepingAddon(options: { term: string }): void {
     document.title = `${options.term} - Jiten`;
     const headword = document.querySelector<HTMLElement>('[data-case="headword"]')!;
     headword.textContent = options.term;
+}
+
+function immersionExample(id: string, sentence: string, imageUrl: string): ImmersionKitExample {
+    return {
+        id,
+        sentence,
+        sentenceWithFurigana: '',
+        translation: sentence,
+        sourceTitle: `Example ${id}`,
+        titleSlug: id,
+        category: 'drama',
+        soundFile: '',
+        imageFile: '',
+        soundUrl: '',
+        imageUrl,
+    };
+}
+
+function jitenCard(term: string): JPDBCard {
+    return {
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: term,
+        reading: term,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: [],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jiten',
+    };
 }

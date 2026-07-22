@@ -55,9 +55,13 @@ When Bunpro is connected, its definitions use the same compact example rows as J
 
 Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
-Every Immersion example card also links to public searches on Immersion Kit and Nadeshiko. These links work without API keys in popup lookup, Study, and enhanced jpdb/Jiten pages; Nadeshiko is also available as an opt-in lookup pill in Settings.
+Every Immersion example card also links to public searches on Immersion Kit and Nadeshiko. These links work without API keys in popup lookup, Study, and enhanced jpdb/Jiten/Bunpro pages; Nadeshiko is also available as an opt-in lookup pill in Settings.
 
 The same Immersion Kit section can live directly inside jpdb, Jiten, and Bunpro. On Bunpro it follows vocabulary and grammar details, the lesson carousel, and the lesson-quiz or review SRS loop. Question prompts stay untouched; the section mounts only with revealed answer information and updates for the next item.
+
+On revealed review cards, Immersion Kit starts immediately in a centred, height-bounded 16:9 area with full-size phone controls. Jiten prefetches one exact current-card search behind the unrevealed question, reuses that same request on reveal, and leaves alternate/fallback searches until they are actually needed. It removes the previous card as soon as the next question appears and hydrates local and provider dictionaries independently after mounting the stable review shell. Installed and provider dictionaries keep the full content width, while ordinary detail pages keep their established layout.
+
+Turning JPDB or Bunpro definitions off in Settings now persists and hides that definition panel. Lookup and frequency pills remain independently configurable.
 
 Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. Example translations are blurred by default; choose the translation to reveal it, or turn the blur setting off if you prefer to see translations immediately.
 

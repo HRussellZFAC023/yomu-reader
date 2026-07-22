@@ -23118,11 +23118,13 @@ class CardRenderDataLoader {
   this.dependencies = dependencies;
   }
   cache = new Map();
+  definitionSourceCache = new Map();
   jpdbDecksCache;
   jitenDecksCache;
   ankiDecksCache;
   clear() {
   this.cache.clear();
+  this.definitionSourceCache.clear();
   this.jpdbDecksCache = void 0;
   this.jitenDecksCache = void 0;
   this.ankiDecksCache = void 0;
@@ -23138,6 +23140,35 @@ class CardRenderDataLoader {
   });
   this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
   pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
+  return load;
+  }
+  loadDefinitionSources(card, options = {}) {
+  const key = this.definitionSourceCacheKey(card, options);
+  const now = Date.now();
+  const cached = this.definitionSourceCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.load;
+  const settings = this.settings();
+  const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+  const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
+  const jpdbVocabularyInfo = options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
+  const jitenVocabularyInfo = options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
+  const bunproDefinitionInfo = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result) => result.info) : Promise.resolve(null);
+  const settled = Promise.allSettled([
+    localEntriesUncapped,
+    jpdbVocabularyInfo,
+    jitenVocabularyInfo,
+    bunproDefinitionInfo
+  ]).then(() => void 0);
+  const load = {
+    localEntries,
+    hydrateLocalEntries: () => localEntriesUncapped,
+    jpdbVocabularyInfo,
+    jitenVocabularyInfo,
+    bunproDefinitionInfo,
+    settled
+  };
+  this.definitionSourceCache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+  pruneExpiringMapEntries(this.definitionSourceCache, CARD_RENDER_DATA_CACHE_LIMIT, now);
   return load;
   }
   fetch(card, options) {
@@ -23634,6 +23665,22 @@ class CardRenderDataLoader {
     hasApiKey: hasJpdbApiCredential(settings),
     hasJitenApiKey: hasJitenApiCredential(settings),
     hasBunproToken: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
+    dictionaries: settings.dictionaryPreferences.map((preference) => ({
+      name: preference.name,
+      enabled: preference.enabled,
+      priority: preference.priority
+    }))
+  });
+  }
+  definitionSourceCacheKey(card, options) {
+  const settings = this.settings();
+  return JSON.stringify({
+    card: cardKey(card),
+    local: settings.localDictionariesEnabled,
+    max: settings.localDictionaryMaxResults,
+    jpdbDefinitions: settings.jpdbDefinitionsEnabled && options.includeJpdbDefinition !== false,
+    jitenDefinitions: settings.jitenDefinitionsEnabled && options.includeJitenDefinition !== false,
+    bunproDefinitions: settings.bunproDefinitionsEnabled && options.includeBunproDefinition !== false,
     dictionaries: settings.dictionaryPreferences.map((preference) => ({
       name: preference.name,
       enabled: preference.enabled,
@@ -24558,7 +24605,7 @@ const QUIZ_ROOT_SELECTOR = "#js-quiz";
 const QUIZ_QUESTION_SELECTOR = '#js-tour-quiz-question, .bp-quiz-question, [id^="study-question-"]';
 const QUIZ_ANSWER_RUBY_SELECTOR = '#js-tour-quiz-question button ruby, .bp-quiz-question button ruby, [id^="study-question-"] button ruby';
 const QUIZ_ANSWER_SELECTOR = "#js-tour-quiz-answer";
-const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
+const BUNPRO_LOCALE_PREFIX$1 = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
 function isBunproHost() {
   return location.hostname === "bunpro.jp" || location.hostname.endsWith(".bunpro.jp");
 }
@@ -24607,7 +24654,7 @@ function isBunproReviewFrontPrompt(element) {
   return isBunproQuizAnswerHidden();
 }
 function bunproPathname() {
-  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX, "");
+  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX$1, "");
   return stripped || "/";
 }
 function bunproHeadword() {
@@ -29771,6 +29818,7 @@ function requestText$1(url, proxyUrl = "") {
   timeoutLabel: "Public JPDB pitch request timed out."
   });
 }
+const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
 function isPageEnhancementHost() {
   return isJpdbHost() || isJitenHost() || isBunproHost();
 }
@@ -29778,6 +29826,15 @@ function isPageEnhancementReady() {
   if (isJpdbHost()) return true;
   if (isBunproHost()) return isBunproEnhanceablePage();
   return isJitenHost() && isJitenEnhanceablePage();
+}
+function currentPageEnhancementLayoutContext() {
+  const pathname = location.pathname;
+  if (isJpdbHost() && pathname.startsWith("/review")) return "review";
+  if (isJitenHost() && pathname.startsWith("/srs/study")) return "review";
+  if (!isBunproHost()) return "entry";
+  const bunproPathname2 = pathname.replace(BUNPRO_LOCALE_PREFIX, "") || "/";
+  const isReviewRoute = bunproPathname2 === "/reviews" || bunproPathname2.startsWith("/reviews/");
+  return isReviewRoute || Boolean(document.querySelector("#js-quiz")) ? "review" : "entry";
 }
 function isCurrentKanjiSurface() {
   if (isBunproHost()) return false;
@@ -37635,6 +37692,7 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   '[role="menuitem"]'
 ].join(",");
 const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = "yomu:jpdb-review-examples-visible:v1";
+const REVIEW_PAGE_TARGET_SETTLE_MS = 20;
 const READER_POINTER_SURFACE_SELECTOR = [
   ".jpdb-reader-popover",
   ".jpdb-reader-settings",
@@ -37710,9 +37768,14 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
-function pageAddonKeyIdentity(key) {
-  const parts = key.split(":");
-  return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
+function pageAddonKeysMatch(expected, mounted) {
+  if (expected === mounted) return true;
+  const expectedParts = expected.split(":");
+  const mountedParts = mounted.split(":");
+  if (expectedParts.length !== mountedParts.length || expectedParts[0] !== mountedParts[0] || expectedParts[1] !== mountedParts[1]) return false;
+  if (expectedParts.length < 3) return true;
+  const [, spelling, expectedReading] = expectedParts;
+  return expectedReading === spelling;
 }
 class ReaderApp {
   abortController = new AbortController();
@@ -38033,13 +38096,18 @@ class ReaderApp {
   dictionaryRescanPending = false;
   visiblePageReparseTimer;
   jpdbPageEnhanceTimer;
+  jpdbPageEnhanceDeadline = 0;
   jpdbPageEnhancementGeneration = 0;
   lastEnhancedHref = "";
   lastJitenStudyHeadword = "";
+  lastJitenImmersionPrefetchHeadword = "";
+  pendingReviewTargetSignature = "";
+  pendingReviewTargetReadyAt = 0;
   nearbyReaderAudioPreloadTimer;
   preloadedTermAudioKeys = new Set();
   preloadedPreparedTermAudioKeys = new Set();
   nestedParseContentCache = new Map();
+  pageAddonParseStates = new WeakMap();
   pitchEnrichmentLocalCache = new Map();
   localPitchDictionaryAvailability;
   resolvedFallbackVocabularyCache = new Map();
@@ -38698,18 +38766,24 @@ class ReaderApp {
   initJpdbPageEnhancements() {
   if (!isPageEnhancementHost()) return;
   this.lastJitenStudyHeadword = currentJitenStudyHeadwordText();
+  this.prefetchJitenStudyImmersion();
   this.scheduleJpdbPageEnhancements(0);
   this.installJpdbReviewExamplesToggleMemory();
   addWindowEventListener("popstate", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
   addWindowEventListener("hashchange", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
   }
-  scheduleJpdbPageEnhancements(delay2 = 0) {
+  scheduleJpdbPageEnhancements(delay2 = 0, options = {}) {
   if (this.isDestroyed || !isPageEnhancementHost()) return;
+  const normalizedDelay = Math.max(0, delay2);
+  const deadline = Date.now() + normalizedDelay;
+  if (this.jpdbPageEnhanceTimer !== void 0 && options.preserveEarlier && this.jpdbPageEnhanceDeadline <= deadline) return;
   window.clearTimeout(this.jpdbPageEnhanceTimer);
+  this.jpdbPageEnhanceDeadline = deadline;
   this.jpdbPageEnhanceTimer = window.setTimeout(() => {
     this.jpdbPageEnhanceTimer = void 0;
+    this.jpdbPageEnhanceDeadline = 0;
     void this.refreshJpdbPageEnhancements();
-  }, Math.max(0, delay2));
+  }, normalizedDelay);
   }
   async refreshJpdbPageEnhancements() {
   const generation = ++this.jpdbPageEnhancementGeneration;
@@ -38724,17 +38798,52 @@ class ReaderApp {
     this.removeStaleJpdbPageEnhancements(generation);
     return;
   }
-  if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+  if (this.settings.jpdbPageWordEnhancementsEnabled && this.reviewPageWordTargetsStableForMount()) {
+    await this.installJpdbWordPageEnhancements(generation);
+  }
   this.removeStaleJpdbPageEnhancements(generation);
   }
+  reviewPageWordTargetsStableForMount() {
+  if (currentPageEnhancementLayoutContext() !== "review") {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const expectedKeys = currentPageLocalDictionaryTargets().map((target) => this.jpdbPageWordAddonKey(target));
+  if (!expectedKeys.length) {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const mountedKeys = Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => element.dataset.yomuAddonKey ?? "");
+  if (expectedKeys.some((expected) => mountedKeys.some((mounted) => pageAddonKeysMatch(expected, mounted)))) {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const signature = expectedKeys.join("\0");
+  const now = Date.now();
+  if (signature !== this.pendingReviewTargetSignature) {
+    this.pendingReviewTargetSignature = signature;
+    this.pendingReviewTargetReadyAt = now + REVIEW_PAGE_TARGET_SETTLE_MS;
+  }
+  const remaining = this.pendingReviewTargetReadyAt - now;
+  if (remaining > 0) {
+    this.scheduleJpdbPageEnhancements(Math.ceil(remaining), { preserveEarlier: true });
+    return false;
+  }
+  this.resetPendingReviewTarget();
+  return true;
+  }
+  resetPendingReviewTarget() {
+  this.pendingReviewTargetSignature = "";
+  this.pendingReviewTargetReadyAt = 0;
+  }
   removeJpdbPageEnhancements() {
-  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => element.remove());
+  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => this.removeJpdbPageAddonRoot(element));
   }
   removeStaleJpdbPageEnhancements(generation) {
   const generationKey = String(generation);
   this.pauseAutoScanObserver(() => {
     document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => {
-      if (element.dataset.yomuGeneration !== generationKey) element.remove();
+      if (element.dataset.yomuGeneration !== generationKey) this.removeJpdbPageAddonRoot(element);
     });
   });
   }
@@ -38745,22 +38854,47 @@ class ReaderApp {
   this.lastJitenStudyHeadword = headword;
   if (hadPreviousCard) window.scrollTo({ top: 0 });
   }
+  prefetchJitenStudyImmersion() {
+  if (!isJitenHost() || !location.pathname.startsWith("/srs/study") || !this.settings.immersionKitEnabled) return;
+  const headword = currentJitenStudyHeadwordText();
+  if (!headword || headword === this.lastJitenImmersionPrefetchHeadword || currentPageLocalDictionaryTargets().length > 0) return;
+  const controller = this.immersionPopover;
+  if (!controller) return;
+  this.lastJitenImmersionPrefetchHeadword = headword;
+  const card = jpdbAudioCard(headword, headword);
+  card.source = "jiten";
+  void controller.searchExamples(card, { exactOnly: true }).then((result) => {
+    if (currentJitenStudyHeadwordText() !== headword) return;
+    const example = controller.preferredExampleFor(card, result.examples);
+    const client = this.immersionKit;
+    if (!example || !client || !this.settings.immersionKitShowImages) return;
+    const imageUrls = client.mediaUrls(example, "image");
+    if (!imageUrls.length) return;
+    void client.fetchBlobUrl(
+      imageUrls[0],
+      this.settings.audioTimeoutMs,
+      this.settings.corsProxyUrl,
+      this.settings.interfaceLanguage
+    ).catch(() => void 0);
+  }).catch((error) => {
+    log.debug("Jiten review Immersion prefetch failed", { term: headword, error });
+  });
+  }
   jitenEnhancementsNeedRefresh() {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
   const hasAddon = Boolean(document.querySelector("[data-yomu-jpdb-addon]"));
+  if (isJitenHost() && location.pathname.startsWith("/srs/study") && currentJitenStudyHeadwordText() && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
   if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
   if (!hasAddon) return true;
   if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
   }
   jitenAddonWordIdentityChanged() {
-  const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
+  const expected = this.currentJitenAddonKeys();
   if (!expected.length) return false;
-  const mounted = new Set(
-    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
-  );
-  return !expected.some((identity) => mounted.has(identity));
+  const mounted = Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => element.dataset.yomuAddonKey ?? "");
+  return !expected.some((expectedKey) => mounted.some((mountedKey) => pageAddonKeysMatch(expectedKey, mountedKey)));
   }
   currentJitenAddonKeys() {
   if (isCurrentKanjiSurface()) {
@@ -38810,30 +38944,62 @@ class ReaderApp {
   const targets = currentPageLocalDictionaryTargets();
   await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
   }
-  async installJpdbWordPageEnhancement(target, generation) {
+  installJpdbWordPageEnhancement(target, generation) {
   const card = this.jpdbPageWordCard(target);
-  const renderData = this.cardRenderData.load(card);
-  const [data, variantEntries] = await Promise.all([
-    renderData.all.catch(() => null),
-    this.lookupJpdbPageLocalEntries(target)
-  ]);
-  const entries2 = uniqueLocalDictionaryEntries([
-    ...data?.localEntries ?? [],
-    ...variantEntries
-  ]).sort(
-    (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
-  ).slice(0, this.settings.localDictionaryMaxResults);
   if (!this.isCurrentJpdbPageEnhancement(generation)) return;
-  if (!this.hasJpdbPageWordContent(entries2, data)) return;
   const root = this.createJpdbPageAddonRoot("word", this.jpdbPageWordAddonKey(target), target.anchor, generation);
   if (!root) return;
+  const state = {
+    entries: [],
+    jpdbVocabularyInfo: null,
+    jitenVocabularyInfo: null,
+    bunproDefinitionInfo: null
+  };
+  this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+  const load = this.cardRenderData.loadDefinitionSources(card, {
+    includeJpdbDefinition: !isJpdbHost(),
+    includeJitenDefinition: !isJitenHost(),
+    includeBunproDefinition: !isBunproHost()
+  });
+  const mergeEntries = (entries2) => {
+    state.entries = uniqueLocalDictionaryEntries([...state.entries, ...entries2]);
+    this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+  };
+  const tasks = [
+    load.localEntries.then(mergeEntries),
+    load.hydrateLocalEntries().then(mergeEntries),
+    this.lookupJpdbPageLocalEntries(target).then(mergeEntries),
+    load.jpdbVocabularyInfo.then((value) => {
+      state.jpdbVocabularyInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    }),
+    load.jitenVocabularyInfo.then((value) => {
+      state.jitenVocabularyInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    }),
+    load.bunproDefinitionInfo.then((value) => {
+      state.bunproDefinitionInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    })
+  ];
+  void Promise.allSettled(tasks).then(() => {
+    if (!this.isCurrentJpdbPageEnhancement(generation) || !root.isConnected) return;
+    if (!this.hasJpdbPageWordContent(state.entries, state)) this.removeJpdbPageAddonRoot(root);
+  });
+  }
+  renderJpdbPageWordDefinitionState(root, card, target, generation, state) {
+  if (!this.isCurrentJpdbPageEnhancement(generation) || !root.isConnected || root.dataset.yomuGeneration !== String(generation)) return;
+  const entries2 = uniqueLocalDictionaryEntries(state.entries).sort(
+    (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
+  ).slice(0, this.settings.localDictionaryMaxResults);
+  if (!this.hasJpdbPageWordContent(entries2, state)) return;
   const html = this.renderDefinitionSources(
     card,
     entries2,
     target.examples[0]?.sentence,
-    data?.jpdbVocabularyInfo ?? null,
-    data?.jitenVocabularyInfo ?? null,
-    data?.bunproDefinitionInfo ?? null
+    state.jpdbVocabularyInfo,
+    state.jitenVocabularyInfo,
+    state.bunproDefinitionInfo
   );
   if (!this.updateJpdbPageAddonHtml(root, html)) return;
   this.wanikaniSources.installDefinitionMounts(root, card);
@@ -38862,13 +39028,23 @@ class ReaderApp {
   }
   updateJpdbPageAddonHtml(root, html) {
   if (root.dataset.yomuRenderedHtml === html) return false;
+  const preservedImmersion = root.querySelector("[data-immersion-kit]");
   root.dataset.yomuRenderedHtml = html;
   setInnerHtml(root, html);
+  const nextImmersion = root.querySelector("[data-immersion-kit]");
+  if (preservedImmersion && nextImmersion && preservedImmersion !== nextImmersion) {
+    nextImmersion.replaceWith(preservedImmersion);
+  }
+  const immersion = root.querySelector("[data-immersion-kit]");
+  const stack = immersion?.parentElement;
+  if (root.dataset.yomuPageContext === "review" && immersion && stack?.firstElementChild !== immersion) {
+    stack?.prepend(immersion);
+  }
   return true;
   }
   async lookupJpdbPageLocalEntries(target) {
   if (!this.settings.localDictionariesEnabled) return [];
-  const variants = localDictionaryLookupVariants(target).slice(0, 12);
+  const variants = localDictionaryLookupVariants(target).filter((variant) => variant.term !== target.term || variant.reading !== target.reading).slice(0, 11);
   const batches = await Promise.all(variants.map(
     (variant) => this.dictionaries.lookup(
       variant.term,
@@ -38880,6 +39056,10 @@ class ReaderApp {
   return uniqueLocalDictionaryEntries(batches.flat()).sort(
     (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
   ).slice(0, this.settings.localDictionaryMaxResults);
+  }
+  removeJpdbPageAddonRoot(root) {
+  this.immersionPopover?.abortPendingRequests(root);
+  root.remove();
   }
   installJpdbKanjiPageEnhancement(generation) {
   const kanji = currentPageKanji();
@@ -38906,6 +39086,7 @@ class ReaderApp {
   if (existing) {
     existing.dataset.yomuGeneration = String(generation);
     existing.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
+    existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
     return existing;
   }
   const root = document.createElement("div");
@@ -38913,6 +39094,7 @@ class ReaderApp {
   root.dataset.yomuJpdbAddon = kind;
   root.dataset.yomuAddonKey = key;
   root.dataset.yomuGeneration = String(generation);
+  root.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
   root.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
   root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
   this.pauseAutoScanObserver(() => {
@@ -39145,6 +39327,7 @@ class ReaderApp {
   this.knownStateBackfillTimer = void 0;
   window.clearTimeout(this.visiblePageReparseTimer);
   window.clearTimeout(this.jpdbPageEnhanceTimer);
+  this.jpdbPageEnhanceDeadline = 0;
   window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
   window.clearTimeout(this.hoverLookupTimer);
   window.clearTimeout(this.hoverCloseTimer);
@@ -39241,11 +39424,16 @@ class ReaderApp {
     }
     if (isJitenHost()) {
       this.maybeScrollJitenStudyToNewCard();
-      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+      this.prefetchJitenStudyImmersion();
+      if (this.jitenEnhancementsNeedRefresh()) {
+        this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+      }
     } else if (isBunproHost()) {
-      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
+      if (this.jitenEnhancementsNeedRefresh()) {
+        this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+      }
     } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
-      this.scheduleJpdbPageEnhancements(500);
+      this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
     }
   });
   setReviewCardFrontPredicate(isReviewCardFrontPromptElement);
@@ -43079,7 +43267,25 @@ class ReaderApp {
   }
   installJpdbPageImmersionExamples(root, card, relatedQueries = []) {
   if (!this.settings.immersionKitEnabled) return;
-  this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
+  const controller = this.immersionPopover;
+  if (!controller) return;
+  const options = relatedQueries.length ? { relatedQueries } : void 0;
+  if (root.dataset.yomuPageContext !== "review") {
+    controller.installLazyLoad(root, card, options);
+    return;
+  }
+  const container = root.querySelector("[data-immersion-kit]");
+  if (!container || ["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "")) return;
+  container.dataset.immersionLoadState = "loading";
+  void controller.loadExamples(root, card, options).then(() => {
+    if (container.isConnected && container.dataset.immersionLoadState === "loading") {
+      container.dataset.immersionLoadState = "loaded";
+    }
+  }).catch(() => {
+    if (container.isConnected && container.dataset.immersionLoadState === "loading") {
+      delete container.dataset.immersionLoadState;
+    }
+  });
   }
   async parsePopoverJapanese(popover) {
   if (!this.isCurrentPopoverRoot(popover)) return;
@@ -43103,6 +43309,29 @@ class ReaderApp {
   }
   }
   async parseJpdbPageAddonJapanese(root) {
+  let state = this.pageAddonParseStates.get(root);
+  if (!state) {
+    state = { dirty: false };
+    this.pageAddonParseStates.set(root, state);
+  }
+  state.dirty = true;
+  if (state.running) return state.running;
+  state.running = this.flushJpdbPageAddonJapaneseParse(root, state).finally(() => {
+    state.running = void 0;
+    if (state.dirty && this.isJpdbPageAddonRoot(root)) {
+      return this.parseJpdbPageAddonJapanese(root);
+    }
+  });
+  return state.running;
+  }
+  async flushJpdbPageAddonJapaneseParse(root, state) {
+  await Promise.resolve();
+  while (state.dirty && this.isJpdbPageAddonRoot(root)) {
+    state.dirty = false;
+    await this.performJpdbPageAddonJapaneseParse(root);
+  }
+  }
+  async performJpdbPageAddonJapaneseParse(root) {
   if (!this.isJpdbPageAddonRoot(root)) return;
   this.enrichJpdbRelatedWords(root);
   clearNestedParseState(root);
