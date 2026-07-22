@@ -698,7 +698,7 @@ export const academyOperations = [
     { method: 'post', path: '/academy/api/admin/payment-code', operationId: 'getAcademyPaymentCode', tag: 'Administration', summary: 'Retrieve an unredeemed payment access code', description: 'Looks up an active provider entitlement by a server-held subject or transaction reference. Patreon supports subject references only.', security: admin, request: 'AdminPaymentCodeRequest', response: 'AdminPaymentCode' },
 ];
 
-export const academyDocument = makeDocument({
+const academyDocument = makeDocument({
     title: 'Yomu Academy API',
     version: '1.0.0',
     description: 'Accounts, secure browser sessions, Reader device pairing, encrypted SRS sync, class progress, learning feedback, and protected Academy media. Browser mutations marked `x-yomu-same-origin` also require an Origin header matching https://yomureader.com.',
@@ -760,7 +760,7 @@ export const audioOperations = [
     { method: 'get', path: '/audio/{key}', operationId: 'getHostedAudioObject', tag: 'Objects', summary: 'Read a hosted audio object', description: 'Streams an indexed R2 audio object with range and cache headers.', parameters: [pathParameter('key', 'R2 audio object key.')], responses: { '200': { description: 'Audio object bytes.', content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } } }, '404': { description: 'Audio object not found.', content: { 'text/plain': { schema: { type: 'string' } } } } }, errors: false },
 ];
 
-export const audioDocument = makeDocument({
+const audioDocument = makeDocument({
     title: 'Yomu Audio API', version: '1.0.0',
     description: 'Pronunciation lookup, pitch-aware word synthesis, cast dialogue synthesis, and hosted audio delivery. Public read operations allow cross-origin GET/HEAD requests.',
     server: 'https://audio.yomureader.com',
@@ -804,7 +804,7 @@ export const supportOperations = [
     { method: 'post', path: '/webhooks/patreon', operationId: 'receivePatreonWebhook', tag: 'Provider webhooks', summary: 'Receive Patreon events', description: 'Signature-verified Patreon webhook ingress.', requestBody: providerBody, responses: providerResponse },
 ];
 
-export const supportDocument = makeDocument({
+const supportDocument = makeDocument({
     title: 'Yomu Support API', version: '1.0.0',
     description: 'Public funding status, contribution checkout, verified donation claims, and provider webhook ingress.',
     server: 'https://support.yomureader.com',
@@ -822,7 +822,7 @@ export const edgeOperations = [
     { method: 'get', path: '/', operationId: 'proxyPublicJapaneseResource', tag: 'Gateway', summary: 'Fetch an allowlisted public resource', description: 'CORS-enables an anonymous GET/HEAD to a strictly allowlisted Japanese-learning resource. Private/local targets, credentials, sensitive query parameters, cookies, and arbitrary hosts are rejected.', parameters: [query('url', { type: 'string', format: 'uri' }, 'Absolute HTTPS URL on the public allowlist.', true)], responses: { '200': { description: 'The allowlisted upstream response. Content type is preserved.', content: { '*/*': { schema: { type: 'string', format: 'binary' } } } }, '400': { description: 'The target is absent or not allowed.', content: { 'text/plain': { schema: { type: 'string' } } } }, '429': { description: 'The public daily budget or an upstream cooldown is active.', content: { 'text/plain': { schema: { type: 'string' } } } }, '503': { description: 'The public gateway is disabled.', content: { 'text/plain': { schema: { type: 'string' } } } } }, errors: false },
 ];
 
-export const edgeDocument = makeDocument({
+const edgeDocument = makeDocument({
     title: 'Yomu Edge API', version: '1.0.0',
     description: 'Anonymous, read-only, privacy-preserving CORS gateway for a narrow allowlist of public Japanese-learning resources.',
     server: 'https://edge.yomureader.com',

@@ -14,6 +14,7 @@
     "src/gaming/renderer/app.ts",
     "src/academy/entrypoint.ts",
     "scripts/academy-baseline-inventory.mjs",
+    "scripts/build-openapi.mjs",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
     "scripts/academy-audio-media.mjs",
@@ -120,6 +121,10 @@
     "docs/public/newtab/**",
     "docs/public/pdf-reader/**",
     "docs/public/academy/**",
+    // Generated OpenAPI documents and the pinned Swagger UI distribution are
+    // deployed assets, not source modules. Keep the API page, generator, and
+    // contract tests in the graph while avoiding a costly scan of vendor code.
+    "docs/public/api/**",
     // Canonical Study output generated from src/reader/newtab. The hosted
     // HTML, service worker registration, and static asset URLs are runtime
     // entry seams that a TypeScript import graph cannot follow.
