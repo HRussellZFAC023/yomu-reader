@@ -3086,6 +3086,7 @@ function setInlineStyleIfChanged(element: HTMLElement, property: string, value: 
 
 type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
 const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'anki', 'pitch'];
+const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => source !== 'pitch');
 
 // A document-root mode selector cannot cross into an open shadow root. The
 // shadow stylesheet supplies the word/state variables, while this small inline
@@ -3094,21 +3095,46 @@ const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['statu
 function styleAdditiveMirrorPaint(root: HTMLElement): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
     root.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
-    const source = activeAdditiveDecorationSource();
-    if (!source) return;
+    const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+    const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
+    if (!source) {
+        for (const word of words) {
+            word.style.removeProperty('text-decoration-color');
+            word.style.removeProperty('--jpdb-reader-additive-decoration');
+            word.style.removeProperty('--jpdb-reader-mirror-status-soft');
+        }
+        return;
+    }
     // The injected shadow stylesheet owns glyph suppression and word
-    // decoration geometry. Only the document-level active channel cannot
-    // cross the shadow boundary, so bridge that one inherited variable.
+    // decoration geometry. Document-level mode selectors cannot cross a
+    // shadow boundary, so bridge the selected paint variables onto the word;
+    // projected fragment boxes inherit them without knowing which site owns
+    // the source text.
     const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
-    for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+    const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+    const softPaint = highlightSource
+        ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
+        : '';
+    for (const word of words) {
         word.style.setProperty('text-decoration-color', paint, 'important');
+        word.style.setProperty('--jpdb-reader-additive-decoration', paint);
+        if (softPaint) word.style.setProperty('--jpdb-reader-mirror-status-soft', softPaint);
+        else word.style.removeProperty('--jpdb-reader-mirror-status-soft');
     }
 }
 
-function activeAdditiveDecorationSource(): AdditiveDecorationSource | null {
+function activeAdditiveHighlightSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
+    let active: AdditiveDecorationSource | null = null;
+    for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
+        if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
+    }
+    return active;
+}
+
+function activeAdditiveDecorationSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
     let active: AdditiveDecorationSource | null = null;
     for (const source of ADDITIVE_DECORATION_SOURCES) {
-        if (['highlight', 'underline', 'text'].some(channel => document.documentElement.classList
+        if (['highlight', 'underline', 'text'].some(channel => documentElement.classList
             .contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
     }
     return active;

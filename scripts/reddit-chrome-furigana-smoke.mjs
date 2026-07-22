@@ -9,9 +9,9 @@
 //   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
 //   - Latin-only and punctuation-only source ranges returned as bogus tokens.
 //
-// The safe contract is annotation without geometry-changing ruby in controls or
-// compact metadata. Base text stays visible, buttons remain clickable, cards do
-// not grow, and only source ranges that actually contain Japanese are painted.
+// The contract is visible annotation without geometry-changing ruby in controls
+// or compact metadata. Base text stays visible, buttons remain clickable, cards
+// do not grow, and only source ranges that actually contain Japanese are painted.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -39,6 +39,9 @@ const ARTIFACTS = smokePaths.artifacts;
 const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
 const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
 const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
+// Browser DOMRects include the font line box. Directly stacked reading/base
+// glyphs can therefore report up to 3px of contact without visibly overlapping.
+const MAX_FONT_BOX_CONTACT_PX = 3.5;
 
 const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -1470,16 +1473,19 @@ function snapshotRedditElement(element, expected) {
         return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
     });
     const decoratedWords = words.filter(word => {
-        const style = getComputedStyle(word);
-        const nativeUnderline = style.textDecorationLine.includes('underline')
-            && paintIsVisible(style.textDecorationColor);
-        const underline = getComputedStyle(word, '::after');
-        const borderStyle = underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle;
-        const borderWidth = Number.parseFloat(
-            underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
-        );
-        const borderColor = underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor;
-        return nativeUnderline || (borderStyle !== 'none' && borderWidth > 0 && paintIsVisible(borderColor));
+        const surfaces = [word, ...word.querySelectorAll('.jpdb-reader-source-fragment')];
+        return surfaces.some(surface => {
+            const style = getComputedStyle(surface);
+            const nativeUnderline = style.textDecorationLine.includes('underline')
+                && paintIsVisible(style.textDecorationColor);
+            const underline = getComputedStyle(surface, '::after');
+            const borderStyle = underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle;
+            const borderWidth = Number.parseFloat(
+                underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
+            );
+            const borderColor = underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor;
+            return nativeUnderline || (borderStyle !== 'none' && borderWidth > 0 && paintIsVisible(borderColor));
+        });
     });
     return {
         expected,
@@ -1566,15 +1572,16 @@ function snapshotRedditElement(element, expected) {
 
     function readingBaseOverlap(root) {
         const bases = [...root.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
-        let overlaps = 0;
+        let overlap = 0;
         for (const reading of root.querySelectorAll('rt,.jpdb-reader-detached-furi')) {
             const r = reading.getBoundingClientRect();
             for (const b of bases) {
-                if (Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
-                    && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5) overlaps += 1;
+                const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+                const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+                if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
             }
         }
-        return overlaps;
+        return overlap;
     }
 }
 
@@ -1593,7 +1600,10 @@ function snapshotSortMenuSafety(host) {
     for (const reading of visible) {
         const readingRect = reading.getBoundingClientRect();
         for (const base of bases) {
-            if (rectanglesOverlap(readingRect, base.getBoundingClientRect())) readingBaseOverlap += 1;
+            const baseRect = base.getBoundingClientRect();
+            const width = Math.min(readingRect.right, baseRect.right) - Math.max(readingRect.left, baseRect.left);
+            const height = Math.min(readingRect.bottom, baseRect.bottom) - Math.max(readingRect.top, baseRect.top);
+            if (width > 0.5 && height > 0.5) readingBaseOverlap = Math.max(readingBaseOverlap, height);
         }
     }
     for (let index = 0; index < visible.length; index += 1) {
@@ -1648,10 +1658,13 @@ function touchHoverState(element) {
         && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
         && !/\/\s*0(?:\.0+)?%?\s*\)$/.test(value);
     const bases = mirror ? [...mirror.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect()) : [];
-    const readingBaseOverlap = readings.reduce((count, reading) => {
+    const readingBaseOverlap = readings.reduce((overlap, reading) => {
         const r = reading.getBoundingClientRect();
-        return count + bases.filter(b => Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
-            && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5).length;
+        return bases.reduce((largest, b) => {
+            const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+            const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+            return width > 0.5 && height > 0.5 ? Math.max(largest, height) : largest;
+        }, overlap);
     }, 0);
     return {
         height: element.getBoundingClientRect().height,
@@ -1806,7 +1819,7 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assertRejectedSourceRanges(engineName, snapshot.rejected);
     assertStableFixtureLayout(engineName, baseline, snapshot.layout);
     assertSortMenuSafety(engineName, snapshot.menuSafety);
-    assertForeignTextCollisionSafety(engineName, snapshot.labels.foreign);
+    assertForeignTextVisibility(engineName, snapshot.labels.foreign);
     assertControlBehavior(engineName, baseline, snapshot);
     assertCoarsePointerSafety(engineName, touchHover);
 }
@@ -1833,10 +1846,8 @@ function assertAnnotatedLabels(engineName, labels) {
         if (name === 'feed' || name === 'lateHydrate') {
             assert(label.readingCount === 0, `${engineName}: ${name} duplicated an identical kana reading`, label);
         }
-        if (name !== 'foreign') {
-            assert(label.visibleReadingCount === label.readingCount,
-                `${engineName}: ${name} retained hidden furigana`, label);
-        }
+        assert(label.visibleReadingCount === label.readingCount,
+            `${engineName}: ${name} retained hidden furigana`, label);
         const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
         assert(expectedPitchExpressions.length > 0,
             `${engineName}: ${name} fixture has no pitch-bearing lexical expression`, label);
@@ -1849,9 +1860,10 @@ function assertAnnotatedLabels(engineName, labels) {
         assert(label.nativePaintVisible, `${engineName}: ${name} lost its native source paint`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
-        assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
-        assert(label.hiddenReadingCount === label.safetyHiddenReadingCount,
-            `${engineName}: ${name} hid furigana without a measured safety verdict`, label);
+        assert(label.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
+            `${engineName}: ${name} furigana intrudes into base text`, label);
+        assert(label.hiddenReadingCount === 0 && label.safetyHiddenReadingCount === 0,
+            `${engineName}: ${name} hid passive furigana`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
@@ -1861,7 +1873,7 @@ function assertAnnotatedLabels(engineName, labels) {
     for (const name of ['create', 'join', 'sort', 'time', 'share']) {
         const label = labels[name];
         assert(label.visibleReadingCount === label.readingCount,
-            `${engineName}: ${name} hid furigana despite a safe measured lane`, label);
+            `${engineName}: ${name} hid furigana`, label);
     }
 }
 
@@ -1884,21 +1896,19 @@ function assertSortMenuSafety(engineName, menuSafety) {
     assert(menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, menuSafety);
     assert(menuSafety.hiddenReadingCount === 0 && menuSafety.visibleReadingCount === menuSafety.readingCount,
         `${engineName}: a realistically spaced opaque menu retained hidden furigana`, menuSafety);
-    assert(menuSafety.readingBaseOverlap === 0 && menuSafety.readingReadingOverlap === 0,
-        `${engineName}: visible menu furigana overlaps another reading or base line`, menuSafety);
+    assert(menuSafety.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX && menuSafety.readingReadingOverlap === 0,
+        `${engineName}: visible menu furigana intrudes into another reading or base line`, menuSafety);
     assert(menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
         `${engineName}: unsafe furigana was truncated instead of preserved in full`, menuSafety);
 }
 
-function assertForeignTextCollisionSafety(engineName, foreignLabel) {
-    assert(foreignLabel.hiddenReadingCount > 0,
-        `${engineName}: furigana covered an ordinary unannotated line above it`, foreignLabel);
-    assert(foreignLabel.safetyHiddenReadingCount === foreignLabel.hiddenReadingCount,
-        `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, foreignLabel);
-    assert(foreignLabel.hiddenReadingReasons.every(reason => reason === 'unsafe-lane'),
-        `${engineName}: foreign-text furigana disappeared without an explicit collision verdict`, foreignLabel);
+function assertForeignTextVisibility(engineName, foreignLabel) {
+    assert(foreignLabel.visibleReadingCount === foreignLabel.readingCount
+        && foreignLabel.hiddenReadingCount === 0
+        && foreignLabel.safetyHiddenReadingCount === 0,
+    `${engineName}: adjacent foreign text caused passive furigana to disappear`, foreignLabel);
     assert(foreignLabel.pitchWordCount > 0,
-        `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, foreignLabel);
+        `${engineName}: foreign-text adjacency removed pitch annotation`, foreignLabel);
 }
 
 function assertControlBehavior(engineName, baseline, snapshot) {
@@ -1924,13 +1934,14 @@ function assertCoarsePointerInventory(engineName, touchHover) {
 }
 
 function assertCoarsePointerReadingSafety(engineName, touchHover) {
-    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => hasSafetyVerdict(touchHover[state])),
-    `${engineName}: coarse-pointer mirror lost detached readings without a safety verdict`, touchHover);
+    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => allReadingsVisible(touchHover[state])),
+    `${engineName}: coarse-pointer mirror lost detached readings`, touchHover);
     assert(touchHover.hovered.visibleRuby === touchHover.before.visibleRuby
         && touchHover.after.visibleRuby === touchHover.before.visibleRuby,
     `${engineName}: coarse-pointer detached readings changed across sticky hover`, touchHover);
-    assert(touchHover.before.readingBaseOverlap === 0 && touchHover.hovered.readingBaseOverlap === 0,
-        `${engineName}: coarse-pointer furigana overlaps base text`, touchHover);
+    assert(touchHover.before.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX
+        && touchHover.hovered.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
+    `${engineName}: coarse-pointer furigana intrudes into base text`, touchHover);
 }
 
 function assertCoarsePointerFallback(engineName, touchHover) {
@@ -1948,8 +1959,8 @@ function isLinuxWebKitPort(engineName) {
     return engineName === 'webkit' && process.platform === 'linux';
 }
 
-function hasSafetyVerdict(state) {
-    return state.visibleRuby + state.safetyHiddenReadings === state.detachedReadings;
+function allReadingsVisible(state) {
+    return state.visibleRuby === state.detachedReadings && state.safetyHiddenReadings === 0;
 }
 
 function nativeFallbackIsVisible(state) {

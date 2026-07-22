@@ -108,7 +108,7 @@ writeFileSync(entryPath, `
             for (const b of bases) {
                 const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
                 const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
-                if (width > 0.5 && height > 0.5) overlap += 1;
+                if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
             }
         }
         return overlap;
@@ -565,6 +565,10 @@ function transparentPaint(value) {
 // gap is 14px; anything beyond a couple px is a visible split).
 const MAX_GAP_PX = 2.5;
 const MAX_GEOMETRY_DELTA_PX = 0.5;
+// DOMRects describe font line boxes rather than painted glyphs. Chromium and
+// WebKit can report 1-2px of contact while the reading sits directly above the
+// base with no visible gap. Larger penetration is a real collision.
+const MAX_FONT_BOX_CONTACT_PX = 2.5;
 
 async function runEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
@@ -582,38 +586,36 @@ async function runEngine(name, browserType) {
         console.log(`${name} chip:`, JSON.stringify(result));
         if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
         if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
-        if (result.visibleReadingCount !== result.detachedReadingCount || result.unsafeHiddenCount !== 0) fail(`${name}: compact control hid a reading despite a safe measured lane`, result);
+        if (result.visibleReadingCount !== result.detachedReadingCount || result.unsafeHiddenCount !== 0) fail(`${name}: compact control hid a passive reading`, result);
         if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
         if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
         if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
-        if (result.readingBaseOverlap > 0) fail(`${name}: compact control reading overlaps base text`, result);
+        if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: compact control reading intrudes into its base`, result);
         if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
         if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
         if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
         const youtube = await page.evaluate(() => window.runYouTubeGeometryProbe());
         console.log(`${name} youtube geometry:`, JSON.stringify(youtube));
         if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
-        if (youtube.actionReadingHiddenReason || youtube.actionReadingDisplay === 'none') fail(`${name}: YouTube action chip hid a safe furigana lane`, youtube);
+        if (youtube.actionReadingHiddenReason || youtube.actionReadingDisplay === 'none') fail(`${name}: YouTube action chip hid its furigana`, youtube);
         if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
         if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
         if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
-        // Font rasterisation can round the intended detached lane to one CSS
-        // pixel in WebKit/Linux. The invariant is visible separation with no
-        // overlap, not an engine-specific 2px measurement.
-        if (youtube.readingBaseClearance < 0.5) fail(`${name}: YouTube action chip furigana overlaps its base`, youtube);
+        if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
         if (!youtube.nativeUnderline || youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)' || youtube.pseudoContent !== 'none') fail(`${name}: YouTube mirror pitch underline is not glyph-anchored native decoration`, youtube);
         if (youtube.underlineToChipBottom < 4) fail(`${name}: YouTube pitch underline fell to the chip edge`, youtube);
-        if (!youtube.metadataReadingRetained || youtube.metadataReadingHiddenReason !== 'unsafe-lane') fail(`${name}: close metadata furigana was not safety-culled with 3px clearance`, youtube);
-        if (youtube.metadataUnsafeDisplay !== 'none' || youtube.metadataSafeDisplay === 'none' || youtube.metadataSafeHiddenReason
-            || youtube.metadataUnsafeAgainDisplay !== 'none' || youtube.metadataReadingHiddenReason !== 'unsafe-lane') {
-            fail(`${name}: metadata furigana did not follow unsafe -> safe -> unsafe reflow`, youtube);
+        if (!youtube.metadataReadingRetained || youtube.metadataReadingHiddenReason) fail(`${name}: close metadata furigana was hidden`, youtube);
+        if (youtube.metadataUnsafeDisplay === 'none' || youtube.metadataSafeDisplay === 'none' || youtube.metadataSafeHiddenReason
+            || youtube.metadataUnsafeAgainDisplay === 'none') {
+            fail(`${name}: metadata furigana did not remain visible across reflow`, youtube);
         }
         if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);
         if (Math.abs(youtube.metadataHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata safety clearance grew its host row`, youtube);
         const lateClip = await page.evaluate(() => window.runLateClipProbe());
         console.log(`${name} late clip:`, JSON.stringify(lateClip));
         if (lateClip.clipStamp !== 'true' || lateClip.overflowStamp !== 'true' || lateClip.overflow !== 'visible') fail(`${name}: late compact clip was not classified and safely opened`, lateClip);
-        if (lateClip.readingDisplay === 'none' || lateClip.readingHiddenReason || lateClip.readingClipped || lateClip.readingBaseOverlap > 0) fail(`${name}: late compact clip did not retain its safe furigana lane`, lateClip);
+        if (lateClip.readingDisplay === 'none' || lateClip.readingHiddenReason || lateClip.readingClipped
+            || lateClip.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: late compact clip did not retain visible furigana`, lateClip);
         const description = await page.evaluate(() => window.runYouTubeDescriptionClipProbe());
         console.log(`${name} youtube description:`, JSON.stringify(description));
         if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);
@@ -633,14 +635,14 @@ async function runEngine(name, browserType) {
         if (more.inlineRubyCount !== 0) fail(`${name}: show-more used an in-flow ruby lane`, more);
         if (Math.abs(more.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(more.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: show-more geometry changed`, more);
         if (more.readingClipped) fail(`${name}: show-more reading is clipped`, more);
-        if (more.readingBaseOverlap > 0) fail(`${name}: show-more reading overlaps base text`, more);
+        if (more.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: show-more reading intrudes into its base`, more);
         const tab = await page.evaluate(() => window.runTabProbe());
         console.log(`${name} tab:`, JSON.stringify(tab));
         if (tab.detachedReadingCount < 1) fail(`${name}: tab reading missing`, tab);
         if (tab.inlineRubyCount !== 0) fail(`${name}: tab used an in-flow ruby lane`, tab);
         if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
         if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
-        if (tab.readingBaseOverlap > 0) fail(`${name}: tab reading overlaps base text`, tab);
+        if (tab.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: tab reading intrudes into its base`, tab);
 
         const criticalPage = await browser.newPage();
         try {

@@ -12117,20 +12117,41 @@ ${spelling}`);
     element2.style.setProperty(property, value, priority);
   }
   const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
+  const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source) => source !== "pitch");
   function styleAdditiveMirrorPaint(root) {
     if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
     root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
-    const source = activeAdditiveDecorationSource();
-    if (!source) return;
+    const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+    const words = root.querySelectorAll(".jpdb-reader-word");
+    if (!source) {
+      for (const word of words) {
+        word.style.removeProperty("text-decoration-color");
+        word.style.removeProperty("--jpdb-reader-additive-decoration");
+        word.style.removeProperty("--jpdb-reader-mirror-status-soft");
+      }
+      return;
+    }
     const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
-    for (const word of root.querySelectorAll(".jpdb-reader-word")) {
+    const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+    const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
+    for (const word of words) {
       word.style.setProperty("text-decoration-color", paint, "important");
+      word.style.setProperty("--jpdb-reader-additive-decoration", paint);
+      if (softPaint) word.style.setProperty("--jpdb-reader-mirror-status-soft", softPaint);
+      else word.style.removeProperty("--jpdb-reader-mirror-status-soft");
     }
   }
-  function activeAdditiveDecorationSource() {
+  function activeAdditiveHighlightSource(documentElement) {
+    let active = null;
+    for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
+      if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
+    }
+    return active;
+  }
+  function activeAdditiveDecorationSource(documentElement) {
     let active = null;
     for (const source of ADDITIVE_DECORATION_SOURCES) {
-      if (["highlight", "underline", "text"].some((channel) => document.documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
+      if (["highlight", "underline", "text"].some((channel) => documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
     }
     return active;
   }
@@ -45527,7 +45548,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.399".trim() ? "1.6.399".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.400".trim() ? "1.6.400".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

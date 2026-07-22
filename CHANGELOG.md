@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.400] - 2026-07-21
+
+### Fixed
+
+- Source-projected annotations now keep their active underline and highlight colours inside shadow-root controls as well as ordinary page DOM. The projection layer passes the selected annotation paint to each exact source fragment, so web components no longer get correctly positioned but transparent pitch/status decoration.
+- Layout regression coverage now enforces the new passive-annotation contract across Chromium and WebKit: furigana stays visible in buttons, metadata, clipped rows, and neighboring-text cases without changing the page's authored dimensions.
+
 ## [1.6.399] - 2026-07-21
 
 ### Fixed
