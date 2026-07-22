@@ -145,6 +145,19 @@ describe('Academy resume route contract', () => {
                         position: { phase: 'question', activityId: 'activity:one' },
                     },
                 },
+                classroomInstructionProgress: {
+                    schemaVersion: 1,
+                    sessionId: 'session:lesson-zero-follow-instructions',
+                    status: 'paused',
+                    cursor: 1,
+                    passedCueIds: ['cue:lesson-zero-instruction:look'],
+                    attempts: [{
+                        cueId: 'cue:lesson-zero-instruction:look',
+                        chosenActionId: 'look',
+                        outcome: 'pass',
+                        at: 100,
+                    }],
+                },
             },
             projectLearnerRecord([]),
             4_000,
@@ -160,6 +173,7 @@ describe('Academy resume route contract', () => {
                 position: { phase: 'question', activityId: 'activity:one' },
             },
         });
+        expect(expired.classroomInstructionProgress).toMatchObject({ status: 'paused', cursor: 1 });
     });
 
     it('resumes the day-end pause without inventing lesson completion evidence', () => {

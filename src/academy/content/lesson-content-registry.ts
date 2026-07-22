@@ -9,6 +9,10 @@ import {
     LESSON_ZERO_CLASSROOM_PROBE_IDS,
     validateLessonZeroClassroomExpressions,
 } from './lesson-zero-classroom-expressions';
+import {
+    LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+    LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS,
+} from './lesson-zero-follow-instructions';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { LESSON_ZERO_CONTENT_SHA256 } from './lesson-zero-pedagogy-definitions';
 import { parseAuthoredWeekPackage } from './authored-week-schema';
@@ -144,7 +148,9 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
             'activity:aakash-rainy-directions',
             'activity:lesson-zero-kanji-one',
             'activity:lesson-zero-kana-mastery',
+            LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
             ...LESSON_ZERO_CLASSROOM_PROBE_IDS,
+            ...LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS,
         ],
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',

@@ -1,0 +1,887 @@
+.academy-classroom-instruction-screen {
+    position: relative;
+    min-height: 100dvh;
+    overflow-x: clip;
+    color: var(--academy-paper);
+    background: var(--academy-night);
+}
+
+.academy-classroom-instruction-screen > .academy-background-picture,
+.academy-classroom-instruction-screen > .academy-background-picture img {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.academy-classroom-instruction-screen > .academy-background-picture img {
+    object-fit: cover;
+    filter: saturate(0.82) brightness(0.48);
+}
+
+.academy-classroom-instruction-screen::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, rgba(10, 13, 12, 0.82), rgba(10, 13, 12, 0.18) 48%, rgba(10, 13, 12, 0.72)),
+        linear-gradient(180deg, rgba(10, 13, 12, 0.28), rgba(10, 13, 12, 0.7));
+}
+
+.academy-classroom-instruction-shell {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    min-height: 100dvh;
+    margin-inline: auto;
+    padding: max(22px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom));
+}
+
+.academy-classroom-instruction-header {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    min-height: 76px;
+    padding: 10px 18px 12px;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, transparent);
+    background: color-mix(in srgb, var(--academy-night) 88%, transparent);
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.academy-classroom-instruction-back {
+    grid-column: 1;
+    grid-row: 1;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    padding: 0;
+    border: 2px solid color-mix(in srgb, var(--academy-paper) 58%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: color-mix(in srgb, var(--academy-night) 84%, transparent);
+    box-shadow: 5px 5px 0 color-mix(in srgb, var(--academy-accent) 38%, transparent);
+    font-size: 1.5rem;
+}
+
+.academy-classroom-instruction-heading {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.academy-classroom-instruction-eyebrow,
+.academy-classroom-instruction-title,
+.academy-classroom-instruction-progress,
+.academy-classroom-instruction-intro-line,
+.academy-classroom-instruction-pattern-copy,
+.academy-classroom-instruction-line,
+.academy-classroom-instruction-reaction,
+.academy-classroom-instruction-heard-meaning,
+.academy-classroom-instruction-complete-line {
+    margin: 0;
+}
+
+.academy-classroom-instruction-eyebrow {
+    color: color-mix(in srgb, var(--academy-accent) 66%, white);
+    font: 800 0.72rem/1.25 var(--academy-font);
+    text-transform: uppercase;
+}
+
+.academy-classroom-instruction-title {
+    margin-top: 3px;
+    color: var(--academy-paper);
+    font: 900 clamp(1.35rem, 3vw, 2.2rem)/1.05 var(--academy-font);
+}
+
+.academy-classroom-instruction-progress {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: 190px;
+    color: color-mix(in srgb, var(--academy-paper) 76%, transparent);
+    font: 700 0.78rem/1.35 var(--academy-font);
+    text-align: right;
+}
+
+.academy-classroom-instruction-body {
+    min-width: 0;
+    padding-top: 20px;
+}
+
+.academy-classroom-instruction-intro {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.62fr) minmax(320px, 1.38fr);
+    align-items: end;
+    min-height: min(680px, calc(100dvh - 132px));
+}
+
+.academy-classroom-instruction-intro-portrait {
+    align-self: end;
+    justify-self: center;
+    width: min(100%, 420px);
+    max-height: 610px;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 20px 24px rgba(0, 0, 0, 0.48));
+}
+
+.academy-classroom-instruction-intro-copy {
+    position: relative;
+    align-self: center;
+    padding: clamp(28px, 5vw, 64px) clamp(24px, 5vw, 70px);
+    color: var(--academy-paper-ink);
+    background:
+        repeating-linear-gradient(
+            180deg,
+            transparent 0 34px,
+            color-mix(in srgb, var(--academy-paper-ink) 10%, transparent) 35px 36px
+        ),
+        color-mix(in srgb, var(--academy-paper) 96%, white);
+    clip-path: polygon(0 2%, 97% 0, 100% 90%, 94% 100%, 2% 98%);
+    box-shadow: 18px 22px 0 rgba(0, 0, 0, 0.26);
+}
+
+.academy-classroom-instruction-intro-copy::before {
+    content: '';
+    position: absolute;
+    inset: 22px auto 20px 22px;
+    width: 5px;
+    background: var(--academy-accent);
+}
+
+.academy-classroom-instruction-intro-line {
+    max-width: 700px;
+    padding-left: 20px;
+    font: 750 clamp(1.12rem, 2.3vw, 1.7rem)/1.45 var(--academy-font);
+}
+
+.academy-classroom-instruction-patterns {
+    display: grid;
+    gap: 10px;
+    margin: 28px 0 30px 20px;
+}
+
+.academy-classroom-instruction-pattern {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    align-items: center;
+    min-height: 56px;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-paper-ink) 20%, transparent);
+}
+
+.academy-classroom-instruction-pattern-glyph {
+    color: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    font: 900 1.45rem/1 var(--academy-japanese-font);
+}
+
+.academy-classroom-instruction-pattern-copy {
+    color: var(--academy-paper-muted);
+    font: 700 0.98rem/1.4 var(--academy-font);
+}
+
+.academy-classroom-instruction-start {
+    min-height: 54px;
+    margin-left: 20px;
+    padding-inline: 28px;
+    border-radius: 0;
+    clip-path: polygon(0 0, 92% 0, 100% 50%, 92% 100%, 0 100%);
+}
+
+.academy-classroom-instruction-prompt {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    align-items: end;
+    width: min(760px, 92%);
+    min-height: 132px;
+    margin: 0 auto -26px;
+    isolation: isolate;
+}
+
+.academy-classroom-instruction-prompt-portrait {
+    z-index: 2;
+    width: 150px;
+    max-height: 190px;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.45));
+}
+
+.academy-classroom-instruction-dialogue {
+    z-index: 1;
+    min-width: 0;
+    margin-bottom: 24px;
+    padding: 18px 24px 18px 40px;
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+    clip-path: polygon(2% 0, 100% 4%, 96% 100%, 0 94%);
+    box-shadow: 12px 14px 0 rgba(0, 0, 0, 0.28);
+}
+
+.academy-classroom-instruction-name {
+    display: block;
+    margin-bottom: 5px;
+    color: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    font: 900 0.78rem/1.2 var(--academy-font);
+}
+
+.academy-classroom-instruction-line {
+    font: 750 1rem/1.4 var(--academy-font);
+}
+
+.academy-classroom-instruction-replay {
+    min-height: 44px;
+    margin-top: 12px;
+    padding: 8px 16px;
+    border: 2px solid color-mix(in srgb, var(--academy-paper-ink) 64%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--academy-accent) 55%, transparent);
+}
+
+.academy-classroom-instruction-room {
+    position: relative;
+    width: 100%;
+    min-height: 250px;
+    overflow: hidden;
+    border-top: 3px solid color-mix(in srgb, var(--academy-accent) 75%, var(--academy-paper));
+    border-bottom: 3px solid color-mix(in srgb, var(--academy-paper) 28%, transparent);
+    background:
+        linear-gradient(180deg, rgba(7, 18, 16, 0.66), rgba(10, 13, 12, 0.9)),
+        repeating-linear-gradient(90deg, transparent 0 16%, rgba(255, 255, 255, 0.025) 16.2% 16.5%);
+    box-shadow: 0 22px 40px rgba(0, 0, 0, 0.32);
+}
+
+.academy-classroom-instruction-board {
+    position: absolute;
+    inset: 26px auto auto 8%;
+    width: 46%;
+    height: 132px;
+    border: 8px solid #4e4231;
+    background: #183b31;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08), 10px 12px 18px rgba(0, 0, 0, 0.34);
+    transform: perspective(500px) rotateY(3deg);
+}
+
+.academy-classroom-instruction-board span {
+    display: block;
+    width: 72%;
+    height: 3px;
+    margin: 22px auto 0;
+    background: rgba(239, 236, 207, 0.48);
+    transform: rotate(-1deg);
+}
+
+.academy-classroom-instruction-desk {
+    position: absolute;
+    right: 5%;
+    bottom: 22px;
+    width: 38%;
+    height: 84px;
+    border-top: 12px solid #6c4a31;
+    background: linear-gradient(180deg, #3c2b20, #251c17);
+    transform: skewX(-4deg);
+    box-shadow: 10px 16px 18px rgba(0, 0, 0, 0.38);
+}
+
+.academy-classroom-instruction-book {
+    position: absolute;
+    left: 10%;
+    top: -48px;
+    width: 44%;
+    height: 54px;
+    transform-style: preserve-3d;
+}
+
+.academy-classroom-instruction-book span {
+    position: absolute;
+    inset: 0 50% 0 0;
+    border: 2px solid #81745c;
+    background: #e8dec2;
+    transform-origin: right center;
+}
+
+.academy-classroom-instruction-book span:last-child {
+    inset: 0 0 0 50%;
+    transform-origin: left center;
+}
+
+.academy-classroom-instruction-pencil {
+    position: absolute;
+    left: 66%;
+    top: -32px;
+    width: 6px;
+    height: 58px;
+    background: color-mix(in srgb, var(--academy-accent) 70%, #d3a448);
+    transform: rotate(62deg);
+    box-shadow: 1px 1px 0 #2b211b;
+}
+
+.academy-classroom-instruction-clock {
+    position: absolute;
+    right: 7%;
+    top: -62px;
+    width: 54px;
+    height: 54px;
+    border: 5px solid #806f56;
+    border-radius: 50%;
+    background: #e8dec2;
+    box-shadow: 4px 7px 10px rgba(0, 0, 0, 0.35);
+}
+
+.academy-classroom-instruction-clock::before,
+.academy-classroom-instruction-clock::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 2px;
+    height: 17px;
+    background: #332c26;
+    transform-origin: bottom;
+}
+
+.academy-classroom-instruction-clock::after {
+    height: 13px;
+    transform: rotate(115deg);
+}
+
+.academy-classroom-instruction-voices,
+.academy-classroom-instruction-sound {
+    position: absolute;
+    opacity: 0;
+    color: var(--academy-paper);
+    font: 900 2rem/1 var(--academy-japanese-font);
+}
+
+.academy-classroom-instruction-voices {
+    left: 18%;
+    bottom: 28px;
+}
+
+.academy-classroom-instruction-sound {
+    right: 17%;
+    top: 38px;
+    letter-spacing: 0;
+}
+
+.academy-classroom-instruction-room[data-room-action='look'] .academy-classroom-instruction-board {
+    animation: academy-instruction-board-focus 720ms ease-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='begin'] {
+    animation: academy-instruction-room-open 700ms ease-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='finish'] .academy-classroom-instruction-book span:first-child {
+    animation: academy-instruction-book-close-left 650ms ease-in-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='finish'] .academy-classroom-instruction-book span:last-child {
+    animation: academy-instruction-book-close-right 650ms ease-in-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='break'] .academy-classroom-instruction-clock::before {
+    animation: academy-instruction-clock-rest 800ms ease-in-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='write'] .academy-classroom-instruction-pencil {
+    animation: academy-instruction-pencil-write 900ms ease-in-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='say-together'] .academy-classroom-instruction-voices {
+    animation: academy-instruction-voices 900ms ease-out both;
+}
+
+.academy-classroom-instruction-room[data-room-action='listen'] .academy-classroom-instruction-sound {
+    animation: academy-instruction-sound 900ms ease-out both;
+}
+
+.academy-classroom-instruction-actions {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    padding: 16px 0 0;
+}
+
+.academy-classroom-instruction-action {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    min-width: 0;
+    min-height: 62px;
+    padding: 9px 14px 9px 10px;
+    border: 0;
+    border-left: 4px solid var(--academy-accent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: color-mix(in srgb, var(--academy-night) 88%, transparent);
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--academy-paper) 14%, transparent);
+    cursor: pointer;
+}
+
+.academy-classroom-instruction-action:hover,
+.academy-classroom-instruction-action:focus-visible {
+    color: var(--academy-paper-ink);
+    background: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper));
+    transform: translateY(-3px);
+}
+
+.academy-classroom-instruction-action:focus-visible {
+    outline: 3px solid var(--academy-paper);
+    outline-offset: 3px;
+}
+
+.academy-classroom-instruction-action-glyph {
+    font: 900 1.25rem/1 var(--academy-japanese-font);
+}
+
+.academy-classroom-instruction-action-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font: 800 0.7rem/1.2 var(--academy-font);
+}
+
+.academy-classroom-instruction-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 16px 0 0;
+}
+
+.academy-classroom-instruction-pause {
+    min-height: 44px;
+    border: 0;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-paper) 46%, transparent);
+    border-radius: 0;
+    color: color-mix(in srgb, var(--academy-paper) 76%, transparent);
+    background: transparent;
+}
+
+.academy-classroom-instruction-feedback {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+    align-items: stretch;
+    min-height: min(650px, calc(100dvh - 150px));
+}
+
+.academy-classroom-instruction-feedback .academy-classroom-instruction-room {
+    align-self: center;
+    min-height: 390px;
+}
+
+.academy-classroom-instruction-feedback-paper {
+    position: relative;
+    z-index: 2;
+    align-self: center;
+    margin-left: -36px;
+    padding: 42px 38px 40px 52px;
+    color: var(--academy-paper-ink);
+    background:
+        repeating-linear-gradient(
+            180deg,
+            transparent 0 32px,
+            color-mix(in srgb, var(--academy-paper-ink) 9%, transparent) 33px 34px
+        ),
+        var(--academy-paper);
+    clip-path: polygon(3% 0, 100% 3%, 96% 96%, 8% 100%, 0 88%);
+    box-shadow: 16px 20px 0 rgba(0, 0, 0, 0.3);
+}
+
+.academy-classroom-instruction-feedback[data-outcome='lapse'] .academy-classroom-instruction-feedback-paper {
+    border-left: 6px solid var(--academy-red);
+}
+
+.academy-classroom-instruction-feedback[data-outcome='pass'] .academy-classroom-instruction-feedback-paper {
+    border-left: 6px solid var(--academy-accent);
+}
+
+.academy-classroom-instruction-feedback-title,
+.academy-classroom-instruction-heard-japanese,
+.academy-classroom-instruction-complete-title {
+    margin: 0;
+}
+
+.academy-classroom-instruction-feedback-title {
+    font: 900 clamp(1.25rem, 2.4vw, 2rem)/1.12 var(--academy-font);
+}
+
+.academy-classroom-instruction-reaction {
+    margin-top: 10px;
+    color: var(--academy-paper-muted);
+    font: 650 0.9rem/1.45 var(--academy-font);
+}
+
+.academy-classroom-instruction-heard-label {
+    display: block;
+    margin-top: 28px;
+    color: color-mix(in srgb, var(--academy-accent) 70%, var(--academy-paper-ink));
+    font: 850 0.7rem/1.2 var(--academy-font);
+    text-transform: uppercase;
+}
+
+.academy-classroom-instruction-heard-japanese {
+    margin-top: 6px;
+    color: var(--academy-paper-ink);
+    font: 900 clamp(1.65rem, 4vw, 2.8rem)/1.25 var(--academy-japanese-font);
+}
+
+.academy-classroom-instruction-heard-meaning {
+    margin-top: 5px;
+    color: var(--academy-paper-muted);
+    font: 700 0.95rem/1.4 var(--academy-font);
+}
+
+.academy-classroom-instruction-continue {
+    min-height: 50px;
+    margin-top: 30px;
+    border-radius: 0;
+    clip-path: polygon(0 0, 92% 0, 100% 50%, 92% 100%, 0 100%);
+}
+
+.academy-classroom-instruction-complete {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.65fr) minmax(340px, 1.35fr);
+    align-items: end;
+    min-height: min(680px, calc(100dvh - 140px));
+}
+
+.academy-classroom-instruction-complete-portrait {
+    justify-self: center;
+    width: min(100%, 420px);
+    max-height: 620px;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 20px 24px rgba(0, 0, 0, 0.5));
+}
+
+.academy-classroom-instruction-complete-copy {
+    position: relative;
+    align-self: center;
+    padding: 54px clamp(28px, 5vw, 70px);
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+    clip-path: polygon(0 3%, 97% 0, 100% 90%, 93% 100%, 3% 96%);
+    box-shadow: 18px 22px 0 rgba(0, 0, 0, 0.3);
+}
+
+.academy-classroom-instruction-complete-seal {
+    display: grid;
+    width: 66px;
+    height: 66px;
+    margin-bottom: 18px;
+    place-items: center;
+    border: 3px solid var(--academy-accent);
+    border-radius: 50%;
+    color: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    font: 900 1.8rem/1 var(--academy-japanese-font);
+    transform: rotate(-7deg);
+}
+
+.academy-classroom-instruction-complete-title {
+    font: 900 clamp(1.6rem, 3.6vw, 2.8rem)/1.1 var(--academy-font);
+}
+
+.academy-classroom-instruction-complete-line {
+    max-width: 690px;
+    margin-top: 14px;
+    color: var(--academy-paper-muted);
+    font: 650 1rem/1.55 var(--academy-font);
+}
+
+.academy-classroom-instruction-complete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+}
+
+.academy-classroom-instruction-complete-actions .academy-button {
+    min-height: 48px;
+    border-radius: 0;
+}
+
+.academy-classroom-instruction-live {
+    min-height: 1.4em;
+    margin-top: 10px;
+    color: color-mix(in srgb, var(--academy-red) 66%, white);
+    font: 750 0.85rem/1.4 var(--academy-font);
+}
+
+@keyframes academy-instruction-board-focus {
+    0% { filter: brightness(0.7); transform: perspective(500px) rotateY(3deg) scale(0.98); }
+    55% { filter: brightness(1.35); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16), 0 0 38px color-mix(in srgb, var(--academy-accent) 50%, transparent); }
+    100% { filter: brightness(1.08); transform: perspective(500px) rotateY(0) scale(1); }
+}
+
+@keyframes academy-instruction-room-open {
+    0% { filter: brightness(0.62); }
+    100% { filter: brightness(1.14); }
+}
+
+@keyframes academy-instruction-book-close-left {
+    0% { transform: perspective(220px) rotateY(-24deg); }
+    100% { transform: perspective(220px) rotateY(-82deg); }
+}
+
+@keyframes academy-instruction-book-close-right {
+    0% { transform: perspective(220px) rotateY(24deg); }
+    100% { transform: perspective(220px) rotateY(82deg); }
+}
+
+@keyframes academy-instruction-clock-rest {
+    0% { transform: rotate(0); }
+    45% { transform: rotate(140deg); }
+    100% { transform: rotate(180deg); }
+}
+
+@keyframes academy-instruction-pencil-write {
+    0%, 100% { transform: translate(0, 0) rotate(62deg); }
+    25% { transform: translate(22px, -8px) rotate(68deg); }
+    50% { transform: translate(4px, 2px) rotate(58deg); }
+    75% { transform: translate(28px, -6px) rotate(66deg); }
+}
+
+@keyframes academy-instruction-voices {
+    0% { opacity: 0; transform: translateY(12px) scale(0.8); }
+    45% { opacity: 1; transform: translateY(0) scale(1.12); }
+    100% { opacity: 0.75; transform: translateY(-5px) scale(1); }
+}
+
+@keyframes academy-instruction-sound {
+    0% { opacity: 0; transform: translateX(-12px) scale(0.7); }
+    45% { opacity: 1; transform: translateX(0) scale(1.18); }
+    100% { opacity: 0.72; transform: translateX(8px) scale(1); }
+}
+
+@media (max-width: 860px) {
+    .academy-classroom-instruction-shell {
+        width: min(100% - 24px, 720px);
+    }
+
+    .academy-classroom-instruction-intro,
+    .academy-classroom-instruction-complete {
+        grid-template-columns: minmax(145px, 0.5fr) minmax(0, 1.5fr);
+    }
+
+    .academy-classroom-instruction-actions {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .academy-classroom-instruction-feedback {
+        grid-template-columns: 1fr;
+        min-height: 0;
+    }
+
+    .academy-classroom-instruction-feedback .academy-classroom-instruction-room {
+        min-height: 280px;
+    }
+
+    .academy-classroom-instruction-feedback-paper {
+        width: min(92%, 620px);
+        margin: -34px auto 0;
+        padding: 42px 34px 36px;
+    }
+}
+
+@media (max-width: 620px) {
+    .academy-classroom-instruction-shell {
+        width: 100%;
+        padding-top: calc(144px + env(safe-area-inset-top));
+    }
+
+    .academy-classroom-instruction-header {
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 11px;
+        min-height: 68px;
+        padding: 8px 12px 10px;
+    }
+
+    .academy-classroom-instruction-back {
+        grid-column: 1;
+        grid-row: 1;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+    }
+
+    .academy-classroom-instruction-heading {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .academy-classroom-instruction-progress {
+        grid-column: 2;
+        grid-row: 2;
+        max-width: none;
+        margin-top: -6px;
+        text-align: left;
+    }
+
+    .academy-classroom-instruction-title {
+        font-size: 1.28rem;
+    }
+
+    .academy-classroom-instruction-body {
+        padding-top: 10px;
+    }
+
+    .academy-classroom-instruction-intro,
+    .academy-classroom-instruction-complete {
+        grid-template-columns: 1fr;
+        min-height: 0;
+    }
+
+    .academy-classroom-instruction-intro-portrait,
+    .academy-classroom-instruction-complete-portrait {
+        width: min(58vw, 230px);
+        max-height: 250px;
+        margin-bottom: -34px;
+    }
+
+    .academy-classroom-instruction-intro-copy,
+    .academy-classroom-instruction-complete-copy {
+        margin: 0 10px;
+        padding: 36px 25px 34px 34px;
+    }
+
+    .academy-classroom-instruction-intro-copy::before {
+        left: 14px;
+    }
+
+    .academy-classroom-instruction-intro-line {
+        padding-left: 0;
+        font-size: 1rem;
+    }
+
+    .academy-classroom-instruction-patterns,
+    .academy-classroom-instruction-start {
+        margin-left: 0;
+    }
+
+    .academy-classroom-instruction-start {
+        width: min(100%, 320px);
+    }
+
+    .academy-classroom-instruction-prompt {
+        grid-template-columns: 82px minmax(0, 1fr);
+        width: calc(100% - 16px);
+        min-height: 104px;
+        margin-bottom: -18px;
+    }
+
+    .academy-classroom-instruction-prompt-portrait {
+        width: 100px;
+        max-height: 135px;
+    }
+
+    .academy-classroom-instruction-dialogue {
+        margin-bottom: 16px;
+        padding: 14px 15px 14px 25px;
+    }
+
+    .academy-classroom-instruction-line {
+        font-size: 0.84rem;
+    }
+
+    .academy-classroom-instruction-replay {
+        width: 100%;
+        font-size: 0.78rem;
+    }
+
+    .academy-classroom-instruction-room,
+    .academy-classroom-instruction-feedback .academy-classroom-instruction-room {
+        min-height: 225px;
+    }
+
+    .academy-classroom-instruction-board {
+        inset: 24px auto auto 5%;
+        width: 58%;
+        height: 116px;
+    }
+
+    .academy-classroom-instruction-desk {
+        right: 3%;
+        width: 46%;
+    }
+
+    .academy-classroom-instruction-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        padding: 12px 10px 0;
+    }
+
+    .academy-classroom-instruction-action {
+        min-height: 56px;
+    }
+
+    .academy-classroom-instruction-action:last-child {
+        grid-column: 1 / -1;
+        width: 50%;
+        justify-self: center;
+    }
+
+    .academy-classroom-instruction-footer {
+        padding-inline: 12px;
+    }
+
+    .academy-classroom-instruction-feedback-paper {
+        width: calc(100% - 20px);
+        padding: 36px 25px 32px 30px;
+    }
+
+    .academy-classroom-instruction-heard-japanese {
+        font-size: clamp(1.45rem, 8vw, 2.2rem);
+    }
+
+    .academy-classroom-instruction-continue {
+        width: 100%;
+    }
+
+    .academy-classroom-instruction-complete-title {
+        font-size: 1.5rem;
+    }
+
+    .academy-classroom-instruction-complete-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .academy-classroom-instruction-live {
+        padding-inline: 14px;
+    }
+}
+
+@media (max-width: 350px) {
+    .academy-classroom-instruction-eyebrow {
+        font-size: 0.64rem;
+    }
+
+    .academy-classroom-instruction-title {
+        font-size: 1.08rem;
+    }
+
+    .academy-classroom-instruction-progress {
+        font-size: 0.68rem;
+    }
+
+    .academy-classroom-instruction-action {
+        grid-template-columns: 32px minmax(0, 1fr);
+        padding-inline: 8px 12px;
+    }
+
+    .academy-classroom-instruction-action-label {
+        font-size: 0.65rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-classroom-instruction-room *,
+    .academy-classroom-instruction-room,
+    .academy-classroom-instruction-action {
+        animation: none !important;
+        transition: none !important;
+    }
+}

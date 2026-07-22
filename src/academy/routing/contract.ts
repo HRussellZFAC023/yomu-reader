@@ -40,6 +40,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.classroomExpressionProgress
                 ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress }
                 : {}),
+            ...(checkpoint.classroomInstructionProgress
+                ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress }
+                : {}),
             updatedAt: now,
         };
     }

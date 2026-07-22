@@ -203,6 +203,49 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists embodied classroom-instruction progress and rejects unknown actions', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const classroomInstructionProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-follow-instructions' as const,
+            status: 'paused' as const,
+            cursor: 1,
+            passedCueIds: ['cue:lesson-zero-instruction:look'],
+            attempts: [{
+                cueId: 'cue:lesson-zero-instruction:look',
+                chosenActionId: 'look' as const,
+                outcome: 'pass' as const,
+                at: 100,
+            }],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-follow-instructions',
+            classroomInstructionProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ classroomInstructionProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-follow-instructions',
+            classroomInstructionProgress: {
+                ...classroomInstructionProgress,
+                attempts: [{ ...classroomInstructionProgress.attempts[0], chosenActionId: 'teleport' as never }],
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid classroom-instruction progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

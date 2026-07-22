@@ -29,6 +29,11 @@ import {
     supportEvents,
 } from '../content/lesson-zero-classroom-runtime';
 import {
+    createLessonZeroFollowInstructionDefinition,
+    LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+    lessonZeroFollowInstructionCompletionEvaluation,
+} from '../content/lesson-zero-follow-instructions';
+import {
     advancedPackageIdFromLessonId,
     resolveAdvancedCurriculumEntry,
     type AdvancedCurriculumEntry,
@@ -39,6 +44,10 @@ import {
     startClassroomExpressionSession,
     transitionClassroomExpressionSession,
 } from '../domain/classroom-expression-session';
+import {
+    startClassroomInstructionSession,
+    transitionClassroomInstructionSession,
+} from '../domain/classroom-instruction-session';
 import {
     authoredWeekProgressAfterActivity,
     authoredWeekProgressFits,
@@ -61,6 +70,7 @@ import { createReachableLessonActivityExtension } from '../ui/lesson-activity-ch
 import { renderLoadingScreen } from '../ui/loading-screen';
 import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
+import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -374,6 +384,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderClassroomExpressionSession(context.checkpoint.activityId, context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
+            await this.renderClassroomInstructionSession(context);
+            return;
+        }
         const fork = context.checkpoint.selectedFork ?? 'text';
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         if (fork === 'text') {
@@ -475,6 +489,75 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ classroomExpressionProgress: transition.state });
             },
             onRestart: restart => context.save?.({ classroomExpressionProgress: restart }),
+            onBack: () => context.back(),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderClassroomInstructionSession(context: AcademyRouteContext): Promise<void> {
+        const [classroom, content] = await Promise.all([
+            loadLessonZeroClassroomExpressions(),
+            loadLessonZeroContent(),
+        ]);
+        const activity = content.lesson.activities.find(candidate =>
+            candidate.id === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID);
+        if (!activity) throw new TypeError('Lesson Zero is missing its follow-instructions activity.');
+        const definition = createLessonZeroFollowInstructionDefinition(classroom, activity);
+        let state;
+        try {
+            state = startClassroomInstructionSession(
+                definition,
+                context.checkpoint.classroomInstructionProgress,
+            );
+        } catch {
+            state = startClassroomInstructionSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionClassroomInstructionSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.classroomInstructionProgress)) {
+            await context.save?.({ classroomInstructionProgress: state });
+        }
+
+        const screen = createClassroomInstructionScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                if (before.status !== 'complete' && transition.state.status === 'complete') {
+                    await this.options.evidence.recordActivity(
+                        lessonZeroFollowInstructionCompletionEvaluation(activity, Date.now()),
+                        LESSON_ZERO_ID,
+                    );
+                }
+                await context.save?.({ classroomInstructionProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ classroomInstructionProgress: restart }),
             onBack: () => context.back(),
         });
         screen.element.dataset.academyRoute = 'source-activity';
@@ -616,7 +699,10 @@ function overviewState(
         else needsReviewActivityIds.add(activity.activityId);
     }
     return {
-        boundActivityIds: new Set(LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS),
+        boundActivityIds: new Set([
+            LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+            ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
+        ]),
         attemptedActivityIds,
         completedActivityIds,
         needsReviewActivityIds,

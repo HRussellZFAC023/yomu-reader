@@ -118,6 +118,7 @@ try {
         }));
     });
     await enroll(page);
+    await advanceToDayTwo(page);
 
     const results = [];
     for (const scenario of scenarios) {
@@ -219,6 +220,24 @@ async function enroll(page) {
 async function openAcademy(page) {
     await page.goto(`${server.origin}/academy/?qa-run=${RUN}`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#academy-screen > :not(.academy-loading-screen)', { timeout: 20_000 });
+}
+
+async function advanceToDayTwo(page) {
+    await page.evaluate(async () => {
+        const app = window.__yomuAcademy;
+        const at = Date.now();
+        await app.persistence.events.append([{
+            kind: 'academy-day-closed',
+            eventId: 'learning-voice-proof:day:1:closed',
+            at,
+            dayId: 'day:1',
+            mainLessonCompleted: true,
+            optionalActivityIds: [],
+            elapsedMs: 0,
+            schemaVersion: 1,
+        }]);
+        await app.evidence.refresh();
+    });
 }
 
 async function setCheckpoint(page, route, checkpointContext) {

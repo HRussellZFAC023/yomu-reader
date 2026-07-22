@@ -25,6 +25,7 @@ import './styles/aakash-directions.css';
 import './styles/class-path.css';
 import './styles/lesson-overview.css';
 import './styles/classroom-expression-session.css';
+import './styles/classroom-instruction.css';
 import './styles/primary-purpose.css';
 import './styles/speaker-staging.css';
 import { createLocalQaAccessGateway, localQaAuthBypassEnabled } from './access/local-qa';

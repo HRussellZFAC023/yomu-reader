@@ -172,6 +172,51 @@ describe('Academy lesson flow', () => {
         })));
     });
 
+    it('routes Rie\'s seven instructions through embodied listening evidence and durable pause', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-follow-instructions',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const recordSupportUse = vi.fn(async () => undefined);
+        const play = vi.fn(async () => ({ dispose() {} }));
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse } as never,
+            pronunciation: { play } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('classroom-instruction');
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')?.click();
+        await vi.waitFor(() => expect(play).toHaveBeenCalledWith('みてください', 'みてください'));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="look"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-follow-instructions:look',
+                    sourceQuestionId: 'source-question:classroom-phrase-04',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ modeId: 'lesson-zero-follow-instructions', skill: 'listening' }),
+        ));
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            classroomInstructionProgress: expect.objectContaining({
+                cursor: 1,
+                passedCueIds: ['cue:lesson-zero-instruction:look'],
+            }),
+        })));
+
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-back')?.click();
+        await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            classroomInstructionProgress: expect.objectContaining({ status: 'paused' }),
+        }));
+    });
+
     it('clears pending lesson state when first completion continues to Aakash', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',

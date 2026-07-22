@@ -10089,6 +10089,315 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function fail$2(message) {
     throw new TypeError(message);
   }
+  const LESSON_ZERO_CONTENT_SHA256 = "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c";
+  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a1ac9cb34de4eb585d0ea4ba68e2e3d70ed666bdc0c75be62111798d69d5a4eb";
+  const LESSON_CONTENT_ID = "content:lesson-zero-v1";
+  const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
+  const LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS = Object.freeze([
+    { activityId: "activity:lesson-zero-follow-instructions", expressionIds: range$1(1, 7), deterministicAssessment: false },
+    { activityId: "activity:lesson-zero-reconstruct-repair", expressionIds: range$1(8, 12), deterministicAssessment: true },
+    { activityId: "activity:lesson-zero-desk-language", expressionIds: range$1(13, 14), deterministicAssessment: true }
+  ]);
+  function createLessonZeroDefinitionRecords(data, classroom) {
+    return [
+      ...curriculumRecords(data),
+      ...teachingRecords(classroom),
+      ...classroomRuntimeRecords(classroom)
+    ];
+  }
+  function lessonZeroProbesForBinding(binding, expressions2) {
+    return binding.expressionIds.flatMap((expressionId) => {
+      const expression = expressions2.get(expressionId);
+      if (!expression) throw new TypeError(`Missing classroom expression ${expressionId}.`);
+      return expression.probes;
+    });
+  }
+  function lessonZeroCanonicalReading(probe) {
+    const reading = probe.acceptedAnswers.find((answer2) => !/[\p{Script=Han}]/u.test(answer2));
+    if (!reading) throw new TypeError(`Probe ${probe.id} needs an explicit kana reading for Yomu review.`);
+    return reading;
+  }
+  function lessonZeroErrorId(probe) {
+    return `error:${probe.repair.errorTag}`;
+  }
+  function lessonZeroFeedbackId(probe) {
+    return `feedback:lesson-zero:${suffixOf$1(probe.id)}`;
+  }
+  function lessonZeroNearbyExampleId(probe) {
+    return `nearby-example:lesson-zero:${suffixOf$1(probe.id)}`;
+  }
+  function lessonZeroReviewSeedId(probe) {
+    return `review:lesson-zero:${suffixOf$1(probe.id)}`;
+  }
+  function curriculumRecords(data) {
+    const conceptActivities = /* @__PURE__ */ new Map();
+    for (const activity2 of data.lesson.activities) {
+      for (const conceptId of activity2.conceptIds) {
+        conceptActivities.set(conceptId, [...conceptActivities.get(conceptId) ?? [], activity2.id]);
+      }
+    }
+    const concepts = [...conceptActivities].map(([id2, activityIds]) => record$14(
+      id2,
+      "concept",
+      LESSON_CONTENT_ID,
+      `lesson.activities[conceptId=${id2}]`,
+      { lessonId: data.lesson.id, activityIds },
+      data.lesson.contentVersion,
+      LESSON_ZERO_CONTENT_SHA256
+    ));
+    const outcomes2 = data.lesson.sections.flatMap((section) => section.outcomeIds.map((id2) => record$14(
+      id2,
+      "outcome",
+      LESSON_CONTENT_ID,
+      `lesson.sections[id=${section.id}].outcomeIds[id=${id2}]`,
+      { lessonId: data.lesson.id, sectionId: section.id },
+      data.lesson.contentVersion,
+      LESSON_ZERO_CONTENT_SHA256
+    )));
+    const repair = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-reconstruct-repair");
+    const prior = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-follow-instructions");
+    const prerequisites2 = repair && prior ? [record$14(
+      "prerequisite-resolution:lesson-zero:reconstruct-repair",
+      "prerequisite-resolution",
+      LESSON_CONTENT_ID,
+      "lesson.activities[id=activity:lesson-zero-reconstruct-repair]",
+      { activityId: repair.id, prerequisiteActivityId: prior.id, conceptIds: prior.conceptIds },
+      data.lesson.contentVersion,
+      LESSON_ZERO_CONTENT_SHA256
+    )] : [];
+    return [...concepts, ...outcomes2, ...prerequisites2];
+  }
+  function teachingRecords(classroom) {
+    return classroom.teachingBlocks.flatMap((block) => {
+      const suffix = suffixOf$1(block.id);
+      return [
+        record$14(
+          `explanation:lesson-zero:${suffix}`,
+          "explanation",
+          CLASSROOM_CONTENT_ID,
+          `teachingBlocks[id=${block.id}].explanation`,
+          block.explanation,
+          classroom.contentVersion,
+          LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+        ),
+        record$14(
+          `worked-example:lesson-zero:${suffix}`,
+          "worked-example",
+          CLASSROOM_CONTENT_ID,
+          `teachingBlocks[id=${block.id}].workedExample`,
+          block.workedExample,
+          classroom.contentVersion,
+          LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+        )
+      ];
+    });
+  }
+  function classroomRuntimeRecords(classroom) {
+    const records2 = [record$14(
+      "grader:lesson-zero:normalized-constructed-japanese",
+      "deterministic-grader",
+      CLASSROOM_CONTENT_ID,
+      "responseKind=constructed-japanese",
+      {
+        sessionId: classroom.id,
+        normalization: ["NFKC", "remove-space-and-punctuation", "lowercase-ja-JP"],
+        completionPolicy: classroom.completionPolicy
+      },
+      classroom.contentVersion,
+      LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+    )];
+    const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
+    for (const binding of LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((candidate2) => candidate2.deterministicAssessment)) {
+      const probes = lessonZeroProbesForBinding(binding, expressionById2);
+      records2.push(record$14(
+        `answer-set:lesson-zero:${suffixOf$1(binding.activityId)}`,
+        "answer-set",
+        CLASSROOM_CONTENT_ID,
+        `expressions[activityId=${binding.activityId}].probes.acceptedAnswers`,
+        probes.map((probe) => ({ id: probe.id, acceptedAnswers: probe.acceptedAnswers })),
+        classroom.contentVersion,
+        LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+      ));
+    }
+    const teachingByExpression = new Map(classroom.teachingBlocks.flatMap((block) => block.expressionIds.map((expressionId) => [expressionId, block])));
+    for (const expression of classroom.expressions) {
+      const block = teachingByExpression.get(expression.id);
+      if (!block) throw new TypeError(`Missing teaching block for ${expression.id}.`);
+      for (const probe of expression.probes) {
+        records2.push(
+          record$14(
+            lessonZeroErrorId(probe),
+            "error-tag",
+            CLASSROOM_CONTENT_ID,
+            `expressions[id=${expression.id}].probes[id=${probe.id}].repair.errorTag`,
+            probe.repair.errorTag,
+            classroom.contentVersion,
+            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+          ),
+          record$14(
+            lessonZeroFeedbackId(probe),
+            "feedback",
+            CLASSROOM_CONTENT_ID,
+            `expressions[id=${expression.id}].probes[id=${probe.id}].repair`,
+            { contrast: probe.repair.contrast, retryPrompt: probe.repair.retryPrompt },
+            classroom.contentVersion,
+            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+          ),
+          record$14(
+            lessonZeroNearbyExampleId(probe),
+            "nearby-example",
+            CLASSROOM_CONTENT_ID,
+            `expressions[id=${expression.id}].probes[id=${probe.id}].repair.nearbyExample`,
+            probe.repair.nearbyExample,
+            classroom.contentVersion,
+            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+          ),
+          record$14(
+            lessonZeroReviewSeedId(probe),
+            "review-seed",
+            CLASSROOM_CONTENT_ID,
+            `expressions[id=${expression.id}].probes[id=${probe.id}]`,
+            {
+              conceptId: block.conceptId,
+              expressionKey: probe.modelAnswer,
+              readingKey: lessonZeroCanonicalReading(probe)
+            },
+            classroom.contentVersion,
+            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
+          )
+        );
+      }
+    }
+    return records2;
+  }
+  function record$14(id2, kind, contentId, locator, value, revision2, sha2562) {
+    return { ref: { id: id2, registry: "academy-content", revision: revision2, sha256: sha2562 }, kind, source: { contentId, locator }, value };
+  }
+  function suffixOf$1(id2) {
+    return id2.split(":").at(-1);
+  }
+  function range$1(from, to) {
+    return Array.from({ length: to - from + 1 }, (_, index) => `expression:classroom-${String(from + index).padStart(2, "0")}`);
+  }
+  const LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID = "activity:lesson-zero-follow-instructions";
+  const SOURCE_ACTION_ORDER = Object.freeze([
+    "begin",
+    "finish",
+    "break",
+    "look",
+    "say-together",
+    "listen",
+    "write"
+  ]);
+  const CHALLENGE_ACTION_ORDER = Object.freeze([
+    "look",
+    "begin",
+    "write",
+    "break",
+    "listen",
+    "finish",
+    "say-together"
+  ]);
+  const LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS = Object.freeze(
+    SOURCE_ACTION_ORDER.map((actionId) => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`)
+  );
+  const CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS = Object.freeze([
+    presentation$1("begin", "始", "Begin", "始める", "The lesson opens.", "授業が始まります。"),
+    presentation$1("finish", "終", "Finish", "終わる", "The lesson closes.", "授業が終わります。"),
+    presentation$1("break", "休", "Take a break", "休む", "The room takes a breath.", "教室で一息つきます。"),
+    presentation$1("look", "見", "Look at the board", "見る", "Every eye moves to the board.", "みんなが黒板を見ます。"),
+    presentation$1("say-together", "声", "Say it together", "一緒に言う", "The class answers together.", "クラス全員で言います。"),
+    presentation$1("listen", "耳", "Listen", "聞く", "The room goes quiet to listen.", "教室が静かに聞きます。"),
+    presentation$1("write", "書", "Write it down", "書く", "The pencil moves across the page.", "鉛筆でノートに書きます。")
+  ]);
+  const EXPRESSION_BY_ACTION = Object.freeze({
+    begin: "expression:classroom-01",
+    finish: "expression:classroom-02",
+    break: "expression:classroom-03",
+    look: "expression:classroom-04",
+    "say-together": "expression:classroom-05",
+    listen: "expression:classroom-06",
+    write: "expression:classroom-07"
+  });
+  const MEANING_BY_ACTION = Object.freeze({
+    begin: { en: "Let's begin.", ja: "始めましょう。" },
+    finish: { en: "Let's finish.", ja: "終わりましょう。" },
+    break: { en: "Let's take a break.", ja: "休みましょう。" },
+    look: { en: "Please look.", ja: "見てください。" },
+    "say-together": { en: "Everyone, please say it together.", ja: "みなさんで言ってください。" },
+    listen: { en: "Please listen.", ja: "聞いてください。" },
+    write: { en: "Please write it.", ja: "書いてください。" }
+  });
+  function createLessonZeroFollowInstructionDefinition(classroom, activity2) {
+    if (activity2.id !== LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID || activity2.responseMode !== "act" || activity2.expectedEvidence.kind !== "scene-actions") {
+      throw new TypeError("Lesson Zero follow-instructions activity has the wrong contract.");
+    }
+    if (!sameList(activity2.expectedEvidence.values ?? [], SOURCE_ACTION_ORDER)) {
+      throw new TypeError("Lesson Zero follow-instructions action evidence has drifted.");
+    }
+    const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
+    const cues = CHALLENGE_ACTION_ORDER.map((actionId) => {
+      const expression = expressionById2.get(EXPRESSION_BY_ACTION[actionId]);
+      const probe = expression?.probes[0];
+      if (!expression || !probe) throw new TypeError(`Missing classroom instruction for ${actionId}.`);
+      return {
+        id: `cue:lesson-zero-instruction:${actionId}`,
+        childActivityId: `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`,
+        sourceQuestionId: expression.sourceQuestionId,
+        conceptIds: expression.conceptIds,
+        actionId,
+        japanese: probe.modelAnswer,
+        reading: lessonZeroCanonicalReading(probe),
+        meaning: MEANING_BY_ACTION[actionId]
+      };
+    });
+    return Object.freeze({
+      schemaVersion: 1,
+      id: "session:lesson-zero-follow-instructions",
+      activityId: LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+      cues: Object.freeze(cues)
+    });
+  }
+  function lessonZeroFollowInstructionCompletionEvaluation(activity2, at) {
+    if (activity2.id !== LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
+      throw new TypeError(`${activity2.id} is not the Lesson Zero follow-instructions activity.`);
+    }
+    return {
+      attempt: {
+        kind: "attempt-recorded",
+        eventId: `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:complete`,
+        at,
+        activityId: activity2.id,
+        conceptIds: activity2.conceptIds,
+        responseKind: activity2.expectedEvidence.kind,
+        outcome: "pass",
+        score: 1
+      },
+      result: {
+        outcome: "pass",
+        score: 1,
+        errorTags: [],
+        feedback: {
+          explanation: {
+            en: "You followed all seven classroom instructions by ear.",
+            ja: "七つの教室の指示を聞いて、すべて動けました。"
+          }
+        }
+      },
+      reviewSeeds: []
+    };
+  }
+  function presentation$1(actionId, glyph, en, ja, reactionEn, reactionJa) {
+    return {
+      actionId,
+      glyph,
+      label: { en, ja },
+      roomReaction: { en: reactionEn, ja: reactionJa }
+    };
+  }
+  function sameList(actual, expected) {
+    return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+  }
   const GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION = "academy-pre-commit-dom.v1";
   const SEMANTIC_SELECTORS = {
     translations: [
@@ -11383,196 +11692,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     phases,
     expressions
   };
-  const LESSON_ZERO_CONTENT_SHA256 = "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c";
-  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a1ac9cb34de4eb585d0ea4ba68e2e3d70ed666bdc0c75be62111798d69d5a4eb";
-  const LESSON_CONTENT_ID = "content:lesson-zero-v1";
-  const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
-  const LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS = Object.freeze([
-    { activityId: "activity:lesson-zero-follow-instructions", expressionIds: range$1(1, 7), deterministicAssessment: false },
-    { activityId: "activity:lesson-zero-reconstruct-repair", expressionIds: range$1(8, 12), deterministicAssessment: true },
-    { activityId: "activity:lesson-zero-desk-language", expressionIds: range$1(13, 14), deterministicAssessment: true }
-  ]);
-  function createLessonZeroDefinitionRecords(data, classroom) {
-    return [
-      ...curriculumRecords(data),
-      ...teachingRecords(classroom),
-      ...classroomRuntimeRecords(classroom)
-    ];
-  }
-  function lessonZeroProbesForBinding(binding, expressions2) {
-    return binding.expressionIds.flatMap((expressionId) => {
-      const expression = expressions2.get(expressionId);
-      if (!expression) throw new TypeError(`Missing classroom expression ${expressionId}.`);
-      return expression.probes;
-    });
-  }
-  function lessonZeroCanonicalReading(probe) {
-    const reading = probe.acceptedAnswers.find((answer2) => !/[\p{Script=Han}]/u.test(answer2));
-    if (!reading) throw new TypeError(`Probe ${probe.id} needs an explicit kana reading for Yomu review.`);
-    return reading;
-  }
-  function lessonZeroErrorId(probe) {
-    return `error:${probe.repair.errorTag}`;
-  }
-  function lessonZeroFeedbackId(probe) {
-    return `feedback:lesson-zero:${suffixOf$1(probe.id)}`;
-  }
-  function lessonZeroNearbyExampleId(probe) {
-    return `nearby-example:lesson-zero:${suffixOf$1(probe.id)}`;
-  }
-  function lessonZeroReviewSeedId(probe) {
-    return `review:lesson-zero:${suffixOf$1(probe.id)}`;
-  }
-  function curriculumRecords(data) {
-    const conceptActivities = /* @__PURE__ */ new Map();
-    for (const activity2 of data.lesson.activities) {
-      for (const conceptId of activity2.conceptIds) {
-        conceptActivities.set(conceptId, [...conceptActivities.get(conceptId) ?? [], activity2.id]);
-      }
-    }
-    const concepts = [...conceptActivities].map(([id2, activityIds]) => record$14(
-      id2,
-      "concept",
-      LESSON_CONTENT_ID,
-      `lesson.activities[conceptId=${id2}]`,
-      { lessonId: data.lesson.id, activityIds },
-      data.lesson.contentVersion,
-      LESSON_ZERO_CONTENT_SHA256
-    ));
-    const outcomes2 = data.lesson.sections.flatMap((section) => section.outcomeIds.map((id2) => record$14(
-      id2,
-      "outcome",
-      LESSON_CONTENT_ID,
-      `lesson.sections[id=${section.id}].outcomeIds[id=${id2}]`,
-      { lessonId: data.lesson.id, sectionId: section.id },
-      data.lesson.contentVersion,
-      LESSON_ZERO_CONTENT_SHA256
-    )));
-    const repair = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-reconstruct-repair");
-    const prior = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-follow-instructions");
-    const prerequisites2 = repair && prior ? [record$14(
-      "prerequisite-resolution:lesson-zero:reconstruct-repair",
-      "prerequisite-resolution",
-      LESSON_CONTENT_ID,
-      "lesson.activities[id=activity:lesson-zero-reconstruct-repair]",
-      { activityId: repair.id, prerequisiteActivityId: prior.id, conceptIds: prior.conceptIds },
-      data.lesson.contentVersion,
-      LESSON_ZERO_CONTENT_SHA256
-    )] : [];
-    return [...concepts, ...outcomes2, ...prerequisites2];
-  }
-  function teachingRecords(classroom) {
-    return classroom.teachingBlocks.flatMap((block) => {
-      const suffix = suffixOf$1(block.id);
-      return [
-        record$14(
-          `explanation:lesson-zero:${suffix}`,
-          "explanation",
-          CLASSROOM_CONTENT_ID,
-          `teachingBlocks[id=${block.id}].explanation`,
-          block.explanation,
-          classroom.contentVersion,
-          LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-        ),
-        record$14(
-          `worked-example:lesson-zero:${suffix}`,
-          "worked-example",
-          CLASSROOM_CONTENT_ID,
-          `teachingBlocks[id=${block.id}].workedExample`,
-          block.workedExample,
-          classroom.contentVersion,
-          LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-        )
-      ];
-    });
-  }
-  function classroomRuntimeRecords(classroom) {
-    const records2 = [record$14(
-      "grader:lesson-zero:normalized-constructed-japanese",
-      "deterministic-grader",
-      CLASSROOM_CONTENT_ID,
-      "responseKind=constructed-japanese",
-      {
-        sessionId: classroom.id,
-        normalization: ["NFKC", "remove-space-and-punctuation", "lowercase-ja-JP"],
-        completionPolicy: classroom.completionPolicy
-      },
-      classroom.contentVersion,
-      LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-    )];
-    const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
-    for (const binding of LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((candidate2) => candidate2.deterministicAssessment)) {
-      const probes = lessonZeroProbesForBinding(binding, expressionById2);
-      records2.push(record$14(
-        `answer-set:lesson-zero:${suffixOf$1(binding.activityId)}`,
-        "answer-set",
-        CLASSROOM_CONTENT_ID,
-        `expressions[activityId=${binding.activityId}].probes.acceptedAnswers`,
-        probes.map((probe) => ({ id: probe.id, acceptedAnswers: probe.acceptedAnswers })),
-        classroom.contentVersion,
-        LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-      ));
-    }
-    const teachingByExpression = new Map(classroom.teachingBlocks.flatMap((block) => block.expressionIds.map((expressionId) => [expressionId, block])));
-    for (const expression of classroom.expressions) {
-      const block = teachingByExpression.get(expression.id);
-      if (!block) throw new TypeError(`Missing teaching block for ${expression.id}.`);
-      for (const probe of expression.probes) {
-        records2.push(
-          record$14(
-            lessonZeroErrorId(probe),
-            "error-tag",
-            CLASSROOM_CONTENT_ID,
-            `expressions[id=${expression.id}].probes[id=${probe.id}].repair.errorTag`,
-            probe.repair.errorTag,
-            classroom.contentVersion,
-            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-          ),
-          record$14(
-            lessonZeroFeedbackId(probe),
-            "feedback",
-            CLASSROOM_CONTENT_ID,
-            `expressions[id=${expression.id}].probes[id=${probe.id}].repair`,
-            { contrast: probe.repair.contrast, retryPrompt: probe.repair.retryPrompt },
-            classroom.contentVersion,
-            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-          ),
-          record$14(
-            lessonZeroNearbyExampleId(probe),
-            "nearby-example",
-            CLASSROOM_CONTENT_ID,
-            `expressions[id=${expression.id}].probes[id=${probe.id}].repair.nearbyExample`,
-            probe.repair.nearbyExample,
-            classroom.contentVersion,
-            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-          ),
-          record$14(
-            lessonZeroReviewSeedId(probe),
-            "review-seed",
-            CLASSROOM_CONTENT_ID,
-            `expressions[id=${expression.id}].probes[id=${probe.id}]`,
-            {
-              conceptId: block.conceptId,
-              expressionKey: probe.modelAnswer,
-              readingKey: lessonZeroCanonicalReading(probe)
-            },
-            classroom.contentVersion,
-            LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
-          )
-        );
-      }
-    }
-    return records2;
-  }
-  function record$14(id2, kind, contentId, locator, value, revision2, sha2562) {
-    return { ref: { id: id2, registry: "academy-content", revision: revision2, sha256: sha2562 }, kind, source: { contentId, locator }, value };
-  }
-  function suffixOf$1(id2) {
-    return id2.split(":").at(-1);
-  }
-  function range$1(from, to) {
-    return Array.from({ length: to - from + 1 }, (_, index) => `expression:classroom-${String(from + index).padStart(2, "0")}`);
-  }
   function createLessonZeroPedagogy(data) {
     const classroom = validateLessonZeroClassroomExpressions(classroomExpressionJson);
     const records2 = createLessonZeroDefinitionRecords(data, classroom);
@@ -12751,7 +12870,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "activity:aakash-rainy-directions",
         "activity:lesson-zero-kanji-one",
         "activity:lesson-zero-kana-mastery",
-        ...LESSON_ZERO_CLASSROOM_PROBE_IDS
+        LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+        ...LESSON_ZERO_CLASSROOM_PROBE_IDS,
+        ...LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS
       ],
       filename: "lesson-zero.v1.json",
       lessonId: "lesson:foundation-00",
@@ -16206,7 +16327,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return status;
   }
   function showEvaluation$1(root, evaluation, host2) {
-    root.replaceChildren(localizedParagraph$3(evaluation.result.feedback.explanation));
+    root.replaceChildren(localizedParagraph$4(evaluation.result.feedback.explanation));
     if (evaluation.result.outcome === "lapse") {
       appendProgressiveFeedback(root, evaluation.result.feedback, {
         language: host2.language ?? "en",
@@ -16216,7 +16337,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     host2.announce(localized$e(evaluation.result.feedback.explanation, host2));
   }
-  function localizedParagraph$3(value) {
+  function localizedParagraph$4(value) {
     const paragraph = document.createElement("p");
     paragraph.append(...localizedNodes$1(value));
     return paragraph;
@@ -28539,7 +28660,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
-  const COPY$2 = {
+  const COPY$3 = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
@@ -30973,7 +31094,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
   function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$2.en[key2];
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$3.en[key2];
   }
   function cardStateLabel(state, language, fallback = state) {
     const key2 = CARD_STATE_LABEL_KEYS[state];
@@ -38267,6 +38388,156 @@ ${spelling}`);
   function requireTimestamp$2(at) {
     if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Session timestamp must be a non-negative integer.");
   }
+  function startClassroomInstructionSession(definition2, snapshot) {
+    validateDefinition$1(definition2);
+    if (snapshot !== void 0) {
+      if (!classroomInstructionSessionSnapshotShapeIsValid(snapshot)) {
+        throw new TypeError("Invalid classroom-instruction session snapshot.");
+      }
+      if (snapshot.sessionId !== definition2.id || snapshot.cursor > definition2.cues.length) {
+        throw new TypeError("Classroom-instruction snapshot does not fit this definition.");
+      }
+      const cueIds = new Set(definition2.cues.map((cue) => cue.id));
+      if (snapshot.passedCueIds.some((id2) => !cueIds.has(id2)) || snapshot.attempts.some((attempt) => !cueIds.has(attempt.cueId))) {
+        throw new TypeError("Classroom-instruction snapshot contains an unknown cue.");
+      }
+      return structuredClone(snapshot);
+    }
+    return {
+      schemaVersion: 1,
+      sessionId: definition2.id,
+      status: "ready",
+      cursor: 0,
+      passedCueIds: [],
+      attempts: []
+    };
+  }
+  function transitionClassroomInstructionSession(definition2, state, action2, at) {
+    startClassroomInstructionSession(definition2, state);
+    if (!Number.isFinite(at)) throw new TypeError("Classroom-instruction transitions need a finite timestamp.");
+    if (action2.kind === "start") {
+      if (state.status !== "ready") return unchanged(state);
+      return unchanged({ ...state, status: "active" });
+    }
+    if (action2.kind === "pause") {
+      if (state.status !== "active") return unchanged(state);
+      return unchanged({ ...state, status: "paused" });
+    }
+    if (action2.kind === "resume") {
+      if (state.status !== "paused") return unchanged(state);
+      return unchanged({ ...state, status: "active" });
+    }
+    if (state.status !== "active") return unchanged(state);
+    const cue = definition2.cues[state.cursor];
+    if (!cue) return unchanged({ ...state, status: "complete", cursor: definition2.cues.length });
+    const outcome = action2.actionId === cue.actionId ? "pass" : "lapse";
+    const cueAttempt = state.attempts.filter((attempt2) => attempt2.cueId === cue.id).length + 1;
+    const eventStem = `${definition2.id}:${cue.id}:attempt:${cueAttempt}`;
+    const attempt = {
+      cueId: cue.id,
+      chosenActionId: action2.actionId,
+      outcome,
+      at
+    };
+    const passedCueIds = outcome === "pass" ? [.../* @__PURE__ */ new Set([...state.passedCueIds, cue.id])] : state.passedCueIds;
+    const cursor = outcome === "pass" ? state.cursor + 1 : state.cursor;
+    const nextState = {
+      ...state,
+      status: cursor >= definition2.cues.length ? "complete" : "active",
+      cursor,
+      passedCueIds,
+      attempts: [...state.attempts, attempt]
+    };
+    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.cueId === cue.id && candidate2.outcome === "lapse");
+    const evaluation = evaluationFor(cue, outcome, repairing, eventStem, at);
+    const supportEvents2 = outcome === "lapse" ? [supportEvent(cue, "transcript", eventStem, at), supportEvent(cue, "translation", eventStem, at)] : [];
+    return {
+      state: nextState,
+      cue,
+      chosenActionId: action2.actionId,
+      evaluation,
+      adaptive: {
+        eventId: `${eventStem}:learning`,
+        at,
+        modeId: "lesson-zero-follow-instructions",
+        skill: "listening",
+        action: repairing ? "repair" : "listen",
+        sourceId: cue.sourceQuestionId,
+        independent: !repairing
+      },
+      supportEvents: supportEvents2
+    };
+  }
+  function classroomInstructionSessionSnapshotShapeIsValid(value) {
+    if (!value || typeof value !== "object") return false;
+    const candidate2 = value;
+    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-follow-instructions" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && Number.isInteger(candidate2.cursor) && (candidate2.cursor ?? -1) >= 0 && Array.isArray(candidate2.passedCueIds) && candidate2.passedCueIds.every((id2) => typeof id2 === "string") && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid);
+  }
+  function evaluationFor(cue, outcome, repairing, eventId, at) {
+    const reviewSeeds2 = outcome === "pass" ? [{
+      id: `review:lesson-zero:instruction:${cue.actionId}`,
+      conceptId: cue.conceptIds[0],
+      reason: repairing ? "repair" : "new-learning",
+      sourceQuestionId: cue.sourceQuestionId,
+      content: {
+        expression: cue.japanese,
+        reading: cue.reading,
+        meanings: [cue.meaning.en]
+      }
+    }] : [];
+    return {
+      attempt: {
+        kind: "attempt-recorded",
+        eventId,
+        at,
+        activityId: cue.childActivityId,
+        sourceQuestionId: cue.sourceQuestionId,
+        conceptIds: cue.conceptIds,
+        responseKind: "scene-action",
+        outcome,
+        score: outcome === "pass" ? 1 : 0,
+        ...outcome === "lapse" ? { errorTags: ["classroom-instruction-action-mismatch"] } : {}
+      },
+      result: {
+        outcome,
+        score: outcome === "pass" ? 1 : 0,
+        errorTags: outcome === "pass" ? [] : ["classroom-instruction-action-mismatch"],
+        feedback: outcome === "pass" ? { explanation: { en: "The room answered exactly as Rie asked.", ja: "りえ先生の指示どおりに動けました。" } } : {
+          explanation: { en: "That changed a different part of the room.", ja: "別の動作を選びました。" },
+          repairPrompt: { en: "Hear the line again, then make the matching move.", ja: "もう一度聞いて、合う動作を選びましょう。" }
+        }
+      },
+      reviewSeeds: reviewSeeds2
+    };
+  }
+  function supportEvent(cue, supportKind, eventStem, at) {
+    return {
+      kind: "support-used",
+      eventId: `${eventStem}:support:${supportKind}`,
+      at,
+      activityId: cue.childActivityId,
+      supportKind
+    };
+  }
+  function attemptShapeIsValid(value) {
+    if (!value || typeof value !== "object") return false;
+    const candidate2 = value;
+    return typeof candidate2.cueId === "string" && isClassroomInstructionActionId(candidate2.chosenActionId) && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
+  }
+  function isClassroomInstructionActionId(value) {
+    return ["begin", "finish", "break", "look", "say-together", "listen", "write"].includes(String(value));
+  }
+  function validateDefinition$1(definition2) {
+    if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-follow-instructions" || definition2.activityId !== "activity:lesson-zero-follow-instructions") {
+      throw new TypeError("Invalid classroom-instruction session definition.");
+    }
+    if (definition2.cues.length !== 7 || new Set(definition2.cues.map((cue) => cue.id)).size !== 7 || new Set(definition2.cues.map((cue) => cue.actionId)).size !== 7) {
+      throw new TypeError("Classroom-instruction session needs seven unique cues and actions.");
+    }
+  }
+  function unchanged(state) {
+    return { state, supportEvents: [] };
+  }
   const ACADEMY_ROUTE_DEFINITIONS = {
     access: "enrollment",
     profile: "enrollment",
@@ -40946,6 +41217,9 @@ ${spelling}`);
     if (value.classroomExpressionProgress !== void 0 && !classroomExpressionSessionSnapshotShapeIsValid(value.classroomExpressionProgress)) {
       throw new TypeError("Academy checkpoint has invalid classroom-expression progress.");
     }
+    if (value.classroomInstructionProgress !== void 0 && !classroomInstructionSessionSnapshotShapeIsValid(value.classroomInstructionProgress)) {
+      throw new TypeError("Academy checkpoint has invalid classroom-instruction progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -41594,6 +41868,7 @@ ${spelling}`);
         presentationMode: checkpoint.presentationMode,
         ...checkpoint.authoredWeekProgress ? { authoredWeekProgress: checkpoint.authoredWeekProgress } : {},
         ...checkpoint.classroomExpressionProgress ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress } : {},
+        ...checkpoint.classroomInstructionProgress ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress } : {},
         updatedAt: now
       };
     }
@@ -47621,7 +47896,7 @@ ${spelling}`);
   }
   function showFeedback$1(root, evaluation, model2, host2) {
     const { feedback: feedback2 } = evaluation.result;
-    root.replaceChildren(localizedParagraph$2(feedback2.explanation, "academy-feedback-explanation"));
+    root.replaceChildren(localizedParagraph$3(feedback2.explanation, "academy-feedback-explanation"));
     if (evaluation.result.outcome === "lapse") {
       appendProgressiveFeedback(root, feedback2, {
         language: host2.language ?? "en",
@@ -47630,7 +47905,7 @@ ${spelling}`);
       });
     }
   }
-  function localizedParagraph$2(value, className) {
+  function localizedParagraph$3(value, className) {
     const paragraph = document.createElement("p");
     paragraph.className = className;
     paragraph.append(japanese$2(value.ja), support$2(value.en));
@@ -246108,13 +246383,13 @@ ${spelling}`);
     const score = Math.round(evaluation.result.score * 100);
     const scoreLine = textParagraph(copy(host2, `Score: ${score}%`, `スコア：${score}%`));
     scoreLine.className = "academy-phrase-karuta-score";
-    const explanation2 = localizedParagraph$1(evaluation.result.feedback.explanation);
+    const explanation2 = localizedParagraph$2(evaluation.result.feedback.explanation);
     root.replaceChildren(scoreLine, explanation2);
     if (evaluation.result.feedback.repairPrompt) {
-      root.append(localizedParagraph$1(evaluation.result.feedback.repairPrompt));
+      root.append(localizedParagraph$2(evaluation.result.feedback.repairPrompt));
     }
     if (evaluation.result.feedback.nearbyExample) {
-      root.append(localizedParagraph$1(evaluation.result.feedback.nearbyExample));
+      root.append(localizedParagraph$2(evaluation.result.feedback.nearbyExample));
     }
   }
   function showSubmissionError(root, host2, error, retry, signal) {
@@ -246128,7 +246403,7 @@ ${spelling}`);
     root.replaceChildren(paragraph, button2);
     host2.announce(message);
   }
-  function localizedParagraph$1(value) {
+  function localizedParagraph$2(value) {
     const paragraph = document.createElement("p");
     paragraph.append(japanese$1(value.ja), support$1(value.en));
     return paragraph;
@@ -251117,7 +251392,7 @@ ${spelling}`);
     if (!value) throw new Error(`Missing Lesson 0 proof value: ${String(key2)}`);
     return value;
   }
-  const COPY$1 = {
+  const COPY$2 = {
     progress: { en: "Progress", ja: "進み具合" },
     question: { en: "Question", ja: "問題" },
     audioUnavailable: {
@@ -251160,7 +251435,7 @@ ${spelling}`);
     if (options.onBack) {
       const back = backButton(options.language);
       back.classList.add("academy-authored-week-back");
-      back.addEventListener("click", () => notify$1(options.onBack, screen), { signal: lifecycle.signal });
+      back.addEventListener("click", () => notify$2(options.onBack, screen), { signal: lifecycle.signal });
       content.append(back);
     }
     const progress2 = progressBlock(options.week.activities.length + (options.extension?.activityCount ?? 0));
@@ -251243,7 +251518,7 @@ ${spelling}`);
       return write;
     };
     const reportPosition = (position) => {
-      if (options.onPositionChange) notify$1(() => savePosition(position), screen);
+      if (options.onPositionChange) notify$2(() => savePosition(position), screen);
     };
     const focusInPanel = (target2) => {
       target2?.focus({ preventScroll: true });
@@ -251436,7 +251711,7 @@ ${spelling}`);
           const action2 = element("button", "academy-button academy-authored-week-next");
           action2.type = "button";
           action2.textContent = localized(
-            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$1.finish : COPY$1.next,
+            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$2.finish : COPY$2.next,
             options.language
           );
           action2.addEventListener("click", advance, { signal: lifecycle.signal, once: true });
@@ -251534,7 +251809,7 @@ ${spelling}`);
       complete.dataset.weekComplete = "true";
       complete.dataset.repairedCount = String(repairedActivityIds.size);
       complete.tabIndex = -1;
-      complete.append(bilingualParagraph(COPY$1.complete, "academy-success-note"));
+      complete.append(bilingualParagraph(COPY$2.complete, "academy-success-note"));
       if (repairedActivityIds.size) {
         complete.append(bilingualParagraph(
           repairSummary(repairedActivityIds.size),
@@ -251547,7 +251822,7 @@ ${spelling}`);
       const finish = () => {
         if (completionNotified) return;
         completionNotified = true;
-        notify$1(async () => {
+        notify$2(async () => {
           await positionWriteTail;
           await options.onComplete?.();
         }, screen);
@@ -251663,8 +251938,8 @@ ${spelling}`);
     root.dataset.activityId = activity2.id;
     const count2 = element("p", "academy-eyebrow");
     count2.append(
-      japanese(`${COPY$1.question.ja} ${index + 1} / ${total}`),
-      support(`${COPY$1.question.en} ${index + 1} of ${total}`)
+      japanese(`${COPY$2.question.ja} ${index + 1} / ${total}`),
+      support(`${COPY$2.question.en} ${index + 1} of ${total}`)
     );
     const heading = element("h1", "academy-authored-week-prompt");
     heading.id = `academy-authored-prompt-${index}`;
@@ -251735,7 +252010,7 @@ ${spelling}`);
       } catch {
         committed = false;
         setActivityControlsDisabled(choices2, false);
-        feedback2.replaceChildren(bilingualParagraph(COPY$1.evaluationError, "academy-field-error"));
+        feedback2.replaceChildren(bilingualParagraph(COPY$2.evaluationError, "academy-field-error"));
         feedback2.setAttribute("role", "alert");
         control2.focus();
         return;
@@ -251771,7 +252046,7 @@ ${spelling}`);
         action2.type = "button";
         const isPass = evaluation.result.outcome === "pass";
         action2.textContent = localized(
-          isPass ? index === total - 1 && !actions.hasExtension ? COPY$1.finish : COPY$1.next : COPY$1.retry,
+          isPass ? index === total - 1 && !actions.hasExtension ? COPY$2.finish : COPY$2.next : COPY$2.retry,
           actions.language
         );
         action2.addEventListener("click", isPass ? actions.onAdvance : actions.onRetry, { signal: actions.signal });
@@ -252038,9 +252313,9 @@ ${spelling}`);
   function showFeedback(root, evaluation, language, activityId, repaired) {
     const { result: result2 } = evaluation;
     root.setAttribute("role", "status");
-    const summary = result2.outcome === "pass" ? COPY$1.pass : COPY$1.lapse;
+    const summary = result2.outcome === "pass" ? COPY$2.pass : COPY$2.lapse;
     root.replaceChildren(bilingualParagraph(summary, "academy-authored-week-feedback-summary"));
-    if (repaired) root.append(bilingualParagraph(COPY$1.repaired, "academy-authored-week-repair-win"));
+    if (repaired) root.append(bilingualParagraph(COPY$2.repaired, "academy-authored-week-repair-win"));
     root.append(bilingualParagraph(result2.feedback.explanation, "academy-feedback-explanation"));
     if (result2.outcome === "lapse") appendProgressiveFeedback(root, result2.feedback, { language, activityId });
   }
@@ -252071,12 +252346,12 @@ ${spelling}`);
   }
   function progressBlock(total) {
     const root = element("section", "academy-authored-week-progress");
-    const label = bilingualParagraph(COPY$1.progress, "academy-authored-week-progress-label");
+    const label = bilingualParagraph(COPY$2.progress, "academy-authored-week-progress-label");
     const value = element("strong", "academy-authored-week-progress-value");
     const meter = document.createElement("progress");
     meter.className = "academy-authored-week-meter";
     meter.max = total;
-    meter.setAttribute("aria-label", `${COPY$1.progress.ja} / ${COPY$1.progress.en}`);
+    meter.setAttribute("aria-label", `${COPY$2.progress.ja} / ${COPY$2.progress.en}`);
     const update = (completed) => {
       value.textContent = `${completed} / ${total}`;
       meter.value = completed;
@@ -252090,7 +252365,7 @@ ${spelling}`);
     const state = element("section", "academy-source-record academy-authored-week-audio");
     state.dataset.audioStatus = "unavailable";
     state.setAttribute("role", "status");
-    state.append(bilingualParagraph(COPY$1.audioUnavailable, "academy-authored-week-audio-copy"));
+    state.append(bilingualParagraph(COPY$2.audioUnavailable, "academy-authored-week-audio-copy"));
     return state;
   }
   function moveChoiceFocus(event, root) {
@@ -252147,7 +252422,7 @@ ${spelling}`);
     if (progress2.phase === "extension") return hasExtension ? progress2 : void 0;
     return progress2;
   }
-  function notify$1(callback2, target2) {
+  function notify$2(callback2, target2) {
     try {
       const pending2 = callback2();
       if (pending2) void pending2.catch((error) => announceCallbackError(target2, error));
@@ -252828,7 +253103,7 @@ ${spelling}`);
       }]
     };
   }
-  const COPY = {
+  const COPY$1 = {
     session: { en: "Classroom language", ja: "教室のことば" },
     guide: {
       en: "Read the moment, then answer Rie in Japanese. You can leave and resume at any time.",
@@ -252877,7 +253152,7 @@ ${spelling}`);
     const guideCopy = element("div", "academy-classroom-expression-guide-copy");
     const guideName = element("strong", "academy-classroom-expression-guide-name");
     guideName.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    const guideLine = localizedParagraph(COPY.guide, options.language, "academy-classroom-expression-guide-line");
+    const guideLine = localizedParagraph$1(COPY$1.guide, options.language, "academy-classroom-expression-guide-line");
     guideCopy.append(guideName, guideLine);
     guide.append(guidePortrait, guideCopy);
     const workspace = element("main", "academy-classroom-expression-workspace");
@@ -252890,7 +253165,7 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const headingGroup = element("div", "academy-classroom-expression-heading-group");
     const eyebrow = element("p", "academy-classroom-expression-eyebrow");
-    eyebrow.textContent = COPY.session[options.language];
+    eyebrow.textContent = COPY$1.session[options.language];
     const title2 = element("h1", "academy-classroom-expression-title");
     title2.tabIndex = -1;
     headingGroup.append(eyebrow, title2);
@@ -252960,11 +253235,11 @@ ${spelling}`);
     const renderPrompt2 = (view, signal) => {
       const teaching2 = element("section", "academy-classroom-expression-teaching");
       const teachingLabel = element("h2", "academy-classroom-expression-section-label");
-      teachingLabel.textContent = COPY.before[options.language];
+      teachingLabel.textContent = COPY$1.before[options.language];
       const explanation2 = bilingual(view.preAssessmentTeaching.explanation, "academy-classroom-expression-explanation");
       const example = element("div", "academy-classroom-expression-example");
       const exampleLabel = element("strong", "academy-classroom-expression-example-label");
-      exampleLabel.textContent = COPY.example[options.language];
+      exampleLabel.textContent = COPY$1.example[options.language];
       const context2 = bilingual(view.preAssessmentTeaching.workedExample.context, "academy-classroom-expression-example-context");
       const japanese2 = element("p", "academy-classroom-expression-example-japanese");
       japanese2.lang = "ja";
@@ -252974,14 +253249,14 @@ ${spelling}`);
       const meaning = bilingual(view.preAssessmentTeaching.workedExample.meaning, "academy-classroom-expression-example-meaning");
       const hear = element("button", "academy-button academy-classroom-expression-hear");
       hear.type = "button";
-      hear.textContent = `▶ ${COPY.hear[options.language]}`;
+      hear.textContent = `▶ ${COPY$1.hear[options.language]}`;
       const audioError = element("p", "academy-classroom-expression-audio-error");
       audioError.setAttribute("role", "alert");
       hear.addEventListener("click", () => {
         playback?.dispose();
         playback = null;
         hear.disabled = true;
-        hear.textContent = COPY.hearing[options.language];
+        hear.textContent = COPY$1.hearing[options.language];
         audioError.textContent = "";
         void options.pronunciation.play(
           view.preAssessmentTeaching.workedExample.japanese,
@@ -252990,11 +253265,11 @@ ${spelling}`);
           if (disposed) active.dispose();
           else playback = active;
         }).catch(() => {
-          if (!disposed) audioError.textContent = COPY.audioError[options.language];
+          if (!disposed) audioError.textContent = COPY$1.audioError[options.language];
         }).finally(() => {
           if (!disposed) {
             hear.disabled = false;
-            hear.textContent = `▶ ${COPY.hear[options.language]}`;
+            hear.textContent = `▶ ${COPY$1.hear[options.language]}`;
           }
         });
       }, { signal });
@@ -253002,7 +253277,7 @@ ${spelling}`);
       teaching2.append(teachingLabel, explanation2, example);
       const turn2 = element("section", "academy-classroom-expression-turn");
       const turnLabel = element("h2", "academy-classroom-expression-section-label");
-      turnLabel.textContent = COPY.yourTurn[options.language];
+      turnLabel.textContent = COPY$1.yourTurn[options.language];
       const prompt2 = bilingual(view.prompt, "academy-classroom-expression-prompt");
       const form2 = element("form", "academy-classroom-expression-form");
       const label = element("label", "academy-classroom-expression-input-label");
@@ -253014,12 +253289,12 @@ ${spelling}`);
       input2.lang = "ja";
       input2.autocomplete = "off";
       input2.spellcheck = false;
-      input2.placeholder = COPY.placeholder[options.language];
+      input2.placeholder = COPY$1.placeholder[options.language];
       input2.required = true;
       input2.dataset.jpdbReaderSurfaceIgnore = "";
       const submit2 = element("button", "academy-button academy-button-primary academy-classroom-expression-submit");
       submit2.type = "submit";
-      submit2.textContent = COPY.submit[options.language];
+      submit2.textContent = COPY$1.submit[options.language];
       const error = element("p", "academy-classroom-expression-error");
       error.setAttribute("role", "alert");
       form2.append(label, input2, submit2, error);
@@ -253047,7 +253322,7 @@ ${spelling}`);
       if (repair.modelAnswer) {
         const model2 = element("p", "academy-classroom-expression-model");
         const label = element("span", "academy-classroom-expression-model-label");
-        label.textContent = COPY.model[options.language];
+        label.textContent = COPY$1.model[options.language];
         const answer2 = element("strong", "academy-classroom-expression-model-answer");
         answer2.lang = "ja";
         answer2.textContent = repair.modelAnswer;
@@ -253056,7 +253331,7 @@ ${spelling}`);
       } else {
         const reveal = element("button", "academy-button academy-button-secondary academy-classroom-expression-reveal");
         reveal.type = "button";
-        reveal.textContent = COPY.reveal[options.language];
+        reveal.textContent = COPY$1.reveal[options.language];
         reveal.addEventListener("click", () => void dispatch({ kind: "reveal-model" }), { signal });
         panel.append(reveal);
       }
@@ -253070,7 +253345,7 @@ ${spelling}`);
       mark.textContent = "✓";
       mark.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-result-title");
-      heading.textContent = COPY.pass[options.language];
+      heading.textContent = COPY$1.pass[options.language];
       const answer2 = element("p", "academy-classroom-expression-result-answer");
       answer2.lang = "ja";
       answer2.dataset.yomuRuntimeSurface = "academy-classroom-expression-result";
@@ -253080,13 +253355,13 @@ ${spelling}`);
       if (notice.activityCompleted) {
         const done = element("button", "academy-button academy-button-primary");
         done.type = "button";
-        done.textContent = COPY.return[options.language];
-        done.addEventListener("click", () => void notify(options.onBack), { signal });
+        done.textContent = COPY$1.return[options.language];
+        done.addEventListener("click", () => void notify$1(options.onBack), { signal });
         actions.append(done);
       } else {
         const next = element("button", "academy-button academy-button-primary");
         next.type = "button";
-        next.textContent = COPY.next[options.language];
+        next.textContent = COPY$1.next[options.language];
         next.addEventListener("click", () => {
           passNotice = null;
           render2();
@@ -253104,16 +253379,16 @@ ${spelling}`);
       seal.lang = "ja";
       seal.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-complete-title");
-      heading.textContent = COPY.complete[options.language];
-      const copy2 = localizedParagraph(COPY.completeBody, options.language, "academy-classroom-expression-complete-copy");
+      heading.textContent = COPY$1.complete[options.language];
+      const copy2 = localizedParagraph$1(COPY$1.completeBody, options.language, "academy-classroom-expression-complete-copy");
       const actions = element("div", "academy-classroom-expression-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
-      done.textContent = COPY.return[options.language];
-      done.addEventListener("click", () => void notify(options.onBack), { signal });
+      done.textContent = COPY$1.return[options.language];
+      done.addEventListener("click", () => void notify$1(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY.practiceAgain[options.language];
+      again.textContent = COPY$1.practiceAgain[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       root.append(seal, heading, copy2, actions);
@@ -253124,7 +253399,7 @@ ${spelling}`);
       const footer = element("footer", "academy-classroom-expression-footer");
       const pause = element("button", "academy-button academy-classroom-expression-pause");
       pause.type = "button";
-      pause.textContent = COPY.pause[options.language];
+      pause.textContent = COPY$1.pause[options.language];
       pause.addEventListener("click", () => void pauseAndLeave(), { signal });
       footer.append(pause);
       return footer;
@@ -253148,7 +253423,7 @@ ${spelling}`);
         }
         render2();
       } catch {
-        error.textContent = COPY.saveError[options.language];
+        error.textContent = COPY$1.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -253166,7 +253441,7 @@ ${spelling}`);
         passNotice = null;
         render2();
       } catch {
-        live.textContent = COPY.saveError[options.language];
+        live.textContent = COPY$1.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -253180,7 +253455,7 @@ ${spelling}`);
         await options.onTransition(before, paused);
         state = paused.state;
       }
-      await notify(options.onBack);
+      await notify$1(options.onBack);
     };
     const restart = async () => {
       if (busy) return;
@@ -253226,7 +253501,7 @@ ${spelling}`);
   function shouldAutofocusResponse() {
     return typeof matchMedia === "function" && matchMedia("(min-width: 720px) and (pointer: fine)").matches;
   }
-  function localizedParagraph(value, language, className) {
+  function localizedParagraph$1(value, language, className) {
     const paragraph = element("p", className);
     paragraph.textContent = value[language];
     paragraph.lang = language;
@@ -253240,6 +253515,397 @@ ${spelling}`);
   }
   function safeId(value) {
     return value.replace(/[^a-z0-9_-]+/giu, "-");
+  }
+  async function notify$1(callback2) {
+    await callback2();
+  }
+  const COPY = {
+    eyebrow: { en: "Listening rehearsal", ja: "聞いて動く練習" },
+    title: { en: "Make the classroom respond", ja: "教室を動かそう" },
+    ready: {
+      en: "Rie will speak. Do not hunt for a translation: make the room do what she asked.",
+      ja: "りえ先生のことばを聞いて、教室をそのとおりに動かしましょう。"
+    },
+    sharedPattern: { en: "〜ましょう moves everyone together.", ja: "「〜ましょう」で、みんなが一緒に動きます。" },
+    requestPattern: { en: "〜てください asks someone to act.", ja: "「〜てください」で、相手に動作を頼みます。" },
+    start: { en: "Start the rehearsal", ja: "練習を始める" },
+    listen: { en: "Listen to Rie, then move the room.", ja: "りえ先生の指示を聞いて、教室を動かしてください。" },
+    replay: { en: "Hear Rie again", ja: "もう一度聞く" },
+    playing: { en: "Rie is speaking…", ja: "りえ先生が話しています…" },
+    actions: { en: "Classroom actions", ja: "教室の動作" },
+    correct: { en: "The room followed her.", ja: "教室が指示どおりに動きました。" },
+    incorrect: { en: "A different part of the room moved.", ja: "別の動作を選びました。" },
+    heard: { en: "What Rie said", ja: "りえ先生のことば" },
+    next: { en: "Listen for the next instruction", ja: "次の指示を聞く" },
+    finish: { en: "See what you can now follow", ja: "できるようになったことを見る" },
+    retry: { en: "Hear it and try again", ja: "もう一度聞いて動く" },
+    complete: { en: "You can move with the class.", ja: "教室の流れに乗れるようになりました。" },
+    completeBody: {
+      en: "Seven instructions now mean actions, not translations. They are waiting in your review queue as listening memories.",
+      ja: "七つの指示が、訳ではなく動作として分かるようになりました。聞く記憶として復習にも入っています。"
+    },
+    again: { en: "Run the room again", ja: "もう一度教室を動かす" },
+    return: { en: "Return to the lesson", ja: "レッスンに戻る" },
+    pause: { en: "Save and leave", ja: "保存して戻る" },
+    audioError: { en: "Rie could not be heard. Try the replay control once more.", ja: "音声を再生できませんでした。もう一度お試しください。" },
+    saveError: { en: "That move could not be saved. Please try once more.", ja: "動作を保存できませんでした。もう一度お試しください。" }
+  };
+  function createClassroomInstructionScreen(options) {
+    const lifecycle = new AbortController();
+    let renderLifecycle = new AbortController();
+    let state = options.initialState;
+    let playback = null;
+    let feedback2 = null;
+    let busy = false;
+    let disposed = false;
+    const screen = element("section", "academy-screen academy-classroom-instruction-screen");
+    screen.dataset.academyScreen = "classroom-instruction";
+    screen.dataset.activityId = options.definition.activityId;
+    screen.append(academyBackgroundPicture("classroom"));
+    const shell = element("div", "academy-classroom-instruction-shell");
+    const header = element("header", "academy-classroom-instruction-header");
+    const back = backButton(options.language);
+    back.classList.add("academy-classroom-instruction-back");
+    back.textContent = "←";
+    back.title = back.getAttribute("aria-label") ?? "";
+    back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
+    const heading = element("div", "academy-classroom-instruction-heading");
+    const eyebrow = element("p", "academy-classroom-instruction-eyebrow");
+    eyebrow.textContent = COPY.eyebrow[options.language];
+    const title2 = element("h1", "academy-classroom-instruction-title");
+    title2.textContent = COPY.title[options.language];
+    heading.append(eyebrow, title2);
+    const progress2 = element("p", "academy-classroom-instruction-progress");
+    progress2.setAttribute("role", "status");
+    progress2.setAttribute("aria-live", "polite");
+    header.append(back, heading, progress2);
+    const body = element("main", "academy-classroom-instruction-body");
+    const live = element("div", "academy-classroom-instruction-live");
+    live.setAttribute("role", "status");
+    live.setAttribute("aria-live", "polite");
+    shell.append(header, body, live);
+    screen.append(shell);
+    const render2 = () => {
+      renderLifecycle.abort();
+      renderLifecycle = new AbortController();
+      const signal = renderLifecycle.signal;
+      body.replaceChildren();
+      live.textContent = "";
+      screen.dataset.sessionStatus = state.status;
+      progress2.textContent = options.language === "ja" ? `7つ中 ${state.passedCueIds.length}つ完了` : `${state.passedCueIds.length} of 7 instructions followed`;
+      if (state.status === "ready") {
+        renderReady(signal);
+        return;
+      }
+      if (feedback2) {
+        renderFeedback(feedback2, signal);
+        return;
+      }
+      if (state.status === "complete") {
+        renderComplete(signal);
+        return;
+      }
+      renderActive(signal);
+    };
+    const renderReady = (signal) => {
+      const intro = element("section", "academy-classroom-instruction-intro");
+      const portrait = riePortrait("academy-classroom-instruction-intro-portrait");
+      const copy2 = element("div", "academy-classroom-instruction-intro-copy");
+      const line2 = localizedParagraph(COPY.ready, options.language, "academy-classroom-instruction-intro-line");
+      const patterns = element("div", "academy-classroom-instruction-patterns");
+      patterns.append(
+        patternStrip("皆", COPY.sharedPattern, options.language),
+        patternStrip("手", COPY.requestPattern, options.language)
+      );
+      const start = element("button", "academy-button academy-button-primary academy-classroom-instruction-start");
+      start.type = "button";
+      start.textContent = COPY.start[options.language];
+      start.addEventListener("click", () => void begin(), { signal });
+      copy2.append(line2, patterns, start);
+      intro.append(portrait, copy2);
+      body.append(intro);
+    };
+    const renderActive = (signal) => {
+      const cue = options.definition.cues[state.cursor];
+      if (!cue) {
+        state = { ...state, status: "complete", cursor: options.definition.cues.length };
+        render2();
+        return;
+      }
+      body.append(riePrompt(signal), roomStage(void 0), actionRail(cue, signal), pauseAction(signal));
+    };
+    const riePrompt = (signal) => {
+      const prompt2 = element("section", "academy-classroom-instruction-prompt");
+      const portrait = riePortrait("academy-classroom-instruction-prompt-portrait");
+      const dialogue2 = element("div", "academy-classroom-instruction-dialogue");
+      const name = element("strong", "academy-classroom-instruction-name");
+      name.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
+      const line2 = localizedParagraph(COPY.listen, options.language, "academy-classroom-instruction-line");
+      const replay2 = element("button", "academy-button academy-classroom-instruction-replay");
+      replay2.type = "button";
+      replay2.textContent = `▶ ${COPY.replay[options.language]}`;
+      replay2.addEventListener("click", () => void playCurrent(replay2), { signal });
+      dialogue2.append(name, line2, replay2);
+      prompt2.append(portrait, dialogue2);
+      return prompt2;
+    };
+    const roomStage = (action2) => {
+      const stage2 = element("div", "academy-classroom-instruction-room");
+      stage2.dataset.roomAction = action2 ?? "waiting";
+      stage2.setAttribute("aria-hidden", "true");
+      const board = element("div", "academy-classroom-instruction-board");
+      board.append(element("span"), element("span"), element("span"));
+      const desk = element("div", "academy-classroom-instruction-desk");
+      const book = element("div", "academy-classroom-instruction-book");
+      book.append(element("span"), element("span"));
+      const pencil = element("div", "academy-classroom-instruction-pencil");
+      const clock = element("div", "academy-classroom-instruction-clock");
+      const voices = element("div", "academy-classroom-instruction-voices");
+      voices.textContent = "・・・";
+      const sound = element("div", "academy-classroom-instruction-sound");
+      sound.textContent = ")))";
+      desk.append(book, pencil, clock);
+      stage2.append(board, desk, voices, sound);
+      return stage2;
+    };
+    const actionRail = (cue, signal) => {
+      const rail = element("div", "academy-classroom-instruction-actions");
+      rail.setAttribute("role", "group");
+      rail.setAttribute("aria-label", COPY.actions[options.language]);
+      for (const action2 of CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS) {
+        const button2 = element("button", "academy-classroom-instruction-action");
+        button2.type = "button";
+        button2.dataset.actionId = action2.actionId;
+        button2.setAttribute("aria-label", action2.label[options.language]);
+        const glyph = element("span", "academy-classroom-instruction-action-glyph");
+        glyph.lang = "ja";
+        glyph.textContent = action2.glyph;
+        const label = element("span", "academy-classroom-instruction-action-label");
+        label.textContent = action2.label[options.language];
+        button2.append(glyph, label);
+        button2.addEventListener("click", () => void choose(cue, action2), { signal });
+        rail.append(button2);
+      }
+      return rail;
+    };
+    const renderFeedback = (result2, signal) => {
+      const root = element("section", "academy-classroom-instruction-feedback");
+      root.dataset.outcome = result2.outcome;
+      root.append(roomStage(result2.chosen.actionId));
+      const paper = element("div", "academy-classroom-instruction-feedback-paper");
+      const heading2 = element("h2", "academy-classroom-instruction-feedback-title");
+      heading2.textContent = (result2.outcome === "pass" ? COPY.correct : COPY.incorrect)[options.language];
+      const reaction = localizedParagraph(
+        result2.chosen.roomReaction,
+        options.language,
+        "academy-classroom-instruction-reaction"
+      );
+      const heardLabel = element("span", "academy-classroom-instruction-heard-label");
+      heardLabel.textContent = COPY.heard[options.language];
+      const japanese2 = element("p", "academy-classroom-instruction-heard-japanese");
+      japanese2.lang = "ja";
+      japanese2.dataset.yomuRuntimeSurface = "academy-classroom-instruction-feedback";
+      japanese2.dataset.yomuFuriganaMode = "all";
+      japanese2.textContent = result2.cue.japanese;
+      const meaning = localizedParagraph(
+        result2.cue.meaning,
+        options.language,
+        "academy-classroom-instruction-heard-meaning"
+      );
+      const action2 = element("button", "academy-button academy-button-primary academy-classroom-instruction-continue");
+      action2.type = "button";
+      if (result2.outcome === "lapse") {
+        action2.textContent = COPY.retry[options.language];
+        action2.addEventListener("click", () => void clearFeedbackAndPlay(), { signal });
+      } else {
+        action2.textContent = (state.status === "complete" ? COPY.finish : COPY.next)[options.language];
+        action2.addEventListener("click", () => void clearFeedbackAndContinue(), { signal });
+      }
+      paper.append(heading2, reaction, heardLabel, japanese2, meaning, action2);
+      root.append(paper);
+      body.append(root);
+      queueMicrotask(() => action2.focus({ preventScroll: true }));
+    };
+    const renderComplete = (signal) => {
+      const root = element("section", "academy-classroom-instruction-complete");
+      const portrait = riePortrait("academy-classroom-instruction-complete-portrait");
+      const copy2 = element("div", "academy-classroom-instruction-complete-copy");
+      const seal = element("span", "academy-classroom-instruction-complete-seal");
+      seal.lang = "ja";
+      seal.textContent = "聴";
+      seal.setAttribute("aria-hidden", "true");
+      const heading2 = element("h2", "academy-classroom-instruction-complete-title");
+      heading2.textContent = COPY.complete[options.language];
+      const line2 = localizedParagraph(COPY.completeBody, options.language, "academy-classroom-instruction-complete-line");
+      const actions = element("div", "academy-classroom-instruction-complete-actions");
+      const done = element("button", "academy-button academy-button-primary");
+      done.type = "button";
+      done.textContent = COPY.return[options.language];
+      done.addEventListener("click", () => void notify(options.onBack), { signal });
+      const again = element("button", "academy-button academy-button-secondary");
+      again.type = "button";
+      again.textContent = COPY.again[options.language];
+      again.addEventListener("click", () => void restart(), { signal });
+      actions.append(done, again);
+      copy2.append(seal, heading2, line2, actions);
+      root.append(portrait, copy2);
+      body.append(root);
+      queueMicrotask(() => done.focus({ preventScroll: true }));
+    };
+    const pauseAction = (signal) => {
+      const footer = element("footer", "academy-classroom-instruction-footer");
+      const pause = element("button", "academy-button academy-classroom-instruction-pause");
+      pause.type = "button";
+      pause.textContent = COPY.pause[options.language];
+      pause.addEventListener("click", () => void pauseAndLeave(), { signal });
+      footer.append(pause);
+      return footer;
+    };
+    const begin = async () => {
+      if (busy) return;
+      const before = state;
+      const transition = transitionClassroomInstructionSession(
+        options.definition,
+        state,
+        { kind: "start" },
+        Date.now()
+      );
+      try {
+        busy = true;
+        await options.onTransition(before, transition);
+        state = transition.state;
+        render2();
+        await playCurrent();
+      } catch {
+        live.textContent = COPY.saveError[options.language];
+      } finally {
+        busy = false;
+      }
+    };
+    const choose = async (cue, action2) => {
+      if (busy) return;
+      const before = state;
+      const transition = transitionClassroomInstructionSession(
+        options.definition,
+        state,
+        { kind: "choose", actionId: action2.actionId },
+        Date.now()
+      );
+      if (!transition.evaluation || transition.cue?.id !== cue.id) return;
+      try {
+        busy = true;
+        screen.setAttribute("aria-busy", "true");
+        await options.onTransition(before, transition);
+        state = transition.state;
+        feedback2 = { cue, chosen: action2, outcome: transition.evaluation.result.outcome };
+        render2();
+      } catch {
+        live.textContent = COPY.saveError[options.language];
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const playCurrent = async (control2) => {
+      const cue = options.definition.cues[state.cursor];
+      if (!cue || disposed) return;
+      playback?.dispose();
+      playback = null;
+      if (control2) {
+        control2.disabled = true;
+        control2.textContent = COPY.playing[options.language];
+      }
+      try {
+        const active = await options.pronunciation.play(cue.japanese, cue.reading);
+        if (disposed) active.dispose();
+        else playback = active;
+      } catch {
+        if (!disposed) live.textContent = COPY.audioError[options.language];
+      } finally {
+        if (control2 && !disposed) {
+          control2.disabled = false;
+          control2.textContent = `▶ ${COPY.replay[options.language]}`;
+        }
+      }
+    };
+    const clearFeedbackAndPlay = async () => {
+      feedback2 = null;
+      render2();
+      await playCurrent();
+    };
+    const clearFeedbackAndContinue = async () => {
+      feedback2 = null;
+      render2();
+      if (state.status !== "complete") await playCurrent();
+    };
+    const pauseAndLeave = async () => {
+      if (busy) return;
+      if (state.status === "active") {
+        const before = state;
+        const transition = transitionClassroomInstructionSession(
+          options.definition,
+          state,
+          { kind: "pause" },
+          Date.now()
+        );
+        await options.onTransition(before, transition);
+        state = transition.state;
+      }
+      await notify(options.onBack);
+    };
+    const restart = async () => {
+      if (busy) return;
+      const fresh = startClassroomInstructionSession(options.definition);
+      try {
+        busy = true;
+        await options.onRestart(fresh);
+        state = fresh;
+        feedback2 = null;
+        render2();
+      } finally {
+        busy = false;
+      }
+    };
+    render2();
+    return {
+      element: screen,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        renderLifecycle.abort();
+        playback?.dispose();
+        playback = null;
+      }
+    };
+  }
+  function riePortrait(className) {
+    const portrait = element("img", className);
+    portrait.src = ACADEMY_ASSETS.rie;
+    portrait.alt = "";
+    portrait.setAttribute("aria-hidden", "true");
+    return portrait;
+  }
+  function patternStrip(glyphText, copy2, language) {
+    const strip = element("div", "academy-classroom-instruction-pattern");
+    const glyph = element("span", "academy-classroom-instruction-pattern-glyph");
+    glyph.lang = "ja";
+    glyph.textContent = glyphText;
+    const line2 = localizedParagraph(copy2, language, "academy-classroom-instruction-pattern-copy");
+    strip.append(glyph, line2);
+    return strip;
+  }
+  function localizedParagraph(value, language, className) {
+    const paragraph = element("p", className);
+    paragraph.lang = language;
+    paragraph.textContent = value[language];
+    if (language === "ja") {
+      paragraph.dataset.yomuRuntimeSurface = "academy-classroom-instruction-copy";
+      paragraph.dataset.yomuFuriganaMode = "all";
+    } else {
+      paragraph.dataset.jpdbReaderSurfaceIgnore = "";
+    }
+    return paragraph;
   }
   async function notify(callback2) {
     await callback2();
@@ -253784,6 +254450,10 @@ ${spelling}`);
         await this.renderClassroomExpressionSession(context2.checkpoint.activityId, context2);
         return;
       }
+      if (context2.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
+        await this.renderClassroomInstructionSession(context2);
+        return;
+      }
       const fork = context2.checkpoint.selectedFork ?? "text";
       const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
       if (fork === "text") {
@@ -253880,6 +254550,72 @@ ${spelling}`);
           await context2.save?.({ classroomExpressionProgress: transition.state });
         },
         onRestart: (restart) => context2.save?.({ classroomExpressionProgress: restart }),
+        onBack: () => context2.back()
+      });
+      screen.element.dataset.academyRoute = "source-activity";
+      screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
+      context2.shell.replace(screen.element);
+    }
+    async renderClassroomInstructionSession(context2) {
+      const [classroom, content] = await Promise.all([
+        loadLessonZeroClassroomExpressions(),
+        loadLessonZeroContent()
+      ]);
+      const activity2 = content.lesson.activities.find((candidate2) => candidate2.id === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID);
+      if (!activity2) throw new TypeError("Lesson Zero is missing its follow-instructions activity.");
+      const definition2 = createLessonZeroFollowInstructionDefinition(classroom, activity2);
+      let state;
+      try {
+        state = startClassroomInstructionSession(
+          definition2,
+          context2.checkpoint.classroomInstructionProgress
+        );
+      } catch {
+        state = startClassroomInstructionSession(definition2);
+      }
+      if (state.status === "paused") {
+        state = transitionClassroomInstructionSession(
+          definition2,
+          state,
+          { kind: "resume" },
+          Date.now()
+        ).state;
+      }
+      if (JSON.stringify(state) !== JSON.stringify(context2.checkpoint.classroomInstructionProgress)) {
+        await context2.save?.({ classroomInstructionProgress: state });
+      }
+      const screen = createClassroomInstructionScreen({
+        language: context2.language,
+        definition: definition2,
+        initialState: state,
+        pronunciation: this.options.pronunciation,
+        onTransition: async (before, transition) => {
+          if (transition.evaluation) {
+            this.playFeedbackSfx(transition.evaluation.result.outcome);
+            await this.options.evidence.recordActivity(
+              transition.evaluation,
+              LESSON_ZERO_ID,
+              void 0,
+              transition.adaptive
+            );
+          }
+          for (const support2 of transition.supportEvents) {
+            await this.options.evidence.recordSupportUse(
+              support2.activityId,
+              support2.supportKind,
+              support2.choiceId,
+              { eventId: support2.eventId, at: support2.at }
+            );
+          }
+          if (before.status !== "complete" && transition.state.status === "complete") {
+            await this.options.evidence.recordActivity(
+              lessonZeroFollowInstructionCompletionEvaluation(activity2, Date.now()),
+              LESSON_ZERO_ID
+            );
+          }
+          await context2.save?.({ classroomInstructionProgress: transition.state });
+        },
+        onRestart: (restart) => context2.save?.({ classroomInstructionProgress: restart }),
         onBack: () => context2.back()
       });
       screen.element.dataset.academyRoute = "source-activity";
@@ -254009,7 +254745,10 @@ ${spelling}`);
       else needsReviewActivityIds.add(activity2.activityId);
     }
     return {
-      boundActivityIds: new Set(LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS),
+      boundActivityIds: /* @__PURE__ */ new Set([
+        LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+        ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS
+      ]),
       attemptedActivityIds,
       completedActivityIds,
       needsReviewActivityIds
