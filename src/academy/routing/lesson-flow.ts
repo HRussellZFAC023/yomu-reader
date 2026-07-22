@@ -23,6 +23,10 @@ import {
     LESSON_ZERO_GREETING_ACTIVITY_ID,
 } from '../content/lesson-zero-greeting';
 import {
+    createLessonZeroSentenceFrameDefinition,
+    LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
+} from '../content/lesson-zero-sentence-frames';
+import {
     createLessonZeroVowelBingo,
     createLessonZeroVowelSoundMap,
     LESSON_ZERO_VOWEL_SOUND_MAP_ID,
@@ -67,6 +71,10 @@ import {
     transitionLessonZeroGreetingSession,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    startLessonZeroSentenceFrameSession,
+    transitionLessonZeroSentenceFrameSession,
+} from '../domain/lesson-zero-sentence-frame-session';
+import {
     startLessonZeroVowelSession,
     transitionLessonZeroVowelSession,
 } from '../domain/lesson-zero-vowel-session';
@@ -99,6 +107,7 @@ import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
+import { createLessonZeroSentenceFrameScreen } from '../ui/lesson-zero-sentence-frame-screen';
 import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
 import { createLessonZeroVowelWritingScreen } from '../ui/lesson-zero-vowel-writing-screen';
 import { createAcademyActivityRuntime } from '../minigames';
@@ -418,6 +427,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderLessonZeroGreeting(context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID) {
+            await this.renderLessonZeroSentenceFrames(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_SOUND_MAP_ID) {
             await this.renderLessonZeroVowelSession(context);
             return;
@@ -600,6 +613,87 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ lessonZeroGreetingProgress: transition.state });
             },
             onRestart: restart => context.save?.({ lessonZeroGreetingProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroSentenceFrames(context: AcademyRouteContext): Promise<void> {
+        const content = await loadLessonZeroContent();
+        const activity = content.lesson.activities.find(candidate =>
+            candidate.id === LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID);
+        if (!activity) throw new TypeError('Lesson Zero is missing its first-sentence activity.');
+        const learnerName = context.projection.profile?.displayName;
+        if (!learnerName) throw new TypeError('The first sentences require the learner profile created during arrival.');
+        const definition = createLessonZeroSentenceFrameDefinition(activity, learnerName);
+        let state;
+        try {
+            state = startLessonZeroSentenceFrameSession(
+                definition,
+                context.checkpoint.lessonZeroSentenceFrameProgress,
+            );
+        } catch {
+            state = startLessonZeroSentenceFrameSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroSentenceFrameSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroSentenceFrameProgress)) {
+            await context.save?.({ lessonZeroSentenceFrameProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroSentenceFrameScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (_before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                if (transition.completionEvaluation) {
+                    await this.options.evidence.recordActivity(
+                        transition.completionEvaluation,
+                        LESSON_ZERO_ID,
+                        {
+                            id: 'lesson-zero-first-sentences',
+                            sceneId: 'scene:lesson-zero-first-sentences',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:first-sentences',
+                                characterId: 'rie',
+                                text: {
+                                    ja: 'りえ先生とソフィーさんに、最初の五つの文を使った。教室から日本語で返事が来た。',
+                                    en: 'I used my first five sentence shapes with Rie-sensei and Sophie. The room answered me in Japanese.',
+                                },
+                            },
+                        },
+                    );
+                }
+                await context.save?.({ lessonZeroSentenceFrameProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroSentenceFrameProgress: restart }),
             onBack: () => context.back(),
             onComplete: () => this.completeSourceActivity(context, returning),
         });

@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
+import { createLessonZeroSentenceFrameDefinition } from '../../src/academy/content/lesson-zero-sentence-frames';
 import { serializeStoryCursor } from '../../src/academy/content/story-runner';
+import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
 import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
 import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
@@ -284,6 +286,98 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ skill: 'writing', action: 'produce', independent: true }),
         ));
         expect(recordSupportUse).not.toHaveBeenCalled();
+    });
+
+    it('routes all five first-sentence turns through child SRS evidence and one parent milestone', async () => {
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:profile:sentence-frames',
+            at: 1,
+            kind: 'profile-changed',
+            profile: { displayName: 'Henry', learningReason: 'Speak with people', portraitId: 'quality-2' },
+        }]);
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-build-sentence-frames',
+        }, projection);
+        const recordActivity = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-sentence-frames');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroSentenceFrameProgress: expect.objectContaining({ status: 'ready' }),
+        }));
+
+        clickButton(route.shell.current!, 'Make the first sentence');
+        const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
+        const definition = createLessonZeroSentenceFrameDefinition(
+            lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
+            'Henry',
+        );
+        for (const [index, frame] of definition.frames.entries()) {
+            await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
+            await vi.waitFor(() => expect(
+                [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+                    .some(button => button.textContent?.trim() === 'Try this turn'),
+            ).toBe(true));
+            clickButton(route.shell.current!, 'Try this turn');
+            for (const tokenId of frame.target.correctOrder) {
+                await vi.waitFor(() => expect(
+                    route.shell.current?.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
+                ).not.toBeNull());
+                route.shell.current!
+                    .querySelector<HTMLButtonElement>(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`)!
+                    .click();
+                await vi.waitFor(() => expect(
+                    route.shell.current?.querySelector(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`),
+                ).not.toBeNull());
+            }
+            await vi.waitFor(() => expect(
+                route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
+            ).toBe(false));
+            clickButton(route.shell.current!, 'Let Rie read it');
+            if (index < definition.frames.length - 1) {
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
+                clickButton(route.shell.current!, 'Use the next shape');
+            }
+        }
+
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(6));
+        for (const frame of definition.frames) {
+            expect(recordActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attempt: expect.objectContaining({ activityId: frame.activityId, outcome: 'pass' }),
+                    reviewSeeds: [expect.objectContaining({ id: `review:lesson-zero:sentence-frame:${frame.id}` })],
+                }),
+                'lesson:foundation-00',
+                undefined,
+                expect.objectContaining({ action: 'produce', independent: true, skill: 'writing' }),
+            );
+        }
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-build-sentence-frames',
+                    responseKind: 'sentence-constructions',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({ id: 'lesson-zero-first-sentences' }),
+        );
+        expect(route.shell.current?.textContent).toContain('わたしもです。これで、同じクラスですね。');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroSentenceFrameProgress: expect.objectContaining({
+                status: 'complete',
+                passedFrameIds: ['identity', 'correction', 'question', 'noun-link', 'parallel'],
+            }),
+        }));
     });
 
     it('routes Xingyu\'s five sounds through durable SRS evidence and the optional bingo surface', async () => {
@@ -889,3 +983,10 @@ describe('Academy lesson flow', () => {
         await expect(createLessonFlow().render('review', route.value)).resolves.toBe(false);
     });
 });
+
+function clickButton(root: HTMLElement, label: string): void {
+    const button = [...root.querySelectorAll<HTMLButtonElement>('button')]
+        .find(candidate => candidate.textContent?.trim() === label);
+    if (!button) throw new TypeError(`Missing button ${label}.`);
+    button.click();
+}

@@ -91,9 +91,9 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(18);
-        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(17);
-        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(225);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(20);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(20);
+        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(220);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-greet-rie'))?.delivery).toEqual({
             implementation: 'verified',
@@ -128,6 +128,14 @@ describe('unbounded Academy day availability', () => {
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-desk-language'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'partial',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'partial',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-build-sentence-frames'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'partial',
             media: 'partial',

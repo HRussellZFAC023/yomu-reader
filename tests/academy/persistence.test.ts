@@ -286,6 +286,53 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists a first-sentence build and rejects non-chronological frame snapshots', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroSentenceFrameProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-sentence-frames' as const,
+            status: 'paused' as const,
+            stage: 'build' as const,
+            cursor: 1,
+            selectedTokenIds: ['rie'],
+            attempts: [{
+                frameId: 'identity' as const,
+                order: ['self', 'topic', 'name', 'copula', 'stop'],
+                outcome: 'pass' as const,
+                score: 1,
+                at: 100,
+            }],
+            passedFrameIds: ['identity'] as const,
+            revealedModelFrameIds: [] as const,
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-build-sentence-frames',
+            lessonZeroSentenceFrameProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroSentenceFrameProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-build-sentence-frames',
+            lessonZeroSentenceFrameProgress: {
+                ...lessonZeroSentenceFrameProgress,
+                passedFrameIds: ['correction'] as const,
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero sentence-frame progress');
+        persistence.close();
+    });
+
     it('persists the five-vowel lesson and rejects impossible round snapshots', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const lessonZeroVowelProgress = {

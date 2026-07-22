@@ -16,6 +16,10 @@ import {
     type LessonZeroGreetingSessionState,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    lessonZeroSentenceFrameSessionSnapshotShapeIsValid,
+    type LessonZeroSentenceFrameSessionState,
+} from '../domain/lesson-zero-sentence-frame-session';
+import {
     lessonZeroVowelSessionSnapshotShapeIsValid,
     type LessonZeroVowelSessionState,
 } from '../domain/lesson-zero-vowel-session';
@@ -49,6 +53,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly classroomInstructionProgress?: ClassroomInstructionSessionState;
     /** Resume state for the learner's private first-introduction rehearsal. */
     readonly lessonZeroGreetingProgress?: LessonZeroGreetingSessionState;
+    /** Resume state for the five connected first-sentence constructions. */
+    readonly lessonZeroSentenceFrameProgress?: LessonZeroSentenceFrameSessionState;
     /** Resume state for Xingyu's five-vowel lesson and repeatable sound bingo. */
     readonly lessonZeroVowelProgress?: LessonZeroVowelSessionState;
     /** Resume state for Rie's five-vowel handwriting and stroke-plan routes. */
@@ -280,6 +286,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.lessonZeroGreetingProgress !== undefined
         && !lessonZeroGreetingSessionSnapshotShapeIsValid(value.lessonZeroGreetingProgress)) {
         throw new TypeError('Academy checkpoint has invalid Lesson Zero greeting progress.');
+    }
+    if (value.lessonZeroSentenceFrameProgress !== undefined
+        && !lessonZeroSentenceFrameSessionSnapshotShapeIsValid(value.lessonZeroSentenceFrameProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero sentence-frame progress.');
     }
     if (value.lessonZeroVowelProgress !== undefined
         && !lessonZeroVowelSessionSnapshotShapeIsValid(value.lessonZeroVowelProgress)) {

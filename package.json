@@ -134,6 +134,7 @@
     "manual:academy-park": "node scripts/manual/academy-park-browser.mjs",
     "manual:academy-home": "node scripts/manual/academy-home-browser.mjs",
     "manual:academy-world-responsive": "node scripts/manual/academy-world-responsive-browser.mjs",
+    "manual:academy-lesson-zero-sentence-frames": "node scripts/manual/academy-lesson-zero-sentence-frames-browser.mjs",
     "manual:academy-bookshop": "node scripts/manual/bookshop-world-browser.mjs",
     "manual:academy-profile": "node scripts/manual/profile-portrait-browser.mjs",
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",

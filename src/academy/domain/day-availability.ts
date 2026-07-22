@@ -289,6 +289,7 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
                 || activityId === 'activity:lesson-zero-follow-instructions'
                 || activityId === 'activity:lesson-zero-reconstruct-repair'
                 || activityId === 'activity:lesson-zero-desk-language'
+                || activityId === 'activity:lesson-zero-build-sentence-frames'
             ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
             : UNVERIFIED_DELIVERY,
     ));
