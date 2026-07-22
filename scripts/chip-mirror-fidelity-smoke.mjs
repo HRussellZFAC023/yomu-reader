@@ -486,12 +486,12 @@ await esbuild.build({
     logLevel: 'silent',
 });
 
-const FIXTURE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+const FIXTURE = `<!doctype html><html lang="ja" class="jpdb-reader-word-underline-pitch"><head><meta charset="utf-8"><style>
 body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 #chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px;
         background: rgba(0,0,0,0.05); overflow: hidden; }
 #chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; line-height: 20px; }
-</style></head><body class="jpdb-reader-word-underline-pitch">
+</style></head><body>
 <div id="chip" role="button"><div id="chip-label"></div></div>
 <div id="tab-row" style="overflow: hidden; height: 32px; margin-top: 24px; background: #f5f5f5;">
   <div id="tab-label" role="tab" style="font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>

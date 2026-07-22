@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.405
+// @version 1.6.406
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b3d08d99f048.user.js#sha256=s9CNmfBIXLDNLKd+6In6eNQ6FRLHehHxWTk8gzAx3BA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.9ea2c44a31cc.user.js#sha256=nqLESjHMFjkc5Dj0qOvn7rpxX/75s3kFY51pxqg0Z84=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
 // @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
 // @resource yomuCss  https://yomureader.com/yomu.f77c1eff9e04.css#sha256=93we/54EQvMY7n3z84yv4HOdr5zCFnkVMxJEqgEnOtw=
@@ -27870,6 +27870,7 @@ const CACHE_LIMIT$1 = 800;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
 const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
+const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
 const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
 const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
 const PARSE_TEXT_LIMIT = 1900;
@@ -28040,7 +28041,8 @@ class JitenPublicVocabularyClient {
   async hydrateParsedTokens(result, limit) {
   const tokens = result.flat();
   if (!tokens.length || limit <= 0) return;
-  const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
+  const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
+  const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
   if (!cards.size) return;
   for (const token of tokens) {
     const card = cards.get(parsedCardHydrationKey(token.card));
@@ -28143,6 +28145,31 @@ class JitenPublicVocabularyClient {
   noteSuccess() {
   sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
   }
+}
+function parsedCardsWithinTargetBoundary(result, limit) {
+  const normalizedLimit = normalizedDetailLimit(limit);
+  if (normalizedLimit <= 0) return [];
+  const selected = [];
+  const seen = new Set();
+  for (const targetTokens of result) {
+  const targetCards = [];
+  const targetSeen = new Set();
+  for (const token of targetTokens) {
+    const key = parsedCardHydrationKey(token.card);
+    if (seen.has(key) || targetSeen.has(key)) continue;
+    targetSeen.add(key);
+    targetCards.push(token.card);
+  }
+  if (!targetCards.length) continue;
+  const remaining = normalizedLimit - selected.length;
+  if (remaining <= 0) break;
+  const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
+  for (const card of cardsToTake) {
+    selected.push(card);
+    seen.add(parsedCardHydrationKey(card));
+  }
+  }
+  return selected;
 }
 function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
   if (!isNonNullObject(payload)) return null;
@@ -36232,8 +36259,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.405"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.405"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.406"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.406"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36365,7 +36392,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.405"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.406"}`;
   } catch {
   return null;
   }

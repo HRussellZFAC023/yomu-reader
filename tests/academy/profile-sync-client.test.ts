@@ -9,6 +9,7 @@ import {
 import { createMemoryLearnerEventRepository, type LearnerEvent } from '../../src/academy/domain/learner-record';
 import { renderProfileSyncScreen } from '../../src/academy/ui/profile-sync-screen';
 import { transitionAcademyRoute } from '../../src/academy/routing/route-history';
+import type { AcademyEntitlementView } from '../../src/reader/srs/account-contract';
 
 const PROFILE_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_PROFILE_ID = '66666666-6666-4666-8666-666666666666';

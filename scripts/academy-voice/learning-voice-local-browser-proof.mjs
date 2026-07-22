@@ -218,7 +218,7 @@ async function enroll(page) {
 
 async function openAcademy(page) {
     await page.goto(`${server.origin}/academy/?qa-run=${RUN}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#academy-screen > *', { timeout: 20_000 });
+    await page.waitForSelector('#academy-screen > :not(.academy-loading-screen)', { timeout: 20_000 });
 }
 
 async function setCheckpoint(page, route, checkpointContext) {
@@ -275,6 +275,42 @@ async function serveAcademy(request, response) {
             offlineResumeUntil: now + 2_592_000_000,
             accountRequired: false,
         }));
+        return;
+    }
+    if (url.pathname === '/academy/api/account' && request.method === 'GET') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({
+            accountId: '33333333-3333-4333-8333-333333333333',
+            displayName: 'Audio Gate',
+            displayTag: 'Audio Gate#000001',
+            nameChosen: true,
+            avatarKey: null,
+            boardVisible: false,
+            shareAvatar: false,
+            academyAccess: true,
+            classes: [],
+        }));
+        return;
+    }
+    if (url.pathname === '/academy/api/entitlement' && request.method === 'GET') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ entitlement: 'academy', status: 'active', redeemedAt: 1 }));
+        return;
+    }
+    if (url.pathname === '/academy/api/profile' && request.method === 'GET') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({
+            profileId: '11111111-1111-4111-8111-111111111111',
+            deviceId: '22222222-2222-4222-8222-222222222222',
+            accountId: '33333333-3333-4333-8333-333333333333',
+            keyVersion: 1,
+            createdAt: 1,
+        }));
+        return;
+    }
+    if (url.pathname === '/academy/api/profile/key' && request.method === 'POST') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ initialized: true }));
         return;
     }
     if (url.pathname === '/academy/api/srs/push' && request.method === 'POST') {

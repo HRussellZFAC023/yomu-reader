@@ -46438,7 +46438,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.405".trim() ? "1.6.405".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.406".trim() ? "1.6.406".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -78150,6 +78150,7 @@ ${key}`] = { t: now, v: value };
   const DETAIL_CONCURRENCY = 4;
   const LOOKUP_DETAIL_LIMIT = 12;
   const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
+  const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -78317,7 +78318,8 @@ ${key}`] = { t: now, v: value };
     async hydrateParsedTokens(result, limit) {
       const tokens = result.flat();
       if (!tokens.length || limit <= 0) return;
-      const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
+      const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
+      const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
       if (!cards.size) return;
       for (const token of tokens) {
         const card = cards.get(parsedCardHydrationKey(token.card));
@@ -78432,6 +78434,31 @@ ${key}`] = { t: now, v: value };
     noteSuccess() {
       sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
+  }
+  function parsedCardsWithinTargetBoundary(result, limit) {
+    const normalizedLimit = normalizedDetailLimit(limit);
+    if (normalizedLimit <= 0) return [];
+    const selected = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const targetTokens of result) {
+      const targetCards = [];
+      const targetSeen = /* @__PURE__ */ new Set();
+      for (const token of targetTokens) {
+        const key = parsedCardHydrationKey(token.card);
+        if (seen.has(key) || targetSeen.has(key)) continue;
+        targetSeen.add(key);
+        targetCards.push(token.card);
+      }
+      if (!targetCards.length) continue;
+      const remaining = normalizedLimit - selected.length;
+      if (remaining <= 0) break;
+      const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
+      for (const card of cardsToTake) {
+        selected.push(card);
+        seen.add(parsedCardHydrationKey(card));
+      }
+    }
+    return selected;
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
     if (!isNonNullObject(payload)) return null;
