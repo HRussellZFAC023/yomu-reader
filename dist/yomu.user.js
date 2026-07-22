@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.408
+// @version 1.6.409
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.d02744fcac62.user.js#sha256=0CdE/KxiuCfLOjtblxpRUIu6EPpddEOEDwFvQ4QitlU=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.fc7fad73db37.user.js#sha256=/H+tc9s3D9G7zF/XxNNhaun7OY2MKpvnswlF2uOkXdo=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
 // @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
 // @resource yomuCss  https://yomureader.com/yomu.87515109e685.css#sha256=h1FRCeaFlK7NCv8IiUDMrX5/iBPsS082B/V4DxZY5zs=
@@ -8756,21 +8756,92 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
 }
 function reuseCurrentTextMirror(host, context) {
   const existing = currentTextMirror(host);
-  const matches = [
+  const structureMatches = [
   existing && textMirrorRenderIsIntact(existing),
   existing?.dataset.sourceText === context.text,
-  existing?.dataset.renderSignature === context.signature,
   (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
   existing?.classList.contains("jpdb-reader-additive-text-mirror")
   ].every(Boolean);
-  if (!matches) return false;
+  if (!structureMatches || !existing) return false;
+  const exactMatch = existing.dataset.renderSignature === context.signature;
+  if (!exactMatch && !existingMirrorStrictlyDominatesProvisionalRender(existing, context)) return false;
   const state = textMirrorHosts.get(host);
   if (state) reassertTextMirrorHostStyles(host, state);
-  if (context.detachedReadings && existing) {
+  if (context.detachedReadings || existing.dataset.yomuDetachedReadings === "true") {
   openSafeDetachedReadingClips(host);
   stabilizeDetachedReadings(existing, context.clipRow, true);
   }
   return true;
+}
+function existingMirrorStrictlyDominatesProvisionalRender(existing, context) {
+  const existingSettings = tokenIndependentMirrorSignature(existing.dataset.renderSignature ?? "");
+  const incomingSettings = tokenIndependentMirrorSignature(context.signature);
+  if (!existingSettings || existingSettings !== incomingSettings) return false;
+  const existingReadingLane = mirrorSignatureReadingLane(existing.dataset.renderSignature ?? "");
+  const incomingReadingLane = mirrorSignatureReadingLane(context.signature);
+  if (!existingReadingLane || !incomingReadingLane) return false;
+  const tokens = context.renderPlan.tokens;
+  const words = Array.from(existing.querySelectorAll(".jpdb-reader-word"));
+  if (!tokens.length || words.length !== tokens.length) return false;
+  let strictlyRicher = false;
+  if (existingReadingLane !== incomingReadingLane) {
+  if (existingReadingLane === "none" || incomingReadingLane !== "none") return false;
+  strictlyRicher = true;
+  }
+  for (let index = 0; index < tokens.length; index += 1) {
+  const token = tokens[index];
+  const word = words[index];
+  if (!token || !word || cardStateProvenance(token.card) !== "provisional") return false;
+  if (Number(word.dataset.tokenStart) !== token.start || Number(word.dataset.tokenEnd) !== token.end) return false;
+  const surface = context.renderPlan.text.slice(token.start, token.end);
+  if ((word.dataset.surface ?? "") !== surface) return false;
+  const incomingState = primaryCardState(token.card.cardState);
+  if (word.dataset.stateProvenance !== "authoritative" && word.dataset.cardState !== incomingState) return false;
+  const existingReading = renderedWordReading(word);
+  const incomingReading = renderedTokenReading(token);
+  if (existingReading && incomingReading && existingReading !== incomingReading) return false;
+  if (!existingReading && incomingReading) return false;
+  if (existingReading && !incomingReading) strictlyRicher = true;
+  const existingPitch = word.dataset.pitchClass ?? "";
+  const incomingPitch = tokenPitchClass(token);
+  const existingHasPitch = PITCH_CLASSES.has(existingPitch);
+  const incomingHasPitch = PITCH_CLASSES.has(incomingPitch);
+  if (existingHasPitch && incomingHasPitch && existingPitch !== incomingPitch) return false;
+  if (!existingHasPitch && incomingHasPitch) return false;
+  if (existingHasPitch && !incomingHasPitch) strictlyRicher = true;
+  const existingPattern = word.dataset.pitchAccent ?? "";
+  const incomingPattern = token.card.pitchAccent.join("|");
+  if (existingPattern && incomingPattern && existingPattern !== incomingPattern) return false;
+  if (!existingPattern && incomingPattern) return false;
+  if (existingPattern && !incomingPattern) strictlyRicher = true;
+  }
+  return strictlyRicher;
+}
+function tokenIndependentMirrorSignature(signature) {
+  try {
+  const parsed = JSON.parse(signature);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const settings = { ...parsed };
+  delete settings.tokens;
+  delete settings.readings;
+  return JSON.stringify(settings);
+  } catch {
+  return null;
+  }
+}
+function mirrorSignatureReadingLane(signature) {
+  try {
+  const parsed = JSON.parse(signature);
+  return typeof parsed?.readings === "string" ? parsed.readings : null;
+  } catch {
+  return null;
+  }
+}
+function renderedWordReading(word) {
+  return (word.dataset.reading || Array.from(word.querySelectorAll("rt,.jpdb-reader-detached-furi")).map((reading) => reading.textContent?.trim() ?? "").join("")).trim();
+}
+function renderedTokenReading(token) {
+  return (token.card.reading || token.rubies.map((ruby) => ruby.text).join("")).trim();
 }
 function createNonDestructiveTextMirror(context) {
   const mirror = document.createElement("span");
@@ -9181,12 +9252,15 @@ function detachedClipRowIsMultiLineClamp(style) {
   return Number.isFinite(clamp) && clamp > 1;
 }
 function baseTextLineCount(box) {
-  const range = box.ownerDocument.createRange();
-  range.selectNodeContents(box);
   const tops = [];
+  const walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const range = box.ownerDocument.createRange();
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+  range.selectNodeContents(node);
   for (const lineRect of Array.from(range.getClientRects())) {
-  if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-  if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+    if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+  }
   }
   return tops.length;
 }
@@ -27870,7 +27944,6 @@ const CACHE_LIMIT$1 = 800;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
 const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
-const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
 const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
 const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
 const PARSE_TEXT_LIMIT = 1900;
@@ -28041,8 +28114,7 @@ class JitenPublicVocabularyClient {
   async hydrateParsedTokens(result, limit) {
   const tokens = result.flat();
   if (!tokens.length || limit <= 0) return;
-  const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
-  const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
+  const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
   if (!cards.size) return;
   for (const token of tokens) {
     const card = cards.get(parsedCardHydrationKey(token.card));
@@ -28145,31 +28217,6 @@ class JitenPublicVocabularyClient {
   noteSuccess() {
   sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
   }
-}
-function parsedCardsWithinTargetBoundary(result, limit) {
-  const normalizedLimit = normalizedDetailLimit(limit);
-  if (normalizedLimit <= 0) return [];
-  const selected = [];
-  const seen = new Set();
-  for (const targetTokens of result) {
-  const targetCards = [];
-  const targetSeen = new Set();
-  for (const token of targetTokens) {
-    const key = parsedCardHydrationKey(token.card);
-    if (seen.has(key) || targetSeen.has(key)) continue;
-    targetSeen.add(key);
-    targetCards.push(token.card);
-  }
-  if (!targetCards.length) continue;
-  const remaining = normalizedLimit - selected.length;
-  if (remaining <= 0) break;
-  const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
-  for (const card of cardsToTake) {
-    selected.push(card);
-    seen.add(parsedCardHydrationKey(card));
-  }
-  }
-  return selected;
 }
 function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
   if (!isNonNullObject(payload)) return null;
@@ -36259,8 +36306,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.408"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.408"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.409"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.409"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36392,7 +36439,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.408"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.409"}`;
   } catch {
   return null;
   }

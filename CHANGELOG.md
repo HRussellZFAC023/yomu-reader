@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.409] - 2026-07-22
+
+### Fixed
+
+- Compact controls with nested layout wrappers or icons now count only real text lines when deciding whether detached furigana can safely escape authored clipping. This restores the complete furigana and pitch presentation on Reddit's `賛成票率順` sort button and the same control structure on other sites, without a Reddit selector or host-specific branch.
+- Repeated provisional parses can no longer replace a complete non-destructive annotation with missing readings or pitch. Richer and authoritative updates still replace it normally, so dynamic controls remain complete without freezing legitimate dictionary corrections.
+- Removed the v1.6.406 Jiten detail-limit overrun and restored the ordinary bounded hydration path. Completeness is now enforced in the generic render and clip path instead of requesting past the configured limit.
+
 ## [1.6.408] - 2026-07-22
 
 ### Fixed

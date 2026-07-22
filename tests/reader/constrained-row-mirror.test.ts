@@ -149,6 +149,101 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
         });
     });
 
+    it('does not count flex wrappers and an SVG caret as extra text lines in a compact control', () => {
+        document.body.innerHTML = `
+            <button id="sort" aria-expanded="false" aria-haspopup="true"
+                style="display:inline-flex;align-items:center;overflow:hidden;width:98px;height:32px">
+                <span><span id="label">${TEXT}</span></span>
+                <svg aria-hidden="true" width="16" height="16"></svg>
+            </button>
+        `;
+        const button = document.getElementById('sort')!;
+        const label = document.getElementById('label')!;
+        mockCompactBox(button, 98, 32);
+        mockCompactBox(label, 60, 30);
+        // A Range around the whole BUTTON reports the wrapper, glyph, and SVG
+        // boxes at different tops in Chromium. A Range around its actual text
+        // node reports the one authored text line.
+        const restoreGetClientRects = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
+        Object.defineProperty(Range.prototype, 'getClientRects', {
+            configurable: true,
+            value(this: Range): DOMRectList {
+                if (this.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+                    return [{ left: 10, right: 70, top: 8, bottom: 23, width: 60, height: 15 }] as unknown as DOMRectList;
+                }
+                return [
+                    { left: 10, right: 70, top: 0, bottom: 30, width: 60, height: 30 },
+                    { left: 10, right: 70, top: 8, bottom: 23, width: 60, height: 15 },
+                    { left: 74, right: 90, top: 7, bottom: 23, width: 16, height: 16 },
+                ] as unknown as DOMRectList;
+            },
+        });
+        try {
+            const target = collectTextTargetsIn(button, 40, false).find(item => item.text.trim() === TEXT)!;
+            applyTokensToScanTarget(
+                { ...target, nonDestructive: true },
+                [token()],
+                { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' },
+            );
+
+            expect(label.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+            expect(button.dataset.yomuDetachedReadingOverflow).toBe('true');
+            expect(button.style.getPropertyValue('overflow')).toBe('visible');
+        } finally {
+            if (restoreGetClientRects) Object.defineProperty(Range.prototype, 'getClientRects', restoreGetClientRects);
+            else Reflect.deleteProperty(Range.prototype, 'getClientRects');
+        }
+    });
+
+    it('keeps a richer provisional mirror until a complete or authoritative update arrives', () => {
+        document.body.innerHTML = `<button id="sort" style="overflow:hidden;width:98px;height:32px"><span id="label">${TEXT}</span></button>`;
+        const button = document.getElementById('sort')!;
+        const label = document.getElementById('label')!;
+        mockCompactBox(button, 98, 32);
+        mockCompactBox(label, 60, 30);
+        const richCard: JPDBCard = {
+            ...CARD,
+            source: 'jiten',
+            provisionalState: true,
+            pitchAccent: ['LHHH'],
+            jitenWordId: 1,
+            jitenReadingIndex: 1,
+        };
+        const richToken: JPDBToken = { ...token(), card: richCard, pitchClass: 'heiban' };
+        const partialToken: JPDBToken = {
+            ...richToken,
+            card: { ...richCard, reading: '', pitchAccent: [] },
+            rubies: [],
+            pitchClass: '',
+        };
+        const authoritativeToken: JPDBToken = {
+            ...richToken,
+            card: { ...richCard, source: 'jpdb', provisionalState: false, reading: 'にっぽんご', pitchAccent: ['HLLL'] },
+            rubies: [{ text: 'にっぽんご', start: 0, end: TEXT.length, length: TEXT.length }],
+            pitchClass: 'atamadaka',
+        };
+
+        withSingleLineRange(() => {
+            const target = collectTextTargetsIn(button, 40, false).find(item => item.text.trim() === TEXT)!;
+            const renderSettings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+            applyTokensToScanTarget({ ...target, nonDestructive: true }, [richToken], renderSettings);
+            const richMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+            expect(richMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('heiban');
+
+            applyTokensToScanTarget({ ...target, nonDestructive: true }, [partialToken], renderSettings);
+            const preservedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+            expect(preservedMirror).toBe(richMirror);
+            expect(preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('heiban');
+            expect(preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.reading).toBe('にほんご');
+
+            applyTokensToScanTarget({ ...target, nonDestructive: true }, [authoritativeToken], renderSettings);
+            const replacedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+            expect(replacedMirror).not.toBe(richMirror);
+            expect(replacedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('atamadaka');
+            expect(replacedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.reading).toBe('にっぽんご');
+        });
+    });
+
     it('preserves authored clipping on a real expandable content panel', () => {
         document.body.innerHTML = `<details id="panel" open style="display:block;overflow:hidden;height:20px;width:80px"><span id="host">${TEXT}</span></details>`;
         const panel = document.getElementById('panel')!;

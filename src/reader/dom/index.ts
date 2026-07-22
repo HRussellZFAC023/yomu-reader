@@ -2658,21 +2658,116 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
 function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirrorRenderContext): boolean {
     const existing = currentTextMirror(host);
-    const matches = [
+    const structureMatches = [
         existing && textMirrorRenderIsIntact(existing),
         existing?.dataset.sourceText === context.text,
-        existing?.dataset.renderSignature === context.signature,
         (existing?.dataset.whitespaceJoints ?? '') === context.whitespaceJointsKey,
         existing?.classList.contains('jpdb-reader-additive-text-mirror'),
     ].every(Boolean);
-    if (!matches) return false;
+    if (!structureMatches || !existing) return false;
+    const exactMatch = existing.dataset.renderSignature === context.signature;
+    // Dynamic component trees can schedule the same source twice: a fully
+    // hydrated public/Jiten pass, followed by a bounded provisional pass. The
+    // latter must not replace known readings/pitch with unknown placeholders.
+    // Preserve only a strictly richer render with identical source ranges and
+    // render settings; authoritative or genuinely different updates still take
+    // the ordinary replacement path.
+    if (!exactMatch && !existingMirrorStrictlyDominatesProvisionalRender(existing, context)) return false;
     const state = textMirrorHosts.get(host);
     if (state) reassertTextMirrorHostStyles(host, state);
-    if (context.detachedReadings && existing) {
+    if (context.detachedReadings || existing.dataset.yomuDetachedReadings === 'true') {
         openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(existing, context.clipRow, true);
     }
     return true;
+}
+
+function existingMirrorStrictlyDominatesProvisionalRender(
+    existing: HTMLElement,
+    context: NonDestructiveMirrorRenderContext,
+): boolean {
+    const existingSettings = tokenIndependentMirrorSignature(existing.dataset.renderSignature ?? '');
+    const incomingSettings = tokenIndependentMirrorSignature(context.signature);
+    if (!existingSettings || existingSettings !== incomingSettings) return false;
+
+    const existingReadingLane = mirrorSignatureReadingLane(existing.dataset.renderSignature ?? '');
+    const incomingReadingLane = mirrorSignatureReadingLane(context.signature);
+    if (!existingReadingLane || !incomingReadingLane) return false;
+
+    const tokens = context.renderPlan.tokens;
+    const words = Array.from(existing.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+    if (!tokens.length || words.length !== tokens.length) return false;
+
+    let strictlyRicher = false;
+    if (existingReadingLane !== incomingReadingLane) {
+        if (existingReadingLane === 'none' || incomingReadingLane !== 'none') return false;
+        strictlyRicher = true;
+    }
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        const word = words[index];
+        if (!token || !word || cardStateProvenance(token.card) !== 'provisional') return false;
+        if (Number(word.dataset.tokenStart) !== token.start || Number(word.dataset.tokenEnd) !== token.end) return false;
+        const surface = context.renderPlan.text.slice(token.start, token.end);
+        if ((word.dataset.surface ?? '') !== surface) return false;
+
+        const incomingState = primaryCardState(token.card.cardState);
+        if (word.dataset.stateProvenance !== 'authoritative' && word.dataset.cardState !== incomingState) return false;
+
+        const existingReading = renderedWordReading(word);
+        const incomingReading = renderedTokenReading(token);
+        if (existingReading && incomingReading && existingReading !== incomingReading) return false;
+        if (!existingReading && incomingReading) return false;
+        if (existingReading && !incomingReading) strictlyRicher = true;
+
+        const existingPitch = word.dataset.pitchClass ?? '';
+        const incomingPitch = tokenPitchClass(token);
+        const existingHasPitch = PITCH_CLASSES.has(existingPitch);
+        const incomingHasPitch = PITCH_CLASSES.has(incomingPitch);
+        if (existingHasPitch && incomingHasPitch && existingPitch !== incomingPitch) return false;
+        if (!existingHasPitch && incomingHasPitch) return false;
+        if (existingHasPitch && !incomingHasPitch) strictlyRicher = true;
+
+        const existingPattern = word.dataset.pitchAccent ?? '';
+        const incomingPattern = token.card.pitchAccent.join('|');
+        if (existingPattern && incomingPattern && existingPattern !== incomingPattern) return false;
+        if (!existingPattern && incomingPattern) return false;
+        if (existingPattern && !incomingPattern) strictlyRicher = true;
+    }
+    return strictlyRicher;
+}
+
+function tokenIndependentMirrorSignature(signature: string): string | null {
+    try {
+        const parsed = JSON.parse(signature) as Record<string, unknown>;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        const settings = { ...parsed };
+        delete settings.tokens;
+        delete settings.readings;
+        return JSON.stringify(settings);
+    } catch {
+        return null;
+    }
+}
+
+function mirrorSignatureReadingLane(signature: string): string | null {
+    try {
+        const parsed = JSON.parse(signature) as { readings?: unknown };
+        return typeof parsed?.readings === 'string' ? parsed.readings : null;
+    } catch {
+        return null;
+    }
+}
+
+function renderedWordReading(word: HTMLElement): string {
+    return (word.dataset.reading
+        || Array.from(word.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi'))
+            .map(reading => reading.textContent?.trim() ?? '')
+            .join('')).trim();
+}
+
+function renderedTokenReading(token: JPDBToken): string {
+    return (token.card.reading || token.rubies.map(ruby => ruby.text).join('')).trim();
 }
 
 function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderContext): HTMLElement {
@@ -3307,15 +3402,22 @@ function detachedClipRowIsMultiLineClamp(style: CSSStyleDeclaration): boolean {
     return Number.isFinite(clamp) && clamp > 1;
 }
 
-// Distinct line boxes of the box's text content. Caller must have hidden
-// out-of-flow readings first, or their rects would count as extra lines.
+// Distinct line boxes of the box's text glyphs. A Range around an ELEMENT also
+// reports boxes for nested flex wrappers and SVG icons; treating those boxes as
+// text lines makes a one-line control look multi-line and keeps its safe reading
+// lane clipped. Measure text nodes directly so layout wrappers cannot vote.
+// Caller must have hidden out-of-flow readings first, or their text rects would
+// count as extra lines.
 function baseTextLineCount(box: HTMLElement): number {
-    const range = box.ownerDocument.createRange();
-    range.selectNodeContents(box);
     const tops: number[] = [];
-    for (const lineRect of Array.from(range.getClientRects())) {
-        if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-        if (!tops.some(top => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    const walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+    const range = box.ownerDocument.createRange();
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        range.selectNodeContents(node);
+        for (const lineRect of Array.from(range.getClientRects())) {
+            if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+            if (!tops.some(top => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+        }
     }
     return tops.length;
 }

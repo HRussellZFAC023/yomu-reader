@@ -25442,21 +25442,92 @@ ${spelling}`);
   }
   function reuseCurrentTextMirror(host2, context2) {
     const existing = currentTextMirror(host2);
-    const matches = [
+    const structureMatches = [
       existing && textMirrorRenderIsIntact(existing),
       existing?.dataset.sourceText === context2.text,
-      existing?.dataset.renderSignature === context2.signature,
       (existing?.dataset.whitespaceJoints ?? "") === context2.whitespaceJointsKey,
       existing?.classList.contains("jpdb-reader-additive-text-mirror")
     ].every(Boolean);
-    if (!matches) return false;
+    if (!structureMatches || !existing) return false;
+    const exactMatch = existing.dataset.renderSignature === context2.signature;
+    if (!exactMatch && !existingMirrorStrictlyDominatesProvisionalRender(existing, context2)) return false;
     const state = textMirrorHosts.get(host2);
     if (state) reassertTextMirrorHostStyles(host2, state);
-    if (context2.detachedReadings && existing) {
+    if (context2.detachedReadings || existing.dataset.yomuDetachedReadings === "true") {
       openSafeDetachedReadingClips(host2);
       stabilizeDetachedReadings(existing, context2.clipRow, true);
     }
     return true;
+  }
+  function existingMirrorStrictlyDominatesProvisionalRender(existing, context2) {
+    const existingSettings = tokenIndependentMirrorSignature(existing.dataset.renderSignature ?? "");
+    const incomingSettings = tokenIndependentMirrorSignature(context2.signature);
+    if (!existingSettings || existingSettings !== incomingSettings) return false;
+    const existingReadingLane = mirrorSignatureReadingLane(existing.dataset.renderSignature ?? "");
+    const incomingReadingLane = mirrorSignatureReadingLane(context2.signature);
+    if (!existingReadingLane || !incomingReadingLane) return false;
+    const tokens = context2.renderPlan.tokens;
+    const words = Array.from(existing.querySelectorAll(".jpdb-reader-word"));
+    if (!tokens.length || words.length !== tokens.length) return false;
+    let strictlyRicher = false;
+    if (existingReadingLane !== incomingReadingLane) {
+      if (existingReadingLane === "none" || incomingReadingLane !== "none") return false;
+      strictlyRicher = true;
+    }
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      const word = words[index];
+      if (!token || !word || cardStateProvenance(token.card) !== "provisional") return false;
+      if (Number(word.dataset.tokenStart) !== token.start || Number(word.dataset.tokenEnd) !== token.end) return false;
+      const surface = context2.renderPlan.text.slice(token.start, token.end);
+      if ((word.dataset.surface ?? "") !== surface) return false;
+      const incomingState = primaryCardState(token.card.cardState);
+      if (word.dataset.stateProvenance !== "authoritative" && word.dataset.cardState !== incomingState) return false;
+      const existingReading = renderedWordReading(word);
+      const incomingReading = renderedTokenReading(token);
+      if (existingReading && incomingReading && existingReading !== incomingReading) return false;
+      if (!existingReading && incomingReading) return false;
+      if (existingReading && !incomingReading) strictlyRicher = true;
+      const existingPitch = word.dataset.pitchClass ?? "";
+      const incomingPitch = tokenPitchClass(token);
+      const existingHasPitch = PITCH_CLASSES.has(existingPitch);
+      const incomingHasPitch = PITCH_CLASSES.has(incomingPitch);
+      if (existingHasPitch && incomingHasPitch && existingPitch !== incomingPitch) return false;
+      if (!existingHasPitch && incomingHasPitch) return false;
+      if (existingHasPitch && !incomingHasPitch) strictlyRicher = true;
+      const existingPattern = word.dataset.pitchAccent ?? "";
+      const incomingPattern = token.card.pitchAccent.join("|");
+      if (existingPattern && incomingPattern && existingPattern !== incomingPattern) return false;
+      if (!existingPattern && incomingPattern) return false;
+      if (existingPattern && !incomingPattern) strictlyRicher = true;
+    }
+    return strictlyRicher;
+  }
+  function tokenIndependentMirrorSignature(signature) {
+    try {
+      const parsed = JSON.parse(signature);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      const settings = { ...parsed };
+      delete settings.tokens;
+      delete settings.readings;
+      return JSON.stringify(settings);
+    } catch {
+      return null;
+    }
+  }
+  function mirrorSignatureReadingLane(signature) {
+    try {
+      const parsed = JSON.parse(signature);
+      return typeof parsed?.readings === "string" ? parsed.readings : null;
+    } catch {
+      return null;
+    }
+  }
+  function renderedWordReading(word) {
+    return (word.dataset.reading || Array.from(word.querySelectorAll("rt,.jpdb-reader-detached-furi")).map((reading) => reading.textContent?.trim() ?? "").join("")).trim();
+  }
+  function renderedTokenReading(token) {
+    return (token.card.reading || token.rubies.map((ruby) => ruby.text).join("")).trim();
   }
   function createNonDestructiveTextMirror(context2) {
     const mirror = document.createElement("span");
@@ -25829,12 +25900,15 @@ ${spelling}`);
     return Number.isFinite(clamp2) && clamp2 > 1;
   }
   function baseTextLineCount(box) {
-    const range2 = box.ownerDocument.createRange();
-    range2.selectNodeContents(box);
     const tops = [];
-    for (const lineRect of Array.from(range2.getClientRects())) {
-      if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-      if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    const walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+    const range2 = box.ownerDocument.createRange();
+    for (let node2 = walker.nextNode(); node2; node2 = walker.nextNode()) {
+      range2.selectNodeContents(node2);
+      for (const lineRect of Array.from(range2.getClientRects())) {
+        if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+        if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+      }
     }
     return tops.length;
   }
@@ -279716,7 +279790,6 @@ ${key2}`] = { t: now, v: value };
   const DETAIL_CONCURRENCY = 4;
   const LOOKUP_DETAIL_LIMIT = 12;
   const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
-  const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -279884,8 +279957,7 @@ ${key2}`] = { t: now, v: value };
     async hydrateParsedTokens(result, limit) {
       const tokens = result.flat();
       if (!tokens.length || limit <= 0) return;
-      const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
-      const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
+      const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
       if (!cards.size) return;
       for (const token of tokens) {
         const card = cards.get(parsedCardHydrationKey(token.card));
@@ -280000,31 +280072,6 @@ ${key2}`] = { t: now, v: value };
     noteSuccess() {
       sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
-  }
-  function parsedCardsWithinTargetBoundary(result, limit) {
-    const normalizedLimit = normalizedDetailLimit(limit);
-    if (normalizedLimit <= 0) return [];
-    const selected2 = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const targetTokens of result) {
-      const targetCards = [];
-      const targetSeen = /* @__PURE__ */ new Set();
-      for (const token of targetTokens) {
-        const key2 = parsedCardHydrationKey(token.card);
-        if (seen.has(key2) || targetSeen.has(key2)) continue;
-        targetSeen.add(key2);
-        targetCards.push(token.card);
-      }
-      if (!targetCards.length) continue;
-      const remaining = normalizedLimit - selected2.length;
-      if (remaining <= 0) break;
-      const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
-      for (const card of cardsToTake) {
-        selected2.push(card);
-        seen.add(parsedCardHydrationKey(card));
-      }
-    }
-    return selected2;
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
     if (!isNonNullObject(payload)) return null;
