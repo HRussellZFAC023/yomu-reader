@@ -784,8 +784,8 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
         onCurrentImageReady?: () => void,
     ): void {
         let currentImageReady = false;
-        const publishCurrentImageReady = (): void => {
-            if (currentImageReady || !isCurrent()) return;
+        const publishCurrentImageReady = (imageElement: HTMLImageElement): void => {
+            if (currentImageReady || !isCurrent() || !container.isConnected || !imageElement.isConnected) return;
             currentImageReady = true;
             onCurrentImageReady?.();
         };
@@ -841,7 +841,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             imageElement.addEventListener('error', loadNextImageCandidate);
             imageElement.addEventListener('load', () => {
                 publishImmersionFrameWidth(imageElement.closest<HTMLElement>('.jpdb-reader-example-media'));
-                publishCurrentImageReady();
+                publishCurrentImageReady(imageElement);
             });
             imageElement.addEventListener('load', () => this.options.repositionPopover(), { once: true });
             if (!imageElement.dataset.immersionImageSrc) {

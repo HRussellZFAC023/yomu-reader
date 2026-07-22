@@ -444,6 +444,48 @@ describe('performance cache bounds', () => {
         }
     });
 
+    it('does not warm adjacent Immersion media when the review card detaches before image load', async () => {
+        const examples = [
+            { ...immersionExample('単語1'), id: 'example-1', imageUrl: 'https://media.test/first.jpg' },
+            { ...immersionExample('単語1'), id: 'example-2', imageUrl: 'https://media.test/second.jpg' },
+        ];
+        const fetchBlobUrl = vi.fn(async (urls: string | string[]) => `blob:http://localhost/${Array.isArray(urls) ? urls[0] : urls}`);
+        const controller = createImmersionController({
+            search: vi.fn(async () => examples),
+            preload: vi.fn(),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'image' ? [example.imageUrl] : []),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: true,
+            }),
+        });
+        const popover = document.createElement('div');
+        popover.dataset.yomuJpdbAddon = 'word';
+        popover.dataset.yomuPageContext = 'review';
+        popover.innerHTML = '<details data-immersion-kit open></details>';
+        document.body.append(popover);
+
+        await controller.loadExamples(popover, cardFor(1));
+        const currentImage = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
+        expect(currentImage).not.toBeNull();
+        await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(
+            'https://media.test/first.jpg',
+            DEFAULT_SETTINGS.audioTimeoutMs,
+            DEFAULT_SETTINGS.corsProxyUrl,
+            DEFAULT_SETTINGS.interfaceLanguage,
+        ));
+
+        popover.remove();
+        currentImage?.dispatchEvent(new Event('load'));
+        await Promise.resolve();
+
+        const requested = fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]);
+        expect(requested).not.toContain('https://media.test/second.jpg');
+    });
+
     it('does not speculatively warm adjacent Immersion media in an ordinary lookup popover', async () => {
         const examples = [
             { ...immersionExample('単語1'), id: 'example-1', imageUrl: 'https://media.test/first.jpg' },
