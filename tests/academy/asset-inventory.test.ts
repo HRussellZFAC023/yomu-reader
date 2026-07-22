@@ -150,8 +150,8 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
             expressionMatrixSlots: 630,
-            approvedExpressionVariants: 12,
-            reviewCandidateExpressionVariants: 11,
+            approvedExpressionVariants: 13,
+            reviewCandidateExpressionVariants: 10,
             deliveredMatrixExpressionVariants: 23,
             missingExpressionVariants: 607,
             offMatrixDeliveredSprites: 9,

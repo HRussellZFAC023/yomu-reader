@@ -2,7 +2,7 @@
 
 ## Objective
 
-Deliver the complete Yomu game as 48 chronological, production-complete Academy days from first contact with Japanese through N1 graduation, followed by a persistent postgame. Each day is a vertical game release: story creates the need, lessons provide the language, practice proves it, the world responds, and SRS carries it forward.
+Deliver the complete Yomu game as `N` chronological, production-complete Academy days from first contact with Japanese through N1 graduation and into a persistent continuing world. `N` is derived from the complete curriculum, activity, story, and pacing map and has no arbitrary upper cap. The 48 chapters are the finite core story arc, not a limit on calendar days. Each day is a vertical game release: story creates the need, lessons provide the language, practice proves it, the world responds, and SRS carries it forward.
 
 This file replaces the former horizontal master plan. `docs/academy/BACKLOG.md` remains the requirements and proof-gate authority. This plan is the sole execution order.
 
@@ -11,28 +11,30 @@ This file replaces the former horizontal master plan. `docs/academy/BACKLOG.md` 
 1. One owner, one delivery tree, one active task.
 2. Finish a real user journey before expanding volume.
 3. Never count authored, generated, staged, or tested-in-isolation work as integrated.
-4. Never close a day with missing required dialogue, silent required audio, placeholder cast, broken responsive states, unreachable lessons, or unpersisted outcomes.
+4. Never close a day while any activity exposed, unlocked, revisitable, or otherwise available on that date is missing, stubbed, unreachable, silent where it should speak, visually unbound, unpersisted, or unverified. This includes required lessons, optional study, SRS, games, props, NPC conversations, bonds, wiki discoveries, Reader handoffs, accessibility alternatives, and one-off interactions.
 5. A learner may stop at any clean boundary. A canonical day can span several real sessions without guilt, streak pressure, or lost state.
 6. Required learning stays bounded and clear; optional depth can be large. The interface presents one dominant next action.
 7. Story, curriculum, world, SRS, art, audio, games, wiki, Reader integrations, and account state use canonical registries rather than parallel progress systems.
 8. Generated assets and audio receive a runtime home in the same task that creates them.
 9. Every task ends with focused tests and a real phone and desktop journey. Every completed day is committed and released before the next day starts.
-10. The 48-chapter ending remains finite. Infinite study, NG+, recurring events, and alumni stories begin after graduation without reopening the central plot.
+10. The 48-chapter ending remains finite, but Academy days do not. Chapters may span multiple calendar days where learning and pacing require it; continuing study, NG+, recurring events, and alumni stories use Day `49+` or the later derived boundary without reopening the central plot.
 
 ## Progress ledger
 
-Overall completion is derived from a 1,000-point ledger, never estimated from file counts.
+Overall completion is derived from a dynamic evidence ledger, never estimated from file counts. After the complete curriculum and activity map freezes `N`, the denominator is `280 + (15 × N)` points. Before `N` is proven, percentages must show the known denominator and label the unresolved calendar denominator explicitly rather than pretending that 48 days are complete scope.
 
 | Programme | Points | Closure rule |
 | --- | ---: | --- |
 | Shared delivery core | 100 | Ten shared contracts below, each independently proven in production |
-| Canonical Days 1-48 | 720 | 15 points per day, using the day closure contract |
+| Canonical Days 1-N | `15 × N` | 15 points per day, using the day closure contract and exact availability manifest |
 | Persistent world and postgame | 80 | Eight 10-point systems, all reachable after their intended unlock |
 | Global parity | 60 | Sources, curriculum, voice, art, games, music/SFX, integrations, and wiki reconcile exactly |
 | Final release | 40 | Full build, device journeys, deployment, rollback, trailer, and showcase |
-| **Total** | **1,000** | Overall percentage = closed points / 10 |
+| **Total** | **`280 + (15 × N)`** | Overall percentage = closed points / current proven denominator |
 
 ### Day closure contract: 15 points
+
+The day first needs an exact availability manifest. It enumerates every required, optional, unlocked, revisitable, repeatable, one-off, accessibility, online, and offline activity the learner can enter on that date. If any row lacks implementation, reachability, media, persistence, or journey proof, the day receives zero closure points regardless of how polished its main route is.
 
 | Gate | Points | Required evidence |
 | --- | ---: | --- |
@@ -67,7 +69,7 @@ Overall completion is derived from a 1,000-point ledger, never estimated from fi
 
 For Day `NN`, complete these tasks in order. Only one is active at a time.
 
-1. `DNN-01 Contract`: freeze the chapter, time/place, learner purpose, N+1 assumptions, required units, cast, props, callbacks, and clean stopping points.
+1. `DNN-01 Contract`: freeze the date, chapter beat, time/place, learner purpose, N+1 assumptions, units, cast, props, callbacks, clean stopping points, and the exhaustive day-availability manifest covering every activity the learner can enter.
 2. `DNN-02 Sources`: bind every required source/material/audio occurrence and identify original bridging content.
 3. `DNN-03 Lessons`: author the day's four or five curriculum units and their explanations, examples, practice, production, transfer, and test-out.
 4. `DNN-04 Story`: rewrite and stage the chapter around those actions using natural dialogue and visible behavior.
@@ -78,7 +80,7 @@ For Day `NN`, complete these tasks in order. Only one is active at a time.
 9. `DNN-09 Audio`: census and lock every required line, render voices, bind source listening, music, ambience, SFX, captions, replay, and shadow controls.
 10. `DNN-10 UX`: compose the day as a game, not a dashboard; finish living-paper learning surfaces, accent tokens, mobile controls, desktop framing, accessibility, and reduced motion.
 11. `DNN-11 Wiki`: publish spoiler-aware people, place, concept, object, media, and chapter entries discovered that day.
-12. `DNN-12 Verify and release`: play from the prior day's save through the next day's save on phone and desktop, run focused and release checks, commit, push, deploy, and record ledger points.
+12. `DNN-12 Verify and release`: exercise every availability-manifest row plus the main journey from the prior day's save through the next day's save on phone and desktop, run focused and release checks, commit, push, deploy, and record ledger points.
 
 ## Day 1 detailed queue: Welcome, First Sound, First Evening
 
@@ -86,7 +88,7 @@ Day 1 is the current active vertical release. It closes the welcome, onboarding,
 
 | Order | Task | Output |
 | ---: | --- | --- |
-| D01-01 | Freeze the complete Day 1 route from invite/account entry to the evening save | One route graph with no dead ends, duplicate onboarding, or unexplained teleport |
+| D01-01 | Freeze the complete Day 1 route and exhaustive activity-availability manifest from invite/account entry to the evening save | One route graph and manifest with no dead ends, duplicate onboarding, unexplained teleport, or unimplemented available activity |
 | D01-02 | Map Lesson 0, classroom expressions, all matching handouts/audio, and the exact zero-Japanese assumptions | Day 1 source and original-content map |
 | D01-03 | Complete invite, sign-in/link, refresh, profile isolation, name, private motivation, protagonist choice, and resume | Durable identity and no forced account wall before the promised path |
 | D01-04 | Rebuild the rainy blue-hour arrival with correct location art, Rie entrance, subtle motion, music, ambience, door interaction, and one clear action | Final-quality opening minute |
@@ -107,9 +109,9 @@ Day 1 is the current active vertical release. It closes the welcome, onboarding,
 | D01-19 | Profile and fix phone/tablet/desktop layout, CPU, memory, media disposal, loading, cache, touch targets, keyboard, screen reader, and reduced motion | Day 1 remains cool, responsive, legible, and stable |
 | D01-20 | Run the complete Day 1 journey from clean storage and returning saves, commit, push, deploy, smoke live, and award its 15 ledger points | Day 1 production complete |
 
-## Canonical day map and feature rollout
+## Core chapter map and feature rollout
 
-The target curriculum contains at least 224 small, validated lesson units: 40 Foundation/N5 units in Days 1-8, 64 N4 units in Days 9-24, 30 N3 units in Days 25-30, 45 N2 units in Days 31-39, and 45 N1 units in Days 40-48. A day presents one core thread and optional depth; it never forces a long sitting.
+The current chapter map below is a narrative spine, not a final day count. The target curriculum contains at least 224 small, validated lesson units, but their complete source and activity mapping determines `N`; chapters may occupy more than one day and further days continue beyond the core arc. A day presents one core thread and optional depth, implements every activity it exposes, and never forces a long sitting.
 
 | Day | Chapter | Learning reservoir or new family | First-class world/game/system work |
 | ---: | --- | --- | --- |
@@ -162,7 +164,7 @@ The target curriculum contains at least 224 small, validated lesson units: 40 Fo
 | 47 | The Atlas Closes | Integrated N1 synthesis | Source explanation, disagreement mediation, finite closure |
 | 48 | The Next Page | N1 graduation composition | Final contribution, graduation, NG+ and alumni-world unlock |
 
-## Persistent world and postgame: 80 points
+## Persistent and continuing world: 80 points
 
 | Order | Task | Unlock |
 | ---: | --- | --- |
@@ -193,7 +195,11 @@ The target curriculum contains at least 224 small, validated lesson units: 40 Fo
 
 ## Current execution pointer
 
-1. Finish and verify the in-progress story/audio consolidation merge under `A01`.
-2. Import the retained N3, platform, workflow, cast-art, scene-art, and grader work into the same tree.
-3. Remove obsolete Academy worktrees after their retained commits are present here.
-4. Implement `A02`, then execute `D01-01` through `D01-20` without opening Day 2 work.
+| State | Work |
+| --- | --- |
+| Complete | Story repair, audio repair, N3 repair, account lifecycle, production workflow, and the latest retained upstream release are consolidated in the single E2E tree and covered by focused green tests. |
+| Active | Finish the approved Aakash `v009` runtime promotion, reconcile its current manifests, rebuild Academy, rerun voice provenance, commit, push, and return the branch to zero commits behind `origin/main`. |
+| Next | Selectively retain the small runnable art-grader surface; do not import generated thumbnail caches, prompt-only branches, destructive provenance changes, or work that lacks a runtime destination. |
+| Then | Close `A01`, implement the evidence-derived `A02` ledger, stabilise `A03` to `A10`, and execute `D01-01` through `D01-20` without opening Day 2 work. |
+
+The task tracker mirrors this order. A task moves to complete only after its retained work is integrated, focused checks pass, and the delivery branch is pushed without falling behind `origin/main`.

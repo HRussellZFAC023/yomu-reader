@@ -34,14 +34,14 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 12,
-    "reviewCandidates": 11,
+    "approved": 13,
+    "reviewCandidates": 10,
     "missing": 607,
     "currentPhysicalRasters": 32,
     "currentOffMatrixRasters": 9,
     "historicalUniqueRasters": 468,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 3,
+    "charactersWithApprovedCoverage": 4,
     "charactersWithAnyCurrentCoverage": 8
   },
   "migrations": [
@@ -52,6 +52,15 @@
       "to": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
       "decision": "delete",
       "status": "deprecated-file-removed-after-zero-runtime-reference-scan",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "aakash-neutral-v005-to-owner-approved-v009",
+      "character": "aakash",
+      "from": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+      "to": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+      "decision": "delete",
+      "status": "owner-approved v009 bound to runtime; superseded v005 archived outside runtime",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -1090,11 +1099,11 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
-        "reviewCandidates": 1,
+        "approved": 1,
+        "reviewCandidates": 0,
         "missing": 20,
         "deliveredPercent": 4.76,
-        "approvedPercent": 0
+        "approvedPercent": 4.76
       },
       "currentAssets": [
         {
@@ -1296,37 +1305,47 @@
           "coverageStatus": "off-matrix"
         },
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-          "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f",
-          "source": "generated-image://019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
+          "source": "owner-approved-art://2026-07-21/aakash-neutral-v009",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:aakash"
+              "journal:aakash",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "lesson:l1-l01:cast"
             ],
             "review": []
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v005",
+          "fileVersion": "v009",
           "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
           "angle": "front-near-front",
           "expression": "neutral",
           "dimensions": {
-            "width": 955,
-            "height": 1647,
+            "width": 1086,
+            "height": 1448,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:aakash"
+            "journal:aakash",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "lesson:l1-l01:cast"
           ],
           "reviewUses": [],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
@@ -1448,8 +1467,8 @@
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png"
         },
         {
           "angle": "front-near-front",

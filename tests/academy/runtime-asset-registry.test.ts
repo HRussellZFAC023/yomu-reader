@@ -76,8 +76,9 @@ describe('Academy runtime asset registry', () => {
         }
     });
 
-    it('wires only likeness-cleared Rie, Sophie, and Steve performances into the approved sprite map', () => {
+    it('wires only likeness-cleared Aakash, Rie, Sophie, and Steve performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
+            aakash: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
             rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
             rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
             rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
@@ -92,11 +93,13 @@ describe('Academy runtime asset registry', () => {
             steveDetermined: '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
         });
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
+            aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
             rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
             sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
             steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
         });
         for (const id of [
+            'character.aakash.neutral',
             'character.sophie.neutral-right',
             'character.sophie.encouraging-front',
             'character.sophie.determined-left',

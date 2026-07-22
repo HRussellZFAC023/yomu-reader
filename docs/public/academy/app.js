@@ -11612,14 +11612,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["rose", "Rose"],
     ["peter", "Peter"]
   ];
-  const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id2, firstName]) => ({
-    id: id2,
-    firstName,
-    ...id2 === "angel" ? { preferredName: "Onke" } : {},
-    category: "classmate",
-    visualEvidence: id2 === "sophie" ? "approved" : "candidate-needs-owner",
-    eligibility: id2 === "sophie" ? { story: true, lessons: true, likenessRuntime: true } : ELIGIBLE_WITH_PENDING_LIKENESS
-  }));
+  const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id2, firstName]) => {
+    const likenessApproved = id2 === "sophie" || id2 === "aakash";
+    return {
+      id: id2,
+      firstName,
+      ...id2 === "angel" ? { preferredName: "Onke" } : {},
+      category: "classmate",
+      visualEvidence: likenessApproved ? "approved" : "candidate-needs-owner",
+      eligibility: likenessApproved ? { story: true, lessons: true, likenessRuntime: true } : ELIGIBLE_WITH_PENDING_LIKENESS
+    };
+  });
   const ACADEMY_CAST = [
     {
       id: "rie",
@@ -15206,7 +15209,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "character.rie.encouraging-glasses-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png" } }),
     "character.rie.sad-vulnerable-glasses-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png" } }),
     "character.rie.comedic-glasses-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png" } }),
-    "character.aakash.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:aakash"], provenance: "current-production", files: { default: "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png" } }),
+    "character.aakash.neutral": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["journal:aakash", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:cast"], provenance: "current-production", files: { default: "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png" } }),
     "character.felix.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-after-meeting", "journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__neutral__halfbody__v001.png" } }),
     "character.felix.happy-left": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png" } }),
     "character.felix.surprised-right": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png" } }),
@@ -15309,6 +15312,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return file;
   }
   const ACADEMY_APPROVED_CHARACTER_SPRITES = {
+    aakash: assetFile("character.aakash.neutral", "default"),
     rie: assetFile("character.rie.neutral-glasses", "default"),
     rieHappy: assetFile("character.rie.happy-glasses-front", "default"),
     rieDetermined: assetFile("character.rie.determined-glasses-left", "default"),
@@ -15323,6 +15327,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     steveDetermined: assetFile("character.steve.determined-left", "default")
   };
   const ACADEMY_APPROVED_CAST_SPRITES = {
+    aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve
@@ -15348,7 +15353,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   };
   const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
-    aakash: assetFile("character.aakash.neutral", "default"),
     felix: assetFile("character.felix.neutral", "default"),
     peter: assetFile("character.peter.neutral", "default"),
     shaun: assetFile("character.shaun.neutral", "default"),
@@ -252721,6 +252725,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   const CHARACTER_PORTRAITS = {
+    ...ACADEMY_ASSETS.characters.approved,
     ...ACADEMY_ASSETS.characters.journalReview
   };
   function projectCharacterDirectory(projection) {
@@ -258736,6 +258741,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return section;
   }
   const DIRECTORY_PORTRAITS = {
+    ...ACADEMY_ASSETS.characters.approved,
     ...ACADEMY_ASSETS.characters.journalReview
   };
   function characterDirectory(language, characters, onOpen) {

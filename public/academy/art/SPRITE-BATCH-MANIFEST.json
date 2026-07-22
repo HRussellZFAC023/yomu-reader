@@ -195,12 +195,12 @@
       "outfitConstraints": ["South Asian adult man with neat black hair; hat-free default", "Use a beard only when the owner-selected photo supports it"],
       "propConstraints": ["Folded map may be used without readable labels", "No default hat; umbrella belongs only to scene-specific variants"],
       "sourceReferences": [
-        {"id": "aakash-dedicated-refs", "kind": "dedicated-likeness-reference", "locator": "preserved-reference:konbini-aakash-tom.png + style-aakash.png", "use": "likeness", "gate": "owner-match-required"},
-        {"id": "aakash-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"},
-        {"id": "aakash-asset-status", "kind": "asset-ledger", "locator": "/academy/art/ASSET-USAGE.json#aakash-neutral-halfbody-v001", "use": "status-evidence", "gate": "reference-only"}
+        {"id": "aakash-dedicated-refs", "kind": "dedicated-likeness-reference", "locator": "preserved-reference:konbini-aakash-tom.png + style-aakash.png", "use": "likeness", "gate": "owner-approved"},
+        {"id": "aakash-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-approved"},
+        {"id": "aakash-asset-status", "kind": "asset-ledger", "locator": "/academy/art/ASSET-USAGE.json#aakash-neutral-front-near-front-v009", "use": "status-evidence", "gate": "approved"}
       ],
-      "currentAsset": {"status": "unapproved-neutral-candidate", "paths": ["/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png"], "note": "Owner-requested preview only; release blocked pending likeness approval."},
-      "generationPriority": {"tier": 1, "rank": 16, "rationale": "High-use cast member with dedicated references and an existing neutral candidate.", "blockedBy": ["Approve or reject the neutral likeness before expanding angles or expressions."]}
+      "currentAsset": {"status": "approved-neutral-runtime", "paths": ["/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png"], "note": "Owner-approved on 2026-07-21 as the canonical neutral Aakash sprite; v005 is superseded and archived outside runtime."},
+      "generationPriority": {"tier": 1, "rank": 16, "rationale": "High-use cast member with an approved neutral identity anchor ready for expression and angle expansion.", "blockedBy": []}
     },
     {
       "id": "alex", "firstName": "Alex", "category": "classmate",

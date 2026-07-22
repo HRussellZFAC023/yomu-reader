@@ -154,8 +154,9 @@ const RASTER_COVERAGE: Partial<Record<
     },
     aakash: { 'front-near-front': {
         neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
+            status: 'approved',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
+            approvedAssetId: 'character.aakash.neutral',
         },
     } },
     peter: {

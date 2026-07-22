@@ -33,7 +33,7 @@ const CURRENT_SLOT_OVERRIDES = new Map([
     ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png', ['front-near-front', 'neutral']],
     ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'determined']],
     ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png', ['right-three-quarter', 'encouraging-listening']],
-    ['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png', ['front-near-front', 'neutral']],
+    ['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png', ['front-near-front', 'neutral']],
 ]);
 
 const SUPERSEDED_PATHS = new Set([
@@ -257,6 +257,14 @@ const output = {
         to: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
         decision: 'delete',
         status: 'deprecated-file-removed-after-zero-runtime-reference-scan',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'aakash-neutral-v005-to-owner-approved-v009',
+        character: 'aakash',
+        from: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
+        to: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
+        decision: 'delete',
+        status: 'owner-approved v009 bound to runtime; superseded v005 archived outside runtime',
         runtimeReferencesAfterMigration: [],
     }, {
         id: 'rie-neutral-to-glasses-primary',

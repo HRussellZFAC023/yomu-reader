@@ -369,7 +369,7 @@ describe('Academy human interface', () => {
             const page = screen.querySelector<HTMLElement>('.academy-character-page')!;
             const portrait = page.querySelector<HTMLImageElement>('.academy-journal-portrait')!;
 
-            expect(portrait.src).toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png');
+            expect(portrait.src).toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png');
             expect(portrait.alt).toBe('Aakash-san');
             expect(page.querySelector('h2')?.textContent).toBe('Aakash-san');
             expect(directory.hidden).toBe(true);

@@ -45,14 +45,14 @@ describe('Academy sprite batch manifest', () => {
         expect(JSON.stringify(peter)).toMatch(/remaining hair visibly lighter/i);
     });
 
-    it('records current asset state without approving review candidates', () => {
+    it('records explicit owner approvals without promoting unrelated review candidates', () => {
         const status = Object.fromEntries(ACADEMY_SPRITE_BATCH_MANIFEST.characters.map(character => [
             character.id,
             character.currentAsset.status,
         ]));
 
         expect(status.rie).toBe('approved-glasses-primary-performance-family');
-        expect(status.aakash).toBe('unapproved-neutral-candidate');
+        expect(status.aakash).toBe('approved-neutral-runtime');
         expect(status.peter).toBe('unapproved-performance-candidates');
         expect(status.felix).toBe('unapproved-performance-candidates');
         expect(status.shaun).toBe('unapproved-neutral-candidate');
@@ -61,6 +61,8 @@ describe('Academy sprite batch manifest', () => {
             .toHaveLength(3);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'sophie')?.currentAsset.paths
             .every(assetPath => assetPath.endsWith('__v003.png'))).toBe(true);
+        expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'aakash')?.currentAsset.paths)
+            .toEqual(['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png']);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.approvalPolicy).toMatchObject({
             generationDoesNotApprove: true,
             bindOnlyApprovedAssets: true,

@@ -2,7 +2,11 @@
 
 This is the sole backlog and checkbox source of truth for Academy product delivery. Story sequencing is a non-authoritative execution view in [`story/EXECUTION-LEDGER.md`](story/EXECUTION-LEDGER.md); the original Attempt 3 findings are preserved as dated evidence in [`history/ATTEMPT3-ADVERSARIAL-QA-20260716.md`](history/ATTEMPT3-ADVERSARIAL-QA-20260716.md). Neither document owns completion state.
 
-Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN.md). The plan delivers one complete chronological day at a time and derives overall progress from a 1,000-point evidence ledger; it does not create a second completion backlog.
+Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN.md). The plan delivers one complete chronological day at a time across Day 1 through Day `N`, with no arbitrary day cap. The 48 chapters are the finite core plot, not the calendar denominator. Progress comes from the dynamic evidence ledger `280 + (15 × N)` after the complete curriculum and activity map proves `N`; it does not create a second completion backlog.
+
+No day is complete until an exact availability manifest proves that every required, optional, unlocked, revisitable, repeatable, one-off, accessibility, online, and offline activity available on that date is implemented, reachable, media-complete, persistent, and journey-tested.
+
+**Current delivery checkpoint:** shared story, audio, N3, account-lifecycle, workflow, and retained upstream work are consolidated. The active task is the approved Aakash `v009` runtime promotion and manifest/build proof, followed by the minimal runnable art-grader integration. Day 1 begins only after that consolidation is committed, pushed, and synchronized with `origin/main`.
 
 ## Counting and closure contract
 

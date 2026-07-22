@@ -1410,6 +1410,7 @@ function journalLearningLines(
 }
 
 const DIRECTORY_PORTRAITS: Readonly<Partial<Record<string, string>>> = {
+    ...ACADEMY_ASSETS.characters.approved,
     ...ACADEMY_ASSETS.characters.journalReview,
 };
 

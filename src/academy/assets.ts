@@ -34,7 +34,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'character.rie.encouraging-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png' } }),
     'character.rie.sad-vulnerable-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png' } }),
     'character.rie.comedic-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png' } }),
-    'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:aakash'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png' } }),
+    'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:aakash', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:cast'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png' } }),
     'character.felix.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-after-meeting', 'journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png' } }),
     'character.felix.happy-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png' } }),
     'character.felix.surprised-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png' } }),
@@ -154,8 +154,8 @@ export const ACADEMY_LESSON_ASSET_BINDINGS = {
     'l1-l01': {
         sceneAssetId: 'location.classroom',
         sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
-        approvedCastAssetIds: { rie: 'character.rie.neutral-glasses' },
-        reviewOnlyCastCandidates: { aakash: 'character.aakash.neutral' },
+        approvedCastAssetIds: { rie: 'character.rie.neutral-glasses', aakash: 'character.aakash.neutral' },
+        reviewOnlyCastCandidates: {},
         itemAssetIds: ['item.classroom-belongings'],
         sourceMedia: [{
             purpose: 'source-homework-worksheet',
@@ -266,6 +266,7 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 }
 
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
+    aakash: assetFile('character.aakash.neutral', 'default'),
     rie: assetFile('character.rie.neutral-glasses', 'default'),
     rieHappy: assetFile('character.rie.happy-glasses-front', 'default'),
     rieDetermined: assetFile('character.rie.determined-glasses-left', 'default'),
@@ -286,6 +287,7 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
  * a story or lesson likeness approval.
  */
 const ACADEMY_APPROVED_CAST_SPRITES = {
+    aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
@@ -293,6 +295,9 @@ const ACADEMY_APPROVED_CAST_SPRITES = {
 
 /** Approved expression and angle coverage that may follow a cast member into VN scenes. */
 const ACADEMY_APPROVED_CAST_PERFORMANCES = {
+    aakash: {
+        neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
+    },
     rie: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
         happy: ACADEMY_APPROVED_CHARACTER_SPRITES.rieHappy,
@@ -316,7 +321,6 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
 /** Reference-backed cutouts that may appear only in the learner's journal. */
 const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
-    aakash: assetFile('character.aakash.neutral', 'default'),
     felix: assetFile('character.felix.neutral', 'default'),
     peter: assetFile('character.peter.neutral', 'default'),
     shaun: assetFile('character.shaun.neutral', 'default'),
@@ -348,7 +352,7 @@ export const ACADEMY_CAST_SPRITE_COVERAGE = {
     'character.rie.encouraging-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.rie.sad-vulnerable-glasses-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.rie.comedic-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.aakash.neutral': { castId: 'aakash', presentation: 'journal-review-preview', primaryUse: 'journal:aakash' },
+    'character.aakash.neutral': { castId: 'aakash', presentation: 'approved-runtime', primaryUse: 'class:people' },
     'character.felix.neutral': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-after-meeting' },
     'character.felix.happy-left': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
     'character.felix.surprised-right': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },

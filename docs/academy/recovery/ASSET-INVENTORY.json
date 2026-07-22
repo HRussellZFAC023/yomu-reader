@@ -23,12 +23,12 @@
     "currentRasterFilesAccountedFor": 114,
     "active": 105,
     "orphaned": 9,
-    "deprecated": 9,
+    "deprecated": 10,
     "deprecatedPresent": 0,
     "missingExpressionVariants": 607,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 12,
-    "reviewCandidateExpressionVariants": 11,
+    "approvedExpressionVariants": 13,
+    "reviewCandidateExpressionVariants": 10,
     "deliveredMatrixExpressionVariants": 23,
     "offMatrixDeliveredSprites": 9,
     "activeByKind": {
@@ -42,27 +42,32 @@
       "character-sprite": 9
     },
     "deprecatedByKind": {
-      "character-sprite": 9
+      "character-sprite": 10
     }
   },
   "assets": {
     "active": [
       {
-        "id": "aakash-neutral-halfbody-v001",
-        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-        "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f",
-        "ledgerSha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f",
+        "id": "aakash-neutral-front-near-front-v009",
+        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+        "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
+        "ledgerSha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
-          "journal:aakash"
+          "journal:aakash",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "lesson:l1-l01:cast"
         ],
         "reviewHomes": [],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "approved-runtime-preview",
-        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval"
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "owner-approved 2026-07-21; runtime replacement for neutral v005"
       },
       {
         "id": "felix-happy-left-three-quarter-halfbody-v001",
@@ -2095,6 +2100,22 @@
       }
     ],
     "deprecated": [
+      {
+        "id": "aakash-neutral-v005-to-owner-approved-v009",
+        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "owner-approved v009 bound to runtime; superseded v005 archived outside runtime",
+        "noDeletionPerformedByAudit": true
+      },
       {
         "id": "rie-comedic-to-glasses-primary",
         "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
@@ -7852,20 +7873,19 @@
               "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282"
             }
           ]
-        }
-      },
-      "reviewOnlyCast": {
+        },
         "aakash": {
-          "assetId": "aakash-neutral-halfbody-v001",
-          "verdict": "approved-runtime-preview",
+          "assetId": "aakash-neutral-front-near-front-v009",
+          "verdict": "approved-runtime",
           "deliveries": [
             {
-              "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-              "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f"
+              "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+              "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65"
             }
           ]
         }
       },
+      "reviewOnlyCast": {},
       "unboundNoApprovedAsset": [
         "henry",
         "jenny",

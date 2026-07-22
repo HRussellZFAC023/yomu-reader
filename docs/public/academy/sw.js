@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-3424ed42a020';
+const VERSION = 'yomu-academy-shell-s1-4792d024a437';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -41,7 +41,7 @@ const CAST_SPRITE_PRECACHE = [
     '/academy/art/ACADEMY-ASSET-REGISTRY.json',
     '/academy/art/ASSET-USAGE.json',
     '/academy/art/SPRITE-BATCH-MANIFEST.json',
-    '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
+    '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
     '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
@@ -70,8 +70,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-3424ed42a020',
-    '/academy/style.css?v=s1-3424ed42a020',
+    '/academy/app.js?v=s1-4792d024a437',
+    '/academy/style.css?v=s1-4792d024a437',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',

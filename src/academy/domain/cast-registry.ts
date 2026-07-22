@@ -51,16 +51,19 @@ const REAL_CLASS_NAMES = [
     ['peter', 'Peter'],
 ] as const;
 
-const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => ({
-    id,
-    firstName,
-    ...(id === 'angel' ? { preferredName: 'Onke' } : {}),
-    category: 'classmate' as const,
-    visualEvidence: id === 'sophie' ? 'approved' as const : 'candidate-needs-owner' as const,
-    eligibility: id === 'sophie'
-        ? { story: true, lessons: true, likenessRuntime: true } as const
-        : ELIGIBLE_WITH_PENDING_LIKENESS,
-}));
+const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
+    const likenessApproved = id === 'sophie' || id === 'aakash';
+    return {
+        id,
+        firstName,
+        ...(id === 'angel' ? { preferredName: 'Onke' } : {}),
+        category: 'classmate' as const,
+        visualEvidence: likenessApproved ? 'approved' as const : 'candidate-needs-owner' as const,
+        eligibility: likenessApproved
+            ? { story: true, lessons: true, likenessRuntime: true } as const
+            : ELIGIBLE_WITH_PENDING_LIKENESS,
+    };
+});
 
 /**
  * Canonical first-name-only Academy cast.

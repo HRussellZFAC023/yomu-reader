@@ -24,6 +24,7 @@ export type CharacterRevisitPath = Readonly<{
 }>;
 
 const CHARACTER_PORTRAITS = {
+    ...ACADEMY_ASSETS.characters.approved,
     ...ACADEMY_ASSETS.characters.journalReview,
 } as const satisfies Readonly<Partial<Record<AcademyCastMemberId, string>>>;
 

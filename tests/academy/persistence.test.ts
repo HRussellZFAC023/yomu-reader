@@ -296,7 +296,7 @@ describe('Academy IndexedDB persistence', () => {
         });
         expect(aakash).toMatchObject({
             unlocked: true,
-            portrait: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
+            portrait: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
             revisitPaths: [{
                 encounterId: 'class-week:l1-l01',
                 kind: 'class-week',

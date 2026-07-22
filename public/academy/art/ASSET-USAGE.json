@@ -32,9 +32,10 @@
       "sourceSceneReference": "academy/art/scenes/classroom-first-evening-wide.webp",
       "sceneAssetId": "classroom-evening-lamplit",
       "approvedCastAssetIds": {
-        "rie": "rie-neutral-glasses-front-near-front-halfbody-v001"
+        "rie": "rie-neutral-glasses-front-near-front-halfbody-v001",
+        "aakash": "aakash-neutral-front-near-front-v009"
       },
-      "reviewOnlyCastCandidates": { "aakash": "aakash-neutral-halfbody-v001" },
+      "reviewOnlyCastCandidates": {},
       "itemAssetIds": ["classroom-belongings-v001"],
       "sourceMedia": [
         {
@@ -113,18 +114,18 @@
       "status": "recovered-clean-alpha-review-evidence; not-runtime-bound; release-blocked-pending-owner-likeness-provenance-and-runtime-owner-approval"
     },
     {
-      "id": "aakash-neutral-halfbody-v001",
-      "source": "generated-image://019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+      "id": "aakash-neutral-front-near-front-v009",
+      "source": "owner-approved-art://2026-07-21/aakash-neutral-v009",
       "provenance": "direct-openai-image-generation",
-      "verdict": "approved-runtime-preview",
-      "runtimeHome": ["journal:aakash"],
+      "verdict": "approved-runtime",
+      "runtimeHome": ["journal:aakash", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:cast"],
       "deliveries": [
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-          "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f"
+          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65"
         }
       ],
-      "status": "owner-requested-preview; release-blocked-pending-likeness-approval"
+      "status": "owner-approved 2026-07-21; runtime replacement for neutral v005"
     },
     {
       "id": "aakash-sprite-concerned-left-three-quarter-halfbody-v005",

@@ -73,6 +73,11 @@ describe('Academy canonical cast registry', () => {
     });
 
     it('keeps approved and pending likenesses explicit', () => {
+        expect(getAcademyCastMember('aakash')).toMatchObject({
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
+        });
+        expect(canRenderAcademyCastPortrait('aakash', 'story-runtime')).toBe(true);
         expect(getAcademyCastMember('sophie')).toMatchObject({
             visualEvidence: 'approved',
             eligibility: { story: true, lessons: true, likenessRuntime: true },
