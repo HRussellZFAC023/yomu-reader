@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.275
+// @version 1.6.300
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,14 +11,14 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.64ab6b590f19.user.js#sha256=ZKtrWQ8ZPOrOOmPRt6FF4SStYMIBClN/idN1h82rfCE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.8078164e351c.user.js#sha256=gHgWTjUciJtfNWATOQ2Od6W0TPpwf1qleCoQLkVzgM0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.834adda55a71.user.js#sha256=g0rdpVpxH4l2UrfWrvIjNMK7r1HH4IAlLGXAHKgKx4g=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.832cf9ae5018.user.js#sha256=gyz5rlAY66IfRPTnNwj0AHWsHJgYlSAiEe+B1XPQ8qM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.d24b88ced86b.user.js#sha256=0kuIzthr6Iv96OLomUf5NWrv1Ds6kXJ0B7BMoA3+4NM=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.804d3c6f38ea.user.js#sha256=gE08bzjqLD9RiE/WkLQUo0EM/lQVKqr0TJ3OZp4CUE8=
-// @require https://yomureader.com/greasyfork/yomu-video.2b32247dff16.user.js#sha256=KzIkff8Wpv/vHJkjgqPD84WdlnAwCygCDZ4g+6L5IRA=
-// @resource yomuCss  https://yomureader.com/yomu.3a89a092ab56.css#sha256=OomgkqtW/j61f7QYjXSxaL3wKlw0cSX1v+SUM8yZLVM=
+// @require https://yomureader.com/greasyfork/yomu-anki.a21292fe2960.user.js#sha256=ohKS/ilgIX2S2uPzXO9uX5s5XZahir4OI1fCUgxGe14=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.e8c9a564f63f.user.js#sha256=6MmlZPY/cUy4oms3xPhZkWZyicuFXKZWyQCrk4Htnvg=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.612f3ab34644.user.js#sha256=YS86s0ZEfFtK1RmprV8jQQ2B+vvRiJMkEDo1HKL3Hhk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.1fdcf9d25c51.user.js#sha256=H9z50lxRvUm2AM6wWb0otF/sYp6htHWPDVrQC4jDhs4=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.254268591beb.user.js#sha256=JUJoWRvrTiPg53x+2AicpMTxoewCA+NdXSUVysnnj98=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.0e07b9ff40a3.user.js#sha256=Dge5/0CjIpyHV76RChP19QjS+1Z7zentumsn47+cLw4=
+// @require https://yomureader.com/greasyfork/yomu-video.1ded38a4bfde.user.js#sha256=He04pL/eZ27nn6wcS/E21sBwIKEQi5cb0yNHEopQGIE=
+// @resource yomuCss  https://yomureader.com/yomu.5bf313852b35.css#sha256=W/MThSs15EIbKdkdCXoMuyW8Txw03Hn4hJx98cqRUM4=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -886,6 +886,7 @@ const LOOKUP_PILL_COLOR_TOKENS = {
   takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
   "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
   "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+  nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
   uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
   anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
   copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
@@ -4175,6 +4176,136 @@ function finiteNumber$1(value, fallback) {
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
+let sandboxCompanions = {};
+function yomuSettingsDialogController() {
+  return yomuCompanions().settings?.SettingsDialogController;
+}
+function yomuOnboardingController() {
+  return yomuCompanions().settings?.OnboardingController;
+}
+function yomuAnkiCompanion() {
+  return yomuCompanions().anki;
+}
+function yomuVideoCompanionSlot() {
+  return yomuCompanions().video;
+}
+function yomuSubtitlePlayerController() {
+  return yomuCompanions().video?.SubtitlePlayerController;
+}
+function yomuYoutubeImmersionFilter() {
+  return yomuCompanions().video?.YoutubeImmersionFilter;
+}
+function yomuImageOcrController() {
+  return yomuCompanions().ocr?.ImageOcrController;
+}
+function yomuNormalizeOcrRenderedText() {
+  return yomuCompanions().ocr?.normalizeOcrRenderedText;
+}
+function yomuLocalDictionaries() {
+  return yomuCompanions().localDictionaries;
+}
+function yomuI18nCompanion() {
+  return yomuCompanions().i18n;
+}
+function yomuBunproCompanion() {
+  return yomuCompanions().bunpro;
+}
+function yomuKanjiStudyCompanion() {
+  return yomuCompanions().kanjiStudy;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+const CARD_STATE_LABEL_KEYS = {
+  new: "stateNew",
+  learning: "stateLearning",
+  young: "stateYoung",
+  mature: "stateMature",
+  known: "stateKnown",
+  mastered: "stateMastered",
+  due: "stateDue",
+  failed: "stateFailed",
+  locked: "stateLocked",
+  "never-forget": "stateNeverForget",
+  blacklisted: "stateBlacklisted",
+  suspended: "stateSuspended",
+  "in-deck": "stateInDeck",
+  "not-in-deck": "stateNotInDeck",
+  redundant: "stateRedundant",
+  frequent: "stateFrequent",
+  unparsed: "stateUnparsed"
+};
+function resolveUiLanguage(language) {
+  return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
+}
+function uiText(language, key) {
+  return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
+}
+function cardStateLabel(state, language, fallback = state) {
+  return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
+}
+function formatUiText(language, key, values) {
+  return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
+}
+function uiList(language, parts) {
+  return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
+}
+function fallbackResolveUiLanguage(language) {
+  if (language === "ja" || language === "en") return language;
+  const languages = typeof navigator === "undefined" ? [] : [
+  ...Array.isArray(navigator.languages) ? navigator.languages : [],
+  navigator.language
+  ];
+  return languages.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
+}
+function fallbackCardStateLabel(state, fallback) {
+  return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
+}
+function fallbackUiText(key) {
+  return String(key);
+}
+function formatTemplate(template, values) {
+  return Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+  template
+  );
+}
+function externalLinkIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M7 17 17 7"></path>
+    <path d="M9 7h8v8"></path>
+  </svg>`;
+}
+function copyIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+  </svg>`;
+}
+function ankiIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+    <path d="M12 8v8"></path>
+    <path d="M8 12h8"></path>
+  </svg>`;
+}
+function speakerIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+  </svg>`;
+}
+const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
 const MAX_DICTIONARY_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
   id: "jpdb",
@@ -4255,7 +4386,13 @@ const WIKTIONARY_LOOKUP_LINK = {
 const IMMERSION_KIT_LOOKUP_LINK = {
   id: "immersion-kit",
   label: "Immersion Kit",
-  urlTemplate: "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1",
+  urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+  enabled: false
+};
+const NADESHIKO_LOOKUP_LINK = {
+  id: "nadeshiko",
+  label: "Nadeshiko",
+  urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
   enabled: false
 };
 const UCHISEN_LOOKUP_LINK = {
@@ -4285,6 +4422,7 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   TAKOBOTO_LOOKUP_LINK,
   WIKTIONARY_LOOKUP_LINK,
   IMMERSION_KIT_LOOKUP_LINK,
+  NADESHIKO_LOOKUP_LINK,
   UCHISEN_LOOKUP_LINK,
   COPY_LOOKUP_LINK
 ];
@@ -4294,6 +4432,22 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
   COPY_LOOKUP_LINK
 ];
 const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+  YOMU_LOOKUP_LINK.id,
+  JITEN_LOOKUP_LINK.id,
+  JITEN_LIVE_FREQUENCY_PILL.id,
+  JPDB_LOOKUP_LINK.id,
+  JPDB_LIVE_FREQUENCY_PILL.id,
+  BUNPRO_LOOKUP_LINK.id,
+  BUNPRO_LIVE_FREQUENCY_PILL.id,
+  JISHO_LOOKUP_LINK.id,
+  WEBLIO_LOOKUP_LINK.id,
+  KOTOBANK_LOOKUP_LINK.id,
+  TAKOBOTO_LOOKUP_LINK.id,
+  WIKTIONARY_LOOKUP_LINK.id,
+  IMMERSION_KIT_LOOKUP_LINK.id,
+  UCHISEN_LOOKUP_LINK.id,
+  COPY_LOOKUP_LINK.id
+], [
   JITEN_LOOKUP_LINK.id,
   JITEN_LIVE_FREQUENCY_PILL.id,
   JPDB_LOOKUP_LINK.id,
@@ -4978,8 +5132,9 @@ const DEFAULT_SETTINGS = {
   immersionKitExampleSource: "immersion-kit",
   nadeshikoApiKey: "",
   immersionKitPriority: 80,
-  immersionKitLimitEnabled: true,
-  immersionKitLimit: 3,
+  immersionKitExpandedLimitMigrated20260721: true,
+  immersionKitLimitEnabled: false,
+  immersionKitLimit: 12,
   immersionKitMinLength: 8,
   immersionKitMaxLength: 80,
   immersionKitCategory: "all",
@@ -5523,14 +5678,14 @@ function normalizeOptionalIsoDateString(value) {
 function normalizeMediaSettings(value) {
   const settings = value ?? {};
   const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+  const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
   return {
   audioViaBlob: booleanSetting(value, "audioViaBlob"),
   audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
   immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
   nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
   immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-  immersionKitLimitEnabled: booleanSetting(value, "immersionKitLimitEnabled"),
-  immersionKitLimit: clampNumber(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+  ...immersionExampleLimit,
   immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
   immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
   immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
@@ -5548,6 +5703,14 @@ function normalizeMediaSettings(value) {
   ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
   ocrBackgroundOpacity,
   ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+  };
+}
+function normalizeImmersionExampleLimitSettings(value) {
+  const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
+  return {
+  immersionKitExpandedLimitMigrated20260721: true,
+  immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
+  immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
   };
 }
 function normalizeOcrTextColor(settings) {
@@ -11412,108 +11575,6 @@ function previousRubyRoomHeight(box) {
 }
 function baseVisibleInBox(baseRect, boxRect) {
   return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
-}
-let sandboxCompanions = {};
-function yomuSettingsDialogController() {
-  return yomuCompanions().settings?.SettingsDialogController;
-}
-function yomuOnboardingController() {
-  return yomuCompanions().settings?.OnboardingController;
-}
-function yomuAnkiCompanion() {
-  return yomuCompanions().anki;
-}
-function yomuVideoCompanionSlot() {
-  return yomuCompanions().video;
-}
-function yomuSubtitlePlayerController() {
-  return yomuCompanions().video?.SubtitlePlayerController;
-}
-function yomuYoutubeImmersionFilter() {
-  return yomuCompanions().video?.YoutubeImmersionFilter;
-}
-function yomuImageOcrController() {
-  return yomuCompanions().ocr?.ImageOcrController;
-}
-function yomuNormalizeOcrRenderedText() {
-  return yomuCompanions().ocr?.normalizeOcrRenderedText;
-}
-function yomuLocalDictionaries() {
-  return yomuCompanions().localDictionaries;
-}
-function yomuI18nCompanion() {
-  return yomuCompanions().i18n;
-}
-function yomuBunproCompanion() {
-  return yomuCompanions().bunpro;
-}
-function yomuKanjiStudyCompanion() {
-  return yomuCompanions().kanjiStudy;
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
-const CARD_STATE_LABEL_KEYS = {
-  new: "stateNew",
-  learning: "stateLearning",
-  young: "stateYoung",
-  mature: "stateMature",
-  known: "stateKnown",
-  mastered: "stateMastered",
-  due: "stateDue",
-  failed: "stateFailed",
-  locked: "stateLocked",
-  "never-forget": "stateNeverForget",
-  blacklisted: "stateBlacklisted",
-  suspended: "stateSuspended",
-  "in-deck": "stateInDeck",
-  "not-in-deck": "stateNotInDeck",
-  redundant: "stateRedundant",
-  frequent: "stateFrequent",
-  unparsed: "stateUnparsed"
-};
-function resolveUiLanguage(language) {
-  return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
-}
-function uiText(language, key) {
-  return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
-}
-function cardStateLabel(state, language, fallback = state) {
-  return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
-}
-function formatUiText(language, key, values) {
-  return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
-}
-function uiList(language, parts) {
-  return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
-}
-function fallbackResolveUiLanguage(language) {
-  if (language === "ja" || language === "en") return language;
-  const languages = typeof navigator === "undefined" ? [] : [
-  ...Array.isArray(navigator.languages) ? navigator.languages : [],
-  navigator.language
-  ];
-  return languages.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
-}
-function fallbackCardStateLabel(state, fallback) {
-  return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
-}
-function fallbackUiText(key) {
-  return String(key);
-}
-function formatTemplate(template, values) {
-  return Object.entries(values).reduce(
-  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-  template
-  );
 }
 class ShuffledAudioDeck {
   constructor(random = Math.random) {
@@ -18029,32 +18090,6 @@ function addLearnerTermMeaning(group, entry, key, meaningKeys) {
 }
 function summarizeLearnerGlossary(entry) {
   return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
-}
-function externalLinkIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M7 17 17 7"></path>
-    <path d="M9 7h8v8"></path>
-  </svg>`;
-}
-function copyIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-  </svg>`;
-}
-function ankiIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-    <path d="M12 8v8"></path>
-    <path d="M8 12h8"></path>
-  </svg>`;
-}
-function speakerIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
 }
 const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
 const JPDB_RELATED_WORD_STATE = "not-in-deck";
@@ -29642,6 +29677,7 @@ const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
   "[data-yomu-jpdb-addon] [data-action]",
   "[data-settings-preview-lookup]",
   ".jpdb-reader-settings .jpdb-reader-word",
+  "[data-jpdb-reader-root] .jpdb-reader-example-translation",
   ".jpdb-reader-onboarding"
 ].join(",");
 const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
@@ -35248,8 +35284,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.275"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.275"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.300"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.300"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35381,7 +35417,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.275"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.300"}`;
   } catch {
   return null;
   }

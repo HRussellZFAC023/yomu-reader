@@ -2294,6 +2294,7 @@
       reveal: "Reveal",
       revealTranslation: "Reveal translation",
       immersionExampleControls: "Immersion Kit example controls",
+      exampleSearchLinks: "Example searches",
       loadingKanjiDetails: "Loading kanji details...",
       loadingMnemonicImages: "Loading mnemonic images...",
       lookupDialog: `${APP_NAME} lookup`,
@@ -2369,6 +2370,7 @@
       discord: "Discord",
       openOnJpdb: "Open on JPDB",
       openOnLookup: "Open on {label}",
+      viewOnLookup: "View on {label}",
       copyWord: "Copy",
       copyWordTitle: "Copy word",
       copiedWord: "Copied word.",
@@ -2699,6 +2701,7 @@ loading	読み込み中...
 reveal	表示
 revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
+exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
 loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
@@ -2862,6 +2865,7 @@ nextExample	次の例文
 playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
+viewOnLookup	{label}で見る
 copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
@@ -3969,6 +3973,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
     "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
     "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+    nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
     uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
     anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
     copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
@@ -7777,6 +7782,64 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const [character, mode, data] = row;
     return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
   }
+  function externalLinkIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
+  }
+  function copyIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+    </svg>`;
+  }
+  function ankiIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+        <path d="M12 8v8"></path>
+        <path d="M8 12h8"></path>
+    </svg>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
+  }
+  const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+  const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
+  const EXTERNAL_EXAMPLE_SEARCHES = [
+    { id: "immersion-kit", label: "Immersion Kit", urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE },
+    { id: "nadeshiko", label: "Nadeshiko", urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE }
+  ];
+  function renderImmersionSearchLinksHtml(query, language) {
+    const links = externalExampleSearchLinks(query);
+    if (!links.length) return "";
+    return `
+        <div class="jpdb-reader-immersion-search-links" aria-label="${escapeHtml$2(uiText(language, "exampleSearchLinks"))}">
+            ${links.map((link) => renderExternalExampleSearchLink(link, language)).join("")}
+        </div>
+    `;
+  }
+  function renderImmersionSearchLinks(query, language) {
+    const html = renderImmersionSearchLinksHtml(query, language);
+    return html ? htmlToFirstElement(html) : null;
+  }
+  function externalExampleSearchLinks(query) {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return [];
+    return EXTERNAL_EXAMPLE_SEARCHES.map((search) => ({
+      id: search.id,
+      label: search.label,
+      url: search.urlTemplate.replace("{query}", encodeURIComponent(normalizedQuery))
+    }));
+  }
+  function renderExternalExampleSearchLink(link, language) {
+    const label = formatUiText(language, "viewOnLookup", { label: link.label });
+    return `<a class="jpdb-reader-immersion-search-link" data-immersion-search-source="${link.id}" href="${escapeHtml$2(link.url)}" target="_blank" rel="noopener">${escapeHtml$2(label)} ${externalLinkIcon()}</a>`;
+  }
   const MAX_DICTIONARY_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -7857,7 +7920,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const IMMERSION_KIT_LOOKUP_LINK = {
     id: "immersion-kit",
     label: "Immersion Kit",
-    urlTemplate: "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1",
+    urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+    enabled: false
+  };
+  const NADESHIKO_LOOKUP_LINK = {
+    id: "nadeshiko",
+    label: "Nadeshiko",
+    urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
     enabled: false
   };
   const UCHISEN_LOOKUP_LINK = {
@@ -7887,6 +7956,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
     IMMERSION_KIT_LOOKUP_LINK,
+    NADESHIKO_LOOKUP_LINK,
     UCHISEN_LOOKUP_LINK,
     COPY_LOOKUP_LINK
   ];
@@ -7896,6 +7966,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
     COPY_LOOKUP_LINK
   ];
   const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    // The Yomu-first default immediately before the Nadeshiko search pill was
+    // added. Untouched installs receive the new pill beside Immersion Kit;
+    // custom orders still keep their order and get new built-ins appended.
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    BUNPRO_LOOKUP_LINK.id,
+    BUNPRO_LIVE_FREQUENCY_PILL.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     // The jiten-first default that shipped before Yomu was promoted to the front
     // of the pill row. Users who never re-ordered their pills are migrated to the
     // current Yomu-first default order instead of being pinned to the old layout.
@@ -8597,8 +8686,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     immersionKitExampleSource: "immersion-kit",
     nadeshikoApiKey: "",
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: true,
-    immersionKitLimit: 3,
+    immersionKitExpandedLimitMigrated20260721: true,
+    immersionKitLimitEnabled: false,
+    immersionKitLimit: 12,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
     immersionKitCategory: "all",
@@ -9152,14 +9242,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizeMediaSettings(value) {
     const settings = value ?? {};
     const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
     return {
       audioViaBlob: booleanSetting(value, "audioViaBlob"),
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
       immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
       nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
       immersionKitPriority: clampNumber$3(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-      immersionKitLimitEnabled: booleanSetting(value, "immersionKitLimitEnabled"),
-      immersionKitLimit: clampNumber$3(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+      ...immersionExampleLimit,
       immersionKitMinLength: clampNumber$3(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
       immersionKitMaxLength: clampNumber$3(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
       immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
@@ -9177,6 +9267,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
       ocrBackgroundOpacity,
       ocrFontScale: clampNumber$3(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+    };
+  }
+  function normalizeImmersionExampleLimitSettings(value) {
+    const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
+    return {
+      immersionKitExpandedLimitMigrated20260721: true,
+      immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
+      immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber$3(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
     };
   }
   function normalizeOcrTextColor(settings) {
@@ -23961,32 +24059,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function builtInSourceNameKey(sourceId) {
     return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
   }
-  function externalLinkIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
-  }
-  function copyIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-    </svg>`;
-  }
-  function ankiIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-        <path d="M12 8v8"></path>
-        <path d="M8 12h8"></path>
-    </svg>`;
-  }
-  function speakerIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
-  }
   function ankiDetailsStateAttributes(options, key, initiallyOpen) {
     return options.sourceAttributes ? options.sourceAttributes(key, initiallyOpen) : initiallyOpen ? "open" : "";
   }
@@ -33791,7 +33863,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
   const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
+  const IMMERSION_POPUP_EXAMPLE_LIMIT = 12;
   const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
   const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
   const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
@@ -34192,7 +34264,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     popupSearchOptions(settings, signal) {
       const resultLimit = settings.immersionKitLimitEnabled ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT) : IMMERSION_POPUP_EXAMPLE_LIMIT;
       return {
-        requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
+        requestLimit: IMMERSION_POPUP_SEARCH_REQUEST_LIMIT,
         resultLimit,
         fastFirst: true,
         ...signal ? { signal } : {}
@@ -34295,6 +34367,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml$2(immersionExampleProviderLabel(example, language))}</span>
             </summary>
+            ${renderImmersionSearchLinksHtml(card.spelling, language)}
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
                     <span class="jpdb-reader-example-title">${escapeHtml$2(sourceLabel)}</span>
@@ -45454,7 +45527,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.275".trim() ? "1.6.275".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.300".trim() ? "1.6.300".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -85416,7 +85489,7 @@ ${entry.url}`),
     return `${now.getFullYear()}-${month}-${day}`;
   }
   const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1200;
-  const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
+  const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
   const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
   const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
@@ -91069,6 +91142,7 @@ ${entry.url}`),
           dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling }
         } : { class: "jpdb-reader-newtab-immersion" },
         this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji2 ? { showSource: true } : {}),
+        renderImmersionSearchLinks(card.spelling, settings.interfaceLanguage),
         this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls)
       );
       if (!isKanji2) this.highlightNewTabImmersionTarget(node, card);
@@ -91415,7 +91489,7 @@ ${entry.url}`),
     newTabImmersionSearchOptions(settings) {
       const resultLimit = this.newTabImmersionResultLimit(settings);
       return {
-        requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, resultLimit),
+        requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
         resultLimit,
         fastFirst: true
       };
@@ -91526,7 +91600,7 @@ ${entry.url}`),
         fallback: card.fallbackLookupTerms ?? [],
         source: settings.immersionKitExampleSource,
         nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-        requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, this.newTabImmersionResultLimit(settings)),
+        requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
         resultLimit: this.newTabImmersionResultLimit(settings),
         limitEnabled: settings.immersionKitLimitEnabled,
         limit: settings.immersionKitLimit,
