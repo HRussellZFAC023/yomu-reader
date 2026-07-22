@@ -69,6 +69,7 @@ interface TypeWordInternals {
     bindRootEvents(root: HTMLElement): void;
     setStudyStepOverrideForCard(card: JPDBCard, id: string): void;
     submitTypeWordAnswer(root: HTMLElement): void;
+    advanceTypeWordHandwriting(answer: HTMLElement, card: JPDBCard, outcome: 'correct' | 'wrong'): void;
 }
 
 function typeWordController(
@@ -424,9 +425,48 @@ describe('type-word typed answers', () => {
             renderTypeWordStep(internals, root, card);
             expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
             // Single-kanji target: one pass clears the whole word.
-            (internals as unknown as { advanceTypeWordHandwriting(a: HTMLElement, c: JPDBCard, o: 'correct' | 'wrong'): void })
-                .advanceTypeWordHandwriting(root.querySelector('[data-newtab-reading]')!, card, 'correct');
+            internals.advanceTypeWordHandwriting(root.querySelector('[data-newtab-reading]')!, card, 'correct');
             expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps kana visible and asks for only the kanji in a mixed word', () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            const cells = () => [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-type-handwriting-cell')];
+            expect(cells().map(cell => cell.textContent)).toEqual(['＿', 'み', '＿']);
+            expect(cells().map(cell => cell.dataset.fixed)).toEqual(['false', 'true', 'false']);
+            expect(cells().findIndex(cell => cell.dataset.active === 'true')).toBe(0);
+
+            internals.advanceTypeWordHandwriting(root.querySelector('[data-newtab-reading]')!, card, 'correct');
+            expect(cells().map(cell => cell.textContent)).toEqual(['飲', 'み', '＿']);
+            expect(cells().findIndex(cell => cell.dataset.active === 'true')).toBe(2);
+
+            internals.advanceTypeWordHandwriting(root.querySelector('[data-newtab-reading]')!, card, 'correct');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('falls back to typing and disables Write for kana-only words', () => {
+        const card = typeCard({ spelling: 'おはよう', reading: 'おはよう', sentence: '朝におはようと言う。' });
+        const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            expect(root.querySelector('[data-newtab-type-input]')).not.toBeNull();
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
+            const modes = [...root.querySelectorAll<HTMLButtonElement>('.jpdb-reader-newtab-type-mode')];
+            expect(modes).toHaveLength(2);
+            expect(modes[0]?.textContent).toBe('Type');
+            expect(modes[0]?.dataset.active).toBe('true');
+            expect(modes[1]?.disabled).toBe(true);
         } finally {
             controller.destroy();
         }

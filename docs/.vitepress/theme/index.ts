@@ -210,6 +210,15 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Type practice now uses a balanced tablet and desktop control scale: the answer field is narrower with restrained text, Check has a normal action-label size, secondary controls share consistent touch targets, and Type/Write clearly shows which mode is selected.': '入力練習では、タブレットとデスクトップの操作サイズを整えました。解答欄は文字と幅を抑え、確認ボタンは通常のアクションラベルサイズにし、補助操作のタップ領域を揃え、入力・手書きのどちらが選択中か明確に表示します。',
+    'Handwriting now keeps kana visible as scaffolding and grades only the kanji in mixed words. 飲み物 appears as ＿み＿ and advances from 飲 directly to 物. Kana-only words stay in Type mode with the unavailable Write option disabled.': '手書きでは、混合表記のかなを手がかりとして表示したまま漢字だけを採点します。飲み物は＿み＿と表示され、飲から直接物へ進みます。かなだけの単語は入力モードのままになり、利用できない手書き操作は無効になります。',
+    'Produce the word': '単語を再現する',
+    '— type its spelling or reading, or choose': '— 表記または読みを入力するか、',
+    'Write': '手書き',
+    'to draw its kanji. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.': 'を選んで漢字を書きます。混合表記ではかなをそのまま表示し、飲み物は＿み＿になります。かなだけの単語は入力モードのままです。',
+    'A fresh standalone session starts at its first enabled learning step —': '新しい単独セッションは、有効な最初の学習ステップ（',
+    'Kanji 1': 'Kanji 1',
+    'by default — before moving through the rest of the sequence.': 'が既定）から始まり、残りの順序へ進みます。',
     'Short controls, menu rows, and other compact annotation targets now finish Jiten detail hydration when the normal request cap lands inside a multi-token label. Furigana and pitch underlines no longer stop partway through compounds such as': '短いコントロール、メニュー行、その他のコンパクトな注釈対象では、通常のリクエスト上限が複数トークンのラベル途中に達しても、Jitenの詳細取得をその対象の最後まで完了するようになりました。ふりがなとピッチ下線が、次のような複合ラベルの途中で止まらなくなります：',
     'or replace only the first half of': 'また、次のラベルの前半だけが置き換わることもありません：',
     '; the bounded fix applies to the same structure on every site.': '。この上限付き修正は、すべてのサイトで同じ構造に適用されます。',

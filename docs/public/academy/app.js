@@ -251043,13 +251043,14 @@ ${spelling}`);
       typeWordModeGroup: "Type-word input mode",
       typeWordModeKeyboard: "Type",
       typeWordModeHandwriting: "Write",
-      typeWordPlaceholder: "Write the word",
+      typeWordHandwritingUnavailable: "This word has no kanji to handwrite",
+      typeWordPlaceholder: "Type the word",
       typeWordTryAgain: "Not quite — try again",
       typeWordSkip: "Skip",
       typeWordSkipped: "Skipped",
-      typeWordWriteChar: "Write the next character",
+      typeWordWriteChar: "Write the highlighted kanji — kana stays in place",
       typeWordProgress: "Handwriting progress",
-      typeWordAllDone: "Whole word written",
+      typeWordAllDone: "Kanji written",
       studyTourType: "Produce the word — type or write it.",
       studySummaryLabel: "Step results",
       studySummaryKanji: "Kanji",
@@ -251323,13 +251324,14 @@ ${spelling}`);
     typeWordModeGroup: "単語入力モード",
     typeWordModeKeyboard: "入力",
     typeWordModeHandwriting: "手書き",
-    typeWordPlaceholder: "単語を書く",
+    typeWordHandwritingUnavailable: "この単語には手書きする漢字がありません",
+    typeWordPlaceholder: "単語を入力",
     typeWordTryAgain: "もう一度入力してください",
     typeWordSkip: "スキップ",
     typeWordSkipped: "スキップ",
-    typeWordWriteChar: "次の文字を書いてください",
+    typeWordWriteChar: "強調された漢字を書いてください。かなはそのまま表示されます",
     typeWordProgress: "手書きの進捗",
-    typeWordAllDone: "単語をすべて書けました",
+    typeWordAllDone: "漢字を書けました",
     studyTourType: "単語を書き出します。入力か手書きで。",
     studySummaryLabel: "ステップの結果",
     studySummaryKanji: "漢字",
@@ -295035,7 +295037,9 @@ ${entry2.url}`),
     renderTypeWordAnswer(answer2, card) {
       if (!answer2) return;
       delete answer2.dataset.newtabAnswerDetailsRequest;
-      const mode = this.typeWordInputMode();
+      const configuredMode = this.typeWordInputMode();
+      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
+      const mode = configuredMode === "handwriting" && supportsHandwriting ? "handwriting" : "keyboard";
       const feedback2 = this.stepState(cardKey(card))?.type?.feedback;
       answer2.dataset.typeWordMode = mode;
       answer2.dataset.typeWordOutcome = feedback2 ?? "pending";
@@ -295051,9 +295055,9 @@ ${entry2.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-type-secondary" },
-          this.renderTypeWordModeToggle(mode),
+          this.renderTypeWordModeToggle(mode, card),
           el("button", {
-            class: "jpdb-reader-btn jpdb-reader-newtab-type-skip",
+            class: "jpdb-reader-newtab-type-skip",
             type: "button",
             dataset: { newtabAction: "type-word-skip" }
           }, this.text("typeWordSkip"))
@@ -295062,12 +295066,15 @@ ${entry2.url}`),
       if (mode === "handwriting") this.installTypeWordDoodle(answer2, card);
       else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer2);
     }
-    renderTypeWordModeToggle(mode) {
+    renderTypeWordModeToggle(mode, card) {
+      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
       const button2 = (value, label) => el("button", {
-        class: "jpdb-reader-btn jpdb-reader-newtab-type-mode",
+        class: "jpdb-reader-newtab-type-mode",
         type: "button",
         dataset: { newtabAction: "type-word-mode", typeWordMode: value, active: String(mode === value) },
-        "aria-pressed": String(mode === value)
+        "aria-pressed": String(mode === value),
+        disabled: value === "handwriting" && !supportsHandwriting,
+        title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
       }, label);
       return el(
         "div",
@@ -295106,24 +295113,28 @@ ${entry2.url}`),
         }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
       );
     }
-    // Handwriting produces the word one character at a time. Only kanji are
-    // graded against KanjiVG; kana and kanji with no stroke reference auto-pass
-    // and advance, so a mixed word like 飲み物 asks for 飲 and 物 but skips み.
+    // Handwriting grades only the word's kanji. Kana remains visible as fixed
+    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // to scribble a token stroke merely to advance past み.
     renderTypeWordHandwriting(card) {
       const target2 = this.typeWordTarget(card);
       const chars = Array.from(target2);
-      const progress2 = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+      const progress2 = this.typeWordHandwritingProgress(card, chars);
       return el(
         "div",
         { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress2) } },
         el(
           "div",
           { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": this.text("typeWordProgress") },
-          chars.map((character, index) => el("span", {
-            class: "jpdb-reader-newtab-type-handwriting-cell",
-            lang: "ja",
-            dataset: { done: String(index < progress2), active: String(index === progress2) }
-          }, index < progress2 ? character : "＿"))
+          chars.map((character, index) => {
+            const fixed = !isKanjiCharacter(character);
+            const done = !fixed && index < progress2;
+            return el("span", {
+              class: "jpdb-reader-newtab-type-handwriting-cell",
+              lang: "ja",
+              dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress2) }
+            }, fixed || done ? character : "＿");
+          })
         ),
         progress2 >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
         this.kanjiDoodleFront()
@@ -295131,7 +295142,7 @@ ${entry2.url}`),
     }
     installTypeWordDoodle(answer2, card) {
       const chars = Array.from(this.typeWordTarget(card));
-      const progress2 = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+      const progress2 = this.typeWordHandwritingProgress(card, chars);
       if (progress2 >= chars.length) return;
       const current = chars[progress2] ?? "";
       installKanjiDoodle(answer2, () => this.dependencies.getSettings().interfaceLanguage, {
@@ -295164,8 +295175,8 @@ ${entry2.url}`),
     advanceTypeWordHandwriting(answer2, card, charOutcome) {
       const key2 = cardKey(card);
       const chars = Array.from(this.typeWordTarget(card));
-      const progress2 = Math.min(this.typeHandwritingProgress.get(key2) ?? 0, chars.length);
-      const next = Math.min(progress2 + 1, chars.length);
+      const progress2 = this.typeWordHandwritingProgress(card, chars);
+      const next = this.nextTypeWordHandwritingIndex(chars, progress2 + 1);
       this.typeHandwritingProgress.set(key2, next);
       if (next >= chars.length) {
         this.recordTypeOutcome(card, charOutcome === "wrong" ? "incorrect" : "correct");
@@ -295175,6 +295186,20 @@ ${entry2.url}`),
       }
       const root = answer2.closest(".jpdb-reader-newtab");
       if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+    }
+    typeWordSupportsHandwriting(card) {
+      return Array.from(this.typeWordTarget(card)).some(isKanjiCharacter);
+    }
+    typeWordHandwritingProgress(card, chars = Array.from(this.typeWordTarget(card))) {
+      const key2 = cardKey(card);
+      const stored = Math.min(this.typeHandwritingProgress.get(key2) ?? 0, chars.length);
+      const normalized2 = this.nextTypeWordHandwritingIndex(chars, stored);
+      if (normalized2 !== stored) this.typeHandwritingProgress.set(key2, normalized2);
+      return normalized2;
+    }
+    nextTypeWordHandwritingIndex(chars, start) {
+      const relative = chars.slice(start).findIndex(isKanjiCharacter);
+      return relative < 0 ? chars.length : start + relative;
     }
     typeWordTarget(card) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));

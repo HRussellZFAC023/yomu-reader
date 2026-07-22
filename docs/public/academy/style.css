@@ -2766,16 +2766,16 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-type-form {
-  width: min(100%, 680px);
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  width: min(100%, 620px);
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 8px;
 }
 
 .jpdb-reader-newtab-type-form .jpdb-reader-newtab-term-audio {
-  width: 48px;
-  min-width: 48px;
-  height: 48px;
-  min-height: 48px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   margin: 0;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
@@ -2787,7 +2787,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-recall-input {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 50px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   padding: 8px 12px;
@@ -2795,7 +2795,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-text);
   -webkit-text-fill-color: var(--jpdb-reader-text);
   caret-color: var(--jpdb-reader-accent);
-  font: 820 clamp(1.35rem, 4.5vw, 2.15rem) / 1.1 var(--jpdb-reader-font);
+  font: 760 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);
   text-align: center;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 52%, transparent);
 }
@@ -2829,14 +2829,15 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: color-mix(in srgb, var(--jpdb-reader-state-known) 8%, var(--jpdb-reader-surface));
 }
 
-.jpdb-reader-newtab-recall-check {
-  min-height: 48px;
+.jpdb-reader-newtab .jpdb-reader-newtab-recall-check {
+  min-height: 50px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
   border-radius: 8px;
   padding: 0 14px;
   background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 82%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
-  font: 820 12px / 1 var(--jpdb-reader-font);
+  font: 820 14px / 1 var(--jpdb-reader-font);
+  white-space: nowrap;
 }
 
 .jpdb-reader-newtab-recall-result {
@@ -2868,19 +2869,29 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border: 1px solid var(--jpdb-reader-border);
 }
 
-.jpdb-reader-newtab-type-mode {
-  min-height: 32px;
-  padding: 0 14px;
-  border: 0;
+.jpdb-reader-newtab .jpdb-reader-newtab-type-mode {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 820 12px / 1 var(--jpdb-reader-font);
+  font: 820 13px / 1 var(--jpdb-reader-font);
+  cursor: pointer;
 }
 
-.jpdb-reader-newtab-type-mode[data-active="true"] {
+.jpdb-reader-newtab .jpdb-reader-newtab-type-mode[data-active="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 46%, transparent);
   background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 82%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+}
+
+.jpdb-reader-newtab .jpdb-reader-newtab-type-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
 }
 
 .jpdb-reader-newtab-type-result[data-newtab-type-result="correct"],
@@ -2893,21 +2904,32 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-type-secondary {
-  width: min(100%, 680px);
+  width: min(100%, 620px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.jpdb-reader-newtab-type-skip {
-  min-height: 32px;
-  padding: 0 14px;
+.jpdb-reader-newtab .jpdb-reader-newtab-type-skip {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 820 12px / 1 var(--jpdb-reader-font);
+  font: 820 13px / 1 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .jpdb-reader-newtab .jpdb-reader-newtab-type-mode,
+  .jpdb-reader-newtab .jpdb-reader-newtab-type-skip {
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -2918,7 +2940,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-newtab-type-form .jpdb-reader-newtab-term-audio {
     width: 44px;
     min-width: 44px;
-    height: 48px;
+    height: 44px;
   }
 
   .jpdb-reader-newtab-type-form .jpdb-reader-newtab-recall-check {
@@ -2955,6 +2977,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-type-handwriting-cell[data-done="true"] {
   color: var(--jpdb-reader-state-known);
+}
+
+.jpdb-reader-newtab-type-handwriting-cell[data-fixed="true"] {
+  color: var(--jpdb-reader-text);
 }
 
 .jpdb-reader-newtab-type-handwriting-cell[data-active="true"] {

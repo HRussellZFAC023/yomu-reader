@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.407] - 2026-07-22
+
+### Changed
+
+- Type practice now uses a balanced tablet and desktop control scale: the answer field is narrower with restrained text, Check has a normal action-label size, secondary controls share consistent touch targets, and Type/Write clearly shows which mode is selected.
+- Handwriting now keeps kana visible as scaffolding and grades only the kanji in mixed words. 飲み物 appears as ＿み＿ and advances from 飲 directly to 物. Kana-only words stay in Type mode with the unavailable Write option disabled.
+
 ## [1.6.406] - 2026-07-22
 
 ### Fixed
