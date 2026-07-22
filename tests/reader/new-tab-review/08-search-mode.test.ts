@@ -275,7 +275,7 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
         });
 
-        expect(searchWordSummaryMeta(card, context)).toEqual(['#32900']);
+        expect(searchWordSummaryMeta(card, context)).toEqual([]);
     });
 
     it('keeps search result readings in ruby when page furigana is disabled', () => {
@@ -293,7 +293,7 @@ describe('new tab review — search mode', () => {
         });
 
         const root = renderSearchWordResults([card], context);
-        expect(searchWordSummaryMeta(card, context)).toEqual(['#32900']);
+        expect(searchWordSummaryMeta(card, context)).toEqual([]);
         expect(root.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('がくしゅうのうりょく');
     });
 
@@ -1027,7 +1027,7 @@ describe('new tab review — search mode', () => {
             expect(wordButtons[0]?.textContent).toContain('自動販売機');
             expect(wordButtons[0]?.textContent).toContain('vending machine');
             const meta = root.querySelector<HTMLElement>('[data-search-word-meta="1318480:0:自動販売機:じどうはんばいき"]');
-            expect(meta?.textContent).toBe('#18900');
+            expect(meta?.textContent).not.toContain('#18900');
             const kanjiMeta = root.querySelector<HTMLElement>('[data-newtab-action="search-result-kanji"][data-kanji="自"] .jpdb-reader-newtab-search-meta');
             expect(kanjiMeta?.textContent).not.toContain('自動販売機');
             expect(kanjiMeta?.textContent).toContain('自動');
@@ -1762,7 +1762,7 @@ describe('new tab review — search mode', () => {
             const meta = root.querySelector<HTMLElement>('.jpdb-reader-newtab-search-meta')!;
 
             expect(term.querySelector('rt')?.textContent).toContain('がくしゅうのうりょく');
-            expect(meta.textContent).toContain('#32900');
+            expect(meta.textContent).not.toContain('#32900');
             expect(meta.textContent).not.toContain('がくしゅうのうりょく');
         } finally {
             root.remove();
@@ -1794,7 +1794,7 @@ describe('new tab review — search mode', () => {
 
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#32900');
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent ?? '').not.toContain('#32900');
     });
 
     it('renders search-row ruby under selective furigana modes instead of dropping the reading entirely', () => {

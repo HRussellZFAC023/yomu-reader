@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.403
+// @version 1.6.404
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,14 +11,14 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.a21292fe2960.user.js#sha256=ohKS/ilgIX2S2uPzXO9uX5s5XZahir4OI1fCUgxGe14=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.e8c9a564f63f.user.js#sha256=6MmlZPY/cUy4oms3xPhZkWZyicuFXKZWyQCrk4Htnvg=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.612f3ab34644.user.js#sha256=YS86s0ZEfFtK1RmprV8jQQ2B+vvRiJMkEDo1HKL3Hhk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.1fdcf9d25c51.user.js#sha256=H9z50lxRvUm2AM6wWb0otF/sYp6htHWPDVrQC4jDhs4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.c8a39e048c7d.user.js#sha256=yKOeBIx9DA90fuu5ydX8xCsAjiIBZFk1Hkv9IstWrdU=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.64a7fdc2ab32.user.js#sha256=ZKf9wqsyetNAGdPqhRNVsjKTlmw2uM59DSXLDa85uWE=
-// @require https://yomureader.com/greasyfork/yomu-video.1ded38a4bfde.user.js#sha256=He04pL/eZ27nn6wcS/E21sBwIKEQi5cb0yNHEopQGIE=
-// @resource yomuCss  https://yomureader.com/yomu.de23e354c277.css#sha256=3iPjVMJ3kTkEYhdx91llVPIci58zEb+39Zj0JMRS8F8=
+// @require https://yomureader.com/greasyfork/yomu-anki.cb627313461d.user.js#sha256=y2JzE0YdIOG9+4YhmBQPIMvhXNKcC0mQxwUyrXswIWY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.655f41280913.user.js#sha256=ZV9BKAkT0wa+ro2celH3m2r9ZAAghq+zTKCsEPzl7N0=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
+// @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
+// @resource yomuCss  https://yomureader.com/yomu.f77c1eff9e04.css#sha256=93we/54EQvMY7n3z84yv4HOdr5zCFnkVMxJEqgEnOtw=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -603,7 +603,7 @@ const RENDERED_WORD_CARD_STATES = [
   "frequent",
   "unparsed"
 ];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
 const BUNPRO_FILLABLE_CARD_STATES = new Set(["", "not-in-deck"]);
@@ -702,6 +702,7 @@ function setRenderedWordCardIdentity(word, card, options = {}) {
   if (!preserveState) {
   clearRenderedWordCardStateClasses(word);
   delete word.dataset.bunproState;
+  delete word.dataset.srsProvider;
   clearRenderedWordDeckMembershipClasses(word, ["anki"]);
   }
   word.dataset.vid = String(card.vid);
@@ -721,6 +722,20 @@ function setRenderedWordCardIdentity(word, card, options = {}) {
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
+}
+function applyLocalYomuSrsStateToRenderedWord(word, card) {
+  const state = primaryCardState(card.cardState);
+  const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
+  clearRenderedWordCardStateClasses(word);
+  delete word.dataset.bunproState;
+  delete word.dataset.bunproPrefillState;
+  delete word.dataset.bunproPrefillProvenance;
+  word.dataset.cardState = state;
+  word.dataset.srsProvider = "yomu-local";
+  word.dataset.stateProvenance = "authoritative";
+  word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+  if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+  return changed;
 }
 function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
   return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
@@ -2228,22 +2243,22 @@ function wakeShadowHostPoll() {
 }
 function pollPotentialShadowHosts() {
   potentialShadowHostTimer = void 0;
-  for (const pending of potentialShadowHosts) {
-  const host = pending.ref.deref();
+  for (const pending2 of potentialShadowHosts) {
+  const host = pending2.ref.deref();
   if (!host || !host.isConnected) {
-    potentialShadowHosts.delete(pending);
+    potentialShadowHosts.delete(pending2);
     if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
     continue;
   }
   if (host.shadowRoot) {
-    potentialShadowHosts.delete(pending);
+    potentialShadowHosts.delete(pending2);
     noteShadowRoot(host.shadowRoot, "attached");
     continue;
   }
-  if (pending.remainingPolls <= 1) {
-    potentialShadowHosts.delete(pending);
+  if (pending2.remainingPolls <= 1) {
+    potentialShadowHosts.delete(pending2);
   } else {
-    pending.remainingPolls -= 1;
+    pending2.remainingPolls -= 1;
   }
   }
   schedulePotentialShadowHostPoll();
@@ -2714,6 +2729,12 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+function isPrivateManagedStorageKey(key) {
+  return key.startsWith("yomu:private:");
+}
+function isBridgeManagedStorageKey(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key);
+}
 const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
   showFurigana: true,
   furiganaMode: "all",
@@ -3080,10 +3101,10 @@ async function handleStorageBridgeRequest(detail, accessors) {
   const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
   try {
   if (detail.op === "list") {
-    send({ ok: true, keys: await accessors.listValues() });
+    send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
     return;
   }
-  if (!detail.key || !isManagedStorageKey(detail.key)) {
+  if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
     send({ ok: false, found: false, message: "Unmanaged storage key." });
     return;
   }
@@ -3128,8 +3149,8 @@ function storageBridgeRequest(request) {
 }
 const MISSING$1 = { __yomuStorageBridgeMissing: true };
 function gmStorageAccessors() {
-  const getValue = directGmGetValue();
-  const setValue = directGmSetValue();
+  const getValue = directGmGetValue$1();
+  const setValue = directGmSetValue$1();
   const deleteValue = directGmDeleteValue();
   const listValues = directGmListValues();
   if (!getValue || !setValue) return null;
@@ -3140,12 +3161,12 @@ function gmStorageAccessors() {
   listValues: listValues ?? (() => [])
   };
 }
-function directGmGetValue() {
+function directGmGetValue$1() {
   if (typeof GM_getValue === "function") return GM_getValue;
   const modern = globalThis.GM?.getValue;
   return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
 }
-function directGmSetValue() {
+function directGmSetValue$1() {
   if (typeof GM_setValue === "function") return GM_setValue;
   const modern = globalThis.GM?.setValue;
   return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
@@ -3327,6 +3348,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
   { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
   { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
   { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
@@ -3390,6 +3414,7 @@ const MANAGED_CACHE_NAME_PREFIXES = [
   "yomu-video-player-",
   "yomu-docs-shell-"
 ];
+const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
 function hasAsyncGmStorageBackend() {
   return asyncGmGetValue() !== null;
 }
@@ -3427,6 +3452,84 @@ async function gmStorageGet(key, fallback) {
   localStorageSet(key, fallback);
   }
   return fallback;
+}
+async function gmPrivateStorageGet(key, fallback) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  if (!getValue) return fallback;
+  try {
+  const value = await getValue(key, MISSING);
+  return isMissingSentinel(value) ? fallback : value;
+  } catch (error) {
+  debugStorageError("Private GM storage read failed", key, error);
+  return fallback;
+  }
+}
+async function withGmStorageLease(name, operation, options = {}) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  const deleteValue = asyncGmDeleteValue();
+  const listValues = asyncGmListValues();
+  if (!getValue || !setValue || !deleteValue || !listValues) {
+  return withWebStorageLock(name, operation);
+  }
+  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
+  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
+  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
+  const owner = createFactoryResetId();
+  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+  const key = `${prefix}${owner}`;
+  const startedAt = Date.now();
+  let claim = {
+  version: 1,
+  owner,
+  choosing: true,
+  ticket: 0,
+  leaseUntil: startedAt + leaseMs
+  };
+  await setValue(key, claim);
+  try {
+  const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
+  const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+  claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+  await setValue(key, claim);
+  while (true) {
+    const now = Date.now();
+    if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
+    const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+    if (!blocked) break;
+    if (claim.leaseUntil - now <= leaseMs / 2) {
+      claim = { ...claim, leaseUntil: now + leaseMs };
+      await setValue(key, claim);
+    }
+    await storageLeaseDelay(pollMs);
+  }
+  let renewalStopped = false;
+  let renewal = Promise.resolve();
+  const renewalTimer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (renewalStopped) return;
+      claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+      await setValue(key, claim);
+    }).catch((error) => debugStorageError("GM storage lease renewal failed", key, error));
+  }, Math.max(250, Math.floor(leaseMs / 3)));
+  try {
+    return await operation();
+  } finally {
+    renewalStopped = true;
+    clearInterval(renewalTimer);
+    await renewal;
+  }
+  } finally {
+  try {
+    await deleteValue(key);
+  } catch (error) {
+    debugStorageError("GM storage lease release failed", key, error);
+  }
+  }
 }
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -3505,6 +3608,19 @@ async function gmStorageSet(key, value) {
   }
   localStorageSet(key, localFallbackValueForWrite(key, value));
 }
+async function gmPrivateStorageSet(key, value) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const setValue = directGmSetValue();
+  if (!setValue) throw new Error("Secure extension storage is unavailable.");
+  try {
+  await setValue(key, value);
+  } catch (error) {
+  debugStorageError("Private GM storage write failed", key, error);
+  throw new Error("Secure extension storage is unavailable.");
+  }
+}
 function gmStorageSetSync(key, value) {
   if (typeof GM_setValue === "function") {
   try {
@@ -3531,6 +3647,9 @@ async function gmStorageDelete(key) {
   }
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
+}
+function assertPrivateStorageKey(key) {
+  if (!isPrivateManagedStorageKey(key)) throw new TypeError("Private storage requires a yomu:private: key.");
 }
 function gmStorageDeleteSync(key) {
   if (typeof GM_deleteValue === "function") {
@@ -3631,6 +3750,15 @@ function subscribeToStoredValueChanges(key, onChange) {
   addWebStorageCleanup(cleanups, key, (event) => {
   onChange(JSON.parse(event.newValue || "null"));
   });
+  const extensionChanges = extensionStorageChangedEvent();
+  if (extensionChanges) {
+  const listener = (changes, areaName) => {
+    if (areaName !== "local" || !(key in changes)) return;
+    onChange(changes[key]?.newValue);
+  };
+  extensionChanges.addListener(listener);
+  cleanups.push(() => extensionChanges.removeListener(listener));
+  }
   return () => runStorageCleanups(cleanups);
 }
 function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
@@ -3764,7 +3892,7 @@ function cacheManagedValueForHostedStartup(key, value) {
   mirrorManagedValueToHostedStorage(key, value);
 }
 function shouldMirrorManagedValueToHostedStorage(key) {
-  return isManagedStorageKey(key) && isHostedYomuOrigin();
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
 }
 function isHostedYomuOrigin() {
   try {
@@ -3828,20 +3956,46 @@ function asyncGmGetValue() {
   if (typeof GM_getValue === "function") return GM_getValue;
   const modern = globalThis.GM?.getValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
   const bridge = getUserscriptGmStorage();
   return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  } : null;
 }
 function asyncGmSetValue() {
   if (typeof GM_setValue === "function") return GM_setValue;
   const modern = globalThis.GM?.setValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key, value) => extension.set({ [key]: value });
   const bridge = getUserscriptGmStorage();
   return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function directGmSetValue() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
 }
 function asyncGmDeleteValue() {
   if (typeof GM_deleteValue === "function") return GM_deleteValue;
   const modern = globalThis.GM?.deleteValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key) => extension.remove(key);
   const bridge = getUserscriptGmStorage();
   return bridge ? (key) => bridge.deleteValue(key) : null;
 }
@@ -3850,8 +4004,24 @@ function asyncGmListValues() {
   if (typeof directListValues === "function") return directListValues;
   const modern = globalThis.GM?.listValues;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
   const bridge = getUserscriptGmStorage();
   return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  const candidate = globalThis;
+  const browser = candidate.browser;
+  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+  const chrome = candidate.chrome;
+  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+  return null;
+}
+function extensionStorageChangedEvent() {
+  const candidate = globalThis;
+  if (candidate.browser?.runtime?.id && candidate.browser.storage?.onChanged) return candidate.browser.storage.onChanged;
+  if (candidate.chrome?.runtime?.id && candidate.chrome.storage?.onChanged) return candidate.chrome.storage.onChanged;
+  return null;
 }
 function normalizeFactoryResetSignal(signal) {
   return {
@@ -3916,6 +4086,35 @@ function publishBroadcastFactoryResetSignal(signal) {
 }
 function createFactoryResetId() {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+async function readStorageLeaseClaims(prefix, listValues, getValue, now) {
+  const keys = (await listValues()).filter((key) => key.startsWith(prefix));
+  const values = await Promise.all(keys.map((key) => getValue(key, null)));
+  return values.flatMap((value) => {
+  const claim = parseStorageLeaseClaim(value);
+  return claim && claim.leaseUntil > now ? [claim] : [];
+  });
+}
+function parseStorageLeaseClaim(value) {
+  if (!isPlainRecord(value) || value.version !== 1 || typeof value.owner !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+  return value;
+}
+function normalizedStorageLeaseName(name) {
+  const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+  if (!normalized) throw new TypeError("Storage lease name is required.");
+  return normalized;
+}
+function boundedLeaseOption(value, fallback, minimum, maximum) {
+  if (value === void 0) return fallback;
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+  return value;
+}
+function storageLeaseDelay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+async function withWebStorageLock(name, operation) {
+  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
+  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
 }
 function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -12528,12 +12727,12 @@ async function requestHttp(url, options = {}) {
     return await requestViaFetch(url, options, userscriptRequest ?? null);
   } catch (error) {
     if (!userscriptRequest) throw error;
-    return await requestViaUserscript(url, options, userscriptRequest);
+    return await requestViaUserscript$1(url, options, userscriptRequest);
   }
   }
   if (userscriptRequest) {
   try {
-    return await requestViaUserscript(url, options, userscriptRequest);
+    return await requestViaUserscript$1(url, options, userscriptRequest);
   } catch (error) {
     if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
     userscriptRequest = void 0;
@@ -12541,7 +12740,7 @@ async function requestHttp(url, options = {}) {
   }
   return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
-function requestViaUserscript(url, options, userscriptRequest) {
+function requestViaUserscript$1(url, options, userscriptRequest) {
   return new Promise((resolve, reject) => {
   const signal = options.signal;
   if (signal?.aborted) {
@@ -15610,6 +15809,9 @@ function cardStateSignalCard(card) {
   cardState: [...card.cardState],
   pitchAccent: [...card.pitchAccent],
   source: card.source,
+  reviewSource: card.reviewSource,
+  dueAt: card.dueAt,
+  lastReviewAt: card.lastReviewAt,
   deckNames: card.deckNames ? [...card.deckNames] : void 0,
   ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
   jpdbDeckMembership: card.jpdbDeckMembership,
@@ -15701,6 +15903,9 @@ function parseCardStateSignal(value) {
     cardState: card.cardState,
     pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
     source: card.source ?? "jpdb",
+    reviewSource: typeof card.reviewSource === "string" ? card.reviewSource : void 0,
+    dueAt: card.dueAt === null || typeof card.dueAt === "number" ? card.dueAt : void 0,
+    lastReviewAt: card.lastReviewAt === null || typeof card.lastReviewAt === "number" ? card.lastReviewAt : void 0,
     deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
     ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
     jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
@@ -15768,6 +15973,585 @@ function isSpecialJpdbDeck(settings, deck) {
 }
 function normalizeDeckChoiceRenderOptions(value) {
   return typeof value === "boolean" ? { includeJpdb: value } : value;
+}
+function cssColorToHex(value, backdrop) {
+  const color = cssColorToRgba(value);
+  if (!color) return null;
+  if (color.alpha >= 1) return rgbaToHex(color);
+  return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
+}
+function cssColorToRgba(value) {
+  const color = value.trim().toLowerCase();
+  if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
+  if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
+  if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
+  if (color.startsWith("oklab(")) return parseOklabFunction(color);
+  if (color.startsWith("oklch(")) return parseOklchFunction(color);
+  return probeCssColor(color);
+}
+const probedColors = new Map();
+let probeContext;
+function probeCssColor(color) {
+  const cached = probedColors.get(color);
+  if (cached !== void 0) return cached;
+  if (probeContext === void 0) {
+  try {
+    probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+  } catch {
+    probeContext = null;
+  }
+  }
+  let parsed = null;
+  if (probeContext) {
+  try {
+    probeContext.fillStyle = "#010203";
+    probeContext.fillStyle = color;
+    const serialized = String(probeContext.fillStyle).toLowerCase();
+    if (serialized !== "#010203") {
+      if (serialized.startsWith("#")) {
+        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+        parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+      } else if (serialized.startsWith("rgb")) {
+        parsed = parseRgbFunction(serialized);
+      } else if (serialized.startsWith("color(srgb ")) {
+        parsed = parseSrgbFunction(serialized);
+      }
+      if (!parsed) parsed = probePixelColor(probeContext, color);
+    }
+  } catch {
+    parsed = null;
+  }
+  }
+  if (probedColors.size > 512) probedColors.clear();
+  probedColors.set(color, parsed);
+  return parsed;
+}
+function probePixelColor(context, color) {
+  try {
+  context.canvas.width = 1;
+  context.canvas.height = 1;
+  context.clearRect(0, 0, 1, 1);
+  context.fillStyle = color;
+  context.fillRect(0, 0, 1, 1);
+  const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
+  return { red, green, blue, alpha: alphaByte / 255 };
+  } catch {
+  return null;
+  }
+}
+function blendRgba(foreground, background) {
+  const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+  if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+  const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
+  return {
+  red: channel(foreground.red, background.red),
+  green: channel(foreground.green, background.green),
+  blue: channel(foreground.blue, background.blue),
+  alpha
+  };
+}
+function rgbaToHex(color) {
+  return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
+}
+function expandHexColor(value) {
+  return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
+}
+function hexToRgbaColor(color) {
+  const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
+  return { red, green, blue, alpha: 1 };
+}
+function parseRgbFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return {
+  red: parseRgbChannel(parts[0]),
+  green: parseRgbChannel(parts[1]),
+  blue: parseRgbChannel(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  };
+}
+function parseSrgbFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return {
+  red: parseSrgbChannel(parts[0]),
+  green: parseSrgbChannel(parts[1]),
+  blue: parseSrgbChannel(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  };
+}
+function parseOklabFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return oklabToRgba({
+  lightness: parseOklabLightness(parts[0]),
+  a: parseOklabAxis(parts[1]),
+  b: parseOklabAxis(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  });
+}
+function parseOklchFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  const chroma = parseOklabAxis(parts[1]);
+  const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
+  return oklabToRgba({
+  lightness: parseOklabLightness(parts[0]),
+  a: chroma * Math.cos(hue),
+  b: chroma * Math.sin(hue),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  });
+}
+function colorFunctionNumbers(value) {
+  return value.match(/-?\d*\.?\d+%?/g) ?? [];
+}
+function parseRgbChannel(value) {
+  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
+}
+function parseSrgbChannel(value) {
+  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
+}
+function parseOklabLightness(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return value.endsWith("%") ? parsed / 100 : parsed;
+}
+function parseOklabAxis(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return value.endsWith("%") ? parsed / 100 : parsed;
+}
+function oklabToRgba(color) {
+  const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
+  const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
+  const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
+  const long = l ** 3;
+  const medium = m ** 3;
+  const short = s ** 3;
+  return {
+  red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
+  green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
+  blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
+  alpha: color.alpha
+  };
+}
+function linearSrgbToChannel(value) {
+  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+  return clampChannel(channel * 255);
+}
+function parseAlpha(value) {
+  const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
+  return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
+}
+function clampChannel(value) {
+  return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
+}
+function readableOn(color, background, targetContrast) {
+  const safe = sanitizeAccentColor(color);
+  if (contrastRatio(safe, background) >= targetContrast) return safe;
+  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  for (let amount = 0.08; amount <= 1; amount += 0.08) {
+  const mixed = mixHex(safe, toward, amount);
+  if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+  }
+  return toward;
+}
+function readableOnAll(color, backgrounds, targetContrast) {
+  const safe = sanitizeAccentColor(color);
+  if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
+  const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
+  if (candidates[0]) return candidates[0].color;
+  return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
+}
+function contrastRatio(a, b) {
+  return sharedContrastRatio(a, b, sanitizeAccentColor);
+}
+function mixHex(from, to, amount) {
+  return sharedMixHex(from, to, amount, sanitizeAccentColor);
+}
+function isHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(value);
+}
+function closestReadableMix(color, toward, backgrounds, targetContrast) {
+  for (let amount = 0.04; amount <= 1; amount += 0.04) {
+  const mixed = mixHex(color, toward, amount);
+  const contrast = minContrast(mixed, backgrounds);
+  if (contrast >= targetContrast) return { color: mixed, amount, contrast };
+  }
+  return null;
+}
+function minContrast(color, backgrounds) {
+  return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
+}
+const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
+const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
+const TEXT_CONTRAST = 4.5;
+const DECORATION_CONTRAST = 3;
+const HIGHLIGHT_CONTRAST = 1.45;
+const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
+const COLORED_READER_WORD_CLASSES = new Set([
+  "jpdb-new",
+  "jpdb-in-deck",
+  "jpdb-learning",
+  "jpdb-known",
+  "jpdb-never-forget",
+  "jpdb-redundant",
+  "jpdb-due",
+  "jpdb-failed",
+  "jpdb-suspended",
+  "jpdb-blacklisted",
+  "jpdb-locked",
+  "anki-new",
+  "anki-learning",
+  "anki-known",
+  "anki-due",
+  "anki-failed",
+  "anki-suspended",
+  "jpdb-pitch-heiban",
+  "jpdb-pitch-atamadaka",
+  "jpdb-pitch-nakadaka",
+  "jpdb-pitch-odaka"
+]);
+const pendingHoverContrastRefresh = new WeakSet();
+const appliedContrastState = new WeakMap();
+function refreshReaderWordContrast(root = document) {
+  const words = readerWords(root);
+  const activeWords = [];
+  const activeBackgrounds = [];
+  const unknownBackgroundWords = [];
+  const neutralWords = [];
+  const backgroundByParent = new Map();
+  const cachedPageBackgroundFor = (word) => {
+  const parent = word.parentElement;
+  if (!parent) return pageBackgroundFor(word);
+  if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+  const background = pageBackgroundFor(word);
+  backgroundByParent.set(parent, background);
+  return background;
+  };
+  for (const word of words) {
+  const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
+  const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
+  if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
+    delete word.dataset.ankiPreserveContrast;
+    continue;
+  }
+  if (word.closest(YOMU_SURFACE_SELECTOR)) {
+    neutralWords.push(word);
+    continue;
+  }
+  if (isNeutralReaderWord(word)) {
+    neutralWords.push(word);
+    continue;
+  }
+  const background = cachedPageBackgroundFor(word);
+  if (!background) {
+    if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
+    unknownBackgroundWords.push(word);
+    continue;
+  }
+  const isHovered = word.matches(":hover, :focus");
+  const previous = appliedContrastState.get(word);
+  const parentColor = getComputedStyle(word.parentElement ?? word).color;
+  if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
+    continue;
+  }
+  if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+    scheduleHoverSettledContrastRefresh(word);
+    continue;
+  }
+  if (isHovered) {
+    scheduleHoverSettledContrastRefresh(word);
+  }
+  activeWords.push(word);
+  activeBackgrounds.push(background);
+  }
+  const savedVars = activeWords.map((word, i) => {
+  const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
+    name,
+    value: word.style.getPropertyValue(name),
+    priority: word.style.getPropertyPriority(name)
+  }));
+  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+  word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i].css);
+  return saved;
+  });
+  const measurements = activeWords.map((word) => {
+  const style = getComputedStyle(word);
+  const parentStyle = getComputedStyle(word.parentElement ?? word);
+  return {
+    bg: style.backgroundColor,
+    hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
+    fg: style.color,
+    deco: measuredWordDecorationColor(style),
+    parentFg: parentStyle.color,
+    hover: style.getPropertyValue("--jpdb-reader-hover"),
+    hovered: word.matches(":hover, :focus")
+  };
+  });
+  neutralWords.forEach((word) => clearContrastVars(word));
+  unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+  activeWords.forEach((word, i) => {
+  savedVars[i].forEach(({ name, value, priority: priority2 }) => {
+    if (value) word.style.setProperty(name, value, priority2);
+  });
+  applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
+  appliedContrastState.set(word, {
+    background: activeBackgrounds[i].css,
+    className: word.className,
+    cssText: word.style.cssText,
+    hovered: measurements[i].hovered,
+    parentColor: measurements[i].parentFg
+  });
+  });
+}
+function measuredWordDecorationColor(style) {
+  const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
+  if (underline && !underline.includes("var(")) return underline;
+  const source = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
+  return source || underline || style.textDecorationColor;
+}
+function applyWordContrastVars(word, background, m) {
+  word.style.setProperty("--jpdb-reader-page-bg", background.css);
+  word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+  word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+  const preserveHostPaint = isPassiveChromeWord(word);
+  const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
+  const accessibleHex = rgbaToHex(accessibleRgba);
+  const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
+  const sourceText = cssColorToHex(m.fg, accessibleRgba);
+  const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
+  const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
+  const textSource = sourceText ?? nativeText;
+  const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
+  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
+  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
+  if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+  else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+}
+function isPassiveChromeWord(word) {
+  return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
+}
+function uniqueHexes(colors) {
+  return [...new Set(colors)];
+}
+function textBackdropsForMeasurement(m, textBackdropHex) {
+  const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
+  return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+}
+function existingAccessibleColorRemainsReadableOnHover(word, background) {
+  const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
+  if (!existingText) return false;
+  const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
+  const baseBackdrop = existingHighlight ?? background.hex;
+  const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
+  return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+}
+function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
+  if (!hovered) return null;
+  const hover = cssColorToRgba(hoverColor);
+  const backdrop = cssColorToRgba(textBackdropHex);
+  if (!hover || !backdrop || hover.alpha <= 0) return null;
+  return rgbaToHex(blendRgba(hover, backdrop));
+}
+function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
+  const colorRgba = cssColorToRgba(wordBgColor);
+  const hasPaint = !!colorRgba?.alpha;
+  const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
+  const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
+  if (hasPaint && !preserveHostPaint) {
+  const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
+  word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
+  return cssColorToRgba(highlightHex) ?? rgba;
+  }
+  word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+  return rgba;
+}
+function paintRgba(value, el) {
+  const direct = cssColorToRgba(value);
+  if (direct) return direct;
+  const probe = el.appendChild(document.createElement("span"));
+  probe.style.color = value;
+  const rgba = cssColorToRgba(getComputedStyle(probe).color);
+  probe.remove();
+  return rgba;
+}
+function resolveDecorationHex(word, decorationColor, accessibleRgba) {
+  const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
+  return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
+}
+function refreshReaderWordContrastForWord(word) {
+  refreshReaderWordContrast(word.parentElement ?? word);
+}
+function refreshContrastForChangedWords(words) {
+  const lines = new Set();
+  for (const word of words) {
+  if (word.isConnected) lines.add(word.parentElement ?? word);
+  }
+  lines.forEach((line) => refreshReaderWordContrast(line));
+}
+function isNeutralReaderWord(word) {
+  if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
+  return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
+}
+function scheduleHoverSettledContrastRefresh(word) {
+  if (pendingHoverContrastRefresh.has(word)) return;
+  pendingHoverContrastRefresh.add(word);
+  window.setTimeout(() => {
+  pendingHoverContrastRefresh.delete(word);
+  if (!word.isConnected) return;
+  refreshReaderWordContrastForWord(word);
+  }, 120);
+}
+function readerWords(root) {
+  const words = new Set();
+  if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
+  root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
+  return [...words];
+}
+function pageBackgroundFor(word) {
+  const ancestors = [];
+  for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
+  let found = false;
+  let hasImageBackdrop = false;
+  let unknownBase = false;
+  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+  for (const element of ancestors.reverse()) {
+  const style = getComputedStyle(element);
+  hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+  const color = cssColorToRgba(style.backgroundColor);
+  if (!color) {
+    unknownBase = true;
+    continue;
+  }
+  if (color.alpha <= 0) continue;
+  if (color.alpha >= 1) unknownBase = false;
+  rgba = blendRgba(color, rgba);
+  found = true;
+  }
+  if (unknownBase || !found) {
+  if (hasImageBackdrop) return null;
+  return inferredTransparentPageBackground(word);
+  }
+  return pageBackgroundFromRgba(rgba);
+}
+function inferredTransparentPageBackground(word) {
+  const style = getComputedStyle(word.parentElement ?? word);
+  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = getComputedStyle(document.body);
+  const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
+  if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+  if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
+  return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  }
+  return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+function documentBackgroundLooksDark() {
+  if (typeof document === "undefined" || !document.body) return false;
+  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+  let found = false;
+  for (const element of [document.documentElement, document.body]) {
+  const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
+  if (!color || color.alpha <= 0) continue;
+  rgba = blendRgba(color, rgba);
+  found = true;
+  }
+  const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
+  return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
+}
+function pageBackgroundFromCss(color) {
+  return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
+}
+function pageBackgroundFromRgba(rgba) {
+  const hex = rgbaToHex(rgba);
+  return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+}
+function bestTextColor(background) {
+  return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+}
+function readableHighlightBackground(color, background) {
+  if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
+  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
+  const mixed = mixHex(color, toward, amount);
+  if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
+  }
+  return color;
+}
+function applyUnknownBackgroundFallback(word) {
+  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+  word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+}
+function clearContrastVars(word) {
+  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+}
+function canonicalStudyCardIdentity(expression, reading = "") {
+  const normalizedExpression = expression.normalize("NFKC").trim();
+  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
+  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+  return {
+  key: `${normalizedExpression}\0${normalizedReading}`,
+  expression: normalizedExpression,
+  reading: normalizedReading
+  };
+}
+function applyYomuLocalReviewableToCard(card, reviewable) {
+  card.cardState = [...reviewable.state];
+  card.reviewSource = "yomu-local";
+  card.dueAt = reviewable.dueAt;
+  card.lastReviewAt = reviewable.lastReviewAt;
+  delete card.provisionalState;
+  return card;
+}
+async function hydrateYomuLocalSrsCardStates(parsed, adapter) {
+  if (typeof adapter.lookupCards !== "function") return parsed;
+  const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
+  const identities = new Map();
+  for (const card of cards) {
+  const identity = localIdentity(card.spelling, card.reading);
+  if (identity) identities.set(identity.key, identity);
+  }
+  if (!identities.size) return parsed;
+  const reviewables = await adapter.lookupCards([...identities.values()]);
+  const indexed = new Map(reviewables.map((reviewable) => [
+  canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+  reviewable
+  ]));
+  for (const card of cards) {
+  const identity = localIdentity(card.spelling, card.reading);
+  const reviewable = identity ? indexed.get(identity.key) : void 0;
+  if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
+  }
+  return parsed;
+}
+function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
+  if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
+  const target = localIdentity(card.spelling, card.reading);
+  if (!target) return 0;
+  const words = new Set();
+  for (const root of roots) {
+  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-expression]")) words.add(root);
+  root.querySelectorAll(".jpdb-reader-word[data-expression]").forEach((word) => words.add(word));
+  }
+  const changed = [];
+  for (const word of words) {
+  const identity = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+  if (!identity || identity.key !== target.key) continue;
+  if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
+  }
+  refreshContrastForChangedWords(changed);
+  return changed.length;
+}
+function localIdentity(expression, reading) {
+  try {
+  return canonicalStudyCardIdentity(expression, reading);
+  } catch {
+  return null;
+  }
 }
 function apiGradingProviderPreference(settings) {
   if (settings.apiGradingProvider === "bunpro") return "bunpro";
@@ -16012,15 +16796,17 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   selectedDeckId: () => "yomu-local",
   selectedDeckLabel: () => ACADEMY_SRS_LABEL,
   addToDeck: async (_deckId, card, sentence, context) => {
-    await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+    const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+    if (result.card) applyYomuLocalReviewableToCard(card, result.card);
   },
   reviewCard: async (card, grade, reviewOptions = {}) => {
     const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-    await adapter.review({
+    const result = await adapter.review({
       card: yomuLocalReviewableFromCard(card),
       grade,
       sentence: reviewOptions.sentence
     });
+    if (result.card) applyYomuLocalReviewableToCard(card, result.card);
     return { addedBeforeReview: wasNotInDeck };
   },
   setDeckState: async () => void 0
@@ -17004,28 +17790,14 @@ function cardHighlightTargetFromScope(scope) {
 const KANJI_RE$1 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
-function compactReading(value) {
-  return value.normalize("NFC").replace(/\s+/g, "").trim();
-}
 function headwordFuriganaSettings(settings) {
-  if (!settings.showFurigana || settings.furiganaMode === "off") return settings;
-  return { ...settings, furiganaMode: "all" };
+  return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
 function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
   const spelling = card.spelling.trim();
   if (!spelling) return "";
   const token = cardSpellingFuriganaToken(card, spelling);
   return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
-}
-function isPlainReadingRedundantForHeadword(card, settings, plainReading) {
-  const spelling = card.spelling.trim();
-  const normalizedPlainReading = compactReading(plainReading);
-  if (!spelling || !normalizedPlainReading) return false;
-  if (normalizedPlainReading === compactReading(spelling)) return true;
-  const token = cardSpellingFuriganaToken(card, spelling);
-  const visibleReading = headwordFuriganaReading(spelling, token);
-  if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
-  return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true);
 }
 function cardSpellingFuriganaToken(card, spelling) {
   const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
@@ -17040,9 +17812,6 @@ function cardSpellingFuriganaToken(card, spelling) {
   pitchClass: "",
   sentence: spelling
   };
-}
-function headwordFuriganaReading(spelling, token) {
-  return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : normalizedJapaneseCardReading(spelling, token.card.reading).trim();
 }
 function annotatedWordRubies(spelling, annotated) {
   if (!annotated || !annotated.includes("[")) return [];
@@ -17605,7 +18374,7 @@ function nestedFrequencyValue(value) {
 }
 Logger.scope("DictionaryArchiveCache");
 Logger.scope("Yomitan");
-function isRecord$3(value) {
+function isRecord$4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNonNullObject(value) {
@@ -17624,7 +18393,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -17718,7 +18487,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$3(value)) return "";
+  if (!isRecord$4(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -19376,9 +20145,9 @@ class CardPopoverRenderer {
   }
   renderMetaItems(card, provider, state, data) {
   const settings = this.settings();
-  const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== "yomu-local");
+  const academyBacked = card.source === "yomu-local" || card.reviewSource === "yomu-local";
+  const canShowProviderStatus = Boolean(provider?.hasApiKey && (provider.id !== "yomu-local" || academyBacked));
   return [
-    renderMetaReading(card, settings),
     "",
     canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$2(provider?.label ?? "API")} ${escapeHtml$2(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
     renderAnkiMeta(data.ankiLookup, settings)
@@ -19542,11 +20311,6 @@ function renderApiMiningActionDetails(language, state, addDeckSelect, provider, 
                     ${addDeckSelect}
                 </div>
             `;
-}
-function renderMetaReading(card, settings) {
-  const reading = cardPronunciationReading(card);
-  if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-  return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
 }
 function renderAnkiMeta(lookup, settings) {
   if (!settings.ankiEnabled) return "";
@@ -21313,7 +22077,14 @@ class ReaderParser {
     const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
     const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
     const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
-    return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+    const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+    if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
+    try {
+      return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+    } catch (error) {
+      log$c.warn("Academy SRS state hydration failed; keeping provider states", error);
+      return normalized;
+    }
   } finally {
     done();
   }
@@ -25796,10 +26567,10 @@ function definitionSourceStateKey(sourceId) {
   return `definition-source:${sourceId}`;
 }
 function parseWanikaniSubject(raw) {
-  if (!isRecord$2(raw)) return null;
+  if (!isRecord$3(raw)) return null;
   const type = typeof raw.object === "string" ? raw.object : "";
   if (!isSubjectType(type)) return null;
-  const data = isRecord$2(raw.data) ? raw.data : {};
+  const data = isRecord$3(raw.data) ? raw.data : {};
   const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
   if (!Number.isFinite(id)) return null;
   return {
@@ -25838,7 +26609,7 @@ function isSubjectType(value) {
 }
 function parseMeanings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   meaning: typeof item.meaning === "string" ? item.meaning : "",
   primary: item.primary === true,
   acceptedAsCorrect: item.accepted_answer === true || item.accepted_as_correct === true
@@ -25846,14 +26617,14 @@ function parseMeanings(raw) {
 }
 function parseAuxiliaryMeanings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   meaning: typeof item.meaning === "string" ? item.meaning : "",
   type: item.type === "whitelist" || item.type === "blacklist" ? item.type : "unknown"
   })).filter((item) => item.meaning);
 }
 function parseReadings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => {
+  return raw.filter(isRecord$3).map((item) => {
   const type = item.type === "onyomi" || item.type === "kunyomi" || item.type === "nanori" ? item.type : void 0;
   return {
     reading: typeof item.reading === "string" ? item.reading : "",
@@ -25869,15 +26640,15 @@ function parseNumberArray(raw) {
 }
 function parseContextSentences(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   en: typeof item.en === "string" ? item.en : "",
   ja: typeof item.ja === "string" ? item.ja : ""
   })).filter((item) => item.en || item.ja);
 }
 function parseAudio(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => {
-  const metadata = isRecord$2(item.metadata) ? item.metadata : {};
+  return raw.filter(isRecord$3).map((item) => {
+  const metadata = isRecord$3(item.metadata) ? item.metadata : {};
   return {
     url: typeof item.url === "string" ? item.url : "",
     contentType: typeof item.content_type === "string" ? item.content_type : "",
@@ -25889,7 +26660,7 @@ function parseAudio(raw) {
   };
   }).filter((item) => item.url);
 }
-function isRecord$2(value) {
+function isRecord$3(value) {
   return typeof value === "object" && value !== null;
 }
 const KNOWN_TAGS = new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
@@ -27203,7 +27974,7 @@ class JitenPublicVocabularyClient {
   async hydrateCards(cards, options = {}) {
   const result = new Map();
   if (!cards.length || this.isBackoffActive()) return result;
-  const pending = [];
+  const pending2 = [];
   const seen = new Set();
   const limit = normalizedDetailLimit(options.detailLimit);
   const now = Date.now();
@@ -27219,9 +27990,9 @@ class JitenPublicVocabularyClient {
       this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
       continue;
     }
-    if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
+    if (pending2.length < limit) pending2.push({ key, word, requestedTerm: card.spelling || word.originalText });
   }
-  await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
+  await mapLimited(pending2, DETAIL_CONCURRENCY, async (item) => {
     const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
       this.noteFailure(error);
       logPublicJitenFailure("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
@@ -28599,9 +29370,9 @@ function isTestRuntime() {
   return typeof process !== "undefined" && (define_process_env_default?.VITEST === "true" || false);
 }
 function orderScheduledJpdbCards(cards) {
-  const scheduled = cards.filter(isScheduledJpdbStudyCard);
-  const withDue = scheduled.filter((card) => typeof card.dueAt === "number");
-  const withoutDue = scheduled.filter((card) => typeof card.dueAt !== "number");
+  const scheduled2 = cards.filter(isScheduledJpdbStudyCard);
+  const withDue = scheduled2.filter((card) => typeof card.dueAt === "number");
+  const withoutDue = scheduled2.filter((card) => typeof card.dueAt !== "number");
   withDue.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
   return [...withDue, ...withoutDue];
 }
@@ -31982,12 +32753,12 @@ function findMokuroOcrToggleInputs(root) {
 function watchMokuroOcrToggle(onChange) {
   if (typeof document === "undefined" || typeof window === "undefined" || !isMokuroReaderHost()) return () => void 0;
   let last = mokuroDisplayOcrEnabled();
-  let scheduled = false;
+  let scheduled2 = false;
   let disposed = false;
   let scheduledFrame = 0;
   const fireIfChanged = () => {
   if (disposed) return;
-  scheduled = false;
+  scheduled2 = false;
   scheduledFrame = 0;
   const next = mokuroDisplayOcrEnabled();
   if (next === last) return;
@@ -31995,8 +32766,8 @@ function watchMokuroOcrToggle(onChange) {
   onChange(next);
   };
   const schedule = () => {
-  if (disposed || scheduled) return;
-  scheduled = true;
+  if (disposed || scheduled2) return;
+  scheduled2 = true;
   scheduledFrame = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => window.setTimeout(cb, 16))(fireIfChanged);
   };
   const bindToggleInputs = () => {
@@ -32032,14 +32803,14 @@ function watchMokuroOcrToggle(onChange) {
 }
 function installMokuroOcrToggleNote() {
   if (typeof document === "undefined" || !isMokuroReaderHost()) return;
-  let scheduled = false;
+  let scheduled2 = false;
   const run = () => {
-  scheduled = false;
+  scheduled2 = false;
   injectMokuroToggleNote(document);
   };
   const schedule = () => {
-  if (scheduled) return;
-  scheduled = true;
+  if (scheduled2) return;
+  scheduled2 = true;
   (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(run);
   };
   run();
@@ -33555,540 +34326,41 @@ function recolorRenderedAnkiWordsFromCache(options) {
   const promise = options.recolorRenderedAnkiWordsFromCache();
   if (options.onRecolorError) void promise.catch(options.onRecolorError);
 }
-function cssColorToHex(value, backdrop) {
-  const color = cssColorToRgba(value);
-  if (!color) return null;
-  if (color.alpha >= 1) return rgbaToHex(color);
-  return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
-}
-function cssColorToRgba(value) {
-  const color = value.trim().toLowerCase();
-  if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-  if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
-  if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
-  if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
-  if (color.startsWith("oklab(")) return parseOklabFunction(color);
-  if (color.startsWith("oklch(")) return parseOklchFunction(color);
-  return probeCssColor(color);
-}
-const probedColors = new Map();
-let probeContext;
-function probeCssColor(color) {
-  const cached = probedColors.get(color);
-  if (cached !== void 0) return cached;
-  if (probeContext === void 0) {
-  try {
-    probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
-  } catch {
-    probeContext = null;
-  }
-  }
-  let parsed = null;
-  if (probeContext) {
-  try {
-    probeContext.fillStyle = "#010203";
-    probeContext.fillStyle = color;
-    const serialized = String(probeContext.fillStyle).toLowerCase();
-    if (serialized !== "#010203") {
-      if (serialized.startsWith("#")) {
-        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
-        parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
-      } else if (serialized.startsWith("rgb")) {
-        parsed = parseRgbFunction(serialized);
-      } else if (serialized.startsWith("color(srgb ")) {
-        parsed = parseSrgbFunction(serialized);
-      }
-      if (!parsed) parsed = probePixelColor(probeContext, color);
-    }
-  } catch {
-    parsed = null;
-  }
-  }
-  if (probedColors.size > 512) probedColors.clear();
-  probedColors.set(color, parsed);
-  return parsed;
-}
-function probePixelColor(context, color) {
-  try {
-  context.canvas.width = 1;
-  context.canvas.height = 1;
-  context.clearRect(0, 0, 1, 1);
-  context.fillStyle = color;
-  context.fillRect(0, 0, 1, 1);
-  const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
-  return { red, green, blue, alpha: alphaByte / 255 };
-  } catch {
-  return null;
-  }
-}
-function blendRgba(foreground, background) {
-  const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
-  if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
-  const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
-  return {
-  red: channel(foreground.red, background.red),
-  green: channel(foreground.green, background.green),
-  blue: channel(foreground.blue, background.blue),
-  alpha
-  };
-}
-function rgbaToHex(color) {
-  return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
-}
-function expandHexColor(value) {
-  return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
-}
-function hexToRgbaColor(color) {
-  const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
-  return { red, green, blue, alpha: 1 };
-}
-function parseRgbFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return {
-  red: parseRgbChannel(parts[0]),
-  green: parseRgbChannel(parts[1]),
-  blue: parseRgbChannel(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  };
-}
-function parseSrgbFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return {
-  red: parseSrgbChannel(parts[0]),
-  green: parseSrgbChannel(parts[1]),
-  blue: parseSrgbChannel(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  };
-}
-function parseOklabFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return oklabToRgba({
-  lightness: parseOklabLightness(parts[0]),
-  a: parseOklabAxis(parts[1]),
-  b: parseOklabAxis(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  });
-}
-function parseOklchFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  const chroma = parseOklabAxis(parts[1]);
-  const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
-  return oklabToRgba({
-  lightness: parseOklabLightness(parts[0]),
-  a: chroma * Math.cos(hue),
-  b: chroma * Math.sin(hue),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  });
-}
-function colorFunctionNumbers(value) {
-  return value.match(/-?\d*\.?\d+%?/g) ?? [];
-}
-function parseRgbChannel(value) {
-  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
-}
-function parseSrgbChannel(value) {
-  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
-}
-function parseOklabLightness(value) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return value.endsWith("%") ? parsed / 100 : parsed;
-}
-function parseOklabAxis(value) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return value.endsWith("%") ? parsed / 100 : parsed;
-}
-function oklabToRgba(color) {
-  const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
-  const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
-  const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
-  const long = l ** 3;
-  const medium = m ** 3;
-  const short = s ** 3;
-  return {
-  red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
-  green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
-  blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
-  alpha: color.alpha
-  };
-}
-function linearSrgbToChannel(value) {
-  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-  return clampChannel(channel * 255);
-}
-function parseAlpha(value) {
-  const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
-  return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
-}
-function clampChannel(value) {
-  return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
-}
-function readableOn(color, background, targetContrast) {
-  const safe = sanitizeAccentColor(color);
-  if (contrastRatio(safe, background) >= targetContrast) return safe;
-  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-  for (let amount = 0.08; amount <= 1; amount += 0.08) {
-  const mixed = mixHex(safe, toward, amount);
-  if (contrastRatio(mixed, background) >= targetContrast) return mixed;
-  }
-  return toward;
-}
-function readableOnAll(color, backgrounds, targetContrast) {
-  const safe = sanitizeAccentColor(color);
-  if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
-  const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
-  if (candidates[0]) return candidates[0].color;
-  return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
-}
-function contrastRatio(a, b) {
-  return sharedContrastRatio(a, b, sanitizeAccentColor);
-}
-function mixHex(from, to, amount) {
-  return sharedMixHex(from, to, amount, sanitizeAccentColor);
-}
-function isHexColor(value) {
-  return /^#[0-9a-f]{6}$/i.test(value);
-}
-function closestReadableMix(color, toward, backgrounds, targetContrast) {
-  for (let amount = 0.04; amount <= 1; amount += 0.04) {
-  const mixed = mixHex(color, toward, amount);
-  const contrast = minContrast(mixed, backgrounds);
-  if (contrast >= targetContrast) return { color: mixed, amount, contrast };
-  }
-  return null;
-}
-function minContrast(color, backgrounds) {
-  return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
-}
-const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
-const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
-const TEXT_CONTRAST = 4.5;
-const DECORATION_CONTRAST = 3;
-const HIGHLIGHT_CONTRAST = 1.45;
-const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
-const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
-const COLORED_READER_WORD_CLASSES = new Set([
-  "jpdb-new",
-  "jpdb-in-deck",
-  "jpdb-learning",
-  "jpdb-known",
-  "jpdb-never-forget",
-  "jpdb-redundant",
-  "jpdb-due",
-  "jpdb-failed",
-  "jpdb-suspended",
-  "jpdb-blacklisted",
-  "jpdb-locked",
-  "anki-new",
-  "anki-learning",
-  "anki-known",
-  "anki-due",
-  "anki-failed",
-  "anki-suspended",
-  "jpdb-pitch-heiban",
-  "jpdb-pitch-atamadaka",
-  "jpdb-pitch-nakadaka",
-  "jpdb-pitch-odaka"
-]);
-const pendingHoverContrastRefresh = new WeakSet();
-const appliedContrastState = new WeakMap();
-function refreshReaderWordContrast(root = document) {
-  const words = readerWords(root);
-  const activeWords = [];
-  const activeBackgrounds = [];
-  const unknownBackgroundWords = [];
-  const neutralWords = [];
-  const backgroundByParent = new Map();
-  const cachedPageBackgroundFor = (word) => {
-  const parent = word.parentElement;
-  if (!parent) return pageBackgroundFor(word);
-  if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-  const background = pageBackgroundFor(word);
-  backgroundByParent.set(parent, background);
-  return background;
-  };
-  for (const word of words) {
-  const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
-  const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
-  if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
-    delete word.dataset.ankiPreserveContrast;
-    continue;
-  }
-  if (word.closest(YOMU_SURFACE_SELECTOR)) {
-    neutralWords.push(word);
-    continue;
-  }
-  if (isNeutralReaderWord(word)) {
-    neutralWords.push(word);
-    continue;
-  }
-  const background = cachedPageBackgroundFor(word);
-  if (!background) {
-    if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
-    unknownBackgroundWords.push(word);
-    continue;
-  }
-  const isHovered = word.matches(":hover, :focus");
-  const previous = appliedContrastState.get(word);
-  const parentColor = getComputedStyle(word.parentElement ?? word).color;
-  if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
-    continue;
-  }
-  if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-    scheduleHoverSettledContrastRefresh(word);
-    continue;
-  }
-  if (isHovered) {
-    scheduleHoverSettledContrastRefresh(word);
-  }
-  activeWords.push(word);
-  activeBackgrounds.push(background);
-  }
-  const savedVars = activeWords.map((word, i) => {
-  const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
-    name,
-    value: word.style.getPropertyValue(name),
-    priority: word.style.getPropertyPriority(name)
-  }));
-  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-  word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i].css);
-  return saved;
-  });
-  const measurements = activeWords.map((word) => {
-  const style = getComputedStyle(word);
-  const parentStyle = getComputedStyle(word.parentElement ?? word);
-  return {
-    bg: style.backgroundColor,
-    hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
-    fg: style.color,
-    deco: measuredWordDecorationColor(style),
-    parentFg: parentStyle.color,
-    hover: style.getPropertyValue("--jpdb-reader-hover"),
-    hovered: word.matches(":hover, :focus")
-  };
-  });
-  neutralWords.forEach((word) => clearContrastVars(word));
-  unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
-  activeWords.forEach((word, i) => {
-  savedVars[i].forEach(({ name, value, priority: priority2 }) => {
-    if (value) word.style.setProperty(name, value, priority2);
-  });
-  applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
-  appliedContrastState.set(word, {
-    background: activeBackgrounds[i].css,
-    className: word.className,
-    cssText: word.style.cssText,
-    hovered: measurements[i].hovered,
-    parentColor: measurements[i].parentFg
-  });
-  });
-}
-function measuredWordDecorationColor(style) {
-  const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
-  if (underline && !underline.includes("var(")) return underline;
-  const source = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
-  return source || underline || style.textDecorationColor;
-}
-function applyWordContrastVars(word, background, m) {
-  word.style.setProperty("--jpdb-reader-page-bg", background.css);
-  word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
-  word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-  const preserveHostPaint = isPassiveChromeWord(word);
-  const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
-  const accessibleHex = rgbaToHex(accessibleRgba);
-  const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
-  const sourceText = cssColorToHex(m.fg, accessibleRgba);
-  const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
-  const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-  const textSource = sourceText ?? nativeText;
-  const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
-  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-  if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
-  else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-}
-function isPassiveChromeWord(word) {
-  return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
-}
-function uniqueHexes(colors) {
-  return [...new Set(colors)];
-}
-function textBackdropsForMeasurement(m, textBackdropHex) {
-  const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
-  return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
-}
-function existingAccessibleColorRemainsReadableOnHover(word, background) {
-  const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
-  if (!existingText) return false;
-  const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
-  const baseBackdrop = existingHighlight ?? background.hex;
-  const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
-  return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
-}
-function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
-  if (!hovered) return null;
-  const hover = cssColorToRgba(hoverColor);
-  const backdrop = cssColorToRgba(textBackdropHex);
-  if (!hover || !backdrop || hover.alpha <= 0) return null;
-  return rgbaToHex(blendRgba(hover, backdrop));
-}
-function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
-  const colorRgba = cssColorToRgba(wordBgColor);
-  const hasPaint = !!colorRgba?.alpha;
-  const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
-  const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
-  if (hasPaint && !preserveHostPaint) {
-  const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
-  word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
-  return cssColorToRgba(highlightHex) ?? rgba;
-  }
-  word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-  return rgba;
-}
-function paintRgba(value, el) {
-  const direct = cssColorToRgba(value);
-  if (direct) return direct;
-  const probe = el.appendChild(document.createElement("span"));
-  probe.style.color = value;
-  const rgba = cssColorToRgba(getComputedStyle(probe).color);
-  probe.remove();
-  return rgba;
-}
-function resolveDecorationHex(word, decorationColor, accessibleRgba) {
-  const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
-  return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
-}
-function refreshReaderWordContrastForWord(word) {
-  refreshReaderWordContrast(word.parentElement ?? word);
-}
-function refreshContrastForChangedWords(words) {
-  const lines = new Set();
-  for (const word of words) {
-  if (word.isConnected) lines.add(word.parentElement ?? word);
-  }
-  lines.forEach((line) => refreshReaderWordContrast(line));
-}
-function isNeutralReaderWord(word) {
-  if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
-  return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
-}
-function scheduleHoverSettledContrastRefresh(word) {
-  if (pendingHoverContrastRefresh.has(word)) return;
-  pendingHoverContrastRefresh.add(word);
-  window.setTimeout(() => {
-  pendingHoverContrastRefresh.delete(word);
-  if (!word.isConnected) return;
-  refreshReaderWordContrastForWord(word);
-  }, 120);
-}
-function readerWords(root) {
-  const words = new Set();
-  if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
-  root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
-  return [...words];
-}
-function pageBackgroundFor(word) {
-  const ancestors = [];
-  for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
-  let found = false;
-  let hasImageBackdrop = false;
-  let unknownBase = false;
-  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-  for (const element of ancestors.reverse()) {
-  const style = getComputedStyle(element);
-  hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-  const color = cssColorToRgba(style.backgroundColor);
-  if (!color) {
-    unknownBase = true;
-    continue;
-  }
-  if (color.alpha <= 0) continue;
-  if (color.alpha >= 1) unknownBase = false;
-  rgba = blendRgba(color, rgba);
-  found = true;
-  }
-  if (unknownBase || !found) {
-  if (hasImageBackdrop) return null;
-  return inferredTransparentPageBackground(word);
-  }
-  return pageBackgroundFromRgba(rgba);
-}
-function inferredTransparentPageBackground(word) {
-  const style = getComputedStyle(word.parentElement ?? word);
-  const rootStyle = getComputedStyle(document.documentElement);
-  const bodyStyle = getComputedStyle(document.body);
-  const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-  if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-  const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-  if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-  return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-  }
-  return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-}
-function documentBackgroundLooksDark() {
-  if (typeof document === "undefined" || !document.body) return false;
-  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-  let found = false;
-  for (const element of [document.documentElement, document.body]) {
-  const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
-  if (!color || color.alpha <= 0) continue;
-  rgba = blendRgba(color, rgba);
-  found = true;
-  }
-  const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
-  return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
-}
-function pageBackgroundFromCss(color) {
-  return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-}
-function pageBackgroundFromRgba(rgba) {
-  const hex = rgbaToHex(rgba);
-  return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-}
-function bestTextColor(background) {
-  return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-}
-function readableHighlightBackground(color, background) {
-  if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
-  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-  for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
-  const mixed = mixHex(color, toward, amount);
-  if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
-  }
-  return color;
-}
-function applyUnknownBackgroundFallback(word) {
-  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
-  word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
-}
-function clearContrastVars(word) {
-  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-}
-function canonicalStudyCardIdentity(expression, reading = "") {
-  const normalizedExpression = expression.normalize("NFKC").trim();
-  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
-  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
-  return {
-  key: `${normalizedExpression}\0${normalizedReading}`,
-  expression: normalizedExpression,
-  reading: normalizedReading
-  };
-}
 function normalizeStoredYomuSrsDeck(value) {
-  if (!isRecord$3(value) || value.version !== 1 || !isRecord$3(value.cards)) return { version: 1, cards: {} };
+  if (!isRecord$4(value) || value.version !== 1 || !isRecord$4(value.cards)) return { version: 1, cards: {} };
   const cards = {};
   for (const candidate of Object.values(value.cards)) {
   const normalized = normalizeStoredCard(candidate);
   if (!normalized) continue;
   cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
   }
-  return { version: 1, cards };
+  const tombstones = {};
+  if (isRecord$4(value.tombstones)) {
+  for (const [id, timestamp] of Object.entries(value.tombstones)) {
+    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+    const card = cards[id];
+    if (card && card.updatedAt > timestamp) continue;
+    delete cards[id];
+    tombstones[id] = timestamp;
+  }
+  }
+  return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+}
+function mergeStoredYomuSrsDecks(leftValue, rightValue) {
+  const left = normalizeStoredYomuSrsDeck(leftValue);
+  const right = normalizeStoredYomuSrsDeck(rightValue);
+  const cards = { ...left.cards };
+  const tombstones = { ...left.tombstones ?? {} };
+  for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
+  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
+  }
+  for (const [id, incoming] of Object.entries(right.cards)) {
+  const tombstone = tombstones[id];
+  if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
+  if (tombstone !== void 0) delete tombstones[id];
+  cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id], incoming) : incoming;
+  }
+  return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
 }
 function mergeStoredYomuSrsCards(existing, incoming) {
   const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
@@ -34174,6 +34446,7 @@ function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
   const remaining = Object.keys(academyProvenance).length;
   if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
   delete deck.cards[card.id];
+  deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
   return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
   }
   const updated = {
@@ -34187,7 +34460,7 @@ function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
   return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
 }
 function normalizeStoredCard(value) {
-  if (!isRecord$3(value) || typeof value.expression !== "string") return null;
+  if (!isRecord$4(value) || typeof value.expression !== "string") return null;
   let identity;
   try {
   identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -34242,10 +34515,10 @@ function normalizeProvenance(value, addedAt) {
   };
 }
 function normalizeProvenanceRecord(value, fallbackAt) {
-  if (!isRecord$3(value)) return {};
+  if (!isRecord$4(value)) return {};
   const result = {};
   for (const candidate of Object.values(value)) {
-  if (!isRecord$3(candidate)) continue;
+  if (!isRecord$4(candidate)) continue;
   try {
     const normalized = normalizeProvenance({
       id: String(candidate.id ?? ""),
@@ -34292,6 +34565,11 @@ function nonNegativeInteger(value) {
 }
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
 let localDeckMutation = Promise.resolve();
+const localDeckMutationListeners = new Set();
+function subscribeLocalYomuSrsMutations(listener) {
+  localDeckMutationListeners.add(listener);
+  return () => localDeckMutationListeners.delete(listener);
+}
 class LocalYomuSrsRepository {
   constructor(now = () => Date.now()) {
   this.now = now;
@@ -34386,32 +34664,69 @@ class LocalYomuSrsRepository {
     }
   };
   }
+  /** Read the normalized encrypted-sync payload without exposing the storage key. */
+  async snapshot() {
+  return structuredClone(await this.readDeck());
+  }
+  /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+  async mergeSnapshot(value, options = {}) {
+  return this.mutateDeck((deck) => {
+    const merged = mergeStoredYomuSrsDecks(deck, value);
+    deck.cards = merged.cards;
+    deck.tombstones = merged.tombstones;
+    return structuredClone(merged);
+  }, options.notifyMutations !== false);
+  }
+  /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+  async lookupCards(items) {
+  const now = this.now();
+  const deck = await this.readDeck();
+  const cards = new Map();
+  for (const item of items) {
+    try {
+      const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+      const stored = deck.cards[identity.key];
+      if (stored) cards.set(identity.key, this.toReviewable(stored, now));
+    } catch {
+    }
+  }
+  return [...cards.values()];
+  }
   async review(request) {
   return this.mutateDeck((deck) => {
     const now = this.now();
     const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
     const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
     const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
-    if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+    if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
+      delete deck.cards[request.card.providerCardId];
+      deck.tombstones = { ...deck.tombstones ?? {}, [request.card.providerCardId]: now };
+    }
     deck.cards[identity.key] = updated;
+    if ((deck.tombstones?.[identity.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity.key];
     return { card: this.toReviewable(updated, now), raw: updated };
   });
   }
   async mine(request) {
-  const now = this.now();
-  const card = reviewableFromMiningRequest(request, now);
-  const raw = await this.importBatch({
-    source: "manual-mining",
-    importedAt: now,
-    items: [{
-      expression: card.expression,
-      reading: card.reading,
-      meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const candidate = this.cardFromImportItem({
+      expression: request.expression,
+      reading: request.reading,
+      meanings: request.meaning ? [request.meaning] : [],
       sentence: request.sentence,
       sourceUrl: request.sourceUrl
-    }]
+    }, now);
+    if (!candidate) throw new TypeError("Vocabulary expression is required.");
+    const existing = deck.cards[candidate.id];
+    const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+    deck.cards[candidate.id] = stored;
+    if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
+    return {
+      card: this.toReviewable(stored, now),
+      raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
+    };
   });
-  return { card, raw };
   }
   readDeck() {
   const result = localDeckMutation.then(() => this.readDeckUncoordinated());
@@ -34425,13 +34740,30 @@ class LocalYomuSrsRepository {
   writeDeck(deck) {
   return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
   }
-  mutateDeck(operation) {
-  const result = localDeckMutation.then(async () => {
+  mutateDeck(operation, notifyMutations = true) {
+  const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
     const deck = await this.readDeckUncoordinated();
+    const previousCards = new Map(Object.entries(deck.cards));
+    const previousTombstones = { ...deck.tombstones ?? {} };
     const value = operation(deck);
-    await this.writeDeck(deck);
+    await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+    const changedCardIds = new Set([
+      ...previousCards.keys(),
+      ...Object.keys(deck.cards),
+      ...Object.keys(previousTombstones),
+      ...Object.keys(deck.tombstones ?? {})
+    ]);
+    const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
+    if (notifyMutations) {
+      localDeckMutationListeners.forEach((listener) => {
+        try {
+          listener(changed);
+        } catch {
+        }
+      });
+    }
     return value;
-  });
+  }));
   localDeckMutation = result.then(() => void 0, () => void 0);
   return result;
   }
@@ -34505,6 +34837,11 @@ class LocalYomuSrsRepository {
   };
   }
 }
+function sameStoredCard(left, right) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   return {
   id: "yomu-local",
@@ -34516,6 +34853,7 @@ function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   queue: (limit) => repository.queue(limit),
   review: (request) => repository.review(request),
   mine: (request) => repository.mine(request),
+  lookupCards: (items) => repository.lookupCards(items),
   importBatch: (batch) => repository.importBatch(batch)
   };
 }
@@ -34544,22 +34882,6 @@ function easeDelta(grade) {
   if (grade === "nothing" || grade === "something" || grade === "fail" || grade === "again") return -0.25;
   return 0;
 }
-function reviewableFromMiningRequest(request, now) {
-  const identity = canonicalStudyCardIdentity(request.expression, request.reading);
-  return {
-  providerId: "yomu-local",
-  providerCardId: identity.key,
-  providerReviewId: identity.key,
-  kind: request.kind ?? "vocabulary",
-  expression: identity.expression,
-  reading: identity.reading,
-  meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
-  state: ["new"],
-  dueAt: now,
-  lastReviewAt: null,
-  sourceUrl: request.sourceUrl
-  };
-}
 function meaningsFromGlosses(glosses) {
   const normalized = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
   return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
@@ -34584,6 +34906,369 @@ function startOfLocalDay(now) {
 function normalizedQueueLimit(limit) {
   if (Number.isNaN(limit) || limit <= 0) return 0;
   return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
+}
+async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
+  if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
+  const plaintext = new TextEncoder().encode(JSON.stringify(value));
+  const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const digest = new Uint8Array(await crypto.subtle.sign(
+  "HMAC",
+  hmacKey,
+  cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
+  ));
+  const id = toBase64Url(digest);
+  const nonce = digest.slice(0, 12);
+  const ciphertext = await aesEncrypt(
+  fromBase64Url(key),
+  nonce,
+  plaintext,
+  profileEventAdditionalData(purpose, id, occurredAt, keyVersion)
+  );
+  return { id, occurredAt, keyVersion, nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
+}
+async function decryptProfileEvent(key, purpose, envelope) {
+  const plaintext = await aesDecrypt(
+  fromBase64Url(key),
+  fromBase64Url(envelope.nonce),
+  fromBase64Url(envelope.ciphertext),
+  profileEventAdditionalData(purpose, envelope.id, envelope.occurredAt, envelope.keyVersion)
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+function profileEventAdditionalData(purpose, id, occurredAt, keyVersion) {
+  if (!/^[a-z0-9-]{1,64}$/u.test(purpose) || !/^[A-Za-z0-9_-]{43}$/u.test(id)) {
+  throw new TypeError("Profile event purpose or id is invalid.");
+  }
+  return new TextEncoder().encode(`profile-event:${purpose}:${id}:${occurredAt}:v${keyVersion}`);
+}
+async function aesEncrypt(key, nonce, plaintext, additionalData) {
+  const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["encrypt"]);
+  return new Uint8Array(await crypto.subtle.encrypt(
+  { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+  cryptoKey,
+  cryptoBuffer(plaintext)
+  ));
+}
+async function aesDecrypt(key, nonce, ciphertext, additionalData) {
+  const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["decrypt"]);
+  return new Uint8Array(await crypto.subtle.decrypt(
+  { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+  cryptoKey,
+  cryptoBuffer(ciphertext)
+  ));
+}
+function toBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+  binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+function fromBase64Url(value) {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+}
+function cryptoBuffer(bytes) {
+  return bytes.slice().buffer;
+}
+async function requestPrivateApi(url, init = {}) {
+  let userscriptRequest = getUserscriptHttpRequest();
+  if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) userscriptRequest = void 0;
+  if (userscriptRequest) return requestViaUserscript(userscriptRequest, url, init);
+  return fetch(url, {
+  ...init,
+  credentials: "omit",
+  referrerPolicy: "no-referrer",
+  cache: "no-store"
+  });
+}
+function requestViaUserscript(request, url, init) {
+  return new Promise((resolve, reject) => {
+  const headers = new Headers(init.headers);
+  const details = {
+    method: init.method ?? "GET",
+    url,
+    headers: Object.fromEntries(headers.entries()),
+    data: typeof init.body === "string" ? init.body : void 0,
+    responseType: "text",
+    anonymous: true,
+    withCredentials: false,
+    onload: (response) => resolve(new Response(
+      String(response.responseText ?? response.response ?? ""),
+      { status: response.status }
+    )),
+    onerror: (error) => reject(error instanceof Error ? error : new Error("Reader account request failed.")),
+    ontimeout: () => reject(new Error("Reader account request timed out."))
+  };
+  try {
+    const result = request(details);
+    if (result && typeof result.then === "function") {
+      result.then(details.onload, details.onerror);
+    }
+  } catch (error) {
+    reject(error);
+  }
+  });
+}
+const API_ORIGIN = "https://yomureader.com";
+const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
+const EVENT_PURPOSE = "reader-srs-event";
+const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v1";
+const PUSH_BATCH_SIZE = 20;
+let pending = Promise.resolve(void 0);
+let scheduled = false;
+let reconnectInstalled = false;
+function scheduleAcademyReaderSrsSync() {
+  if (scheduled) return;
+  scheduled = true;
+  setTimeout(() => {
+  scheduled = false;
+  void syncAcademyReaderSrs().catch(() => void 0);
+  }, 0);
+}
+function installAcademyReaderSrsSync() {
+  if (reconnectInstalled || typeof window === "undefined") return;
+  reconnectInstalled = true;
+  const reconcileAndSchedule = () => {
+  void enqueue(markFullSeed).finally(scheduleAcademyReaderSrsSync);
+  };
+  reconcileAndSchedule();
+  subscribeLocalYomuSrsMutations((cardIds) => {
+  void enqueue(() => markDirtyCards(cardIds));
+  scheduleAcademyReaderSrsSync();
+  });
+  subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+  window.addEventListener("online", scheduleAcademyReaderSrsSync);
+  document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleAcademyReaderSrsSync();
+  });
+}
+async function markFullSeed() {
+  const state = await loadDeviceState();
+  if (!state || state.needsFullSeed) return;
+  await saveDeviceState({ ...state, needsFullSeed: true });
+}
+function syncAcademyReaderSrs(repository = new LocalYomuSrsRepository()) {
+  return enqueue(() => syncAcademyReaderSrsNow(repository));
+}
+async function syncAcademyReaderSrsNow(repository = new LocalYomuSrsRepository()) {
+  let state = await loadDeviceState();
+  if (!state) return { connected: false, displayName: "", lastSyncAt: null, error: null };
+  const changed = new Map();
+  state = await pullRemoteEvents(state, repository, changed);
+  state = await pushLocalEvents(state, await repository.snapshot());
+  state = await pullRemoteEvents(state, repository, changed);
+  state = { ...state, lastSyncAt: Date.now() };
+  await saveDeviceState(state);
+  await publishChangedCards(repository, changed);
+  return statusFromState(state);
+}
+async function pullRemoteEvents(initial, repository, changed) {
+  let state = initial;
+  let hasMore = true;
+  while (hasMore) {
+  const response = await deviceRequest(`/academy/api/device/srs/pull?cursor=${state.cursor}&limit=200`, state);
+  if (!response.ok) throw await responseError(response);
+  const page = parseRemoteEventPage(await response.json(), state.keyVersion);
+  const synced = { ...state.syncedEventByCard };
+  const latestEnvelopeByCard = new Map();
+  let pageDeck = { version: 1, cards: {}, tombstones: {} };
+  for (const envelope of page.events) {
+    const event = parseReaderDeckEvent(await decryptProfileEvent(state.key, EVENT_PURPOSE, envelope));
+    if (event.kind === "card") {
+      pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+        version: 1,
+        cards: { [event.card.id]: event.card }
+      });
+      changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
+      synced[event.card.id] = envelope.id;
+      latestEnvelopeByCard.set(event.card.id, envelope);
+    } else {
+      pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+        version: 1,
+        cards: {},
+        tombstones: { [event.id]: event.deletedAt }
+      });
+      changed.set(event.id, { expression: event.expression, reading: event.reading });
+      synced[event.id] = envelope.id;
+      latestEnvelopeByCard.set(event.id, envelope);
+    }
+  }
+  const merged = page.events.length ? await repository.mergeSnapshot(pageDeck, { notifyMutations: false }) : await repository.snapshot();
+  const mergedEventByCard = new Map(deckEvents(merged).map((item) => [item.cardId, item]));
+  const dirty = new Set(state.dirtyCardIds);
+  for (const [cardId, remoteEnvelope] of latestEnvelopeByCard) {
+    const localEvent = mergedEventByCard.get(cardId);
+    if (!localEvent) {
+      dirty.add(cardId);
+      continue;
+    }
+    const localEnvelope = await encryptProfileEvent(
+      state.key,
+      state.keyVersion,
+      EVENT_PURPOSE,
+      localEvent.event,
+      localEvent.occurredAt
+    );
+    if (localEnvelope.id === remoteEnvelope.id) dirty.delete(cardId);
+    else dirty.add(cardId);
+  }
+  state = { ...state, cursor: page.nextCursor, syncedEventByCard: synced, dirtyCardIds: [...dirty] };
+  await saveDeviceState(state);
+  hasMore = page.hasMore;
+  }
+  return state;
+}
+async function pushLocalEvents(state, deck) {
+  const pendingIds = state.needsFullSeed ? new Set([...Object.keys(deck.cards), ...Object.keys(deck.tombstones ?? {})]) : new Set(state.dirtyCardIds);
+  const candidates = await Promise.all(deckEvents(deck).filter((item) => pendingIds.has(item.cardId)).map(async (item) => ({
+  cardId: item.cardId,
+  envelope: await encryptProfileEvent(state.key, state.keyVersion, EVENT_PURPOSE, item.event, item.occurredAt)
+  })));
+  const unsynced = candidates.filter((item) => state.syncedEventByCard[item.cardId] !== item.envelope.id);
+  let next = state;
+  for (const batch of eventBatches(unsynced)) {
+  const response = await deviceRequest("/academy/api/device/srs/push", next, {
+    method: "POST",
+    body: JSON.stringify({ events: batch.map((item) => item.envelope) })
+  });
+  if (!response.ok) throw await responseError(response);
+  const body = await response.json();
+  if (body.accepted !== batch.length || !Array.isArray(body.conflicts) || body.conflicts.length) {
+    throw new Error("Reader SRS event push was not accepted.");
+  }
+  const synced = { ...next.syncedEventByCard };
+  batch.forEach((item) => {
+    synced[item.cardId] = item.envelope.id;
+  });
+  const acceptedIds = new Set(batch.map((item) => item.cardId));
+  next = { ...next, syncedEventByCard: synced, dirtyCardIds: next.dirtyCardIds.filter((id) => !acceptedIds.has(id)) };
+  await saveDeviceState(next);
+  }
+  const candidateIds = new Set(candidates.map((item) => item.cardId));
+  const nextDirty = next.dirtyCardIds.filter((id) => !candidateIds.has(id));
+  next = { ...next, dirtyCardIds: nextDirty, needsFullSeed: false };
+  await saveDeviceState(next);
+  return next;
+}
+function eventBatches(items) {
+  const batches = [];
+  let current = [];
+  for (const item of items) {
+  const candidate = [...current, item];
+  const bytes = new TextEncoder().encode(JSON.stringify({ events: candidate.map((entry) => entry.envelope) })).byteLength;
+  if (current.length && (candidate.length > PUSH_BATCH_SIZE || bytes > 250 * 1024)) {
+    batches.push(current);
+    current = [item];
+  } else {
+    current = candidate;
+  }
+  }
+  if (current.length) batches.push(current);
+  return batches;
+}
+async function markDirtyCards(cardIds) {
+  if (!cardIds.length) return;
+  const state = await loadDeviceState();
+  if (!state) return;
+  const dirty = new Set([...state.dirtyCardIds, ...cardIds]);
+  await saveDeviceState({ ...state, dirtyCardIds: [...dirty] });
+}
+function deckEvents(deck) {
+  const events = Object.values(deck.cards).map((card) => ({
+  cardId: card.id,
+  occurredAt: card.updatedAt,
+  event: { version: 1, kind: "card", card }
+  }));
+  for (const [id, deletedAt] of Object.entries(deck.tombstones ?? {})) {
+  const [expression = id, reading = expression] = id.split("\0");
+  events.push({ cardId: id, occurredAt: deletedAt, event: { version: 1, kind: "delete", id, expression, reading, deletedAt } });
+  }
+  return events;
+}
+async function publishChangedCards(repository, changed) {
+  if (!changed.size) return;
+  const cards = await repository.lookupCards([...changed.values()]);
+  const found = new Set(cards.map((card) => card.providerCardId));
+  cards.forEach((card) => publishCardStateSignal({
+  vid: 0,
+  sid: 0,
+  rid: 0,
+  spelling: card.expression,
+  reading: card.reading,
+  meanings: card.meanings,
+  pitchAccent: [],
+  cardState: card.state,
+  source: "yomu-local",
+  reviewSource: "yomu-local",
+  dueAt: card.dueAt,
+  lastReviewAt: card.lastReviewAt
+  }));
+  for (const [id, identity] of changed) {
+  if (found.has(id)) continue;
+  publishCardStateSignal({
+    vid: 0,
+    sid: 0,
+    rid: 0,
+    spelling: identity.expression,
+    reading: identity.reading,
+    pitchAccent: [],
+    cardState: ["not-in-deck"],
+    source: "yomu-local",
+    reviewSource: "yomu-local"
+  });
+  }
+}
+function deviceRequest(path, state, init = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("authorization", `Bearer ${state.credential}`);
+  if (init.body !== void 0) headers.set("content-type", "application/json");
+  return requestPrivateApi(`${API_ORIGIN}${path}`, { ...init, headers });
+}
+async function loadDeviceState() {
+  return parseStoredDeviceState(await gmPrivateStorageGet(DEVICE_STATE_KEY, null));
+}
+function saveDeviceState(state) {
+  return gmPrivateStorageSet(DEVICE_STATE_KEY, state);
+}
+function parseStoredDeviceState(value) {
+  if (!isRecord$2(value) || value.version !== 2 || typeof value.credential !== "string" || !/^yda1\.[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/iu.test(value.credential) || typeof value.profileId !== "string" || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.keyVersion) || value.keyVersion < 1 || typeof value.key !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(value.key) || !Number.isSafeInteger(value.cursor) || value.cursor < 0 || !isRecord$2(value.syncedEventByCard) || Object.values(value.syncedEventByCard).some((id) => typeof id !== "string") || !Array.isArray(value.dirtyCardIds) || value.dirtyCardIds.some((id) => typeof id !== "string") || typeof value.needsFullSeed !== "boolean" || typeof value.displayName !== "string" || value.lastSyncAt !== null && !Number.isSafeInteger(value.lastSyncAt)) return null;
+  return value;
+}
+function parseRemoteEventPage(value, keyVersion) {
+  if (!isRecord$2(value) || !Array.isArray(value.events) || !Number.isSafeInteger(value.nextCursor) || typeof value.hasMore !== "boolean") throw new Error("Reader SRS event page was malformed.");
+  const events = value.events.map((candidate) => {
+  if (!isRecord$2(candidate) || typeof candidate.id !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(candidate.id) || !Number.isSafeInteger(candidate.cursor) || !Number.isSafeInteger(candidate.occurredAt) || candidate.keyVersion !== keyVersion || typeof candidate.nonce !== "string" || typeof candidate.ciphertext !== "string") throw new Error("Reader SRS event page was malformed.");
+  return candidate;
+  });
+  return { events, nextCursor: value.nextCursor, hasMore: value.hasMore };
+}
+function parseReaderDeckEvent(value) {
+  if (!isRecord$2(value) || value.version !== 1) throw new Error("Reader SRS event was malformed.");
+  if (value.kind === "card" && isRecord$2(value.card)) return value;
+  if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && Number.isSafeInteger(value.deletedAt)) return value;
+  throw new Error("Reader SRS event was malformed.");
+}
+async function responseError(response) {
+  let message = `Reader account request failed (${response.status}).`;
+  try {
+  const body = await response.json();
+  if (typeof body.error === "string") message = body.error;
+  } catch {
+  }
+  return new Error(message);
+}
+function statusFromState(state) {
+  return { connected: true, displayName: state.displayName, lastSyncAt: state.lastSyncAt, error: null };
+}
+function enqueue(operation) {
+  const coordinated = () => withGmStorageLease("academy-reader-account-sync", operation);
+  const result = pending.then(coordinated, coordinated);
+  pending = result.then(() => void 0, () => void 0);
+  return result;
+}
+function isRecord$2(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function httpStatusFromError(error) {
   if (!error || typeof error !== "object") return void 0;
@@ -34733,8 +35418,8 @@ class WanikaniClient {
   const key = `${this.currentFingerprint()}:${url}`;
   const cached = this.responseCache.get(key);
   if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-  const pending = this.pending.get(key);
-  if (pending) return pending;
+  const pending2 = this.pending.get(key);
+  if (pending2) return pending2;
   const request = this.requestUrl(url, options).then((value) => {
     this.responseCache.set(key, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
     return value;
@@ -34783,13 +35468,13 @@ class WanikaniClient {
   }
   }
   throttle() {
-  const scheduled = this.requestStartQueue.then(async () => {
+  const scheduled2 = this.requestStartQueue.then(async () => {
     const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
     if (wait > 0) await this.sleep(wait);
     this.lastRequestAt = this.now();
   });
-  this.requestStartQueue = scheduled.catch(() => void 0);
-  return scheduled;
+  this.requestStartQueue = scheduled2.catch(() => void 0);
+  return scheduled2;
   }
   currentFingerprint() {
   const fingerprint = this.tokenFingerprint();
@@ -35462,8 +36147,8 @@ function ensureReaderToastStack() {
   return stack;
 }
 function scheduleToastRemoval(toast, durationMs) {
-  const pending = toastTimers.get(toast);
-  if (pending !== void 0) window.clearTimeout(pending);
+  const pending2 = toastTimers.get(toast);
+  if (pending2 !== void 0) window.clearTimeout(pending2);
   toastTimers.set(toast, window.setTimeout(() => {
   toast.classList.remove(TOAST_VISIBLE_CLASS);
   window.setTimeout(() => {
@@ -35547,8 +36232,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.403"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.403"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.404"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.404"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35680,7 +36365,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.403"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.404"}`;
   } catch {
   return null;
   }
@@ -36115,11 +36800,11 @@ class VisiblePageScanner {
   let cursor = 0;
   const unparsedTargets = [];
   const transientTargets = [];
-  const pending = [];
+  const pending2 = [];
   const parseCharBudget = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_PARSE_CHAR_BUDGET : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
   const concurrency = hasRemoteParseApiKey(scanStartSettings) ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   const schedule = () => {
-    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
+    while (!this.isStaleScan(generation) && pending2.length < concurrency && cursor < targets.length) {
       const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
       cursor = next.cursor;
       if (!next.batch.length) continue;
@@ -36130,13 +36815,13 @@ class VisiblePageScanner {
           work.transient = true;
         })
       };
-      pending.push(work);
+      pending2.push(work);
     }
   };
   schedule();
-  while (pending.length) {
+  while (pending2.length) {
     if (this.isStaleScan(generation)) return unparsedTargets;
-    const work = pending.shift();
+    const work = pending2.shift();
     const parsed = await work.result;
     parsed.forEach((tokens, index) => {
       if (tokens.length || !work.batch[index]) return;
@@ -36145,7 +36830,7 @@ class VisiblePageScanner {
     if (this.isStaleScan(generation)) return unparsedTargets;
     await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
     schedule();
-    if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
+    if (pending2.length || cursor < targets.length) await waitForVisibleScanTurn();
   }
   if (allowTransientReparse && transientTargets.length && !this.isStaleScan(generation)) {
     const stillUnparsed = await this.parseAndApplyTargets(transientTargets, generation, scanStartSettings, false);
@@ -37008,7 +37693,10 @@ class ReaderApp {
     void saveSettings(this.settings);
   },
   onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
-  onApiCardStateChanged: (card) => this.applyPublicVocabularyToRenderedWords(card, card)
+  onApiCardStateChanged: (card) => {
+    this.applyPublicVocabularyToRenderedWords(card, card);
+    repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
+  }
   });
   immersionPopoverInstance = null;
   get immersionPopover() {
@@ -37048,7 +37736,8 @@ class ReaderApp {
   jpdb: this.jpdb,
   jiten: this.jiten,
   jitenPublicVocabulary: this.jitenPublicVocabulary,
-  dictionaries: this.dictionaries
+  dictionaries: this.dictionaries,
+  yomuLocalSrs: this.yomuLocalSrs
   });
   onboarding = this.createOnboardingController();
   subtitles = this.createSubtitlePlayer();
@@ -37358,6 +38047,7 @@ class ReaderApp {
   this.setupAutoScan();
   this.initJpdbPageEnhancements();
   this.installCardStateSignalSubscription();
+  installAcademyReaderSrsSync();
   this.resumePendingCloudSettingsSync();
   if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
   if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
@@ -37403,6 +38093,7 @@ class ReaderApp {
   this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
     if (this.isDestroyed) return;
     this.applyPublicVocabularyToRenderedWords(card, card);
+    repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
   });
   }
   installSettingsStorageSubscription() {
@@ -39515,9 +40206,9 @@ class ReaderApp {
   if (this.hoverPointerMoveFrame !== void 0) return;
   this.hoverPointerMoveFrame = requestAnimationFrame(() => {
     this.hoverPointerMoveFrame = void 0;
-    const pending = this.pendingHoverPointerMove;
+    const pending2 = this.pendingHoverPointerMove;
     this.pendingHoverPointerMove = void 0;
-    if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
+    if (pending2 && !this.isDestroyed) this.handleHoverPointer(pending2);
   });
   }
   handleHoverPointer(event) {
@@ -42464,7 +43155,7 @@ class ReaderApp {
   });
   }
   async resolvePublicOcrFallbackTokens(tokens) {
-  const pending = new Map();
+  const pending2 = new Map();
   for (const token of tokens) {
     const fallback = token.card;
     const key = cardKey(fallback);
@@ -42473,13 +43164,13 @@ class ReaderApp {
       this.applyResolvedFallbackVocabularyToToken(token, fallback, cached);
       continue;
     }
-    const group = pending.get(key) ?? { card: fallback, tokens: [] };
+    const group = pending2.get(key) ?? { card: fallback, tokens: [] };
     group.tokens.push(token);
-    pending.set(key, group);
+    pending2.set(key, group);
   }
-  if (!pending.size) return;
-  const resolved = await this.publicLookupFallbackCards([...pending.values()].map((group) => group.card), { jpdbPublicLookup: false });
-  for (const [key, group] of pending) {
+  if (!pending2.size) return;
+  const resolved = await this.publicLookupFallbackCards([...pending2.values()].map((group) => group.card), { jpdbPublicLookup: false });
+  for (const [key, group] of pending2) {
     const card = resolved.get(key);
     if (!card || card.source === "fallback") continue;
     for (const token of group.tokens) this.applyResolvedFallbackVocabularyToToken(token, group.card, card);

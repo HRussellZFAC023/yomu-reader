@@ -102,6 +102,7 @@ class FakeAcademyDb implements D1Database {
     readonly webhookEvents = new Set<string>();
     readonly rateCounters = new Map<string, number>();
     readonly accounts: AccountDbRow[] = [];
+    readonly academyGrants = new Set<string>();
     readonly classes: ClassDbRow[] = [];
     readonly memberships: MembershipDbRow[] = [];
     readonly oauthFlows: Array<{ state_hash: string; session_public_id: string; created_at: number; expires_at: number; consumed_at: number | null }> = [];
@@ -499,6 +500,10 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private selectEntitlement(): unknown[] | undefined {
+        if (this.sql.startsWith('SELECT p.id, p.status, p.amount_pence, p.fulfilled_at, p.redeemed_by_account_id, p.redeemed_at, pe.state AS provider_state')) {
+            const purchase = this.db.purchases.find(row => row.redeemed_by_account_id === this.values[0]);
+            return purchase ? [{ ...purchase, provider_state: null, provider_expires_at: null }] : [];
+        }
         const prefix = 'SELECT id, status, amount_pence, fulfilled_at, redeemed_by_account_id, redeemed_at FROM purchases WHERE';
         if (!this.sql.startsWith(prefix)) return undefined;
         const purchase = this.sql.endsWith('WHERE id = ?1')
@@ -561,10 +566,14 @@ class FakeStatement implements D1PreparedStatement {
             return account ? [{ id: account.id }] : [];
         }
         if (sql.startsWith('SELECT 1 AS granted FROM account_academy_grants')) {
-            return db.accounts.some(row => row.id === v[0] && row.access_tier === 'academy') ? [{ granted: 1 }] : [];
+            return db.academyGrants.has(v[0] as string) ? [{ granted: 1 }] : [];
         }
         if (sql.startsWith('INSERT OR IGNORE INTO account_academy_grants')) {
-            this.lastChanges = 1;
+            const accountId = v[0] as string;
+            if (!db.academyGrants.has(accountId)) {
+                db.academyGrants.add(accountId);
+                this.lastChanges = 1;
+            }
             return [];
         }
         if (sql.startsWith('SELECT (EXISTS (SELECT 1 FROM accounts WHERE id')) {

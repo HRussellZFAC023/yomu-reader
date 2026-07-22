@@ -82,7 +82,7 @@ export class HostedAcademyAccountClient {
     private sessionResumeRefused = false;
 
     constructor(options: HostedAcademyAccountClientOptions = {}) {
-        this.request = options.request ?? ((input, init) => fetch(input, init));
+        this.request = options.request ?? defaultHostedAcademyAccountRequest;
         this.navigate = options.navigate ?? (url => window.location.assign(url));
     }
 
@@ -176,6 +176,17 @@ export class HostedAcademyAccountClient {
         this.listeners.forEach(listener => listener(state));
         return state;
     }
+}
+
+function defaultHostedAcademyAccountRequest(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    // VitePress preview and deterministic docs QA do not host the Academy
+    // Worker. Keep the static shell signed out there instead of issuing noisy
+    // 404s; production remains an exact same-origin request.
+    if (typeof location === 'undefined' || location.origin !== 'https://yomureader.com') {
+        const status = String(input) === SESSION_PATH ? 200 : 401;
+        return Promise.resolve(new Response(null, { status }));
+    }
+    return fetch(input, init);
 }
 
 /** Idempotently owns the desktop and mobile VitePress account controls. */

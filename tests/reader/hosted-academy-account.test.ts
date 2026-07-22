@@ -13,6 +13,14 @@ afterEach(() => {
 });
 
 describe('hosted Academy account client', () => {
+    it('stays quietly signed out on local VitePress previews', async () => {
+        const request = vi.spyOn(globalThis, 'fetch');
+        const client = new HostedAcademyAccountClient();
+
+        await expect(client.ensureLoaded()).resolves.toMatchObject({ phase: 'signed-out' });
+        expect(request).not.toHaveBeenCalled();
+    });
+
     it('resumes an expired session once before retrying account status', async () => {
         let accountRequests = 0;
         const calls: Array<{ path: string; init?: RequestInit }> = [];

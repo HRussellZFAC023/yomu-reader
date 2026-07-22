@@ -78,8 +78,12 @@ token is never stored, logged, or exposed as a client-controlled grant request.
    existing account. Before OIDC completes it cannot access server data, and
    an unknown Google subject cannot use recovery to bypass an Academy code.
 
-Local-only Study remains accountless. Server profiles and cross-device sync
-always require Google.
+Local-only Study remains accountless. `POST /academy/api/auth/google/reader`
+creates a free auth-only Reader session for website sign-up; it can own a
+profile, encrypted Reader SRS history, and devices but cannot access Academy
+curriculum, media, learner-event, progress, or class routes. Academy access is
+the exact union of a permanent seed/legacy grant and a currently active paid
+entitlement, never the account label alone.
 
 ## API contract
 
@@ -92,6 +96,7 @@ the `__Host-academy_session` cookie.
 | `POST` | `/academy/api/session` | Invite exchange; `accountRequired` is always `true` |
 | `POST` | `/academy/api/session/resume` | Rotate a resumable session cookie |
 | `POST` | `/academy/api/auth/google/recovery` | Create an auth-only recovery session from `{}` |
+| `POST` | `/academy/api/auth/google/reader` | Create a free Reader-account auth session from `{}` |
 | `GET` | `/academy/api/auth/google/start` | Start state + nonce + S256 PKCE OIDC for the current session |
 | `GET` | `/academy/api/auth/google/callback` | Verify one-time state and signed Google ID token, then link |
 | `GET` | `/academy/api/profile` | Authorized profile id, device id, key version |
@@ -99,6 +104,15 @@ the `__Host-academy_session` cookie.
 | `POST` | `/academy/api/pairings` | Create a 100-bit, ten-minute, one-time ticket |
 | `PUT` | `/academy/api/pairings/:pairingId` | Attach the encrypted profile-key envelope |
 | `POST` | `/academy/api/pairings/claim` | Consume the ticket from a fresh or same-profile device |
+| `POST` | `/academy/api/device/pairings/claim` | Claim a website ticket with a generated Reader device secret; returns its bearer and wrapped key |
+| `POST` | `/academy/api/device/pairings` | Authenticated Reader creates a reverse website-recovery ticket |
+| `PUT` | `/academy/api/device/pairings/:pairingId` | Authenticated Reader attaches the wrapped key to its recovery ticket |
+| `GET` | `/academy/api/device/status` | Validate the Reader bearer and return safe account/profile/device state |
+| `DELETE` | `/academy/api/device` | Revoke the current Reader bearer and device |
+| `GET` | `/academy/api/device/srs/pull?cursor=0&limit=200` | Pull ordered encrypted Reader card events |
+| `POST` | `/academy/api/device/srs/push` | Append up to 20 encrypted Reader card events |
+| `GET` | `/academy/api/account/devices` | List Reader device creation/last-seen/revocation metadata |
+| `DELETE` | `/academy/api/account/devices/:deviceId` | Owner revokes a Reader device |
 | `POST` | `/academy/api/srs/push` | Append up to 50 encrypted event envelopes |
 | `GET` | `/academy/api/srs/pull?cursor=0&limit=200` | Pull ordered envelopes; limit max 200 |
 | `GET` | `/academy/api/profile/export` | Profile metadata plus paginated encrypted events |
@@ -141,11 +155,12 @@ the event envelope below. Push bodies are limited to 256 KiB, 50 events, and
 deletion payloads reject unknown fields.
 
 Profile export returns `{ schemaVersion, exportedAt, profile, devices,
-eventPage }`. Account export adds the safe account view, aggregate progress,
+eventPage, readerSrsEventPage }`. Account export adds the safe account view, aggregate progress,
 UTC study days, and `paidEntitlement` with amount/status/timestamps only. It
 never exports Stripe session ids, purchase ids, claim hashes, or invite
-hashes. Encrypted events use the event page's `cursor`, `nextCursor`, and
-`hasMore` contract.
+hashes. Encrypted Academy and Reader events use independent `eventCursor` and
+`readerSrsCursor` sequence spaces so pagination in one log cannot skip the
+other. Each page has its own `cursor`, `nextCursor`, and `hasMore` contract.
 
 ## Paid entitlement protocol
 
@@ -245,6 +260,28 @@ grammar-known, and Academy progress. No last-write-wins mutable snapshot is
 used for this sync path. Cursors are profile-scoped: when `profileId` changes
 after pairing or account linking, reset the pull cursor to zero.
 
+### Reader SRS event log
+
+Reader card snapshots and deletion tombstones use the same 32-byte profile key
+but a distinct `reader-srs-event` AES-GCM purpose. Event ids and 12-byte nonces
+are HMAC-derived from the encrypted payload and occurrence time, so exact
+retries are byte-identical while different card states remain immutable union
+events. D1 never receives the card identity or schedule in plaintext.
+
+Reader pushes are limited to 20 envelopes and 256 KiB. Each envelope currently
+costs one idempotent INSERT and one verification SELECT, keeping authentication,
+rate limiting, and the full write below the Workers Free 50-query invocation
+limit. Clients pull before and after push, merge cards/tombstones by semantic id
+and update time, and republish the deterministic winner when an out-of-order
+page ends on an older state. Startup performs a full local comparison to recover
+mutations missed across tabs or execution worlds.
+
+Device bearers are random `yda1.<device-id>.<secret>` values. Only their HMAC is
+stored in `profile_device_credentials`; revoked credentials cannot read, write,
+or mint recovery tickets. Historical ciphertext remains until profile/account
+deletion so surviving devices can converge. Export includes credential/device
+metadata and the complete encrypted Reader event pages, never the bearer or key.
+
 ## Privacy and credentials
 
 - D1 stores encrypted learner-event bytes, opaque ids, timestamps, account
@@ -304,3 +341,19 @@ behind a shared school or workplace NAT keep independent limits.
   every invite requires an authenticated account.
 - `0009_session_rotation.sql`: indexes the HMACed family prefix used for
   race-safe rotation and family-wide logout; legacy cookies upgrade on resume.
+- `0010_payment_ingress.sql`: canonical provider payment/event/entitlement ledger.
+- `0011_permanent_donation_access.sql`: positive donation amounts and permanent provider grants.
+- `0012_reader_access_tier.sql`: free Reader accounts, exact Academy grants, and legacy access backfill.
+- `0013_reader_device_sync.sql`: hashed Reader device credentials and encrypted Reader SRS events.
+
+Apply migrations before deploying code that reads their columns or tables:
+
+```bash
+npx wrangler d1 migrations list yomu-academy --remote --config wrangler.academy.jsonc
+npx wrangler d1 migrations apply yomu-academy --remote --config wrangler.academy.jsonc
+npx wrangler deploy --config wrangler.academy.jsonc
+```
+
+The migration command applies pending files in numeric order (`0012`, then
+`0013`). `wrangler deploy` does not apply D1 migrations, so code-first rollout
+would make account/profile/device routes fail until the schema catches up.

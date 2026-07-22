@@ -62,6 +62,7 @@
       avatarKey: nullableAvatar(record2.avatarKey),
       boardVisible: boolean(record2.boardVisible, "boardVisible"),
       shareAvatar: boolean(record2.shareAvatar, "shareAvatar"),
+      academyAccess: boolean(record2.academyAccess, "academyAccess"),
       classes: array$16(record2.classes, "classes").map(parseAccountClass)
     };
   }
@@ -335,6 +336,7 @@
       this.currentUrl = options.currentUrl ?? (() => window.location.href);
       this.replaceUrl = options.replaceUrl ?? ((url) => window.history.replaceState(window.history.state, "", url));
       this.state = loadState(this.storage);
+      this.account = this.state?.account ?? null;
     }
     storage;
     request;
@@ -344,6 +346,8 @@
     replaceUrl;
     state;
     account = null;
+    /** A restored projection must be refreshed before it authorizes online curriculum. */
+    accountProjectionFresh = false;
     entitlement = null;
     /** A bound profile this device cannot decrypt until it pairs for the key. */
     awaitingPairProfile = null;
@@ -364,6 +368,19 @@
      */
     get hasLinkedAccount() {
       return Boolean(this.account ?? this.awaitingPairProfile?.accountId ?? this.state?.profile.accountId);
+    }
+    /**
+     * Exact server-projected authority for Academy curriculum. Online, only a
+     * projection fetched in this runtime is accepted. Offline, the last
+     * projection is bounded by the checkpoint's existing offline-resume
+     * window before this value reaches route normalization.
+     */
+    get hasAcademyAccess() {
+      return this.account?.academyAccess === true && (this.accountProjectionFresh || !this.online());
+    }
+    /** Whether this runtime has refreshed the account projection from the Worker. */
+    get hasCurrentAccountProjection() {
+      return this.accountProjectionFresh;
     }
     get status() {
       const queuedForEncryption = this.state ? [...this.queuedLocalEventIds].filter((eventId) => !this.state?.eventSyncIds[eventId]).length : 0;
@@ -443,13 +460,15 @@
         if (!profile2.accountId) throw new Error("Only an account profile needs first-device setup.");
         const previousState = this.state;
         const reusableState = previousState?.profile.profileId === profile2.profileId ? previousState : null;
-        if (!reusableState && await this.remoteHasEvents()) {
+        this.account = await this.loadAccount();
+        this.entitlement = await this.loadEntitlement();
+        if (!reusableState && this.hasAcademyEventAccess() && await this.remoteHasEvents()) {
           this.phase = "pair";
           this.error = "This account already has encrypted history. Pair with a device that can decrypt it.";
           return this.status;
         }
         const candidate2 = reusableState ?? freshState(profile2);
-        this.state = candidate2;
+        this.state = this.account ? { ...candidate2, account: this.account } : candidate2;
         if (!this.persistOrReflect()) return this.status;
         try {
           await this.pinProfileKey(candidate2);
@@ -466,9 +485,7 @@
           return this.status;
         }
         this.awaitingPairProfile = null;
-        this.account = await this.loadAccount();
-        this.entitlement = await this.loadEntitlement();
-        await this.queueKnownEvents();
+        if (this.hasAcademyEventAccess()) await this.queueKnownEvents();
         this.persist();
         await this.syncNow();
         return this.status;
@@ -481,6 +498,7 @@
           this.entitlement = parseAcademyEntitlementView(
             await this.json("/academy/api/entitlement/redeem", { method: "POST", body: { code } })
           );
+          this.account = await this.loadAccount();
           this.phase = "claimed";
           this.error = null;
         } catch (error) {
@@ -498,6 +516,20 @@
       const envelope = await wrapProfileKey(state.key, ticket.code, ticket.pairingId, state.profile.keyVersion);
       await this.json(`/academy/api/pairings/${ticket.pairingId}`, { method: "PUT", body: envelope });
       return ticket;
+    }
+    async listReaderDevices() {
+      const body = await this.json("/academy/api/account/devices");
+      if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
+      return body.devices.map((value) => {
+        if (!isRecord$b(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
+          throw new Error("Reader device list was malformed.");
+        }
+        return value;
+      });
+    }
+    async revokeReaderDevice(deviceId) {
+      if (!/^[0-9a-f-]{36}$/iu.test(deviceId)) throw new Error("Reader device id is invalid.");
+      await this.json(`/academy/api/account/devices/${deviceId}`, { method: "DELETE", body: {} });
     }
     claimPairing(code) {
       return this.enqueue(async () => {
@@ -518,8 +550,10 @@
         try {
           this.account = profile2.accountId ? await this.loadAccount() : null;
           this.entitlement = profile2.accountId ? await this.loadEntitlement() : null;
-          await this.pullRemote();
-          await this.queueKnownEvents();
+          if (this.hasAcademyEventAccess()) {
+            await this.pullRemote();
+            await this.queueKnownEvents();
+          }
           this.persist();
           await this.syncNow();
         } catch (error) {
@@ -543,9 +577,32 @@
     async exportData() {
       await this.connect();
       const endpoint = this.account ? "/academy/api/account/export" : "/academy/api/profile/export";
-      const response = await this.authorizedRequest(endpoint, { credentials: "same-origin" });
-      if (!response.ok) throw await responseError(response);
-      return response.blob();
+      let eventCursor = 0;
+      let readerSrsCursor = 0;
+      let complete = null;
+      const academyEvents = [];
+      const readerSrsEvents = [];
+      while (true) {
+        const query = new URLSearchParams({
+          limit: "200",
+          eventCursor: String(eventCursor),
+          readerSrsCursor: String(readerSrsCursor)
+        });
+        const response = await this.authorizedRequest(`${endpoint}?${query}`, { credentials: "same-origin" });
+        if (!response.ok) throw await responseError$1(response);
+        const page = parseExportPage(await response.json());
+        complete ??= page.root;
+        academyEvents.push(...page.eventPage.events);
+        readerSrsEvents.push(...page.readerSrsEventPage.events);
+        eventCursor = page.eventPage.nextCursor;
+        readerSrsCursor = page.readerSrsEventPage.nextCursor;
+        if (!page.eventPage.hasMore && !page.readerSrsEventPage.hasMore) break;
+      }
+      return new Blob([JSON.stringify({
+        ...complete,
+        eventPage: { events: academyEvents, nextCursor: eventCursor, hasMore: false },
+        readerSrsEventPage: { events: readerSrsEvents, nextCursor: readerSrsCursor, hasMore: false }
+      }, null, 2)], { type: "application/json" });
     }
     async updateClassBoardProfile(update) {
       if (!this.account) throw new Error("Sign in before changing the Class Board profile.");
@@ -557,7 +614,8 @@
       if (epoch !== this.sessionEpoch || this.phase === "signed-out") {
         throw new Error("The session changed before the Class Board profile was saved.");
       }
-      this.account = account;
+      this.rememberAccount(account);
+      this.persist();
       return account;
     }
     async loadClassLeaderboard(classId2, metric, page = 1, limit = 20) {
@@ -579,13 +637,16 @@
         body: "{}"
       });
       const response = await logout;
-      if (!response.ok) throw await responseError(response);
+      if (!response.ok) throw await responseError$1(response);
       await this.enqueue(async () => {
         this.account = null;
+        this.accountProjectionFresh = false;
         this.entitlement = null;
         this.awaitingPairProfile = null;
         this.phase = "signed-out";
         this.error = null;
+        this.forgetStoredAccount();
+        this.persist();
       });
     }
     async deleteRemoteData(scope2) {
@@ -597,6 +658,7 @@
       this.sessionEpoch += 1;
       this.state = null;
       this.account = null;
+      this.accountProjectionFresh = false;
       this.entitlement = null;
       this.awaitingPairProfile = null;
       this.phase = "local";
@@ -649,7 +711,7 @@
       }
       this.account = profile2.accountId ? await this.loadAccount() : null;
       this.entitlement = profile2.accountId ? await this.loadEntitlement() : null;
-      await this.queueKnownEvents();
+      if (this.hasAcademyEventAccess()) await this.queueKnownEvents();
       this.persist();
       await this.syncNow();
     }
@@ -679,6 +741,11 @@
         this.error = null;
         return;
       }
+      if (!this.hasAcademyEventAccess()) {
+        this.phase = "ready";
+        this.error = null;
+        return;
+      }
       this.phase = "syncing";
       this.error = null;
       try {
@@ -703,7 +770,7 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ events: entries2.map(([, event]) => event) })
         });
-        if (response.status !== 200 && response.status !== 409) throw await responseError(response);
+        if (response.status !== 200 && response.status !== 409) throw await responseError$1(response);
         const result = parseAcademySyncPushResult(await response.json());
         const conflicts = new Set(result.conflicts);
         const envelopes = { ...state.envelopes };
@@ -751,14 +818,17 @@
       const eventSyncIds = { ...state.eventSyncIds };
       for (const event of events) {
         if (eventSyncIds[event.eventId]) continue;
-        const id2 = createUuid();
+        const id2 = createUuid$1();
         eventSyncIds[event.eventId] = id2;
         envelopes[id2] = await encryptEvent(state.key, state.profile.keyVersion, id2, event);
       }
       this.state = { ...state, envelopes, eventSyncIds };
     }
     async loadAccount() {
-      return parseAcademyAccountView(await this.json("/academy/api/account"));
+      const account = parseAcademyAccountView(await this.json("/academy/api/account"));
+      this.rememberAccount(account);
+      this.persist();
+      return account;
     }
     /** Entitlement is informational and never blocks sync, so failures are absorbed. */
     async loadEntitlement() {
@@ -768,9 +838,15 @@
         return null;
       }
     }
+    /** Reader accounts own the profile/key and Reader devices, but not Academy learner-event routes. */
+    hasAcademyEventAccess() {
+      const accountId = this.state?.profile.accountId ?? this.awaitingPairProfile?.accountId ?? null;
+      return !accountId || this.hasAcademyAccess;
+    }
     reflectGate(error) {
       if (error instanceof AcademyRequestError) {
         if (error.status === 401) {
+          this.forgetAccountProjection();
           this.phase = "sign-in";
           this.error = null;
         } else if (error.status === 403) {
@@ -847,7 +923,9 @@
       }
       if (error instanceof AcademyRequestError) {
         this.account = null;
+        this.accountProjectionFresh = false;
         this.entitlement = null;
+        this.forgetStoredAccount();
         this.phase = "sign-in";
         this.error = null;
         return;
@@ -867,7 +945,7 @@
         headers: init.body === void 0 ? void 0 : { "content-type": "application/json" },
         body: init.body === void 0 ? void 0 : JSON.stringify(init.body)
       });
-      if (!response.ok) throw await responseError(response);
+      if (!response.ok) throw await responseError$1(response);
       return response.json();
     }
     /**
@@ -923,6 +1001,22 @@
       if (!this.state) throw new Error("Turn on encrypted sync before using this action.");
       return this.state;
     }
+    rememberAccount(account) {
+      this.account = account;
+      this.accountProjectionFresh = true;
+      if (this.state) this.state = { ...this.state, account };
+    }
+    forgetStoredAccount() {
+      if (!this.state?.account) return;
+      const { account: _account, ...state } = this.state;
+      this.state = state;
+    }
+    forgetAccountProjection() {
+      this.account = null;
+      this.accountProjectionFresh = false;
+      this.forgetStoredAccount();
+      this.persist();
+    }
     persist() {
       try {
         if (this.state) {
@@ -972,7 +1066,7 @@
   }
   class AcademySyncConflict extends Error {
   }
-  async function responseError(response) {
+  async function responseError$1(response) {
     let message = "Academy could not complete that request.";
     try {
       const body = await response.json();
@@ -997,12 +1091,14 @@
       if (!value) return null;
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$a(parsed.envelopes) || !isRecord$a(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      const account = parsed.account === void 0 ? void 0 : parseStoredAccountView(parsed.account);
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$b(parsed.envelopes) || !isRecord$b(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
       return {
         profile: profile2,
+        ...account ? { account } : {},
         key: parsed.key,
         cursor: parsed.cursor,
         envelopes,
@@ -1013,9 +1109,27 @@
       return null;
     }
   }
+  function parseStoredAccountView(value) {
+    if (!isRecord$b(value) || !isRecord$b(value.identity)) throw new TypeError("Stored Academy account is malformed.");
+    const parsed = parseAcademyAccountView({
+      accountId: value.accountId,
+      displayName: value.identity.displayName,
+      displayTag: value.identity.label,
+      nameChosen: value.nameChosen,
+      avatarKey: value.avatarKey,
+      boardVisible: value.boardVisible,
+      shareAvatar: value.shareAvatar,
+      academyAccess: value.academyAccess,
+      classes: value.classes
+    });
+    if (value.identity.discriminator !== parsed.identity.discriminator) {
+      throw new TypeError("Stored Academy account identity is malformed.");
+    }
+    return parsed;
+  }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$a(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$b(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1027,8 +1141,22 @@
       return -1;
     }
   }
-  function isRecord$a(value) {
+  function isRecord$b(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function parseExportPage(value) {
+    if (!isRecord$b(value)) throw new Error("Encrypted data export was malformed.");
+    return {
+      root: value,
+      eventPage: parseExportEventPage(value.eventPage, "Academy event"),
+      readerSrsEventPage: parseExportEventPage(value.readerSrsEventPage, "Reader SRS event")
+    };
+  }
+  function parseExportEventPage(value, label) {
+    if (!isRecord$b(value) || !Array.isArray(value.events) || !Number.isSafeInteger(value.nextCursor) || value.nextCursor < 0 || typeof value.hasMore !== "boolean") {
+      throw new Error(`${label} export page was malformed.`);
+    }
+    return value;
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
     const nonce = randomBytes(12);
@@ -1056,6 +1184,40 @@
     const wrappingKey = await derivePairingKey(code, fromBase64Url(envelope.salt));
     const aad = pairingAdditionalData(pairingId, envelope.keyVersion);
     return toBase64Url(await aesDecrypt(wrappingKey, fromBase64Url(envelope.nonce), fromBase64Url(envelope.ciphertext), aad));
+  }
+  async function encryptProfileEvent(key2, keyVersion, purpose, value, occurredAt) {
+    if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
+    const plaintext = new TextEncoder().encode(JSON.stringify(value));
+    const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key2)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const digest2 = new Uint8Array(await crypto.subtle.sign(
+      "HMAC",
+      hmacKey,
+      cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
+    ));
+    const id2 = toBase64Url(digest2);
+    const nonce = digest2.slice(0, 12);
+    const ciphertext = await aesEncrypt(
+      fromBase64Url(key2),
+      nonce,
+      plaintext,
+      profileEventAdditionalData(purpose, id2, occurredAt, keyVersion)
+    );
+    return { id: id2, occurredAt, keyVersion, nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
+  }
+  async function decryptProfileEvent(key2, purpose, envelope) {
+    const plaintext = await aesDecrypt(
+      fromBase64Url(key2),
+      fromBase64Url(envelope.nonce),
+      fromBase64Url(envelope.ciphertext),
+      profileEventAdditionalData(purpose, envelope.id, envelope.occurredAt, envelope.keyVersion)
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext));
+  }
+  function profileEventAdditionalData(purpose, id2, occurredAt, keyVersion) {
+    if (!/^[a-z0-9-]{1,64}$/u.test(purpose) || !/^[A-Za-z0-9_-]{43}$/u.test(id2)) {
+      throw new TypeError("Profile event purpose or id is invalid.");
+    }
+    return new TextEncoder().encode(`profile-event:${purpose}:${id2}:${occurredAt}:v${keyVersion}`);
   }
   function pairingAdditionalData(pairingId, keyVersion) {
     return new TextEncoder().encode(`pairing:${pairingId}:v${keyVersion}`);
@@ -1091,7 +1253,7 @@
     crypto.getRandomValues(bytes);
     return bytes;
   }
-  function createUuid() {
+  function createUuid$1() {
     if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
     const bytes = randomBytes(16);
     bytes[6] = bytes[6] & 15 | 64;
@@ -1181,7 +1343,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$9(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$a(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1199,7 +1361,7 @@
     }
     return 0;
   }
-  function isRecord$9(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1434,7 +1596,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$8(value) || !isRecord$8(value.volumes)) return cloneDefaults();
+      if (!isRecord$9(value) || !isRecord$9(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1466,7 +1628,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2371,7 +2533,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$7(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$8(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2437,7 +2599,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$7(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$8(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2455,7 +2617,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$7(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$8(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2488,12 +2650,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$7(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$8(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique(values, label) {
@@ -6703,7 +6865,7 @@
   const SHA256$1 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$6(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$7(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$1);
@@ -6734,7 +6896,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$1(value) {
-    if (!isRecord$6(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$7(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$3(value.provenance, `${locator}.provenance`);
@@ -6755,7 +6917,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$6(value.source) || !isRecord$6(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$7(value.source) || !isRecord$7(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -6786,7 +6948,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$6(value) || value.mode !== "packaged-static") {
+    if (!isRecord$7(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -6822,7 +6984,7 @@
     if (!Number.isInteger(result)) throw new TypeError(`${label} must be an integer.`);
     return result;
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const SHA256 = /^[a-f0-9]{64}$/;
@@ -6836,7 +6998,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$5(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$6(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry(entry2, `entries[${index}]`));
@@ -6845,7 +7007,7 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry(value, owner) {
-    if (!isRecord$5(value) || !isRecord$5(value.source) || !isRecord$5(value.verification) || !isRecord$5(value.learnerContract) || !isRecord$5(value.delivery)) {
+    if (!isRecord$6(value) || !isRecord$6(value.source) || !isRecord$6(value.verification) || !isRecord$6(value.learnerContract) || !isRecord$6(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
     const packageId = text$j(value.packageId, `${owner}.packageId`);
@@ -6919,7 +7081,7 @@
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -7322,10 +7484,10 @@
     if (sourceReading) root.append(sourceReading);
     root.append(form2, feedback2);
     host2.replace(root);
-    let pending = false;
+    let pending2 = false;
     const commit = (response) => {
-      if (pending) return;
-      pending = true;
+      if (pending2) return;
+      pending2 = true;
       setDisabled$1(form2, true);
       feedback2.setAttribute("role", "status");
       feedback2.textContent = host2.language === "ja" ? "確認しています…" : "Checking…";
@@ -7337,14 +7499,14 @@
         summary.append(localized$h(evaluation.result.feedback.explanation.ja, "ja", "academy-japanese"));
         summary.append(localized$h(evaluation.result.feedback.explanation.en, "en", "academy-support"));
         feedback2.prepend(summary);
-        pending = evaluation.result.outcome === "pass";
-        if (!pending) {
+        pending2 = evaluation.result.outcome === "pass";
+        if (!pending2) {
           setDisabled$1(form2, false);
           reveal.disabled = true;
           input2.select();
         }
       }).catch(() => {
-        pending = false;
+        pending2 = false;
         setDisabled$1(form2, false);
         feedback2.textContent = host2.language === "ja" ? "答えを保存できませんでした。もう一度お試しください。" : "Your answer was not saved. Try again.";
         feedback2.setAttribute("role", "alert");
@@ -11825,16 +11987,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const LESSON_CONTENT_ROOT = "/academy/content/lessons/";
   function createGroundedLessonResolver(fetcher = fetch) {
-    const pending = /* @__PURE__ */ new Map();
+    const pending2 = /* @__PURE__ */ new Map();
     return {
       resolve(lessonId) {
-        const existing = pending.get(lessonId);
+        const existing = pending2.get(lessonId);
         if (existing) return existing;
         const load2 = resolveRegisteredLesson(lessonId, fetcher).catch((error) => {
-          pending.delete(lessonId);
+          pending2.delete(lessonId);
           throw error;
         });
-        pending.set(lessonId, load2);
+        pending2.set(lessonId, load2);
         return load2;
       }
     };
@@ -11865,18 +12027,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const repository = options.repository ?? createMemoryLearnerEventRepository();
     const now = options.now ?? Date.now;
     const createEventId = options.createEventId ?? defaultEventId;
-    let pending = Promise.resolve();
+    let pending2 = Promise.resolve();
     const recordMany = (inputs) => {
-      const operation = pending.then(async () => {
+      const operation = pending2.then(async () => {
         const events = inputs.map((input2) => normalizeEvent(input2, now, createEventId));
         await repository.append(events);
         return clone(events);
       });
-      pending = operation.then(() => void 0, () => void 0);
+      pending2 = operation.then(() => void 0, () => void 0);
       return operation;
     };
     const history2 = async () => {
-      await pending;
+      await pending2;
       return clone(await repository.readAll());
     };
     return {
@@ -12307,6 +12469,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   ];
   function isManagedStorageKey(key2) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
+  }
+  function isPrivateManagedStorageKey(key2) {
+    return key2.startsWith("yomu:private:");
   }
   const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
     showFurigana: true,
@@ -12979,6 +13144,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // App-level signals / flags / caches.
     { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
     { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+    { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
+    { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
+    { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
     { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
     { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
     { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
@@ -13065,6 +13233,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // reset owns it via the '__yomu' prefix, but backups must not replay it.
     "__yomu_cloud_settings_sync_pending_action"
   ]);
+  const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
   function hasAsyncGmStorageBackend() {
     return asyncGmGetValue() !== null;
   }
@@ -13102,6 +13271,84 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       localStorageSet(key2, fallback);
     }
     return fallback;
+  }
+  async function gmPrivateStorageGet(key2, fallback) {
+    assertPrivateStorageKey(key2);
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+    const getValue = directGmGetValue();
+    if (!getValue) return fallback;
+    try {
+      const value = await getValue(key2, MISSING);
+      return isMissingSentinel(value) ? fallback : value;
+    } catch (error) {
+      debugStorageError("Private GM storage read failed", key2, error);
+      return fallback;
+    }
+  }
+  async function withGmStorageLease(name, operation, options = {}) {
+    const getValue = asyncGmGetValue();
+    const setValue = asyncGmSetValue();
+    const deleteValue = asyncGmDeleteValue();
+    const listValues = asyncGmListValues();
+    if (!getValue || !setValue || !deleteValue || !listValues) {
+      return withWebStorageLock(name, operation);
+    }
+    const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
+    const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
+    const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
+    const owner = createFactoryResetId();
+    const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+    const key2 = `${prefix}${owner}`;
+    const startedAt = Date.now();
+    let claim = {
+      version: 1,
+      owner,
+      choosing: true,
+      ticket: 0,
+      leaseUntil: startedAt + leaseMs
+    };
+    await setValue(key2, claim);
+    try {
+      const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
+      const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
+      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+      await setValue(key2, claim);
+      while (true) {
+        const now = Date.now();
+        if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+        const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
+        const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+        if (!blocked2) break;
+        if (claim.leaseUntil - now <= leaseMs / 2) {
+          claim = { ...claim, leaseUntil: now + leaseMs };
+          await setValue(key2, claim);
+        }
+        await storageLeaseDelay(pollMs);
+      }
+      let renewalStopped = false;
+      let renewal = Promise.resolve();
+      const renewalTimer = setInterval(() => {
+        renewal = renewal.then(async () => {
+          if (renewalStopped) return;
+          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+          await setValue(key2, claim);
+        }).catch((error) => debugStorageError("GM storage lease renewal failed", key2, error));
+      }, Math.max(250, Math.floor(leaseMs / 3)));
+      try {
+        return await operation();
+      } finally {
+        renewalStopped = true;
+        clearInterval(renewalTimer);
+        await renewal;
+      }
+    } finally {
+      try {
+        await deleteValue(key2);
+      } catch (error) {
+        debugStorageError("GM storage lease release failed", key2, error);
+      }
+    }
   }
   function gmStorageGetSync(key2, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -13180,6 +13427,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     localStorageSet(key2, localFallbackValueForWrite(key2, value));
   }
+  async function gmPrivateStorageSet(key2, value) {
+    assertPrivateStorageKey(key2);
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+    const setValue = directGmSetValue();
+    if (!setValue) throw new Error("Secure extension storage is unavailable.");
+    try {
+      await setValue(key2, value);
+    } catch (error) {
+      debugStorageError("Private GM storage write failed", key2, error);
+      throw new Error("Secure extension storage is unavailable.");
+    }
+  }
   function gmStorageSetSync(key2, value) {
     if (typeof GM_setValue === "function") {
       try {
@@ -13206,6 +13466,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     removeLocalStorageKey(key2);
     removeSessionStorageKey(key2);
+  }
+  async function gmPrivateStorageDelete(key2) {
+    assertPrivateStorageKey(key2);
+    const deleteValue = directGmDeleteValue();
+    if (deleteValue) {
+      try {
+        await deleteValue(key2);
+      } catch (error) {
+        debugStorageError("Private GM storage delete failed", key2, error);
+        throw new Error("Secure extension storage is unavailable.");
+      }
+    }
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+  }
+  function assertPrivateStorageKey(key2) {
+    if (!isPrivateManagedStorageKey(key2)) throw new TypeError("Private storage requires a yomu:private: key.");
   }
   function gmStorageDeleteSync(key2) {
     if (typeof GM_deleteValue === "function") {
@@ -13388,6 +13665,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     addWebStorageCleanup(cleanups, key2, (event) => {
       onChange(JSON.parse(event.newValue || "null"));
     });
+    const extensionChanges = extensionStorageChangedEvent();
+    if (extensionChanges) {
+      const listener = (changes, areaName) => {
+        if (areaName !== "local" || !(key2 in changes)) return;
+        onChange(changes[key2]?.newValue);
+      };
+      extensionChanges.addListener(listener);
+      cleanups.push(() => extensionChanges.removeListener(listener));
+    }
     return () => runStorageCleanups(cleanups);
   }
   function addGmValueChangeCleanup(cleanups, key2, listener, errorLabel) {
@@ -13559,7 +13845,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     mirrorManagedValueToHostedStorage(key2, value);
   }
   function shouldMirrorManagedValueToHostedStorage(key2) {
-    return isManagedStorageKey(key2) && isHostedYomuOrigin();
+    return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && isHostedYomuOrigin();
   }
   function isHostedYomuOrigin() {
     try {
@@ -13623,30 +13909,79 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof GM_getValue === "function") return GM_getValue;
     const modern = globalThis.GM?.getValue;
     if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    if (extension) return async (key2, fallback) => {
+      const value = (await extension.get(key2))[key2];
+      return value === void 0 ? fallback : value;
+    };
     const bridge = getUserscriptGmStorage();
     return bridge ? (key2, fallback) => bridge.getValue(key2, fallback) : null;
+  }
+  function directGmGetValue() {
+    if (typeof GM_getValue === "function") return GM_getValue;
+    const modern = globalThis.GM?.getValue;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    return extension ? async (key2, fallback) => {
+      const value = (await extension.get(key2))[key2];
+      return value === void 0 ? fallback : value;
+    } : null;
   }
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
     const modern = globalThis.GM?.setValue;
     if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    if (extension) return (key2, value) => extension.set({ [key2]: value });
     const bridge = getUserscriptGmStorage();
     return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
+  }
+  function directGmSetValue() {
+    if (typeof GM_setValue === "function") return GM_setValue;
+    const modern = globalThis.GM?.setValue;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    return extension ? (key2, value) => extension.set({ [key2]: value }) : null;
   }
   function asyncGmDeleteValue() {
     if (typeof GM_deleteValue === "function") return GM_deleteValue;
     const modern = globalThis.GM?.deleteValue;
     if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    if (extension) return (key2) => extension.remove(key2);
     const bridge = getUserscriptGmStorage();
     return bridge ? (key2) => bridge.deleteValue(key2) : null;
+  }
+  function directGmDeleteValue() {
+    if (typeof GM_deleteValue === "function") return GM_deleteValue;
+    const modern = globalThis.GM?.deleteValue;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    return extension ? (key2) => extension.remove(key2) : null;
   }
   function asyncGmListValues() {
     const directListValues = globalThis.GM_listValues;
     if (typeof directListValues === "function") return directListValues;
     const modern = globalThis.GM?.listValues;
     if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const extension = extensionStorageArea();
+    if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
     const bridge = getUserscriptGmStorage();
     return bridge ? () => bridge.listValues() : null;
+  }
+  function extensionStorageArea() {
+    const candidate2 = globalThis;
+    const browser = candidate2.browser;
+    if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+    const chrome = candidate2.chrome;
+    if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+    return null;
+  }
+  function extensionStorageChangedEvent() {
+    const candidate2 = globalThis;
+    if (candidate2.browser?.runtime?.id && candidate2.browser.storage?.onChanged) return candidate2.browser.storage.onChanged;
+    if (candidate2.chrome?.runtime?.id && candidate2.chrome.storage?.onChanged) return candidate2.chrome.storage.onChanged;
+    return null;
   }
   function normalizeFactoryResetSignal(signal) {
     return {
@@ -13713,7 +14048,36 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   }
   function isBackupStorageKey(key2) {
-    return isManagedStorageKey(key2) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+    return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+  }
+  async function readStorageLeaseClaims(prefix, listValues, getValue, now) {
+    const keys = (await listValues()).filter((key2) => key2.startsWith(prefix));
+    const values = await Promise.all(keys.map((key2) => getValue(key2, null)));
+    return values.flatMap((value) => {
+      const claim = parseStorageLeaseClaim(value);
+      return claim && claim.leaseUntil > now ? [claim] : [];
+    });
+  }
+  function parseStorageLeaseClaim(value) {
+    if (!isPlainRecord$1(value) || value.version !== 1 || typeof value.owner !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+    return value;
+  }
+  function normalizedStorageLeaseName(name) {
+    const normalized2 = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+    if (!normalized2) throw new TypeError("Storage lease name is required.");
+    return normalized2;
+  }
+  function boundedLeaseOption(value, fallback, minimum, maximum) {
+    if (value === void 0) return fallback;
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+    return value;
+  }
+  function storageLeaseDelay(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+  async function withWebStorageLock(name, operation) {
+    const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
+    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
   }
   function debugStorageError(message, key2, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
@@ -14221,21 +14585,47 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueTrimmedStrings(values) {
     return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$4(value) || value.version !== 1 || !isRecord$4(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$5(value) || value.version !== 1 || !isRecord$5(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
       if (!normalized2) continue;
       cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
     }
-    return { version: 1, cards };
+    const tombstones = {};
+    if (isRecord$5(value.tombstones)) {
+      for (const [id2, timestamp] of Object.entries(value.tombstones)) {
+        if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+        const card = cards[id2];
+        if (card && card.updatedAt > timestamp) continue;
+        delete cards[id2];
+        tombstones[id2] = timestamp;
+      }
+    }
+    return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+  }
+  function mergeStoredYomuSrsDecks(leftValue, rightValue) {
+    const left = normalizeStoredYomuSrsDeck(leftValue);
+    const right = normalizeStoredYomuSrsDeck(rightValue);
+    const cards = { ...left.cards };
+    const tombstones = { ...left.tombstones ?? {} };
+    for (const [id2, timestamp] of Object.entries(right.tombstones ?? {})) {
+      tombstones[id2] = Math.max(tombstones[id2] ?? 0, timestamp);
+    }
+    for (const [id2, incoming] of Object.entries(right.cards)) {
+      const tombstone = tombstones[id2];
+      if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
+      if (tombstone !== void 0) delete tombstones[id2];
+      cards[id2] = cards[id2] ? mergeStoredYomuSrsCards(cards[id2], incoming) : incoming;
+    }
+    return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
   }
   function mergeStoredYomuSrsCards(existing, incoming) {
     const identity2 = canonicalStudyCardIdentity(existing.expression, existing.reading);
@@ -14321,6 +14711,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const remaining = Object.keys(academyProvenance2).length;
     if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
       delete deck.cards[card.id];
+      deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
       return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
     }
     const updated = {
@@ -14334,7 +14725,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$4(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$5(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -14389,10 +14780,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$4(value)) return {};
+    if (!isRecord$5(value)) return {};
     const result = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$4(candidate2)) continue;
+      if (!isRecord$5(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -14439,6 +14830,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
   let localDeckMutation = Promise.resolve();
+  const localDeckMutationListeners = /* @__PURE__ */ new Set();
+  function subscribeLocalYomuSrsMutations(listener) {
+    localDeckMutationListeners.add(listener);
+    return () => localDeckMutationListeners.delete(listener);
+  }
   class LocalYomuSrsRepository {
     constructor(now = () => Date.now()) {
       this.now = now;
@@ -14533,33 +14929,69 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
       };
     }
+    /** Read the normalized encrypted-sync payload without exposing the storage key. */
+    async snapshot() {
+      return structuredClone(await this.readDeck());
+    }
+    /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+    async mergeSnapshot(value, options = {}) {
+      return this.mutateDeck((deck) => {
+        const merged = mergeStoredYomuSrsDecks(deck, value);
+        deck.cards = merged.cards;
+        deck.tombstones = merged.tombstones;
+        return structuredClone(merged);
+      }, options.notifyMutations !== false);
+    }
+    /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+    async lookupCards(items) {
+      const now = this.now();
+      const deck = await this.readDeck();
+      const cards = /* @__PURE__ */ new Map();
+      for (const item2 of items) {
+        try {
+          const identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading);
+          const stored = deck.cards[identity2.key];
+          if (stored) cards.set(identity2.key, this.toReviewable(stored, now));
+        } catch {
+        }
+      }
+      return [...cards.values()];
+    }
     async review(request2) {
       return this.mutateDeck((deck) => {
         const now = this.now();
         const identity2 = canonicalStudyCardIdentity(request2.card.expression, request2.card.reading);
         const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
         const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
-        if (request2.card.providerCardId !== identity2.key) delete deck.cards[request2.card.providerCardId];
+        if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
+          delete deck.cards[request2.card.providerCardId];
+          deck.tombstones = { ...deck.tombstones ?? {}, [request2.card.providerCardId]: now };
+        }
         deck.cards[identity2.key] = updated;
+        if ((deck.tombstones?.[identity2.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity2.key];
         return { card: this.toReviewable(updated, now), raw: updated };
       });
     }
-    // fallow-ignore-next-line unused-class-member
     async mine(request2) {
-      const now = this.now();
-      const card = reviewableFromMiningRequest(request2, now);
-      const raw = await this.importBatch({
-        source: "manual-mining",
-        importedAt: now,
-        items: [{
-          expression: card.expression,
-          reading: card.reading,
-          meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const candidate2 = this.cardFromImportItem({
+          expression: request2.expression,
+          reading: request2.reading,
+          meanings: request2.meaning ? [request2.meaning] : [],
           sentence: request2.sentence,
           sourceUrl: request2.sourceUrl
-        }]
+        }, now);
+        if (!candidate2) throw new TypeError("Vocabulary expression is required.");
+        const existing = deck.cards[candidate2.id];
+        const stored = existing ? mergeStoredYomuSrsCards(existing, candidate2) : candidate2;
+        deck.cards[candidate2.id] = stored;
+        if ((deck.tombstones?.[candidate2.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate2.id];
+        return {
+          card: this.toReviewable(stored, now),
+          raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
+        };
       });
-      return { card, raw };
     }
     readDeck() {
       const result = localDeckMutation.then(() => this.readDeckUncoordinated());
@@ -14573,13 +15005,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     writeDeck(deck) {
       return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
     }
-    mutateDeck(operation) {
-      const result = localDeckMutation.then(async () => {
+    mutateDeck(operation, notifyMutations = true) {
+      const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
         const deck = await this.readDeckUncoordinated();
+        const previousCards = new Map(Object.entries(deck.cards));
+        const previousTombstones = { ...deck.tombstones ?? {} };
         const value = operation(deck);
-        await this.writeDeck(deck);
+        await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+        const changedCardIds = /* @__PURE__ */ new Set([
+          ...previousCards.keys(),
+          ...Object.keys(deck.cards),
+          ...Object.keys(previousTombstones),
+          ...Object.keys(deck.tombstones ?? {})
+        ]);
+        const changed = [...changedCardIds].filter((id2) => !sameStoredCard(previousCards.get(id2), deck.cards[id2]) || previousTombstones[id2] !== deck.tombstones?.[id2]);
+        if (notifyMutations) {
+          localDeckMutationListeners.forEach((listener) => {
+            try {
+              listener(changed);
+            } catch {
+            }
+          });
+        }
         return value;
-      });
+      }));
       localDeckMutation = result.then(() => void 0, () => void 0);
       return result;
     }
@@ -14653,6 +15102,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
   }
+  function sameStoredCard(left, right) {
+    if (left === right) return true;
+    if (!left || !right) return false;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
   function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
     return {
       id: "yomu-local",
@@ -14665,6 +15119,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       queue: (limit) => repository.queue(limit),
       review: (request2) => repository.review(request2),
       mine: (request2) => repository.mine(request2),
+      lookupCards: (items) => repository.lookupCards(items),
       importBatch: (batch) => repository.importBatch(batch)
     };
   }
@@ -14692,22 +15147,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (grade2 === "hard") return -0.15;
     if (grade2 === "nothing" || grade2 === "something" || grade2 === "fail" || grade2 === "again") return -0.25;
     return 0;
-  }
-  function reviewableFromMiningRequest(request2, now) {
-    const identity2 = canonicalStudyCardIdentity(request2.expression, request2.reading);
-    return {
-      providerId: "yomu-local",
-      providerCardId: identity2.key,
-      providerReviewId: identity2.key,
-      kind: request2.kind ?? "vocabulary",
-      expression: identity2.expression,
-      reading: identity2.reading,
-      meanings: request2.meaning ? meaningsFromGlosses([request2.meaning]) : [],
-      state: ["new"],
-      dueAt: now,
-      lastReviewAt: null,
-      sourceUrl: request2.sourceUrl
-    };
   }
   function meaningsFromGlosses(glosses) {
     const normalized2 = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
@@ -15352,7 +15791,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "frequent",
     "unparsed"
   ];
-  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
+  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
   const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
   const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   function clearRenderedWordAnkiState(word) {
@@ -15391,6 +15830,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!preserveState) {
       clearRenderedWordCardStateClasses(word);
       delete word.dataset.bunproState;
+      delete word.dataset.srsProvider;
       clearRenderedWordDeckMembershipClasses(word, ["anki"]);
     }
     word.dataset.vid = String(card.vid);
@@ -15410,6 +15850,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     word.classList.add(`jpdb-${state}`);
     if (source2 !== "jpdb") word.classList.add(`${source2}-${state}`);
     applyRenderedWordDeckMembership(word, card);
+  }
+  function applyLocalYomuSrsStateToRenderedWord(word, card) {
+    const state = primaryCardState(card.cardState);
+    const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.bunproPrefillState;
+    delete word.dataset.bunproPrefillProvenance;
+    word.dataset.cardState = state;
+    word.dataset.srsProvider = "yomu-local";
+    word.dataset.stateProvenance = "authoritative";
+    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    return changed;
   }
   function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
     return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
@@ -17733,12 +18187,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return await requestViaFetch(url, options, userscriptRequest ?? null);
       } catch (error) {
         if (!userscriptRequest) throw error;
-        return await requestViaUserscript(url, options, userscriptRequest);
+        return await requestViaUserscript$1(url, options, userscriptRequest);
       }
     }
     if (userscriptRequest) {
       try {
-        return await requestViaUserscript(url, options, userscriptRequest);
+        return await requestViaUserscript$1(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
         userscriptRequest = void 0;
@@ -17746,7 +18200,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
   }
-  function requestViaUserscript(url, options, userscriptRequest) {
+  function requestViaUserscript$1(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
       const signal = options.signal;
       if (signal?.aborted) {
@@ -19036,6 +19490,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
       cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
+      academyAccountSync: "Academy account sync",
+      academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+      academyAccountManage: "Manage account & pairing code",
+      academyPairingCode: "One-time pairing code",
+      academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
+      academyAccountConnect: "Connect",
+      academyAccountSyncNow: "Sync now",
+      academyRecoveryCodeCreate: "Create website recovery code",
+      academyRecoveryCodeCreating: "Creating a one-time website recovery code...",
+      academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
+      academyRecoveryCodeDone: "Website recovery code created.",
+      academyAccountDisconnect: "Disconnect",
+      academyAccountChecking: "Checking Academy account connection...",
+      academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+      academyAccountConnected: "Connected as {name}.",
+      academyAccountConnectedNoName: "Academy account connected.",
+      academyAccountLastSynced: "Last synced {time}.",
+      academyAccountNeverSynced: "Not synced yet.",
+      academyAccountConnectionProblem: "Could not refresh the account status: {message}",
+      academyAccountConnecting: "Connecting and syncing Academy progress...",
+      academyAccountSyncing: "Syncing Academy progress...",
+      academyAccountDisconnecting: "Disconnecting this Reader...",
+      academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
+      academyAccountConnectedDone: "Academy account connected and progress synced.",
+      academyAccountSyncedDone: "Academy progress synced.",
+      academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -20651,6 +21131,32 @@ dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
+academyAccountSync	Academyアカウント同期
+academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountManage	アカウントとペアリングコードを管理
+academyPairingCode	1回限りのペアリングコード
+academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
+academyAccountConnect	接続
+academyAccountSyncNow	今すぐ同期
+academyRecoveryCodeCreate	Webサイト復旧コードを作成
+academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中...
+academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
+academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
+academyAccountDisconnect	接続解除
+academyAccountChecking	Academyアカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountConnected	{name}として接続中です。
+academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountLastSynced	最終同期: {time}。
+academyAccountNeverSynced	まだ同期していません。
+academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
+academyAccountConnecting	接続してAcademyの進捗を同期中...
+academyAccountSyncing	Academyの進捗を同期中...
+academyAccountDisconnecting	このReaderの接続を解除中...
+academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
+academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
+academyAccountSyncedDone	Academyの進捗を同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -27747,9 +28253,9 @@ ${spelling}`);
       lookup(character) {
         const normalized2 = Array.from(character.trim())[0] ?? "";
         if (!normalized2 || !OFFLINE_TRACES[normalized2]) return Promise.resolve(null);
-        let pending = cache2.get(normalized2);
-        if (!pending) {
-          pending = fetcher(OFFLINE_TRACES[normalized2]).then((response) => response.ok ? response.text() : "").then((svg) => svg ? parseKanjiVGSvg(svg, normalized2) : null).then((info) => info ? {
+        let pending2 = cache2.get(normalized2);
+        if (!pending2) {
+          pending2 = fetcher(OFFLINE_TRACES[normalized2]).then((response) => response.ok ? response.text() : "").then((svg) => svg ? parseKanjiVGSvg(svg, normalized2) : null).then((info) => info ? {
             character: info.kanji,
             svg: info.svg,
             strokeCount: info.strokeCount,
@@ -27761,9 +28267,9 @@ ${spelling}`);
               revision: "eab57831f1e418016a029266c4b17bf824b9af68"
             }
           } : null).catch(() => null);
-          cache2.set(normalized2, pending);
+          cache2.set(normalized2, pending2);
         }
-        return pending;
+        return pending2;
       }
     };
   }
@@ -30214,15 +30720,15 @@ ${spelling}`);
   }
   function openDatabase(factory, name) {
     return new Promise((resolve, reject) => {
-      const pending = factory.open(name, DB_VERSION$1);
-      pending.onupgradeneeded = () => {
-        const database = pending.result;
+      const pending2 = factory.open(name, DB_VERSION$1);
+      pending2.onupgradeneeded = () => {
+        const database = pending2.result;
         if (!database.objectStoreNames.contains(EVENT_STORE)) database.createObjectStore(EVENT_STORE, { keyPath: "eventId" });
         if (!database.objectStoreNames.contains(META_STORE)) database.createObjectStore(META_STORE, { keyPath: "id" });
       };
-      pending.onsuccess = () => resolve(pending.result);
-      pending.onerror = () => reject(pending.error ?? new Error("Could not open Academy storage."));
-      pending.onblocked = () => reject(new Error("Academy storage upgrade is blocked by another tab."));
+      pending2.onsuccess = () => resolve(pending2.result);
+      pending2.onerror = () => reject(pending2.error ?? new Error("Could not open Academy storage."));
+      pending2.onblocked = () => reject(new Error("Academy storage upgrade is blocked by another tab."));
     });
   }
   async function readAllEvents(database) {
@@ -30373,10 +30879,10 @@ ${spelling}`);
   function checkpointSchemaVersion(value) {
     return value && typeof value === "object" && "schemaVersion" in value ? Number(value.schemaVersion) : void 0;
   }
-  function request(pending) {
+  function request(pending2) {
     return new Promise((resolve, reject) => {
-      pending.onsuccess = () => resolve(pending.result);
-      pending.onerror = () => reject(pending.error ?? new Error("IndexedDB request failed."));
+      pending2.onsuccess = () => resolve(pending2.result);
+      pending2.onerror = () => reject(pending2.error ?? new Error("IndexedDB request failed."));
     });
   }
   function transactionComplete(transaction) {
@@ -34077,7 +34583,7 @@ ${spelling}`);
   function choiceToken(index) {
     return `option-${index}`;
   }
-  function setBusy(button2, busy, label) {
+  function setBusy$1(button2, busy, label) {
     button2.disabled = busy;
     button2.setAttribute("aria-busy", String(busy));
     {
@@ -34163,7 +34669,7 @@ ${spelling}`);
         return;
       }
       input2.removeAttribute("aria-invalid");
-      setBusy(submit, true, academyText(options.language, "accessChecking"));
+      setBusy$1(submit, true, academyText(options.language, "accessChecking"));
       void options.onSubmit(input2.value).catch((error) => {
         const unavailable = error instanceof Error && "code" in error && error.code === "unavailable";
         feedback2.replaceChildren(fieldError(academyText(options.language, unavailable ? "accessUnavailable" : "accessInvalid")));
@@ -34695,12 +35201,12 @@ ${spelling}`);
     paragraph.append(...localizedNodes$1(value));
     return paragraph;
   }
-  function setPending$1(root, pending) {
-    root.setAttribute("aria-busy", String(pending));
+  function setPending$1(root, pending2) {
+    root.setAttribute("aria-busy", String(pending2));
     root.querySelectorAll(
       "input, button, select, textarea"
     ).forEach((control2) => {
-      control2.disabled = pending;
+      control2.disabled = pending2;
     });
   }
   function normalizeJapanese(value) {
@@ -35466,10 +35972,10 @@ ${spelling}`);
   function localized$d(value, language) {
     return language === "ja" ? value.ja : value.en;
   }
-  function setPending(form2, pending) {
-    form2.setAttribute("aria-busy", String(pending));
+  function setPending(form2, pending2) {
+    form2.setAttribute("aria-busy", String(pending2));
     form2.querySelectorAll("input, button").forEach((control2) => {
-      control2.disabled = pending;
+      control2.disabled = pending2;
     });
   }
   const constructedResponseActivityPlugin = {
@@ -38710,7 +39216,7 @@ ${spelling}`);
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord$3(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$4(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -38728,7 +39234,7 @@ ${spelling}`);
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord$3(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$4(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -38743,7 +39249,7 @@ ${spelling}`);
       message: value.message
     };
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -234963,13 +235469,13 @@ ${spelling}`);
         if (!disposed) options.onComplete?.();
       };
       try {
-        const pending = options.onMastered?.(response);
-        if (!pending) {
+        const pending2 = options.onMastered?.(response);
+        if (!pending2) {
           complete();
           return;
         }
         status.textContent = options.language === "ja" ? "学習記録を保存しています…" : "Saving study record...";
-        void pending.then(complete).catch((error) => {
+        void pending2.then(complete).catch((error) => {
           committing = false;
           status.textContent = error instanceof Error ? error.message : String(error);
         });
@@ -246496,10 +247002,10 @@ ${spelling}`);
     prompt2.className = "academy-lesson-zero-kana-prompt";
     prompt2.textContent = language === "ja" ? "聞いて、文字を選んでください。" : "Listen, then choose the character.";
     let playback = null;
-    let pending = false;
+    let pending2 = false;
     const play = choice(language === "ja" ? "音声を再生" : "Play audio", () => {
-      if (pending) return;
-      pending = true;
+      if (pending2) return;
+      pending2 = true;
       play.disabled = true;
       playback?.dispose();
       playback = null;
@@ -246510,7 +247016,7 @@ ${spelling}`);
       }).catch(() => {
         status.textContent = language === "ja" ? "音声を再生できません。もう一度お試しください。" : "Pronunciation is unavailable. Try again.";
       }).finally(() => {
-        pending = false;
+        pending2 = false;
         play.disabled = false;
       });
     });
@@ -248352,8 +248858,8 @@ ${spelling}`);
   }
   function notify(callback2, target2) {
     try {
-      const pending = callback2();
-      if (pending) void pending.catch((error) => announceCallbackError(target2, error));
+      const pending2 = callback2();
+      if (pending2) void pending2.catch((error) => announceCallbackError(target2, error));
     } catch (error) {
       announceCallbackError(target2, error);
     }
@@ -252027,11 +252533,56 @@ ${spelling}`);
     appendSessionActions(actions, screen, options);
     content.append(actions);
     if (shouldShowPairClaim(options.status)) content.append(pairClaim(options));
+    if (options.status.account && options.onListReaderDevices && options.onRevokeReaderDevice) {
+      content.append(readerDeviceSection(options));
+    }
     return screen;
   }
+  function readerDeviceSection(options) {
+    const section = element("section", "academy-code-section academy-reader-device-section");
+    const heading = element("h3", "academy-code-heading");
+    heading.textContent = localize(options.language, "Reader devices", "Reader 端末");
+    const status = element("p", "academy-code-help");
+    status.textContent = localize(options.language, "Loading connected Reader devices…", "接続済みの Reader 端末を読み込んでいます…");
+    const list2 = element("div", "academy-profile-sync-actions academy-reader-device-list");
+    section.append(heading, status, list2);
+    const refresh2 = async () => {
+      try {
+        const devices = await options.onListReaderDevices();
+        list2.replaceChildren();
+        const active = devices.filter((device) => device.revokedAt === null);
+        status.textContent = active.length ? localize(options.language, `${active.length} connected Reader device(s).`, `接続中の Reader 端末：${active.length}台`) : localize(options.language, "No connected Reader devices.", "接続中の Reader 端末はありません。");
+        active.forEach((device) => {
+          const button2 = actionButton$1(
+            localize(options.language, `Disconnect ${shortDeviceId(device.deviceId)}`, `${shortDeviceId(device.deviceId)} を解除`),
+            async (control2) => {
+              const confirmed = window.confirm(localize(
+                options.language,
+                "Disconnect this Reader device? It will need a new one-time code to sync again.",
+                "この Reader 端末の接続を解除しますか？再同期には新しいワンタイムコードが必要です。"
+              ));
+              if (!confirmed) return;
+              await options.onRevokeReaderDevice(device.deviceId);
+              control2.remove();
+              await refresh2();
+            }
+          );
+          button2.title = new Date(device.lastSeenAt).toLocaleString(options.language);
+          list2.append(button2);
+        });
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+        status.setAttribute("role", "alert");
+      }
+    };
+    void refresh2();
+    return section;
+  }
+  function shortDeviceId(deviceId) {
+    return deviceId.slice(0, 8);
+  }
   function canContinueToAcademy(status) {
-    const accountLinked = Boolean(status.account) || Boolean(status.profile?.accountId);
-    return accountLinked && (status.phase === "ready" || status.phase === "offline");
+    return status.account?.academyAccess === true && (status.phase === "ready" || status.phase === "offline");
   }
   function appendPrimaryAction(actions, options) {
     const { phase, profile: profile2 } = options.status;
@@ -256417,6 +256968,8 @@ ${spelling}`);
           await sync.deleteRemoteData(scope2);
           this.renderProfileSync(context2);
         },
+        onListReaderDevices: () => sync.listReaderDevices(),
+        onRevokeReaderDevice: (deviceId) => sync.revokeReaderDevice(deviceId),
         onClassBoard: sync.status.account?.classes.length ? () => void context2.go("class-board") : void 0,
         onContinue: context2.checkpoint.routeHistory.length === 0 ? () => void context2.go(context2.projection.profile ? "start" : "profile") : void 0
       }));
@@ -256758,6 +257311,9 @@ ${spelling}`);
     get accountLinked() {
       return this.devAuthBypass || this.sync.hasLinkedAccount;
     }
+    get curriculumAuthorized() {
+      return this.devAuthBypass || this.sync.hasAcademyAccess;
+    }
     constructor(host2, options = {}) {
       this.access = options.access ?? createAccessGateway();
       this.suppliedPersistence = options.persistence;
@@ -256816,8 +257372,9 @@ ${spelling}`);
       });
       let restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
       restoredCheckpoint = await this.refreshExpiredSession(restoredCheckpoint);
+      const requestedProfileSync = new URL(location.href).searchParams.get("view") === "profile-sync";
       const returnedFromGoogle = await this.sync.completeGoogleReturn();
-      if (!returnedFromGoogle && restoredCheckpoint.session && !this.accountLinked && navigator.onLine) {
+      if (!returnedFromGoogle && (restoredCheckpoint.session || requestedProfileSync) && navigator.onLine && (!this.accountLinked || !this.sync.hasCurrentAccountProjection)) {
         await this.sync.connect();
       }
       this.checkpoint = normalizeResumeCheckpoint(
@@ -256825,8 +257382,16 @@ ${spelling}`);
         this.projection,
         Date.now(),
         navigator.onLine,
-        this.accountLinked
+        this.curriculumAuthorized
       );
+      if (requestedProfileSync && this.accountLinked) {
+        this.checkpoint = {
+          ...this.checkpoint,
+          route: "profile-sync",
+          routeHistory: [],
+          updatedAt: Date.now()
+        };
+      }
       if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
       this.bindLifecycle();
@@ -256882,7 +257447,7 @@ ${spelling}`);
       const globalNavigationAvailable = globalNavigationIsAvailable(
         this.checkpoint,
         Boolean(this.projection.profile),
-        this.accountLinked
+        this.curriculumAuthorized
       );
       this.shell.setNavigation(globalNavigationAvailable, navigation);
       this.shell.setUtilityVisible?.(route !== "review");
@@ -256933,7 +257498,7 @@ ${spelling}`);
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.accountLinked);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.curriculumAuthorized);
       await this.persistence.checkpoint.save(this.checkpoint);
     }
     async setPresentationMode(mode) {
@@ -256948,7 +257513,7 @@ ${spelling}`);
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.accountLinked);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.curriculumAuthorized);
       await this.persistence.checkpoint.save(this.checkpoint);
       await this.render();
     }
@@ -257327,6 +257892,9 @@ ${spelling}`);
       cardState: [...card.cardState],
       pitchAccent: [...card.pitchAccent],
       source: card.source,
+      reviewSource: card.reviewSource,
+      dueAt: card.dueAt,
+      lastReviewAt: card.lastReviewAt,
       deckNames: card.deckNames ? [...card.deckNames] : void 0,
       ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
       jpdbDeckMembership: card.jpdbDeckMembership,
@@ -257418,6 +257986,9 @@ ${spelling}`);
         cardState: card.cardState,
         pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
         source: card.source ?? "jpdb",
+        reviewSource: typeof card.reviewSource === "string" ? card.reviewSource : void 0,
+        dueAt: card.dueAt === null || typeof card.dueAt === "number" ? card.dueAt : void 0,
+        lastReviewAt: card.lastReviewAt === null || typeof card.lastReviewAt === "number" ? card.lastReviewAt : void 0,
         deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
         ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
         jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
@@ -260999,6 +261570,562 @@ ${spelling}`);
   function normalizeDeckChoiceRenderOptions(value) {
     return typeof value === "boolean" ? { includeJpdb: value } : value;
   }
+  function cssColorToHex(value, backdrop) {
+    const color = cssColorToRgba(value);
+    if (!color) return null;
+    if (color.alpha >= 1) return rgbaToHex(color);
+    return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
+  }
+  function cssColorToRgba(value) {
+    const color = value.trim().toLowerCase();
+    if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+    if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
+    if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
+    if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
+    if (color.startsWith("oklab(")) return parseOklabFunction(color);
+    if (color.startsWith("oklch(")) return parseOklchFunction(color);
+    return probeCssColor(color);
+  }
+  const probedColors = /* @__PURE__ */ new Map();
+  let probeContext;
+  function probeCssColor(color) {
+    const cached = probedColors.get(color);
+    if (cached !== void 0) return cached;
+    if (probeContext === void 0) {
+      try {
+        probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+      } catch {
+        probeContext = null;
+      }
+    }
+    let parsed = null;
+    if (probeContext) {
+      try {
+        probeContext.fillStyle = "#010203";
+        probeContext.fillStyle = color;
+        const serialized = String(probeContext.fillStyle).toLowerCase();
+        if (serialized !== "#010203") {
+          if (serialized.startsWith("#")) {
+            const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+            parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+          } else if (serialized.startsWith("rgb")) {
+            parsed = parseRgbFunction(serialized);
+          } else if (serialized.startsWith("color(srgb ")) {
+            parsed = parseSrgbFunction(serialized);
+          }
+          if (!parsed) parsed = probePixelColor(probeContext, color);
+        }
+      } catch {
+        parsed = null;
+      }
+    }
+    if (probedColors.size > 512) probedColors.clear();
+    probedColors.set(color, parsed);
+    return parsed;
+  }
+  function probePixelColor(context2, color) {
+    try {
+      context2.canvas.width = 1;
+      context2.canvas.height = 1;
+      context2.clearRect(0, 0, 1, 1);
+      context2.fillStyle = color;
+      context2.fillRect(0, 0, 1, 1);
+      const [red, green, blue, alphaByte] = context2.getImageData(0, 0, 1, 1).data;
+      return { red, green, blue, alpha: alphaByte / 255 };
+    } catch {
+      return null;
+    }
+  }
+  function blendRgba(foreground, background) {
+    const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+    if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+    const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
+    return {
+      red: channel(foreground.red, background.red),
+      green: channel(foreground.green, background.green),
+      blue: channel(foreground.blue, background.blue),
+      alpha
+    };
+  }
+  function rgbaToHex(color) {
+    return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function expandHexColor(value) {
+    return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
+  }
+  function hexToRgbaColor(color) {
+    const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
+    return { red, green, blue, alpha: 1 };
+  }
+  function parseRgbFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    return {
+      red: parseRgbChannel(parts[0]),
+      green: parseRgbChannel(parts[1]),
+      blue: parseRgbChannel(parts[2]),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    };
+  }
+  function parseSrgbFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    return {
+      red: parseSrgbChannel(parts[0]),
+      green: parseSrgbChannel(parts[1]),
+      blue: parseSrgbChannel(parts[2]),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    };
+  }
+  function parseOklabFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    return oklabToRgba({
+      lightness: parseOklabLightness(parts[0]),
+      a: parseOklabAxis(parts[1]),
+      b: parseOklabAxis(parts[2]),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    });
+  }
+  function parseOklchFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    const chroma = parseOklabAxis(parts[1]);
+    const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
+    return oklabToRgba({
+      lightness: parseOklabLightness(parts[0]),
+      a: chroma * Math.cos(hue),
+      b: chroma * Math.sin(hue),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    });
+  }
+  function colorFunctionNumbers(value) {
+    return value.match(/-?\d*\.?\d+%?/g) ?? [];
+  }
+  function parseRgbChannel(value) {
+    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
+  }
+  function parseSrgbChannel(value) {
+    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
+  }
+  function parseOklabLightness(value) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return value.endsWith("%") ? parsed / 100 : parsed;
+  }
+  function parseOklabAxis(value) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return value.endsWith("%") ? parsed / 100 : parsed;
+  }
+  function oklabToRgba(color) {
+    const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
+    const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
+    const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
+    const long = l ** 3;
+    const medium = m ** 3;
+    const short = s ** 3;
+    return {
+      red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
+      green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
+      blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
+      alpha: color.alpha
+    };
+  }
+  function linearSrgbToChannel(value) {
+    const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+    return clampChannel(channel * 255);
+  }
+  function parseAlpha(value) {
+    const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
+    return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
+  }
+  function clampChannel(value) {
+    return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
+  }
+  function readableOn(color, background, targetContrast) {
+    const safe = sanitizeAccentColor(color);
+    if (contrastRatio(safe, background) >= targetContrast) return safe;
+    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+    for (let amount = 0.08; amount <= 1; amount += 0.08) {
+      const mixed = mixHex(safe, toward, amount);
+      if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+    }
+    return toward;
+  }
+  function readableOnAll(color, backgrounds, targetContrast) {
+    const safe = sanitizeAccentColor(color);
+    if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
+    const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate2) => Boolean(candidate2)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
+    if (candidates[0]) return candidates[0].color;
+    return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
+  }
+  function contrastRatio(a, b) {
+    return sharedContrastRatio(a, b, sanitizeAccentColor);
+  }
+  function mixHex(from, to, amount) {
+    return sharedMixHex(from, to, amount, sanitizeAccentColor);
+  }
+  function isHexColor(value) {
+    return /^#[0-9a-f]{6}$/i.test(value);
+  }
+  function closestReadableMix(color, toward, backgrounds, targetContrast) {
+    for (let amount = 0.04; amount <= 1; amount += 0.04) {
+      const mixed = mixHex(color, toward, amount);
+      const contrast = minContrast(mixed, backgrounds);
+      if (contrast >= targetContrast) return { color: mixed, amount, contrast };
+    }
+    return null;
+  }
+  function minContrast(color, backgrounds) {
+    return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
+  }
+  const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
+  const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
+  const TEXT_CONTRAST = 4.5;
+  const DECORATION_CONTRAST = 3;
+  const HIGHLIGHT_CONTRAST = 1.45;
+  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+  const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
+  const COLORED_READER_WORD_CLASSES = /* @__PURE__ */ new Set([
+    "jpdb-new",
+    "jpdb-in-deck",
+    "jpdb-learning",
+    "jpdb-known",
+    "jpdb-never-forget",
+    "jpdb-redundant",
+    "jpdb-due",
+    "jpdb-failed",
+    "jpdb-suspended",
+    "jpdb-blacklisted",
+    "jpdb-locked",
+    "anki-new",
+    "anki-learning",
+    "anki-known",
+    "anki-due",
+    "anki-failed",
+    "anki-suspended",
+    "jpdb-pitch-heiban",
+    "jpdb-pitch-atamadaka",
+    "jpdb-pitch-nakadaka",
+    "jpdb-pitch-odaka"
+  ]);
+  const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
+  const appliedContrastState = /* @__PURE__ */ new WeakMap();
+  function refreshReaderWordContrast(root = document) {
+    const words = readerWords(root);
+    const activeWords = [];
+    const activeBackgrounds = [];
+    const unknownBackgroundWords = [];
+    const neutralWords = [];
+    const backgroundByParent = /* @__PURE__ */ new Map();
+    const cachedPageBackgroundFor = (word) => {
+      const parent = word.parentElement;
+      if (!parent) return pageBackgroundFor(word);
+      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+      const background = pageBackgroundFor(word);
+      backgroundByParent.set(parent, background);
+      return background;
+    };
+    for (const word of words) {
+      const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
+      const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
+      if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
+        delete word.dataset.ankiPreserveContrast;
+        continue;
+      }
+      if (word.closest(YOMU_SURFACE_SELECTOR)) {
+        neutralWords.push(word);
+        continue;
+      }
+      if (isNeutralReaderWord(word)) {
+        neutralWords.push(word);
+        continue;
+      }
+      const background = cachedPageBackgroundFor(word);
+      if (!background) {
+        if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
+        unknownBackgroundWords.push(word);
+        continue;
+      }
+      const isHovered = word.matches(":hover, :focus");
+      const previous = appliedContrastState.get(word);
+      const parentColor = getComputedStyle(word.parentElement ?? word).color;
+      if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
+        continue;
+      }
+      if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+        scheduleHoverSettledContrastRefresh(word);
+        continue;
+      }
+      if (isHovered) {
+        scheduleHoverSettledContrastRefresh(word);
+      }
+      activeWords.push(word);
+      activeBackgrounds.push(background);
+    }
+    const savedVars = activeWords.map((word, i2) => {
+      const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
+        name,
+        value: word.style.getPropertyValue(name),
+        priority: word.style.getPropertyPriority(name)
+      }));
+      RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+      word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i2].css);
+      return saved;
+    });
+    const measurements = activeWords.map((word) => {
+      const style = getComputedStyle(word);
+      const parentStyle = getComputedStyle(word.parentElement ?? word);
+      return {
+        bg: style.backgroundColor,
+        hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
+        fg: style.color,
+        deco: measuredWordDecorationColor(style),
+        parentFg: parentStyle.color,
+        hover: style.getPropertyValue("--jpdb-reader-hover"),
+        hovered: word.matches(":hover, :focus")
+      };
+    });
+    neutralWords.forEach((word) => clearContrastVars(word));
+    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+    activeWords.forEach((word, i2) => {
+      savedVars[i2].forEach(({ name, value, priority }) => {
+        if (value) word.style.setProperty(name, value, priority);
+      });
+      applyWordContrastVars(word, activeBackgrounds[i2], measurements[i2]);
+      appliedContrastState.set(word, {
+        background: activeBackgrounds[i2].css,
+        className: word.className,
+        cssText: word.style.cssText,
+        hovered: measurements[i2].hovered,
+        parentColor: measurements[i2].parentFg
+      });
+    });
+  }
+  function measuredWordDecorationColor(style) {
+    const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
+    if (underline && !underline.includes("var(")) return underline;
+    const source2 = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
+    return source2 || underline || style.textDecorationColor;
+  }
+  function applyWordContrastVars(word, background, m) {
+    word.style.setProperty("--jpdb-reader-page-bg", background.css);
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+    const preserveHostPaint = isPassiveChromeWord(word);
+    const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
+    const accessibleHex = rgbaToHex(accessibleRgba);
+    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
+    const sourceText = cssColorToHex(m.fg, accessibleRgba);
+    const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
+    const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
+    const textSource = sourceText ?? nativeText;
+    const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
+    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
+    if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+  }
+  function isPassiveChromeWord(word) {
+    return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
+  }
+  function uniqueHexes(colors) {
+    return [...new Set(colors)];
+  }
+  function textBackdropsForMeasurement(m, textBackdropHex) {
+    const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
+    return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+  }
+  function existingAccessibleColorRemainsReadableOnHover(word, background) {
+    const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
+    if (!existingText) return false;
+    const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
+    const baseBackdrop = existingHighlight ?? background.hex;
+    const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
+    return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+  }
+  function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
+    if (!hovered) return null;
+    const hover = cssColorToRgba(hoverColor);
+    const backdrop = cssColorToRgba(textBackdropHex);
+    if (!hover || !backdrop || hover.alpha <= 0) return null;
+    return rgbaToHex(blendRgba(hover, backdrop));
+  }
+  function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
+    const colorRgba = cssColorToRgba(wordBgColor);
+    const hasPaint = !!colorRgba?.alpha;
+    const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
+    const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
+    if (hasPaint && !preserveHostPaint) {
+      const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
+      word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
+      return cssColorToRgba(highlightHex) ?? rgba;
+    }
+    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    return rgba;
+  }
+  function paintRgba(value, el2) {
+    const direct = cssColorToRgba(value);
+    if (direct) return direct;
+    const probe = el2.appendChild(document.createElement("span"));
+    probe.style.color = value;
+    const rgba = cssColorToRgba(getComputedStyle(probe).color);
+    probe.remove();
+    return rgba;
+  }
+  function resolveDecorationHex(word, decorationColor, accessibleRgba) {
+    const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
+    return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
+  }
+  function refreshReaderWordContrastForWord(word) {
+    refreshReaderWordContrast(word.parentElement ?? word);
+  }
+  function refreshContrastForChangedWords(words) {
+    const lines = /* @__PURE__ */ new Set();
+    for (const word of words) {
+      if (word.isConnected) lines.add(word.parentElement ?? word);
+    }
+    lines.forEach((line2) => refreshReaderWordContrast(line2));
+  }
+  function isNeutralReaderWord(word) {
+    if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
+    return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
+  }
+  function scheduleHoverSettledContrastRefresh(word) {
+    if (pendingHoverContrastRefresh.has(word)) return;
+    pendingHoverContrastRefresh.add(word);
+    window.setTimeout(() => {
+      pendingHoverContrastRefresh.delete(word);
+      if (!word.isConnected) return;
+      refreshReaderWordContrastForWord(word);
+    }, 120);
+  }
+  function readerWords(root) {
+    const words = /* @__PURE__ */ new Set();
+    if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
+    root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
+    return [...words];
+  }
+  function pageBackgroundFor(word) {
+    const ancestors = [];
+    for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
+    let found = false;
+    let hasImageBackdrop = false;
+    let unknownBase = false;
+    let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+    for (const element2 of ancestors.reverse()) {
+      const style = getComputedStyle(element2);
+      hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+      const color = cssColorToRgba(style.backgroundColor);
+      if (!color) {
+        unknownBase = true;
+        continue;
+      }
+      if (color.alpha <= 0) continue;
+      if (color.alpha >= 1) unknownBase = false;
+      rgba = blendRgba(color, rgba);
+      found = true;
+    }
+    if (unknownBase || !found) {
+      if (hasImageBackdrop) return null;
+      return inferredTransparentPageBackground(word);
+    }
+    return pageBackgroundFromRgba(rgba);
+  }
+  function inferredTransparentPageBackground(word) {
+    const style = getComputedStyle(word.parentElement ?? word);
+    const rootStyle = getComputedStyle(document.documentElement);
+    const bodyStyle = getComputedStyle(document.body);
+    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
+    if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+    if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
+      return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    }
+    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+  }
+  function pageBackgroundFromCss(color) {
+    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
+  }
+  function pageBackgroundFromRgba(rgba) {
+    const hex = rgbaToHex(rgba);
+    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+  }
+  function bestTextColor(background) {
+    return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  }
+  function readableHighlightBackground(color, background) {
+    if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
+    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+    for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
+      const mixed = mixHex(color, toward, amount);
+      if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
+    }
+    return color;
+  }
+  function applyUnknownBackgroundFallback(word) {
+    RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+    word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+  }
+  function clearContrastVars(word) {
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+  }
+  function applyYomuLocalReviewableToCard(card, reviewable) {
+    card.cardState = [...reviewable.state];
+    card.reviewSource = "yomu-local";
+    card.dueAt = reviewable.dueAt;
+    card.lastReviewAt = reviewable.lastReviewAt;
+    delete card.provisionalState;
+    return card;
+  }
+  async function hydrateYomuLocalSrsCardStates(parsed, adapter) {
+    if (typeof adapter.lookupCards !== "function") return parsed;
+    const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
+    const identities = /* @__PURE__ */ new Map();
+    for (const card of cards) {
+      const identity2 = localIdentity(card.spelling, card.reading);
+      if (identity2) identities.set(identity2.key, identity2);
+    }
+    if (!identities.size) return parsed;
+    const reviewables = await adapter.lookupCards([...identities.values()]);
+    const indexed = new Map(reviewables.map((reviewable) => [
+      canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+      reviewable
+    ]));
+    for (const card of cards) {
+      const identity2 = localIdentity(card.spelling, card.reading);
+      const reviewable = identity2 ? indexed.get(identity2.key) : void 0;
+      if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
+    }
+    return parsed;
+  }
+  function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
+    if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
+    const target2 = localIdentity(card.spelling, card.reading);
+    if (!target2) return 0;
+    const words = /* @__PURE__ */ new Set();
+    for (const root of roots) {
+      if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-expression]")) words.add(root);
+      root.querySelectorAll(".jpdb-reader-word[data-expression]").forEach((word) => words.add(word));
+    }
+    const changed = [];
+    for (const word of words) {
+      const identity2 = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+      if (!identity2 || identity2.key !== target2.key) continue;
+      if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
+    }
+    refreshContrastForChangedWords(changed);
+    return changed.length;
+  }
+  function localIdentity(expression, reading) {
+    try {
+      return canonicalStudyCardIdentity(expression, reading);
+    } catch {
+      return null;
+    }
+  }
   function apiGradingProviderPreference(settings) {
     if (settings.apiGradingProvider === "bunpro") return "bunpro";
     return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
@@ -261244,15 +262371,17 @@ ${spelling}`);
       selectedDeckId: () => "yomu-local",
       selectedDeckLabel: () => ACADEMY_SRS_LABEL,
       addToDeck: async (_deckId, card, sentence, context2) => {
-        await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2));
+        const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2));
+        if (result.card) applyYomuLocalReviewableToCard(card, result.card);
       },
       reviewCard: async (card, grade2, reviewOptions = {}) => {
         const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-        await adapter.review({
+        const result = await adapter.review({
           card: yomuLocalReviewableFromCard(card),
           grade: grade2,
           sentence: reviewOptions.sentence
         });
+        if (result.card) applyYomuLocalReviewableToCard(card, result.card);
         return { addedBeforeReview: wasNotInDeck };
       },
       setDeckState: async () => void 0
@@ -262269,8 +263398,7 @@ ${spelling}`);
     return value.normalize("NFC").replace(/\s+/g, "").trim();
   }
   function headwordFuriganaSettings(settings) {
-    if (!settings.showFurigana || settings.furiganaMode === "off") return settings;
-    return { ...settings, furiganaMode: "all" };
+    return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
   function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
     const spelling = card.spelling.trim();
@@ -263602,7 +264730,7 @@ ${item2.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$5(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -263696,7 +264824,7 @@ ${item2.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$4(value)) return "";
+    if (!isRecord$5(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -265489,9 +266617,9 @@ ${entry2.reading}`;
         const readingIndex = store.index("reading");
         const results = [];
         const expressions2 = sortedTermMatchExpressions(candidates);
-        let pending = expressions2.length * 2;
+        let pending2 = expressions2.length * 2;
         const finish = () => {
-          if (--pending <= 0) resolve(results);
+          if (--pending2 <= 0) resolve(results);
         };
         const addMatches = (expression, foundEntries) => {
           results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank2));
@@ -265657,9 +266785,9 @@ ${entry2.reading}`;
         const results = /* @__PURE__ */ new Map();
         const tx = db.transaction("terms", "readonly");
         const index = tx.objectStore("terms").index("expression");
-        let pending = expressions2.length;
+        let pending2 = expressions2.length;
         const finish = () => {
-          if (--pending <= 0) resolve(results);
+          if (--pending2 <= 0) resolve(results);
         };
         const fail2 = (error) => reject(error ?? new Error("Could not load top dictionary terms."));
         for (const expression of expressions2) {
@@ -265749,17 +266877,17 @@ ${entry2.reading}`;
       let importedTerms = false;
       const importBank = async (pattern, label, store, normalize2) => {
         const files = zip.entries().filter((entry2) => pattern.test(entry2.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
-        let pending = [];
+        let pending2 = [];
         let saved = 0;
         const flush = async () => {
-          if (!pending.length) return;
+          if (!pending2.length) return;
           if (store === "terms" && !clearedTermIndexesForImport) {
             await this.clearDerivedTermIndexes(db);
             clearedTermIndexesForImport = true;
           }
-          const entries2 = pending;
+          const entries2 = pending2;
           const parsed = summary[label];
-          pending = [];
+          pending2 = [];
           onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
           await this.addToStore(store, entries2, false, store !== "terms", (written) => {
             onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
@@ -265779,10 +266907,10 @@ ${entry2.reading}`;
             const entry2 = normalize2(row);
             if (!entry2) continue;
             if (store === "terms") await inlineStructuredImageDataUrls(zip, entry2.glossary);
-            pending.push(entry2);
+            pending2.push(entry2);
             summary[label]++;
             summary.entries++;
-            if (pending.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
+            if (pending2.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
           }
           await flush();
         }
@@ -266178,9 +267306,9 @@ ${entry2.reading}`;
         const tx = db.transaction(storeName, "readonly");
         const index = tx.objectStore(storeName).index(indexName);
         const results = [];
-        let pending = values.length;
+        let pending2 = values.length;
         const finish = () => {
-          if (--pending <= 0) resolve(results);
+          if (--pending2 <= 0) resolve(results);
         };
         const fail2 = (error) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
         for (const value of values) {
@@ -266279,9 +267407,9 @@ ${entry2.reading}`;
         const tx = db.transaction("terms", "readonly");
         const store = tx.objectStore("terms");
         const entries2 = [];
-        let pending = queries.length;
+        let pending2 = queries.length;
         const finish = () => {
-          if (--pending <= 0) resolve(entries2);
+          if (--pending2 <= 0) resolve(entries2);
         };
         const fail2 = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
         for (const item2 of queries) {
@@ -270352,9 +271480,9 @@ ${entry2.reading || ""}`;
     }
     renderMetaItems(card, provider, state, data) {
       const settings = this.settings();
-      const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== "yomu-local");
+      const academyBacked = card.source === "yomu-local" || card.reviewSource === "yomu-local";
+      const canShowProviderStatus = Boolean(provider?.hasApiKey && (provider.id !== "yomu-local" || academyBacked));
       return [
-        renderMetaReading(card, settings),
         "",
         canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$2(provider?.label ?? "API")} ${escapeHtml$2(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
@@ -270513,11 +271641,6 @@ ${entry2.reading || ""}`;
                     ${addDeckSelect}
                 </div>
             `;
-  }
-  function renderMetaReading(card, settings) {
-    const reading = cardPronunciationReading(card);
-    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -272329,7 +273452,14 @@ ${component.reading}`;
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
         const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
         const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
-        return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+        const normalized2 = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+        if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized2;
+        try {
+          return await hydrateYomuLocalSrsCardStates(normalized2, this.dependencies.yomuLocalSrs);
+        } catch (error) {
+          log$l.warn("Academy SRS state hydration failed; keeping provider states", error);
+          return normalized2;
+        }
       } finally {
         done();
       }
@@ -274329,10 +275459,10 @@ ${component.reading}`;
     return `definition-source:${sourceId2}`;
   }
   function parseWanikaniSubject(raw) {
-    if (!isRecord$2(raw)) return null;
+    if (!isRecord$3(raw)) return null;
     const type = typeof raw.object === "string" ? raw.object : "";
     if (!isSubjectType(type)) return null;
-    const data = isRecord$2(raw.data) ? raw.data : {};
+    const data = isRecord$3(raw.data) ? raw.data : {};
     const id2 = typeof raw.id === "number" ? raw.id : Number(raw.id);
     if (!Number.isFinite(id2)) return null;
     return {
@@ -274371,7 +275501,7 @@ ${component.reading}`;
   }
   function parseMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$2).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       primary: item2.primary === true,
       acceptedAsCorrect: item2.accepted_answer === true || item2.accepted_as_correct === true
@@ -274379,14 +275509,14 @@ ${component.reading}`;
   }
   function parseAuxiliaryMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$2).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       type: item2.type === "whitelist" || item2.type === "blacklist" ? item2.type : "unknown"
     })).filter((item2) => item2.meaning);
   }
   function parseReadings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$2).map((item2) => {
+    return raw.filter(isRecord$3).map((item2) => {
       const type = item2.type === "onyomi" || item2.type === "kunyomi" || item2.type === "nanori" ? item2.type : void 0;
       return {
         reading: typeof item2.reading === "string" ? item2.reading : "",
@@ -274402,15 +275532,15 @@ ${component.reading}`;
   }
   function parseContextSentences(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$2).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       en: typeof item2.en === "string" ? item2.en : "",
       ja: typeof item2.ja === "string" ? item2.ja : ""
     })).filter((item2) => item2.en || item2.ja);
   }
   function parseAudio(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$2).map((item2) => {
-      const metadata2 = isRecord$2(item2.metadata) ? item2.metadata : {};
+    return raw.filter(isRecord$3).map((item2) => {
+      const metadata2 = isRecord$3(item2.metadata) ? item2.metadata : {};
       return {
         url: typeof item2.url === "string" ? item2.url : "",
         contentType: typeof item2.content_type === "string" ? item2.content_type : "",
@@ -274422,7 +275552,7 @@ ${component.reading}`;
       };
     }).filter((item2) => item2.url);
   }
-  function isRecord$2(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null;
   }
   const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
@@ -275136,7 +276266,7 @@ ${component.reading}`;
       return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
     }
     searchCombinedFastFirst(query, settings, options, sources) {
-      let pending = sources.length;
+      let pending2 = sources.length;
       const emptyResults = [];
       return new Promise((resolve, reject) => {
         sources.forEach((source2) => {
@@ -275146,8 +276276,8 @@ ${component.reading}`;
               return;
             }
             emptyResults.push(examples);
-            pending -= 1;
-            if (pending === 0) resolve(emptyResults.flat());
+            pending2 -= 1;
+            if (pending2 === 0) resolve(emptyResults.flat());
           }).catch(reject);
         });
       });
@@ -275324,7 +276454,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$4(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$5(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text(record2.id);
@@ -275365,18 +276495,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$4(data) ? data : null;
+    return isRecord$5(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$4(includes) ? includes.media : void 0;
-    return isRecord$4(media) ? media : {};
+    const media = isRecord$5(includes) ? includes.media : void 0;
+    return isRecord$5(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$4(value)) return null;
+    if (!isRecord$5(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -275413,7 +276543,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$4(value) ? value : {};
+    return isRecord$5(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -275432,7 +276562,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$4(value) ? firstText(value, fields) : "";
+    return isRecord$5(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -277712,8 +278842,7 @@ ${component.reading}`;
   }
   function newTabLookupMetaItems(options) {
     const items = [];
-    if (options.card.frequencyRank) items.push(newLookupMetaLabel(`#${options.card.frequencyRank}`));
-    const providerLabel = newTabLookupProviderStatusLabel(options.provider, options.settings, options.providerState);
+    const providerLabel = newTabLookupProviderStatusLabel(options.card, options.provider, options.settings, options.providerState);
     if (providerLabel) items.push(newLookupMetaLabel(providerLabel, `jpdb-${options.providerState}`));
     const ankiLabel = newTabLookupAnkiStatusLabel(options.ankiLookup, options.settings);
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
@@ -277786,8 +278915,9 @@ ${component.reading}`;
     item2.append(document.createTextNode(label));
     return item2;
   }
-  function newTabLookupProviderStatusLabel(provider, settings, state) {
-    if (!provider?.hasApiKey || provider.id === "yomu-local") return "";
+  function newTabLookupProviderStatusLabel(card, provider, settings, state) {
+    if (!provider?.hasApiKey) return "";
+    if (provider.id === "yomu-local" && card.source !== "yomu-local" && card.reviewSource !== "yomu-local") return "";
     return `${provider.label} ${lookupStateLabel(state, settings.interfaceLanguage)}`;
   }
   function newTabLookupAnkiStatusLabel(ankiLookup, settings) {
@@ -278483,9 +279613,9 @@ ${component.reading}`;
     return typeof process !== "undefined" && (process.env?.VITEST === "true" || process.env?.NODE_ENV === "test");
   }
   function orderScheduledJpdbCards(cards) {
-    const scheduled = cards.filter(isScheduledJpdbStudyCard);
-    const withDue = scheduled.filter((card) => typeof card.dueAt === "number");
-    const withoutDue = scheduled.filter((card) => typeof card.dueAt !== "number");
+    const scheduled2 = cards.filter(isScheduledJpdbStudyCard);
+    const withDue = scheduled2.filter((card) => typeof card.dueAt === "number");
+    const withoutDue = scheduled2.filter((card) => typeof card.dueAt !== "number");
     withDue.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
     return [...withDue, ...withoutDue];
   }
@@ -278683,7 +279813,7 @@ ${key2}`] = { t: now, v: value };
     async hydrateCards(cards, options = {}) {
       const result = /* @__PURE__ */ new Map();
       if (!cards.length || this.isBackoffActive()) return result;
-      const pending = [];
+      const pending2 = [];
       const seen = /* @__PURE__ */ new Set();
       const limit = normalizedDetailLimit(options.detailLimit);
       const now = Date.now();
@@ -278699,9 +279829,9 @@ ${key2}`] = { t: now, v: value };
           this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
           continue;
         }
-        if (pending.length < limit) pending.push({ key: key2, word, requestedTerm: card.spelling || word.originalText });
+        if (pending2.length < limit) pending2.push({ key: key2, word, requestedTerm: card.spelling || word.originalText });
       }
-      await mapLimited(pending, DETAIL_CONCURRENCY, async (item2) => {
+      await mapLimited(pending2, DETAIL_CONCURRENCY, async (item2) => {
         const card = await this.lookupDetail(item2.word, item2.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
           this.noteFailure(error);
           logPublicJitenFailure("Jiten parsed detail", { wordId: item2.word.wordId, readingIndex: item2.word.readingIndex }, error);
@@ -279104,7 +280234,7 @@ ${key2}`] = { t: now, v: value };
   function isPublicJitenBackoffError(error) {
     const name = errorName(error);
     if (name === "AbortError") return true;
-    const message = errorMessage$1(error);
+    const message = errorMessage$3(error);
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context2, error) {
@@ -279113,7 +280243,7 @@ ${key2}`] = { t: now, v: value };
   function errorName(error) {
     return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
   }
-  function errorMessage$1(error) {
+  function errorMessage$3(error) {
     if (error instanceof Error) return error.message;
     return isNonNullObject(error) && typeof error.message === "string" ? error.message : "";
   }
@@ -280854,217 +281984,6 @@ ${reading}`);
       word.classList.add("jpdb-reader-has-furi");
     }
   }
-  function cssColorToHex(value, backdrop) {
-    const color = cssColorToRgba(value);
-    if (!color) return null;
-    if (color.alpha >= 1) return rgbaToHex(color);
-    return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
-  }
-  function cssColorToRgba(value) {
-    const color = value.trim().toLowerCase();
-    if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
-    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-    if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
-    if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
-    if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
-    if (color.startsWith("oklab(")) return parseOklabFunction(color);
-    if (color.startsWith("oklch(")) return parseOklchFunction(color);
-    return probeCssColor(color);
-  }
-  const probedColors = /* @__PURE__ */ new Map();
-  let probeContext;
-  function probeCssColor(color) {
-    const cached = probedColors.get(color);
-    if (cached !== void 0) return cached;
-    if (probeContext === void 0) {
-      try {
-        probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
-      } catch {
-        probeContext = null;
-      }
-    }
-    let parsed = null;
-    if (probeContext) {
-      try {
-        probeContext.fillStyle = "#010203";
-        probeContext.fillStyle = color;
-        const serialized = String(probeContext.fillStyle).toLowerCase();
-        if (serialized !== "#010203") {
-          if (serialized.startsWith("#")) {
-            const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
-            parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
-          } else if (serialized.startsWith("rgb")) {
-            parsed = parseRgbFunction(serialized);
-          } else if (serialized.startsWith("color(srgb ")) {
-            parsed = parseSrgbFunction(serialized);
-          }
-          if (!parsed) parsed = probePixelColor(probeContext, color);
-        }
-      } catch {
-        parsed = null;
-      }
-    }
-    if (probedColors.size > 512) probedColors.clear();
-    probedColors.set(color, parsed);
-    return parsed;
-  }
-  function probePixelColor(context2, color) {
-    try {
-      context2.canvas.width = 1;
-      context2.canvas.height = 1;
-      context2.clearRect(0, 0, 1, 1);
-      context2.fillStyle = color;
-      context2.fillRect(0, 0, 1, 1);
-      const [red, green, blue, alphaByte] = context2.getImageData(0, 0, 1, 1).data;
-      return { red, green, blue, alpha: alphaByte / 255 };
-    } catch {
-      return null;
-    }
-  }
-  function blendRgba(foreground, background) {
-    const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
-    if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
-    const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
-    return {
-      red: channel(foreground.red, background.red),
-      green: channel(foreground.green, background.green),
-      blue: channel(foreground.blue, background.blue),
-      alpha
-    };
-  }
-  function rgbaToHex(color) {
-    return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
-  }
-  function expandHexColor(value) {
-    return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
-  }
-  function hexToRgbaColor(color) {
-    const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
-    return { red, green, blue, alpha: 1 };
-  }
-  function parseRgbFunction(value) {
-    const parts = colorFunctionNumbers(value);
-    if (parts.length < 3) return null;
-    return {
-      red: parseRgbChannel(parts[0]),
-      green: parseRgbChannel(parts[1]),
-      blue: parseRgbChannel(parts[2]),
-      alpha: parts[3] ? parseAlpha(parts[3]) : 1
-    };
-  }
-  function parseSrgbFunction(value) {
-    const parts = colorFunctionNumbers(value);
-    if (parts.length < 3) return null;
-    return {
-      red: parseSrgbChannel(parts[0]),
-      green: parseSrgbChannel(parts[1]),
-      blue: parseSrgbChannel(parts[2]),
-      alpha: parts[3] ? parseAlpha(parts[3]) : 1
-    };
-  }
-  function parseOklabFunction(value) {
-    const parts = colorFunctionNumbers(value);
-    if (parts.length < 3) return null;
-    return oklabToRgba({
-      lightness: parseOklabLightness(parts[0]),
-      a: parseOklabAxis(parts[1]),
-      b: parseOklabAxis(parts[2]),
-      alpha: parts[3] ? parseAlpha(parts[3]) : 1
-    });
-  }
-  function parseOklchFunction(value) {
-    const parts = colorFunctionNumbers(value);
-    if (parts.length < 3) return null;
-    const chroma = parseOklabAxis(parts[1]);
-    const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
-    return oklabToRgba({
-      lightness: parseOklabLightness(parts[0]),
-      a: chroma * Math.cos(hue),
-      b: chroma * Math.sin(hue),
-      alpha: parts[3] ? parseAlpha(parts[3]) : 1
-    });
-  }
-  function colorFunctionNumbers(value) {
-    return value.match(/-?\d*\.?\d+%?/g) ?? [];
-  }
-  function parseRgbChannel(value) {
-    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
-  }
-  function parseSrgbChannel(value) {
-    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
-  }
-  function parseOklabLightness(value) {
-    const parsed = Number.parseFloat(value);
-    if (!Number.isFinite(parsed)) return 0;
-    return value.endsWith("%") ? parsed / 100 : parsed;
-  }
-  function parseOklabAxis(value) {
-    const parsed = Number.parseFloat(value);
-    if (!Number.isFinite(parsed)) return 0;
-    return value.endsWith("%") ? parsed / 100 : parsed;
-  }
-  function oklabToRgba(color) {
-    const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
-    const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
-    const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
-    const long = l ** 3;
-    const medium = m ** 3;
-    const short = s ** 3;
-    return {
-      red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
-      green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
-      blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
-      alpha: color.alpha
-    };
-  }
-  function linearSrgbToChannel(value) {
-    const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-    return clampChannel(channel * 255);
-  }
-  function parseAlpha(value) {
-    const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
-    return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
-  }
-  function clampChannel(value) {
-    return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
-  }
-  function readableOn(color, background, targetContrast) {
-    const safe = sanitizeAccentColor(color);
-    if (contrastRatio(safe, background) >= targetContrast) return safe;
-    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-    for (let amount = 0.08; amount <= 1; amount += 0.08) {
-      const mixed = mixHex(safe, toward, amount);
-      if (contrastRatio(mixed, background) >= targetContrast) return mixed;
-    }
-    return toward;
-  }
-  function readableOnAll(color, backgrounds, targetContrast) {
-    const safe = sanitizeAccentColor(color);
-    if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
-    const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate2) => Boolean(candidate2)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
-    if (candidates[0]) return candidates[0].color;
-    return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
-  }
-  function contrastRatio(a, b) {
-    return sharedContrastRatio(a, b, sanitizeAccentColor);
-  }
-  function mixHex(from, to, amount) {
-    return sharedMixHex(from, to, amount, sanitizeAccentColor);
-  }
-  function isHexColor(value) {
-    return /^#[0-9a-f]{6}$/i.test(value);
-  }
-  function closestReadableMix(color, toward, backgrounds, targetContrast) {
-    for (let amount = 0.04; amount <= 1; amount += 0.04) {
-      const mixed = mixHex(color, toward, amount);
-      const contrast = minContrast(mixed, backgrounds);
-      if (contrast >= targetContrast) return { color: mixed, amount, contrast };
-    }
-    return null;
-  }
-  function minContrast(color, backgrounds) {
-    return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
-  }
   const log$a = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
@@ -282053,9 +282972,7 @@ ${newTabCardReading(card)}`;
   }
   function searchWordSummaryMeta(card, context2, ankiLookup) {
     return [
-      searchWordVisibleReading(card, context2.settings),
-      searchWordPooledStatusLabel(card, context2, ankiLookup),
-      card.frequencyRank ? `#${card.frequencyRank}` : ""
+      searchWordPooledStatusLabel(card, context2, ankiLookup)
     ].filter(Boolean);
   }
   function searchWordPooledStatusLabel(card, context2, ankiLookup) {
@@ -282131,7 +283048,7 @@ ${newTabCardReading(card)}`;
   function renderSearchCardRubyHtml(card, settings) {
     const spelling = card.spelling.trim();
     const reading = newTabCardOptionalReading(card);
-    if (!settings.showFurigana || settings.furiganaMode === "off" || !spelling || !reading) return "";
+    if (!spelling || !reading) return "";
     const token = {
       card: { ...card, reading },
       start: 0,
@@ -282188,8 +283105,7 @@ ${newTabCardReading(card)}`;
   function searchWordHeaderHtml(card, detail, context2) {
     const settings = context2.getSettings();
     const state = primaryCardState(card.cardState);
-    const visibleReading = searchWordVisibleReading(card, settings);
-    const metaItems = searchWordMetaItems(card, state, detail, settings, visibleReading);
+    const metaItems = searchWordMetaItems(card, state, detail, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : "";
     const pills = searchWordPillsHtml(card, detail, context2);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
@@ -282198,7 +283114,6 @@ ${newTabCardReading(card)}`;
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, "showKanji") })}</div>
-                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$2(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
             ${pills}
@@ -282212,26 +283127,11 @@ ${newTabCardReading(card)}`;
   function searchWordPillsHtml(card, detail, context2) {
     return context2.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? "";
   }
-  function searchWordMetaItems(card, state, detail, settings, visibleReading = "") {
+  function searchWordMetaItems(card, state, detail, settings) {
     return [
-      searchWordReadingMeta(card, settings, visibleReading),
-      searchWordFrequencyMeta(card),
       searchWordCardStateMeta(card, state, settings),
       searchWordLookupAnkiStateMeta(card, detail, settings)
     ].filter(Boolean);
-  }
-  function searchWordReadingMeta(card, settings, visibleReading = "") {
-    const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
-    if (reading.normalize("NFC") === visibleReading.trim().normalize("NFC")) return "";
-    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
-  }
-  function searchWordVisibleReading(card, settings) {
-    const reading = newTabCardOptionalReading(card);
-    return reading && !isPlainReadingRedundantForHeadword(card, settings, reading) ? reading : "";
-  }
-  function searchWordFrequencyMeta(card) {
-    return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "";
   }
   function searchWordCardStateMeta(card, state, settings) {
     if (card.source === "anki" || card.reviewSource === "anki") return searchWordStateMeta("anki", state, settings.interfaceLanguage);
@@ -283635,13 +284535,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$4(value)) return [];
+    if (!isRecord$5(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$4(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$5(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -283654,7 +284554,7 @@ ${entry2.url}`),
         minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord$4(value)) return null;
+    if (!isRecord$5(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -287059,14 +287959,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$4(value)) return [];
+    if (!isRecord$5(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$4(value)) return [];
+    if (!isRecord$5(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }
@@ -287341,22 +288241,22 @@ ${entry2.url}`),
     async flushUnlocked() {
       const queue = await this.read();
       if (!queue.length) return 0;
-      const pending = [];
+      const pending2 = [];
       for (const item2 of queue) {
         if (!item2) continue;
         try {
           const submitted = await this.deps.submit(item2);
           if (submitted) this.deps.onSubmitted(item2.card);
         } catch (error) {
-          pending.push({
+          pending2.push({
             ...item2,
             attempts: item2.attempts + 1,
             lastError: error instanceof Error ? error.message : String(error)
           });
         }
       }
-      await this.write(pending);
-      return pending.length;
+      await this.write(pending2);
+      return pending2.length;
     }
     key(item2) {
       return `${item2.target}:${cardKey(item2.card)}`;
@@ -287976,8 +288876,8 @@ ${entry2.url}`),
       const key2 = `${this.currentFingerprint()}:${url}`;
       const cached = this.responseCache.get(key2);
       if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-      const pending = this.pending.get(key2);
-      if (pending) return pending;
+      const pending2 = this.pending.get(key2);
+      if (pending2) return pending2;
       const request2 = this.requestUrl(url, options).then((value) => {
         this.responseCache.set(key2, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
         return value;
@@ -288026,13 +288926,13 @@ ${entry2.url}`),
       }
     }
     throttle() {
-      const scheduled = this.requestStartQueue.then(async () => {
+      const scheduled2 = this.requestStartQueue.then(async () => {
         const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
         if (wait > 0) await this.sleep(wait);
         this.lastRequestAt = this.now();
       });
-      this.requestStartQueue = scheduled.catch(() => void 0);
-      return scheduled;
+      this.requestStartQueue = scheduled2.catch(() => void 0);
+      return scheduled2;
     }
     currentFingerprint() {
       const fingerprint = this.tokenFingerprint();
@@ -288066,8 +288966,8 @@ ${entry2.url}`),
   }
   const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
   function parseWanikaniUser(raw) {
-    const record2 = isRecord$1(raw) ? isRecord$1(raw.data) ? raw.data : raw : {};
-    const subscriptionRaw = isRecord$1(record2.subscription) ? record2.subscription : {};
+    const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
+    const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
     return {
       id: typeof record2.id === "string" ? record2.id : "",
       level: typeof record2.level === "number" ? record2.level : 0,
@@ -288111,7 +289011,7 @@ ${entry2.url}`),
     return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
   }
   function rawSubjectLevel(value) {
-    if (!isRecord$1(value) || !isRecord$1(value.data)) return Number.POSITIVE_INFINITY;
+    if (!isRecord$2(value) || !isRecord$2(value.data)) return Number.POSITIVE_INFINITY;
     return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
   }
   function stableOptionsKey(options) {
@@ -288120,7 +289020,7 @@ ${entry2.url}`),
   function trimBaseUrl$1(value) {
     return value.replace(/\/+$/u, "");
   }
-  function isRecord$1(value) {
+  function isRecord$2(value) {
     return typeof value === "object" && value !== null;
   }
   const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
@@ -293371,12 +294271,12 @@ ${entry2.url}`),
     emptyStateSelectorSources(current) {
       const sources = [];
       if (this.canUseYomuLocalSource()) sources.push("yomu-local");
-      if (this.canUseJpdbSource()) sources.push("jpdb");
+      if (this.hasApiReviewSourceCredential()) sources.push("jpdb");
       if (this.canUseBunproSource()) sources.push("bunpro");
       if (this.canUseWanikaniSource()) sources.push("wanikani");
       if (this.canOfferAnkiSource()) sources.push("anki");
       if (!sources.includes(current)) sources.push(current);
-      return sources;
+      return this.visibleSourceSelectorSources(sources);
     }
     sourceToggleSources(card) {
       const context2 = this.sourceToggleContext(card);
@@ -293387,22 +294287,11 @@ ${entry2.url}`),
         this.wanikaniToggleSource(context2),
         this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context2)
       ]);
-      if (this.shouldIncludeDictionaryToggleSource(context2, sources)) sources.push("dictionary");
-      return this.unifyStarterSourceToggle(sources, card, context2);
+      if (this.shouldIncludeAcademyFallbackSource(context2, sources)) sources.unshift("yomu-local");
+      return this.visibleSourceSelectorSources(sources);
     }
-    // Keyless, "Academy" (yomu-local SRS) and "Dictionary" both resolve to the same
-    // built-in starter-word queue — no reviews are due and no dictionary is
-    // imported, so both flags are on-by-default yet neither carries distinct
-    // content. Offering both in the dropdown reads as a meaningless duplicate
-    // (the owner's complaint). Collapse to one entry (which hides the selector)
-    // whenever the visible queue is the starter/fallback set with no genuine
-    // yomu-local review behind it. A real SRS queue or imported dictionary keeps
-    // both options distinct.
-    unifyStarterSourceToggle(sources, card, context2) {
-      const onlyStarterPair = sources.length === 2 && sources.includes("yomu-local") && sources.includes("dictionary");
-      if (!onlyStarterPair) return sources;
-      const starterQueue = card.source === "fallback" && this.isDictionaryCard(card) && !context2.hasYomuLocal;
-      return starterQueue ? ["yomu-local"] : sources;
+    visibleSourceSelectorSources(sources) {
+      return uniqueConcreteSources(sources.map((source2) => source2 === "dictionary" ? "yomu-local" : source2).filter((source2) => source2 !== "jpdb" || this.hasApiReviewSourceCredential()));
     }
     shouldSuppressJitenOnlyJpdbCardToggle(card) {
       return this.hasJitenOnlyApiCredentials() && !this.isJitenOnlySourceLabel() && this.cardReviewSource(card) === "jpdb" && !isJitenSrsCard(card) && !this.reviewTargetsForCard(card).includes("anki");
@@ -293439,7 +294328,7 @@ ${entry2.url}`),
       return this.shouldIncludeJpdbToggleSource(context2) ? "jpdb" : null;
     }
     shouldIncludeJpdbToggleSource(context2) {
-      return context2.hasJpdb || context2.hasJiten || context2.canUseJpdb || context2.current === "jpdb" || context2.selected === "jpdb";
+      return this.hasApiReviewSourceCredential() && (context2.hasJpdb || context2.hasJiten || context2.canUseJpdb || context2.current === "jpdb" || context2.selected === "jpdb");
     }
     bunproToggleSource(context2) {
       return this.shouldIncludeBunproToggleSource(context2) ? "bunpro" : null;
@@ -293465,8 +294354,8 @@ ${entry2.url}`),
     canToggleFromJpdbSource(context2) {
       return context2.current === "jpdb" || context2.selected === "jpdb";
     }
-    shouldIncludeDictionaryToggleSource(context2, sources) {
-      return !sources.includes("dictionary") && (context2.current === "dictionary" || context2.selected === "dictionary" || context2.configured === "dictionary" || sources.length > 0);
+    shouldIncludeAcademyFallbackSource(context2, sources) {
+      return !sources.includes("yomu-local") && (context2.current === "dictionary" || context2.selected === "dictionary" || context2.configured === "dictionary" || sources.length > 0);
     }
     sourceToggleCurrentSource(card, sources) {
       return this.sourceToggleCandidate(card, sources, this.sourceLabelReviewSource()) ?? this.configuredSourceToggleCandidate(card, sources) ?? this.reviewSourceToggleCandidate(card, sources) ?? sources[0] ?? "dictionary";
@@ -293503,6 +294392,9 @@ ${entry2.url}`),
     }
     canUseJpdbSource() {
       return this.hasAvailableJpdbReviewSource(this.dependencies.getSettings());
+    }
+    hasApiReviewSourceCredential(settings = this.dependencies.getSettings()) {
+      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
     }
     canUseBunproSource() {
       const adapter = this.dependencies.srsAdapters?.bunpro;
@@ -293646,7 +294538,7 @@ ${entry2.url}`),
         title: `${this.text("showKanji")}: ${kanji}`
       }, kanji);
     }
-    renderKanjiPromptKeywords(keywords, card, kanji, pending = false) {
+    renderKanjiPromptKeywords(keywords, card, kanji, pending2 = false) {
       const context2 = card ? this.kanjiDrawWordContext(card, kanji ?? "") : null;
       const rows = [];
       if (context2) rows.push(context2);
@@ -293659,7 +294551,7 @@ ${entry2.url}`),
           el("span", {}, keyword.text)
         )));
       } else if (!context2) {
-        return pending ? el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("loadingKanjiDetails")) : el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("drawKanji"));
+        return pending2 ? el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("loadingKanjiDetails")) : el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("drawKanji"));
       }
       return el(
         "div",
@@ -297024,9 +297916,9 @@ ${entry2.url}`),
       this.pendingLiveJpdbGrade = id2 ? { id: id2, until: Date.now() + NEW_TAB_LIVE_REVIEW_STALE_MS } : null;
     }
     isPendingLiveJpdbCard(card) {
-      const pending = this.pendingLiveJpdbGrade;
-      if (!pending) return false;
-      if (Date.now() > pending.until || card.id !== pending.id) {
+      const pending2 = this.pendingLiveJpdbGrade;
+      if (!pending2) return false;
+      if (Date.now() > pending2.until || card.id !== pending2.id) {
         this.pendingLiveJpdbGrade = null;
         return false;
       }
@@ -297633,11 +298525,11 @@ ${entry2.url}`),
   function firstNonEmptyPitch(promises) {
     if (!promises.length) return Promise.resolve([]);
     return new Promise((resolve) => {
-      let pending = promises.length;
+      let pending2 = promises.length;
       let settled = false;
       const finishEmpty = () => {
-        pending -= 1;
-        if (!settled && pending <= 0) {
+        pending2 -= 1;
+        if (!settled && pending2 <= 0) {
           settled = true;
           resolve([]);
         }
@@ -297818,290 +298710,6 @@ ${entry2.url}`),
             ${options.controlsHtml ?? ""}
         </div>
     `;
-  }
-  const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
-  const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
-  const TEXT_CONTRAST = 4.5;
-  const DECORATION_CONTRAST = 3;
-  const HIGHLIGHT_CONTRAST = 1.45;
-  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
-  const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
-  const COLORED_READER_WORD_CLASSES = /* @__PURE__ */ new Set([
-    "jpdb-new",
-    "jpdb-in-deck",
-    "jpdb-learning",
-    "jpdb-known",
-    "jpdb-never-forget",
-    "jpdb-redundant",
-    "jpdb-due",
-    "jpdb-failed",
-    "jpdb-suspended",
-    "jpdb-blacklisted",
-    "jpdb-locked",
-    "anki-new",
-    "anki-learning",
-    "anki-known",
-    "anki-due",
-    "anki-failed",
-    "anki-suspended",
-    "jpdb-pitch-heiban",
-    "jpdb-pitch-atamadaka",
-    "jpdb-pitch-nakadaka",
-    "jpdb-pitch-odaka"
-  ]);
-  const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
-  const appliedContrastState = /* @__PURE__ */ new WeakMap();
-  function refreshReaderWordContrast(root = document) {
-    const words = readerWords(root);
-    const activeWords = [];
-    const activeBackgrounds = [];
-    const unknownBackgroundWords = [];
-    const neutralWords = [];
-    const backgroundByParent = /* @__PURE__ */ new Map();
-    const cachedPageBackgroundFor = (word) => {
-      const parent = word.parentElement;
-      if (!parent) return pageBackgroundFor(word);
-      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-      const background = pageBackgroundFor(word);
-      backgroundByParent.set(parent, background);
-      return background;
-    };
-    for (const word of words) {
-      const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
-      const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
-      if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
-        delete word.dataset.ankiPreserveContrast;
-        continue;
-      }
-      if (word.closest(YOMU_SURFACE_SELECTOR)) {
-        neutralWords.push(word);
-        continue;
-      }
-      if (isNeutralReaderWord(word)) {
-        neutralWords.push(word);
-        continue;
-      }
-      const background = cachedPageBackgroundFor(word);
-      if (!background) {
-        if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
-        unknownBackgroundWords.push(word);
-        continue;
-      }
-      const isHovered = word.matches(":hover, :focus");
-      const previous = appliedContrastState.get(word);
-      const parentColor = getComputedStyle(word.parentElement ?? word).color;
-      if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
-        continue;
-      }
-      if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-        scheduleHoverSettledContrastRefresh(word);
-        continue;
-      }
-      if (isHovered) {
-        scheduleHoverSettledContrastRefresh(word);
-      }
-      activeWords.push(word);
-      activeBackgrounds.push(background);
-    }
-    const savedVars = activeWords.map((word, i2) => {
-      const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
-        name,
-        value: word.style.getPropertyValue(name),
-        priority: word.style.getPropertyPriority(name)
-      }));
-      RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-      word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i2].css);
-      return saved;
-    });
-    const measurements = activeWords.map((word) => {
-      const style = getComputedStyle(word);
-      const parentStyle = getComputedStyle(word.parentElement ?? word);
-      return {
-        bg: style.backgroundColor,
-        hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
-        fg: style.color,
-        deco: measuredWordDecorationColor(style),
-        parentFg: parentStyle.color,
-        hover: style.getPropertyValue("--jpdb-reader-hover"),
-        hovered: word.matches(":hover, :focus")
-      };
-    });
-    neutralWords.forEach((word) => clearContrastVars(word));
-    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
-    activeWords.forEach((word, i2) => {
-      savedVars[i2].forEach(({ name, value, priority }) => {
-        if (value) word.style.setProperty(name, value, priority);
-      });
-      applyWordContrastVars(word, activeBackgrounds[i2], measurements[i2]);
-      appliedContrastState.set(word, {
-        background: activeBackgrounds[i2].css,
-        className: word.className,
-        cssText: word.style.cssText,
-        hovered: measurements[i2].hovered,
-        parentColor: measurements[i2].parentFg
-      });
-    });
-  }
-  function measuredWordDecorationColor(style) {
-    const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
-    if (underline && !underline.includes("var(")) return underline;
-    const source2 = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
-    return source2 || underline || style.textDecorationColor;
-  }
-  function applyWordContrastVars(word, background, m) {
-    word.style.setProperty("--jpdb-reader-page-bg", background.css);
-    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
-    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-    const preserveHostPaint = isPassiveChromeWord(word);
-    const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
-    const accessibleHex = rgbaToHex(accessibleRgba);
-    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
-    const sourceText = cssColorToHex(m.fg, accessibleRgba);
-    const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
-    const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-    const textSource = sourceText ?? nativeText;
-    const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
-    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
-    else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-  }
-  function isPassiveChromeWord(word) {
-    return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
-  }
-  function uniqueHexes(colors) {
-    return [...new Set(colors)];
-  }
-  function textBackdropsForMeasurement(m, textBackdropHex) {
-    const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
-    return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
-  }
-  function existingAccessibleColorRemainsReadableOnHover(word, background) {
-    const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
-    if (!existingText) return false;
-    const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
-    const baseBackdrop = existingHighlight ?? background.hex;
-    const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
-    return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
-  }
-  function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
-    if (!hovered) return null;
-    const hover = cssColorToRgba(hoverColor);
-    const backdrop = cssColorToRgba(textBackdropHex);
-    if (!hover || !backdrop || hover.alpha <= 0) return null;
-    return rgbaToHex(blendRgba(hover, backdrop));
-  }
-  function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
-    const colorRgba = cssColorToRgba(wordBgColor);
-    const hasPaint = !!colorRgba?.alpha;
-    const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
-    const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
-    if (hasPaint && !preserveHostPaint) {
-      const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
-      word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
-      return cssColorToRgba(highlightHex) ?? rgba;
-    }
-    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-    return rgba;
-  }
-  function paintRgba(value, el2) {
-    const direct = cssColorToRgba(value);
-    if (direct) return direct;
-    const probe = el2.appendChild(document.createElement("span"));
-    probe.style.color = value;
-    const rgba = cssColorToRgba(getComputedStyle(probe).color);
-    probe.remove();
-    return rgba;
-  }
-  function resolveDecorationHex(word, decorationColor, accessibleRgba) {
-    const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
-    return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
-  }
-  function refreshReaderWordContrastForWord(word) {
-    refreshReaderWordContrast(word.parentElement ?? word);
-  }
-  function isNeutralReaderWord(word) {
-    if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
-    return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
-  }
-  function scheduleHoverSettledContrastRefresh(word) {
-    if (pendingHoverContrastRefresh.has(word)) return;
-    pendingHoverContrastRefresh.add(word);
-    window.setTimeout(() => {
-      pendingHoverContrastRefresh.delete(word);
-      if (!word.isConnected) return;
-      refreshReaderWordContrastForWord(word);
-    }, 120);
-  }
-  function readerWords(root) {
-    const words = /* @__PURE__ */ new Set();
-    if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
-    root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
-    return [...words];
-  }
-  function pageBackgroundFor(word) {
-    const ancestors = [];
-    for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
-    let found = false;
-    let hasImageBackdrop = false;
-    let unknownBase = false;
-    let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-    for (const element2 of ancestors.reverse()) {
-      const style = getComputedStyle(element2);
-      hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-      const color = cssColorToRgba(style.backgroundColor);
-      if (!color) {
-        unknownBase = true;
-        continue;
-      }
-      if (color.alpha <= 0) continue;
-      if (color.alpha >= 1) unknownBase = false;
-      rgba = blendRgba(color, rgba);
-      found = true;
-    }
-    if (unknownBase || !found) {
-      if (hasImageBackdrop) return null;
-      return inferredTransparentPageBackground(word);
-    }
-    return pageBackgroundFromRgba(rgba);
-  }
-  function inferredTransparentPageBackground(word) {
-    const style = getComputedStyle(word.parentElement ?? word);
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bodyStyle = getComputedStyle(document.body);
-    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-    if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-    if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-      return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    }
-    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-  }
-  function pageBackgroundFromCss(color) {
-    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-  }
-  function pageBackgroundFromRgba(rgba) {
-    const hex = rgbaToHex(rgba);
-    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-  }
-  function bestTextColor(background) {
-    return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-  }
-  function readableHighlightBackground(color, background) {
-    if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
-    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-    for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
-      const mixed = mixHex(color, toward, amount);
-      if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
-    }
-    return color;
-  }
-  function applyUnknownBackgroundFallback(word) {
-    RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
-    word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
-  }
-  function clearContrastVars(word) {
-    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
   }
   const COLOR_SOURCE_CLASSES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_CHANNELS = ["highlight", "underline", "text"];
@@ -298332,8 +298940,8 @@ ${entry2.url}`),
     return stack;
   }
   function scheduleToastRemoval(toast, durationMs) {
-    const pending = toastTimers.get(toast);
-    if (pending !== void 0) window.clearTimeout(pending);
+    const pending2 = toastTimers.get(toast);
+    if (pending2 !== void 0) window.clearTimeout(pending2);
     toastTimers.set(toast, window.setTimeout(() => {
       toast.classList.remove(TOAST_VISIBLE_CLASS);
       window.setTimeout(() => {
@@ -300549,6 +301157,7 @@ ${entry2.url}`),
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   const DEFAULT_JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const DEFAULT_BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
+  const ACADEMY_ACCOUNT_SYNC_URL = "https://yomureader.com/academy/?view=profile-sync";
   const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
   const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
   function localizedOptions(text2, table) {
@@ -301524,6 +302133,7 @@ ${entry2.url}`),
             <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
                 <legend>${escapedUiText(language, "backupSync")}</legend>
                 <div class="jpdb-reader-help" data-help-key="backupSyncHelp">${escapedUiText(language, "backupSyncHelp")}</div>
+                ${renderAcademyAccountSyncSection(settings)}
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ""}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">${escapedUiText(language, "importSettings")}</button>
@@ -301535,6 +302145,35 @@ ${entry2.url}`),
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
+    `;
+  }
+  function renderAcademyAccountSyncSection(settings) {
+    const language = resolveUiLanguage(settings.interfaceLanguage);
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-academy-account" data-academy-reader-account data-connected="false">
+                    <div class="jpdb-reader-local-title" data-academy-account-title>${escapedUiText(language, "academyAccountSync")}</div>
+                    <div class="jpdb-reader-help" data-help-key="academyAccountSyncHelp">${escapedUiText(language, "academyAccountSyncHelp")}</div>
+                    <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
+                        <a class="jpdb-reader-btn jpdb-reader-academy-account-link" href="${ACADEMY_ACCOUNT_SYNC_URL}" target="_blank" rel="noopener" data-academy-account-link>${externalButtonLabel(uiText(language, "academyAccountManage"))}</a>
+                    </div>
+                    <div class="jpdb-reader-help jpdb-reader-academy-account-status" data-academy-reader-status data-status-tone="pending" role="status" aria-live="polite">${escapedUiText(language, "academyAccountChecking")}</div>
+                    <div class="jpdb-reader-academy-account-connect" data-academy-reader-connect-controls>
+                        <label for="jpdb-reader-academy-pairing-code">
+                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-academy-pairing-code-label>${escapedUiText(language, "academyPairingCode")}</span>
+                        </label>
+                        <div class="jpdb-reader-academy-account-code-row">
+                            <input id="jpdb-reader-academy-pairing-code" data-academy-pairing-code type="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="24" placeholder="${escapedUiText(language, "academyPairingCodePlaceholder")}" aria-describedby="jpdb-reader-academy-account-help">
+                            <button class="jpdb-reader-btn" type="button" data-action="connect-academy-account">${escapedUiText(language, "academyAccountConnect")}</button>
+                        </div>
+                        <span id="jpdb-reader-academy-account-help" class="jpdb-reader-sr-only">${escapedUiText(language, "academyAccountSyncHelp")}</span>
+                    </div>
+                    <div class="jpdb-reader-settings-actions" data-academy-reader-connected-controls hidden>
+                        <button class="jpdb-reader-btn" type="button" data-action="sync-academy-account">${escapedUiText(language, "academyAccountSyncNow")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="create-academy-recovery-code">${escapedUiText(language, "academyRecoveryCodeCreate")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="disconnect-academy-account">${escapedUiText(language, "academyAccountDisconnect")}</button>
+                    </div>
+                    <output class="jpdb-reader-help jpdb-reader-academy-recovery-code" data-academy-recovery-code hidden></output>
+                </div>
     `;
   }
   function renderCloudSettingsSyncSection(settings) {
@@ -301730,7 +302369,9 @@ ${entry2.url}`),
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
     ["[data-proxy-guide-hide]", "hide"],
-    ["[data-cloud-settings-sync-title]", "cloudSettingsSync"]
+    ["[data-cloud-settings-sync-title]", "cloudSettingsSync"],
+    ["[data-academy-account-title]", "academyAccountSync"],
+    ["[data-academy-pairing-code-label]", "academyPairingCode"]
   ];
   const HIDE_GROUP_LEGEND_TEXT_KEYS = [
     ["[data-furigana-hide-groups]", "hideFuriganaFor"],
@@ -301745,6 +302386,10 @@ ${entry2.url}`),
     ['[data-action="export-reader-settings"]', "exportSettings"],
     ['[data-action="import-yomitan-dictionary"]', "importDictionaries"],
     ['[data-action="export-yomitan-dictionary"]', "exportDictionaries"],
+    ['[data-action="connect-academy-account"]', "academyAccountConnect"],
+    ['[data-action="sync-academy-account"]', "academyAccountSyncNow"],
+    ['[data-action="create-academy-recovery-code"]', "academyRecoveryCodeCreate"],
+    ['[data-action="disconnect-academy-account"]', "academyAccountDisconnect"],
     ['[data-action="audio-source-add"]', "addAudioSource"],
     ['[data-action="cancel"]', "cancel"]
   ];
@@ -302020,6 +302665,9 @@ ${entry2.url}`),
       form2.querySelectorAll(selector).forEach((button2) => button2.replaceChildren(text2(key2)));
     });
     form2.querySelector('button[type="submit"]')?.replaceChildren(text2("save"));
+    setExternalButtonLabel(form2.querySelector("[data-academy-account-link]"), text2("academyAccountManage"));
+    const pairingCode = form2.querySelector("[data-academy-pairing-code]");
+    if (pairingCode) pairingCode.placeholder = text2("academyPairingCodePlaceholder");
     localizePreviewAudioButtons(form2, text2);
   }
   function localizePreviewAudioButtons(form2, text2) {
@@ -302558,18 +303206,18 @@ ${entry2.url}`),
     form2.querySelectorAll("label").forEach(normalizeSettingsLabelTextContainer);
   }
   function normalizeSettingsLabelTextContainer(label) {
-    let pending = [];
+    let pending2 = [];
     const flush = () => {
-      if (!pending.length) return;
+      if (!pending2.length) return;
       const wrapper = document.createElement("span");
       wrapper.className = SETTINGS_LABEL_TEXT_CLASS;
-      label.insertBefore(wrapper, pending[0]);
-      pending.forEach((node2) => wrapper.append(node2));
-      pending = [];
+      label.insertBefore(wrapper, pending2[0]);
+      pending2.forEach((node2) => wrapper.append(node2));
+      pending2 = [];
     };
     for (const node2 of Array.from(label.childNodes)) {
       if (isWrappableSettingsLabelNode(node2)) {
-        pending.push(node2);
+        pending2.push(node2);
         continue;
       }
       flush();
@@ -303038,6 +303686,561 @@ ${entry2.url}`),
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
+  async function requestPrivateApi(url, init = {}) {
+    let userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) userscriptRequest = void 0;
+    if (userscriptRequest) return requestViaUserscript(userscriptRequest, url, init);
+    return fetch(url, {
+      ...init,
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      cache: "no-store"
+    });
+  }
+  function requestViaUserscript(request2, url, init) {
+    return new Promise((resolve, reject) => {
+      const headers = new Headers(init.headers);
+      const details = {
+        method: init.method ?? "GET",
+        url,
+        headers: Object.fromEntries(headers.entries()),
+        data: typeof init.body === "string" ? init.body : void 0,
+        responseType: "text",
+        anonymous: true,
+        withCredentials: false,
+        onload: (response) => resolve(new Response(
+          String(response.responseText ?? response.response ?? ""),
+          { status: response.status }
+        )),
+        onerror: (error) => reject(error instanceof Error ? error : new Error("Reader account request failed.")),
+        ontimeout: () => reject(new Error("Reader account request timed out."))
+      };
+      try {
+        const result = request2(details);
+        if (result && typeof result.then === "function") {
+          result.then(details.onload, details.onerror);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  const API_ORIGIN = "https://yomureader.com";
+  const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
+  const PENDING_CLAIM_KEY = "yomu:private:academy-device-pending:v1";
+  const EVENT_PURPOSE = "reader-srs-event";
+  const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v1";
+  const PUSH_BATCH_SIZE = 20;
+  let pending = Promise.resolve(void 0);
+  let scheduled = false;
+  let reconnectInstalled = false;
+  async function academyReaderDeviceStatus() {
+    return enqueue(academyReaderDeviceStatusNow);
+  }
+  async function academyReaderDeviceStatusNow() {
+    const state = await loadDeviceState();
+    if (!state) return { connected: false, displayName: "", lastSyncAt: null, error: null };
+    try {
+      const response = await deviceRequest("/academy/api/device/status", state);
+      if (!response.ok) {
+        if (response.status === 401) {
+          await gmPrivateStorageDelete(DEVICE_STATE_KEY);
+          return { connected: false, displayName: "", lastSyncAt: null, error: "This Reader device was disconnected. Pair it again to sync." };
+        }
+        throw await responseError(response);
+      }
+      const body = await response.json();
+      if (body.connected !== true || typeof body.displayName !== "string" || body.keyVersion !== state.keyVersion) {
+        throw new Error("Reader account status was malformed.");
+      }
+      const updated = { ...state, displayName: body.displayName };
+      await saveDeviceState(updated);
+      return statusFromState(updated);
+    } catch (error) {
+      return { ...statusFromState(state), error: errorMessage$2(error) };
+    }
+  }
+  async function claimAcademyReaderDevice(rawCode) {
+    return enqueue(async () => {
+      const code = normalizedPairingCode(rawCode);
+      const savedPending = parsePendingClaim(await gmPrivateStorageGet(PENDING_CLAIM_KEY, null));
+      const claim = savedPending?.code === code ? savedPending : {
+        version: 1,
+        code,
+        claimId: createUuid(),
+        deviceSecret: randomBase64Url(32)
+      };
+      await gmPrivateStorageSet(PENDING_CLAIM_KEY, claim);
+      const response = await requestPrivateApi(`${API_ORIGIN}/academy/api/device/pairings/claim`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: claim.code, claimId: claim.claimId, deviceSecret: claim.deviceSecret })
+      });
+      if (!response.ok) throw await responseError(response);
+      const paired = parsePairingClaim(await response.json());
+      const key2 = await unwrapProfileKey(paired.keyEnvelope, code, paired.pairingId);
+      const state = {
+        version: 2,
+        credential: paired.credential,
+        profileId: paired.profileId,
+        deviceId: paired.deviceId,
+        keyVersion: paired.keyEnvelope.keyVersion,
+        key: key2,
+        cursor: 0,
+        syncedEventByCard: {},
+        dirtyCardIds: [],
+        needsFullSeed: true,
+        displayName: "",
+        lastSyncAt: null
+      };
+      await saveDeviceState(state);
+      await gmPrivateStorageDelete(PENDING_CLAIM_KEY);
+      await syncAcademyReaderSrsNow();
+      return academyReaderDeviceStatusNow();
+    });
+  }
+  function createAcademyReaderRecoveryPairing() {
+    return enqueue(async () => {
+      const state = await loadDeviceState();
+      if (!state) throw new Error("Connect this Reader before creating a recovery code.");
+      const created = await deviceRequest("/academy/api/device/pairings", state, { method: "POST", body: "{}" });
+      if (!created.ok) throw await responseError(created);
+      const ticket = parseAcademyPairingTicket(await created.json());
+      const envelope = await wrapProfileKey(state.key, ticket.code, ticket.pairingId, state.keyVersion);
+      const completed = await deviceRequest(`/academy/api/device/pairings/${ticket.pairingId}`, state, {
+        method: "PUT",
+        body: JSON.stringify(envelope)
+      });
+      if (!completed.ok) throw await responseError(completed);
+      return ticket;
+    });
+  }
+  function scheduleAcademyReaderSrsSync() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      void syncAcademyReaderSrs().catch(() => void 0);
+    }, 0);
+  }
+  function installAcademyReaderSrsSync() {
+    if (reconnectInstalled || typeof window === "undefined") return;
+    reconnectInstalled = true;
+    const reconcileAndSchedule = () => {
+      void enqueue(markFullSeed).finally(scheduleAcademyReaderSrsSync);
+    };
+    reconcileAndSchedule();
+    subscribeLocalYomuSrsMutations((cardIds) => {
+      void enqueue(() => markDirtyCards(cardIds));
+      scheduleAcademyReaderSrsSync();
+    });
+    subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+    window.addEventListener("online", scheduleAcademyReaderSrsSync);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") scheduleAcademyReaderSrsSync();
+    });
+  }
+  async function markFullSeed() {
+    const state = await loadDeviceState();
+    if (!state || state.needsFullSeed) return;
+    await saveDeviceState({ ...state, needsFullSeed: true });
+  }
+  function syncAcademyReaderSrs(repository = new LocalYomuSrsRepository()) {
+    return enqueue(() => syncAcademyReaderSrsNow(repository));
+  }
+  async function disconnectAcademyReaderDevice() {
+    return enqueue(async () => {
+      const state = await loadDeviceState();
+      if (state) {
+        const response = await deviceRequest("/academy/api/device", state, { method: "DELETE", body: "{}" });
+        if (!response.ok && response.status !== 401) throw await responseError(response);
+      }
+      await gmPrivateStorageDelete(DEVICE_STATE_KEY);
+      await gmPrivateStorageDelete(PENDING_CLAIM_KEY);
+    });
+  }
+  async function syncAcademyReaderSrsNow(repository = new LocalYomuSrsRepository()) {
+    let state = await loadDeviceState();
+    if (!state) return { connected: false, displayName: "", lastSyncAt: null, error: null };
+    const changed = /* @__PURE__ */ new Map();
+    state = await pullRemoteEvents(state, repository, changed);
+    state = await pushLocalEvents(state, await repository.snapshot());
+    state = await pullRemoteEvents(state, repository, changed);
+    state = { ...state, lastSyncAt: Date.now() };
+    await saveDeviceState(state);
+    await publishChangedCards(repository, changed);
+    return statusFromState(state);
+  }
+  async function pullRemoteEvents(initial, repository, changed) {
+    let state = initial;
+    let hasMore = true;
+    while (hasMore) {
+      const response = await deviceRequest(`/academy/api/device/srs/pull?cursor=${state.cursor}&limit=200`, state);
+      if (!response.ok) throw await responseError(response);
+      const page = parseRemoteEventPage(await response.json(), state.keyVersion);
+      const synced = { ...state.syncedEventByCard };
+      const latestEnvelopeByCard = /* @__PURE__ */ new Map();
+      let pageDeck = { version: 1, cards: {}, tombstones: {} };
+      for (const envelope of page.events) {
+        const event = parseReaderDeckEvent(await decryptProfileEvent(state.key, EVENT_PURPOSE, envelope));
+        if (event.kind === "card") {
+          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+            version: 1,
+            cards: { [event.card.id]: event.card }
+          });
+          changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
+          synced[event.card.id] = envelope.id;
+          latestEnvelopeByCard.set(event.card.id, envelope);
+        } else {
+          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+            version: 1,
+            cards: {},
+            tombstones: { [event.id]: event.deletedAt }
+          });
+          changed.set(event.id, { expression: event.expression, reading: event.reading });
+          synced[event.id] = envelope.id;
+          latestEnvelopeByCard.set(event.id, envelope);
+        }
+      }
+      const merged = page.events.length ? await repository.mergeSnapshot(pageDeck, { notifyMutations: false }) : await repository.snapshot();
+      const mergedEventByCard = new Map(deckEvents(merged).map((item2) => [item2.cardId, item2]));
+      const dirty = new Set(state.dirtyCardIds);
+      for (const [cardId, remoteEnvelope] of latestEnvelopeByCard) {
+        const localEvent = mergedEventByCard.get(cardId);
+        if (!localEvent) {
+          dirty.add(cardId);
+          continue;
+        }
+        const localEnvelope = await encryptProfileEvent(
+          state.key,
+          state.keyVersion,
+          EVENT_PURPOSE,
+          localEvent.event,
+          localEvent.occurredAt
+        );
+        if (localEnvelope.id === remoteEnvelope.id) dirty.delete(cardId);
+        else dirty.add(cardId);
+      }
+      state = { ...state, cursor: page.nextCursor, syncedEventByCard: synced, dirtyCardIds: [...dirty] };
+      await saveDeviceState(state);
+      hasMore = page.hasMore;
+    }
+    return state;
+  }
+  async function pushLocalEvents(state, deck) {
+    const pendingIds = state.needsFullSeed ? /* @__PURE__ */ new Set([...Object.keys(deck.cards), ...Object.keys(deck.tombstones ?? {})]) : new Set(state.dirtyCardIds);
+    const candidates = await Promise.all(deckEvents(deck).filter((item2) => pendingIds.has(item2.cardId)).map(async (item2) => ({
+      cardId: item2.cardId,
+      envelope: await encryptProfileEvent(state.key, state.keyVersion, EVENT_PURPOSE, item2.event, item2.occurredAt)
+    })));
+    const unsynced = candidates.filter((item2) => state.syncedEventByCard[item2.cardId] !== item2.envelope.id);
+    let next = state;
+    for (const batch of eventBatches(unsynced)) {
+      const response = await deviceRequest("/academy/api/device/srs/push", next, {
+        method: "POST",
+        body: JSON.stringify({ events: batch.map((item2) => item2.envelope) })
+      });
+      if (!response.ok) throw await responseError(response);
+      const body = await response.json();
+      if (body.accepted !== batch.length || !Array.isArray(body.conflicts) || body.conflicts.length) {
+        throw new Error("Reader SRS event push was not accepted.");
+      }
+      const synced = { ...next.syncedEventByCard };
+      batch.forEach((item2) => {
+        synced[item2.cardId] = item2.envelope.id;
+      });
+      const acceptedIds = new Set(batch.map((item2) => item2.cardId));
+      next = { ...next, syncedEventByCard: synced, dirtyCardIds: next.dirtyCardIds.filter((id2) => !acceptedIds.has(id2)) };
+      await saveDeviceState(next);
+    }
+    const candidateIds = new Set(candidates.map((item2) => item2.cardId));
+    const nextDirty = next.dirtyCardIds.filter((id2) => !candidateIds.has(id2));
+    next = { ...next, dirtyCardIds: nextDirty, needsFullSeed: false };
+    await saveDeviceState(next);
+    return next;
+  }
+  function eventBatches(items) {
+    const batches = [];
+    let current = [];
+    for (const item2 of items) {
+      const candidate2 = [...current, item2];
+      const bytes = new TextEncoder().encode(JSON.stringify({ events: candidate2.map((entry2) => entry2.envelope) })).byteLength;
+      if (current.length && (candidate2.length > PUSH_BATCH_SIZE || bytes > 250 * 1024)) {
+        batches.push(current);
+        current = [item2];
+      } else {
+        current = candidate2;
+      }
+    }
+    if (current.length) batches.push(current);
+    return batches;
+  }
+  async function markDirtyCards(cardIds) {
+    if (!cardIds.length) return;
+    const state = await loadDeviceState();
+    if (!state) return;
+    const dirty = /* @__PURE__ */ new Set([...state.dirtyCardIds, ...cardIds]);
+    await saveDeviceState({ ...state, dirtyCardIds: [...dirty] });
+  }
+  function deckEvents(deck) {
+    const events = Object.values(deck.cards).map((card) => ({
+      cardId: card.id,
+      occurredAt: card.updatedAt,
+      event: { version: 1, kind: "card", card }
+    }));
+    for (const [id2, deletedAt] of Object.entries(deck.tombstones ?? {})) {
+      const [expression = id2, reading = expression] = id2.split("\0");
+      events.push({ cardId: id2, occurredAt: deletedAt, event: { version: 1, kind: "delete", id: id2, expression, reading, deletedAt } });
+    }
+    return events;
+  }
+  async function publishChangedCards(repository, changed) {
+    if (!changed.size) return;
+    const cards = await repository.lookupCards([...changed.values()]);
+    const found = new Set(cards.map((card) => card.providerCardId));
+    cards.forEach((card) => publishCardStateSignal({
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: card.expression,
+      reading: card.reading,
+      meanings: card.meanings,
+      pitchAccent: [],
+      cardState: card.state,
+      source: "yomu-local",
+      reviewSource: "yomu-local",
+      dueAt: card.dueAt,
+      lastReviewAt: card.lastReviewAt
+    }));
+    for (const [id2, identity2] of changed) {
+      if (found.has(id2)) continue;
+      publishCardStateSignal({
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: identity2.expression,
+        reading: identity2.reading,
+        pitchAccent: [],
+        cardState: ["not-in-deck"],
+        source: "yomu-local",
+        reviewSource: "yomu-local"
+      });
+    }
+  }
+  function deviceRequest(path, state, init = {}) {
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${state.credential}`);
+    if (init.body !== void 0) headers.set("content-type", "application/json");
+    return requestPrivateApi(`${API_ORIGIN}${path}`, { ...init, headers });
+  }
+  async function loadDeviceState() {
+    return parseStoredDeviceState(await gmPrivateStorageGet(DEVICE_STATE_KEY, null));
+  }
+  function saveDeviceState(state) {
+    return gmPrivateStorageSet(DEVICE_STATE_KEY, state);
+  }
+  function parseStoredDeviceState(value) {
+    if (!isRecord$1(value) || value.version !== 2 || typeof value.credential !== "string" || !/^yda1\.[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/iu.test(value.credential) || typeof value.profileId !== "string" || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.keyVersion) || value.keyVersion < 1 || typeof value.key !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(value.key) || !Number.isSafeInteger(value.cursor) || value.cursor < 0 || !isRecord$1(value.syncedEventByCard) || Object.values(value.syncedEventByCard).some((id2) => typeof id2 !== "string") || !Array.isArray(value.dirtyCardIds) || value.dirtyCardIds.some((id2) => typeof id2 !== "string") || typeof value.needsFullSeed !== "boolean" || typeof value.displayName !== "string" || value.lastSyncAt !== null && !Number.isSafeInteger(value.lastSyncAt)) return null;
+    return value;
+  }
+  function parsePendingClaim(value) {
+    if (!isRecord$1(value) || value.version !== 1 || typeof value.code !== "string" || typeof value.claimId !== "string" || !isUuid(value.claimId) || typeof value.deviceSecret !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(value.deviceSecret)) return null;
+    return value;
+  }
+  function parsePairingClaim(value) {
+    if (!isRecord$1(value) || typeof value.pairingId !== "string" || typeof value.profileId !== "string" || typeof value.deviceId !== "string" || typeof value.credential !== "string" || !isRecord$1(value.keyEnvelope) || !Number.isSafeInteger(value.keyEnvelope.keyVersion) || typeof value.keyEnvelope.salt !== "string" || typeof value.keyEnvelope.nonce !== "string" || typeof value.keyEnvelope.ciphertext !== "string") throw new Error("Reader device pairing response was malformed.");
+    return value;
+  }
+  function parseRemoteEventPage(value, keyVersion) {
+    if (!isRecord$1(value) || !Array.isArray(value.events) || !Number.isSafeInteger(value.nextCursor) || typeof value.hasMore !== "boolean") throw new Error("Reader SRS event page was malformed.");
+    const events = value.events.map((candidate2) => {
+      if (!isRecord$1(candidate2) || typeof candidate2.id !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(candidate2.id) || !Number.isSafeInteger(candidate2.cursor) || !Number.isSafeInteger(candidate2.occurredAt) || candidate2.keyVersion !== keyVersion || typeof candidate2.nonce !== "string" || typeof candidate2.ciphertext !== "string") throw new Error("Reader SRS event page was malformed.");
+      return candidate2;
+    });
+    return { events, nextCursor: value.nextCursor, hasMore: value.hasMore };
+  }
+  function parseReaderDeckEvent(value) {
+    if (!isRecord$1(value) || value.version !== 1) throw new Error("Reader SRS event was malformed.");
+    if (value.kind === "card" && isRecord$1(value.card)) return value;
+    if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && Number.isSafeInteger(value.deletedAt)) return value;
+    throw new Error("Reader SRS event was malformed.");
+  }
+  function normalizedPairingCode(value) {
+    const code = value.normalize("NFKC").trim().toUpperCase().replaceAll(/[-\s]/gu, "");
+    if (!/^[023456789ABCDEFGHJKMNPQRSTUVWXYZ]{20}$/u.test(code)) throw new Error("Enter the 20-character one-time pairing code.");
+    return code;
+  }
+  async function responseError(response) {
+    let message = `Reader account request failed (${response.status}).`;
+    try {
+      const body = await response.json();
+      if (typeof body.error === "string") message = body.error;
+    } catch {
+    }
+    return new Error(message);
+  }
+  function statusFromState(state) {
+    return { connected: true, displayName: state.displayName, lastSyncAt: state.lastSyncAt, error: null };
+  }
+  function enqueue(operation) {
+    const coordinated = () => withGmStorageLease("academy-reader-account-sync", operation);
+    const result = pending.then(coordinated, coordinated);
+    pending = result.then(() => void 0, () => void 0);
+    return result;
+  }
+  function randomBase64Url(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  }
+  function createUuid() {
+    if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = bytes[6] & 15 | 64;
+    bytes[8] = bytes[8] & 63 | 128;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+  }
+  function errorMessage$2(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  function isRecord$1(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  class AcademyAccountSyncSettingsController {
+    constructor(toast) {
+      this.toast = toast;
+    }
+    statusProbeId = 0;
+    async refresh(form2, fallbackLanguage) {
+      const probeId = ++this.statusProbeId;
+      const language = getFormInterfaceLanguage(form2, fallbackLanguage);
+      setBusy(form2, true, uiText(language, "academyAccountChecking"));
+      try {
+        const status = await academyReaderDeviceStatus();
+        if (probeId !== this.statusProbeId || !form2.isConnected) return;
+        renderStatus(form2, status, language);
+      } catch (error) {
+        if (probeId !== this.statusProbeId || !form2.isConnected) return;
+        setMessage(
+          form2,
+          formatUiText(language, "academyAccountConnectionProblem", {
+            message: errorMessage$1(error, uiText(language, "actionFailed"))
+          }),
+          "error"
+        );
+      } finally {
+        if (probeId === this.statusProbeId && form2.isConnected) setBusy(form2, false);
+      }
+    }
+    async handle(form2, action2, fallbackLanguage) {
+      if (!isAcademyReaderAccountAction(action2)) return false;
+      const language = getFormInterfaceLanguage(form2, fallbackLanguage);
+      const input2 = form2.querySelector("[data-academy-pairing-code]");
+      const code = input2?.value.trim() ?? "";
+      if (action2 === "connect-academy-account" && !code) {
+        setMessage(form2, uiText(language, "academyPairingCodeRequired"), "error");
+        input2?.focus();
+        return true;
+      }
+      const pendingKey = action2 === "connect-academy-account" ? "academyAccountConnecting" : action2 === "sync-academy-account" ? "academyAccountSyncing" : action2 === "create-academy-recovery-code" ? "academyRecoveryCodeCreating" : "academyAccountDisconnecting";
+      setBusy(form2, true, uiText(language, pendingKey));
+      try {
+        if (action2 === "disconnect-academy-account") {
+          await disconnectAcademyReaderDevice();
+          renderStatus(form2, disconnectedStatus(), language);
+          this.toast(uiText(language, "academyAccountDisconnectedDone"));
+          return true;
+        }
+        if (action2 === "create-academy-recovery-code") {
+          const ticket = await createAcademyReaderRecoveryPairing();
+          const output = form2.querySelector("[data-academy-recovery-code]");
+          if (output) {
+            output.hidden = false;
+            output.textContent = formatUiText(language, "academyRecoveryCodeReady", { code: ticket.code });
+          }
+          this.toast(uiText(language, "academyRecoveryCodeDone"));
+          return true;
+        }
+        const status = action2 === "connect-academy-account" ? await claimAcademyReaderDevice(code) : await syncAcademyReaderSrs();
+        renderStatus(form2, status, language);
+        if (status.connected) {
+          if (input2) input2.value = "";
+          this.toast(uiText(language, action2 === "connect-academy-account" ? "academyAccountConnectedDone" : "academyAccountSyncedDone"));
+        }
+      } catch (error) {
+        const message = errorMessage$1(error, uiText(language, "actionFailed"));
+        setMessage(form2, message, "error");
+        this.toast(message);
+      } finally {
+        setBusy(form2, false);
+      }
+      return true;
+    }
+  }
+  function disconnectedStatus() {
+    return { connected: false, displayName: "", lastSyncAt: null, error: null };
+  }
+  function renderStatus(form2, status, language) {
+    const section = form2.querySelector("[data-academy-reader-account]");
+    const connectControls = form2.querySelector("[data-academy-reader-connect-controls]");
+    const connectedControls = form2.querySelector("[data-academy-reader-connected-controls]");
+    if (section) section.dataset.connected = String(status.connected);
+    if (connectControls) connectControls.hidden = status.connected;
+    if (connectedControls) connectedControls.hidden = !status.connected;
+    const recoveryCode = form2.querySelector("[data-academy-recovery-code]");
+    if (!status.connected && recoveryCode) {
+      recoveryCode.hidden = true;
+      recoveryCode.textContent = "";
+    }
+    if (!status.connected) {
+      setMessage(form2, uiText(language, "academyAccountDisconnected"), status.error ? "error" : "pending");
+      return;
+    }
+    const pieces = [status.displayName.trim() ? formatUiText(language, "academyAccountConnected", { name: status.displayName.trim() }) : uiText(language, "academyAccountConnectedNoName")];
+    pieces.push(status.lastSyncAt === null ? uiText(language, "academyAccountNeverSynced") : formatUiText(language, "academyAccountLastSynced", { time: syncTime(status.lastSyncAt, language) }));
+    if (status.error) pieces.push(formatUiText(language, "academyAccountConnectionProblem", { message: status.error }));
+    setMessage(form2, pieces.join(" "), status.error ? "error" : "success");
+  }
+  function setBusy(form2, busy, message) {
+    const section = form2.querySelector("[data-academy-reader-account]");
+    if (!section) return;
+    if (busy) section.setAttribute("aria-busy", "true");
+    else section.removeAttribute("aria-busy");
+    section.querySelectorAll("button[data-action]").forEach((button2) => {
+      button2.disabled = busy;
+    });
+    const input2 = section.querySelector("[data-academy-pairing-code]");
+    if (input2) input2.disabled = busy;
+    if (message) setMessage(form2, message, "pending");
+  }
+  function setMessage(form2, message, tone) {
+    const status = form2.querySelector("[data-academy-reader-status]");
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.statusTone = tone;
+  }
+  function syncTime(value, language) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString(resolveUiLanguage(language) === "ja" ? "ja-JP" : "en-GB");
+  }
+  function errorMessage$1(error, fallback) {
+    if (error instanceof Error && error.message.trim()) return error.message;
+    if (typeof error === "string" && error.trim()) return error;
+    return fallback;
+  }
+  function isAcademyReaderAccountAction(action2) {
+    return action2 === "connect-academy-account" || action2 === "sync-academy-account" || action2 === "create-academy-recovery-code" || action2 === "disconnect-academy-account";
+  }
   const AUTHENTICATION_INFO_PERMISSION = "authenticationInfo";
   const AUTHENTICATION_FIELDS = [
     "apiKey",
@@ -303418,6 +304621,7 @@ ${entry2.url}`),
   class SettingsDialogController {
     constructor(dependencies) {
       this.dependencies = dependencies;
+      this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
     }
     dictionaryOperationQueue = Promise.resolve();
     pendingDictionaryOperations = 0;
@@ -303431,6 +304635,7 @@ ${entry2.url}`),
     wanikaniConnectionProbeId = 0;
     ankiLibraryScanId = 0;
     yomuUpdateCheckId = 0;
+    academyAccountSync;
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
@@ -303452,6 +304657,7 @@ ${entry2.url}`),
       this.syncRecommendedDictionaryInstallControls(form2);
       this.syncDictionaryOperationState(form2);
       this.syncJpdbStatus(form2);
+      void this.academyAccountSync.refresh(form2, this.settings.interfaceLanguage);
       void this.refreshAnkiConnectionStatus(form2);
       if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form2);
       if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form2);
@@ -303467,14 +304673,15 @@ ${entry2.url}`),
       this.syncRecommendedDictionaryInstallControls(form2);
       this.syncDictionaryOperationState(form2);
       this.syncJpdbStatus(form2);
+      void this.academyAccountSync.refresh(form2, language);
       void this.refreshAnkiConnectionStatus(form2);
       syncSubtitlePreview(form2);
       this.refreshSettingsJapaneseParse(form2);
     }
     async resumePendingCloudSettingsSync() {
       if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
-      const pending = await this.readPendingCloudSettingsAction();
-      if (!pending) return false;
+      const pending2 = await this.readPendingCloudSettingsAction();
+      if (!pending2) return false;
       return false;
     }
     get settings() {
@@ -304418,7 +305625,7 @@ ${entry2.url}`),
       if (action2 === "sync-cloud-settings") {
         return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form2), this.settings));
       }
-      if (action2 === "restore-cloud-settings" || action2 === "import-yomitan-settings") {
+      if (action2 === "restore-cloud-settings" || action2 === "import-yomitan-settings" || action2 === "connect-academy-account") {
         return requestFirefoxAuthenticationInfoPermission();
       }
       return void 0;
@@ -304430,7 +305637,7 @@ ${entry2.url}`),
       return false;
     }
     async runSettingsAction(form2, action2, control2, setStatus) {
-      const handled = this.handleSettingsEditorAction(form2, action2, control2) || await this.handleSettingsAudioAction(form2, action2, control2) || await this.handleSettingsDictionaryAction(form2, action2, control2, setStatus) || await this.handleSettingsCloudSyncAction(form2, action2, control2, setStatus) || await this.handleSettingsImportExportAction(form2, action2, setStatus);
+      const handled = this.handleSettingsEditorAction(form2, action2, control2) || await this.handleSettingsAudioAction(form2, action2, control2) || await this.handleSettingsDictionaryAction(form2, action2, control2, setStatus) || await this.academyAccountSync.handle(form2, action2, this.settings.interfaceLanguage) || await this.handleSettingsCloudSyncAction(form2, action2, control2, setStatus) || await this.handleSettingsImportExportAction(form2, action2, setStatus);
       if (!handled) await this.handleSettingsConnectionOrSupportAction(form2, action2, control2, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form2, action2, control2, setStatus) {
@@ -304589,16 +305796,16 @@ ${entry2.url}`),
       await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
     }
     async readPendingCloudSettingsAction() {
-      const pending = await gmStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
-      if (!isPendingCloudSettingsAction(pending)) {
+      const pending2 = await gmStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
+      if (!isPendingCloudSettingsAction(pending2)) {
         await this.clearPendingCloudSettingsAction();
         return null;
       }
-      if (Date.now() - pending.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
+      if (Date.now() - pending2.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
         await this.clearPendingCloudSettingsAction();
         return null;
       }
-      return pending;
+      return pending2;
     }
     async handleSettingsImportExportAction(form2, action2, setStatus) {
       if (action2 === "import-yomitan-settings") {
@@ -306942,7 +308149,8 @@ ${rank2.detail}` : baseTitle;
       getSettings: () => this.settings,
       jpdb: this.jpdb,
       jitenPublicVocabulary: this.jitenPublicVocabulary,
-      dictionaries: this.dictionaries
+      dictionaries: this.dictionaries,
+      yomuLocalSrs: this.yomuLocalSrs
     });
     factoryReset = createFactoryResetCoordinator({
       dictionaries: this.dictionaries,
@@ -307019,6 +308227,7 @@ ${rank2.detail}` : baseTitle;
       }
       this.scheduleAnkiStatusWarmup();
       this.installCardStateSignalSubscription();
+      installAcademyReaderSrsSync();
       this.installSettingsStorageSubscription();
       void this.settingsDialog.resumePendingCloudSettingsSync();
     }
@@ -307073,6 +308282,7 @@ ${rank2.detail}` : baseTitle;
       this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
         if (this.isDestroyed) return;
         this.applyPublicVocabularyToRenderedWords(card, card);
+        repaintYomuLocalSrsRenderedWords(card);
         if (card.source === "bunpro") {
           this.dismissLookupPopover();
           void this.newTab?.refreshBunproQueueAfterExternalGrade();
@@ -307138,6 +308348,7 @@ ${rank2.detail}` : baseTitle;
     handleApiCardStateChanged(card) {
       this.cardRenderData.clear();
       this.applyPublicVocabularyToRenderedWords(card, card);
+      repaintYomuLocalSrsRenderedWords(card);
       this.newTab?.refreshBrowseAfterCardMutation(card);
     }
     destroy() {
@@ -307484,25 +308695,11 @@ ${rank2.detail}` : baseTitle;
     refreshNewTabLookupHeader(popover, card, data) {
       const titleRow = popover.querySelector(".jpdb-reader-title-row");
       if (!titleRow) return;
-      this.ensureNewTabLookupReading(titleRow, card);
+      this.removeNewTabLookupTrailingReading(titleRow);
       this.refreshNewTabLookupMeta(titleRow, card, data);
     }
-    ensureNewTabLookupReading(titleRow, card) {
-      const reading = cardPronunciationReading(card) || card.reading.trim();
-      if (!reading || isPlainReadingRedundantForHeadword(card, this.settings, reading)) {
-        titleRow.querySelector("[data-newtab-lookup-reading]")?.remove();
-        return;
-      }
-      let readingElement = titleRow.querySelector(".jpdb-reader-reading");
-      if (!readingElement) {
-        readingElement = document.createElement("div");
-        readingElement.className = "jpdb-reader-reading";
-        const spelling = titleRow.querySelector(".jpdb-reader-spelling");
-        spelling?.after(readingElement);
-        if (!readingElement.isConnected) titleRow.prepend(readingElement);
-      }
-      readingElement.dataset.newtabLookupReading = "true";
-      readingElement.textContent = reading;
+    removeNewTabLookupTrailingReading(titleRow) {
+      titleRow.querySelectorAll(".jpdb-reader-reading, .jpdb-reader-meta-reading").forEach((reading) => reading.remove());
     }
     refreshNewTabLookupMeta(titleRow, card, data) {
       const items = newTabLookupMetaItems({
@@ -308741,10 +309938,10 @@ ${rank2.detail}` : baseTitle;
       } finally {
         clearNestedParseLoadingKey(form2, plan.parseKey, parseLoadingId);
         if (this.isCurrentSettingsRoot(form2)) {
-          const pending = form2.dataset.yomuSettingsSelfEnhancePending === "true";
+          const pending2 = form2.dataset.yomuSettingsSelfEnhancePending === "true";
           delete form2.dataset.yomuSettingsSelfEnhancing;
           delete form2.dataset.yomuSettingsSelfEnhancePending;
-          if (pending) {
+          if (pending2) {
             void this.parseSettingsJapanese(form2);
           }
         }

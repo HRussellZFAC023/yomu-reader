@@ -161,6 +161,17 @@ Bunpro grading is deliberately tied to a live Study queue session: regular revea
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
 
+## Create a Yomu account and sync Academy words (optional)
+
+You do not need an account for lookup, local dictionaries, or local Study. If you want the Academy/local SRS deck to stay synchronized between paired Readers:
+
+1. Open [yomureader.com](/) and choose **Create account** or **Sign in** in the navigation. The control changes to **Signed in as _your name_** when Google linking finishes. English and Japanese interface modes show the same account state and actions.
+2. Open **Profile & sync** and initialize the profile if asked. Choose the pairing action to create a one-time code; it expires after ten minutes and can be used once.
+3. In the userscript or browser extension, open **Study → Settings → Backup & sync**, paste the code under **Academy account sync**, and choose **Connect**. Firefox may first ask for its optional account-information permission; if the prompt cannot open on the current webpage, repeat this step from the extension's bundled Study page.
+4. Check that Settings shows **Connected as _your name_** and a last-sync time. Academy cards, grades, due states, deletions, highlights, and mining changes now reconcile through the encrypted account profile.
+
+A free Reader account provides account identity and encrypted Reader sync only. It does not grant access to the Academy curriculum. If the website key is lost but a paired Reader survives, choose **Create website recovery code** in Reader Settings and enter that code on Profile & sync. You can also list or revoke Readers, export the encrypted profile/account data, delete learning-profile data, or delete the entire account there.
+
 ## Turn on more tools
 
 Open よむ settings with the floating よむ button to switch these on when you want them. The **Open settings** shortcut is configurable in Settings → Shortcuts. Each is covered in [Features](/features).

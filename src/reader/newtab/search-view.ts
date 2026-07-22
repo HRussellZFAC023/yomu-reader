@@ -56,7 +56,6 @@ export function searchWordSummaryMeta(
 ): string[] {
     return [
         searchWordPooledStatusLabel(card, context, ankiLookup),
-        card.frequencyRank ? `#${card.frequencyRank}` : '',
     ].filter(Boolean);
 }
 
@@ -246,14 +245,9 @@ function searchWordPillsHtml(
 
 export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings): string[] {
     return [
-        searchWordFrequencyMeta(card),
         searchWordCardStateMeta(card, state, settings),
         searchWordLookupAnkiStateMeta(card, detail, settings),
     ].filter(Boolean);
-}
-
-function searchWordFrequencyMeta(card: JPDBCard): string {
-    return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '';
 }
 
 function searchWordCardStateMeta(card: JPDBCard, state: CardState, settings: ReaderSettings): string {

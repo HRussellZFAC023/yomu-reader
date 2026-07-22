@@ -52,6 +52,7 @@ describe('Reader Study UI contract', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { flex-wrap: nowrap;');
         expect(newTabCss).toContain('min-height: min(70dvh, 720px);');
         expect(newTabCss).toContain('border-radius: 18px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { width: 100%; min-width: 0; max-width: 100%; grid-template-columns: minmax(0, 1fr); }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-type-form { width: min(100%, 680px); grid-template-columns: 48px minmax(0, 1fr) auto;');
         expect(newTabCss).toContain('.jpdb-reader-newtab-type-input[readonly] { border-color:');
         expect(newTabCss).toContain('position: sticky; bottom: max(12px, env(safe-area-inset-bottom));');

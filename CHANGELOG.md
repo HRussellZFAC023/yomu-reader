@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.404] - 2026-07-21
+
+### Added
+
+- The Yomu website now offers Create account and Sign in controls, shows the current signed-in name, and links directly to Profile & sync. A free Reader account can pair the userscript or browser extension and keep the Academy/local Study deck encrypted and synchronized across devices; Academy curriculum access remains a separate entitlement.
+- Reader Settings → Backup & sync can claim a one-time website pairing code, show the connected account and last-sync state, sync immediately, revoke the current Reader device, or create a recovery code that restores the website key from a surviving Reader.
+- Academy cards now carry their local SRS state, due date, highlighting, and swatch through reading pages and Study, with cross-tab repainting after mining, grading, remote updates, and deletions.
+
+### Changed
+
+- Study's former Dictionary source is now Academy. JPDB appears in the source switcher only when a JPDB key is configured; a Jiten-only or keyless setup no longer advertises an unusable JPDB queue.
+- Reader account sync uses client-side AES-256-GCM encryption. Yomu's Worker stores only hashed device credentials plus opaque encrypted card events and their delivery metadata; the 32-byte profile key remains on paired clients.
+
+### Fixed
+
+- Study lookup headers no longer repeat a bare frequency value such as `#400`, and Japanese readings are rendered as furigana on the word instead of as a trailing kana label.
+- Cross-device deck reconciliation now preserves the newest schedule or deletion even when events arrive out of order, and startup performs a full comparison so a missed cross-tab notification cannot strand a local card.
+
 ## [1.6.403] - 2026-07-21
 
 ### Fixed

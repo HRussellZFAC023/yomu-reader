@@ -187,7 +187,7 @@ describe('extension runtime hardening', () => {
                 },
             ),
         ).toMatchObject({
-            permissions: ['identity'],
+            permissions: ['storage', 'identity'],
             oauth2: {
                 client_id: 'client-id.apps.googleusercontent.com',
                 scopes: ['https://www.googleapis.com/auth/drive.appdata'],

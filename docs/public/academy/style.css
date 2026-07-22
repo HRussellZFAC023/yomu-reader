@@ -1773,6 +1773,14 @@
     gap: 14px;
   }
 
+  .jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
+    .jpdb-reader-newtab-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-study {
     min-height: min(70dvh, 720px);
@@ -17073,6 +17081,48 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings-actions-single {
   display: flex;
   justify-content: center;
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-link {
+  width: min(100%, 360px);
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-status {
+  min-height: 1.45em;
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="success"] {
+  color: var(--jpdb-reader-accent-readable);
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="error"] {
+  color: color-mix(in srgb, #d33 72%, var(--jpdb-reader-text));
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-connect {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.jpdb-reader-settings .jpdb-reader-academy-account-code-row .jpdb-reader-btn {
+  min-width: 96px;
+}
+
+@media (max-width: 520px) {
+  .jpdb-reader-settings .jpdb-reader-academy-account-code-row {
+    grid-template-columns: 1fr;
+  }
+  .jpdb-reader-settings .jpdb-reader-academy-account-code-row .jpdb-reader-btn,
+  .jpdb-reader-settings .jpdb-reader-academy-account-link {
+    width: 100%;
+  }
 }
 
 .jpdb-reader-settings-actions .jpdb-reader-btn {

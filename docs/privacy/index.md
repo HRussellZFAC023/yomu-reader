@@ -21,6 +21,7 @@ The extension does not replace or redirect your browser's new-tab page. Study is
 
 - Settings, shortcuts, imported API credentials, dictionary preferences, and onboarding state.
 - Imported Yomitan dictionaries, offline parsing dictionaries, lookup caches, and local review progress.
+- If Reader account sync is enabled, the long-lived device bearer and 32-byte profile encryption key in extension/userscript-owned private storage. They are excluded from page-readable storage, settings exports, and ordinary backups.
 - Media and OCR working data only as needed for the feature you invoke; Yomu does not upload it to a Yomu account.
 
 Uninstalling the extension normally removes its browser-managed local data. Export settings first if you want a backup.
@@ -42,10 +43,20 @@ AnkiConnect normally runs on your own computer. Bunpro's imported frontend token
 
 Google Drive settings sync is shown only in a browser-extension build that has an approved Google OAuth client configured. When enabled and invoked, it stores a settings snapshot in the private application-data area of your own Google Drive; Yomu does not receive that file. The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
+## Optional Yomu account and encrypted Reader sync
+
+The website can create a free Reader account through Google sign-in. Yomu stores an HMAC of Google's stable account subject plus the Yomu display name, discriminator, profile preferences, access projection, device ids, and creation/last-seen/revocation times. It discards Google's name, email, photo, access token, and refresh token instead of storing them in D1. A free Reader account does not provide Academy curriculum access; an Academy grant or active eligible entitlement is checked separately.
+
+Pairing uses a ten-minute, one-time code. The source client wraps its random 32-byte profile key locally with HKDF-SHA-256 and AES-256-GCM; the server stores only the code HMAC and wrapped envelope and never receives the plaintext key. A paired Reader authenticates with a random bearer kept in private extension/userscript storage. D1 stores only that bearer's HMAC, not the bearer itself.
+
+Reader SRS changes are encrypted on the client with AES-256-GCM. The service receives an opaque content-derived event id, event time, key version, nonce, ciphertext, source-device id, and receipt time. The plaintext word, reading, meanings, schedule, review count, and deletion identity remain inside the ciphertext. Encrypted event history and tombstones are retained until the learning profile or account is deleted; revoking a device blocks future access but retains already synchronized history so other devices can still converge.
+
+**Profile & sync** can export account/profile metadata and both independently paginated encrypted event logs, list and revoke Reader devices, delete the learning profile (including encrypted events and devices while retaining the account identity/entitlement), or delete the account and dependent learning data. A paid-redemption tombstone is retained without the deleted account id so a paid code cannot be transferred or redeemed again.
+
 ## Remote code
 
 Chrome, Firefox, and Safari extension packages contain their executable code. They do not download or execute remote JavaScript. Optional dictionaries, definitions, examples, audio, and other data are treated as data rather than executable code.
 
 ## Contact and deletion
 
-You can erase Yomu's local data from **Settings → Backup & data → Reset all data**, or by removing the extension and its site data. Report privacy questions or issues through the [Yomu GitHub issue tracker](https://github.com/HRussellZFAC023/yomu-reader/issues).
+You can erase Yomu's local data from **Settings → Backup & data → Reset all data**, or by removing the extension and its site data. Resetting or uninstalling local data does not itself delete an optional server profile; use **Profile & sync → Delete profile/account** for that. Report privacy questions or issues through the [Yomu GitHub issue tracker](https://github.com/HRussellZFAC023/yomu-reader/issues).

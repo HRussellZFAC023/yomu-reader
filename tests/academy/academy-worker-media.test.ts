@@ -31,6 +31,7 @@ async function authedAcademy(): Promise<{ academy: FakeAcademy; cookie: string }
     const cookie = (session.headers.get('set-cookie') ?? '').split(';')[0];
     // Media requires a signed-in account for every invite kind.
     academy.db.sessions[0].account_id = 'acct-media-1';
+    academy.db.academyGrants.add('acct-media-1');
     academy.bucket.put('persona/theme/evening.m4a', bytes);
     return { academy, cookie };
 }

@@ -421,7 +421,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         const promptTerm = prompt?.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
         expect(promptTerm?.dataset.expression).toBe('難波');
         expect(promptTerm?.dataset.reading).toBe('なにわ');
-        expect(promptTerm?.querySelector('rt')).toBeNull();
+        expect(promptTerm?.querySelector('rt')?.textContent).toBe('なにわ');
         expect(promptTerm?.dataset.pitchClass).toBeUndefined();
         expect(promptTerm?.classList.contains('jpdb-pitch-heiban')).toBe(false);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
@@ -684,7 +684,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         }
     });
 
-    it('hides reading and pitch before reveal, then renders compact reveal tools with inline audio', async () => {
+    it('keeps pitch tools hidden before reveal, then renders compact reveal tools with inline audio', async () => {
         const card = newTabTestCard({
             spelling: '返す',
             reading: 'かえす',
@@ -726,8 +726,8 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         try {
             const frontTerm = frontRoot.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
             const frontTools = frontRoot.querySelector<HTMLElement>('[data-newtab-study-tools]')!;
-            expect(frontTerm.querySelector('ruby')).toBeNull();
-            expect(frontTerm.querySelector('rt')).toBeNull();
+            expect(frontTerm.querySelector('ruby')).not.toBeNull();
+            expect(frontTerm.querySelector('rt')?.textContent).toBe('かえ');
             expect(frontTools.textContent?.trim()).toBe('');
             expect(frontTools.querySelector('.jpdb-reader-pitch')).toBeNull();
             await waitForExpect(() => {

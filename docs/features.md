@@ -23,7 +23,7 @@ Keyboard shortcuts can move lookup to the previous or next parsed word, and if y
 
 API mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, source link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
 
-Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off.
+Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Academy, Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off. Lookup and Study headings attach kana to the kanji as furigana; they do not repeat the same reading as trailing text.
 
 Pitch stays attached to the vocabulary it actually describes. A word with an exact accent gets one whole-word underline; an aligned compound with only component accents keeps one clickable lookup target but shows separate component-colour segments. On a wide tablet sheet, multiple pitch graphs use the upper-right header space instead of consuming a full row.
 
@@ -153,7 +153,13 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 Open the [Yomu app](/study/) for one offline-first place to study, search your Library, inspect combined Stats, and manage Connections. Install it from **Share → Add to Home Screen** on iPhone or iPad, or your browser's **Install app** action on Android. The browser extension still leaves new tabs alone and offers **Open Study** from its toolbar.
 
-Study pulls words from Anki, Jiten, Bunpro, JPDB, WaniKani, or local dictionaries, and caches the review queue on the device for the train. A fresh card starts at its first configured learning step — Kanji 1 by default — and the compact step rail, attached answer action, retry feedback, audio, and final grade stay in one focused flow. Grades for supported providers wait in a local outbox and sync after reconnecting; WaniKani writes remain live-only and are never replayed later. The old `/newtab/` URL remains a compatibility route.
+Study pulls words from Academy, Anki, Jiten, Bunpro, JPDB, WaniKani, or local dictionaries, and caches the review queue on the device for the train. **Academy** is the local Yomu SRS deck that was previously labelled Dictionary: mining and grading update its real due/new/learning/known state, swatch, and page highlighting. JPDB is omitted from the source switcher until a JPDB key is present. A fresh card starts at its first configured learning step — Kanji 1 by default — and the compact step rail, attached answer action, retry feedback, audio, and final grade stay in one focused flow. Grades for supported providers wait in a local outbox and sync after reconnecting; WaniKani writes remain live-only and are never replayed later. The old `/newtab/` URL remains a compatibility route.
+
+### Yomu account and encrypted Reader sync
+
+The website navigation offers **Create account** and **Sign in**, then shows the signed-in display name and a **Profile & sync** link. A free Reader account keeps local SRS cards synchronized but does not unlock Academy lessons; curriculum access still requires an eligible Academy grant.
+
+Pair from **Profile & sync** with a ten-minute, one-time code, then paste that code into **Study → Settings → Backup & sync**. Reader stores its device bearer and 32-byte profile key only in extension/userscript-owned storage. Card updates and tombstones are encrypted before upload, merged by their semantic card identity and timestamps, and repainted in open tabs when the winning state changes. If the website loses its local key, a paired Reader can create a reverse recovery code. The account page lists devices so an owner can revoke one that was lost or retired.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 
