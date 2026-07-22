@@ -12119,21 +12119,92 @@ ${spelling}`);
   }
   function reuseCurrentTextMirror(host, context) {
     const existing = currentTextMirror(host);
-    const matches = [
+    const structureMatches = [
       existing && textMirrorRenderIsIntact(existing),
       existing?.dataset.sourceText === context.text,
-      existing?.dataset.renderSignature === context.signature,
       (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
       existing?.classList.contains("jpdb-reader-additive-text-mirror")
     ].every(Boolean);
-    if (!matches) return false;
+    if (!structureMatches || !existing) return false;
+    const exactMatch = existing.dataset.renderSignature === context.signature;
+    if (!exactMatch && !existingMirrorStrictlyDominatesProvisionalRender(existing, context)) return false;
     const state2 = textMirrorHosts.get(host);
     if (state2) reassertTextMirrorHostStyles(host, state2);
-    if (context.detachedReadings && existing) {
+    if (context.detachedReadings || existing.dataset.yomuDetachedReadings === "true") {
       openSafeDetachedReadingClips(host);
       stabilizeDetachedReadings(existing, context.clipRow, true);
     }
     return true;
+  }
+  function existingMirrorStrictlyDominatesProvisionalRender(existing, context) {
+    const existingSettings = tokenIndependentMirrorSignature(existing.dataset.renderSignature ?? "");
+    const incomingSettings = tokenIndependentMirrorSignature(context.signature);
+    if (!existingSettings || existingSettings !== incomingSettings) return false;
+    const existingReadingLane = mirrorSignatureReadingLane(existing.dataset.renderSignature ?? "");
+    const incomingReadingLane = mirrorSignatureReadingLane(context.signature);
+    if (!existingReadingLane || !incomingReadingLane) return false;
+    const tokens = context.renderPlan.tokens;
+    const words = Array.from(existing.querySelectorAll(".jpdb-reader-word"));
+    if (!tokens.length || words.length !== tokens.length) return false;
+    let strictlyRicher = false;
+    if (existingReadingLane !== incomingReadingLane) {
+      if (existingReadingLane === "none" || incomingReadingLane !== "none") return false;
+      strictlyRicher = true;
+    }
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      const word = words[index];
+      if (!token || !word || cardStateProvenance(token.card) !== "provisional") return false;
+      if (Number(word.dataset.tokenStart) !== token.start || Number(word.dataset.tokenEnd) !== token.end) return false;
+      const surface = context.renderPlan.text.slice(token.start, token.end);
+      if ((word.dataset.surface ?? "") !== surface) return false;
+      const incomingState = primaryCardState(token.card.cardState);
+      if (word.dataset.stateProvenance !== "authoritative" && word.dataset.cardState !== incomingState) return false;
+      const existingReading = renderedWordReading(word);
+      const incomingReading = renderedTokenReading(token);
+      if (existingReading && incomingReading && existingReading !== incomingReading) return false;
+      if (!existingReading && incomingReading) return false;
+      if (existingReading && !incomingReading) strictlyRicher = true;
+      const existingPitch = word.dataset.pitchClass ?? "";
+      const incomingPitch = tokenPitchClass(token);
+      const existingHasPitch = PITCH_CLASSES.has(existingPitch);
+      const incomingHasPitch = PITCH_CLASSES.has(incomingPitch);
+      if (existingHasPitch && incomingHasPitch && existingPitch !== incomingPitch) return false;
+      if (!existingHasPitch && incomingHasPitch) return false;
+      if (existingHasPitch && !incomingHasPitch) strictlyRicher = true;
+      const existingPattern = word.dataset.pitchAccent ?? "";
+      const incomingPattern = token.card.pitchAccent.join("|");
+      if (existingPattern && incomingPattern && existingPattern !== incomingPattern) return false;
+      if (!existingPattern && incomingPattern) return false;
+      if (existingPattern && !incomingPattern) strictlyRicher = true;
+    }
+    return strictlyRicher;
+  }
+  function tokenIndependentMirrorSignature(signature) {
+    try {
+      const parsed = JSON.parse(signature);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      const settings = { ...parsed };
+      delete settings.tokens;
+      delete settings.readings;
+      return JSON.stringify(settings);
+    } catch {
+      return null;
+    }
+  }
+  function mirrorSignatureReadingLane(signature) {
+    try {
+      const parsed = JSON.parse(signature);
+      return typeof parsed?.readings === "string" ? parsed.readings : null;
+    } catch {
+      return null;
+    }
+  }
+  function renderedWordReading(word) {
+    return (word.dataset.reading || Array.from(word.querySelectorAll("rt,.jpdb-reader-detached-furi")).map((reading) => reading.textContent?.trim() ?? "").join("")).trim();
+  }
+  function renderedTokenReading(token) {
+    return (token.card.reading || token.rubies.map((ruby) => ruby.text).join("")).trim();
   }
   function createNonDestructiveTextMirror(context) {
     const mirror = document.createElement("span");
@@ -12506,12 +12577,15 @@ ${spelling}`);
     return Number.isFinite(clamp2) && clamp2 > 1;
   }
   function baseTextLineCount(box) {
-    const range = box.ownerDocument.createRange();
-    range.selectNodeContents(box);
     const tops = [];
-    for (const lineRect of Array.from(range.getClientRects())) {
-      if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-      if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    const walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+    const range = box.ownerDocument.createRange();
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      range.selectNodeContents(node);
+      for (const lineRect of Array.from(range.getClientRects())) {
+        if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+        if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+      }
     }
     return tops.length;
   }
@@ -46438,7 +46512,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.406".trim() ? "1.6.406".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.409".trim() ? "1.6.409".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -76977,13 +77051,14 @@ ${component.reading}`;
       typeWordModeGroup: "Type-word input mode",
       typeWordModeKeyboard: "Type",
       typeWordModeHandwriting: "Write",
-      typeWordPlaceholder: "Write the word",
+      typeWordHandwritingUnavailable: "This word has no kanji to handwrite",
+      typeWordPlaceholder: "Type the word",
       typeWordTryAgain: "Not quite — try again",
       typeWordSkip: "Skip",
       typeWordSkipped: "Skipped",
-      typeWordWriteChar: "Write the next character",
+      typeWordWriteChar: "Write the highlighted kanji — kana stays in place",
       typeWordProgress: "Handwriting progress",
-      typeWordAllDone: "Whole word written",
+      typeWordAllDone: "Kanji written",
       studyTourType: "Produce the word — type or write it.",
       studySummaryLabel: "Step results",
       studySummaryKanji: "Kanji",
@@ -77257,13 +77332,14 @@ ${component.reading}`;
     typeWordModeGroup: "単語入力モード",
     typeWordModeKeyboard: "入力",
     typeWordModeHandwriting: "手書き",
-    typeWordPlaceholder: "単語を書く",
+    typeWordHandwritingUnavailable: "この単語には手書きする漢字がありません",
+    typeWordPlaceholder: "単語を入力",
     typeWordTryAgain: "もう一度入力してください",
     typeWordSkip: "スキップ",
     typeWordSkipped: "スキップ",
-    typeWordWriteChar: "次の文字を書いてください",
+    typeWordWriteChar: "強調された漢字を書いてください。かなはそのまま表示されます",
     typeWordProgress: "手書きの進捗",
-    typeWordAllDone: "単語をすべて書けました",
+    typeWordAllDone: "漢字を書けました",
     studyTourType: "単語を書き出します。入力か手書きで。",
     studySummaryLabel: "ステップの結果",
     studySummaryKanji: "漢字",
@@ -78150,7 +78226,6 @@ ${key}`] = { t: now, v: value };
   const DETAIL_CONCURRENCY = 4;
   const LOOKUP_DETAIL_LIMIT = 12;
   const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
-  const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -78318,8 +78393,7 @@ ${key}`] = { t: now, v: value };
     async hydrateParsedTokens(result, limit) {
       const tokens = result.flat();
       if (!tokens.length || limit <= 0) return;
-      const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
-      const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
+      const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
       if (!cards.size) return;
       for (const token of tokens) {
         const card = cards.get(parsedCardHydrationKey(token.card));
@@ -78434,31 +78508,6 @@ ${key}`] = { t: now, v: value };
     noteSuccess() {
       sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
-  }
-  function parsedCardsWithinTargetBoundary(result, limit) {
-    const normalizedLimit = normalizedDetailLimit(limit);
-    if (normalizedLimit <= 0) return [];
-    const selected = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const targetTokens of result) {
-      const targetCards = [];
-      const targetSeen = /* @__PURE__ */ new Set();
-      for (const token of targetTokens) {
-        const key = parsedCardHydrationKey(token.card);
-        if (seen.has(key) || targetSeen.has(key)) continue;
-        targetSeen.add(key);
-        targetCards.push(token.card);
-      }
-      if (!targetCards.length) continue;
-      const remaining = normalizedLimit - selected.length;
-      if (remaining <= 0) break;
-      const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
-      for (const card of cardsToTake) {
-        selected.push(card);
-        seen.add(parsedCardHydrationKey(card));
-      }
-    }
-    return selected;
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
     if (!isNonNullObject(payload)) return null;
@@ -92597,7 +92646,9 @@ ${entry.url}`),
     renderTypeWordAnswer(answer, card) {
       if (!answer) return;
       delete answer.dataset.newtabAnswerDetailsRequest;
-      const mode = this.typeWordInputMode();
+      const configuredMode = this.typeWordInputMode();
+      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
+      const mode = configuredMode === "handwriting" && supportsHandwriting ? "handwriting" : "keyboard";
       const feedback = this.stepState(cardKey(card))?.type?.feedback;
       answer.dataset.typeWordMode = mode;
       answer.dataset.typeWordOutcome = feedback ?? "pending";
@@ -92613,9 +92664,9 @@ ${entry.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-type-secondary" },
-          this.renderTypeWordModeToggle(mode),
+          this.renderTypeWordModeToggle(mode, card),
           el("button", {
-            class: "jpdb-reader-btn jpdb-reader-newtab-type-skip",
+            class: "jpdb-reader-newtab-type-skip",
             type: "button",
             dataset: { newtabAction: "type-word-skip" }
           }, this.text("typeWordSkip"))
@@ -92624,12 +92675,15 @@ ${entry.url}`),
       if (mode === "handwriting") this.installTypeWordDoodle(answer, card);
       else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer);
     }
-    renderTypeWordModeToggle(mode) {
+    renderTypeWordModeToggle(mode, card) {
+      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
       const button2 = (value, label) => el("button", {
-        class: "jpdb-reader-btn jpdb-reader-newtab-type-mode",
+        class: "jpdb-reader-newtab-type-mode",
         type: "button",
         dataset: { newtabAction: "type-word-mode", typeWordMode: value, active: String(mode === value) },
-        "aria-pressed": String(mode === value)
+        "aria-pressed": String(mode === value),
+        disabled: value === "handwriting" && !supportsHandwriting,
+        title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
       }, label);
       return el(
         "div",
@@ -92668,24 +92722,28 @@ ${entry.url}`),
         }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
       );
     }
-    // Handwriting produces the word one character at a time. Only kanji are
-    // graded against KanjiVG; kana and kanji with no stroke reference auto-pass
-    // and advance, so a mixed word like 飲み物 asks for 飲 and 物 but skips み.
+    // Handwriting grades only the word's kanji. Kana remains visible as fixed
+    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // to scribble a token stroke merely to advance past み.
     renderTypeWordHandwriting(card) {
       const target = this.typeWordTarget(card);
       const chars = Array.from(target);
-      const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+      const progress = this.typeWordHandwritingProgress(card, chars);
       return el(
         "div",
         { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
         el(
           "div",
           { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": this.text("typeWordProgress") },
-          chars.map((character, index) => el("span", {
-            class: "jpdb-reader-newtab-type-handwriting-cell",
-            lang: "ja",
-            dataset: { done: String(index < progress), active: String(index === progress) }
-          }, index < progress ? character : "＿"))
+          chars.map((character, index) => {
+            const fixed = !isKanjiCharacter$1(character);
+            const done = !fixed && index < progress;
+            return el("span", {
+              class: "jpdb-reader-newtab-type-handwriting-cell",
+              lang: "ja",
+              dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress) }
+            }, fixed || done ? character : "＿");
+          })
         ),
         progress >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
         this.kanjiDoodleFront()
@@ -92693,7 +92751,7 @@ ${entry.url}`),
     }
     installTypeWordDoodle(answer, card) {
       const chars = Array.from(this.typeWordTarget(card));
-      const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+      const progress = this.typeWordHandwritingProgress(card, chars);
       if (progress >= chars.length) return;
       const current = chars[progress] ?? "";
       installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
@@ -92726,8 +92784,8 @@ ${entry.url}`),
     advanceTypeWordHandwriting(answer, card, charOutcome) {
       const key = cardKey(card);
       const chars = Array.from(this.typeWordTarget(card));
-      const progress = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
-      const next = Math.min(progress + 1, chars.length);
+      const progress = this.typeWordHandwritingProgress(card, chars);
+      const next = this.nextTypeWordHandwritingIndex(chars, progress + 1);
       this.typeHandwritingProgress.set(key, next);
       if (next >= chars.length) {
         this.recordTypeOutcome(card, charOutcome === "wrong" ? "incorrect" : "correct");
@@ -92737,6 +92795,20 @@ ${entry.url}`),
       }
       const root = answer.closest(".jpdb-reader-newtab");
       if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+    }
+    typeWordSupportsHandwriting(card) {
+      return Array.from(this.typeWordTarget(card)).some(isKanjiCharacter$1);
+    }
+    typeWordHandwritingProgress(card, chars = Array.from(this.typeWordTarget(card))) {
+      const key = cardKey(card);
+      const stored = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
+      const normalized = this.nextTypeWordHandwritingIndex(chars, stored);
+      if (normalized !== stored) this.typeHandwritingProgress.set(key, normalized);
+      return normalized;
+    }
+    nextTypeWordHandwritingIndex(chars, start) {
+      const relative = chars.slice(start).findIndex(isKanjiCharacter$1);
+      return relative < 0 ? chars.length : start + relative;
     }
     typeWordTarget(card) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));

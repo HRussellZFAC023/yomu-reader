@@ -7,6 +7,7 @@
 - [Homepage](https://yomureader.com/): Product overview and install entry point.
 - [Install よむ](https://yomureader.com/getting-started): Setup guide for desktop userscript managers and mobile userscript apps.
 - [Features](https://yomureader.com/features): Full feature list covering popup lookup, OCR, subtitles, Anki, dictionaries, audio, examples, and study.
+- [API reference](https://yomureader.com/api/): Interactive OpenAPI 3.1 explorer and JSON/YAML contracts for Yomu services.
 - [Install userscript](https://yomureader.com/yomu.user.js): Current production userscript.
 - [Source code](https://github.com/HRussellZFAC023/yomu-reader): MIT-licensed project repository.
 

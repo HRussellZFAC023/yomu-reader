@@ -23,6 +23,7 @@ writeFileSync(entryPath, `
         collectTextTargetsIn,
         healTextMirrorPageVisibility,
         makeRoomForRubyInCroppedRows,
+        projectAdditiveTextMirrors,
         removeNonDestructiveScanMirrors,
         resetDecorationPolicyCachesForTest,
         setRubyDistortsConstrainedRowsForTest,
@@ -250,13 +251,21 @@ writeFileSync(entryPath, `
                 paintDescriptionPreview(host);
                 cycleMirrorCounts.push(host.querySelectorAll(':scope > .jpdb-reader-text-mirror').length);
             }
+            projectAdditiveTextMirrors(document);
 
             const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
             const words = mirror ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')] : [];
+            const projectedWords = words.filter(word => word.dataset.yomuSourceProjected === 'true');
+            const projectedFragments = projectedWords.flatMap(word => [
+                ...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment'),
+            ]);
             const summaryAfter = summary.getBoundingClientRect();
-            const visibleWords = words.filter(word => {
-                const style = getComputedStyle(word);
-                const rect = word.getBoundingClientRect();
+            const visibleSurfaces = words.flatMap(word => {
+                const fragments = [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')];
+                return fragments.length ? fragments : [word];
+            }).filter(surface => {
+                const style = getComputedStyle(surface);
+                const rect = surface.getBoundingClientRect();
                 return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
             });
             const lateWord = words.find(word => word.textContent?.includes('質問')) ?? null;
@@ -268,8 +277,10 @@ writeFileSync(entryPath, `
                 nativeHostVisible: getComputedStyle(host).visibility !== 'hidden',
                 mirrorColor: mirrorStyle?.color ?? '',
                 mirrorTextFill: mirrorStyle?.webkitTextFillColor ?? '',
+                paintedWordContainers: projectedWords.filter(word => getComputedStyle(word).backgroundImage !== 'none').length,
+                paintedSourceFragments: projectedFragments.filter(fragment => getComputedStyle(fragment).backgroundImage !== 'none').length,
                 lateWordVisibility: lateWord ? getComputedStyle(lateWord).visibility : '',
-                visibleWordSummaryOverlaps: visibleWords.filter(word => rectanglesOverlap(word.getBoundingClientRect(), summaryAfter)).length,
+                visibleWordSummaryOverlaps: visibleSurfaces.filter(surface => rectanglesOverlap(surface.getBoundingClientRect(), summaryAfter)).length,
                 previewHeightGrowth: preview.getBoundingClientRect().height - previewBefore.height,
                 summaryTopShift: summaryAfter.top - summaryBefore.top,
                 summaryHeightGrowth: summaryAfter.height - summaryBefore.height,
@@ -486,7 +497,7 @@ await esbuild.build({
     logLevel: 'silent',
 });
 
-const FIXTURE = `<!doctype html><html lang="ja" class="jpdb-reader-word-underline-pitch"><head><meta charset="utf-8"><style>
+const FIXTURE = `<!doctype html><html lang="ja" class="jpdb-reader-word-highlight-status jpdb-reader-word-underline-pitch"><head><meta charset="utf-8"><style>
 body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 #chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px;
         background: rgba(0,0,0,0.05); overflow: hidden; }
@@ -624,6 +635,8 @@ async function runEngine(name, browserType) {
         // follow late page-theme changes. Transparent text-fill is the base
         // glyph suppression channel.
         if (!transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
+        if (description.paintedWordContainers !== 0) fail(`${name}: projected word container painted a full-host highlight`, description);
+        if (description.paintedSourceFragments < 1) fail(`${name}: projected source fragments lost the normal highlight`, description);
         if (description.lateWordVisibility !== 'hidden') fail(`${name}: off-clip description word remained paintable`, description);
         if (description.visibleWordSummaryOverlaps !== 0) fail(`${name}: description annotation overlapped its summary sibling`, description);
         if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);

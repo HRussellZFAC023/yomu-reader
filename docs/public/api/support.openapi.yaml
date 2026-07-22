@@ -1,0 +1,489 @@
+"openapi": "3.1.0"
+"info":
+  "title": "Yomu Support API"
+  "version": "1.6.409"
+  "description": "Public funding status, contribution checkout, verified donation claims, and provider webhook ingress."
+  "contact":
+    "name": "Yomu"
+    "url": "https://yomureader.com/"
+  "license":
+    "name": "MIT"
+    "identifier": "MIT"
+"servers":
+  -
+    "url": "https://support.yomureader.com"
+"tags":
+  -
+    "name": "System"
+    "description": "Service readiness."
+  -
+    "name": "Funding"
+    "description": "Public cost and contribution totals."
+  -
+    "name": "Checkout"
+    "description": "Contribution checkout and access claims."
+  -
+    "name": "Provider webhooks"
+    "description": "Authenticated payment-provider ingress."
+"paths":
+  "/status":
+    "get":
+      "operationId": "getSupportStatus"
+      "tags":
+        - "System"
+      "summary": "Check supporter service status"
+      "description": "Reports checkout, provider, persistence, and Academy-bridge readiness without exposing secrets."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/SupportStatus"
+  "/healthz":
+    "get":
+      "operationId": "getSupportHealth"
+      "tags":
+        - "System"
+      "summary": "Check supporter service health"
+      "description": "Alias of `/status` for infrastructure health checks."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/SupportStatus"
+  "/goal":
+    "get":
+      "operationId": "getSupportGoal"
+      "tags":
+        - "Funding"
+      "summary": "Read the monthly funding goal"
+      "description": "Returns the public GBP operating-cost forecast and effective monthly goal."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/SupportGoal"
+  "/progress":
+    "get":
+      "operationId": "getSupportProgress"
+      "tags":
+        - "Funding"
+      "summary": "Read verified contribution progress"
+      "description": "Returns the public aggregate contribution progress used by Yomu’s support bar."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/SupportProgress"
+  "/donate":
+    "get":
+      "operationId": "createDonationCheckout"
+      "tags":
+        - "Checkout"
+      "summary": "Open the contribution checkout"
+      "description": "Creates a Stripe Checkout Session and redirects the browser."
+      "security": []
+      "responses":
+        "302":
+          "description": "Redirect to Stripe Checkout."
+          "headers":
+            "Location":
+              "schema":
+                "type": "string"
+                "format": "uri"
+        "503":
+          "description": "Checkout is not configured."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "parameters":
+        -
+          "name": "amount"
+          "in": "query"
+          "required": false
+          "description": "Optional contribution amount."
+          "schema":
+            "type": "number"
+            "minimum": 1
+        -
+          "name": "currency"
+          "in": "query"
+          "required": false
+          "description": "Checkout currency."
+          "schema":
+            "type": "string"
+            "enum":
+              - "GBP"
+              - "USD"
+              - "EUR"
+              - "CAD"
+              - "AUD"
+              - "JPY"
+  "/checkout":
+    "get":
+      "operationId": "createDonationCheckoutAlias"
+      "tags":
+        - "Checkout"
+      "summary": "Open the contribution checkout (alias)"
+      "description": "Backward-compatible alias of `/donate`."
+      "security": []
+      "responses":
+        "302":
+          "description": "Redirect to Stripe Checkout."
+          "headers":
+            "Location":
+              "schema":
+                "type": "string"
+                "format": "uri"
+      "parameters":
+        -
+          "name": "amount"
+          "in": "query"
+          "required": false
+          "description": "Optional contribution amount."
+          "schema":
+            "type": "number"
+            "minimum": 1
+        -
+          "name": "currency"
+          "in": "query"
+          "required": false
+          "description": "Checkout currency."
+          "schema":
+            "type": "string"
+      "deprecated": true
+  "/claim":
+    "get":
+      "operationId": "claimVerifiedDonation"
+      "tags":
+        - "Checkout"
+      "summary": "Claim a verified contribution"
+      "description": "Completes the Stripe return flow using the checkout session id and the secure claim cookie issued before redirecting to Stripe."
+      "security": []
+      "responses":
+        "200":
+          "description": "The permanent Academy access code."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "202":
+          "description": "The payment is still being confirmed. Retry after the indicated delay."
+          "headers":
+            "Retry-After":
+              "schema":
+                "type": "integer"
+                "const": 2
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "400":
+          "description": "The return link or claim cookie is incomplete."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "401":
+          "description": "The claim was not accepted."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "409":
+          "description": "The contribution could not be verified or is no longer claimable."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "parameters":
+        -
+          "name": "session_id"
+          "in": "query"
+          "required": true
+          "description": "Stripe Checkout Session id."
+          "schema":
+            "type": "string"
+            "pattern": "^cs_[A-Za-z0-9_-]{3,255}$"
+  "/stripe/webhook":
+    "post":
+      "operationId": "receiveStripeWebhook"
+      "tags":
+        - "Provider webhooks"
+      "summary": "Receive Stripe events"
+      "description": "Signature-verified Stripe webhook ingress."
+      "security": []
+      "responses":
+        "200":
+          "description": "The verified event was accepted or was an idempotent duplicate."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "ok"
+                "properties":
+                  "ok":
+                    "type": "boolean"
+                    "const": true
+                "additionalProperties": false
+        "400":
+          "description": "The payload is malformed."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "401":
+          "description": "The provider signature is invalid."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "500":
+          "description": "The event could not be persisted."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "requestBody":
+        "required": true
+        "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it."
+        "content":
+          "application/json":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+          "application/x-www-form-urlencoded":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+  "/webhook":
+    "post":
+      "operationId": "receiveStripeWebhookAlias"
+      "tags":
+        - "Provider webhooks"
+      "summary": "Receive Stripe events (legacy alias)"
+      "description": "Legacy alias of `/stripe/webhook`."
+      "security": []
+      "responses":
+        "200":
+          "description": "The verified event was accepted or was an idempotent duplicate."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "ok"
+                "properties":
+                  "ok":
+                    "type": "boolean"
+                    "const": true
+                "additionalProperties": false
+        "400":
+          "description": "The payload is malformed."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "401":
+          "description": "The provider signature is invalid."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "500":
+          "description": "The event could not be persisted."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "requestBody":
+        "required": true
+        "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it."
+        "content":
+          "application/json":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+          "application/x-www-form-urlencoded":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+      "deprecated": true
+  "/webhooks/kofi":
+    "post":
+      "operationId": "receiveKofiWebhook"
+      "tags":
+        - "Provider webhooks"
+      "summary": "Receive Ko-fi events"
+      "description": "Token-verified Ko-fi webhook ingress."
+      "security": []
+      "responses":
+        "200":
+          "description": "The verified event was accepted or was an idempotent duplicate."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "ok"
+                "properties":
+                  "ok":
+                    "type": "boolean"
+                    "const": true
+                "additionalProperties": false
+        "400":
+          "description": "The payload is malformed."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "401":
+          "description": "The provider signature is invalid."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "500":
+          "description": "The event could not be persisted."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "requestBody":
+        "required": true
+        "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it."
+        "content":
+          "application/json":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+          "application/x-www-form-urlencoded":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+  "/webhooks/patreon":
+    "post":
+      "operationId": "receivePatreonWebhook"
+      "tags":
+        - "Provider webhooks"
+      "summary": "Receive Patreon events"
+      "description": "Signature-verified Patreon webhook ingress."
+      "security": []
+      "responses":
+        "200":
+          "description": "The verified event was accepted or was an idempotent duplicate."
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "ok"
+                "properties":
+                  "ok":
+                    "type": "boolean"
+                    "const": true
+                "additionalProperties": false
+        "400":
+          "description": "The payload is malformed."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "401":
+          "description": "The provider signature is invalid."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+        "500":
+          "description": "The event could not be persisted."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "requestBody":
+        "required": true
+        "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it."
+        "content":
+          "application/json":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+          "application/x-www-form-urlencoded":
+            "schema":
+              "type": "object"
+              "additionalProperties": true
+"components":
+  "schemas":
+    "SupportGoal":
+      "type": "object"
+      "required":
+        - "service"
+        - "currency"
+        - "floorGBP"
+        - "forecastGBP"
+        - "monthlyGoalGBP"
+        - "breakdown"
+      "properties":
+        "service":
+          "type": "string"
+          "const": "yomu-support"
+        "currency":
+          "type": "string"
+          "const": "GBP"
+        "floorGBP":
+          "type": "number"
+        "forecastGBP":
+          "type": "number"
+        "monthlyGoalGBP":
+          "type": "number"
+        "breakdown":
+          "type": "array"
+          "items":
+            "type": "object"
+            "additionalProperties": true
+      "additionalProperties": false
+    "SupportProgress":
+      "type": "object"
+      "properties":
+        "service":
+          "type": "string"
+          "const": "yomu-support"
+        "currency":
+          "type": "string"
+        "raisedGBP":
+          "type": "number"
+        "goalGBP":
+          "type": "number"
+        "percentage":
+          "type": "number"
+      "additionalProperties": true
+    "SupportStatus":
+      "type": "object"
+      "required":
+        - "service"
+        - "status"
+      "properties":
+        "service":
+          "type": "string"
+          "const": "yomu-support"
+        "status":
+          "type": "string"
+      "additionalProperties": true
+  "securitySchemes": {}
+"externalDocs":
+  "description": "Yomu documentation"
+  "url": "https://yomureader.com/"

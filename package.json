@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.406",
+  "version": "1.6.409",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/WaniKani/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -90,7 +90,8 @@
     "dev:ipad": "node scripts/dev-ipad.mjs",
     "dev:vite": "vite --host 127.0.0.1",
     "docs": "vitepress dev docs --host 127.0.0.1",
-    "docs:build": "node scripts/check-public-docs.mjs && vitepress build docs",
+    "api:build": "node scripts/build-openapi.mjs",
+    "docs:build": "npm run api:build && node scripts/check-public-docs.mjs && vitepress build docs",
     "manual:subtitles-e2e": "node scripts/manual/subtitle-player-e2e.mjs",
     "favicons:generate": "node scripts/generate-favicons.mjs",
     "fallow": "fallow",

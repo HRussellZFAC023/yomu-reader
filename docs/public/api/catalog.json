@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "scripts/openapi/yomu-openapi.mjs",
+  "applicationVersion": "1.6.409",
+  "services": [
+    {
+      "id": "academy",
+      "json": "/api/academy.openapi.json",
+      "yaml": "/api/academy.openapi.yaml"
+    },
+    {
+      "id": "audio",
+      "json": "/api/audio.openapi.json",
+      "yaml": "/api/audio.openapi.yaml"
+    },
+    {
+      "id": "support",
+      "json": "/api/support.openapi.json",
+      "yaml": "/api/support.openapi.yaml"
+    },
+    {
+      "id": "edge",
+      "json": "/api/edge.openapi.json",
+      "yaml": "/api/edge.openapi.yaml"
+    }
+  ]
+}

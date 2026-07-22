@@ -6405,7 +6405,9 @@ export class NewTabController {
     private renderTypeWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
         if (!answer) return;
         delete answer.dataset.newtabAnswerDetailsRequest;
-        const mode = this.typeWordInputMode();
+        const configuredMode = this.typeWordInputMode();
+        const supportsHandwriting = this.typeWordSupportsHandwriting(card);
+        const mode = configuredMode === 'handwriting' && supportsHandwriting ? 'handwriting' : 'keyboard';
         const feedback = this.stepState(cardKey(card))?.type?.feedback;
         answer.dataset.typeWordMode = mode;
         answer.dataset.typeWordOutcome = feedback ?? 'pending';
@@ -6420,9 +6422,9 @@ export class NewTabController {
                 'aria-live': 'polite',
             }, this.typeWordOutcomeLabel(feedback, card)) : null,
             el('div', { class: 'jpdb-reader-newtab-type-secondary' },
-                this.renderTypeWordModeToggle(mode),
+                this.renderTypeWordModeToggle(mode, card),
                 el('button', {
-                    class: 'jpdb-reader-btn jpdb-reader-newtab-type-skip',
+                    class: 'jpdb-reader-newtab-type-skip',
                     type: 'button',
                     dataset: { newtabAction: 'type-word-skip' },
                 }, this.text('typeWordSkip'))),
@@ -6431,12 +6433,15 @@ export class NewTabController {
         else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer);
     }
 
-    private renderTypeWordModeToggle(mode: NewTabTypeWordInputMode): HTMLElement {
+    private renderTypeWordModeToggle(mode: NewTabTypeWordInputMode, card: JPDBCard): HTMLElement {
+        const supportsHandwriting = this.typeWordSupportsHandwriting(card);
         const button = (value: NewTabTypeWordInputMode, label: string) => el('button', {
-            class: 'jpdb-reader-btn jpdb-reader-newtab-type-mode',
+            class: 'jpdb-reader-newtab-type-mode',
             type: 'button',
             dataset: { newtabAction: 'type-word-mode', typeWordMode: value, active: String(mode === value) },
             'aria-pressed': String(mode === value),
+            disabled: value === 'handwriting' && !supportsHandwriting,
+            title: value === 'handwriting' && !supportsHandwriting ? this.text('typeWordHandwritingUnavailable') : undefined,
         }, label);
         return el('div', { class: 'jpdb-reader-newtab-type-modes', role: 'group', 'aria-label': this.text('typeWordModeGroup') },
             button('keyboard', this.text('typeWordModeKeyboard')),
@@ -6473,20 +6478,24 @@ export class NewTabController {
         );
     }
 
-    // Handwriting produces the word one character at a time. Only kanji are
-    // graded against KanjiVG; kana and kanji with no stroke reference auto-pass
-    // and advance, so a mixed word like 飲み物 asks for 飲 and 物 but skips み.
+    // Handwriting grades only the word's kanji. Kana remains visible as fixed
+    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // to scribble a token stroke merely to advance past み.
     private renderTypeWordHandwriting(card: JPDBCard): HTMLElement {
         const target = this.typeWordTarget(card);
         const chars = Array.from(target);
-        const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+        const progress = this.typeWordHandwritingProgress(card, chars);
         return el('div', { class: 'jpdb-reader-newtab-type-handwriting', dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
             el('div', { class: 'jpdb-reader-newtab-type-handwriting-track', 'aria-label': this.text('typeWordProgress') },
-                chars.map((character, index) => el('span', {
-                    class: 'jpdb-reader-newtab-type-handwriting-cell',
-                    lang: 'ja',
-                    dataset: { done: String(index < progress), active: String(index === progress) },
-                }, index < progress ? character : '＿'))),
+                chars.map((character, index) => {
+                    const fixed = !isKanjiCharacter(character);
+                    const done = !fixed && index < progress;
+                    return el('span', {
+                        class: 'jpdb-reader-newtab-type-handwriting-cell',
+                        lang: 'ja',
+                        dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress) },
+                    }, fixed || done ? character : '＿');
+                })),
             progress >= chars.length
                 ? el('div', { class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result', dataset: { newtabTypeResult: 'correct' } }, this.text('typeWordAllDone'))
                 : el('div', { class: 'jpdb-reader-newtab-type-handwriting-prompt', lang: 'ja' }, this.text('typeWordWriteChar')),
@@ -6496,7 +6505,7 @@ export class NewTabController {
 
     private installTypeWordDoodle(answer: HTMLElement, card: JPDBCard): void {
         const chars = Array.from(this.typeWordTarget(card));
-        const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+        const progress = this.typeWordHandwritingProgress(card, chars);
         if (progress >= chars.length) return;
         const current = chars[progress] ?? '';
         installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
@@ -6507,8 +6516,8 @@ export class NewTabController {
 
     private async assessTypeWordDoodle(answer: HTMLElement, card: JPDBCard, character: string, strokes: Parameters<typeof assessKanjiStrokes>[0]): Promise<void> {
         const slots = { ...this.studySlots(answer.closest<HTMLElement>('.jpdb-reader-newtab') ?? answer), answer };
-        // Non-kanji (kana) has no KanjiVG reference, so it can never be stroke-
-        // graded — auto-advance the moment any stroke lands.
+        // The normalized progress path skips kana before the canvas is mounted.
+        // Keep this guard as a defensive fallback for a stale in-flight render.
         if (!isKanjiCharacter(character)) {
             this.advanceTypeWordHandwriting(answer, card, 'correct');
             return;
@@ -6533,8 +6542,8 @@ export class NewTabController {
     private advanceTypeWordHandwriting(answer: HTMLElement, card: JPDBCard, charOutcome: 'correct' | 'wrong'): void {
         const key = cardKey(card);
         const chars = Array.from(this.typeWordTarget(card));
-        const progress = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
-        const next = Math.min(progress + 1, chars.length);
+        const progress = this.typeWordHandwritingProgress(card, chars);
+        const next = this.nextTypeWordHandwritingIndex(chars, progress + 1);
         this.typeHandwritingProgress.set(key, next);
         if (next >= chars.length) {
             // All characters cleared -> the whole word passes. A wrong char along
@@ -6546,6 +6555,23 @@ export class NewTabController {
         }
         const root = answer.closest<HTMLElement>('.jpdb-reader-newtab');
         if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+    }
+
+    private typeWordSupportsHandwriting(card: JPDBCard): boolean {
+        return Array.from(this.typeWordTarget(card)).some(isKanjiCharacter);
+    }
+
+    private typeWordHandwritingProgress(card: JPDBCard, chars = Array.from(this.typeWordTarget(card))): number {
+        const key = cardKey(card);
+        const stored = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
+        const normalized = this.nextTypeWordHandwritingIndex(chars, stored);
+        if (normalized !== stored) this.typeHandwritingProgress.set(key, normalized);
+        return normalized;
+    }
+
+    private nextTypeWordHandwritingIndex(chars: string[], start: number): number {
+        const relative = chars.slice(start).findIndex(isKanjiCharacter);
+        return relative < 0 ? chars.length : start + relative;
     }
 
     private typeWordTarget(card: JPDBCard): string {

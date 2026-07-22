@@ -1,0 +1,334 @@
+"openapi": "3.1.0"
+"info":
+  "title": "Yomu Audio API"
+  "version": "1.6.409"
+  "description": "Pronunciation lookup, pitch-aware word synthesis, cast dialogue synthesis, and hosted audio delivery. Public read operations allow cross-origin GET/HEAD requests."
+  "contact":
+    "name": "Yomu"
+    "url": "https://yomureader.com/"
+  "license":
+    "name": "MIT"
+    "identifier": "MIT"
+"servers":
+  -
+    "url": "https://audio.yomureader.com"
+"tags":
+  -
+    "name": "System"
+    "description": "Service readiness."
+  -
+    "name": "Lookup"
+    "description": "Japanese pronunciation lookup."
+  -
+    "name": "Synthesis"
+    "description": "Cached Japanese TTS."
+  -
+    "name": "Objects"
+    "description": "Hosted audio files."
+"paths":
+  "/status":
+    "get":
+      "operationId": "getAudioStatus"
+      "tags":
+        - "System"
+      "summary": "Check audio service status"
+      "description": "Reports storage, index, fallback, CORS, cache, and TTS readiness."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AudioStatus"
+  "/healthz":
+    "get":
+      "operationId": "getAudioHealth"
+      "tags":
+        - "System"
+      "summary": "Check audio service health"
+      "description": "Alias of `/status` for infrastructure health checks."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AudioStatus"
+  "/":
+    "get":
+      "operationId": "findJapaneseAudio"
+      "tags":
+        - "Lookup"
+      "summary": "Find pronunciation audio"
+      "description": "Looks up hosted audio by expression/reading and falls back to a public pronunciation source when needed."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AudioSourceList"
+      "parameters":
+        -
+          "name": "term"
+          "in": "query"
+          "required": false
+          "description": "Japanese expression."
+          "schema":
+            "type": "string"
+        -
+          "name": "reading"
+          "in": "query"
+          "required": false
+          "description": "Kana reading."
+          "schema":
+            "type": "string"
+  "/audio/tts":
+    "get":
+      "operationId": "synthesizeWordAudio"
+      "tags":
+        - "Synthesis"
+      "summary": "Synthesize pitch-aware word audio"
+      "description": "Returns cached or newly synthesized Japanese word audio. Polly can apply the stored pitch-accent phoneme; Azure/MeloTTS use the reading."
+      "security": []
+      "responses":
+        "200":
+          "description": "Audio bytes. Content type depends on the active synthesis engine or stored object."
+          "content":
+            "audio/mpeg":
+              "schema":
+                "type": "string"
+                "format": "binary"
+            "audio/ogg":
+              "schema":
+                "type": "string"
+                "format": "binary"
+            "audio/wav":
+              "schema":
+                "type": "string"
+                "format": "binary"
+        "400":
+          "description": "A required query value is missing or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Admin authorization is required."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "503":
+          "description": "No TTS engine is configured."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+      "parameters":
+        -
+          "name": "term"
+          "in": "query"
+          "required": true
+          "description": "Japanese expression."
+          "schema":
+            "type": "string"
+        -
+          "name": "reading"
+          "in": "query"
+          "required": false
+          "description": "Kana reading."
+          "schema":
+            "type": "string"
+        -
+          "name": "voice"
+          "in": "query"
+          "required": false
+          "description": "Polly voice when Polly is active."
+          "schema":
+            "type": "string"
+            "enum":
+              - "Tomoko"
+              - "Kazuha"
+              - "Takumi"
+            "default": "Tomoko"
+  "/voice/line":
+    "get":
+      "operationId": "synthesizeStoryLine"
+      "tags":
+        - "Synthesis"
+      "summary": "Synthesize a voiced story line"
+      "description": "Generates and caches one Japanese dialogue line using the cast voice registry. Administrative production endpoint."
+      "security":
+        -
+          "voiceAdminBearer": []
+      "responses":
+        "200":
+          "description": "Audio bytes. Content type depends on the active synthesis engine or stored object."
+          "content":
+            "audio/mpeg":
+              "schema":
+                "type": "string"
+                "format": "binary"
+            "audio/ogg":
+              "schema":
+                "type": "string"
+                "format": "binary"
+            "audio/wav":
+              "schema":
+                "type": "string"
+                "format": "binary"
+        "400":
+          "description": "A required query value is missing or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Admin authorization is required."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "503":
+          "description": "No TTS engine is configured."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+      "parameters":
+        -
+          "name": "text"
+          "in": "query"
+          "required": true
+          "description": "Japanese dialogue line."
+          "schema":
+            "type": "string"
+            "minLength": 1
+            "maxLength": 500
+        -
+          "name": "speaker"
+          "in": "query"
+          "required": false
+          "description": "Cast speaker id."
+          "schema":
+            "type": "string"
+            "default": "narrator"
+  "/audio/{key}":
+    "get":
+      "operationId": "getHostedAudioObject"
+      "tags":
+        - "Objects"
+      "summary": "Read a hosted audio object"
+      "description": "Streams an indexed R2 audio object with range and cache headers."
+      "security": []
+      "responses":
+        "200":
+          "description": "Audio object bytes."
+          "content":
+            "application/octet-stream":
+              "schema":
+                "type": "string"
+                "format": "binary"
+        "404":
+          "description": "Audio object not found."
+          "content":
+            "text/plain":
+              "schema":
+                "type": "string"
+      "parameters":
+        -
+          "name": "key"
+          "in": "path"
+          "required": true
+          "description": "R2 audio object key."
+          "schema":
+            "type": "string"
+"components":
+  "schemas":
+    "Error":
+      "type": "object"
+      "required":
+        - "error"
+      "properties":
+        "error":
+          "type": "string"
+      "additionalProperties": false
+    "AudioSourceList":
+      "type": "object"
+      "required":
+        - "type"
+        - "audioSources"
+      "properties":
+        "type":
+          "type": "string"
+          "const": "audioSourceList"
+        "audioSources":
+          "type": "array"
+          "items":
+            "type": "object"
+            "required":
+              - "name"
+              - "url"
+            "properties":
+              "name":
+                "type": "string"
+              "url":
+                "type": "string"
+                "format": "uri"
+            "additionalProperties": false
+      "additionalProperties": false
+    "AudioStatus":
+      "type": "object"
+      "required":
+        - "service"
+        - "status"
+        - "r2Configured"
+        - "manifestKey"
+        - "indexPrefix"
+        - "upstreamConfigured"
+        - "cors"
+        - "cache"
+        - "tts"
+      "properties":
+        "service":
+          "type": "string"
+          "const": "yomu-audio"
+        "status":
+          "type": "string"
+          "enum":
+            - "ok"
+            - "disabled"
+            - "unconfigured"
+        "r2Configured":
+          "type": "boolean"
+        "manifestKey":
+          "type": "string"
+        "indexPrefix":
+          "type": "string"
+        "upstreamConfigured":
+          "type": "boolean"
+        "cors":
+          "type": "boolean"
+          "const": true
+        "cache":
+          "type": "object"
+          "additionalProperties": true
+        "tts":
+          "type": "string"
+          "enum":
+            - "enabled"
+            - "disabled"
+      "additionalProperties": false
+  "securitySchemes":
+    "voiceAdminBearer":
+      "type": "http"
+      "scheme": "bearer"
+      "bearerFormat": "Yomu voice admin token"
+      "description": "Server-side token for generating and caching story dialogue."
+"externalDocs":
+  "description": "Yomu documentation"
+  "url": "https://yomureader.com/"

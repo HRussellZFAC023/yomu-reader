@@ -17,6 +17,27 @@
 - Academy Google linking now rolls back paid-code redemption and every account/profile write on conflicts or later failures and logs only a fixed failure category. Signed session-bound export traversals terminate beyond 24,000 records without shared-NAT budget coupling, and account holders can delete encrypted profile data without deleting their identity.
 - Academy lifecycle proof deletion now requires an expiring, single-use server grant bound to the authenticated production test account and run nonce. The supervised proof compares the active immutable Worker version and script digest with a locally reproduced reviewed bundle, exports large encrypted histories through a bounded stream, protects export creation as a same-origin POST, and prunes 90-day receipts on an observable scheduled retry path.
 
+## [1.6.409] - 2026-07-22
+
+### Fixed
+
+- Compact controls with nested layout wrappers or icons now count only real text lines when deciding whether detached furigana can safely escape authored clipping. This restores the complete furigana and pitch presentation on Reddit's `賛成票率順` sort button and the same control structure on other sites, without a Reddit selector or host-specific branch.
+- Repeated provisional parses can no longer replace a complete non-destructive annotation with missing readings or pitch. Richer and authoritative updates still replace it normally, so dynamic controls remain complete without freezing legitimate dictionary corrections.
+- Removed the v1.6.406 Jiten detail-limit overrun and restored the ordinary bounded hydration path. Completeness is now enforced in the generic render and clip path instead of requesting past the configured limit.
+
+## [1.6.408] - 2026-07-22
+
+### Fixed
+
+- Framework-owned text now uses the normal Yomu highlight only on each measured word fragment. The redundant full-mirror highlight was removed, preventing large coloured rectangles across YouTube descriptions while preserving furigana, pitch underlines, and the same generic annotation path on other sites.
+
+## [1.6.407] - 2026-07-22
+
+### Changed
+
+- Type practice now uses a balanced tablet and desktop control scale: the answer field is narrower with restrained text, Check has a normal action-label size, secondary controls share consistent touch targets, and Type/Write clearly shows which mode is selected.
+- Handwriting now keeps kana visible as scaffolding and grades only the kanji in mixed words. 飲み物 appears as ＿み＿ and advances from 飲 directly to 物. Kana-only words stay in Type mode with the unavailable Write option disabled.
+
 ## [1.6.406] - 2026-07-22
 
 ### Fixed

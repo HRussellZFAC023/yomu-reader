@@ -42,10 +42,11 @@ Whatever's connected, the same pool of words feeds every step of the review belo
 
 Every card walks through a short sequence and you grade it once at the end. Depending on the word, you might:
 
-A fresh standalone session starts at **Word** — the recognition-first “What is that word?” moment — before moving through the rest of the steps you have enabled.
+A fresh standalone session starts at its first enabled learning step — **Kanji 1** by default — before moving through the rest of the sequence.
 
 - **Draw the kanji** from memory on a tracing pad before the answer shows.
 - **Read the word** inside a real example sentence.
+- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
 - **Fill in the blank** — the sentence reappears with the word removed and you type the Japanese back. Exact spellings count, and a matching reading is accepted too. If nothing comes to mind, **Hint** gives you a nudge (a first kana, the length, the meaning) one step at a time.
 - **Pick the pitch** — よむ plays the word and you choose its shape from labelled contour buttons.
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, on your device.
