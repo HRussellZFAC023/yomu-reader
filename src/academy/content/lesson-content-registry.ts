@@ -16,6 +16,10 @@ import {
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { LESSON_ZERO_GREETING_ACTIVITY_ID } from './lesson-zero-greeting';
 import { LESSON_ZERO_VOWEL_SOUND_MAP_ID } from './lesson-zero-vowel-sound-map';
+import {
+    LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
+    LESSON_ZERO_VOWEL_WRITING_ID,
+} from './lesson-zero-vowel-writing';
 import { LESSON_ZERO_CONTENT_SHA256 } from './lesson-zero-pedagogy-definitions';
 import { parseAuthoredWeekPackage } from './authored-week-schema';
 
@@ -144,6 +148,8 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         trustedActivityIds: [
             LESSON_ZERO_GREETING_ACTIVITY_ID,
             LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+            LESSON_ZERO_VOWEL_WRITING_ID,
+            ...LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
             'activity:lesson-zero-reconstruct-repair',
             'activity:lesson-zero-desk-language',
             'activity:lesson-zero-first-repair:sound',

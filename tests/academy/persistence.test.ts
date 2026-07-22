@@ -334,6 +334,49 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists the five-vowel writing desk and rejects impossible completion snapshots', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroVowelWritingProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-vowel-doodle' as const,
+            status: 'paused' as const,
+            stage: 'attempt' as const,
+            mode: 'plan' as const,
+            learnedItemIds: ['hira-a'] as const,
+            completedItemIds: [] as const,
+            guideItemIds: [] as const,
+            attempts: [] as const,
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-doodle',
+            lessonZeroVowelWritingProgress,
+            updatedAt: 103,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroVowelWritingProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-doodle',
+            lessonZeroVowelWritingProgress: {
+                ...lessonZeroVowelWritingProgress,
+                status: 'complete',
+                stage: 'complete',
+                completedItemIds: ['hira-a'],
+            },
+            updatedAt: 104,
+        })).rejects.toThrow('invalid Lesson Zero vowel-writing progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

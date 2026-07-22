@@ -87,7 +87,24 @@ describe('unbounded Academy day availability', () => {
 
     it('cannot call the day complete while any available activity lacks proof', () => {
         const gaps = dayDeliveryGaps(DAY_ONE_AVAILABILITY_MANIFEST);
-        expect(gaps).toHaveLength(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
+        expect(gaps.length).toBeGreaterThan(0);
+        expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-vowel-doodle'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'partial',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'partial',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('game:lesson-zero-vowel-listening-bingo'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
         expect(academyDayIsProductionComplete(DAY_ONE_AVAILABILITY_MANIFEST)).toBe(false);
     });
 });

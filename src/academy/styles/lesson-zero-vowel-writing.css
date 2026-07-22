@@ -1,0 +1,428 @@
+.academy-vowel-writing-screen > .academy-background img {
+    object-position: center 44%;
+    filter: saturate(0.82) brightness(0.42) contrast(1.05);
+}
+
+.academy-vowel-writing-screen::before {
+    background:
+        linear-gradient(90deg, rgba(9, 13, 12, 0.78), rgba(9, 13, 12, 0.12) 62%, rgba(9, 13, 12, 0.68)),
+        linear-gradient(180deg, rgba(9, 13, 12, 0.16), rgba(9, 13, 12, 0.78));
+}
+
+.academy-vowel-writing-scene {
+    grid-template-columns: minmax(250px, 0.34fr) minmax(0, 0.66fr);
+    padding-top: 20px;
+}
+
+.academy-vowel-writing-rie {
+    max-width: 430px;
+    max-height: 78dvh;
+    object-position: center bottom;
+}
+
+.academy-vowel-writing-paper {
+    width: min(820px, 100%);
+    padding-bottom: 46px;
+}
+
+.academy-vowel-writing-dialogue {
+    max-width: 60ch;
+}
+
+.academy-vowel-writing-target {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
+    gap: 20px;
+    margin-top: 24px;
+    padding: 16px 18px;
+    border-left: 6px solid var(--academy-accent);
+    background: color-mix(in srgb, var(--academy-paper-deep) 54%, transparent);
+}
+
+.academy-vowel-writing-glyph {
+    display: grid;
+    width: 132px;
+    aspect-ratio: 1;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--academy-paper-ink) 16%, transparent);
+    color: var(--academy-paper-ink);
+    background:
+        linear-gradient(90deg, transparent 49.5%, color-mix(in srgb, var(--academy-accent) 16%, transparent) 50%, transparent 50.5%),
+        linear-gradient(180deg, transparent 49.5%, color-mix(in srgb, var(--academy-accent) 16%, transparent) 50%, transparent 50.5%),
+        color-mix(in srgb, var(--academy-paper) 84%, white);
+    font-family: var(--academy-japanese-font);
+    font-size: 5.8rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.academy-vowel-writing-target-copy {
+    min-width: 0;
+}
+
+.academy-vowel-writing-target-line,
+.academy-vowel-writing-prompt,
+.academy-vowel-writing-guide-note,
+.academy-vowel-writing-complete-note,
+.academy-vowel-writing-direction,
+.academy-vowel-writing-memory {
+    margin: 0;
+    letter-spacing: 0;
+    line-height: 1.5;
+}
+
+.academy-vowel-writing-target-line,
+.academy-vowel-writing-prompt {
+    color: var(--academy-paper-ink);
+    font-weight: 700;
+}
+
+.academy-vowel-writing-target-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 14px;
+}
+
+.academy-vowel-writing-target-actions .academy-vowel-action {
+    min-width: 0;
+    margin-top: 0;
+}
+
+.academy-vowel-writing-work {
+    margin-top: 20px;
+}
+
+.academy-vowel-writing-work > .academy-vowel-action-primary {
+    margin-top: 16px;
+}
+
+.academy-vowel-writing-doodle {
+    --doodle-size: clamp(250px, 40vw, 360px);
+    width: var(--doodle-size);
+    max-width: 100%;
+    margin-top: 14px;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 3px solid color-mix(in srgb, var(--academy-paper-ink) 76%, transparent);
+    background:
+        linear-gradient(90deg, transparent 49.6%, color-mix(in srgb, var(--academy-accent) 17%, transparent) 50%, transparent 50.4%),
+        linear-gradient(180deg, transparent 49.6%, color-mix(in srgb, var(--academy-accent) 17%, transparent) 50%, transparent 50.4%),
+        color-mix(in srgb, var(--academy-paper) 88%, white);
+    box-shadow: 7px 8px 0 color-mix(in srgb, var(--academy-paper-ink) 17%, transparent);
+    touch-action: none;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-canvas,
+.academy-vowel-writing-doodle .jpdb-reader-doodle-ghost {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-canvas {
+    z-index: 2;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-canvas:focus-visible {
+    outline: 4px solid var(--academy-accent-strong);
+    outline-offset: -5px;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-ghost {
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    opacity: 0.32;
+    pointer-events: none;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-ghost[hidden] {
+    display: none;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-ghost svg {
+    width: 88%;
+    height: 88%;
+}
+
+.academy-vowel-writing-doodle .jpdb-reader-doodle-tools {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.academy-vowel-writing-doodle .academy-vowel-action-quiet {
+    margin-left: auto;
+}
+
+.academy-vowel-writing-stroke-count {
+    color: var(--academy-paper-muted);
+    font-weight: 850;
+}
+
+.academy-vowel-writing-stroke-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.academy-vowel-writing-stroke-path {
+    fill: none;
+    stroke: var(--academy-paper-ink);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.academy-vowel-writing-stroke-number-bg {
+    fill: var(--academy-accent-strong);
+    stroke: var(--academy-paper);
+    stroke-width: 1.5;
+}
+
+.academy-vowel-writing-stroke-number {
+    fill: var(--academy-paper-ink);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 8px;
+    font-weight: 900;
+    text-anchor: middle;
+}
+
+.academy-vowel-writing-plans {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.academy-vowel-writing-plan {
+    position: relative;
+    min-height: 56px;
+    padding: 12px 42px 12px 18px;
+    border: 0;
+    border-left: 6px solid color-mix(in srgb, var(--academy-paper-ink) 50%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+    font-weight: 780;
+    letter-spacing: 0;
+    text-align: left;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+}
+
+.academy-vowel-writing-plan::after {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    color: var(--academy-accent-strong);
+    content: '→';
+    font-size: 1.25rem;
+    transform: translateY(-50%);
+}
+
+.academy-vowel-writing-plan:hover,
+.academy-vowel-writing-plan:focus-visible,
+.academy-vowel-writing-plan[aria-pressed='true'] {
+    border-left-color: var(--academy-accent-strong);
+    background: color-mix(in srgb, var(--academy-accent) 34%, var(--academy-paper-ink));
+}
+
+.academy-vowel-writing-plan[aria-pressed='true']::after {
+    content: '◆';
+}
+
+.academy-vowel-writing-guide {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    align-items: center;
+    gap: 20px;
+    margin-top: 22px;
+    padding: 18px;
+    border-left: 6px solid var(--academy-accent);
+    background: color-mix(in srgb, var(--academy-paper-deep) 58%, transparent);
+}
+
+.academy-vowel-writing-guide-visual {
+    width: 180px;
+    aspect-ratio: 1;
+    padding: 10px;
+    background: color-mix(in srgb, var(--academy-paper) 86%, white);
+}
+
+.academy-vowel-writing-guide-kana {
+    margin: 0 0 10px;
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: 1.55rem;
+    letter-spacing: 0;
+}
+
+.academy-vowel-writing-direction {
+    color: var(--academy-paper-ink);
+    font-weight: 800;
+}
+
+.academy-vowel-writing-memory,
+.academy-vowel-writing-guide-note,
+.academy-vowel-writing-complete-note {
+    margin-top: 10px;
+    color: var(--academy-paper-muted);
+}
+
+.academy-vowel-writing-source-sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 280px) minmax(120px, 1fr);
+    align-items: end;
+    gap: 14px;
+    margin: 18px 0 0;
+}
+
+.academy-vowel-writing-source-image {
+    display: block;
+    width: 100%;
+    max-height: 180px;
+    border: 4px solid var(--academy-paper);
+    object-fit: cover;
+    object-position: top;
+    box-shadow: 5px 6px 0 color-mix(in srgb, var(--academy-paper-ink) 20%, transparent);
+}
+
+.academy-vowel-writing-source-caption {
+    margin: 0;
+    color: var(--academy-paper-muted);
+    font-size: 0.88rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.academy-vowel-writing-finished-line {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(52px, 1fr));
+    gap: 8px;
+    max-width: 500px;
+    margin-top: 26px;
+    padding: 8px 10px 14px;
+    border-bottom: 4px solid var(--academy-accent);
+}
+
+.academy-vowel-writing-finished-mark {
+    display: grid;
+    aspect-ratio: 1;
+    place-items: center;
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    transform: rotate(var(--mark-turn));
+}
+
+@media (max-width: 760px) {
+    .academy-vowel-writing-scene {
+        grid-template-columns: minmax(0, 1fr);
+        padding-top: 8px;
+    }
+
+    .academy-vowel-writing-rie {
+        width: min(46vw, 176px);
+        height: 184px;
+        margin-bottom: -30px;
+    }
+
+    .academy-vowel-writing-paper {
+        padding-bottom: 38px;
+    }
+
+    .academy-vowel-writing-target {
+        grid-template-columns: 104px minmax(0, 1fr);
+        gap: 14px;
+        padding: 12px;
+    }
+
+    .academy-vowel-writing-glyph {
+        width: 96px;
+        font-size: 4.2rem;
+    }
+
+    .academy-vowel-writing-target-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .academy-vowel-writing-target-actions .academy-vowel-action {
+        width: 100%;
+    }
+
+    .academy-vowel-writing-doodle {
+        --doodle-size: min(100%, 340px);
+        margin-inline: auto;
+    }
+
+    .academy-vowel-writing-guide {
+        grid-template-columns: 116px minmax(0, 1fr);
+        gap: 14px;
+        padding: 12px;
+    }
+
+    .academy-vowel-writing-guide-visual {
+        width: 116px;
+        padding: 6px;
+    }
+
+    .academy-vowel-writing-source-sheet {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .academy-vowel-writing-source-image {
+        max-height: 160px;
+    }
+}
+
+@media (max-width: 380px) {
+    .academy-vowel-writing-target {
+        grid-template-columns: 88px minmax(0, 1fr);
+    }
+
+    .academy-vowel-writing-glyph {
+        width: 82px;
+        font-size: 3.6rem;
+    }
+
+    .academy-vowel-writing-guide {
+        grid-template-columns: 96px minmax(0, 1fr);
+    }
+
+    .academy-vowel-writing-guide-visual {
+        width: 96px;
+    }
+
+    .academy-vowel-writing-plan {
+        padding-left: 14px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .academy-vowel-writing-stroke-path {
+        animation: academy-vowel-writing-trace 420ms ease-out both;
+        animation-delay: calc(var(--stroke-index) * 140ms);
+    }
+}
+
+@keyframes academy-vowel-writing-trace {
+    from { opacity: 0; stroke-dasharray: 1; stroke-dashoffset: 1; }
+    to { opacity: 1; stroke-dasharray: 1; stroke-dashoffset: 0; }
+}

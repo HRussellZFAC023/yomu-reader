@@ -27,6 +27,11 @@ import {
     createLessonZeroVowelSoundMap,
     LESSON_ZERO_VOWEL_SOUND_MAP_ID,
 } from '../content/lesson-zero-vowel-sound-map';
+import {
+    createLessonZeroVowelWritingDefinition,
+    lessonZeroVowelWritingCompletionEvaluation,
+    LESSON_ZERO_VOWEL_WRITING_ID,
+} from '../content/lesson-zero-vowel-writing';
 import { loadLessonZeroClassroomExpressions } from '../content/lesson-zero-classroom-expressions';
 import {
     classroomActivityCompletionEvaluation,
@@ -66,6 +71,11 @@ import {
     transitionLessonZeroVowelSession,
 } from '../domain/lesson-zero-vowel-session';
 import {
+    lessonZeroVowelWritingAveragePassScore,
+    startLessonZeroVowelWritingSession,
+    transitionLessonZeroVowelWritingSession,
+} from '../domain/lesson-zero-vowel-writing-session';
+import {
     authoredWeekProgressAfterActivity,
     authoredWeekProgressFits,
     clearAuthoredWeekProgress,
@@ -90,6 +100,7 @@ import { createClassroomExpressionSessionScreen } from '../ui/classroom-expressi
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
 import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
+import { createLessonZeroVowelWritingScreen } from '../ui/lesson-zero-vowel-writing-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -411,6 +422,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderLessonZeroVowelSession(context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_WRITING_ID) {
+            await this.renderLessonZeroVowelWritingSession(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
             await this.renderClassroomInstructionSession(context);
             return;
@@ -723,6 +738,79 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ lessonZeroVowelProgress: transition.state });
             },
             onRestart: restart => context.save?.({ lessonZeroVowelProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroVowelWritingSession(context: AcademyRouteContext): Promise<void> {
+        const definition = createLessonZeroVowelWritingDefinition();
+        let state;
+        try {
+            state = startLessonZeroVowelWritingSession(
+                definition,
+                context.checkpoint.lessonZeroVowelWritingProgress,
+            );
+        } catch {
+            state = startLessonZeroVowelWritingSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroVowelWritingSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroVowelWritingProgress)) {
+            await context.save?.({ lessonZeroVowelWritingProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroVowelWritingScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            rieSprite: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging,
+            onTransition: async (before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        transition.adaptive,
+                    );
+                }
+                if (before.status !== 'complete' && transition.state.status === 'complete') {
+                    const completion = lessonZeroVowelWritingCompletionEvaluation(
+                        definition,
+                        lessonZeroVowelWritingAveragePassScore(transition.state),
+                    );
+                    await this.options.evidence.recordActivity(
+                        completion,
+                        LESSON_ZERO_ID,
+                        {
+                            id: 'lesson-zero-five-vowel-marks',
+                            sceneId: 'scene:lesson-zero-five-vowel-marks',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:five-vowel-marks',
+                                characterId: 'rie',
+                                text: {
+                                    ja: 'りえ先生と、あ・い・う・え・おを初めて書いた。五つの音が、五つの形になった。',
+                                    en: 'I wrote あ・い・う・え・お with Rie-sensei for the first time. Five sounds became five shapes.',
+                                },
+                                sourceQuestionId: definition.sourceQuestionId,
+                            },
+                        },
+                    );
+                }
+                await context.save?.({ lessonZeroVowelWritingProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroVowelWritingProgress: restart }),
             onBack: () => context.back(),
             onComplete: () => this.completeSourceActivity(context, returning),
         });

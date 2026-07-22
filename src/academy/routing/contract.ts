@@ -49,6 +49,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.lessonZeroVowelProgress
                 ? { lessonZeroVowelProgress: checkpoint.lessonZeroVowelProgress }
                 : {}),
+            ...(checkpoint.lessonZeroVowelWritingProgress
+                ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress }
+                : {}),
             updatedAt: now,
         };
     }

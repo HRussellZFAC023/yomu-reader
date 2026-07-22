@@ -1458,7 +1458,7 @@
     async play(track2, volume2, fadeMs) {
       this.assertActive();
       const operation = ++this.operation;
-      const nextVolume = clamp$5(volume2);
+      const nextVolume = clamp$6(volume2);
       if (this.currentTrackId === track2.id) {
         this.media.loop = track2.loop;
         this.targetVolume = nextVolume;
@@ -1493,7 +1493,7 @@
     }
     setVolume(volume2) {
       if (this.disposed) return;
-      this.targetVolume = clamp$5(volume2);
+      this.targetVolume = clamp$6(volume2);
       this.media.volume = this.targetVolume;
     }
     pause() {
@@ -1515,7 +1515,7 @@
     }
     async rampTo(target2, durationMs, operation) {
       const start = this.media.volume;
-      const end = clamp$5(target2);
+      const end = clamp$6(target2);
       if (durationMs <= 0 || start === end) {
         if (operation === this.operation && !this.disposed) this.media.volume = end;
         return;
@@ -1527,8 +1527,8 @@
             resolve();
             return;
           }
-          const progress2 = clamp$5((now - startedAt) / durationMs);
-          this.media.volume = clamp$5(start + (end - start) * progress2);
+          const progress2 = clamp$6((now - startedAt) / durationMs);
+          this.media.volume = clamp$6(start + (end - start) * progress2);
           if (progress2 >= 1) resolve();
           else requestAnimationFrame(step2);
         };
@@ -1539,7 +1539,7 @@
       if (this.disposed) throw new Error("Audio bus has been disposed.");
     }
   }
-  function clamp$5(value) {
+  function clamp$6(value) {
     return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
   }
   class BrowserSfxPlayback {
@@ -1567,7 +1567,7 @@
       const pool = this.poolFor(cue);
       if (!source2 || !pool) return;
       const media = pool.find((candidate2) => candidate2.paused || candidate2.ended) ?? pool[0];
-      media.volume = clamp$4(volume2 * source2.gain);
+      media.volume = clamp$5(volume2 * source2.gain);
       media.currentTime = 0;
       void media.play().catch(() => void 0);
     }
@@ -1598,7 +1598,7 @@
       return pool;
     }
   }
-  function clamp$4(value) {
+  function clamp$5(value) {
     return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
   }
   const SLOT_SETTINGS = {
@@ -1774,7 +1774,7 @@
       this.assertReady("Lesson audio");
       if (!trackCanPlay(playback.track, this.releaseMode)) return false;
       const definition2 = this.catalog[this.requestedTheme];
-      this.ownedLessonDuck = clamp$3(playback.duck ?? definition2.lessonDuck);
+      this.ownedLessonDuck = clamp$4(playback.duck ?? definition2.lessonDuck);
       this.syncDuck(true);
       try {
         await this.buses.lesson.play(playback.track, this.trackVolume("lesson", playback.track), 120);
@@ -1802,7 +1802,7 @@
     beginExternalLesson(duck = this.catalog[this.requestedTheme].lessonDuck) {
       this.assertReady("External lesson audio");
       const lessonId = ++this.nextExternalLessonId;
-      this.externalLessonDucks.set(lessonId, clamp$3(duck));
+      this.externalLessonDucks.set(lessonId, clamp$4(duck));
       this.syncDuck();
       this.setState("playing");
       let released = false;
@@ -1921,7 +1921,7 @@
       return track2 ? this.trackVolume(bus, track2) : this.effectiveVolume(bus);
     }
     trackVolume(bus, track2) {
-      return clamp$3(this.effectiveVolume(bus) * track2.gain);
+      return clamp$4(this.effectiveVolume(bus) * track2.gain);
     }
     effectiveVolume(bus) {
       return this.settingsValue.muted ? 0 : this.settingsValue.volumes[bus];
@@ -1955,7 +1955,7 @@
       for (const listener of this.listeners) listener(event);
     }
   }
-  function clamp$3(value) {
+  function clamp$4(value) {
     return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
   }
   const version = 1;
@@ -3923,7 +3923,7 @@
           kind: "attempt-recorded",
           activityId: model2.id,
           ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
-          conceptIds: unique$d(model2.conceptIds),
+          conceptIds: unique$e(model2.conceptIds),
           responseKind: model2.responseKind,
           outcome: result2.outcome,
           score: result2.score,
@@ -4007,7 +4007,7 @@
     }
     return {
       ...result2,
-      errorTags: unique$d(result2.errorTags),
+      errorTags: unique$e(result2.errorTags),
       feedback: structuredClone(feedback2)
     };
   }
@@ -4030,7 +4030,7 @@
       content: {
         expression: requireText$3(seed.content.expression, "reviewSeed.content.expression"),
         ...seed.content.reading ? { reading: requireText$3(seed.content.reading, "reviewSeed.content.reading") } : {},
-        meanings: unique$d(seed.content.meanings),
+        meanings: unique$e(seed.content.meanings),
         ...seed.content.sentence ? { sentence: requireText$3(seed.content.sentence, "reviewSeed.content.sentence") } : {}
       }
     };
@@ -4043,7 +4043,7 @@
   function text$l(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function unique$d(values) {
+  function unique$e(values) {
     return [...new Set(values.map((value) => requireText$3(value, "id")))].sort();
   }
   function parseAuthoredWeekPackage(value) {
@@ -4438,10 +4438,10 @@
       fail$3(`${path}.pluginTarget`, "must be academy-drag-sort");
     }
     assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
-    const sourceItemsExact = stringArray$5(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const sourceItemsExact = stringArray$6(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
     const answers = record$16(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
-    const values = stringArray$5(answers.values, `${path}.answers.values`);
+    const values = stringArray$6(answers.values, `${path}.answers.values`);
     if (sourceItemsExact.length < 2 || sourceItemsExact.length !== values.length) {
       fail$3(path, "must have the same number of source items and matching values");
     }
@@ -4473,7 +4473,7 @@
     const hasCues = exercise.sourceItemsExact !== void 0 || exercise.answers !== void 0;
     if (hasTiles === hasCues) fail$3(path, "must define exactly one ordering source shape");
     if (hasTiles) {
-      const tiles = stringArray$5(exercise.tiles, `${path}.tiles`);
+      const tiles = stringArray$6(exercise.tiles, `${path}.tiles`);
       if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
         fail$3(`${path}.tiles`, "must contain at least two unique tiles");
       }
@@ -4487,10 +4487,10 @@
         answer: parseExactAnswer(exercise.answer, `${path}.answer`)
       };
     }
-    const sourceItemsExact = stringArray$5(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const sourceItemsExact = stringArray$6(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
     const answers = record$16(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
-    const values = stringArray$5(answers.values, `${path}.answers.values`);
+    const values = stringArray$6(answers.values, `${path}.answers.values`);
     if (!sourceItemsExact.length || sourceItemsExact.length !== values.length) {
       fail$3(path, "must have the same number of ordering cues and values");
     }
@@ -4517,7 +4517,7 @@
   function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
     const answer2 = record$16(value, path);
     const primary = text$k(answer2.primary, `${path}.primary`);
-    const alternatives = answer2.alternatives === void 0 ? [] : stringArray$5(answer2.alternatives, `${path}.alternatives`);
+    const alternatives = answer2.alternatives === void 0 ? [] : stringArray$6(answer2.alternatives, `${path}.alternatives`);
     return {
       primary,
       alternatives: alternatives.filter((candidate2) => !rejected.has(normalizeAnswer(candidate2)))
@@ -4533,7 +4533,7 @@
   function normalizeAnswer(value) {
     return value.normalize("NFKC").replace(/[\s。、！？!?]/gu, "").toLocaleLowerCase("ja");
   }
-  function stringArray$5(value, path) {
+  function stringArray$6(value, path) {
     return array$15(value, path).map((candidate2, index) => text$k(candidate2, `${path}[${index}]`));
   }
   function assertAfterAttemptVisibility(value, path) {
@@ -7687,7 +7687,7 @@
     if (!isRecord$8(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
-    const provenance2 = stringArray$4(value.provenance, `${locator}.provenance`);
+    const provenance2 = stringArray$5(value.provenance, `${locator}.provenance`);
     if (value.availability === "unavailable") {
       if (value.reason !== "no-recording-matching-authored-script" && value.reason !== "authored-locator-no-runtime-source") {
         throw new TypeError(`Unavailable listening entry ${locator} has an unsupported reason.`);
@@ -7755,7 +7755,7 @@
     if (!SHA256$2.test(result2)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
     return result2;
   }
-  function stringArray$4(value, label) {
+  function stringArray$5(value, label) {
     if (!Array.isArray(value) || value.length === 0) throw new TypeError(`${label} must be a non-empty string array.`);
     return value.map((item2, index) => requiredText$4(item2, `${label}[${index}]`));
   }
@@ -11708,7 +11708,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       classroomBindings,
       refsForInstruction(activity2) {
         const binding = requireBinding(classroomBindings, activity2.id);
-        const blocks = unique$c(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
+        const blocks = unique$d(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
         const byConcept = new Map(blocks.map((block) => [block.conceptId, block]));
         return activity2.conceptIds.map((conceptId) => {
           const block = requireValue(byConcept, conceptId, "teaching concept");
@@ -11764,7 +11764,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function suffixOf(id2) {
     return id2.split(":").at(-1);
   }
-  function unique$c(values) {
+  function unique$d(values) {
     return [...new Set(values)];
   }
   function createSourceLibrary(data) {
@@ -12633,9 +12633,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const { lesson } = data;
     const documents = data.sourceLibrary.documents;
     const sourceQuestionIds = data.sourceLibrary.questions.map((question2) => question2.id);
-    const allConceptIds = unique$b(lesson.activities.flatMap((activity2) => activity2.conceptIds));
-    const allOutcomeIds = unique$b(lesson.sections.flatMap((section) => section.outcomeIds));
-    const audioBlockerIds = unique$b(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
+    const allConceptIds = unique$c(lesson.activities.flatMap((activity2) => activity2.conceptIds));
+    const allOutcomeIds = unique$c(lesson.sections.flatMap((section) => section.outcomeIds));
+    const audioBlockerIds = unique$c(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
     const sectionOutcomes = new Map(lesson.sections.map((section) => [section.id, section.outcomeIds]));
     const activities = lesson.activities.map((activity2, index) => activityContract(
       activity2,
@@ -12669,7 +12669,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       accessibility: blocked(BLOCKERS.accessibility)
     };
     const productionSequence2 = blocked(BLOCKERS.transferContext);
-    const blockerIds = unique$b([
+    const blockerIds = unique$c([
       ...proofBlockers(overviewProofs),
       ...productionSequence2.blockerIds,
       ...activities.flatMap((activity2) => activity2.blockerIds)
@@ -12772,12 +12772,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { state: "ready", evidence: evidence2 };
   }
   function blocked(...blockerIds) {
-    return { state: "review-blocked", blockerIds: unique$b(blockerIds) };
+    return { state: "review-blocked", blockerIds: unique$c(blockerIds) };
   }
   function proofBlockers(proofs) {
-    return unique$b(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
+    return unique$c(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
   }
-  function unique$b(values) {
+  function unique$c(values) {
     return [...new Set(values)].sort();
   }
   const LESSON_ZERO_GREETING_ACTIVITY_ID = "activity:lesson-zero-greet-rie";
@@ -12875,26 +12875,26 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function transitionLessonZeroVowelSession(model2, state, action2, at) {
     validateModel$5(model2);
-    validateTime(at);
+    validateTime$1(at);
     if (!lessonZeroVowelSessionSnapshotShapeIsValid(state)) {
       throw new TypeError("Invalid Lesson Zero vowel state.");
     }
     validateSnapshotAgainstModel(model2, state);
     const itemIds = model2.payload.items.map((item2) => item2.id);
     if (action2.kind === "start") {
-      requireState(state.status === "ready" && state.stage === "learn", "The vowel lesson has already started.");
+      requireState$1(state.status === "ready" && state.stage === "learn", "The vowel lesson has already started.");
       return { state: { ...state, status: "active" } };
     }
     if (action2.kind === "pause") {
-      requireState(state.status === "active", "Only an active vowel session can pause.");
+      requireState$1(state.status === "active", "Only an active vowel session can pause.");
       return { state: { ...state, status: "paused" } };
     }
     if (action2.kind === "resume") {
-      requireState(state.status === "paused", "Only a paused vowel session can resume.");
+      requireState$1(state.status === "paused", "Only a paused vowel session can resume.");
       return { state: { ...state, status: "active" } };
     }
     if (action2.kind === "start-bingo") {
-      requireState(state.baseCompleted && state.stage === "complete", "Finish the first five sounds before playing bingo.");
+      requireState$1(state.baseCompleted && state.stage === "complete", "Finish the first five sounds before playing bingo.");
       return {
         state: beginRound(model2, {
           ...state,
@@ -12905,9 +12905,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }, "bingo")
       };
     }
-    requireState(state.status === "active", "Start or resume the vowel session first.");
+    requireState$1(state.status === "active", "Start or resume the vowel session first.");
     if (action2.kind === "choose-mode") {
-      requireState(
+      requireState$1(
         state.stage === "learn" || state.stage === "repair" || state.stage === "attempt" && state.selections.length === 0,
         "The access mode can change before a round, not after answers have been committed."
       );
@@ -12920,34 +12920,34 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     if (action2.kind === "learn-item") {
-      requireState(state.stage === "learn", "The teaching pass is no longer active.");
+      requireState$1(state.stage === "learn", "The teaching pass is no longer active.");
       const nextItemId = itemIds[state.learnedItemIds.length];
-      requireState(action2.itemId === nextItemId, "Learn the five vowel anchors in their canonical order.");
+      requireState$1(action2.itemId === nextItemId, "Learn the five vowel anchors in their canonical order.");
       return { state: { ...state, learnedItemIds: [...state.learnedItemIds, action2.itemId] } };
     }
     if (action2.kind === "begin-attempt") {
-      requireState(
+      requireState$1(
         state.stage === "learn" && state.learnedItemIds.length === itemIds.length,
         "Meet all five vowel anchors before the first listening attempt."
       );
       return { state: beginRound(model2, state, "lesson") };
     }
     if (action2.kind === "mark-heard") {
-      requireState(state.stage === "attempt", "There is no active sound round.");
-      requireState(action2.roundId === currentRoundId(state), "Only the current sound can be marked heard.");
+      requireState$1(state.stage === "attempt", "There is no active sound round.");
+      requireState$1(action2.roundId === currentRoundId(state), "Only the current sound can be marked heard.");
       return {
         state: {
           ...state,
-          heardRoundIds: unique$a([...state.heardRoundIds, action2.roundId])
+          heardRoundIds: unique$b([...state.heardRoundIds, action2.roundId])
         }
       };
     }
     if (action2.kind === "select") {
-      requireState(state.stage === "attempt", "There is no active sound round.");
-      requireState(itemIds.includes(action2.kanaId), `Unknown vowel choice: ${action2.kanaId}`);
+      requireState$1(state.stage === "attempt", "There is no active sound round.");
+      requireState$1(itemIds.includes(action2.kanaId), `Unknown vowel choice: ${action2.kanaId}`);
       const roundId = currentRoundId(state);
-      requireState(typeof roundId === "string", "Every sound in this round already has an answer.");
-      requireState(
+      requireState$1(typeof roundId === "string", "Every sound in this round already has an answer.");
+      requireState$1(
         state.mode === "visual" || state.heardRoundIds.includes(roundId),
         "Listen to the current sound before choosing its character."
       );
@@ -12959,12 +12959,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     if (action2.kind === "record-result") {
-      requireState(
+      requireState$1(
         state.stage === "attempt" && state.selections.length === state.roundOrder.length,
         "Commit one answer for every sound before grading."
       );
       const expectedActivityId = state.variant === "lesson" ? model2.id : LESSON_ZERO_VOWEL_BINGO_ID;
-      requireState(
+      requireState$1(
         action2.evaluation.attempt.activityId === expectedActivityId,
         "The grade does not belong to this vowel round."
       );
@@ -12978,7 +12978,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         at
       };
       const attempts = [...state.attempts, attempt];
-      const adaptive = adaptiveEvidence(state, action2.evaluation, at, attempts.length);
+      const adaptive = adaptiveEvidence$1(state, action2.evaluation, at, attempts.length);
       if (action2.evaluation.result.outcome === "pass") {
         return {
           state: {
@@ -12995,7 +12995,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           adaptive
         };
       }
-      requireState(missedItemIds.length > 0, "A lapsed vowel attempt must identify at least one missed sound.");
+      requireState$1(missedItemIds.length > 0, "A lapsed vowel attempt must identify at least one missed sound.");
       return {
         state: {
           ...state,
@@ -13012,21 +13012,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     if (action2.kind === "complete-repair-item") {
-      requireState(state.stage === "repair", "There is no active vowel repair.");
-      requireState(
+      requireState$1(state.stage === "repair", "There is no active vowel repair.");
+      requireState$1(
         action2.itemId === state.repairItemIds[state.repairCursor],
         "Repair the missed sounds in their displayed order."
       );
       return { state: { ...state, repairCursor: state.repairCursor + 1 } };
     }
     if (action2.kind === "begin-retry") {
-      requireState(
+      requireState$1(
         state.stage === "repair" && state.repairCursor === state.repairItemIds.length,
         "Replay every missed sound before retrying the complete route."
       );
       return { state: beginRound(model2, state, state.variant) };
     }
-    return exhaustive(action2);
+    return exhaustive$1(action2);
   }
   function lessonZeroVowelResponse(model2, state) {
     validateModel$5(model2);
@@ -13050,11 +13050,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const variants = ["lesson", "bingo"];
     const modes = ["audio", "visual"];
     if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_SESSION_ID || !statuses.includes(state.status ?? "") || !stages.includes(state.stage ?? "") || !variants.includes(state.variant ?? "") || !modes.includes(state.mode ?? "")) return false;
-    if (!stringArray$3(state.learnedItemIds) || !stringArray$3(state.roundOrder) || !stringArray$3(state.heardRoundIds) || !stringArray$3(state.repairItemIds)) return false;
+    if (!stringArray$4(state.learnedItemIds) || !stringArray$4(state.roundOrder) || !stringArray$4(state.heardRoundIds) || !stringArray$4(state.repairItemIds)) return false;
     if (!Array.isArray(state.selections) || state.selections.some((selection) => !selection || typeof selection.roundId !== "string" || !selection.roundId || typeof selection.kanaId !== "string" || !selection.kanaId)) return false;
     const repairCursor = state.repairCursor;
     if (!Number.isSafeInteger(repairCursor) || repairCursor === void 0 || repairCursor < 0 || typeof state.baseCompleted !== "boolean" || !Number.isSafeInteger(state.bingoWins) || (state.bingoWins ?? -1) < 0) return false;
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !variants.includes(attempt.variant) || !modes.includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$3(attempt.missedItemIds) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !variants.includes(attempt.variant) || !modes.includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$4(attempt.missedItemIds) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
     if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.roundOrder).size !== state.roundOrder.length || new Set(state.heardRoundIds).size !== state.heardRoundIds.length || new Set(state.repairItemIds).size !== state.repairItemIds.length || repairCursor > state.repairItemIds.length || state.selections.length > state.roundOrder.length) return false;
     if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0)) return false;
     if (state.status === "complete" && (state.stage !== "complete" || !state.baseCompleted)) return false;
@@ -13103,9 +13103,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function missedItems(model2, evaluation) {
     const byError = new Map(model2.payload.items.map((item2) => [item2.errorTag, item2.id]));
-    return unique$a(evaluation.result.errorTags.flatMap((tag) => byError.get(tag) ?? []));
+    return unique$b(evaluation.result.errorTags.flatMap((tag) => byError.get(tag) ?? []));
   }
-  function adaptiveEvidence(state, evaluation, at, attemptNumber) {
+  function adaptiveEvidence$1(state, evaluation, at, attemptNumber) {
     const repair = state.attempts.some((attempt) => attempt.outcome === "lapse");
     return {
       eventId: `adaptive:lesson-zero-vowels:${state.variant}:${attemptNumber}:${at}`,
@@ -13144,22 +13144,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError("Lesson Zero vowel session requires the canonical five-sound map.");
     }
   }
-  function validateTime(at) {
+  function validateTime$1(at) {
     if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Vowel session transitions need a valid timestamp.");
   }
-  function stringArray$3(value) {
+  function stringArray$4(value) {
     return Array.isArray(value) && value.every((item2) => typeof item2 === "string" && item2.length > 0);
   }
-  function unique$a(values) {
+  function unique$b(values) {
     return [...new Set(values)];
   }
-  function requireState(condition, message) {
+  function requireState$1(condition, message) {
     if (!condition) throw new Error(message);
   }
   function missingSelection(itemId) {
     throw new Error(`The vowel route is missing a selection for ${itemId}.`);
   }
-  function exhaustive(value) {
+  function exhaustive$1(value) {
     throw new TypeError(`Unknown Lesson Zero vowel action: ${JSON.stringify(value)}`);
   }
   const LESSON_ZERO_KANA_SEQUENCE = Object.freeze([
@@ -13281,6 +13281,193 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       })
     });
   }
+  const LESSON_ZERO_VOWEL_WRITING_ID = "activity:lesson-zero-vowel-doodle";
+  const LESSON_ZERO_VOWEL_WRITING_SOURCE_QUESTION_ID = "source-question:classroom-phrase-07";
+  const STROKE_SHAPES = {
+    "hira-a": [
+      [{ x: 0.18, y: 0.28 }, { x: 0.42, y: 0.25 }, { x: 0.7, y: 0.24 }],
+      [{ x: 0.49, y: 0.1 }, { x: 0.48, y: 0.35 }, { x: 0.46, y: 0.61 }, { x: 0.35, y: 0.82 }],
+      [{ x: 0.69, y: 0.36 }, { x: 0.82, y: 0.52 }, { x: 0.76, y: 0.72 }, { x: 0.56, y: 0.87 }, { x: 0.31, y: 0.84 }, { x: 0.2, y: 0.66 }, { x: 0.28, y: 0.48 }, { x: 0.53, y: 0.38 }, { x: 0.68, y: 0.53 }]
+    ],
+    "hira-i": [
+      [{ x: 0.35, y: 0.16 }, { x: 0.31, y: 0.37 }, { x: 0.28, y: 0.61 }, { x: 0.35, y: 0.76 }, { x: 0.43, y: 0.67 }],
+      [{ x: 0.66, y: 0.23 }, { x: 0.7, y: 0.39 }, { x: 0.74, y: 0.61 }]
+    ],
+    "hira-u": [
+      [{ x: 0.39, y: 0.17 }, { x: 0.5, y: 0.19 }, { x: 0.61, y: 0.23 }],
+      [{ x: 0.27, y: 0.41 }, { x: 0.48, y: 0.36 }, { x: 0.67, y: 0.38 }, { x: 0.78, y: 0.5 }, { x: 0.73, y: 0.67 }, { x: 0.6, y: 0.8 }, { x: 0.42, y: 0.87 }]
+    ],
+    "hira-e": [
+      [{ x: 0.37, y: 0.17 }, { x: 0.48, y: 0.2 }, { x: 0.6, y: 0.24 }],
+      [{ x: 0.21, y: 0.44 }, { x: 0.42, y: 0.41 }, { x: 0.65, y: 0.41 }, { x: 0.51, y: 0.55 }, { x: 0.37, y: 0.72 }, { x: 0.34, y: 0.84 }, { x: 0.45, y: 0.78 }, { x: 0.56, y: 0.71 }, { x: 0.64, y: 0.78 }, { x: 0.77, y: 0.84 }]
+    ],
+    "hira-o": [
+      [{ x: 0.16, y: 0.34 }, { x: 0.39, y: 0.32 }, { x: 0.64, y: 0.31 }],
+      [{ x: 0.43, y: 0.12 }, { x: 0.42, y: 0.35 }, { x: 0.41, y: 0.61 }, { x: 0.37, y: 0.77 }, { x: 0.27, y: 0.82 }, { x: 0.21, y: 0.72 }],
+      [{ x: 0.72, y: 0.28 }, { x: 0.79, y: 0.34 }, { x: 0.84, y: 0.42 }]
+    ]
+  };
+  const ITEM_COPY = {
+    "hira-a": {
+      memoryCue: { en: "A crossbar, a spine, then a curve that comes back to meet them.", ja: "横線、たての線、最後に戻ってくる曲線です。" },
+      directionCue: { en: "Across, down, then around.", ja: "横、下、そして回ります。" },
+      correct: { en: "3 strokes · across, down, around", ja: "3画・横、下、回る" },
+      reverse: { en: "3 strokes · around, up, across", ja: "3画・回る、上、横" },
+      joined: { en: "1 stroke · one continuous loop", ja: "1画・一つの輪で続ける" }
+    },
+    "hira-i": {
+      memoryCue: { en: "Two separate marks lean down. The left one bends first.", ja: "二本を離して下へ。左の線が先に曲がります。" },
+      directionCue: { en: "Left down, then right down.", ja: "左を下へ、次に右を下へ。" },
+      correct: { en: "2 strokes · left down, right down", ja: "2画・左を下、右を下" },
+      reverse: { en: "2 strokes · right up, left up", ja: "2画・右を上、左を上" },
+      joined: { en: "1 stroke · join both sides", ja: "1画・左右をつなぐ" }
+    },
+    "hira-u": {
+      memoryCue: { en: "A small cap sits above one long curve.", ja: "小さな線の下に、長い曲線があります。" },
+      directionCue: { en: "Small mark first, long curve second.", ja: "小さな線が先、長い曲線が次です。" },
+      correct: { en: "2 strokes · small mark, long curve", ja: "2画・小さな線、長い曲線" },
+      reverse: { en: "2 strokes · long curve, small mark", ja: "2画・長い曲線、小さな線" },
+      joined: { en: "3 strokes · split the curve in two", ja: "3画・曲線を二つに分ける" }
+    },
+    "hira-e": {
+      memoryCue: { en: "A small cap, then one line that changes direction without lifting.", ja: "小さな線のあと、方向を変えながら一筆で進みます。" },
+      directionCue: { en: "Small mark first, turning line second.", ja: "小さな線が先、曲がる線が次です。" },
+      correct: { en: "2 strokes · small mark, turning line", ja: "2画・小さな線、曲がる線" },
+      reverse: { en: "2 strokes · turning line, small mark", ja: "2画・曲がる線、小さな線" },
+      joined: { en: "4 strokes · lift at every turn", ja: "4画・曲がるたびに離す" }
+    },
+    "hira-o": {
+      memoryCue: { en: "A crossbar and hooked spine, then the small mark on the right.", ja: "横線と曲がるたて線、最後に右の小さな線です。" },
+      directionCue: { en: "Across, down and hook, then the right mark.", ja: "横、下へ曲がる、右の小さな線。" },
+      correct: { en: "3 strokes · across, down and hook, right mark", ja: "3画・横、下へ曲がる、右の線" },
+      reverse: { en: "3 strokes · right mark, up, across", ja: "3画・右の線、上、横" },
+      joined: { en: "2 strokes · join the crossbar and spine", ja: "2画・横線とたて線をつなぐ" }
+    }
+  };
+  function createLessonZeroVowelWritingDefinition() {
+    const items = LESSON_ZERO_KANA_SEQUENCE.map((source2) => {
+      const copy2 = ITEM_COPY[source2.id];
+      const correctPlanId = `plan:${source2.id}:correct`;
+      return Object.freeze({
+        ...source2,
+        strokeShapes: STROKE_SHAPES[source2.id],
+        memoryCue: copy2.memoryCue,
+        directionCue: copy2.directionCue,
+        correctPlanId,
+        plans: Object.freeze([
+          Object.freeze({ id: correctPlanId, label: copy2.correct }),
+          Object.freeze({ id: `plan:${source2.id}:reverse`, label: copy2.reverse }),
+          Object.freeze({ id: `plan:${source2.id}:joined`, label: copy2.joined })
+        ])
+      });
+    });
+    return Object.freeze({
+      id: LESSON_ZERO_VOWEL_WRITING_ID,
+      sourceQuestionId: LESSON_ZERO_VOWEL_WRITING_SOURCE_QUESTION_ID,
+      conceptIds: Object.freeze(["concept:hiragana-vowel-row", "concept:hiragana-katakana-kanji-roles"]),
+      items: Object.freeze(items),
+      source: Object.freeze({
+        runtimeUrl: LESSON_ZERO_SOURCE_MEDIA.hiraganaARow,
+        sha256: LESSON_ZERO_SOURCE_PROVENANCE.hiraganaARowSha256,
+        answerGate: "after-first-attempt",
+        storySceneId: "scene:blank-atlas:sound-script-map"
+      })
+    });
+  }
+  function lessonZeroVowelWritingChildActivityId(itemId) {
+    return `${LESSON_ZERO_VOWEL_WRITING_ID}:${itemId}`;
+  }
+  const LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS = Object.freeze(
+    LESSON_ZERO_KANA_SEQUENCE.map((item2) => lessonZeroVowelWritingChildActivityId(item2.id))
+  );
+  function evaluateLessonZeroVowelWriting(definition2, item2, response) {
+    const draw = response.mode === "draw";
+    const passed = draw ? response.assessment.passed : response.selectedPlanId === item2.correctPlanId;
+    const score = draw ? clamp$3(response.assessment.score / 100) : passed ? 1 : 0;
+    const responseKind2 = draw ? "kana-doodle" : "kana-stroke-plan";
+    const resultErrorTags = passed ? [`vowel-writing-${item2.romaji}`, draw ? "vowel-writing-draw" : "vowel-writing-plan"] : [
+      `vowel-writing-${item2.romaji}`,
+      draw && response.assessment.actualStrokes !== response.assessment.expectedStrokes ? "vowel-writing-stroke-count" : "vowel-writing-order-or-direction"
+    ];
+    return {
+      result: passed ? {
+        outcome: "pass",
+        score,
+        errorTags: resultErrorTags,
+        feedback: {
+          explanation: {
+            en: `${item2.kana} is holding together. Keep that stroke plan for the next time you meet it.`,
+            ja: `${item2.kana}の形がまとまりました。次に会うときも、この書き順を残しましょう。`
+          }
+        }
+      } : {
+        outcome: "lapse",
+        score,
+        errorTags: resultErrorTags,
+        feedback: {
+          explanation: {
+            en: `Keep ${item2.kana}; only its stroke plan needs another look.`,
+            ja: `${item2.kana}はそのまま。書き順だけ、もう一度見ましょう。`
+          },
+          repairPrompt: item2.directionCue,
+          nearbyExample: item2.memoryCue
+        }
+      },
+      attempt: {
+        kind: "attempt-recorded",
+        activityId: lessonZeroVowelWritingChildActivityId(item2.id),
+        sourceQuestionId: definition2.sourceQuestionId,
+        conceptIds: ["concept:hiragana-vowel-row"],
+        responseKind: responseKind2,
+        outcome: passed ? "pass" : "lapse",
+        score,
+        errorTags: resultErrorTags
+      },
+      reviewSeeds: [reviewSeed$i(definition2, item2, passed ? "new-learning" : "repair")]
+    };
+  }
+  function lessonZeroVowelWritingCompletionEvaluation(definition2, score) {
+    return {
+      result: {
+        outcome: "pass",
+        score: clamp$3(score),
+        errorTags: ["vowel-writing-complete", "vowel-writing-five-kana"],
+        feedback: {
+          explanation: {
+            en: "All five vowel kana now have a sound, a shape, and a stroke plan.",
+            ja: "五つの母音に、音・形・書き順がそろいました。"
+          }
+        }
+      },
+      attempt: {
+        kind: "attempt-recorded",
+        activityId: definition2.id,
+        sourceQuestionId: definition2.sourceQuestionId,
+        conceptIds: definition2.conceptIds,
+        responseKind: "stroke-attempts",
+        outcome: "pass",
+        score: clamp$3(score),
+        errorTags: ["vowel-writing-complete", "vowel-writing-five-kana"]
+      },
+      reviewSeeds: []
+    };
+  }
+  function reviewSeed$i(definition2, item2, reason) {
+    return {
+      id: `review:lesson-zero:vowel-writing:${item2.id}`,
+      conceptId: "concept:hiragana-vowel-row",
+      reason,
+      sourceQuestionId: definition2.sourceQuestionId,
+      content: {
+        expression: item2.kana,
+        reading: item2.kana,
+        meanings: [`hiragana vowel ${item2.romaji}`]
+      }
+    };
+  }
+  function clamp$3(value) {
+    return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  }
   const AUTHORED_WEEK_FILES = [
     ["002-l1-l01.json", "l1-l01", "l1-l01"],
     ["003-l1-l02.json", "l1-l02", "l1-l02"],
@@ -13365,6 +13552,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       trustedActivityIds: [
         LESSON_ZERO_GREETING_ACTIVITY_ID,
         LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+        LESSON_ZERO_VOWEL_WRITING_ID,
+        ...LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
         "activity:lesson-zero-reconstruct-repair",
         "activity:lesson-zero-desk-language",
         "activity:lesson-zero-first-repair:sound",
@@ -22959,7 +23148,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       lastOutcome: event.outcome,
       lastAttemptAt: event.at,
       ...sourceQuestionProjection(event.sourceQuestionId),
-      conceptIds: unique$9(event.conceptIds)
+      conceptIds: unique$a(event.conceptIds)
     };
   }
   function sourceQuestionProjection(sourceQuestionId2) {
@@ -23040,7 +23229,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireText$1(event.encounterId, "encounterId");
       requireText$1(event.sceneId, "sceneId");
       if (!event.attendeeIds.length) throw new TypeError("Character encounter needs attendees.");
-      unique$9(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
+      unique$a(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
     },
     "bond-changed": validateBondChanged,
     "asset-unlocked": (event) => {
@@ -23083,7 +23272,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAcademyDayClosed(event) {
     requireText$1(event.dayId, "dayId");
     if (typeof event.mainLessonCompleted !== "boolean") throw new TypeError("Day mainLessonCompleted must be boolean.");
-    unique$9(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
+    unique$a(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
     if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError("Day elapsedMs must be a non-negative integer.");
   }
   function validateAchievementCeremonySeen(event) {
@@ -23111,7 +23300,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAttemptRecorded(event) {
     requireText$1(event.activityId, "activityId");
     requireText$1(event.responseKind, "responseKind");
-    unique$9(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$a(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
     if (event.outcome !== "pass" && event.outcome !== "lapse") throw new TypeError("Invalid attempt outcome.");
     if (event.score !== void 0 && (!Number.isFinite(event.score) || event.score < 0 || event.score > 1)) {
       throw new TypeError("Attempt score must be between 0 and 1.");
@@ -23138,7 +23327,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireJlptBand(event.recommendedStart, "recommendedStart");
     }
     if (!event.itemIds.length) throw new TypeError("Placement assessment needs item ids.");
-    unique$9(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
+    unique$a(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
     for (const skill of ["language-knowledge", "reading", "listening", "speaking-confidence", "writing-confidence"]) {
       const score = event.scores[skill];
       if (!Number.isFinite(score) || score < 0 || score > 1) throw new TypeError(`Invalid placement score for ${skill}.`);
@@ -23186,7 +23375,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLearningConcepts(conceptIds) {
     if (!conceptIds.length) throw new TypeError("Learning evidence needs at least one conceptId.");
-    unique$9(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$a(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
   }
   function validateLearningIndependence(independent) {
     if (typeof independent !== "boolean") throw new TypeError("Learning independent must be boolean.");
@@ -23205,7 +23394,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requireText$1(event.collectionItemId, "collectionItemId");
     requireText$1(event.expression, "expression");
     if (!event.meanings.length) throw new TypeError("Vocabulary collection needs at least one meaning.");
-    unique$9(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
+    unique$a(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
     if (event.reading !== void 0) requireText$1(event.reading, "reading");
     if (event.provenance.origin !== "academy") throw new TypeError("Vocabulary provenance origin must be academy.");
     requireText$1(event.provenance.encounterId, "provenance.encounterId");
@@ -23224,7 +23413,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be a non-empty string.`);
     return value;
   }
-  function unique$9(values) {
+  function unique$a(values) {
     return [...new Set(values)].sort();
   }
   function clone(value) {
@@ -24324,20 +24513,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ...importedCard,
       ...existingCard,
       meanings: uniquePrimitiveStrings([
-        ...stringArray$2(importedCard.meanings),
-        ...stringArray$2(existingCard.meanings)
+        ...stringArray$3(importedCard.meanings),
+        ...stringArray$3(existingCard.meanings)
       ]),
       sentence: existingCard.sentence || importedCard.sentence,
       sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
       tags: uniquePrimitiveStrings([
-        ...stringArray$2(importedCard.tags),
-        ...stringArray$2(existingCard.tags)
+        ...stringArray$3(importedCard.tags),
+        ...stringArray$3(existingCard.tags)
       ]),
       createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
       updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
     };
   }
-  function stringArray$2(value) {
+  function stringArray$3(value) {
     return Array.isArray(value) ? value.filter((item2) => typeof item2 === "string" && item2.trim().length > 0) : [];
   }
   function uniquePrimitiveStrings(values) {
@@ -25541,12 +25730,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: identity2.key,
       expression: identity2.expression,
       reading: identity2.reading,
-      meanings: stringArray$1(value.meanings),
+      meanings: stringArray$2(value.meanings),
       ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
       ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
       ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
       ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-      tags: stringArray$1(value.tags),
+      tags: stringArray$2(value.tags),
       dueAt: finiteNumber$2(value.dueAt, createdAt),
       lastReviewAt: value.lastReviewAt === null ? null : finiteNumber$2(value.lastReviewAt, null),
       createdAt,
@@ -25619,7 +25808,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function cleanOptional(value) {
     return typeof value === "string" && value.trim() ? value.trim() : void 0;
   }
-  function stringArray$1(value) {
+  function stringArray$2(value) {
     return Array.isArray(value) ? uniqueText$1(value.filter((item2) => typeof item2 === "string")) : [];
   }
   function uniqueText$1(values) {
@@ -29167,7 +29356,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
-  const COPY$5 = {
+  const COPY$6 = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
@@ -31601,7 +31790,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
   function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$5.en[key2];
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$6.en[key2];
   }
   function cardStateLabel(state, language, fallback = state) {
     const key2 = CARD_STATE_LABEL_KEYS[state];
@@ -35534,13 +35723,13 @@ ${spelling}`);
       const container = this.throughContents(lca);
       if (!container) return true;
       const previousItem = this.flattenedItemChild(container, previous);
-      const currentItem = this.flattenedItemChild(container, current);
+      const currentItem2 = this.flattenedItemChild(container, current);
       if (isItemizedContainerDisplay(this.displayOf(container))) {
-        if (!(previousItem instanceof Text && currentItem instanceof Text)) return false;
-        return this.flattenedContiguousText(container, previousItem, currentItem);
+        if (!(previousItem instanceof Text && currentItem2 instanceof Text)) return false;
+        return this.flattenedContiguousText(container, previousItem, currentItem2);
       }
       if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
-      return this.participatesInline(previousItem) && this.participatesInline(currentItem);
+      return this.participatesInline(previousItem) && this.participatesInline(currentItem2);
     }
     participatesInline(node2) {
       if (!(node2 instanceof HTMLElement)) return true;
@@ -38657,7 +38846,7 @@ ${spelling}`);
     return {
       ...state,
       cursor: cursorFor(expression, probe),
-      visitedExpressionIds: unique$8([...state.visitedExpressionIds, expression.id])
+      visitedExpressionIds: unique$9([...state.visitedExpressionIds, expression.id])
     };
   }
   function validateClassroomExpressionSessionState(definition2, snapshot) {
@@ -38669,11 +38858,11 @@ ${spelling}`);
     const probeById = new Map(ordered.map((item2) => [item2.probe.id, item2]));
     const expressionIds = new Set(definition2.expressions.map((expression) => expression.id));
     for (const values of [state.passedProbeIds, state.revealedModelProbeIds]) {
-      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$8(values).length !== values.length) {
+      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$9(values).length !== values.length) {
         throw new TypeError("Classroom-expression snapshot references unknown probes.");
       }
     }
-    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$8(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
+    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$9(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
       throw new TypeError("Classroom-expression snapshot references unknown expressions.");
     }
     if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => {
@@ -38705,7 +38894,7 @@ ${spelling}`);
     if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds].some((values) => values.some((value) => typeof value !== "string" || !value))) return false;
     return state.attempts.every((attempt) => Boolean(attempt) && typeof attempt.probeId === "string" && typeof attempt.sourceQuestionId === "string" && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.independent === "boolean" && Number.isSafeInteger(attempt.at) && attempt.at >= 0);
   }
-  function unique$8(values) {
+  function unique$9(values) {
     return [...new Set(values)];
   }
   function startClassroomExpressionSession(definition2, snapshot) {
@@ -38781,7 +38970,7 @@ ${spelling}`);
     const outcome = probe.acceptedAnswers.some((answer2) => normalized(answer2) === normalized(response)) ? "pass" : "lapse";
     const independent = !state.revealedModelProbeIds.includes(probe.id);
     const hadLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
-    const passedProbeIds = outcome === "pass" ? unique$8([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
+    const passedProbeIds = outcome === "pass" ? unique$9([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
     const attempt = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
     let nextState = {
       ...state,
@@ -38812,7 +39001,7 @@ ${spelling}`);
     const alreadyRevealed = state.revealedModelProbeIds.includes(probe.id);
     const nextState = {
       ...state,
-      revealedModelProbeIds: unique$8([...state.revealedModelProbeIds, probe.id])
+      revealedModelProbeIds: unique$9([...state.revealedModelProbeIds, probe.id])
     };
     const evidence2 = alreadyRevealed ? [] : [{
       kind: "support-used",
@@ -38896,7 +39085,7 @@ ${spelling}`);
     if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Session timestamp must be a non-negative integer.");
   }
   function startClassroomInstructionSession(definition2, snapshot) {
-    validateDefinition$2(definition2);
+    validateDefinition$3(definition2);
     if (snapshot !== void 0) {
       if (!classroomInstructionSessionSnapshotShapeIsValid(snapshot)) {
         throw new TypeError("Invalid classroom-instruction session snapshot.");
@@ -39034,7 +39223,7 @@ ${spelling}`);
   function isClassroomInstructionActionId(value) {
     return ["begin", "finish", "break", "look", "say-together", "listen", "write"].includes(String(value));
   }
-  function validateDefinition$2(definition2) {
+  function validateDefinition$3(definition2) {
     if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-follow-instructions" || definition2.activityId !== "activity:lesson-zero-follow-instructions") {
       throw new TypeError("Invalid classroom-instruction session definition.");
     }
@@ -39052,7 +39241,7 @@ ${spelling}`);
     "closing"
   ]);
   function startLessonZeroGreetingSession(definition2, snapshot) {
-    validateDefinition$1(definition2);
+    validateDefinition$2(definition2);
     if (snapshot !== void 0) {
       if (!lessonZeroGreetingSessionSnapshotShapeIsValid(snapshot)) {
         throw new TypeError("Invalid Lesson Zero greeting snapshot.");
@@ -39262,7 +39451,7 @@ ${spelling}`);
     }
     return true;
   }
-  function validateDefinition$1(definition2) {
+  function validateDefinition$2(definition2) {
     if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-greet-rie" || definition2.activityId !== "activity:lesson-zero-greet-rie" || !definition2.learnerName.trim() || definition2.conceptIds.length !== 2 || !definition2.model.japanese.trim() || definition2.chunks.length !== TARGET_ORDER.length || !sameList(definition2.chunks.map((chunk2) => chunk2.id), TARGET_ORDER)) {
       throw new TypeError("Invalid Lesson Zero greeting definition.");
     }
@@ -39281,6 +39470,198 @@ ${spelling}`);
   }
   function unchanged(state) {
     return { state, supportEvents: [] };
+  }
+  const LESSON_ZERO_VOWEL_WRITING_SESSION_ID = "session:lesson-zero-vowel-doodle";
+  function startLessonZeroVowelWritingSession(definition2, snapshot) {
+    validateDefinition$1(definition2);
+    if (snapshot !== void 0) {
+      if (!lessonZeroVowelWritingSessionSnapshotShapeIsValid(snapshot)) {
+        throw new TypeError("Invalid Lesson Zero vowel-writing snapshot.");
+      }
+      validateSnapshotAgainstDefinition(definition2, snapshot);
+      return structuredClone(snapshot);
+    }
+    return {
+      schemaVersion: 1,
+      sessionId: LESSON_ZERO_VOWEL_WRITING_SESSION_ID,
+      status: "ready",
+      stage: "learn",
+      mode: "draw",
+      learnedItemIds: [],
+      completedItemIds: [],
+      guideItemIds: [],
+      attempts: []
+    };
+  }
+  function restartLessonZeroVowelWritingSession(definition2) {
+    return startLessonZeroVowelWritingSession(definition2);
+  }
+  function transitionLessonZeroVowelWritingSession(definition2, state, action2, at) {
+    validateDefinition$1(definition2);
+    validateTime(at);
+    if (!lessonZeroVowelWritingSessionSnapshotShapeIsValid(state)) {
+      throw new TypeError("Invalid Lesson Zero vowel-writing state.");
+    }
+    validateSnapshotAgainstDefinition(definition2, state);
+    if (action2.kind === "start") {
+      requireState(state.status === "ready" && state.stage === "learn", "The writing desk has already started.");
+      return { state: { ...state, status: "active" } };
+    }
+    if (action2.kind === "pause") {
+      requireState(state.status === "active", "Only an active writing session can pause.");
+      return { state: { ...state, status: "paused" } };
+    }
+    if (action2.kind === "resume") {
+      requireState(state.status === "paused", "Only a paused writing session can resume.");
+      return { state: { ...state, status: "active" } };
+    }
+    requireState(state.status === "active", "Start or resume the writing desk first.");
+    if (action2.kind === "choose-mode") {
+      requireState(state.stage !== "complete", "The completed writing route no longer changes mode.");
+      return { state: { ...state, mode: action2.mode } };
+    }
+    if (action2.kind === "learn-item") {
+      requireState(state.stage === "learn", "The current kana is already in its attempt.");
+      const item2 = currentItem(definition2, state);
+      requireState(item2?.id === action2.itemId, "Meet the five vowel kana in their canonical order.");
+      return {
+        state: {
+          ...state,
+          stage: "attempt",
+          learnedItemIds: state.learnedItemIds.includes(action2.itemId) ? state.learnedItemIds : [...state.learnedItemIds, action2.itemId]
+        }
+      };
+    }
+    if (action2.kind === "begin-retry") {
+      requireState(state.stage === "repair", "There is no writing repair to retry.");
+      return { state: { ...state, stage: "attempt" } };
+    }
+    if (action2.kind === "record-result") {
+      requireState(state.stage === "attempt", "There is no active vowel-writing attempt.");
+      const item2 = currentItem(definition2, state);
+      requireState(Boolean(item2), "All five vowel kana are already complete.");
+      requireState(
+        action2.evaluation.attempt.activityId === lessonZeroVowelWritingChildActivityId(item2.id),
+        "The writing grade does not belong to the current kana."
+      );
+      requireState(
+        action2.evaluation.attempt.responseKind === (state.mode === "draw" ? "kana-doodle" : "kana-stroke-plan"),
+        "The writing grade does not match the selected access route."
+      );
+      const attempt = {
+        itemId: item2.id,
+        mode: state.mode,
+        outcome: action2.evaluation.result.outcome,
+        score: action2.evaluation.result.score,
+        errorTags: [...action2.evaluation.result.errorTags],
+        at
+      };
+      const attempts = [...state.attempts, attempt];
+      const adaptive = adaptiveEvidence(state, item2.id, action2.evaluation, at, attempts.length);
+      if (action2.evaluation.result.outcome === "lapse") {
+        return {
+          state: {
+            ...state,
+            stage: "repair",
+            guideItemIds: unique$8([...state.guideItemIds, item2.id]),
+            attempts
+          },
+          evaluation: action2.evaluation,
+          adaptive
+        };
+      }
+      const completedItemIds = [...state.completedItemIds, item2.id];
+      const finished = completedItemIds.length === definition2.items.length;
+      return {
+        state: {
+          ...state,
+          status: finished ? "complete" : "active",
+          stage: finished ? "complete" : "learn",
+          completedItemIds,
+          attempts
+        },
+        evaluation: action2.evaluation,
+        adaptive
+      };
+    }
+    return exhaustive(action2);
+  }
+  function lessonZeroVowelWritingSessionSnapshotShapeIsValid(value) {
+    if (!value || typeof value !== "object") return false;
+    const state = value;
+    if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_WRITING_SESSION_ID || !["ready", "active", "paused", "complete"].includes(state.status ?? "") || !["learn", "attempt", "repair", "complete"].includes(state.stage ?? "") || !["draw", "plan"].includes(state.mode ?? "")) return false;
+    if (!itemIdArray(state.learnedItemIds) || !itemIdArray(state.completedItemIds) || !itemIdArray(state.guideItemIds)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !isItemId(attempt.itemId) || !["draw", "plan"].includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$1(attempt.errorTags) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.completedItemIds).size !== state.completedItemIds.length || new Set(state.guideItemIds).size !== state.guideItemIds.length || state.completedItemIds.length > state.learnedItemIds.length) return false;
+    if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0 || state.completedItemIds.length > 0)) return false;
+    if (state.status === "complete" && (state.stage !== "complete" || state.completedItemIds.length !== 5)) return false;
+    if (state.stage === "complete" && state.status !== "complete") return false;
+    if (state.stage === "repair") {
+      const currentId = ITEM_IDS[state.completedItemIds.length];
+      if (!currentId || !state.guideItemIds.includes(currentId)) return false;
+    }
+    return true;
+  }
+  function lessonZeroVowelWritingAveragePassScore(state) {
+    const latestPasses = ITEM_IDS.map((itemId) => [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.outcome === "pass"));
+    if (latestPasses.some((attempt) => !attempt)) throw new Error("All five kana need a passing attempt before completion.");
+    return latestPasses.reduce((sum, attempt) => sum + (attempt?.score ?? 0), 0) / latestPasses.length;
+  }
+  const ITEM_IDS = ["hira-a", "hira-i", "hira-u", "hira-e", "hira-o"];
+  function currentItem(definition2, state) {
+    return definition2.items[state.completedItemIds.length];
+  }
+  function adaptiveEvidence(state, itemId, evaluation, at, attemptNumber) {
+    const repairing = state.guideItemIds.includes(itemId);
+    return {
+      eventId: `adaptive:lesson-zero-vowel-writing:${itemId}:${attemptNumber}:${at}`,
+      at,
+      modeId: `lesson-zero-vowel-writing:${state.mode}`,
+      skill: repairing ? "repair" : state.mode === "draw" ? "writing" : "kana",
+      action: repairing ? "repair" : state.mode === "draw" ? "write" : "recall",
+      sourceId: evaluation.attempt.sourceQuestionId ?? evaluation.attempt.activityId,
+      independent: true
+    };
+  }
+  function validateSnapshotAgainstDefinition(definition2, state) {
+    const ids2 = definition2.items.map((item2) => item2.id);
+    const prefix = (values) => values.every((id2, index) => id2 === ids2[index]);
+    if (!prefix(state.learnedItemIds) || !prefix(state.completedItemIds)) {
+      throw new TypeError("Lesson Zero vowel-writing order drifted from the canonical five vowels.");
+    }
+    const known = new Set(ids2);
+    for (const id2 of state.guideItemIds) {
+      if (!known.has(id2)) throw new TypeError(`Lesson Zero vowel-writing snapshot contains unknown item ${id2}.`);
+    }
+    for (const attempt of state.attempts) {
+      if (!known.has(attempt.itemId)) throw new TypeError(`Lesson Zero vowel-writing attempt contains unknown item ${attempt.itemId}.`);
+    }
+  }
+  function validateDefinition$1(definition2) {
+    if (!definition2 || definition2.items.length !== 5 || definition2.items.some((item2, index) => item2.id !== ITEM_IDS[index])) {
+      throw new TypeError("Lesson Zero vowel writing requires the canonical five-kana definition.");
+    }
+  }
+  function itemIdArray(value) {
+    return Array.isArray(value) && value.every(isItemId);
+  }
+  function isItemId(value) {
+    return typeof value === "string" && ITEM_IDS.includes(value);
+  }
+  function stringArray$1(value) {
+    return Array.isArray(value) && value.every((item2) => typeof item2 === "string" && item2.length > 0);
+  }
+  function unique$8(values) {
+    return [...new Set(values)];
+  }
+  function validateTime(at) {
+    if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Vowel-writing transitions need a valid timestamp.");
+  }
+  function requireState(condition, message) {
+    if (!condition) throw new Error(message);
+  }
+  function exhaustive(value) {
+    throw new TypeError(`Unknown Lesson Zero vowel-writing action: ${JSON.stringify(value)}`);
   }
   const ACADEMY_ROUTE_DEFINITIONS = {
     access: "enrollment",
@@ -39433,6 +39814,20 @@ ${spelling}`);
     persistence: "unverified",
     journeyProof: "unverified"
   });
+  const VERIFIED_STANDALONE_ACTIVITY_DELIVERY = Object.freeze({
+    implementation: "verified",
+    reachability: "partial",
+    media: "partial",
+    persistence: "verified",
+    journeyProof: "partial"
+  });
+  const VERIFIED_REPEATABLE_GAME_DELIVERY = Object.freeze({
+    implementation: "verified",
+    reachability: "verified",
+    media: "partial",
+    persistence: "verified",
+    journeyProof: "verified"
+  });
   function academyDayNumber(dayId) {
     const match = /^day:([1-9]\d*)$/.exec(dayId);
     if (!match) return void 0;
@@ -39481,6 +39876,26 @@ ${spelling}`);
     "activity:lesson-zero-written-transfer",
     "activity:lesson-zero-close-room"
   ];
+  const DAY_ONE_LESSON_ACTIVITY_TITLES = {
+    "activity:lesson-zero-greet-rie": "Greet Rie and introduce yourself",
+    "activity:lesson-zero-vowel-listen": "Hear and identify the five vowel sounds",
+    "activity:lesson-zero-vowel-doodle": "Write the five vowel kana",
+    "activity:lesson-zero-follow-instructions": "Follow Rie’s classroom instructions",
+    "activity:lesson-zero-reconstruct-repair": "Rebuild a request for repetition",
+    "activity:lesson-zero-desk-language": "Use the first desk-language worksheet",
+    "activity:lesson-zero-build-sentence-frames": "Build the first sentence frames",
+    "activity:lesson-zero-name-card-draft": "Draft your Japanese name card",
+    "activity:lesson-zero-sound-input": "Repair a phrase by sound",
+    "activity:lesson-zero-text-input": "Repair a phrase by text",
+    "activity:lesson-zero-speaking-input": "Repair a phrase by speaking",
+    "activity:lesson-zero-read-name-cards": "Read the class name cards",
+    "activity:lesson-zero-write-name-card": "Finish your own name card",
+    "activity:lesson-zero-sound-transfer": "Use the sound repair in a new scene",
+    "activity:lesson-zero-text-transfer": "Use the text repair in a new scene",
+    "activity:lesson-zero-speaking-transfer": "Use the spoken repair in a new scene",
+    "activity:lesson-zero-written-transfer": "Use the written repair in a new scene",
+    "activity:lesson-zero-close-room": "Close the first classroom session"
+  };
   const DAY_ONE_CLASSROOM_EXPRESSION_IDS = Object.freeze(
     Array.from({ length: 14 }, (_, index) => `expression:classroom-${String(index + 1).padStart(2, "0")}`)
   );
@@ -39616,14 +40031,16 @@ ${spelling}`);
   ];
   DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) => entry$P(
     `day:1:lesson-zero:${String(index + 1).padStart(2, "0")}`,
-    `Lesson 0 activity ${index + 1}`,
+    DAY_ONE_LESSON_ACTIVITY_TITLES[activityId],
     "lesson",
     ["required", "revisitable"],
     { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId } },
     [activityId],
-    { audio: activityId.includes("write") || activityId.includes("doodle") ? "none" : "learning-audio", visual: "interactive" },
+    { audio: "learning-audio", visual: "interactive" },
     `Attempt, support, and completion evidence persist for ${activityId}.`,
-    `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`
+    `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
+    [],
+    activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -39670,7 +40087,9 @@ ${spelling}`);
       ["game:lesson-zero-vowel-listening-bingo"],
       { audio: "learning-audio", visual: "interactive" },
       "Each heard choice and confusion pair can seed review.",
-      "A full randomized board is playable with deterministic audio and no answer-first cue."
+      "A full randomized board is playable with deterministic audio and no answer-first cue.",
+      [],
+      VERIFIED_REPEATABLE_GAME_DELIVERY
     ),
     entry$P(
       "day:1:game:kana-trace",
@@ -41970,6 +42389,9 @@ ${spelling}`);
     if (value.lessonZeroVowelProgress !== void 0 && !lessonZeroVowelSessionSnapshotShapeIsValid(value.lessonZeroVowelProgress)) {
       throw new TypeError("Academy checkpoint has invalid Lesson Zero vowel progress.");
     }
+    if (value.lessonZeroVowelWritingProgress !== void 0 && !lessonZeroVowelWritingSessionSnapshotShapeIsValid(value.lessonZeroVowelWritingProgress)) {
+      throw new TypeError("Academy checkpoint has invalid Lesson Zero vowel-writing progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -42621,6 +43043,7 @@ ${spelling}`);
         ...checkpoint.classroomInstructionProgress ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress } : {},
         ...checkpoint.lessonZeroGreetingProgress ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress } : {},
         ...checkpoint.lessonZeroVowelProgress ? { lessonZeroVowelProgress: checkpoint.lessonZeroVowelProgress } : {},
+        ...checkpoint.lessonZeroVowelWritingProgress ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress } : {},
         updatedAt: now
       };
     }
@@ -252116,7 +252539,7 @@ ${spelling}`);
     if (!value) throw new Error(`Missing Lesson 0 proof value: ${String(key2)}`);
     return value;
   }
-  const COPY$4 = {
+  const COPY$5 = {
     progress: { en: "Progress", ja: "進み具合" },
     question: { en: "Question", ja: "問題" },
     audioUnavailable: {
@@ -252435,7 +252858,7 @@ ${spelling}`);
           const action2 = element("button", "academy-button academy-authored-week-next");
           action2.type = "button";
           action2.textContent = localized$2(
-            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$4.finish : COPY$4.next,
+            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$5.finish : COPY$5.next,
             options.language
           );
           action2.addEventListener("click", advance, { signal: lifecycle.signal, once: true });
@@ -252533,7 +252956,7 @@ ${spelling}`);
       complete.dataset.weekComplete = "true";
       complete.dataset.repairedCount = String(repairedActivityIds.size);
       complete.tabIndex = -1;
-      complete.append(bilingualParagraph(COPY$4.complete, "academy-success-note"));
+      complete.append(bilingualParagraph(COPY$5.complete, "academy-success-note"));
       if (repairedActivityIds.size) {
         complete.append(bilingualParagraph(
           repairSummary(repairedActivityIds.size),
@@ -252662,8 +253085,8 @@ ${spelling}`);
     root.dataset.activityId = activity2.id;
     const count2 = element("p", "academy-eyebrow");
     count2.append(
-      japanese(`${COPY$4.question.ja} ${index + 1} / ${total}`),
-      support(`${COPY$4.question.en} ${index + 1} of ${total}`)
+      japanese(`${COPY$5.question.ja} ${index + 1} / ${total}`),
+      support(`${COPY$5.question.en} ${index + 1} of ${total}`)
     );
     const heading = element("h1", "academy-authored-week-prompt");
     heading.id = `academy-authored-prompt-${index}`;
@@ -252734,7 +253157,7 @@ ${spelling}`);
       } catch {
         committed = false;
         setActivityControlsDisabled(choices2, false);
-        feedback2.replaceChildren(bilingualParagraph(COPY$4.evaluationError, "academy-field-error"));
+        feedback2.replaceChildren(bilingualParagraph(COPY$5.evaluationError, "academy-field-error"));
         feedback2.setAttribute("role", "alert");
         control2.focus();
         return;
@@ -252770,7 +253193,7 @@ ${spelling}`);
         action2.type = "button";
         const isPass = evaluation.result.outcome === "pass";
         action2.textContent = localized$2(
-          isPass ? index === total - 1 && !actions.hasExtension ? COPY$4.finish : COPY$4.next : COPY$4.retry,
+          isPass ? index === total - 1 && !actions.hasExtension ? COPY$5.finish : COPY$5.next : COPY$5.retry,
           actions.language
         );
         action2.addEventListener("click", isPass ? actions.onAdvance : actions.onRetry, { signal: actions.signal });
@@ -253037,9 +253460,9 @@ ${spelling}`);
   function showFeedback(root, evaluation, language, activityId, repaired) {
     const { result: result2 } = evaluation;
     root.setAttribute("role", "status");
-    const summary = result2.outcome === "pass" ? COPY$4.pass : COPY$4.lapse;
+    const summary = result2.outcome === "pass" ? COPY$5.pass : COPY$5.lapse;
     root.replaceChildren(bilingualParagraph(summary, "academy-authored-week-feedback-summary"));
-    if (repaired) root.append(bilingualParagraph(COPY$4.repaired, "academy-authored-week-repair-win"));
+    if (repaired) root.append(bilingualParagraph(COPY$5.repaired, "academy-authored-week-repair-win"));
     root.append(bilingualParagraph(result2.feedback.explanation, "academy-feedback-explanation"));
     if (result2.outcome === "lapse") appendProgressiveFeedback(root, result2.feedback, { language, activityId });
   }
@@ -253070,12 +253493,12 @@ ${spelling}`);
   }
   function progressBlock(total) {
     const root = element("section", "academy-authored-week-progress");
-    const label = bilingualParagraph(COPY$4.progress, "academy-authored-week-progress-label");
+    const label = bilingualParagraph(COPY$5.progress, "academy-authored-week-progress-label");
     const value = element("strong", "academy-authored-week-progress-value");
     const meter = document.createElement("progress");
     meter.className = "academy-authored-week-meter";
     meter.max = total;
-    meter.setAttribute("aria-label", `${COPY$4.progress.ja} / ${COPY$4.progress.en}`);
+    meter.setAttribute("aria-label", `${COPY$5.progress.ja} / ${COPY$5.progress.en}`);
     const update = (completed) => {
       value.textContent = `${completed} / ${total}`;
       meter.value = completed;
@@ -253089,7 +253512,7 @@ ${spelling}`);
     const state = element("section", "academy-source-record academy-authored-week-audio");
     state.dataset.audioStatus = "unavailable";
     state.setAttribute("role", "status");
-    state.append(bilingualParagraph(COPY$4.audioUnavailable, "academy-authored-week-audio-copy"));
+    state.append(bilingualParagraph(COPY$5.audioUnavailable, "academy-authored-week-audio-copy"));
     return state;
   }
   function moveChoiceFocus$1(event, root) {
@@ -253827,7 +254250,7 @@ ${spelling}`);
       }]
     };
   }
-  const COPY$3 = {
+  const COPY$4 = {
     session: { en: "Classroom language", ja: "教室のことば" },
     guide: {
       en: "Read the moment, then answer Rie in Japanese. You can leave and resume at any time.",
@@ -253876,7 +254299,7 @@ ${spelling}`);
     const guideCopy = element("div", "academy-classroom-expression-guide-copy");
     const guideName = element("strong", "academy-classroom-expression-guide-name");
     guideName.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    const guideLine = localizedParagraph$1(COPY$3.guide, options.language, "academy-classroom-expression-guide-line");
+    const guideLine = localizedParagraph$1(COPY$4.guide, options.language, "academy-classroom-expression-guide-line");
     guideCopy.append(guideName, guideLine);
     guide.append(guidePortrait, guideCopy);
     const workspace = element("main", "academy-classroom-expression-workspace");
@@ -253889,7 +254312,7 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const headingGroup = element("div", "academy-classroom-expression-heading-group");
     const eyebrow = element("p", "academy-classroom-expression-eyebrow");
-    eyebrow.textContent = COPY$3.session[options.language];
+    eyebrow.textContent = COPY$4.session[options.language];
     const title2 = element("h1", "academy-classroom-expression-title");
     title2.tabIndex = -1;
     headingGroup.append(eyebrow, title2);
@@ -253959,11 +254382,11 @@ ${spelling}`);
     const renderPrompt2 = (view, signal) => {
       const teaching2 = element("section", "academy-classroom-expression-teaching");
       const teachingLabel = element("h2", "academy-classroom-expression-section-label");
-      teachingLabel.textContent = COPY$3.before[options.language];
+      teachingLabel.textContent = COPY$4.before[options.language];
       const explanation2 = bilingual(view.preAssessmentTeaching.explanation, "academy-classroom-expression-explanation");
       const example = element("div", "academy-classroom-expression-example");
       const exampleLabel = element("strong", "academy-classroom-expression-example-label");
-      exampleLabel.textContent = COPY$3.example[options.language];
+      exampleLabel.textContent = COPY$4.example[options.language];
       const context2 = bilingual(view.preAssessmentTeaching.workedExample.context, "academy-classroom-expression-example-context");
       const japanese2 = element("p", "academy-classroom-expression-example-japanese");
       japanese2.lang = "ja";
@@ -253973,14 +254396,14 @@ ${spelling}`);
       const meaning = bilingual(view.preAssessmentTeaching.workedExample.meaning, "academy-classroom-expression-example-meaning");
       const hear = element("button", "academy-button academy-classroom-expression-hear");
       hear.type = "button";
-      hear.textContent = `▶ ${COPY$3.hear[options.language]}`;
+      hear.textContent = `▶ ${COPY$4.hear[options.language]}`;
       const audioError = element("p", "academy-classroom-expression-audio-error");
       audioError.setAttribute("role", "alert");
       hear.addEventListener("click", () => {
         playback?.dispose();
         playback = null;
         hear.disabled = true;
-        hear.textContent = COPY$3.hearing[options.language];
+        hear.textContent = COPY$4.hearing[options.language];
         audioError.textContent = "";
         void options.pronunciation.play(
           view.preAssessmentTeaching.workedExample.japanese,
@@ -253989,11 +254412,11 @@ ${spelling}`);
           if (disposed) active.dispose();
           else playback = active;
         }).catch(() => {
-          if (!disposed) audioError.textContent = COPY$3.audioError[options.language];
+          if (!disposed) audioError.textContent = COPY$4.audioError[options.language];
         }).finally(() => {
           if (!disposed) {
             hear.disabled = false;
-            hear.textContent = `▶ ${COPY$3.hear[options.language]}`;
+            hear.textContent = `▶ ${COPY$4.hear[options.language]}`;
           }
         });
       }, { signal });
@@ -254001,7 +254424,7 @@ ${spelling}`);
       teaching2.append(teachingLabel, explanation2, example);
       const turn2 = element("section", "academy-classroom-expression-turn");
       const turnLabel = element("h2", "academy-classroom-expression-section-label");
-      turnLabel.textContent = COPY$3.yourTurn[options.language];
+      turnLabel.textContent = COPY$4.yourTurn[options.language];
       const prompt2 = bilingual(view.prompt, "academy-classroom-expression-prompt");
       const form2 = element("form", "academy-classroom-expression-form");
       const label = element("label", "academy-classroom-expression-input-label");
@@ -254013,12 +254436,12 @@ ${spelling}`);
       input2.lang = "ja";
       input2.autocomplete = "off";
       input2.spellcheck = false;
-      input2.placeholder = COPY$3.placeholder[options.language];
+      input2.placeholder = COPY$4.placeholder[options.language];
       input2.required = true;
       input2.dataset.jpdbReaderSurfaceIgnore = "";
       const submit2 = element("button", "academy-button academy-button-primary academy-classroom-expression-submit");
       submit2.type = "submit";
-      submit2.textContent = COPY$3.submit[options.language];
+      submit2.textContent = COPY$4.submit[options.language];
       const error = element("p", "academy-classroom-expression-error");
       error.setAttribute("role", "alert");
       form2.append(label, input2, submit2, error);
@@ -254046,7 +254469,7 @@ ${spelling}`);
       if (repair.modelAnswer) {
         const model2 = element("p", "academy-classroom-expression-model");
         const label = element("span", "academy-classroom-expression-model-label");
-        label.textContent = COPY$3.model[options.language];
+        label.textContent = COPY$4.model[options.language];
         const answer2 = element("strong", "academy-classroom-expression-model-answer");
         answer2.lang = "ja";
         answer2.textContent = repair.modelAnswer;
@@ -254055,7 +254478,7 @@ ${spelling}`);
       } else {
         const reveal = element("button", "academy-button academy-button-secondary academy-classroom-expression-reveal");
         reveal.type = "button";
-        reveal.textContent = COPY$3.reveal[options.language];
+        reveal.textContent = COPY$4.reveal[options.language];
         reveal.addEventListener("click", () => void dispatch({ kind: "reveal-model" }), { signal });
         panel.append(reveal);
       }
@@ -254069,7 +254492,7 @@ ${spelling}`);
       mark.textContent = "✓";
       mark.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-result-title");
-      heading.textContent = COPY$3.pass[options.language];
+      heading.textContent = COPY$4.pass[options.language];
       const answer2 = element("p", "academy-classroom-expression-result-answer");
       answer2.lang = "ja";
       answer2.dataset.yomuRuntimeSurface = "academy-classroom-expression-result";
@@ -254079,13 +254502,13 @@ ${spelling}`);
       if (notice.activityCompleted) {
         const done = element("button", "academy-button academy-button-primary");
         done.type = "button";
-        done.textContent = COPY$3.return[options.language];
+        done.textContent = COPY$4.return[options.language];
         done.addEventListener("click", () => void notify$2(options.onBack), { signal });
         actions.append(done);
       } else {
         const next = element("button", "academy-button academy-button-primary");
         next.type = "button";
-        next.textContent = COPY$3.next[options.language];
+        next.textContent = COPY$4.next[options.language];
         next.addEventListener("click", () => {
           passNotice = null;
           render2();
@@ -254103,16 +254526,16 @@ ${spelling}`);
       seal.lang = "ja";
       seal.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-complete-title");
-      heading.textContent = COPY$3.complete[options.language];
-      const copy2 = localizedParagraph$1(COPY$3.completeBody, options.language, "academy-classroom-expression-complete-copy");
+      heading.textContent = COPY$4.complete[options.language];
+      const copy2 = localizedParagraph$1(COPY$4.completeBody, options.language, "academy-classroom-expression-complete-copy");
       const actions = element("div", "academy-classroom-expression-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
-      done.textContent = COPY$3.return[options.language];
+      done.textContent = COPY$4.return[options.language];
       done.addEventListener("click", () => void notify$2(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY$3.practiceAgain[options.language];
+      again.textContent = COPY$4.practiceAgain[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       root.append(seal, heading, copy2, actions);
@@ -254123,7 +254546,7 @@ ${spelling}`);
       const footer = element("footer", "academy-classroom-expression-footer");
       const pause = element("button", "academy-button academy-classroom-expression-pause");
       pause.type = "button";
-      pause.textContent = COPY$3.pause[options.language];
+      pause.textContent = COPY$4.pause[options.language];
       pause.addEventListener("click", () => void pauseAndLeave(), { signal });
       footer.append(pause);
       return footer;
@@ -254147,7 +254570,7 @@ ${spelling}`);
         }
         render2();
       } catch {
-        error.textContent = COPY$3.saveError[options.language];
+        error.textContent = COPY$4.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -254165,7 +254588,7 @@ ${spelling}`);
         passNotice = null;
         render2();
       } catch {
-        live.textContent = COPY$3.saveError[options.language];
+        live.textContent = COPY$4.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -254243,7 +254666,7 @@ ${spelling}`);
   async function notify$2(callback2) {
     await callback2();
   }
-  const COPY$2 = {
+  const COPY$3 = {
     eyebrow: { en: "Listening rehearsal", ja: "聞いて動く練習" },
     title: { en: "Make the classroom respond", ja: "教室を動かそう" },
     ready: {
@@ -254295,9 +254718,9 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const heading = element("div", "academy-classroom-instruction-heading");
     const eyebrow = element("p", "academy-classroom-instruction-eyebrow");
-    eyebrow.textContent = COPY$2.eyebrow[options.language];
+    eyebrow.textContent = COPY$3.eyebrow[options.language];
     const title2 = element("h1", "academy-classroom-instruction-title");
-    title2.textContent = COPY$2.title[options.language];
+    title2.textContent = COPY$3.title[options.language];
     heading.append(eyebrow, title2);
     const progress2 = element("p", "academy-classroom-instruction-progress");
     progress2.setAttribute("role", "status");
@@ -254335,15 +254758,15 @@ ${spelling}`);
       const intro = element("section", "academy-classroom-instruction-intro");
       const portrait = riePortrait$1("academy-classroom-instruction-intro-portrait");
       const copy2 = element("div", "academy-classroom-instruction-intro-copy");
-      const line2 = localizedParagraph(COPY$2.ready, options.language, "academy-classroom-instruction-intro-line");
+      const line2 = localizedParagraph(COPY$3.ready, options.language, "academy-classroom-instruction-intro-line");
       const patterns = element("div", "academy-classroom-instruction-patterns");
       patterns.append(
-        patternStrip("皆", COPY$2.sharedPattern, options.language),
-        patternStrip("手", COPY$2.requestPattern, options.language)
+        patternStrip("皆", COPY$3.sharedPattern, options.language),
+        patternStrip("手", COPY$3.requestPattern, options.language)
       );
       const start = element("button", "academy-button academy-button-primary academy-classroom-instruction-start");
       start.type = "button";
-      start.textContent = COPY$2.start[options.language];
+      start.textContent = COPY$3.start[options.language];
       start.addEventListener("click", () => void begin(), { signal });
       copy2.append(line2, patterns, start);
       intro.append(portrait, copy2);
@@ -254364,10 +254787,10 @@ ${spelling}`);
       const dialogue2 = element("div", "academy-classroom-instruction-dialogue");
       const name = element("strong", "academy-classroom-instruction-name");
       name.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-      const line2 = localizedParagraph(COPY$2.listen, options.language, "academy-classroom-instruction-line");
+      const line2 = localizedParagraph(COPY$3.listen, options.language, "academy-classroom-instruction-line");
       const replay2 = element("button", "academy-button academy-classroom-instruction-replay");
       replay2.type = "button";
-      replay2.textContent = `▶ ${COPY$2.replay[options.language]}`;
+      replay2.textContent = `▶ ${COPY$3.replay[options.language]}`;
       replay2.addEventListener("click", () => void playCurrent(replay2), { signal });
       dialogue2.append(name, line2, replay2);
       prompt2.append(portrait, dialogue2);
@@ -254395,7 +254818,7 @@ ${spelling}`);
     const actionRail = (cue, signal) => {
       const rail = element("div", "academy-classroom-instruction-actions");
       rail.setAttribute("role", "group");
-      rail.setAttribute("aria-label", COPY$2.actions[options.language]);
+      rail.setAttribute("aria-label", COPY$3.actions[options.language]);
       for (const action2 of CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS) {
         const button2 = element("button", "academy-classroom-instruction-action");
         button2.type = "button";
@@ -254418,14 +254841,14 @@ ${spelling}`);
       root.append(roomStage(result2.chosen.actionId));
       const paper = element("div", "academy-classroom-instruction-feedback-paper");
       const heading2 = element("h2", "academy-classroom-instruction-feedback-title");
-      heading2.textContent = (result2.outcome === "pass" ? COPY$2.correct : COPY$2.incorrect)[options.language];
+      heading2.textContent = (result2.outcome === "pass" ? COPY$3.correct : COPY$3.incorrect)[options.language];
       const reaction = localizedParagraph(
         result2.chosen.roomReaction,
         options.language,
         "academy-classroom-instruction-reaction"
       );
       const heardLabel = element("span", "academy-classroom-instruction-heard-label");
-      heardLabel.textContent = COPY$2.heard[options.language];
+      heardLabel.textContent = COPY$3.heard[options.language];
       const japanese2 = element("p", "academy-classroom-instruction-heard-japanese");
       japanese2.lang = "ja";
       japanese2.dataset.yomuRuntimeSurface = "academy-classroom-instruction-feedback";
@@ -254439,10 +254862,10 @@ ${spelling}`);
       const action2 = element("button", "academy-button academy-button-primary academy-classroom-instruction-continue");
       action2.type = "button";
       if (result2.outcome === "lapse") {
-        action2.textContent = COPY$2.retry[options.language];
+        action2.textContent = COPY$3.retry[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndPlay(), { signal });
       } else {
-        action2.textContent = (state.status === "complete" ? COPY$2.finish : COPY$2.next)[options.language];
+        action2.textContent = (state.status === "complete" ? COPY$3.finish : COPY$3.next)[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndContinue(), { signal });
       }
       paper.append(heading2, reaction, heardLabel, japanese2, meaning, action2);
@@ -254459,16 +254882,16 @@ ${spelling}`);
       seal.textContent = "聴";
       seal.setAttribute("aria-hidden", "true");
       const heading2 = element("h2", "academy-classroom-instruction-complete-title");
-      heading2.textContent = COPY$2.complete[options.language];
-      const line2 = localizedParagraph(COPY$2.completeBody, options.language, "academy-classroom-instruction-complete-line");
+      heading2.textContent = COPY$3.complete[options.language];
+      const line2 = localizedParagraph(COPY$3.completeBody, options.language, "academy-classroom-instruction-complete-line");
       const actions = element("div", "academy-classroom-instruction-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
-      done.textContent = COPY$2.return[options.language];
+      done.textContent = COPY$3.return[options.language];
       done.addEventListener("click", () => void notify$1(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY$2.again[options.language];
+      again.textContent = COPY$3.again[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       copy2.append(seal, heading2, line2, actions);
@@ -254480,7 +254903,7 @@ ${spelling}`);
       const footer = element("footer", "academy-classroom-instruction-footer");
       const pause = element("button", "academy-button academy-classroom-instruction-pause");
       pause.type = "button";
-      pause.textContent = COPY$2.pause[options.language];
+      pause.textContent = COPY$3.pause[options.language];
       pause.addEventListener("click", () => void pauseAndLeave(), { signal });
       footer.append(pause);
       return footer;
@@ -254501,7 +254924,7 @@ ${spelling}`);
         render2();
         await playCurrent();
       } catch {
-        live.textContent = COPY$2.saveError[options.language];
+        live.textContent = COPY$3.saveError[options.language];
       } finally {
         busy = false;
       }
@@ -254524,7 +254947,7 @@ ${spelling}`);
         feedback2 = { cue, chosen: action2, outcome: transition.evaluation.result.outcome };
         render2();
       } catch {
-        live.textContent = COPY$2.saveError[options.language];
+        live.textContent = COPY$3.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -254537,18 +254960,18 @@ ${spelling}`);
       playback = null;
       if (control2) {
         control2.disabled = true;
-        control2.textContent = COPY$2.playing[options.language];
+        control2.textContent = COPY$3.playing[options.language];
       }
       try {
         const active = await options.pronunciation.play(cue.japanese, cue.reading);
         if (disposed) active.dispose();
         else playback = active;
       } catch {
-        if (!disposed) live.textContent = COPY$2.audioError[options.language];
+        if (!disposed) live.textContent = COPY$3.audioError[options.language];
       } finally {
         if (control2 && !disposed) {
           control2.disabled = false;
-          control2.textContent = `▶ ${COPY$2.replay[options.language]}`;
+          control2.textContent = `▶ ${COPY$3.replay[options.language]}`;
         }
       }
     };
@@ -254740,7 +255163,7 @@ ${spelling}`);
   function stopTracks(stream) {
     for (const track2 of stream.getTracks()) track2.stop();
   }
-  const COPY$1 = {
+  const COPY$2 = {
     eyebrow: { en: "Your first hello", ja: "最初のあいさつ" },
     title: { en: "Step into the room", ja: "教室に入ろう" },
     progressReady: { en: "Meet Rie", ja: "りえ先生に会う" },
@@ -254853,8 +255276,8 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const heading = element("div", "academy-greeting-heading");
     heading.append(
-      localized$1("p", "academy-greeting-eyebrow", COPY$1.eyebrow, options.language),
-      localized$1("h1", "academy-greeting-title", COPY$1.title, options.language)
+      localized$1("p", "academy-greeting-eyebrow", COPY$2.eyebrow, options.language),
+      localized$1("h1", "academy-greeting-title", COPY$2.title, options.language)
     );
     const progress2 = element("p", "academy-greeting-progress");
     progress2.setAttribute("role", "status");
@@ -254891,11 +255314,11 @@ ${spelling}`);
       const paper = livingPaper("academy-greeting-welcome-paper");
       paper.append(
         speakerName(options.language),
-        localized$1("p", "academy-greeting-dialogue", COPY$1.welcome, options.language),
-        localized$1("p", "academy-greeting-reason", COPY$1.reason, options.language)
+        localized$1("p", "academy-greeting-dialogue", COPY$2.welcome, options.language),
+        localized$1("p", "academy-greeting-reason", COPY$2.reason, options.language)
       );
       const actions = element("div", "academy-greeting-actions");
-      actions.append(modelAudioButton(signal), actionButton$3(COPY$1.begin, "primary", signal, () => apply({ kind: "start" }), options.language));
+      actions.append(modelAudioButton(signal), actionButton$3(COPY$2.begin, "primary", signal, () => apply({ kind: "start" }), options.language));
       paper.append(actions);
       scene2.append(portrait, paper);
       body.append(scene2);
@@ -254904,15 +255327,15 @@ ${spelling}`);
       const root = element("section", "academy-greeting-arrange");
       const paper = livingPaper("academy-greeting-arrange-paper");
       paper.append(
-        localized$1("h2", "academy-greeting-section-title", COPY$1.arrangeTitle, options.language),
-        localized$1("p", "academy-greeting-section-copy", COPY$1.arrangeBody, options.language)
+        localized$1("h2", "academy-greeting-section-title", COPY$2.arrangeTitle, options.language),
+        localized$1("p", "academy-greeting-section-copy", COPY$2.arrangeBody, options.language)
       );
       const selected2 = element("section", "academy-greeting-sequence");
-      selected2.setAttribute("aria-label", COPY$1.yourGreeting[options.language]);
-      selected2.append(localized$1("h3", "academy-greeting-small-title", COPY$1.yourGreeting, options.language));
+      selected2.setAttribute("aria-label", COPY$2.yourGreeting[options.language]);
+      selected2.append(localized$1("h3", "academy-greeting-small-title", COPY$2.yourGreeting, options.language));
       const selectedRail = element("div", "academy-greeting-selected-rail");
       if (state.selectedChunkIds.length === 0) {
-        selectedRail.append(localized$1("p", "academy-greeting-empty", COPY$1.emptySequence, options.language));
+        selectedRail.append(localized$1("p", "academy-greeting-empty", COPY$2.emptySequence, options.language));
       } else {
         state.selectedChunkIds.forEach((id2, index) => {
           const chunk2 = findChunk(id2);
@@ -254924,8 +255347,8 @@ ${spelling}`);
       }
       selected2.append(selectedRail);
       const desk = element("section", "academy-greeting-phrase-desk");
-      desk.setAttribute("aria-label", COPY$1.phraseDesk[options.language]);
-      desk.append(localized$1("h3", "academy-greeting-small-title", COPY$1.phraseDesk, options.language));
+      desk.setAttribute("aria-label", COPY$2.phraseDesk[options.language]);
+      desk.append(localized$1("h3", "academy-greeting-small-title", COPY$2.phraseDesk, options.language));
       const bank = element("div", "academy-greeting-phrase-bank");
       SCRAMBLED_CHUNK_ORDER.forEach((id2) => {
         if (state.selectedChunkIds.includes(id2)) return;
@@ -254939,7 +255362,7 @@ ${spelling}`);
         const feedback2 = localized$1(
           "p",
           "academy-greeting-arrangement-feedback",
-          arrangementMessage === "right" ? COPY$1.orderRight : COPY$1.orderWrong,
+          arrangementMessage === "right" ? COPY$2.orderRight : COPY$2.orderWrong,
           options.language
         );
         feedback2.dataset.outcome = arrangementMessage === "right" ? "pass" : "lapse";
@@ -254948,7 +255371,7 @@ ${spelling}`);
       } else {
         paper.append(selected2, desk);
       }
-      const check2 = actionButton$3(COPY$1.checkOrder, "primary", signal, checkArrangement, options.language);
+      const check2 = actionButton$3(COPY$2.checkOrder, "primary", signal, checkArrangement, options.language);
       check2.disabled = state.selectedChunkIds.length !== options.definition.chunks.length;
       paper.append(check2);
       root.append(paper, riePortrait("academy-greeting-arrange-portrait"));
@@ -254960,7 +255383,7 @@ ${spelling}`);
       const paper = livingPaper("academy-greeting-rehearse-paper");
       paper.append(
         speakerName(options.language),
-        localized$1("h2", "academy-greeting-section-title", COPY$1.rehearseLine, options.language)
+        localized$1("h2", "academy-greeting-section-title", COPY$2.rehearseLine, options.language)
       );
       const lastAttempt = state.attempts.at(-1);
       if (lastAttempt?.outcome === "lapse") paper.append(repairSheet(signal));
@@ -254973,12 +255396,12 @@ ${spelling}`);
     };
     const modeChooser = (signal) => {
       const chooser = element("fieldset", "academy-greeting-mode-chooser");
-      const legend2 = localized$1("legend", "academy-greeting-small-title", COPY$1.chooseWay, options.language);
+      const legend2 = localized$1("legend", "academy-greeting-small-title", COPY$2.chooseWay, options.language);
       chooser.append(legend2);
       const modes = [
-        ["recorded", COPY$1.record, COPY$1.recordDetail],
-        ["unrecorded", COPY$1.speak, COPY$1.speakDetail],
-        ["typed", COPY$1.type, COPY$1.typeDetail]
+        ["recorded", COPY$2.record, COPY$2.recordDetail],
+        ["unrecorded", COPY$2.speak, COPY$2.speakDetail],
+        ["typed", COPY$2.type, COPY$2.typeDetail]
       ];
       modes.forEach(([mode, labelCopy, detailCopy]) => {
         if (mode === "recorded" && !recorder.supported) return;
@@ -254992,38 +255415,38 @@ ${spelling}`);
         chooser.append(button2);
       });
       if (!recorder.supported) {
-        chooser.append(localized$1("p", "academy-greeting-recorder-note", COPY$1.recorderUnavailable, options.language));
+        chooser.append(localized$1("p", "academy-greeting-recorder-note", COPY$2.recorderUnavailable, options.language));
       }
       return chooser;
     };
     const recordedRehearsal = (signal) => {
       const root = element("section", "academy-greeting-recording");
-      root.append(localized$1("p", "academy-greeting-privacy", COPY$1.privacy, options.language));
+      root.append(localized$1("p", "academy-greeting-privacy", COPY$2.privacy, options.language));
       if (capture) {
         root.append(
-          localized$1("p", "academy-greeting-recording-status", COPY$1.recording, options.language),
-          actionButton$3(COPY$1.stopRecording, "record", signal, stopRecording, options.language)
+          localized$1("p", "academy-greeting-recording-status", COPY$2.recording, options.language),
+          actionButton$3(COPY$2.stopRecording, "record", signal, stopRecording, options.language)
         );
         return root;
       }
       if (!recording) {
-        root.append(actionButton$3(COPY$1.startRecording, "record", signal, startRecording, options.language));
+        root.append(actionButton$3(COPY$2.startRecording, "record", signal, startRecording, options.language));
         root.append(modeSwitch(signal));
         return root;
       }
-      const label = localized$1("p", "academy-greeting-audio-label", COPY$1.recorded, options.language);
+      const label = localized$1("p", "academy-greeting-audio-label", COPY$2.recorded, options.language);
       const audio2 = element("audio", "academy-greeting-take");
       audio2.controls = true;
       audio2.preload = "metadata";
       audio2.src = recording.url;
-      const another = actionButton$3(COPY$1.anotherTake, "secondary", signal, startRecording, options.language);
+      const another = actionButton$3(COPY$2.anotherTake, "secondary", signal, startRecording, options.language);
       root.append(label, audio2, another, selfCheck(signal), modeSwitch(signal));
       return root;
     };
     const unrecordedRehearsal = (signal) => {
       const root = element("section", "academy-greeting-unrecorded");
       root.append(modelAudioButton(signal));
-      if (!selfCheckOpen) root.append(actionButton$3(COPY$1.saidIt, "primary", signal, () => {
+      if (!selfCheckOpen) root.append(actionButton$3(COPY$2.saidIt, "primary", signal, () => {
         selfCheckOpen = true;
         render2();
       }, options.language));
@@ -255033,7 +255456,7 @@ ${spelling}`);
     };
     const typedRehearsal = (signal) => {
       const root = element("form", "academy-greeting-typed");
-      const label = localized$1("label", "academy-greeting-type-label", COPY$1.typeLabel, options.language);
+      const label = localized$1("label", "academy-greeting-type-label", COPY$2.typeLabel, options.language);
       label.htmlFor = "academy-greeting-response";
       const input2 = element("textarea", "academy-greeting-type-input");
       input2.id = "academy-greeting-response";
@@ -255041,8 +255464,8 @@ ${spelling}`);
       input2.rows = 4;
       input2.autocomplete = "off";
       input2.spellcheck = false;
-      input2.placeholder = COPY$1.typePlaceholder[options.language];
-      const submit2 = actionButton$3(COPY$1.submitTyped, "primary", signal, () => void 0, options.language);
+      input2.placeholder = COPY$2.typePlaceholder[options.language];
+      const submit2 = actionButton$3(COPY$2.submitTyped, "primary", signal, () => void 0, options.language);
       submit2.type = "submit";
       root.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -255054,10 +255477,10 @@ ${spelling}`);
     };
     const selfCheck = (signal) => {
       const fieldset = element("fieldset", "academy-greeting-self-check");
-      fieldset.append(localized$1("legend", "academy-greeting-small-title", COPY$1.selfCheckTitle, options.language));
-      const order2 = checkRow("greeting-order", COPY$1.checkOrderLabel, options.language);
-      const name = checkRow("name-intelligible", COPY$1.checkNameLabel, options.language);
-      const submit2 = actionButton$3(COPY$1.commitCheck, "primary", signal, () => void apply({
+      fieldset.append(localized$1("legend", "academy-greeting-small-title", COPY$2.selfCheckTitle, options.language));
+      const order2 = checkRow("greeting-order", COPY$2.checkOrderLabel, options.language);
+      const name = checkRow("name-intelligible", COPY$2.checkNameLabel, options.language);
+      const submit2 = actionButton$3(COPY$2.commitCheck, "primary", signal, () => void apply({
         kind: "submit-self-check",
         greetingOrder: order2.input.checked,
         nameIntelligible: name.input.checked
@@ -255068,9 +255491,9 @@ ${spelling}`);
     const repairSheet = (signal) => {
       const repair = element("aside", "academy-greeting-repair");
       repair.append(
-        localized$1("h3", "academy-greeting-repair-title", COPY$1.repairTitle, options.language),
-        localized$1("p", "academy-greeting-repair-copy", COPY$1.repairBody, options.language),
-        localized$1("span", "academy-greeting-model-label", COPY$1.modelLabel, options.language)
+        localized$1("h3", "academy-greeting-repair-title", COPY$2.repairTitle, options.language),
+        localized$1("p", "academy-greeting-repair-copy", COPY$2.repairBody, options.language),
+        localized$1("span", "academy-greeting-model-label", COPY$2.modelLabel, options.language)
       );
       const model2 = element("p", "academy-greeting-model-japanese");
       model2.lang = "ja";
@@ -255097,8 +255520,8 @@ ${spelling}`);
       const title2 = element("h2", "academy-greeting-complete-title");
       title2.textContent = options.language === "ja" ? `${options.definition.learnerName}さん、こんばんは。` : `Good evening, ${options.definition.learnerName}.`;
       const memories = element("div", "academy-greeting-review-strip");
-      memories.setAttribute("aria-label", COPY$1.reviewTitle[options.language]);
-      memories.append(localized$1("h3", "academy-greeting-small-title", COPY$1.reviewTitle, options.language));
+      memories.setAttribute("aria-label", COPY$2.reviewTitle[options.language]);
+      memories.append(localized$1("h3", "academy-greeting-small-title", COPY$2.reviewTitle, options.language));
       options.definition.chunks.forEach((chunk2) => {
         const phrase = element("span", "academy-greeting-review-phrase");
         phrase.lang = "ja";
@@ -255109,20 +255532,20 @@ ${spelling}`);
       });
       const actions = element("div", "academy-greeting-actions");
       actions.append(
-        actionButton$3(COPY$1.return, "primary", signal, () => notify(options.onComplete), options.language),
-        actionButton$3(COPY$1.again, "secondary", signal, restart, options.language)
+        actionButton$3(COPY$2.return, "primary", signal, () => notify(options.onComplete), options.language),
+        actionButton$3(COPY$2.again, "secondary", signal, restart, options.language)
       );
-      paper.append(seal, title2, localized$1("p", "academy-greeting-complete-line", COPY$1.completeLine, options.language), memories, actions);
+      paper.append(seal, title2, localized$1("p", "academy-greeting-complete-line", COPY$2.completeLine, options.language), memories, actions);
       root.append(portrait, paper);
       body.append(root);
     };
     const modelAudioButton = (signal) => {
-      const button2 = actionButton$3(COPY$1.hearRie, "listen", signal, () => playModel(button2), options.language);
+      const button2 = actionButton$3(COPY$2.hearRie, "listen", signal, () => playModel(button2), options.language);
       button2.dataset.audioTarget = "rie-model";
       return button2;
     };
     const modeSwitch = (signal) => actionButton$3(
-      COPY$1.switchMode,
+      COPY$2.switchMode,
       "quiet",
       signal,
       async () => {
@@ -255155,7 +255578,7 @@ ${spelling}`);
       arrangementMessage = transition.arrangementCorrect ? "right" : "wrong";
       await persist(before, transition);
       if (transition.arrangementCorrect) {
-        live.textContent = COPY$1.orderRight[options.language];
+        live.textContent = COPY$2.orderRight[options.language];
       } else render2();
     };
     const chooseMode = async (mode) => {
@@ -255184,7 +255607,7 @@ ${spelling}`);
         });
       } catch {
         capture = null;
-        recorderMessage = COPY$1.recorderUnavailable[options.language];
+        recorderMessage = COPY$2.recorderUnavailable[options.language];
         render2();
       }
     };
@@ -255194,7 +255617,7 @@ ${spelling}`);
       playback?.dispose();
       playback = null;
       button2.disabled = true;
-      button2.textContent = COPY$1.playing[options.language];
+      button2.textContent = COPY$2.playing[options.language];
       try {
         const active = await options.pronunciation.play(
           options.definition.model.japanese,
@@ -255203,11 +255626,11 @@ ${spelling}`);
         if (disposed) active.dispose();
         else playback = active;
       } catch {
-        live.textContent = COPY$1.audioError[options.language];
+        live.textContent = COPY$2.audioError[options.language];
       } finally {
         if (!disposed) {
           button2.disabled = false;
-          button2.textContent = COPY$1.hearRie[options.language];
+          button2.textContent = COPY$2.hearRie[options.language];
         }
       }
     };
@@ -255230,7 +255653,7 @@ ${spelling}`);
         }
         render2();
       } catch {
-        live.textContent = COPY$1.saveError[options.language];
+        live.textContent = COPY$2.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -255283,9 +255706,9 @@ ${spelling}`);
     };
   }
   function progressCopy(state) {
-    if (state.status === "ready") return COPY$1.progressReady;
-    if (state.status === "complete") return COPY$1.progressComplete;
-    return state.stage === "arrange" ? COPY$1.progressArrange : COPY$1.progressRehearse;
+    if (state.status === "ready") return COPY$2.progressReady;
+    if (state.status === "complete") return COPY$2.progressComplete;
+    return state.stage === "arrange" ? COPY$2.progressArrange : COPY$2.progressRehearse;
   }
   function livingPaper(className) {
     const paper = element("div", `academy-greeting-paper ${className}`);
@@ -255351,7 +255774,7 @@ ${spelling}`);
   async function notify(callback2) {
     await callback2();
   }
-  const COPY = {
+  const COPY$1 = {
     eyebrow: { en: "First sound lab", ja: "最初の音ラボ" },
     introTitle: { en: "Five sounds open the language", ja: "五つの音から、日本語が始まる" },
     introDialogue: {
@@ -255442,7 +255865,7 @@ ${spelling}`);
     back.title = back.getAttribute("aria-label") ?? "";
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const identity2 = element("div", "academy-vowel-identity");
-    identity2.append(localized("p", "academy-vowel-eyebrow", COPY.eyebrow, options.language));
+    identity2.append(localized("p", "academy-vowel-eyebrow", COPY$1.eyebrow, options.language));
     header.append(back, identity2);
     const body = element("div", "academy-vowel-body");
     const live = element("p", "academy-vowel-live");
@@ -255459,7 +255882,7 @@ ${spelling}`);
       screen.dataset.stage = state.status === "ready" ? "ready" : state.stage;
       screen.dataset.variant = state.variant;
       identity2.replaceChildren(
-        localized("p", "academy-vowel-eyebrow", COPY.eyebrow, options.language),
+        localized("p", "academy-vowel-eyebrow", COPY$1.eyebrow, options.language),
         progressLabel()
       );
       if (state.status === "ready") renderIntro(signal);
@@ -255472,10 +255895,10 @@ ${spelling}`);
       const scene2 = sceneFrame("academy-vowel-intro");
       const paper = livingPaper2("academy-vowel-intro-paper");
       paper.append(
-        localized("h1", "academy-vowel-title", COPY.introTitle, options.language),
-        dialogue2(COPY.introDialogue),
-        localized("p", "academy-vowel-copy", COPY.introReason, options.language),
-        action2(COPY.start, "primary", signal, async () => {
+        localized("h1", "academy-vowel-title", COPY$1.introTitle, options.language),
+        dialogue2(COPY$1.introDialogue),
+        localized("p", "academy-vowel-copy", COPY$1.introReason, options.language),
+        action2(COPY$1.start, "primary", signal, async () => {
           await apply({ kind: "start" });
         })
       );
@@ -255488,18 +255911,18 @@ ${spelling}`);
       const scene2 = sceneFrame("academy-vowel-learn");
       const paper = livingPaper2("academy-vowel-learn-paper");
       paper.append(
-        localized("h1", "academy-vowel-title", COPY.learnTitle, options.language),
+        localized("h1", "academy-vowel-title", COPY$1.learnTitle, options.language),
         modeSwitch(signal),
-        localized("p", "academy-vowel-access-note", COPY.accessNote, options.language),
+        localized("p", "academy-vowel-access-note", COPY$1.accessNote, options.language),
         vowelRail(learned)
       );
       if (item2) paper.append(teachingNote(item2, signal));
       else {
         const ready2 = element("div", "academy-vowel-ready");
         ready2.append(
-          localized("h2", "academy-vowel-subtitle", COPY.readyTitle, options.language),
-          dialogue2(COPY.readyBody),
-          action2(COPY.beginAttempt, "primary", signal, async () => {
+          localized("h2", "academy-vowel-subtitle", COPY$1.readyTitle, options.language),
+          dialogue2(COPY$1.readyBody),
+          action2(COPY$1.beginAttempt, "primary", signal, async () => {
             await apply({ kind: "begin-attempt" });
           })
         );
@@ -255517,7 +255940,7 @@ ${spelling}`);
       romaji.textContent = item2.romaji;
       const cue = ARTICULATION[item2.id];
       note.append(kana, romaji, localized("p", "academy-vowel-articulation", cue, options.language));
-      const label = state.mode === "audio" ? COPY.hear : COPY.studyShape;
+      const label = state.mode === "audio" ? COPY$1.hear : COPY$1.studyShape;
       note.append(action2(label, "listen", signal, async (button2) => {
         if (state.mode === "audio") {
           const played = await play(item2, button2);
@@ -255528,28 +255951,28 @@ ${spelling}`);
       return note;
     };
     const renderAttempt = (signal) => {
-      const item2 = currentItem();
+      const item2 = currentItem2();
       if (!item2) return;
       const scene2 = sceneFrame("academy-vowel-attempt");
       const paper = livingPaper2("academy-vowel-attempt-paper");
       paper.append(
-        localized("h1", "academy-vowel-title", state.variant === "bingo" ? COPY.bingoTitle : COPY.attemptTitle, options.language),
+        localized("h1", "academy-vowel-title", state.variant === "bingo" ? COPY$1.bingoTitle : COPY$1.attemptTitle, options.language),
         modeSwitch(signal),
         state.variant === "bingo" ? bingoBoard() : attemptRail()
       );
       const prompt2 = element("section", "academy-vowel-question");
       const heard = state.heardRoundIds.includes(item2.id);
       if (state.mode === "audio") {
-        prompt2.append(action2(heard ? COPY.replaySound : COPY.playSound, "listen", signal, async (button2) => {
+        prompt2.append(action2(heard ? COPY$1.replaySound : COPY$1.playSound, "listen", signal, async (button2) => {
           const played = await play(item2, button2);
           if (played && !heard) await apply({ kind: "mark-heard", roundId: item2.id });
         }));
-        if (heard) prompt2.append(localized("p", "academy-vowel-choice-instruction", COPY.chooseAfter, options.language));
+        if (heard) prompt2.append(localized("p", "academy-vowel-choice-instruction", COPY$1.chooseAfter, options.language));
       } else {
         const cue = element("div", "academy-vowel-visual-cue");
         cue.append(
-          localized("span", "academy-vowel-visual-label", COPY.visualCue, options.language),
-          localized("span", "academy-vowel-visual-copy", COPY.visualCueBody, options.language),
+          localized("span", "academy-vowel-visual-label", COPY$1.visualCue, options.language),
+          localized("span", "academy-vowel-visual-copy", COPY$1.visualCueBody, options.language),
           textNode("strong", "academy-vowel-visual-romaji", item2.romaji)
         );
         prompt2.append(cue);
@@ -255565,17 +255988,17 @@ ${spelling}`);
       const scene2 = sceneFrame("academy-vowel-repair");
       const paper = livingPaper2("academy-vowel-repair-paper");
       paper.append(
-        localized("h1", "academy-vowel-title", COPY.repairTitle, options.language),
-        dialogue2(COPY.repairDialogue),
+        localized("h1", "academy-vowel-title", COPY$1.repairTitle, options.language),
+        dialogue2(COPY$1.repairDialogue),
         modeSwitch(signal),
-        localized("p", "academy-vowel-access-note", COPY.accessNote, options.language)
+        localized("p", "academy-vowel-access-note", COPY$1.accessNote, options.language)
       );
       if (item2) {
         const repair = teachingNote(item2, signal);
         repair.classList.add("academy-vowel-repair-note");
         const oldButton = repair.querySelector("button");
         oldButton?.remove();
-        repair.append(action2(state.mode === "audio" ? COPY.hearAgain : COPY.nextSound, "listen", signal, async (button2) => {
+        repair.append(action2(state.mode === "audio" ? COPY$1.hearAgain : COPY$1.nextSound, "listen", signal, async (button2) => {
           if (state.mode === "audio") {
             const played = await play(item2, button2);
             if (!played) return;
@@ -255584,7 +256007,7 @@ ${spelling}`);
         }));
         paper.append(repair);
       } else {
-        paper.append(action2(COPY.repairReady, "primary", signal, async () => {
+        paper.append(action2(COPY$1.repairReady, "primary", signal, async () => {
           await apply({ kind: "begin-retry" });
         }));
       }
@@ -255596,18 +256019,18 @@ ${spelling}`);
       const scene2 = sceneFrame("academy-vowel-complete");
       const paper = livingPaper2("academy-vowel-complete-paper");
       paper.append(
-        localized("h1", "academy-vowel-title", bingo ? COPY.bingoCompleteTitle : COPY.lessonCompleteTitle, options.language),
-        dialogue2(bingo ? COPY.bingoCompleteDialogue : COPY.lessonCompleteDialogue),
+        localized("h1", "academy-vowel-title", bingo ? COPY$1.bingoCompleteTitle : COPY$1.lessonCompleteTitle, options.language),
+        dialogue2(bingo ? COPY$1.bingoCompleteDialogue : COPY$1.lessonCompleteDialogue),
         completedVowels()
       );
-      if (!bingo) paper.append(localized("p", "academy-vowel-review-line", COPY.reviewLine, options.language));
+      if (!bingo) paper.append(localized("p", "academy-vowel-review-line", COPY$1.reviewLine, options.language));
       const actions = element("div", "academy-vowel-complete-actions");
       actions.append(
-        action2(bingo ? COPY.playAgain : COPY.playBingo, "secondary", signal, async () => {
+        action2(bingo ? COPY$1.playAgain : COPY$1.playBingo, "secondary", signal, async () => {
           await apply({ kind: "start-bingo" });
         }),
-        action2(COPY.continue, "primary", signal, options.onComplete),
-        action2(COPY.restart, "quiet", signal, restart)
+        action2(COPY$1.continue, "primary", signal, options.onComplete),
+        action2(COPY$1.restart, "quiet", signal, restart)
       );
       paper.append(actions);
       scene2.append(xingyuPortrait("academy-vowel-complete-portrait"), paper);
@@ -255617,7 +256040,7 @@ ${spelling}`);
       const group2 = element("div", "academy-vowel-mode");
       group2.setAttribute("role", "group");
       group2.setAttribute("aria-label", options.language === "ja" ? "学習方法" : "Learning route");
-      [["audio", COPY.audioMode], ["visual", COPY.visualMode]].forEach(([mode, copy2]) => {
+      [["audio", COPY$1.audioMode], ["visual", COPY$1.visualMode]].forEach(([mode, copy2]) => {
         const button2 = action2(copy2, "mode", signal, async () => {
           await apply({ kind: "choose-mode", mode });
         });
@@ -255668,7 +256091,7 @@ ${spelling}`);
         return transition;
       } catch (error) {
         console.error("Lesson Zero vowel transition failed.", error);
-        message = COPY.saveError[options.language];
+        message = COPY$1.saveError[options.language];
         live.textContent = message;
         return void 0;
       } finally {
@@ -255682,7 +256105,7 @@ ${spelling}`);
       playback = null;
       button2.disabled = true;
       const label = button2.textContent ?? "";
-      button2.textContent = COPY.playing[options.language];
+      button2.textContent = COPY$1.playing[options.language];
       try {
         const active = await options.pronunciation.play(item2.kana, item2.kana, lifecycle.signal);
         if (disposed) active.dispose();
@@ -255690,7 +256113,7 @@ ${spelling}`);
         message = "";
         return true;
       } catch {
-        message = COPY.audioError[options.language];
+        message = COPY$1.audioError[options.language];
         live.textContent = message;
         return false;
       } finally {
@@ -255785,7 +256208,7 @@ ${spelling}`);
       const shift = [...seed].reduce((sum, character) => sum + character.charCodeAt(0), 0) % items.length;
       return [...items.slice(shift), ...items.slice(0, shift)];
     };
-    const currentItem = () => {
+    const currentItem2 = () => {
       const id2 = state.roundOrder[state.selections.length];
       return options.model.payload.items.find((item2) => item2.id === id2);
     };
@@ -255851,6 +256274,564 @@ ${spelling}`);
     return node2;
   }
   function moveChoiceFocus(event, root) {
+    if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const choices2 = [...root.querySelectorAll("button:not(:disabled)")];
+    if (!choices2.length) return;
+    const current = Math.max(0, choices2.indexOf(document.activeElement));
+    const next = event.key === "Home" ? 0 : event.key === "End" ? choices2.length - 1 : event.key === "ArrowRight" || event.key === "ArrowDown" ? (current + 1) % choices2.length : (current - 1 + choices2.length) % choices2.length;
+    event.preventDefault();
+    choices2[next].focus();
+  }
+  const COPY = {
+    eyebrow: { en: "First writing desk", ja: "最初の文字机" },
+    introTitle: { en: "Let the five sounds leave a mark", ja: "五つの音を、紙に残そう" },
+    introDialogue: {
+      en: "Rie: You already found these sounds with your ears. Now we'll give each one a shape your hand can remember.",
+      ja: "りえ：耳で見つけた五つの音に、今度は手で覚えられる形をつけましょう。"
+    },
+    introReason: {
+      en: "Writing is not a decoration here. It makes the small turns and separate strokes visible, which helps you tell similar kana apart later.",
+      ja: "ここで書くのは飾りではありません。線の曲がり方や離れ方が見えると、あとで似たかなを区別しやすくなります。"
+    },
+    start: { en: "Open the practice book", ja: "練習帳を開く" },
+    learnTitle: { en: "Meet the shape before the pen moves", ja: "書く前に、形と会う" },
+    learnDialogue: {
+      en: "Rie: Look once, say the sound, then make your own attempt. I won't put the stroke guide under your hand unless you need it.",
+      ja: "りえ：一度見て、音を言ってから、自分で書いてみましょう。必要になるまで、書き順の見本は下に置きません。"
+    },
+    drawMode: { en: "Draw it", ja: "書いて進む" },
+    planMode: { en: "Choose the stroke plan", ja: "書き順で進む" },
+    accessNote: {
+      en: "Both routes check stroke count, order, and direction. The drawing route also checks the shape you made.",
+      ja: "どちらも画数・順番・方向を確認します。書くルートでは、できた形も確認します。"
+    },
+    hear: { en: "Hear the sound", ja: "音を聞く" },
+    beginDraw: { en: "Write this kana", ja: "このかなを書く" },
+    beginPlan: { en: "Choose its stroke plan", ja: "書き順を選ぶ" },
+    drawTitle: { en: "Write it from the shape you kept", ja: "覚えた形を、書いてみよう" },
+    planTitle: { en: "How does the pen move?", ja: "ペンは、どう動きますか" },
+    drawPrompt: { en: "Lift between strokes. When it feels finished, check your mark.", ja: "一画ごとにペンを離します。書けたら、確認しましょう。" },
+    planPrompt: { en: "Choose one complete stroke plan, then check it.", ja: "書き順を一つ選んでから、確認しましょう。" },
+    clear: { en: "Clear page", ja: "消す" },
+    checkMark: { en: "Check my mark", ja: "書いた形を確認" },
+    checkPlan: { en: "Check the plan", ja: "書き順を確認" },
+    soundPlaying: { en: "Playing…", ja: "再生中…" },
+    audioError: { en: "That sound did not play. Your writing place is still saved.", ja: "音を再生できませんでした。書く場所は保存されています。" },
+    chooseFirst: { en: "Choose a stroke plan first.", ja: "先に書き順を一つ選んでください。" },
+    drawFirst: { en: "Make at least one complete stroke first.", ja: "まず一画、最後まで書いてください。" },
+    saveError: { en: "That attempt did not save. Please try it once more.", ja: "保存できませんでした。もう一度お試しください。" },
+    repairTitle: { en: "Keep the kana. Repair only the movement.", ja: "かなはそのまま。動きだけ直そう" },
+    repairDialogue: {
+      en: "Rie: Good. Now we know exactly where the pen lost the shape. Look at this one guide, then try the same kana again.",
+      ja: "りえ：大丈夫。どこで形が離れたか分かりました。この一つだけ見て、同じかなをもう一度書きましょう。"
+    },
+    practiceSheet: { en: "Rie's five-vowel practice sheet", ja: "りえの五十音練習シート" },
+    guideNote: { en: "The numbered line appears on your next attempt.", ja: "次の練習では、番号つきの線が表示されます。" },
+    retry: { en: "Try this kana again", ja: "このかなをもう一度" },
+    completeTitle: { en: "The first line is yours", ja: "最初の一行が、できました" },
+    completeDialogue: {
+      en: "Rie: There. Five sounds, five marks. You don't need to make them beautiful yet. You only need to know how each one begins.",
+      ja: "りえ：できました。五つの音、五つの形。まだきれいでなくて大丈夫です。それぞれの始まり方が分かれば十分です。"
+    },
+    completeNote: { en: "The five kana are now in your review queue, one shape at a time.", ja: "五つのかなが、一文字ずつ復習に入りました。" },
+    continue: { en: "Carry the line into class", ja: "この一行を授業へ持っていく" },
+    restart: { en: "Practice all five again", ja: "五つを最初から練習" }
+  };
+  function createLessonZeroVowelWritingScreen(options) {
+    const lifecycle = new AbortController();
+    let renderLifecycle = new AbortController();
+    let state = options.initialState;
+    let playback = null;
+    let activeDoodle = null;
+    let activeStrokes = [];
+    let selectedPlanId = "";
+    let busy = false;
+    let disposed = false;
+    let message = "";
+    const screen = element("section", "academy-screen academy-vowel-screen academy-vowel-writing-screen");
+    screen.dataset.academyScreen = "lesson-zero-vowel-writing";
+    screen.dataset.activityId = options.definition.id;
+    screen.append(academyBackgroundPicture("writingStudio"));
+    const shell = element("div", "academy-vowel-shell");
+    const header = element("header", "academy-vowel-header");
+    const back = backButton(options.language);
+    back.className = "academy-vowel-back";
+    back.textContent = "←";
+    back.title = back.getAttribute("aria-label") ?? "";
+    back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
+    const identity2 = element("div", "academy-vowel-identity");
+    header.append(back, identity2);
+    const body = element("div", "academy-vowel-body");
+    const live = element("p", "academy-vowel-live");
+    live.setAttribute("role", "status");
+    live.setAttribute("aria-live", "polite");
+    screen.append(shell);
+    shell.append(header, body, live);
+    const render2 = () => {
+      activeDoodle?.__yomuKanjiDoodleCleanup?.();
+      activeDoodle = null;
+      activeStrokes = [];
+      selectedPlanId = "";
+      renderLifecycle.abort();
+      renderLifecycle = new AbortController();
+      const signal = renderLifecycle.signal;
+      body.replaceChildren();
+      live.textContent = message;
+      screen.dataset.stage = state.status === "ready" ? "ready" : state.stage;
+      screen.dataset.mode = state.mode;
+      identity2.replaceChildren(
+        localized2("p", "academy-vowel-eyebrow", COPY.eyebrow),
+        progressLabel()
+      );
+      if (state.status === "ready") renderIntro(signal);
+      else if (state.stage === "learn") renderLearn(signal);
+      else if (state.stage === "attempt") renderAttempt(signal);
+      else if (state.stage === "repair") renderRepair(signal);
+      else renderComplete(signal);
+    };
+    const renderIntro = (signal) => {
+      const paper = livingPaper2("academy-vowel-writing-intro-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.introTitle),
+        dialogue2(COPY.introDialogue),
+        localized2("p", "academy-vowel-copy", COPY.introReason),
+        action2(COPY.start, "primary", signal, async () => {
+          await apply({ kind: "start" });
+        })
+      );
+      appendScene(paper, "academy-vowel-writing-intro");
+    };
+    const renderLearn = (signal) => {
+      const item2 = currentItem2();
+      if (!item2) return;
+      const paper = livingPaper2("academy-vowel-writing-learn-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.learnTitle),
+        dialogue2(COPY.learnDialogue),
+        modeSwitch(signal),
+        localized2("p", "academy-vowel-access-note", COPY.accessNote),
+        kanaRail(),
+        targetCard(item2, signal)
+      );
+      appendScene(paper, "academy-vowel-writing-learn");
+    };
+    const renderAttempt = (signal) => {
+      const item2 = currentItem2();
+      if (!item2) return;
+      const guided = state.guideItemIds.includes(item2.id);
+      const paper = livingPaper2("academy-vowel-writing-attempt-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", state.mode === "draw" ? COPY.drawTitle : COPY.planTitle),
+        modeSwitch(signal),
+        kanaRail(),
+        targetGlyph(item2)
+      );
+      if (state.mode === "draw") paper.append(drawingAttempt(item2, guided, signal));
+      else paper.append(planAttempt(item2, signal));
+      appendScene(paper, "academy-vowel-writing-attempt");
+    };
+    const renderRepair = (signal) => {
+      const item2 = currentItem2();
+      if (!item2) return;
+      const paper = livingPaper2("academy-vowel-writing-repair-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.repairTitle),
+        dialogue2(COPY.repairDialogue),
+        kanaRail(),
+        strokeGuide(item2),
+        sourceSheet(),
+        localized2("p", "academy-vowel-writing-guide-note", COPY.guideNote),
+        action2(COPY.retry, "primary", signal, async () => {
+          await apply({ kind: "begin-retry" });
+        })
+      );
+      appendScene(paper, "academy-vowel-writing-repair");
+    };
+    const renderComplete = (signal) => {
+      const paper = livingPaper2("academy-vowel-writing-complete-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.completeTitle),
+        dialogue2(COPY.completeDialogue),
+        completedLine(),
+        localized2("p", "academy-vowel-writing-complete-note", COPY.completeNote)
+      );
+      const actions = element("div", "academy-vowel-complete-actions");
+      actions.append(
+        action2(COPY.restart, "secondary", signal, restart),
+        action2(COPY.continue, "primary", signal, options.onComplete)
+      );
+      paper.append(actions);
+      appendScene(paper, "academy-vowel-writing-complete");
+    };
+    const targetCard = (item2, signal) => {
+      const card = element("section", "academy-vowel-writing-target");
+      card.append(targetGlyph(item2));
+      const copy2 = element("div", "academy-vowel-writing-target-copy");
+      const line2 = element("p", "academy-vowel-writing-target-line");
+      line2.textContent = options.language === "ja" ? `音は「${item2.kana}」。形を一度だけ見てください。` : `The sound is ${item2.romaji}. Look at the shape once.`;
+      line2.dataset.jpdbReaderSurfaceIgnore = "";
+      const controls = element("div", "academy-vowel-writing-target-actions");
+      controls.append(
+        action2(COPY.hear, "listen", signal, (button2) => play(item2, button2)),
+        action2(
+          state.mode === "draw" ? COPY.beginDraw : COPY.beginPlan,
+          "primary",
+          signal,
+          async () => {
+            await apply({ kind: "learn-item", itemId: item2.id });
+          }
+        )
+      );
+      copy2.append(line2, controls);
+      card.append(copy2);
+      return card;
+    };
+    const targetGlyph = (item2) => {
+      const target2 = element("div", "academy-vowel-writing-glyph");
+      target2.lang = "ja";
+      target2.textContent = item2.kana;
+      target2.setAttribute("aria-label", options.language === "ja" ? `${item2.kana}の形` : `Shape of ${item2.kana}`);
+      target2.dataset.jpdbReaderSurfaceIgnore = "";
+      return target2;
+    };
+    const drawingAttempt = (item2, guided, signal) => {
+      const section = element("section", "academy-vowel-writing-work");
+      section.append(localized2("p", "academy-vowel-writing-prompt", COPY.drawPrompt));
+      const doodle = doodleShell(item2, guided);
+      activeDoodle = doodle;
+      section.append(doodle);
+      const check2 = action2(COPY.checkMark, "primary", signal, async () => {
+        const valid = activeStrokes.filter((stroke) => stroke.length > 1);
+        if (!valid.length) {
+          message = COPY.drawFirst[options.language];
+          live.textContent = message;
+          return;
+        }
+        const assessment = assessKanjiStrokes(
+          activeStrokes,
+          item2.strokeCount,
+          item2.strokeShapes.map((stroke) => stroke.map((point) => ({ ...point })))
+        );
+        await submit2(item2, { mode: "draw", assessment });
+      });
+      section.append(check2);
+      installKanjiDoodle(doodle, () => options.language, {
+        onChange(strokes) {
+          activeStrokes = strokes.map((stroke) => stroke.map((point) => ({ ...point })));
+          message = "";
+          live.textContent = "";
+        },
+        onClear() {
+          activeStrokes = [];
+          message = "";
+          live.textContent = "";
+        }
+      });
+      return section;
+    };
+    const planAttempt = (item2, signal) => {
+      const section = element("section", "academy-vowel-writing-work");
+      section.append(localized2("p", "academy-vowel-writing-prompt", COPY.planPrompt));
+      const choices2 = element("div", "academy-vowel-writing-plans");
+      choices2.setAttribute("role", "group");
+      choices2.setAttribute("aria-label", options.language === "ja" ? `${item2.kana}の書き順` : `Stroke plan for ${item2.kana}`);
+      planOrder(item2).forEach((plan, index) => {
+        const button2 = element("button", "academy-vowel-writing-plan");
+        button2.type = "button";
+        button2.dataset.option = choiceToken(index);
+        button2.dataset.jpdbReaderSurfaceIgnore = "";
+        button2.setAttribute("aria-pressed", "false");
+        button2.textContent = plan.label[options.language];
+        button2.addEventListener("click", () => {
+          selectedPlanId = plan.id;
+          choices2.querySelectorAll("button").forEach((candidate2) => candidate2.setAttribute("aria-pressed", String(candidate2 === button2)));
+          message = "";
+          live.textContent = "";
+        }, { signal });
+        choices2.append(button2);
+      });
+      choices2.addEventListener("keydown", (event) => movePlanFocus(event, choices2), { signal });
+      section.append(
+        choices2,
+        action2(COPY.checkPlan, "primary", signal, async () => {
+          if (!selectedPlanId) {
+            message = COPY.chooseFirst[options.language];
+            live.textContent = message;
+            return;
+          }
+          await submit2(item2, { mode: "plan", selectedPlanId });
+        })
+      );
+      return section;
+    };
+    const doodleShell = (item2, guided) => {
+      const root = element("div", "academy-doodle academy-vowel-writing-doodle jpdb-reader-kanjivg");
+      root.dataset.guided = String(guided);
+      const stage2 = element("div", "jpdb-reader-doodle-stage");
+      stage2.dataset.kanji = item2.kana;
+      if (!guided) stage2.classList.add("trace-hidden");
+      const ghost = element("div", "jpdb-reader-doodle-ghost");
+      ghost.setAttribute("aria-hidden", "true");
+      ghost.hidden = !guided;
+      ghost.append(strokeSvg(item2));
+      const canvas = element("canvas", "jpdb-reader-doodle-canvas");
+      canvas.tabIndex = 0;
+      canvas.setAttribute("aria-label", options.language === "ja" ? `${item2.kana}を書くキャンバス` : `Canvas for writing ${item2.kana}`);
+      stage2.append(ghost, canvas);
+      const tools = element("div", "jpdb-reader-doodle-tools");
+      if (guided) {
+        const count2 = element("span", "academy-vowel-writing-stroke-count");
+        count2.textContent = options.language === "ja" ? `${item2.strokeCount}画` : `${item2.strokeCount} strokes`;
+        count2.dataset.jpdbReaderSurfaceIgnore = "";
+        tools.append(count2);
+      }
+      const clear = action2(COPY.clear, "quiet", renderLifecycle.signal, () => void 0);
+      clear.dataset.doodleClear = "";
+      tools.append(clear);
+      root.append(stage2, tools);
+      return root;
+    };
+    const strokeGuide = (item2) => {
+      const guide = element("section", "academy-vowel-writing-guide");
+      const visual2 = element("div", "academy-vowel-writing-guide-visual");
+      visual2.append(strokeSvg(item2));
+      const copy2 = element("div", "academy-vowel-writing-guide-copy");
+      const title2 = element("h2", "academy-vowel-writing-guide-kana");
+      title2.lang = "ja";
+      title2.textContent = `${item2.kana} · ${options.language === "ja" ? `${item2.strokeCount}画` : `${item2.strokeCount} strokes`}`;
+      title2.dataset.jpdbReaderSurfaceIgnore = "";
+      copy2.append(
+        title2,
+        localized2("p", "academy-vowel-writing-direction", item2.directionCue),
+        localized2("p", "academy-vowel-writing-memory", item2.memoryCue)
+      );
+      guide.append(visual2, copy2);
+      return guide;
+    };
+    const sourceSheet = () => {
+      const figure = element("figure", "academy-vowel-writing-source-sheet");
+      const image = element("img", "academy-vowel-writing-source-image");
+      image.src = options.definition.source.runtimeUrl;
+      image.alt = COPY.practiceSheet[options.language];
+      image.loading = "lazy";
+      image.decoding = "async";
+      const caption2 = localized2("figcaption", "academy-vowel-writing-source-caption", COPY.practiceSheet);
+      figure.append(image, caption2);
+      return figure;
+    };
+    const modeSwitch = (signal) => {
+      const group2 = element("div", "academy-vowel-mode");
+      group2.setAttribute("role", "group");
+      group2.setAttribute("aria-label", options.language === "ja" ? "文字の練習方法" : "Writing practice route");
+      [["draw", COPY.drawMode], ["plan", COPY.planMode]].forEach(([mode, copy2]) => {
+        const button2 = action2(copy2, "mode", signal, async () => {
+          await apply({ kind: "choose-mode", mode });
+        });
+        button2.setAttribute("aria-pressed", String(state.mode === mode));
+        group2.append(button2);
+      });
+      return group2;
+    };
+    const kanaRail = () => {
+      const rail = element("ol", "academy-vowel-rail academy-vowel-writing-rail");
+      rail.setAttribute("aria-label", options.language === "ja" ? "五つの母音の練習" : "Five-vowel writing progress");
+      options.definition.items.forEach((item2, index) => {
+        const cell = element("li", "academy-vowel-rail-cell");
+        cell.dataset.state = index < state.completedItemIds.length ? "learned" : index === state.completedItemIds.length ? "current" : "waiting";
+        cell.textContent = index <= state.completedItemIds.length ? item2.kana : "·";
+        cell.lang = index <= state.completedItemIds.length ? "ja" : "";
+        rail.append(cell);
+      });
+      return rail;
+    };
+    const completedLine = () => {
+      const line2 = element("div", "academy-vowel-writing-finished-line");
+      options.definition.items.forEach((item2, index) => {
+        const mark = element("span", "academy-vowel-writing-finished-mark");
+        mark.lang = "ja";
+        mark.textContent = item2.kana;
+        mark.style.setProperty("--mark-turn", `${[-2, 1, -1, 2, 0][index]}deg`);
+        line2.append(mark);
+      });
+      return line2;
+    };
+    const appendScene = (paper, className) => {
+      const scene2 = element("div", `academy-vowel-scene academy-vowel-writing-scene ${className}`);
+      const portrait = element("img", "academy-vowel-xingyu academy-vowel-writing-rie");
+      portrait.src = options.rieSprite;
+      portrait.alt = "";
+      portrait.setAttribute("aria-hidden", "true");
+      portrait.decoding = "async";
+      scene2.append(portrait, paper);
+      body.append(scene2);
+    };
+    const livingPaper2 = (className) => {
+      const paper = element("div", `academy-vowel-paper academy-vowel-writing-paper ${className}`);
+      const clip = element("span", "academy-vowel-paperclip");
+      clip.setAttribute("aria-hidden", "true");
+      paper.append(clip);
+      return paper;
+    };
+    const dialogue2 = (copy2) => {
+      const node2 = localized2("p", "academy-vowel-dialogue academy-vowel-writing-dialogue", copy2);
+      node2.dataset.speaker = "rie";
+      return node2;
+    };
+    const progressLabel = () => {
+      const label = element("p", "academy-vowel-progress");
+      label.textContent = `${state.completedItemIds.length}/5`;
+      label.dataset.jpdbReaderSurfaceIgnore = "";
+      return label;
+    };
+    const planOrder = (item2) => {
+      const index = options.definition.items.findIndex((candidate2) => candidate2.id === item2.id);
+      const shift = [1, 2, 0, 1, 2][Math.max(0, index)] ?? 0;
+      return [...item2.plans.slice(shift), ...item2.plans.slice(0, shift)];
+    };
+    const currentItem2 = () => options.definition.items[state.completedItemIds.length];
+    const submit2 = async (item2, response) => {
+      const evaluation = evaluateLessonZeroVowelWriting(options.definition, item2, response);
+      await apply({ kind: "record-result", evaluation });
+    };
+    const apply = async (actionValue) => {
+      if (busy || disposed) return void 0;
+      const before = state;
+      const transition = transitionLessonZeroVowelWritingSession(options.definition, state, actionValue, Date.now());
+      try {
+        busy = true;
+        screen.setAttribute("aria-busy", "true");
+        await options.onTransition(before, transition);
+        state = transition.state;
+        message = "";
+        render2();
+        return transition;
+      } catch (error) {
+        console.error("Lesson Zero vowel-writing transition failed.", error);
+        message = COPY.saveError[options.language];
+        live.textContent = message;
+        return void 0;
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const play = async (item2, button2) => {
+      if (busy || disposed) return;
+      playback?.dispose();
+      playback = null;
+      const label = button2.textContent ?? "";
+      button2.disabled = true;
+      button2.textContent = COPY.soundPlaying[options.language];
+      try {
+        const active = await options.pronunciation.play(item2.kana, item2.kana, lifecycle.signal);
+        if (disposed) active.dispose();
+        else playback = active;
+      } catch {
+        message = COPY.audioError[options.language];
+        live.textContent = message;
+      } finally {
+        if (!disposed) {
+          button2.disabled = false;
+          button2.textContent = label;
+        }
+      }
+    };
+    const pauseAndLeave = async () => {
+      if (busy) return;
+      playback?.dispose();
+      playback = null;
+      if (state.status === "active") {
+        const before = state;
+        const transition = transitionLessonZeroVowelWritingSession(
+          options.definition,
+          state,
+          { kind: "pause" },
+          Date.now()
+        );
+        await options.onTransition(before, transition);
+        state = transition.state;
+      }
+      await options.onBack();
+    };
+    const restart = async () => {
+      if (busy) return;
+      const fresh = restartLessonZeroVowelWritingSession(options.definition);
+      await options.onRestart(fresh);
+      state = fresh;
+      message = "";
+      render2();
+    };
+    const action2 = (copy2, variant, signal, callback2) => {
+      const button2 = element("button", `academy-button academy-vowel-action academy-vowel-action-${variant}`);
+      button2.type = "button";
+      button2.dataset.jpdbReaderSurfaceIgnore = "";
+      button2.textContent = copy2[options.language];
+      button2.setAttribute("aria-label", copy2[options.language]);
+      button2.addEventListener("click", () => void callback2(button2), { signal });
+      return button2;
+    };
+    const localized2 = (tag, className, copy2) => {
+      const node2 = element(tag, className);
+      node2.lang = options.language;
+      node2.textContent = copy2[options.language];
+      if (options.language === "ja") {
+        node2.dataset.yomuRuntimeSurface = "lesson-zero-vowel-writing-copy";
+        node2.dataset.yomuFuriganaMode = "all";
+      } else node2.dataset.jpdbReaderSurfaceIgnore = "";
+      return node2;
+    };
+    if (state.status === "paused") {
+      state = transitionLessonZeroVowelWritingSession(
+        options.definition,
+        state,
+        { kind: "resume" },
+        Date.now()
+      ).state;
+    }
+    render2();
+    return {
+      element: screen,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        renderLifecycle.abort();
+        activeDoodle?.__yomuKanjiDoodleCleanup?.();
+        activeDoodle = null;
+        playback?.dispose();
+        playback = null;
+      }
+    };
+  }
+  function strokeSvg(item2, numbered) {
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.classList.add("academy-vowel-writing-stroke-svg");
+    item2.strokeShapes.forEach((stroke, index) => {
+      const path = document.createElementNS(namespace, "polyline");
+      path.setAttribute("points", stroke.map((point) => `${point.x * 100},${point.y * 100}`).join(" "));
+      path.setAttribute("pathLength", "1");
+      path.classList.add("academy-vowel-writing-stroke-path");
+      path.style.setProperty("--stroke-index", String(index));
+      svg.append(path);
+      if (!stroke[0]) return;
+      const circle = document.createElementNS(namespace, "circle");
+      circle.setAttribute("cx", String(stroke[0].x * 100));
+      circle.setAttribute("cy", String(stroke[0].y * 100));
+      circle.setAttribute("r", "6");
+      circle.classList.add("academy-vowel-writing-stroke-number-bg");
+      const label = document.createElementNS(namespace, "text");
+      label.setAttribute("x", String(stroke[0].x * 100));
+      label.setAttribute("y", String(stroke[0].y * 100 + 2.7));
+      label.classList.add("academy-vowel-writing-stroke-number");
+      label.textContent = String(index + 1);
+      svg.append(circle, label);
+    });
+    return svg;
+  }
+  function movePlanFocus(event, root) {
     if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"].includes(event.key)) return;
     const choices2 = [...root.querySelectorAll("button:not(:disabled)")];
     if (!choices2.length) return;
@@ -256407,6 +257388,10 @@ ${spelling}`);
         await this.renderLessonZeroVowelSession(context2);
         return;
       }
+      if (context2.checkpoint.activityId === LESSON_ZERO_VOWEL_WRITING_ID) {
+        await this.renderLessonZeroVowelWritingSession(context2);
+        return;
+      }
       if (context2.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
         await this.renderClassroomInstructionSession(context2);
         return;
@@ -256705,6 +257690,78 @@ ${spelling}`);
           await context2.save?.({ lessonZeroVowelProgress: transition.state });
         },
         onRestart: (restart) => context2.save?.({ lessonZeroVowelProgress: restart }),
+        onBack: () => context2.back(),
+        onComplete: () => this.completeSourceActivity(context2, returning)
+      });
+      screen.element.dataset.academyRoute = "source-activity";
+      screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
+      context2.shell.replace(screen.element);
+    }
+    async renderLessonZeroVowelWritingSession(context2) {
+      const definition2 = createLessonZeroVowelWritingDefinition();
+      let state;
+      try {
+        state = startLessonZeroVowelWritingSession(
+          definition2,
+          context2.checkpoint.lessonZeroVowelWritingProgress
+        );
+      } catch {
+        state = startLessonZeroVowelWritingSession(definition2);
+      }
+      if (state.status === "paused") {
+        state = transitionLessonZeroVowelWritingSession(
+          definition2,
+          state,
+          { kind: "resume" },
+          Date.now()
+        ).state;
+      }
+      if (JSON.stringify(state) !== JSON.stringify(context2.checkpoint.lessonZeroVowelWritingProgress)) {
+        await context2.save?.({ lessonZeroVowelWritingProgress: state });
+      }
+      const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+      const screen = createLessonZeroVowelWritingScreen({
+        language: context2.language,
+        definition: definition2,
+        initialState: state,
+        pronunciation: this.options.pronunciation,
+        rieSprite: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging,
+        onTransition: async (before, transition) => {
+          if (transition.evaluation) {
+            this.playFeedbackSfx(transition.evaluation.result.outcome);
+            await this.options.evidence.recordActivity(
+              transition.evaluation,
+              LESSON_ZERO_ID,
+              void 0,
+              transition.adaptive
+            );
+          }
+          if (before.status !== "complete" && transition.state.status === "complete") {
+            const completion = lessonZeroVowelWritingCompletionEvaluation(
+              definition2,
+              lessonZeroVowelWritingAveragePassScore(transition.state)
+            );
+            await this.options.evidence.recordActivity(
+              completion,
+              LESSON_ZERO_ID,
+              {
+                id: "lesson-zero-five-vowel-marks",
+                sceneId: "scene:lesson-zero-five-vowel-marks",
+                journalLine: {
+                  lineId: "journal:lesson-zero:five-vowel-marks",
+                  characterId: "rie",
+                  text: {
+                    ja: "りえ先生と、あ・い・う・え・おを初めて書いた。五つの音が、五つの形になった。",
+                    en: "I wrote あ・い・う・え・お with Rie-sensei for the first time. Five sounds became five shapes."
+                  },
+                  sourceQuestionId: definition2.sourceQuestionId
+                }
+              }
+            );
+          }
+          await context2.save?.({ lessonZeroVowelWritingProgress: transition.state });
+        },
+        onRestart: (restart) => context2.save?.({ lessonZeroVowelWritingProgress: restart }),
         onBack: () => context2.back(),
         onComplete: () => this.completeSourceActivity(context2, returning)
       });

@@ -92,6 +92,22 @@ const UNVERIFIED_DELIVERY: DayActivityDelivery = Object.freeze({
     journeyProof: 'unverified',
 });
 
+const VERIFIED_STANDALONE_ACTIVITY_DELIVERY: DayActivityDelivery = Object.freeze({
+    implementation: 'verified',
+    reachability: 'partial',
+    media: 'partial',
+    persistence: 'verified',
+    journeyProof: 'partial',
+});
+
+const VERIFIED_REPEATABLE_GAME_DELIVERY: DayActivityDelivery = Object.freeze({
+    implementation: 'verified',
+    reachability: 'verified',
+    media: 'partial',
+    persistence: 'verified',
+    journeyProof: 'verified',
+});
+
 export function academyDayId(dayNumber: number): AcademyDayId {
     if (!Number.isSafeInteger(dayNumber) || dayNumber < 1) {
         throw new TypeError('Academy day numbers must be positive safe integers.');
@@ -161,6 +177,27 @@ const DAY_ONE_LESSON_ACTIVITY_IDS = [
     'activity:lesson-zero-written-transfer',
     'activity:lesson-zero-close-room',
 ] as const;
+
+const DAY_ONE_LESSON_ACTIVITY_TITLES = {
+    'activity:lesson-zero-greet-rie': 'Greet Rie and introduce yourself',
+    'activity:lesson-zero-vowel-listen': 'Hear and identify the five vowel sounds',
+    'activity:lesson-zero-vowel-doodle': 'Write the five vowel kana',
+    'activity:lesson-zero-follow-instructions': 'Follow Rie’s classroom instructions',
+    'activity:lesson-zero-reconstruct-repair': 'Rebuild a request for repetition',
+    'activity:lesson-zero-desk-language': 'Use the first desk-language worksheet',
+    'activity:lesson-zero-build-sentence-frames': 'Build the first sentence frames',
+    'activity:lesson-zero-name-card-draft': 'Draft your Japanese name card',
+    'activity:lesson-zero-sound-input': 'Repair a phrase by sound',
+    'activity:lesson-zero-text-input': 'Repair a phrase by text',
+    'activity:lesson-zero-speaking-input': 'Repair a phrase by speaking',
+    'activity:lesson-zero-read-name-cards': 'Read the class name cards',
+    'activity:lesson-zero-write-name-card': 'Finish your own name card',
+    'activity:lesson-zero-sound-transfer': 'Use the sound repair in a new scene',
+    'activity:lesson-zero-text-transfer': 'Use the text repair in a new scene',
+    'activity:lesson-zero-speaking-transfer': 'Use the spoken repair in a new scene',
+    'activity:lesson-zero-written-transfer': 'Use the written repair in a new scene',
+    'activity:lesson-zero-close-room': 'Close the first classroom session',
+} as const satisfies Readonly<Record<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number], string>>;
 
 export const DAY_ONE_CLASSROOM_EXPRESSION_IDS: readonly string[] = Object.freeze(
     Array.from({ length: 14 }, (_, index) =>
@@ -236,14 +273,18 @@ const DAY_ONE_STORY: readonly DayActivityAvailability[] = [
 const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) =>
     entry(
         `day:1:lesson-zero:${String(index + 1).padStart(2, '0')}`,
-        `Lesson 0 activity ${index + 1}`,
+        DAY_ONE_LESSON_ACTIVITY_TITLES[activityId],
         'lesson',
         ['required', 'revisitable'],
         { route: 'source-activity', context: { lessonId: 'lesson:foundation-00', activityId } },
         [activityId],
-        { audio: activityId.includes('write') || activityId.includes('doodle') ? 'none' : 'learning-audio', visual: 'interactive' },
+        { audio: 'learning-audio', visual: 'interactive' },
         `Attempt, support, and completion evidence persist for ${activityId}.`,
         `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
+        [],
+        activityId === 'activity:lesson-zero-vowel-listen' || activityId === 'activity:lesson-zero-vowel-doodle'
+            ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
+            : UNVERIFIED_DELIVERY,
     ));
 
 const DAY_ONE_CLASSROOM: readonly DayActivityAvailability[] = [
@@ -268,7 +309,8 @@ const DAY_ONE_GAMES: readonly DayActivityAvailability[] = [
     entry('day:1:game:vowel-bingo', 'Vowel listening bingo', 'minigame', ['optional', 'repeatable'],
         { route: 'source-activity', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-vowel-listen' } },
         ['game:lesson-zero-vowel-listening-bingo'], { audio: 'learning-audio', visual: 'interactive' },
-        'Each heard choice and confusion pair can seed review.', 'A full randomized board is playable with deterministic audio and no answer-first cue.'),
+        'Each heard choice and confusion pair can seed review.', 'A full randomized board is playable with deterministic audio and no answer-first cue.',
+        [], VERIFIED_REPEATABLE_GAME_DELIVERY),
     entry('day:1:game:kana-trace', 'Trace the first kana', 'minigame', ['required', 'repeatable'],
         { route: 'writing-practice', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-kanji-one' } },
         ['activity:lesson-zero-kanji-one', 'cue:kana-trace-one-stroke'], { audio: 'music-ambience-sfx', visual: 'interactive' },

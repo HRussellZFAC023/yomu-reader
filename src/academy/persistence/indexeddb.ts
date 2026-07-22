@@ -19,6 +19,10 @@ import {
     lessonZeroVowelSessionSnapshotShapeIsValid,
     type LessonZeroVowelSessionState,
 } from '../domain/lesson-zero-vowel-session';
+import {
+    lessonZeroVowelWritingSessionSnapshotShapeIsValid,
+    type LessonZeroVowelWritingSessionState,
+} from '../domain/lesson-zero-vowel-writing-session';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
 import {
     isAcademyPresentationMode,
@@ -47,6 +51,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly lessonZeroGreetingProgress?: LessonZeroGreetingSessionState;
     /** Resume state for Xingyu's five-vowel lesson and repeatable sound bingo. */
     readonly lessonZeroVowelProgress?: LessonZeroVowelSessionState;
+    /** Resume state for Rie's five-vowel handwriting and stroke-plan routes. */
+    readonly lessonZeroVowelWritingProgress?: LessonZeroVowelWritingSessionState;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -278,6 +284,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.lessonZeroVowelProgress !== undefined
         && !lessonZeroVowelSessionSnapshotShapeIsValid(value.lessonZeroVowelProgress)) {
         throw new TypeError('Academy checkpoint has invalid Lesson Zero vowel progress.');
+    }
+    if (value.lessonZeroVowelWritingProgress !== undefined
+        && !lessonZeroVowelWritingSessionSnapshotShapeIsValid(value.lessonZeroVowelWritingProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero vowel-writing progress.');
     }
     validateRouteContext(value);
 }

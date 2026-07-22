@@ -3,6 +3,7 @@ import path from 'node:path';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
 import { serializeStoryCursor } from '../../src/academy/content/story-runner';
 import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
+import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import {
     startLessonZeroVowelSession,
@@ -341,6 +342,74 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ modeId: 'lesson-zero-vowels:audio:lesson' }),
         ));
         expect(route.shell.current?.textContent).toContain('Play sound bingo');
+    });
+
+    it('routes Rie\'s writing desk through five child grades before recording the parent milestone', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-vowel-doodle',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-vowel-writing');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroVowelWritingProgress: expect.objectContaining({ status: 'ready' }),
+        }));
+        const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+            .find(button => button.textContent?.trim() === label)!.click();
+        click('Open the practice book');
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose the stroke plan'));
+        click('Choose the stroke plan');
+
+        const definition = createLessonZeroVowelWritingDefinition();
+        for (const item of definition.items) {
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose its stroke plan'));
+            click('Choose its stroke plan');
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Check the plan'));
+            click(item.plans.find(plan => plan.id === item.correctPlanId)!.label.en);
+            click('Check the plan');
+        }
+
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-vowel-doodle',
+                    responseKind: 'stroke-attempts',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-five-vowel-marks',
+                journalLine: expect.objectContaining({ characterId: 'rie' }),
+            }),
+        ));
+        for (const item of definition.items) {
+            expect(recordActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        activityId: `activity:lesson-zero-vowel-doodle:${item.id}`,
+                        outcome: 'pass',
+                    }),
+                    reviewSeeds: [expect.objectContaining({ id: `review:lesson-zero:vowel-writing:${item.id}` })],
+                }),
+                'lesson:foundation-00',
+                undefined,
+                expect.objectContaining({ independent: true }),
+            );
+        }
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroVowelWritingProgress: expect.objectContaining({
+                status: 'complete',
+                completedItemIds: ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'],
+            }),
+        }));
     });
 
     it('clears pending lesson state when first completion continues to Aakash', async () => {
