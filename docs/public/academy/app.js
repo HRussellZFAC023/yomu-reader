@@ -10090,7 +10090,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     throw new TypeError(message);
   }
   const LESSON_ZERO_CONTENT_SHA256 = "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c";
-  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a1ac9cb34de4eb585d0ea4ba68e2e3d70ed666bdc0c75be62111798d69d5a4eb";
+  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "e54d5d7be82a0c6243e806f9b22374658db90ffb4f14af3e7179cdf8cb36e769";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
   const LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS = Object.freeze([
@@ -10862,8 +10862,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "expression:classroom-08"
       ],
       explanation: {
-        en: "A question ending in か checks understanding; the reply keeps the verb positive or negative.",
-        ja: "「か」で理解を確認し、返事では動詞を肯定形か否定形にします。"
+        en: "Add か when you need to check understanding. In the reply, keep the same verb and change its ending only when the answer is no.",
+        ja: "「か」を付けると、理解できたか確認できます。答えるときは同じ動詞を使い、否定するときだけ語尾を変えます。"
       },
       workedExample: {
         context: {
@@ -10885,8 +10885,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "expression:classroom-09"
       ],
       explanation: {
-        en: "Name what you need, then add お願いします to make a polite request.",
-        ja: "必要なことを言い、「お願いします」を付けると丁寧な依頼になります。"
+        en: "If a line slips past, name what you need and close with お願いします. It gives you a polite way to keep the lesson moving.",
+        ja: "聞き逃したときは、必要なことを言って「お願いします」で結びます。授業を止めずに、丁寧に聞き返せます。"
       },
       workedExample: {
         context: {
@@ -10910,19 +10910,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "expression:classroom-12"
       ],
       explanation: {
-        en: "Classroom feedback can praise the result, confirm a match, or mark a mismatch.",
-        ja: "教室のフィードバックでは、出来を褒める、一致を確認する、不一致を示す言い方を使い分けます。"
+        en: "Keep praise, confirmation, and correction separate: one says the work is good, one says it matches, and one says it does not.",
+        ja: "褒める・合っていると伝える・違うと直す。この三つを場面に合わせて使い分けます。"
       },
       workedExample: {
         context: {
           en: "A learner gives Tuesday, but the timetable says Wednesday.",
           ja: "学習者は火曜日と答えましたが、時間割は水曜日です。"
         },
-        japanese: "火曜日ではありません。水曜日です。",
-        reading: "かようびではありません。すいようびです。",
+        japanese: "答えは水曜日です。",
+        reading: "こたえはすいようびです。",
         meaning: {
-          en: "It isn't Tuesday. It's Wednesday.",
-          ja: "誤りを示して正しい内容を伝えます。"
+          en: "The answer is Wednesday.",
+          ja: "正しい内容を短く伝えます。"
         }
       }
     },
@@ -11320,8 +11320,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "probe:classroom-08-check",
           prompt: {
-            en: "Your partner has heard the explanation. Check whether they understand.",
-            ja: "相手が説明を聞き終えました。理解できたか確認してください。"
+            en: "Rie finishes explaining a new classroom rule. Ask your partner whether they understand.",
+            ja: "りえ先生が新しい教室のルールを説明しました。相手の理解を確認してください。"
           },
           acceptedAnswers: [
             "わかりますか",
@@ -11347,8 +11347,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "probe:classroom-08-yes",
           prompt: {
-            en: "Rie checks your understanding. You followed the explanation; answer her.",
-            ja: "りえ先生が理解を確認しました。説明についていけたので、肯定して答えてください。"
+            en: "Rie checks your understanding. You followed her explanation, so answer in a full sentence.",
+            ja: "りえ先生が理解を確認しました。説明が分かったので、文で答えてください。"
           },
           acceptedAnswers: [
             "はい、わかります",
@@ -11366,16 +11366,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
               ja: "肯定の返事から始め、理解できることを続けてください。"
             },
             nearbyExample: {
-              en: "A bare yes is clear socially, but the source practises the full response.",
-              ja: "返事だけでも通じますが、原資料では完全な応答を練習します。"
+              en: "A quick はい works in conversation; this time, practise the full response too.",
+              ja: "会話では「はい」だけでも通じます。ここでは完全な返事も練習しましょう。"
             }
           }
         },
         {
           id: "probe:classroom-08-no",
           prompt: {
-            en: "This time the explanation did not land. Answer Rie's check honestly.",
-            ja: "今回は説明を理解できませんでした。りえ先生の確認に正直に答えてください。"
+            en: "This time you did not understand. Tell Rie honestly in a full sentence.",
+            ja: "今回は分かりませんでした。りえ先生に文で正直に伝えてください。"
           },
           acceptedAnswers: [
             "いいえ、わかりません",
@@ -11457,8 +11457,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "probe:classroom-10-good",
           prompt: {
-            en: "A classmate's sentence works well. Give brief positive feedback.",
-            ja: "クラスメイトの文が上手にできました。短く肯定的に評価してください。"
+            en: "A classmate made a good sentence. Give them a short word of praise.",
+            ja: "クラスメイトがよい文を作りました。短く褒めてください。"
           },
           acceptedAnswers: [
             "いいです",
@@ -11518,8 +11518,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
               ja: "相手の発言を受ける短い確認表現を使ってください。"
             },
             nearbyExample: {
-              en: "This confirms a statement; the next source variant checks a match.",
-              ja: "これは発言の確認です。次の原資料の言い方は一致を確認します。"
+              en: "Use this for what someone said. The next moment asks whether two answers match.",
+              ja: "これは相手の発言を受ける表現です。次の場面では二つの答えが合うかを伝えます。"
             }
           }
         },
@@ -40040,7 +40040,7 @@ ${spelling}`);
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -232883,6 +232883,30 @@ ${spelling}`);
       visitedExpressionIds: [.../* @__PURE__ */ new Set([...state.visitedExpressionIds, expression.id])]
     };
   }
+  function restartClassroomActivity(definition2, state, activityId) {
+    const binding = classroomBindingForActivity(activityId);
+    const expressionIds = new Set(binding.expressionIds);
+    const probeIds = new Set(binding.expressionIds.flatMap((id2) => expressionFor(definition2, id2).probes.map((probe) => probe.id)));
+    const firstExpression = expressionFor(definition2, binding.expressionIds[0]);
+    const firstProbe = firstExpression.probes[0];
+    if (!firstProbe) throw new TypeError(`${activityId} has no classroom probes.`);
+    return {
+      ...state,
+      status: "active",
+      cursor: {
+        phaseId: firstExpression.phaseId,
+        expressionId: firstExpression.id,
+        probeId: firstProbe.id
+      },
+      attempts: state.attempts.filter((attempt) => !probeIds.has(attempt.probeId)),
+      passedProbeIds: state.passedProbeIds.filter((id2) => !probeIds.has(id2)),
+      revealedModelProbeIds: state.revealedModelProbeIds.filter((id2) => !probeIds.has(id2)),
+      visitedExpressionIds: [
+        ...state.visitedExpressionIds.filter((id2) => !expressionIds.has(id2)),
+        firstExpression.id
+      ]
+    };
+  }
   function completedClassroomActivityIds(definition2, state) {
     const passed = new Set(state.passedProbeIds);
     return LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((binding) => binding.deterministicAssessment).filter((binding) => binding.expressionIds.every((expressionId) => expressionFor(definition2, expressionId).probes.every((probe) => passed.has(probe.id)))).map((binding) => binding.activityId);
@@ -254251,32 +254275,46 @@ ${spelling}`);
     };
   }
   const COPY$4 = {
-    session: { en: "Classroom language", ja: "教室のことば" },
+    session: { en: "Classroom rehearsal", ja: "教室のことばを練習" },
     guide: {
-      en: "Read the moment, then answer Rie in Japanese. You can leave and resume at any time.",
-      ja: "場面を読んで、りえ先生に日本語で答えましょう。いつでも中断して続きから戻れます。"
+      en: "I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.",
+      ja: "教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。"
     },
-    before: { en: "A pattern to use", ja: "使えるパターン" },
-    example: { en: "Rie’s example", ja: "りえ先生の例" },
-    yourTurn: { en: "Your turn", ja: "あなたの番" },
-    placeholder: { en: "Type what you would say…", ja: "言うことを入力…" },
+    before: { en: "Notice the pattern", ja: "パターンを見つける" },
+    example: { en: "Rie shows you", ja: "りえ先生の例" },
+    yourTurn: { en: "Answer Rie", ja: "りえ先生に答える" },
+    placeholder: { en: "Write what you would say…", ja: "言うことを入力…" },
     submit: { en: "Answer Rie", ja: "りえ先生に答える" },
     pause: { en: "Save and leave", ja: "保存して戻る" },
     hear: { en: "Hear the example", ja: "例を聞く" },
     hearing: { en: "Playing…", ja: "再生中…" },
-    pass: { en: "Yes. That works here.", ja: "はい。この場面で使えます。" },
-    next: { en: "Next moment", ja: "次の場面へ" },
+    pass: { en: "That fits the moment.", ja: "その場面に合っています。" },
+    next: { en: "Try the next moment", ja: "次の場面へ" },
     reveal: { en: "Show Rie’s answer", ja: "りえ先生の答えを見る" },
-    model: { en: "Rie would say", ja: "りえ先生なら" },
-    complete: { en: "This classroom set is yours.", ja: "この教室表現を使えるようになりました。" },
-    completeBody: {
-      en: "Every line in this set has been answered. They are now waiting in your review queue, too.",
-      ja: "このセットの表現にすべて答えました。復習にも追加されています。"
-    },
-    return: { en: "Return to the lesson", ja: "レッスンに戻る" },
-    practiceAgain: { en: "Practice this set again", ja: "このセットをもう一度練習" },
+    model: { en: "Rie’s answer", ja: "りえ先生の答え" },
+    return: { en: "Continue your day", ja: "今日の続きを見る" },
     saveError: { en: "That answer could not be saved. Please try once more.", ja: "答えを保存できませんでした。もう一度お試しください。" },
     audioError: { en: "The example could not be played. The text is still here.", ja: "例の音声を再生できませんでした。文字で確認できます。" }
+  };
+  const ACTIVITY_COPY = {
+    "activity:lesson-zero-reconstruct-repair": {
+      title: { en: "Understanding and repair", ja: "理解と聞き返し" },
+      complete: { en: "You can keep the class moving.", ja: "教室で困ったときに言えるようになりました。" },
+      completeBody: {
+        en: "You checked understanding, asked for another try, and responded to feedback. I saved every line you used for today’s review.",
+        ja: "理解を確認し、聞き返し、フィードバックにも答えました。使った表現は今日の復習に保存しました。"
+      },
+      practiceAgain: { en: "Run these moments again", ja: "この場面をもう一度練習" }
+    },
+    "activity:lesson-zero-desk-language": {
+      title: { en: "On the desk", ja: "机の上のことば" },
+      complete: { en: "You can read the desk.", ja: "机の上のことばが読めるようになりました。" },
+      completeBody: {
+        en: "You found the labels for homework and examples. I saved both so they can return when you next meet them.",
+        ja: "「しゅくだい」と「れい」の見出しを見つけました。次に出会うときのために、両方を保存しました。"
+      },
+      practiceAgain: { en: "Label the desk again", ja: "もう一度見出しを付ける" }
+    }
   };
   function createClassroomExpressionSessionScreen(options) {
     const lifecycle = new AbortController();
@@ -254331,6 +254369,8 @@ ${spelling}`);
     scene2.append(guide, workspace);
     screen.append(scene2);
     const binding = classroomBindingForActivity(options.activityId);
+    const activityCopy = ACTIVITY_COPY[options.activityId];
+    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
     const bindingProbeIds = options.definition.expressions.filter((expression) => binding.expressionIds.includes(expression.id)).flatMap((expression) => expression.probes.map((probe) => probe.id));
     const visiblePhases = options.definition.phases.filter((phase) => phase.expressionIds.some((id2) => binding.expressionIds.includes(id2)));
     const render2 = () => {
@@ -254342,7 +254382,7 @@ ${spelling}`);
       live.textContent = "";
       screen.dataset.sessionStatus = state.status;
       const view = readClassroomExpressionSession(options.definition, state);
-      title2.textContent = view.phaseTitle[options.language];
+      title2.textContent = activityCopy.title[options.language];
       const completedBindingProbes = bindingProbeIds.filter((id2) => state.passedProbeIds.includes(id2)).length;
       overall.textContent = options.language === "ja" ? `${bindingProbeIds.length}場面中 ${completedBindingProbes}場面に回答` : `${completedBindingProbes} of ${bindingProbeIds.length} moments answered`;
       renderPhaseNavigation(signal);
@@ -254526,8 +254566,12 @@ ${spelling}`);
       seal.lang = "ja";
       seal.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-complete-title");
-      heading.textContent = COPY$4.complete[options.language];
-      const copy2 = localizedParagraph$1(COPY$4.completeBody, options.language, "academy-classroom-expression-complete-copy");
+      heading.textContent = activityCopy.complete[options.language];
+      const copy2 = localizedParagraph$1(
+        activityCopy.completeBody,
+        options.language,
+        "academy-classroom-expression-complete-copy"
+      );
       const actions = element("div", "academy-classroom-expression-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
@@ -254535,7 +254579,7 @@ ${spelling}`);
       done.addEventListener("click", () => void notify$2(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY$4.practiceAgain[options.language];
+      again.textContent = activityCopy.practiceAgain[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       root.append(seal, heading, copy2, actions);
@@ -254606,8 +254650,7 @@ ${spelling}`);
     };
     const restart = async () => {
       if (busy) return;
-      let fresh = startClassroomExpressionSession(options.definition);
-      fresh = classroomStateForActivity(options.definition, fresh, options.activityId);
+      const fresh = restartClassroomActivity(options.definition, state, options.activityId);
       try {
         busy = true;
         await options.onRestart(fresh);

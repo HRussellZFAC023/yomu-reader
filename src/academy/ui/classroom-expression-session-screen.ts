@@ -3,11 +3,10 @@ import { ACADEMY_ASSETS } from '../assets';
 import {
     classroomBindingForActivity,
     completedClassroomActivityIds,
-    classroomStateForActivity,
+    restartClassroomActivity,
 } from '../content/lesson-zero-classroom-runtime';
 import {
     readClassroomExpressionSession,
-    startClassroomExpressionSession,
     transitionClassroomExpressionSession,
     type ClassroomExpressionSessionAction,
     type ClassroomExpressionSessionDefinition,
@@ -37,33 +36,48 @@ export interface ClassroomExpressionSessionScreen {
 }
 
 const COPY = {
-    session: { en: 'Classroom language', ja: '教室のことば' },
+    session: { en: 'Classroom rehearsal', ja: '教室のことばを練習' },
     guide: {
-        en: 'Read the moment, then answer Rie in Japanese. You can leave and resume at any time.',
-        ja: '場面を読んで、りえ先生に日本語で答えましょう。いつでも中断して続きから戻れます。',
+        en: 'I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.',
+        ja: '教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。',
     },
-    before: { en: 'A pattern to use', ja: '使えるパターン' },
-    example: { en: 'Rie’s example', ja: 'りえ先生の例' },
-    yourTurn: { en: 'Your turn', ja: 'あなたの番' },
-    placeholder: { en: 'Type what you would say…', ja: '言うことを入力…' },
+    before: { en: 'Notice the pattern', ja: 'パターンを見つける' },
+    example: { en: 'Rie shows you', ja: 'りえ先生の例' },
+    yourTurn: { en: 'Answer Rie', ja: 'りえ先生に答える' },
+    placeholder: { en: 'Write what you would say…', ja: '言うことを入力…' },
     submit: { en: 'Answer Rie', ja: 'りえ先生に答える' },
     pause: { en: 'Save and leave', ja: '保存して戻る' },
     hear: { en: 'Hear the example', ja: '例を聞く' },
     hearing: { en: 'Playing…', ja: '再生中…' },
-    pass: { en: 'Yes. That works here.', ja: 'はい。この場面で使えます。' },
-    next: { en: 'Next moment', ja: '次の場面へ' },
+    pass: { en: 'That fits the moment.', ja: 'その場面に合っています。' },
+    next: { en: 'Try the next moment', ja: '次の場面へ' },
     retry: { en: 'Try that moment again', ja: 'もう一度答える' },
     reveal: { en: 'Show Rie’s answer', ja: 'りえ先生の答えを見る' },
-    model: { en: 'Rie would say', ja: 'りえ先生なら' },
-    complete: { en: 'This classroom set is yours.', ja: 'この教室表現を使えるようになりました。' },
-    completeBody: {
-        en: 'Every line in this set has been answered. They are now waiting in your review queue, too.',
-        ja: 'このセットの表現にすべて答えました。復習にも追加されています。',
-    },
-    return: { en: 'Return to the lesson', ja: 'レッスンに戻る' },
-    practiceAgain: { en: 'Practice this set again', ja: 'このセットをもう一度練習' },
+    model: { en: 'Rie’s answer', ja: 'りえ先生の答え' },
+    return: { en: 'Continue your day', ja: '今日の続きを見る' },
     saveError: { en: 'That answer could not be saved. Please try once more.', ja: '答えを保存できませんでした。もう一度お試しください。' },
     audioError: { en: 'The example could not be played. The text is still here.', ja: '例の音声を再生できませんでした。文字で確認できます。' },
+} as const;
+
+const ACTIVITY_COPY = {
+    'activity:lesson-zero-reconstruct-repair': {
+        title: { en: 'Understanding and repair', ja: '理解と聞き返し' },
+        complete: { en: 'You can keep the class moving.', ja: '教室で困ったときに言えるようになりました。' },
+        completeBody: {
+            en: 'You checked understanding, asked for another try, and responded to feedback. I saved every line you used for today’s review.',
+            ja: '理解を確認し、聞き返し、フィードバックにも答えました。使った表現は今日の復習に保存しました。',
+        },
+        practiceAgain: { en: 'Run these moments again', ja: 'この場面をもう一度練習' },
+    },
+    'activity:lesson-zero-desk-language': {
+        title: { en: 'On the desk', ja: '机の上のことば' },
+        complete: { en: 'You can read the desk.', ja: '机の上のことばが読めるようになりました。' },
+        completeBody: {
+            en: 'You found the labels for homework and examples. I saved both so they can return when you next meet them.',
+            ja: '「しゅくだい」と「れい」の見出しを見つけました。次に出会うときのために、両方を保存しました。',
+        },
+        practiceAgain: { en: 'Label the desk again', ja: 'もう一度見出しを付ける' },
+    },
 } as const;
 
 export function createClassroomExpressionSessionScreen(
@@ -125,6 +139,8 @@ export function createClassroomExpressionSessionScreen(
     screen.append(scene);
 
     const binding = classroomBindingForActivity(options.activityId);
+    const activityCopy = ACTIVITY_COPY[options.activityId as keyof typeof ACTIVITY_COPY];
+    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
     const bindingProbeIds = options.definition.expressions
         .filter(expression => binding.expressionIds.includes(expression.id))
         .flatMap(expression => expression.probes.map(probe => probe.id));
@@ -140,7 +156,7 @@ export function createClassroomExpressionSessionScreen(
         live.textContent = '';
         screen.dataset.sessionStatus = state.status;
         const view = readClassroomExpressionSession(options.definition, state);
-        title.textContent = view.phaseTitle[options.language];
+        title.textContent = activityCopy.title[options.language];
         const completedBindingProbes = bindingProbeIds
             .filter(id => state.passedProbeIds.includes(id)).length;
         overall.textContent = options.language === 'ja'
@@ -342,8 +358,12 @@ export function createClassroomExpressionSessionScreen(
         seal.lang = 'ja';
         seal.setAttribute('aria-hidden', 'true');
         const heading = element('h2', 'academy-classroom-expression-complete-title');
-        heading.textContent = COPY.complete[options.language];
-        const copy = localizedParagraph(COPY.completeBody, options.language, 'academy-classroom-expression-complete-copy');
+        heading.textContent = activityCopy.complete[options.language];
+        const copy = localizedParagraph(
+            activityCopy.completeBody,
+            options.language,
+            'academy-classroom-expression-complete-copy',
+        );
         const actions = element('div', 'academy-classroom-expression-complete-actions');
         const done = element('button', 'academy-button academy-button-primary');
         done.type = 'button';
@@ -351,7 +371,7 @@ export function createClassroomExpressionSessionScreen(
         done.addEventListener('click', () => void notify(options.onBack), { signal });
         const again = element('button', 'academy-button academy-button-secondary');
         again.type = 'button';
-        again.textContent = COPY.practiceAgain[options.language];
+        again.textContent = activityCopy.practiceAgain[options.language];
         again.addEventListener('click', () => void restart(), { signal });
         actions.append(done, again);
         root.append(seal, heading, copy, actions);
@@ -428,8 +448,7 @@ export function createClassroomExpressionSessionScreen(
 
     const restart = async (): Promise<void> => {
         if (busy) return;
-        let fresh = startClassroomExpressionSession(options.definition);
-        fresh = classroomStateForActivity(options.definition, fresh, options.activityId);
+        const fresh = restartClassroomActivity(options.definition, state, options.activityId);
         try {
             busy = true;
             await options.onRestart(fresh);

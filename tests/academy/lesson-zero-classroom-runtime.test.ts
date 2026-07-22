@@ -7,6 +7,7 @@ import {
     completedClassroomActivityIds,
     LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
     newlyCompletedClassroomActivityIds,
+    restartClassroomActivity,
 } from '../../src/academy/content/lesson-zero-classroom-runtime';
 import { getCompleteLessonRegistration } from '../../src/academy/content/lesson-content-registry';
 import { validateLessonZeroClassroomExpressions } from '../../src/academy/content/lesson-zero-classroom-expressions';
@@ -114,5 +115,38 @@ describe('Lesson Zero classroom runtime bridge', () => {
             activityId: activity.id,
             outcome: 'pass',
         });
+    });
+
+    it('replays one classroom set without erasing progress from its sibling set', () => {
+        const definition = classroom();
+        const answers = new Map(definition.expressions.flatMap(expression =>
+            expression.probes.map(probe => [probe.id, probe.modelAnswer] as const)));
+        let state = classroomStateForActivity(
+            definition,
+            startClassroomExpressionSession(definition),
+            'activity:lesson-zero-desk-language',
+        );
+        state = transitionClassroomExpressionSession(definition, state, {
+            kind: 'submit', response: answers.get(state.cursor.probeId)!,
+        }, 400).state;
+        const deskProbeId = 'probe:classroom-13-homework';
+        state = classroomStateForActivity(definition, state, 'activity:lesson-zero-reconstruct-repair');
+        while (!completedClassroomActivityIds(definition, state)
+            .includes('activity:lesson-zero-reconstruct-repair')) {
+            state = transitionClassroomExpressionSession(definition, state, {
+                kind: 'submit', response: answers.get(state.cursor.probeId)!,
+            }, 401 + state.attempts.length).state;
+        }
+
+        const replay = restartClassroomActivity(
+            definition,
+            state,
+            'activity:lesson-zero-reconstruct-repair',
+        );
+
+        expect(replay.cursor.probeId).toBe('probe:classroom-08-check');
+        expect(replay.passedProbeIds).toContain(deskProbeId);
+        expect(replay.passedProbeIds).not.toContain('probe:classroom-08-check');
+        expect(replay.attempts.some(attempt => attempt.probeId === deskProbeId)).toBe(true);
     });
 });

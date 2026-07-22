@@ -114,6 +114,14 @@ describe('unbounded Academy day availability', () => {
             journeyProof: 'partial',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-reconstruct-repair'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'partial',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'partial',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('game:lesson-zero-vowel-listening-bingo'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'verified',

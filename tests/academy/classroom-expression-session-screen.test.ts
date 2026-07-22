@@ -37,7 +37,7 @@ describe('Classroom expression session screen', () => {
             onBack: vi.fn(),
         });
 
-        expect(screen.element.textContent).toContain('A pattern to use');
+        expect(screen.element.textContent).toContain('Notice the pattern');
         expect(screen.element.querySelector('.academy-classroom-expression-overall')?.textContent)
             .toBe('0 of 8 moments answered');
         expect(screen.element.querySelector<HTMLButtonElement>('.academy-classroom-expression-back')).toMatchObject({
@@ -86,11 +86,11 @@ describe('Classroom expression session screen', () => {
             onBack: vi.fn(),
         });
 
-        expect(screen.element.textContent).toContain('This classroom set is yours.');
+        expect(screen.element.textContent).toContain('You can read the desk.');
         expect(screen.element.querySelector('.academy-classroom-expression-overall')?.textContent)
             .toBe('2 of 2 moments answered');
         const replay = [...screen.element.querySelectorAll<HTMLButtonElement>('button')]
-            .find(button => button.textContent?.includes('Practice this set again'))!;
+            .find(button => button.textContent?.includes('Label the desk again'))!;
         replay.click();
         await vi.waitFor(() => expect(onRestart).toHaveBeenCalledOnce());
         await vi.waitFor(() => expect(screen.element.querySelector('.academy-classroom-expression-form')).not.toBeNull());

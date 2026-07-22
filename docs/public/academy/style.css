@@ -46325,6 +46325,13 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     background: var(--academy-night);
 }
 
+/* A rehearsal is a focused foreground activity with its own Back/Save controls.
+   Remove the global utility toggle so it cannot cover the living paper while a
+   phone learner scrolls through teaching, repair, and completion states. */
+.academy-root:has(.academy-classroom-expression-screen) .academy-header {
+    display: none;
+}
+
 .academy-classroom-expression-screen > .academy-background::after {
     position: absolute;
     inset: 0;
@@ -46439,10 +46446,17 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 }
 
 .academy-classroom-expression-back {
+    display: inline-grid;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    place-items: center;
     align-self: center;
     color: var(--academy-paper-ink);
     border-color: color-mix(in srgb, var(--academy-paper-ink) 28%, transparent);
     background: color-mix(in srgb, var(--academy-paper) 72%, white);
+    font-size: 1.25rem;
 }
 
 .academy-classroom-expression-heading-group {

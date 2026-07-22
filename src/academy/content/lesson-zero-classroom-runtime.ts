@@ -98,6 +98,36 @@ export function classroomStateForActivity(
     };
 }
 
+/** Reset only the selected set while preserving progress earned in sibling classroom activities. */
+export function restartClassroomActivity(
+    definition: ClassroomExpressionSessionDefinition,
+    state: ClassroomExpressionSessionState,
+    activityId: string,
+): ClassroomExpressionSessionState {
+    const binding = classroomBindingForActivity(activityId);
+    const expressionIds = new Set(binding.expressionIds);
+    const probeIds = new Set(binding.expressionIds.flatMap(id => expressionFor(definition, id).probes.map(probe => probe.id)));
+    const firstExpression = expressionFor(definition, binding.expressionIds[0]!);
+    const firstProbe = firstExpression.probes[0];
+    if (!firstProbe) throw new TypeError(`${activityId} has no classroom probes.`);
+    return {
+        ...state,
+        status: 'active',
+        cursor: {
+            phaseId: firstExpression.phaseId,
+            expressionId: firstExpression.id,
+            probeId: firstProbe.id,
+        },
+        attempts: state.attempts.filter(attempt => !probeIds.has(attempt.probeId)),
+        passedProbeIds: state.passedProbeIds.filter(id => !probeIds.has(id)),
+        revealedModelProbeIds: state.revealedModelProbeIds.filter(id => !probeIds.has(id)),
+        visitedExpressionIds: [
+            ...state.visitedExpressionIds.filter(id => !expressionIds.has(id)),
+            firstExpression.id,
+        ],
+    };
+}
+
 export function completedClassroomActivityIds(
     definition: ClassroomExpressionSessionDefinition,
     state: ClassroomExpressionSessionState,
