@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.408] - 2026-07-22
+
+### Fixed
+
+- Framework-owned text now uses the normal Yomu highlight only on each measured word fragment. The redundant full-mirror highlight was removed, preventing large coloured rectangles across YouTube descriptions while preserving furigana, pitch underlines, and the same generic annotation path on other sites.
+
 ## [1.6.407] - 2026-07-22
 
 ### Changed

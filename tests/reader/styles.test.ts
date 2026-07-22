@@ -274,6 +274,16 @@ describe('reader stylesheet loading', () => {
         expect(detachedFuri).toContain('inset-block-end: calc(100% + 3px)');
     });
 
+    it('paints additive highlights only on exact source fragments', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const projectedWord = css.match(/\.jpdb-reader-additive-text-mirror\s+\.jpdb-reader-word\[data-yomu-source-projected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
+        const sourceFragment = css.match(/\.jpdb-reader-source-fragment\s*\{[^}]*\}/)?.[0] ?? '';
+
+        expect(projectedWord).toContain('background: none !important');
+        expect(sourceFragment).toContain('var(--jpdb-reader-mirror-status-soft, transparent)');
+        expect(css).not.toMatch(/jpdb-reader-text-mirror\.jpdb-reader-additive-text-mirror \.jpdb-reader-word\s*\{[^}]*background-image:/s);
+    });
+
 
 
     it('keeps pointer-focused OCR text passive until hover or explicit activation', () => {
