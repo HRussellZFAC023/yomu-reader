@@ -59,9 +59,11 @@ describe('lesson overview screen', () => {
             .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
-        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(5);
+        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(4);
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
-        expect(screen.querySelector('[data-cast-id="aakash"] img')).toBeNull();
+        expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
+        expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)
+            .toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png');
     });
 
     it('does not expose activity actions while academic grounding remains blocked', () => {

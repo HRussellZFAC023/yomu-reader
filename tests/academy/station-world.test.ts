@@ -30,7 +30,8 @@ describe('Station world presentation', () => {
         expect(screen.querySelectorAll('[data-station-primary-action]')).toHaveLength(1);
         expect(screen.querySelector('[data-station-primary-action]')?.textContent).toBe('Listen to announcement');
         expect(screen.querySelector('[data-world-character="aakash"]')).not.toBeNull();
-        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
         expect(screen.querySelector('[data-item-asset-id="item.station-ticket"] img')).not.toBeNull();
         expect(screen.querySelectorAll('[data-exit-slot]')).toHaveLength(4);
         expect(themeForRoute('station')).toBe('world.station');

@@ -181,14 +181,37 @@ function scanOccurrences(worktrees) {
     return occurrences.sort((a, b) => compareJson([a.worktree, a.path], [b.worktree, b.path]));
 }
 
-function loadPreviousVerdicts() {
-    if (!fs.existsSync(LEDGER_PATH)) return new Map();
-    try {
-        const ledger = readJson(LEDGER_PATH);
-        return new Map((ledger.assets ?? []).map(asset => [asset.sha256, asset.qualityVerdict ?? asset.verdict]));
-    } catch {
-        return new Map();
+function loadPreviousLedger() {
+    const candidates = [];
+    if (fs.existsSync(LEDGER_PATH)) {
+        try {
+            candidates.push(readJson(LEDGER_PATH));
+        } catch {
+            // A failed local generation must not erase the last committed recovery record.
+        }
     }
+    try {
+        const relative = posix(path.relative(REPO_ROOT, LEDGER_PATH));
+        candidates.push(JSON.parse(execFileSync('git', ['show', `HEAD:${relative}`], {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+            maxBuffer: 64 * 1024 * 1024,
+            stdio: ['ignore', 'pipe', 'ignore'],
+        })));
+    } catch {
+        // Source archives may not have Git metadata; the checked-out ledger remains sufficient.
+    }
+    return candidates
+        .map(ledger => ({
+            ledger,
+            valid: validateLedger(ledger, { checkFiles: false }).length === 0,
+        }))
+        .sort((a, b) => Number(b.valid) - Number(a.valid)
+            || (b.ledger.assets?.length ?? 0) - (a.ledger.assets?.length ?? 0))[0]?.ledger ?? null;
+}
+
+function previousVerdicts(ledger) {
+    return new Map((ledger?.assets ?? []).map(asset => [asset.sha256, asset.qualityVerdict ?? asset.verdict]));
 }
 
 function normalizePreviousVerdict(verdict) {
@@ -392,6 +415,14 @@ function inferProvenance(relativePath, manifest) {
             sourceManifests: manifest.sourceManifests,
         };
     }
+    if (/docs\/academy\/recovery\/recovered-assets\/codex-production-v1\//.test(lower)) {
+        return {
+            generationFamily: 'direct-openai-image-generation',
+            status: 'manifest-verified-recovery-archive',
+            rightsStatus: 'original-generated-candidate',
+            sourceManifests: [],
+        };
+    }
     if (/claude-production-v3|codex-production-v2/.test(lower)) {
         return { generationFamily: 'pollinations-or-python-generated', status: 'known-rejected-family', rightsStatus: 'not-approved', sourceManifests: [] };
     }
@@ -454,6 +485,10 @@ function recoveryCandidates(worktrees) {
 
 function recoverLostAssets(worktrees, activeHashes) {
     const recovered = new Map();
+    for (const file of walk(RECOVERY_ROOT)) {
+        const hash = sha256(fs.readFileSync(file));
+        recovered.set(hash, posix(path.relative(REPO_ROOT, file)));
+    }
     for (const candidate of recoveryCandidates(worktrees)) {
         const buffer = fs.readFileSync(candidate.source);
         const actualHash = sha256(buffer);
@@ -488,9 +523,9 @@ function buildRows(occurrences, worktrees, previousVerdicts, manifestEvidence, r
     for (const [hash, destination] of recovered) {
         const file = path.join(REPO_ROOT, destination);
         const buffer = fs.readFileSync(file);
-        const group = grouped.get(hash);
-        if (!group) throw new Error(`Recovered hash missing from donor scan: ${hash}`);
+        const group = grouped.get(hash) ?? { hash, byteSize: buffer.length, buffer, occurrences: [] };
         group.occurrences.push({ worktree: 'current', path: destination, role: 'recovery-archive', current: true, absolutePath: file, extension: path.extname(file).toLowerCase() });
+        grouped.set(hash, group);
     }
 
     const rows = [];
@@ -563,6 +598,60 @@ function buildRows(occurrences, worktrees, previousVerdicts, manifestEvidence, r
         });
     }
     return rows.sort((a, b) => a.sha256.localeCompare(b.sha256, 'en'));
+}
+
+function mergePreservedHistory(currentRows, previousLedger) {
+    const byHash = new Map(currentRows.map(row => [row.sha256, structuredClone(row)]));
+    for (const previous of previousLedger?.assets ?? []) {
+        const preservedOccurrences = previous.occurrences.filter(occurrence =>
+            !occurrence.current || occurrence.role === 'recovery-archive');
+        const preservedRuntimeUses = previous.runtimeUses.filter(use => use.worktree !== 'current');
+        const current = byHash.get(previous.sha256);
+        if (current) {
+            current.occurrences = [...new Map(
+                [...current.occurrences, ...preservedOccurrences].map(occurrence => [JSON.stringify(occurrence), occurrence]),
+            ).values()];
+            current.runtimeUses = [...new Map(
+                [...current.runtimeUses, ...preservedRuntimeUses].map(use => [JSON.stringify(use), use]),
+            ).values()];
+            if (current.occurrences.some(occurrence => occurrence.role === 'recovery-archive')) {
+                current.provenance = structuredClone(previous.provenance);
+                current.qualityVerdict = previous.qualityVerdict;
+            }
+            current.occurrenceCount = current.occurrences.length;
+            continue;
+        }
+        if (!preservedOccurrences.length) continue;
+        const recovery = preservedOccurrences.find(occurrence => occurrence.role === 'recovery-archive');
+        const historicalRuntime = preservedRuntimeUses.length > 0;
+        const rejected = previous.qualityVerdict.startsWith('rejected');
+        byHash.set(previous.sha256, {
+            ...structuredClone(previous),
+            runtimeUses: preservedRuntimeUses,
+            orphanState: historicalRuntime
+                ? 'historical-runtime-only'
+                : recovery ? 'recovered-archive-only' : rejected ? 'rejected-reference-only' : 'never-runtime-referenced',
+            bindingVerdict: recovery
+                ? 'archive-preserved-not-authorized'
+                : rejected ? 'must-not-bind' : 'review-before-binding',
+            destination: recovery ? {
+                status: 'recovered-non-runtime',
+                path: recovery.path,
+                reason: 'Manifest-hash-verified quality asset preserved outside runtime delivery.',
+            } : rejected ? {
+                status: 'blocked',
+                path: null,
+                reason: 'Retained as audit evidence only; do not bind or use as a generation reference.',
+            } : {
+                status: 'inventory-only',
+                path: null,
+                reason: 'Requires provenance, rights, likeness, source-fidelity, or runtime-owner review.',
+            },
+            occurrenceCount: preservedOccurrences.length,
+            occurrences: preservedOccurrences,
+        });
+    }
+    return [...byHash.values()].sort((a, b) => a.sha256.localeCompare(b.sha256, 'en'));
 }
 
 function countBy(rows, key) {
@@ -762,13 +851,21 @@ export function validateLedger(ledger, { checkFiles = true, checkHistorical = fa
 
 async function build() {
     const worktrees = discoverWorktrees();
-    const previousVerdicts = loadPreviousVerdicts();
+    const previousLedger = loadPreviousLedger();
     const occurrences = scanOccurrences(worktrees);
     const activeHashes = new Set(occurrences.filter(item => item.current && item.role !== 'recovery-archive').map(item => sha256(fs.readFileSync(item.absolutePath))));
     const manifestEvidence = loadManifestEvidence(worktrees);
     const runtimeEvidence = loadRuntimeEvidence(worktrees);
     const recovered = recoverLostAssets(worktrees, activeHashes);
-    const assets = buildRows(occurrences, worktrees, previousVerdicts, manifestEvidence, runtimeEvidence, recovered);
+    const currentAssets = buildRows(
+        occurrences,
+        worktrees,
+        previousVerdicts(previousLedger),
+        manifestEvidence,
+        runtimeEvidence,
+        recovered,
+    );
+    const assets = mergePreservedHistory(currentAssets, previousLedger);
     const ledger = makeLedger(worktrees, assets);
     fs.mkdirSync(path.dirname(LEDGER_PATH), { recursive: true });
     fs.writeFileSync(LEDGER_PATH, serializeLedger(ledger));

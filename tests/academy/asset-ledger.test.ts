@@ -343,14 +343,14 @@ describe('Academy runtime asset ledger', () => {
         });
     });
 
-    it('keeps the Aakash journal preview honest and separate from the rainy scene CG', () => {
-        const preview = ledger.assets.find(asset => asset.id === 'aakash-neutral-halfbody-v001');
+    it('keeps the approved Aakash sprite separate from the rainy scene CG', () => {
+        const sprite = ledger.assets.find(asset => asset.id === 'aakash-neutral-front-near-front-v009');
         const rainyScene = ledger.assets.find(asset => asset.id === 'rainy-directions-rie-aakash-v001');
 
-        expect(preview).toMatchObject({
-            verdict: 'approved-runtime-preview',
-            runtimeHome: ['journal:aakash'],
-            status: 'owner-requested-preview; release-blocked-pending-likeness-approval',
+        expect(sprite).toMatchObject({
+            verdict: 'approved-runtime',
+            runtimeHome: expect.arrayContaining(['journal:aakash', 'world:person', 'lesson:l1-l01:cast']),
+            status: 'owner-approved 2026-07-21; runtime replacement for neutral v005',
         });
         expect(rainyScene?.runtimeHome).not.toContain('journal:aakash');
         expect(rainyScene?.status).not.toContain('sprite');

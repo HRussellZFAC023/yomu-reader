@@ -6,7 +6,7 @@ Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN
 
 No day is complete until an exact availability manifest proves that every required, optional, unlocked, revisitable, repeatable, one-off, accessibility, online, and offline activity available on that date is implemented, reachable, media-complete, persistent, and journey-tested.
 
-**Current delivery checkpoint:** shared story, audio, N3, account-lifecycle, workflow, and retained upstream work are consolidated. The active task is the approved Aakash `v009` runtime promotion and manifest/build proof, followed by the minimal runnable art-grader integration. Day 1 begins only after that consolidation is committed, pushed, and synchronized with `origin/main`.
+**Current delivery checkpoint:** the delivery tree is synchronized through Reader `v1.6.406`; shared story, audio, N3, account lifecycle, workflow, retained upstream work, and the approved Aakash `v009` runtime promotion are consolidated. The executable Day 1 availability manifest now enumerates 52 learner-facing surfaces and 260 closure proofs across implementation, reachability, media, persistence, and full-journey evidence. The active task is to close those rows in chronological order, beginning with the canonical enrolled-world gate and the complete welcome-to-first-evening journey. Day 1 remains at zero closure points until every manifest row is verified.
 
 ## Counting and closure contract
 

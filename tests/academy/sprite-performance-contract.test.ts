@@ -36,7 +36,8 @@ describe('Academy VN sprite performance contract', () => {
         expect(status('rie', 'neutral')).toBe('approved');
         expect(status('rie', 'happy')).toBe('approved');
         expect(status('rie', 'encouraging-listening')).toBe('missing');
-        for (const castId of ['aakash', 'peter', 'felix', 'shaun'] as const) {
+        expect(status('aakash', 'neutral')).toBe('approved');
+        for (const castId of ['peter', 'felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
         expect(Object.values(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions).map(cell => cell.status))
@@ -55,8 +56,8 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 12,
-            reviewCandidates: 11,
+            approved: 13,
+            reviewCandidates: 10,
             missing: totalPerformanceCells - 23,
         });
     });

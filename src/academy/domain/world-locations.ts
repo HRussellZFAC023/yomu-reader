@@ -1,5 +1,9 @@
 import { ACADEMY_ASSETS, type AcademyItemAsset, type AcademyItemAssetId, type AcademyPlateId } from '../assets';
 import { getAcademyCastMember } from './cast-registry';
+import {
+    worldPlaceAvailableOnAcademyDay,
+    worldPracticeAvailableOnAcademyDay,
+} from './day-availability';
 
 export type WorldPlaceId =
     | 'courtyard'
@@ -43,6 +47,8 @@ export type WorldLanguage = 'en' | 'ja';
 export interface WorldProgress {
     readonly completedScenes: readonly string[];
     readonly completedEncounterIds: readonly string[];
+    /** Canonical unbounded calendar day, derived from durable day closures. */
+    readonly currentDay?: number;
     /** Derived from the canonical encounter projection; never a parallel unlock list. */
     readonly metCharacterIds?: readonly string[];
     readonly worldVisits?: Readonly<Partial<Record<WorldPlaceId, number>>>;
@@ -2052,13 +2058,30 @@ export function worldPlace(id: WorldPlaceId): WorldPlaceDefinition {
 
 export function projectWorldPlace(id: WorldPlaceId, progress: WorldProgress): WorldPlaceProjection {
     const place = worldPlace(id);
-    const availability = place.availability?.(progress) ?? OPEN;
+    const day = academyDayForWorldProgress(progress);
+    const followsCanonicalCalendar = hasCanonicalAcademyDay(progress);
+    const authoredAvailability = place.availability?.(progress) ?? OPEN;
+    const availability: WorldAvailability = authoredAvailability.state === 'open'
+        && followsCanonicalCalendar
+        && !worldPlaceAvailableOnAcademyDay(id, day)
+        ? {
+            state: 'locked',
+            reason: {
+                ja: 'この場所は、これからの一日に物語と一緒に開きます。',
+                en: 'This place opens with the story on a later day.',
+            },
+        }
+        : authoredAvailability;
     const phase = worldTimePhase(progress, id);
+    const practices = availability.state === 'open'
+        ? (place.practices ?? []).filter(practice =>
+            !followsCanonicalCalendar || worldPracticeAvailableOnAcademyDay(id, practice.id, day))
+        : [];
     return {
         ...place,
         activity: { ...place.activity, curriculum: curriculumHook(place) },
         people: rotatingPeople(place.people, progress, id),
-        ...(place.practices ? { practice: place.practices[visitCount(progress, id) % place.practices.length]! } : {}),
+        ...(practices.length ? { practice: practices[visitCount(progress, id) % practices.length]! } : {}),
         availability,
         moment: worldMoment(progress, phase),
         introduction: worldLocationIntroduction(id, progress.seenIntroductions),
@@ -2099,7 +2122,7 @@ const GROUNDED_CURRICULUM: Readonly<Partial<Record<WorldPlaceId, WorldCurriculum
 export function worldTimePhase(progress: WorldProgress, place: WorldPlaceId): WorldTimePhase {
     if (place === 'konbini') return 'evening';
     const phase: readonly WorldTimePhase[] = ['morning', 'lunch', 'after-class', 'evening', 'night'];
-    return phase[(storyDay(progress) + visitCount(progress, place) - 1) % phase.length]!;
+    return phase[(academyDayForWorldProgress(progress) + visitCount(progress, place) - 1) % phase.length]!;
 }
 
 /** Natural, Japanese-first time tags for the current-place header. */
@@ -2172,14 +2195,20 @@ export function worldRouteForPlace(place: WorldPlaceId): WorldRoute {
 }
 
 function worldMoment(progress: WorldProgress, phase: WorldTimePhase): LocalizedText {
-    const day = storyDay(progress);
+    const day = academyDayForWorldProgress(progress);
     const phaseText = worldTimePhaseLabel(phase);
     const season = day >= 6 ? { ja: '初夏', en: 'Early summer' } : { ja: '春', en: 'Spring' };
     return { ja: `${season.ja}・${day}日目・${phaseText.ja}`, en: `${season.en} · Day ${day} · ${phaseText.en}` };
 }
 
-function storyDay(progress: WorldProgress): number {
-    return Math.max(1, Math.floor(progress.completedScenes.length / 2) + 1);
+function academyDayForWorldProgress(progress: WorldProgress): number {
+    return hasCanonicalAcademyDay(progress)
+        ? progress.currentDay!
+        : Math.max(1, Math.floor(progress.completedScenes.length / 2) + 1);
+}
+
+function hasCanonicalAcademyDay(progress: WorldProgress): boolean {
+    return Number.isSafeInteger(progress.currentDay) && (progress.currentDay ?? 0) > 0;
 }
 
 function visitCount(progress: WorldProgress, place: WorldPlaceId): number {
@@ -2190,7 +2219,6 @@ function rotatingPeople(people: readonly string[], progress: WorldProgress, plac
     const visible = people.filter(id => id === 'rie' || progress.metCharacterIds?.includes(id));
     if (!visible.length) return people.slice(0, 1);
     if (visible.length < 2) return visible;
-    const offset = (storyDay(progress) + visitCount(progress, place)) % visible.length;
+    const offset = (academyDayForWorldProgress(progress) + visitCount(progress, place)) % visible.length;
     return [...visible.slice(offset), ...visible.slice(0, offset)];
 }
-

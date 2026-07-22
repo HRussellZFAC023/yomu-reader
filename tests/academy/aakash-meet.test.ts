@@ -96,7 +96,8 @@ describe('Aakash rainy-directions bond beat', () => {
 
         expect(screen.dataset.academyScreen).toBe('aakash-directions-vn');
         expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src).toContain(ACADEMY_ASSETS.locations.cafe.wide);
-        expect(screen.querySelector('[data-character="aakash"]')).toBeNull();
+        expect(screen.querySelector<HTMLImageElement>('[data-character="aakash"] img')?.src)
+            .toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png');
         expect(screen.textContent).toContain(AAKASH_DIRECTIONS_CONTENT.context.japanese);
         expect(screen.textContent).toContain('Aakash is looking for the cafe');
         expect(screen.textContent).not.toContain('カフェはどこですか。');
@@ -176,7 +177,7 @@ describe('Aakash rainy-directions bond beat', () => {
         const support = screen.querySelector<HTMLElement>('.academy-lesson-repair-hints')!;
         const hint = screen.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
         expect([...screen.querySelectorAll('.academy-vn-line-tools button')].map(button => button.textContent))
-            .toEqual(['記', '読', '訳']);
+            .toEqual(['記', '▶', '読', '訳']);
         expect(screen.querySelector('.academy-constructed-prompt-support-toggle')).toBeNull();
         expect(support.hidden).toBe(true);
         expect(screen.querySelector('.academy-progressive-hint-fill')).toBeNull();

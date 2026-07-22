@@ -54,8 +54,11 @@ describe('l1-l01 approved asset binding', () => {
         expect(binding).toEqual({
             sceneAssetId: 'location.classroom',
             sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
-            approvedCastAssetIds: { rie: 'character.rie.neutral-glasses' },
-            reviewOnlyCastCandidates: { aakash: 'character.aakash.neutral' },
+            approvedCastAssetIds: {
+                rie: 'character.rie.neutral-glasses',
+                aakash: 'character.aakash.neutral',
+            },
+            reviewOnlyCastCandidates: {},
             itemAssetIds: ['item.classroom-belongings'],
             sourceMedia: [{
                 purpose: 'source-homework-worksheet',
@@ -74,8 +77,11 @@ describe('l1-l01 approved asset binding', () => {
             sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
             sourceSceneReferenceState: 'missing-source-reference-with-approved-registry-binding',
             approvedScene: { assetId: 'classroom-evening-lamplit', verdict: 'approved-runtime' },
-            approvedCast: { rie: { assetId: 'rie-neutral-glasses-front-near-front-halfbody-v001', verdict: 'approved-runtime' } },
-            reviewOnlyCast: { aakash: { assetId: 'aakash-neutral-halfbody-v001', verdict: 'approved-runtime-preview' } },
+            approvedCast: {
+                rie: { assetId: 'rie-neutral-glasses-front-near-front-halfbody-v001', verdict: 'approved-runtime' },
+                aakash: { assetId: 'aakash-neutral-front-near-front-v009', verdict: 'approved-runtime' },
+            },
+            reviewOnlyCast: {},
             unboundNoApprovedAsset: ['henry', 'jenny', 'mika', 'stasi', 'tom'],
             items: [{ assetId: 'classroom-belongings-v001', verdict: 'approved-runtime' }],
             placeholderPortraitsAuthorized: false,
@@ -84,8 +90,8 @@ describe('l1-l01 approved asset binding', () => {
             lessonScene: ['rie', 'henry', 'aakash', 'jenny', 'tom'],
             storyContinuity: ['stasi', 'mika'],
         });
-        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.aakash.neutral'].status).toBe('review-preview');
-        expect(Object.values(binding.approvedCastAssetIds)).not.toContain('character.aakash.neutral');
+        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.aakash.neutral'].status).toBe('approved');
+        expect(Object.values(binding.approvedCastAssetIds)).toContain('character.aakash.neutral');
         expect(fs.existsSync(path.resolve('public', binding.sourceSceneReference))).toBe(false);
     });
 
@@ -103,6 +109,8 @@ describe('l1-l01 approved asset binding', () => {
         const ledgerById = new Map(usage.assets.map(asset => [asset.id, asset]));
         expect(ledgerById.get('rie-neutral-glasses-front-near-front-halfbody-v001')?.runtimeHome)
             .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].runtimeHomes);
+        expect(ledgerById.get('aakash-neutral-front-near-front-v009')?.runtimeHome)
+            .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.aakash.neutral'].runtimeHomes);
         expect(ledgerById.get('classroom-evening-lamplit')?.runtimeHome)
             .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['location.classroom'].runtimeHomes);
         expect(ledgerById.get('classroom-belongings-v001')?.runtimeHome)

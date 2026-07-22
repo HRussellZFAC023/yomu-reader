@@ -22,6 +22,7 @@ import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION
 import { gradeStoryPractice, storyPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
 import type { JlptBand } from '../domain/learner-record';
+import { currentAcademyDayNumber } from '../domain/day-availability';
 import { canonicalGroundedReviewKey } from '../domain/review-identity';
 import type { ReplayLanguageBand } from '../domain/story-replay-projection';
 import { projectCharacterDirectory, type CharacterRevisitPath } from '../domain/progress-projections';
@@ -215,6 +216,9 @@ class WorldFlow implements AcademyRouteFlow {
             progress: {
                 completedScenes: context.projection.completedScenes,
                 completedEncounterIds: context.projection.completedEncounterIds,
+                ...(context.projection.profile && context.projection.curriculumEntry
+                    ? { currentDay: currentAcademyDayNumber(context.projection.closedDays) }
+                    : {}),
                 metCharacterIds: characters.filter(character => character.unlocked).map(character => character.characterId),
                 worldVisits: context.checkpoint.worldVisits,
                 seenIntroductions: context.checkpoint.seenIntroductions,

@@ -59,7 +59,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "e1c483adbfa03462c5a54e1f1047cffba2cf2a92f5ff1674875277d3d94ae3b8"
+          "sha256": "650881d5e25886334b9461969bd8a949f1530a51951b75844dec20918f824c1e"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -74,7 +74,7 @@
       "deliveries": [
         {
           "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
-          "sha256": "c46353cc384d6a5bb5dcbd016dd7d9a80ca8eae92e373ba88c138ba4d196f493"
+          "sha256": "799c52234b7ce13e3f84d056c2a769b7252f3a2f4453a5d9e57a2a6e10610f72"
         }
       ],
       "status": "generated-mirrored-and-conformance-validated; not-runtime-bound"

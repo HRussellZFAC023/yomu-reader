@@ -41,7 +41,7 @@
     "worlds": 3,
     "sourceMedia": 71,
     "activeRuntimeAssets": 14,
-    "recoveredCandidates": 14,
+    "recoveredCandidates": 6,
     "missingPurposefulAssets": 0
   },
   "lessons": [
@@ -1905,94 +1905,9 @@
       ],
       "recoveredCandidates": [
         {
-          "sha256": "0885bc5b3aacdc1c41bfa3116ab6b26d5394e7e37e18050473667c2dff2dd608",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/mobile/direction-rainy-junction.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "40ef2f1e110e8952c66652ab41fe98655dde155cf5cc4d34d1f62a6c9f0c972b",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/thumb/relationship-umbrella.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "ee67abb3f63f0d8e1c507ab07fc78f8c0e5dfcfd1f24b7746e28f01f156320ed",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-rainy-junction.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
           "sha256": "4e437e8914f8ab576b355362a888b4995707a9234bced02d60b8d9bf6e1c538d",
           "type": "lesson-illustration",
           "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-station-kiosk.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "464fb1e3bab9ecd0cbbffaa64e8bc86f9ba487c56ac7b78e9847be934963406e",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/manga-rain-cafe-panel.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "34e6047cd291a71f4d52c15a55ebe9984e9f7f307592c9e88b38f8d7bb2ce4cb",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/weather-umbrella-mishap.jpg",
           "provenance": {
             "generationFamily": "direct-openai-image-generation",
             "status": "manifest-reviewed-human-signoff-pending",
@@ -2117,57 +2032,6 @@
             "sourceManifests": [
               "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json",
               "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "0885bc5b3aacdc1c41bfa3116ab6b26d5394e7e37e18050473667c2dff2dd608",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/mobile/direction-rainy-junction.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "40ef2f1e110e8952c66652ab41fe98655dde155cf5cc4d34d1f62a6c9f0c972b",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/thumb/relationship-umbrella.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
-            ]
-          },
-          "runtimeUses": [],
-          "orphanStatus": "recovered-archive-only",
-          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
-        },
-        {
-          "sha256": "ee67abb3f63f0d8e1c507ab07fc78f8c0e5dfcfd1f24b7746e28f01f156320ed",
-          "type": "lesson-illustration",
-          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-rainy-junction.jpg",
-          "provenance": {
-            "generationFamily": "direct-openai-image-generation",
-            "status": "manifest-reviewed-human-signoff-pending",
-            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
-            "sourceManifests": [
-              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
             ]
           },
           "runtimeUses": [],

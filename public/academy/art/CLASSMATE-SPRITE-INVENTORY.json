@@ -39,7 +39,7 @@
     "missing": 607,
     "currentPhysicalRasters": 32,
     "currentOffMatrixRasters": 9,
-    "historicalUniqueRasters": 468,
+    "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
     "charactersWithApprovedCoverage": 4,
     "charactersWithAnyCurrentCoverage": 8
@@ -1727,6 +1727,7 @@
         "sha256:a29eccc27fe7c641101c4946fea88ce2c0010a4dc8215aab8c226c6b1ff7d14a",
         "sha256:b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
         "sha256:bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
+        "sha256:cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
         "sha256:d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
         "sha256:e0aa8d42f036a19d6f831e9b914172d89d114c95c4a6b6624667acc7f24c553a",
         "sha256:e19209e960a3bdfcc5b55031c1c0828b73ccde05bf04b1b32ba4f801c9122a34",
@@ -34496,6 +34497,100 @@
       ]
     },
     {
+      "id": "sha256:cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
+      "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
+      "characters": [
+        "aakash"
+      ],
+      "dimensions": {
+        "width": 1086,
+        "height": 1448
+      },
+      "transparency": {
+        "status": "unknown-not-retained",
+        "evidence": "Recovery ledger preserves dimensions and hashes but not decoded alpha samples."
+      },
+      "styleVersion": {
+        "generationFamily": "unknown-provenance",
+        "provenanceStatus": "inventory-only",
+        "variants": []
+      },
+      "poses": [],
+      "angles": [],
+      "expressions": [
+        "neutral"
+      ],
+      "runtimeUses": [
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "class:people"
+        },
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "class:week-cast"
+        },
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "journal:aakash"
+        },
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "lesson-overview:roster"
+        },
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "lesson:l1-l01:cast"
+        },
+        {
+          "worktree": "current",
+          "source": "public/academy/art/ASSET-USAGE.json",
+          "line": null,
+          "match": "runtime-ledger-route-home",
+          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "route": "world:person"
+        }
+      ],
+      "qualityVerdict": "current-runtime-ledgered",
+      "bindingVerdict": "runtime-authorized",
+      "decision": "keep",
+      "migrationStatus": "current-runtime",
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "worktree": "current",
+          "path": "docs/public/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "role": "docs-mirror",
+          "current": true
+        },
+        {
+          "worktree": "current",
+          "path": "public/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+          "role": "runtime-public",
+          "current": true
+        }
+      ]
+    },
+    {
       "id": "sha256:cdc872884964014730318621ee64b7f4dad2233026831eba9b39fd7740bff014",
       "sha256": "cdc872884964014730318621ee64b7f4dad2233026831eba9b39fd7740bff014",
       "characters": [
@@ -37934,34 +38029,13 @@
       "expressions": [
         "neutral"
       ],
-      "runtimeUses": [
-        {
-          "worktree": "current",
-          "source": "public/academy/art/ASSET-USAGE.json",
-          "line": null,
-          "match": "runtime-ledger-route-home",
-          "expression": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-          "route": "journal:aakash"
-        }
-      ],
+      "runtimeUses": [],
       "qualityVerdict": "current-runtime-ledgered",
-      "bindingVerdict": "runtime-authorized",
-      "decision": "keep",
-      "migrationStatus": "current-runtime",
-      "occurrenceCount": 10,
+      "bindingVerdict": "review-before-binding",
+      "decision": "replace",
+      "migrationStatus": "never-runtime-referenced",
+      "occurrenceCount": 8,
       "occurrences": [
-        {
-          "worktree": "current",
-          "path": "docs/public/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-          "role": "docs-mirror",
-          "current": true
-        },
-        {
-          "worktree": "current",
-          "path": "public/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-          "role": "runtime-public",
-          "current": true
-        },
         {
           "worktree": "release:audio-qa-release-20260717",
           "path": "docs/public/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",

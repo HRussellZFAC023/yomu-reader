@@ -71,7 +71,8 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector('.academy-world-phase')?.textContent).toMatch(/Day 1.*Lunch break/);
         expect(screen.querySelector('.academy-background img')).not.toBeNull();
         expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-name')?.textContent).toBe('Aakash-san');
-        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
         expect(screen.querySelector('.academy-world-action-dock')).not.toBeNull();
         expect(screen.querySelectorAll('.academy-world-action-dock').length).toBe(1);
         expect(screen.querySelector<HTMLElement>('.academy-world-action-dock')?.dataset.worldActivity).toBe('moodle:class-journal');
@@ -609,9 +610,9 @@ describe('Academy current-place world', () => {
         expect(screen.dataset.currentPlace).toBe('classroom');
         expect(screen.querySelectorAll('[data-scene-composition="classroom"] [data-landmark]')).toHaveLength(3);
         expect(screen.querySelector('[data-world-character="rie"] .academy-sprite')).not.toBeNull();
-        ['aakash', 'felix'].forEach(id => {
-            expect(screen.querySelector(`[data-world-character="${id}"] .academy-world-character-silhouette`)).not.toBeNull();
-        });
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
+        expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).not.toBeNull();
 
         const leadPerson = projection.people[0]!;
         const personAction = screen.querySelector<HTMLButtonElement>(`[data-world-person-action="${leadPerson}"]`)!;
@@ -735,7 +736,8 @@ describe('Academy current-place world', () => {
         ['rain-glass', 'counter-lamp', 'coffee-table'].forEach(landmark => {
             expect(screen.querySelector(`[data-scene-composition="cafe"] [data-landmark="${landmark}"]`)).not.toBeNull();
         });
-        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
         expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-silhouette')).not.toBeNull();
 
         const purpose = screen.querySelector<HTMLElement>('[data-purpose-surface="cafe-menu"]')!;
@@ -1592,7 +1594,8 @@ describe('Academy current-place world', () => {
         const practice = projectWorldPlace('station', PROGRESS).practice!;
         expect(screen.querySelector<HTMLElement>('.academy-world-station-board')?.dataset.stationEvent).toBe(practice.id);
         expect(screen.querySelector('.academy-world-station-board-label')?.textContent).toBe('Station-front notice');
-        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
         const listen = screen.querySelector<HTMLButtonElement>(`[data-world-listen="${practice.id}"]`)!;
         const transcript = screen.querySelector<HTMLElement>('.academy-world-transcript')!;
         expect(transcript.hidden).toBe(true);
@@ -1724,15 +1727,21 @@ describe('Academy current-place world', () => {
         }
     });
 
-    it('keeps station and konbini presence consent-safe when their cast has no likeness approval', () => {
-        (['station', 'konbini'] as const).forEach(place => {
+    it('renders approved portraits and keeps pending likenesses as silhouettes', () => {
+        ([['station', 'aakash'], ['konbini', 'nanako']] as const).forEach(([place, characterId]) => {
             const screen = renderWorldPlaceScreen({
                 language: 'en', place, route: place,
                 progress: { ...PROGRESS, seenIntroductions: [`place:${place}`] },
                 onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
             });
-            expect(screen.querySelector('[data-world-character] .academy-sprite')).toBeNull();
-            expect(screen.querySelector('[data-world-character] .academy-world-character-silhouette')).not.toBeNull();
+            const character = screen.querySelector(`[data-world-character="${characterId}"]`)!;
+            if (canRenderAcademyCastPortrait(characterId, 'story-runtime')) {
+                expect(character.querySelector('.academy-sprite')).not.toBeNull();
+                expect(character.querySelector('.academy-world-character-silhouette')).toBeNull();
+            } else {
+                expect(character.querySelector('.academy-sprite')).toBeNull();
+                expect(character.querySelector('.academy-world-character-silhouette')).not.toBeNull();
+            }
         });
     });
 

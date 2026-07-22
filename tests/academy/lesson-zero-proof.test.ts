@@ -348,7 +348,7 @@ describe('Lesson 0 source-led proof', () => {
         expect(proof.element.querySelector('[data-character="learner"]')?.getAttribute('data-position')).toBe('right');
         expect(proof.element.querySelector('.academy-vn-speaker')?.textContent).toBe('Mina');
         expect([...proof.element.querySelectorAll('.academy-vn-line-tools button')].map(button => button.textContent))
-            .toEqual(['記', '読', '訳']);
+            .toEqual(['記', '▶', '読', '訳']);
         expect(proof.element.querySelector('.academy-constructed-prompt-support-toggle')).toBeNull();
     });
 

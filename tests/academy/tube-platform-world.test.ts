@@ -66,8 +66,8 @@ describe('Academy Tube platform world', () => {
         expect(arrival.textContent).toContain('usual Tube journey');
         expect(purpose.hidden).toBe(true);
         expect(aakash.dataset.presence).toBe('waiting-by-platform-map');
-        expect(aakash.querySelector('.academy-world-character-silhouette')).not.toBeNull();
-        expect(aakash.querySelector('img')).toBeNull();
+        expect(aakash.querySelector('.academy-world-character-silhouette')).toBeNull();
+        expect(aakash.querySelector('img')).not.toBeNull();
         expect(screen.querySelectorAll('[data-tube-primary-action]')).toHaveLength(1);
         expect(screen.querySelector('.academy-world-curriculum')).toBeNull();
         expect(screen.querySelector('[data-world-stamp]')).toBeNull();
