@@ -290,6 +290,7 @@ export default defineConfig({
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
                     { text: 'Stats', link: statsLink, target: '_self' },
+                    { text: 'API', link: '/api/', target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Changelog', link: '/changelog' },
                     { text: 'Privacy', link: '/privacy' },
@@ -335,6 +336,7 @@ export default defineConfig({
                 text: 'Project',
                 items: [
                     { text: 'Support', link: '/support' },
+                    { text: 'API', link: '/api/', target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Changelog', link: '/changelog' },
                 ],

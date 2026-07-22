@@ -1,0 +1,214 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Yomu Edge API",
+    "version": "1.6.408",
+    "description": "Anonymous, read-only, privacy-preserving CORS gateway for a narrow allowlist of public Japanese-learning resources.",
+    "contact": {
+      "name": "Yomu",
+      "url": "https://yomureader.com/"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://edge.yomureader.com"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Gateway policy and readiness."
+    },
+    {
+      "name": "Gateway",
+      "description": "Allowlisted anonymous reads."
+    }
+  ],
+  "paths": {
+    "/status": {
+      "get": {
+        "operationId": "getEdgeStatus",
+        "tags": [
+          "System"
+        ],
+        "summary": "Check edge gateway status",
+        "description": "Reports the public allowlist and privacy policy without logging target queries or forwarding credentials.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "getEdgeHealth",
+        "tags": [
+          "System"
+        ],
+        "summary": "Check edge gateway health",
+        "description": "Alias of `/status` for infrastructure health checks.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "operationId": "proxyPublicJapaneseResource",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Fetch an allowlisted public resource",
+        "description": "CORS-enables an anonymous GET/HEAD to a strictly allowlisted Japanese-learning resource. Private/local targets, credentials, sensitive query parameters, cookies, and arbitrary hosts are rejected.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The allowlisted upstream response. Content type is preserved.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The target is absent or not allowed.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The public daily budget or an upstream cooldown is active.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The public gateway is disabled.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "Absolute HTTPS URL on the public allowlist.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EdgeStatus": {
+        "type": "object",
+        "required": [
+          "service",
+          "status",
+          "allowlistVersion",
+          "allowedMethods",
+          "allowedHosts",
+          "policy",
+          "budget",
+          "analytics"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "const": "yomu-jpdb-public-proxy"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "disabled"
+            ]
+          },
+          "allowlistVersion": {
+            "type": "string"
+          },
+          "allowedMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "HEAD"
+              ]
+            }
+          },
+          "allowedHosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "policy": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "budget": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analytics": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {}
+  },
+  "externalDocs": {
+    "description": "Yomu documentation",
+    "url": "https://yomureader.com/"
+  }
+}

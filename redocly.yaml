@@ -1,0 +1,8 @@
+extends:
+  - recommended
+
+rules:
+  # Health reads and redirect-only browser flows legitimately have no 4XX or
+  # 2XX response respectively. The route-census test guards their existence.
+  operation-4xx-response: off
+  operation-2xx-response: off
