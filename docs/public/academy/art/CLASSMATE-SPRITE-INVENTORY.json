@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 13,
+    "approved": 14,
     "reviewCandidates": 10,
-    "missing": 607,
-    "currentPhysicalRasters": 32,
+    "missing": 606,
+    "currentPhysicalRasters": 33,
     "currentOffMatrixRasters": 9,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 4,
-    "charactersWithAnyCurrentCoverage": 8
+    "charactersWithApprovedCoverage": 5,
+    "charactersWithAnyCurrentCoverage": 9
   },
   "migrations": [
     {
@@ -5727,13 +5727,49 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 1,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 20,
+        "deliveredPercent": 4.76,
+        "approvedPercent": 4.76
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
+          "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
+          "source": "catalog:docs/academy/recovery/ACADEMY-ART-CATALOG.json#xingyu-listening-halfbody-v2-v001",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "lesson-zero:vowel-listening",
+              "game:lesson-zero-vowel-listening-bingo"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "rhythm-marking stance with headphones lifted away from one ear and the free hand raised on the beat; front-near-front",
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 732,
+            "height": 1600,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "lesson-zero:vowel-listening",
+            "game:lesson-zero-vowel-listening-bingo"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -5801,9 +5837,8 @@
         {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -5946,13 +5981,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/xingyu/xingyu__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",

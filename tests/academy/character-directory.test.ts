@@ -117,7 +117,7 @@ describe('Academy character directory presentation', () => {
         }
     });
 
-    it('opens Xingyu-san on her own name-only page with every grounded revisit path', async () => {
+    it('opens Xingyu-san on her portrait-backed page with every grounded revisit path', async () => {
         const record = createLearnerRecord();
         await record.recordMany([
             {
@@ -155,19 +155,21 @@ describe('Academy character directory presentation', () => {
                 { kind: 'story-episode', targetId: 's1e04-welcome-frequency' },
             ],
         });
-        expect(xingyu.portrait).toBeUndefined();
+        expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
         expect(peter.portrait).toContain('/characters/peter/peter__neutral__halfbody__v002.png');
         expect(felix.portrait).toContain('/characters/felix/felix__neutral__halfbody__v001.png');
 
         const entry = screen.querySelector<HTMLElement>('[data-character="xingyu"]')!;
         expect(entry.dataset.unlocked).toBe('true');
-        expect(entry.querySelector('img')).toBeNull();
+        expect(entry.querySelector<HTMLImageElement>('img')?.src)
+            .toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
         expect(entry.querySelector('.academy-character-name')?.textContent).toBe('Xingyu-san');
         entry.querySelector<HTMLButtonElement>('button')?.click();
 
         const page = screen.querySelector<HTMLElement>('.academy-character-dossier[data-character="xingyu"]')!;
         expect(page.querySelector('h2')?.textContent).toBe('Xingyu-san');
-        expect(page.querySelector('img')).toBeNull();
+        expect(page.querySelector<HTMLImageElement>('img')?.src)
+            .toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
         const revisits = [...page.querySelectorAll<HTMLButtonElement>('.academy-character-revisit')];
         expect(revisits.map(button => [button.dataset.revisitKind, button.dataset.encounterId])).toEqual([
             ['class-week', 'class-week:l1-l03'],

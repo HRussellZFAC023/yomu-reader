@@ -236,7 +236,9 @@ describe('Class path', () => {
         const peterAppearance = screen.querySelector('[data-week-id="l1-l04"] [data-week-cast-id="peter"]');
         expect(peterAppearance?.classList.contains('is-name-only')).toBe(true);
         const xingyuAppearance = screen.querySelector('[data-week-id="l1-l03"] [data-week-cast-id="xingyu"]');
-        expect(xingyuAppearance?.classList.contains('is-name-only')).toBe(true);
+        expect(xingyuAppearance?.classList.contains('is-name-only')).toBe(false);
+        expect(xingyuAppearance?.querySelector('picture.academy-sprite img')?.getAttribute('src'))
+            .toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
         expect(xingyuAppearance?.textContent).toBe('Xingyu');
     });
 

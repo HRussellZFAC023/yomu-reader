@@ -194,7 +194,7 @@ describe('Academy grounded-route conformance', () => {
         await blockedEvidence.initialize();
         const untrustedEvaluation: ActivityEvaluation = {
             ...evaluation,
-            attempt: { ...evaluation.attempt, activityId: 'activity:lesson-zero-vowel-listen' },
+            attempt: { ...evaluation.attempt, activityId: 'activity:lesson-zero-vowel-doodle' },
         };
 
         await expect(blockedEvidence.recordActivity(untrustedEvaluation, lesson.lessonId))

@@ -168,6 +168,23 @@ describe('Academy resume route contract', () => {
                     mode: 'typed',
                     attempts: [],
                 },
+                lessonZeroVowelProgress: {
+                    schemaVersion: 1,
+                    sessionId: 'session:lesson-zero-vowel-listen',
+                    status: 'paused',
+                    stage: 'learn',
+                    variant: 'lesson',
+                    mode: 'audio',
+                    learnedItemIds: ['hira-a'],
+                    roundOrder: [],
+                    heardRoundIds: [],
+                    selections: [],
+                    repairItemIds: [],
+                    repairCursor: 0,
+                    baseCompleted: false,
+                    bingoWins: 0,
+                    attempts: [],
+                },
             },
             projectLearnerRecord([]),
             4_000,
@@ -185,6 +202,7 @@ describe('Academy resume route contract', () => {
         });
         expect(expired.classroomInstructionProgress).toMatchObject({ status: 'paused', cursor: 1 });
         expect(expired.lessonZeroGreetingProgress).toMatchObject({ status: 'paused', stage: 'rehearse' });
+        expect(expired.lessonZeroVowelProgress).toMatchObject({ status: 'paused', learnedItemIds: ['hira-a'] });
     });
 
     it('resumes the day-end pause without inventing lesson completion evidence', () => {

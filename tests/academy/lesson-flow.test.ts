@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
 import { serializeStoryCursor } from '../../src/academy/content/story-runner';
+import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
+import {
+    startLessonZeroVowelSession,
+    transitionLessonZeroVowelSession,
+} from '../../src/academy/domain/lesson-zero-vowel-session';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
 import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
@@ -278,6 +283,64 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ skill: 'writing', action: 'produce', independent: true }),
         ));
         expect(recordSupportUse).not.toHaveBeenCalled();
+    });
+
+    it('routes Xingyu\'s five sounds through durable SRS evidence and the optional bingo surface', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-vowel-listen',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const play = vi.fn(async () => ({ dispose() {} }));
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-vowel-lab');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroVowelProgress: expect.objectContaining({ status: 'ready' }),
+        }));
+        const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+            .find(button => button.textContent?.trim() === label)!.click();
+        click('Take the headphones');
+        for (let index = 0; index < 5; index += 1) {
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear this sound'));
+            click('Hear this sound');
+        }
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Listen without the paper'));
+        click('Listen without the paper');
+
+        const model = createLessonZeroVowelSoundMap();
+        let expected = transitionLessonZeroVowelSession(
+            model,
+            startLessonZeroVowelSession(model),
+            { kind: 'start' },
+            1,
+        ).state;
+        for (const item of model.payload.items) {
+            expected = transitionLessonZeroVowelSession(model, expected, { kind: 'learn-item', itemId: item.id }, 2).state;
+        }
+        expected = transitionLessonZeroVowelSession(model, expected, { kind: 'begin-attempt' }, 3).state;
+        for (const roundId of expected.roundOrder) {
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play the sound'));
+            click('Play the sound');
+            await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-vowel-choice')).toHaveLength(5));
+            const kana = model.payload.items.find(item => item.id === roundId)!.kana;
+            click(kana);
+        }
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({ activityId: 'activity:lesson-zero-vowel-listen', outcome: 'pass' }),
+                reviewSeeds: expect.arrayContaining([expect.objectContaining({ id: 'review:lesson-zero:vowel-sound:hira-a' })]),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({ id: 'lesson-zero-five-vowels' }),
+            expect.objectContaining({ modeId: 'lesson-zero-vowels:audio:lesson' }),
+        ));
+        expect(route.shell.current?.textContent).toContain('Play sound bingo');
     });
 
     it('clears pending lesson state when first completion continues to Aakash', async () => {

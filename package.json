@@ -136,6 +136,7 @@
     "manual:academy-bookshop": "node scripts/manual/bookshop-world-browser.mjs",
     "manual:academy-profile": "node scripts/manual/profile-portrait-browser.mjs",
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",
+    "manual:academy-vowels": "node scripts/manual/lesson-zero-vowel-browser.mjs",
     "smoke:hosted-settings": "node scripts/hosted-settings-self-enhancement-smoke.mjs",
     "manual:jiten-newtab": "node scripts/manual/jiten-newtab-smoke.mjs",
     "smoke:jiten-keyless-definition": "node scripts/jiten-keyless-definition-smoke.mjs",

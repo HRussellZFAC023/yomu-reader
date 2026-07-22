@@ -78,7 +78,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain(`${inventory.counts.active} active, ${inventory.counts.orphaned} orphaned, ${inventory.counts.deprecated} deprecated, 607 missing expression variants`);
+            .toContain(`${inventory.counts.active} active, ${inventory.counts.orphaned} orphaned, ${inventory.counts.deprecated} deprecated, 606 missing expression variants`);
         expect(currentRasterHashes()).toEqual(before);
     });
 
@@ -150,14 +150,14 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
             expressionMatrixSlots: 630,
-            approvedExpressionVariants: 13,
+            approvedExpressionVariants: 14,
             reviewCandidateExpressionVariants: 10,
-            deliveredMatrixExpressionVariants: 23,
-            missingExpressionVariants: 607,
+            deliveredMatrixExpressionVariants: 24,
+            missingExpressionVariants: 606,
             offMatrixDeliveredSprites: 9,
         });
-        expect(inventory.expressionCoverage.missingVariants).toHaveLength(607);
-        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(607);
+        expect(inventory.expressionCoverage.missingVariants).toHaveLength(606);
+        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(606);
         expect(inventory.expressionCoverage.missingVariants).toContainEqual({
             character: 'xingyu',
             angle: 'front-near-front',

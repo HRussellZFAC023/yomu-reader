@@ -22,6 +22,11 @@ import {
     createLessonZeroGreetingDefinition,
     LESSON_ZERO_GREETING_ACTIVITY_ID,
 } from '../content/lesson-zero-greeting';
+import {
+    createLessonZeroVowelBingo,
+    createLessonZeroVowelSoundMap,
+    LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+} from '../content/lesson-zero-vowel-sound-map';
 import { loadLessonZeroClassroomExpressions } from '../content/lesson-zero-classroom-expressions';
 import {
     classroomActivityCompletionEvaluation,
@@ -57,6 +62,10 @@ import {
     transitionLessonZeroGreetingSession,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    startLessonZeroVowelSession,
+    transitionLessonZeroVowelSession,
+} from '../domain/lesson-zero-vowel-session';
+import {
     authoredWeekProgressAfterActivity,
     authoredWeekProgressFits,
     clearAuthoredWeekProgress,
@@ -80,6 +89,7 @@ import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
+import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -397,6 +407,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderLessonZeroGreeting(context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_SOUND_MAP_ID) {
+            await this.renderLessonZeroVowelSession(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
             await this.renderClassroomInstructionSession(context);
             return;
@@ -648,6 +662,75 @@ class LessonFlow implements AcademyRouteFlow {
         context.shell.replace(screen.element);
     }
 
+    private async renderLessonZeroVowelSession(context: AcademyRouteContext): Promise<void> {
+        const model = createLessonZeroVowelSoundMap();
+        const bingoModel = createLessonZeroVowelBingo();
+        const runtime = createAcademyActivityRuntime();
+        let state;
+        try {
+            state = startLessonZeroVowelSession(model, context.checkpoint.lessonZeroVowelProgress);
+        } catch {
+            state = startLessonZeroVowelSession(model);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroVowelSession(model, state, { kind: 'resume' }, Date.now()).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroVowelProgress)) {
+            await context.save?.({ lessonZeroVowelProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroVowelScreen({
+            language: context.language,
+            model,
+            bingoModel,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            xingyuSprite: ACADEMY_ASSETS.xingyuListening,
+            evaluate: (variant, response) => runtime.evaluate(variant === 'bingo' ? bingoModel : model, response),
+            onTransition: async (before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    const evaluation = transition.state.variant === 'bingo'
+                        ? {
+                            ...transition.evaluation,
+                            attempt: {
+                                ...transition.evaluation.attempt,
+                                activityId: LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+                            },
+                        }
+                        : transition.evaluation;
+                    await this.options.evidence.recordActivity(
+                        evaluation,
+                        LESSON_ZERO_ID,
+                        before.variant === 'lesson' ? {
+                            id: 'lesson-zero-five-vowels',
+                            sceneId: 'scene:lesson-zero-five-vowels',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:five-vowels',
+                                characterId: 'xingyu',
+                                text: {
+                                    ja: 'シンユが五つの母音を違う順番で流した。それでも、一つずつ見つけられた。',
+                                    en: 'Xingyu played the five vowel sounds in a new order. I could still find each one.',
+                                },
+                                ...(evaluation.attempt.sourceQuestionId
+                                    ? { sourceQuestionId: evaluation.attempt.sourceQuestionId }
+                                    : {}),
+                            },
+                        } : undefined,
+                        transition.adaptive,
+                    );
+                }
+                await context.save?.({ lessonZeroVowelProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroVowelProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
     private renderAdvancedPackage(packageId: string, context: AcademyRouteContext): void {
         const entry = resolveAdvancedCurriculumEntry(packageId);
         const screen = createAdvancedLessonScreen({
@@ -784,6 +867,7 @@ function overviewState(
     return {
         boundActivityIds: new Set([
             LESSON_ZERO_GREETING_ACTIVITY_ID,
+            LESSON_ZERO_VOWEL_SOUND_MAP_ID,
             LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
             ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
         ]),

@@ -286,6 +286,54 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists the five-vowel lesson and rejects impossible round snapshots', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroVowelProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-vowel-listen' as const,
+            status: 'paused' as const,
+            stage: 'learn' as const,
+            variant: 'lesson' as const,
+            mode: 'audio' as const,
+            learnedItemIds: ['hira-a'],
+            roundOrder: [],
+            heardRoundIds: [],
+            selections: [],
+            repairItemIds: [],
+            repairCursor: 0,
+            baseCompleted: false,
+            bingoWins: 0,
+            attempts: [],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-listen',
+            lessonZeroVowelProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroVowelProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-listen',
+            lessonZeroVowelProgress: {
+                ...lessonZeroVowelProgress,
+                stage: 'attempt',
+                roundOrder: [],
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero vowel progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

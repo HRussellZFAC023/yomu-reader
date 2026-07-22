@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 114,
-    "currentRasterFilesAccountedFor": 114,
-    "active": 105,
+    "currentRasterFiles": 115,
+    "currentRasterFilesAccountedFor": 115,
+    "active": 106,
     "orphaned": 9,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 607,
+    "missingExpressionVariants": 606,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 13,
+    "approvedExpressionVariants": 14,
     "reviewCandidateExpressionVariants": 10,
-    "deliveredMatrixExpressionVariants": 23,
+    "deliveredMatrixExpressionVariants": 24,
     "offMatrixDeliveredSprites": 9,
     "activeByKind": {
-      "character-sprite": 23,
+      "character-sprite": 24,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 4,
@@ -470,6 +470,24 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "review-candidate/runtime-preview",
         "ledgerStatus": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
+      },
+      {
+        "id": "xingyu-listening-halfbody-v2-v001",
+        "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
+        "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
+        "ledgerSha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:vowel-listening",
+          "game:lesson-zero-vowel-listening-bingo"
+        ],
+        "reviewHomes": [],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "approved-2026-07-22 after transparent-perimeter, responsive-composition, interaction, and accessibility verification; front-near-front encouraging-listening performance bound to the five-vowel session"
       },
       {
         "id": "atlas-finale-next-page-v001",
@@ -7654,15 +7672,6 @@
         "angle": "front-near-front",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/xingyu/xingyu__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "xingyu",
-        "angle": "front-near-front",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

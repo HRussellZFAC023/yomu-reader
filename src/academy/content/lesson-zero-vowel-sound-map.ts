@@ -1,4 +1,5 @@
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
+import { LESSON_ZERO_VOWEL_BINGO_ID } from '../domain/lesson-zero-vowel-session';
 import type { KanaSoundMapModel } from '../minigames/kana-sound-map';
 import {
     LESSON_ZERO_KANA_SEQUENCE,
@@ -69,6 +70,32 @@ export function createLessonZeroVowelSoundMap(): KanaSoundMapModel {
                         en: 'Start with the first sound, あ, and check one position at a time.',
                     }),
                 }),
+            }),
+        }),
+    });
+}
+
+export function createLessonZeroVowelBingo(): KanaSoundMapModel {
+    const lesson = createLessonZeroVowelSoundMap();
+    return Object.freeze({
+        ...lesson,
+        id: LESSON_ZERO_VOWEL_BINGO_ID,
+        prompt: Object.freeze({
+            ja: '聞こえた五つの音で、ビンゴの花を完成させましょう。',
+            en: 'Use the five sounds you hear to complete the bingo flower.',
+        }),
+        payload: Object.freeze({
+            ...lesson.payload,
+            source: Object.freeze({
+                ...lesson.payload.source,
+                storyHook: Object.freeze({
+                    ...lesson.payload.source.storyHook,
+                    activityId: LESSON_ZERO_VOWEL_BINGO_ID,
+                }),
+            }),
+            choiceLabel: Object.freeze({
+                ja: '音を聞いて、同じ文字のマスを選びましょう。',
+                en: 'Listen, then mark the tile with the matching character.',
             }),
         }),
     });

@@ -40,8 +40,8 @@ describe('Academy VN sprite performance contract', () => {
         for (const castId of ['peter', 'felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
-        expect(Object.values(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions).map(cell => cell.status))
-            .toEqual(Array(SPRITE_EXPRESSIONS.length).fill('missing'));
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions['encouraging-listening'].status)
+            .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions.determined.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions['sad-vulnerable'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[2].expressions.comedic.status).toBe('approved');
@@ -56,9 +56,9 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 13,
+            approved: 14,
             reviewCandidates: 10,
-            missing: totalPerformanceCells - 23,
+            missing: totalPerformanceCells - 24,
         });
     });
 
@@ -123,14 +123,19 @@ describe('Academy VN sprite performance contract', () => {
         }
     });
 
-    it('preserves corrected briefs and bans the rejected Xingyu image as a reference', () => {
+    it('preserves corrected briefs and separates Xingyu\'s rejected reference from approved listening art', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.likenessBrief).toBe('About 26, with lighter remaining hair.');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.felix.likenessBrief)
             .toBe('White, glasses, longer curly dark-blond to light-brown hair; likes cats.');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu).toMatchObject({
             referencePolicy: 'owner-rejected-old-image-do-not-reference',
         });
-        expect(JSON.stringify(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu)).not.toMatch(/\.png|v001|characters\/xingyu/);
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions['encouraging-listening'])
+            .toMatchObject({
+                status: 'approved',
+                assetPath: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png',
+                approvedAssetId: 'character.xingyu.listening',
+            });
     });
 
     it('rejects a silhouette descriptor reused anywhere in the cast', () => {

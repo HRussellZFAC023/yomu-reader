@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 73,
-    "runtimeFiles": 105,
+    "runtimeAssetHomes": 74,
+    "runtimeFiles": 106,
     "nonRuntimeReviewFiles": 1743,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -118,7 +118,14 @@
       "source": "owner-approved-art://2026-07-21/aakash-neutral-v009",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime",
-      "runtimeHome": ["journal:aakash", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:cast"],
+      "runtimeHome": [
+        "journal:aakash",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "lesson:l1-l01:cast"
+      ],
       "deliveries": [
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
@@ -1759,6 +1766,24 @@
       "status": "generated-from-verified-season-four-gap; prop-led; no-visible-people; runtime-bound"
     },
     {
+      "id": "xingyu-listening-halfbody-v2-v001",
+      "source": "catalog:docs/academy/recovery/ACADEMY-ART-CATALOG.json#xingyu-listening-halfbody-v2-v001",
+      "sourceSha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
+      "provenance": "recovered-academy-tree-owner-authorized-runtime",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "lesson-zero:vowel-listening",
+        "game:lesson-zero-vowel-listening-bingo"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
+          "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a"
+        }
+      ],
+      "status": "approved-2026-07-22 after transparent-perimeter, responsive-composition, interaction, and accessibility verification; front-near-front encouraging-listening performance bound to the five-vowel session"
+    },
+    {
       "id": "recovered-art-review-collection-v1",
       "source": "catalog:docs/academy/recovery/ACADEMY-ART-CATALOG.json",
       "sourceSha256": "8eebeb7b85e1d77dcfb104eaf214f0b5d619e21ea9cf3cc1707d5700b73c6a56",
@@ -2300,6 +2325,10 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__listening__halfbody__v3.png",
           "sha256": "fba8f67490d84c56373d355fb843121b0d4c6f4a4f550c46cf2ac177ce6073cd"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+          "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f"
         },
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__neutral__halfbody__v3.png",
@@ -6168,10 +6197,6 @@
         {
           "path": "/academy/art/characters/xingyu/xingyu__laughing-halfbody-v2-1fe83a4284__v001.png",
           "sha256": "1fe83a42847026b5b00c28974d2625fd4f7a13b06eee4ecf93dbe87ad4dc0bc9"
-        },
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
-          "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a"
         },
         {
           "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2-665a456242__v001.png",

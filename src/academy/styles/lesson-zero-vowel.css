@@ -1,0 +1,696 @@
+.academy-vowel-screen {
+    position: relative;
+    min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: auto;
+    color: var(--academy-paper);
+    background: var(--academy-night);
+}
+
+.academy-vowel-screen > .academy-background,
+.academy-vowel-screen > .academy-background img {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.academy-vowel-screen > .academy-background img {
+    object-fit: cover;
+    object-position: center;
+    filter: saturate(0.88) brightness(0.48) contrast(1.04);
+}
+
+.academy-vowel-screen::before {
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(11, 15, 14, 0.84), rgba(11, 15, 14, 0.18) 58%, rgba(11, 15, 14, 0.76)),
+        linear-gradient(180deg, rgba(11, 15, 14, 0.22), rgba(11, 15, 14, 0.76));
+    content: '';
+    pointer-events: none;
+}
+
+.academy-vowel-shell {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    min-height: 100dvh;
+    margin-inline: auto;
+    padding: max(20px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom));
+}
+
+.academy-vowel-header {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    min-height: 72px;
+    padding: 10px 18px;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, transparent);
+    background: color-mix(in srgb, var(--academy-night) 88%, transparent);
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.academy-vowel-back {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    padding: 0;
+    border: 2px solid color-mix(in srgb, var(--academy-paper) 54%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: color-mix(in srgb, var(--academy-night) 86%, transparent);
+    font-size: 1.45rem;
+}
+
+.academy-vowel-back:hover {
+    border-color: var(--academy-accent-strong);
+    background: color-mix(in srgb, var(--academy-accent) 24%, var(--academy-night));
+}
+
+.academy-vowel-identity {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.academy-vowel-eyebrow,
+.academy-vowel-progress {
+    margin: 0;
+    letter-spacing: 0;
+}
+
+.academy-vowel-eyebrow {
+    color: var(--academy-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.academy-vowel-progress {
+    flex: 0 0 auto;
+    min-width: 62px;
+    padding: 7px 12px;
+    color: var(--academy-paper);
+    background: color-mix(in srgb, var(--academy-accent) 24%, var(--academy-night));
+    font-weight: 850;
+    text-align: center;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+
+.academy-vowel-body {
+    min-height: calc(100dvh - 128px);
+}
+
+.academy-vowel-scene {
+    display: grid;
+    grid-template-columns: minmax(230px, 0.36fr) minmax(0, 0.64fr);
+    min-height: calc(100dvh - 128px);
+    align-items: end;
+    gap: 0;
+    padding: 34px 20px 24px;
+}
+
+.academy-vowel-xingyu {
+    z-index: 1;
+    grid-column: 1;
+    width: 100%;
+    max-width: 390px;
+    max-height: 72dvh;
+    margin-inline: auto;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 24px 26px rgba(0, 0, 0, 0.36));
+}
+
+.academy-vowel-paper {
+    --academy-ink: var(--academy-paper-ink);
+    position: relative;
+    z-index: 2;
+    grid-column: 2;
+    width: min(760px, 100%);
+    margin-left: -18px;
+    padding: 42px 48px 40px;
+    color: var(--academy-paper-ink);
+    background:
+        repeating-linear-gradient(
+            180deg,
+            transparent 0,
+            transparent 35px,
+            color-mix(in srgb, var(--academy-accent) 14%, transparent) 36px,
+            transparent 37px
+        ),
+        linear-gradient(97deg, var(--academy-paper), color-mix(in srgb, var(--academy-paper) 88%, var(--academy-paper-deep)));
+    box-shadow: 10px 14px 0 rgba(16, 20, 17, 0.36), 0 30px 70px rgba(0, 0, 0, 0.34);
+    clip-path: polygon(0 10px, 96% 0, 100% 92%, 96% 100%, 4% 98%, 0 84%);
+}
+
+.academy-vowel-paper::before {
+    position: absolute;
+    inset: 15px auto 15px 0;
+    width: 8px;
+    background: var(--academy-accent);
+    content: '';
+}
+
+.academy-vowel-paperclip {
+    position: absolute;
+    top: -14px;
+    right: 62px;
+    width: 24px;
+    height: 62px;
+    border: 3px solid color-mix(in srgb, var(--academy-paper-ink) 48%, #d6d0c4);
+    border-bottom: 0;
+    border-radius: 13px 13px 0 0;
+    opacity: 0.86;
+    transform: rotate(7deg);
+    box-shadow: inset 2px 0 rgba(255, 255, 255, 0.42), 2px 3px 2px rgba(37, 33, 25, 0.2);
+}
+
+.academy-vowel-paperclip::after {
+    position: absolute;
+    top: 8px;
+    left: 5px;
+    width: 8px;
+    height: 48px;
+    border: 2px solid color-mix(in srgb, var(--academy-paper-ink) 34%, #ece8df);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    content: '';
+}
+
+.academy-vowel-title,
+.academy-vowel-subtitle,
+.academy-vowel-copy,
+.academy-vowel-dialogue,
+.academy-vowel-access-note,
+.academy-vowel-articulation,
+.academy-vowel-choice-instruction,
+.academy-vowel-review-line {
+    margin: 0;
+    letter-spacing: 0;
+}
+
+.academy-vowel-title {
+    max-width: 18ch;
+    font-size: 2rem;
+    line-height: 1.08;
+}
+
+.academy-vowel-subtitle {
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.academy-vowel-dialogue {
+    max-width: 54ch;
+    margin-top: 20px;
+    padding-left: 18px;
+    border-left: 4px solid var(--academy-accent);
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.55;
+}
+
+.academy-vowel-copy,
+.academy-vowel-access-note,
+.academy-vowel-articulation,
+.academy-vowel-choice-instruction,
+.academy-vowel-review-line {
+    max-width: 60ch;
+    margin-top: 16px;
+    color: var(--academy-paper-muted);
+    line-height: 1.55;
+}
+
+.academy-vowel-mode {
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(112px, 1fr));
+    gap: 3px;
+    margin-top: 22px;
+    padding: 3px;
+    background: color-mix(in srgb, var(--academy-paper-ink) 12%, transparent);
+}
+
+.academy-vowel-action {
+    min-height: 48px;
+    border: 0;
+    border-radius: 0;
+    font-weight: 850;
+    letter-spacing: 0;
+}
+
+.academy-vowel-action-primary,
+.academy-vowel-action-secondary,
+.academy-vowel-action-listen,
+.academy-vowel-choice {
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+
+.academy-vowel-screen .academy-vowel-action-primary {
+    min-width: 190px;
+    margin-top: 26px;
+    padding: 12px 28px 12px 22px;
+    border-left: 6px solid var(--academy-accent-strong);
+    color: #fffdf5;
+    background: color-mix(in srgb, var(--academy-accent) 34%, #111713);
+    -webkit-text-fill-color: #fffdf5;
+}
+
+.academy-vowel-screen .academy-vowel-action-primary:hover,
+.academy-vowel-screen .academy-vowel-action-primary:focus-visible {
+    background: color-mix(in srgb, var(--academy-accent) 44%, #111713);
+}
+
+.academy-vowel-screen .academy-vowel-action-secondary {
+    padding: 12px 28px 12px 20px;
+    border: 2px solid var(--academy-accent-strong);
+    color: #fffdf5;
+    background: #202722;
+    -webkit-text-fill-color: #fffdf5;
+}
+
+.academy-vowel-action-listen {
+    position: relative;
+    min-width: 184px;
+    margin-top: 22px;
+    padding: 12px 44px 12px 20px;
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+}
+
+.academy-vowel-action-listen::after {
+    position: absolute;
+    top: 50%;
+    right: 17px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 9px solid var(--academy-accent-strong);
+    content: '';
+    transform: translateY(-50%);
+}
+
+.academy-vowel-action-quiet {
+    min-height: 44px;
+    padding: 8px 12px;
+    color: var(--academy-paper-muted);
+    background: transparent;
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+}
+
+.academy-vowel-action-mode {
+    min-height: 42px;
+    padding: 8px 14px;
+    color: var(--academy-paper-muted);
+    background: transparent;
+}
+
+.academy-vowel-action-mode[aria-pressed='true'] {
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+}
+
+.academy-vowel-rail,
+.academy-vowel-attempt-rail {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    gap: 6px;
+    max-width: 420px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.academy-vowel-rail-cell,
+.academy-vowel-attempt-cell {
+    display: grid;
+    min-width: 0;
+    aspect-ratio: 1;
+    place-items: center;
+    border-bottom: 4px solid color-mix(in srgb, var(--academy-paper-ink) 20%, transparent);
+    color: var(--academy-paper-muted);
+    background: color-mix(in srgb, var(--academy-paper-deep) 54%, transparent);
+    font-family: var(--academy-japanese-font);
+    font-size: 1.35rem;
+    font-weight: 850;
+}
+
+.academy-vowel-rail-cell[data-state='learned'],
+.academy-vowel-attempt-cell[data-state='marked'] {
+    border-color: var(--academy-accent);
+    color: var(--academy-paper-ink);
+}
+
+.academy-vowel-rail-cell[data-state='current'],
+.academy-vowel-attempt-cell[data-state='current'] {
+    border-color: var(--academy-warm);
+    background: color-mix(in srgb, var(--academy-warm) 18%, var(--academy-paper));
+}
+
+.academy-vowel-teaching-note {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 2px 22px;
+    margin-top: 22px;
+}
+
+.academy-vowel-kana {
+    grid-row: 1 / span 2;
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: 5rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.academy-vowel-romaji {
+    align-self: end;
+    color: var(--academy-accent);
+    font-size: 1.45rem;
+    font-weight: 900;
+}
+
+.academy-vowel-articulation {
+    align-self: start;
+    margin-top: 4px;
+}
+
+.academy-vowel-teaching-note > .academy-vowel-action {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.academy-vowel-ready {
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 3px solid color-mix(in srgb, var(--academy-accent) 48%, transparent);
+}
+
+.academy-vowel-question {
+    margin-top: 24px;
+}
+
+.academy-vowel-visual-cue {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    padding: 14px 16px;
+    border-left: 5px solid var(--academy-accent);
+    background: color-mix(in srgb, var(--academy-accent) 10%, transparent);
+}
+
+.academy-vowel-visual-label {
+    flex-basis: 100%;
+    color: var(--academy-accent);
+    font-size: 0.76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.academy-vowel-visual-copy {
+    color: var(--academy-paper-muted);
+}
+
+.academy-vowel-visual-romaji {
+    color: var(--academy-paper-ink);
+    font-size: 2rem;
+}
+
+.academy-vowel-choices {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(58px, 1fr));
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.academy-vowel-choice {
+    min-height: 68px;
+    padding: 10px 18px 10px 12px;
+    border: 0;
+    border-left: 5px solid var(--academy-accent);
+    border-radius: 0;
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+}
+
+.academy-vowel-choice:hover,
+.academy-vowel-choice:focus-visible {
+    background: color-mix(in srgb, var(--academy-accent) 38%, var(--academy-paper-ink));
+}
+
+.academy-vowel-choice-kana {
+    font-family: var(--academy-japanese-font);
+    font-size: 1.75rem;
+    font-weight: 900;
+}
+
+.academy-vowel-bingo-board {
+    display: grid;
+    grid-template-columns: repeat(3, 68px);
+    gap: 5px;
+    width: max-content;
+    margin-top: 22px;
+    padding: 7px;
+    background: var(--academy-paper-ink);
+    transform: rotate(-1deg);
+}
+
+.academy-vowel-bingo-tile {
+    display: grid;
+    width: 68px;
+    aspect-ratio: 1;
+    place-items: center;
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+    font-family: var(--academy-japanese-font);
+    font-size: 1.55rem;
+    font-weight: 900;
+}
+
+.academy-vowel-bingo-tile[data-marked='true'] {
+    background: var(--academy-accent-strong);
+    box-shadow: inset 0 0 0 4px var(--academy-paper-ink);
+}
+
+.academy-vowel-bingo-free {
+    color: color-mix(in srgb, var(--academy-accent) 62%, var(--academy-paper-ink));
+    background: var(--academy-paper-deep);
+    font-size: 1.1rem;
+}
+
+.academy-vowel-completed-row {
+    margin: 26px 0 0;
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+.academy-vowel-complete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 24px;
+}
+
+.academy-vowel-complete-actions .academy-vowel-action {
+    margin-top: 0;
+}
+
+.academy-vowel-live {
+    position: fixed;
+    z-index: 10;
+    right: max(20px, env(safe-area-inset-right));
+    bottom: max(20px, env(safe-area-inset-bottom));
+    max-width: min(420px, calc(100vw - 40px));
+    margin: 0;
+    padding: 12px 16px;
+    color: var(--academy-paper);
+    background: color-mix(in srgb, var(--academy-night) 92%, transparent);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.academy-vowel-live:empty {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .academy-vowel-shell {
+        width: 100%;
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .academy-vowel-header {
+        position: sticky;
+        z-index: 8;
+        top: 0;
+        grid-template-columns: minmax(0, 1fr) 48px;
+        min-height: 64px;
+        padding: 8px 12px 8px max(76px, env(safe-area-inset-left));
+        background: color-mix(in srgb, var(--academy-night) 94%, transparent);
+    }
+
+    .academy-vowel-back {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .academy-vowel-identity {
+        grid-column: 1;
+        grid-row: 1;
+        gap: 8px;
+    }
+
+    .academy-vowel-progress {
+        min-width: 54px;
+        padding-inline: 9px;
+        font-size: 0.84rem;
+    }
+
+    .academy-vowel-body {
+        min-height: calc(100dvh - 64px);
+    }
+
+    .academy-vowel-scene {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: auto;
+        align-content: start;
+        padding: 14px 10px max(28px, env(safe-area-inset-bottom));
+    }
+
+    .academy-vowel-xingyu {
+        grid-column: 1;
+        grid-row: 1;
+        width: min(52vw, 190px);
+        height: 210px;
+        margin: 0 8px -36px auto;
+        object-position: center top;
+    }
+
+    .academy-vowel-paper {
+        grid-column: 1;
+        grid-row: 2;
+        width: 100%;
+        margin: 0;
+        padding: 34px 24px 32px;
+        clip-path: polygon(0 6px, 97% 0, 100% 95%, 94% 100%, 4% 99%, 0 90%);
+    }
+
+    .academy-vowel-paperclip {
+        top: -20px;
+        right: 10px;
+    }
+
+    .academy-vowel-title {
+        max-width: calc(100% - 54px);
+        font-size: 1.65rem;
+    }
+
+    .academy-vowel-dialogue {
+        font-size: 1rem;
+    }
+
+    .academy-vowel-mode {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .academy-vowel-rail,
+    .academy-vowel-attempt-rail {
+        gap: 4px;
+    }
+
+    .academy-vowel-rail-cell,
+    .academy-vowel-attempt-cell {
+        font-size: 1.15rem;
+    }
+
+    .academy-vowel-kana {
+        font-size: 4.25rem;
+    }
+
+    .academy-vowel-choices {
+        grid-template-columns: repeat(5, minmax(48px, 1fr));
+        gap: 4px;
+    }
+
+    .academy-vowel-choice {
+        min-height: 60px;
+        padding: 8px 12px 8px 6px;
+    }
+
+    .academy-vowel-choice-kana {
+        font-size: 1.45rem;
+    }
+
+    .academy-vowel-complete-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .academy-vowel-complete-actions .academy-vowel-action {
+        width: 100%;
+    }
+}
+
+@media (max-width: 380px) {
+    .academy-vowel-eyebrow {
+        font-size: 0.7rem;
+    }
+
+    .academy-vowel-paper {
+        padding-inline: 20px;
+    }
+
+    .academy-vowel-choices {
+        grid-template-columns: repeat(3, minmax(62px, 1fr));
+    }
+
+    .academy-vowel-bingo-board {
+        grid-template-columns: repeat(3, 60px);
+    }
+
+    .academy-vowel-bingo-tile {
+        width: 60px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .academy-vowel-xingyu {
+        animation: academy-vowel-arrive 360ms ease-out both;
+    }
+
+    .academy-vowel-paper {
+        animation: academy-vowel-paper-arrive 300ms ease-out both;
+    }
+
+    .academy-vowel-bingo-tile[data-marked='true'] {
+        animation: academy-vowel-mark 220ms ease-out both;
+    }
+}
+
+@keyframes academy-vowel-arrive {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes academy-vowel-paper-arrive {
+    from { transform: translateX(12px) rotate(0.5deg); }
+    to { transform: translateX(0) rotate(0); }
+}
+
+@keyframes academy-vowel-mark {
+    0% { transform: scale(0.9) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0); }
+}
