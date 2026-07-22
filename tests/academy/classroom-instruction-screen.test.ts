@@ -23,6 +23,27 @@ function definition() {
 }
 
 describe('Classroom instruction screen', () => {
+    it('accepts an action while pronunciation playback is still active', async () => {
+        const content = definition();
+        let persisted = startClassroomInstructionSession(content);
+        const screen = createClassroomInstructionScreen({
+            language: 'en',
+            definition: content,
+            initialState: persisted,
+            pronunciation: { play: vi.fn(() => new Promise(() => undefined)) } as never,
+            onTransition: async (_before, transition) => { persisted = transition.state; },
+            onRestart: vi.fn(),
+            onBack: vi.fn(),
+        });
+
+        screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')!.click();
+        await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(7));
+        screen.element.querySelector<HTMLButtonElement>('[data-action-id="write"]')!.click();
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('That was a different classroom action.'));
+        expect(persisted.attempts).toHaveLength(1);
+        screen.dispose();
+    });
+
     it('hides the target until commitment, animates the chosen prop, and supports repair', async () => {
         const content = definition();
         let persisted = startClassroomInstructionSession(content);
@@ -49,7 +70,7 @@ describe('Classroom instruction screen', () => {
         await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(7));
 
         screen.element.querySelector<HTMLButtonElement>('[data-action-id="write"]')!.click();
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('A different part of the room moved.'));
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('That was a different classroom action.'));
         expect(screen.element.textContent).toContain('みてください');
         expect(screen.element.querySelector('.academy-classroom-instruction-room')?.getAttribute('data-room-action'))
             .toBe('write');

@@ -45,13 +45,13 @@ export interface ClassroomInstructionActionPresentation {
 
 export const CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS:
 readonly ClassroomInstructionActionPresentation[] = Object.freeze([
-    presentation('begin', '始', 'Begin', '始める', 'The lesson opens.', '授業が始まります。'),
-    presentation('finish', '終', 'Finish', '終わる', 'The lesson closes.', '授業が終わります。'),
-    presentation('break', '休', 'Take a break', '休む', 'The room takes a breath.', '教室で一息つきます。'),
-    presentation('look', '見', 'Look at the board', '見る', 'Every eye moves to the board.', 'みんなが黒板を見ます。'),
-    presentation('say-together', '声', 'Say it together', '一緒に言う', 'The class answers together.', 'クラス全員で言います。'),
-    presentation('listen', '耳', 'Listen', '聞く', 'The room goes quiet to listen.', '教室が静かに聞きます。'),
-    presentation('write', '書', 'Write it down', '書く', 'The pencil moves across the page.', '鉛筆でノートに書きます。'),
+    presentation('begin', '始', 'Begin', '始める', 'Class begins.', '授業が始まります。'),
+    presentation('finish', '終', 'Finish', '終わる', 'Class is finished.', '授業が終わります。'),
+    presentation('break', '休', 'Take a break', '休む', 'Everyone takes a break.', 'みんなで休みます。'),
+    presentation('look', '見', 'Look at the board', '見る', 'Everyone looks at the board.', 'みんなが黒板を見ます。'),
+    presentation('say-together', '声', 'Say it together', '一緒に言う', 'Everyone answers together.', 'みんなで一緒に言います。'),
+    presentation('listen', '耳', 'Listen', '聞く', 'Everyone listens.', 'みんなで聞きます。'),
+    presentation('write', '書', 'Write it down', '書く', 'Everyone writes it down.', 'みんなでノートに書きます。'),
 ]);
 
 const EXPRESSION_BY_ACTION: Readonly<Record<ClassroomInstructionActionId, string>> = Object.freeze({

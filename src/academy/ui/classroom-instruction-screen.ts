@@ -38,7 +38,7 @@ const COPY = {
     eyebrow: { en: 'Listening rehearsal', ja: '聞いて動く練習' },
     title: { en: 'Make the classroom respond', ja: '教室を動かそう' },
     ready: {
-        en: 'Rie will speak. Do not hunt for a translation: make the room do what she asked.',
+        en: 'Listen to Rie, then choose the action that lets the class follow her. You do not need every word yet.',
         ja: 'りえ先生のことばを聞いて、教室をそのとおりに動かしましょう。',
     },
     sharedPattern: { en: '〜ましょう moves everyone together.', ja: '「〜ましょう」で、みんなが一緒に動きます。' },
@@ -49,18 +49,18 @@ const COPY = {
     playing: { en: 'Rie is speaking…', ja: 'りえ先生が話しています…' },
     actions: { en: 'Classroom actions', ja: '教室の動作' },
     correct: { en: 'The room followed her.', ja: '教室が指示どおりに動きました。' },
-    incorrect: { en: 'A different part of the room moved.', ja: '別の動作を選びました。' },
+    incorrect: { en: 'That was a different classroom action.', ja: '別の動作を選びました。' },
     heard: { en: 'What Rie said', ja: 'りえ先生のことば' },
     next: { en: 'Listen for the next instruction', ja: '次の指示を聞く' },
     finish: { en: 'See what you can now follow', ja: 'できるようになったことを見る' },
     retry: { en: 'Hear it and try again', ja: 'もう一度聞いて動く' },
     complete: { en: 'You can move with the class.', ja: '教室の流れに乗れるようになりました。' },
     completeBody: {
-        en: 'Seven instructions now mean actions, not translations. They are waiting in your review queue as listening memories.',
+        en: 'You heard seven instructions and responded without waiting for English. I saved them for today’s review, so they will return at the right time.',
         ja: '七つの指示が、訳ではなく動作として分かるようになりました。聞く記憶として復習にも入っています。',
     },
     again: { en: 'Run the room again', ja: 'もう一度教室を動かす' },
-    return: { en: 'Return to the lesson', ja: 'レッスンに戻る' },
+    return: { en: 'Continue your day', ja: '今日の続きを見る' },
     pause: { en: 'Save and leave', ja: '保存して戻る' },
     audioError: { en: 'Rie could not be heard. Try the replay control once more.', ja: '音声を再生できませんでした。もう一度お試しください。' },
     saveError: { en: 'That move could not be saved. Please try once more.', ja: '動作を保存できませんでした。もう一度お試しください。' },
@@ -314,12 +314,13 @@ export function createClassroomInstructionScreen(
             await options.onTransition(before, transition);
             state = transition.state;
             render();
-            await playCurrent();
         } catch {
             live.textContent = COPY.saveError[options.language];
+            return;
         } finally {
             busy = false;
         }
+        await playCurrent();
     };
 
     const choose = async (
@@ -335,6 +336,8 @@ export function createClassroomInstructionScreen(
             Date.now(),
         );
         if (!transition.evaluation || transition.cue?.id !== cue.id) return;
+        playback?.dispose();
+        playback = null;
         try {
             busy = true;
             screen.setAttribute('aria-busy', 'true');

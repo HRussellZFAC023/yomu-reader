@@ -284,7 +284,9 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
         [],
         activityId === 'activity:lesson-zero-greet-rie'
             ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
-            : activityId === 'activity:lesson-zero-vowel-listen' || activityId === 'activity:lesson-zero-vowel-doodle'
+            : activityId === 'activity:lesson-zero-vowel-listen'
+                || activityId === 'activity:lesson-zero-vowel-doodle'
+                || activityId === 'activity:lesson-zero-follow-instructions'
             ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
             : UNVERIFIED_DELIVERY,
     ));

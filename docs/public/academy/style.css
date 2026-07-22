@@ -47188,7 +47188,7 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 .academy-classroom-instruction-name {
     display: block;
     margin-bottom: 5px;
-    color: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    color: color-mix(in srgb, var(--academy-accent) 42%, var(--academy-paper-ink));
     font: 900 0.78rem/1.2 var(--academy-font);
 }
 

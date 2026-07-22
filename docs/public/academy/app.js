@@ -10302,13 +10302,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     SOURCE_ACTION_ORDER.map((actionId) => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`)
   );
   const CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS = Object.freeze([
-    presentation$1("begin", "始", "Begin", "始める", "The lesson opens.", "授業が始まります。"),
-    presentation$1("finish", "終", "Finish", "終わる", "The lesson closes.", "授業が終わります。"),
-    presentation$1("break", "休", "Take a break", "休む", "The room takes a breath.", "教室で一息つきます。"),
-    presentation$1("look", "見", "Look at the board", "見る", "Every eye moves to the board.", "みんなが黒板を見ます。"),
-    presentation$1("say-together", "声", "Say it together", "一緒に言う", "The class answers together.", "クラス全員で言います。"),
-    presentation$1("listen", "耳", "Listen", "聞く", "The room goes quiet to listen.", "教室が静かに聞きます。"),
-    presentation$1("write", "書", "Write it down", "書く", "The pencil moves across the page.", "鉛筆でノートに書きます。")
+    presentation$1("begin", "始", "Begin", "始める", "Class begins.", "授業が始まります。"),
+    presentation$1("finish", "終", "Finish", "終わる", "Class is finished.", "授業が終わります。"),
+    presentation$1("break", "休", "Take a break", "休む", "Everyone takes a break.", "みんなで休みます。"),
+    presentation$1("look", "見", "Look at the board", "見る", "Everyone looks at the board.", "みんなが黒板を見ます。"),
+    presentation$1("say-together", "声", "Say it together", "一緒に言う", "Everyone answers together.", "みんなで一緒に言います。"),
+    presentation$1("listen", "耳", "Listen", "聞く", "Everyone listens.", "みんなで聞きます。"),
+    presentation$1("write", "書", "Write it down", "書く", "Everyone writes it down.", "みんなでノートに書きます。")
   ]);
   const EXPRESSION_BY_ACTION = Object.freeze({
     begin: "expression:classroom-01",
@@ -39821,7 +39821,7 @@ ${spelling}`);
     persistence: "verified",
     journeyProof: "partial"
   });
-  const VERIFIED_REPEATABLE_GAME_DELIVERY = Object.freeze({
+  const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY = Object.freeze({
     implementation: "verified",
     reachability: "verified",
     media: "partial",
@@ -40040,7 +40040,7 @@ ${spelling}`);
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -40089,7 +40089,7 @@ ${spelling}`);
       "Each heard choice and confusion pair can seed review.",
       "A full randomized board is playable with deterministic audio and no answer-first cue.",
       [],
-      VERIFIED_REPEATABLE_GAME_DELIVERY
+      VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
     ),
     entry$P(
       "day:1:game:kana-trace",
@@ -254670,7 +254670,7 @@ ${spelling}`);
     eyebrow: { en: "Listening rehearsal", ja: "聞いて動く練習" },
     title: { en: "Make the classroom respond", ja: "教室を動かそう" },
     ready: {
-      en: "Rie will speak. Do not hunt for a translation: make the room do what she asked.",
+      en: "Listen to Rie, then choose the action that lets the class follow her. You do not need every word yet.",
       ja: "りえ先生のことばを聞いて、教室をそのとおりに動かしましょう。"
     },
     sharedPattern: { en: "〜ましょう moves everyone together.", ja: "「〜ましょう」で、みんなが一緒に動きます。" },
@@ -254681,18 +254681,18 @@ ${spelling}`);
     playing: { en: "Rie is speaking…", ja: "りえ先生が話しています…" },
     actions: { en: "Classroom actions", ja: "教室の動作" },
     correct: { en: "The room followed her.", ja: "教室が指示どおりに動きました。" },
-    incorrect: { en: "A different part of the room moved.", ja: "別の動作を選びました。" },
+    incorrect: { en: "That was a different classroom action.", ja: "別の動作を選びました。" },
     heard: { en: "What Rie said", ja: "りえ先生のことば" },
     next: { en: "Listen for the next instruction", ja: "次の指示を聞く" },
     finish: { en: "See what you can now follow", ja: "できるようになったことを見る" },
     retry: { en: "Hear it and try again", ja: "もう一度聞いて動く" },
     complete: { en: "You can move with the class.", ja: "教室の流れに乗れるようになりました。" },
     completeBody: {
-      en: "Seven instructions now mean actions, not translations. They are waiting in your review queue as listening memories.",
+      en: "You heard seven instructions and responded without waiting for English. I saved them for today’s review, so they will return at the right time.",
       ja: "七つの指示が、訳ではなく動作として分かるようになりました。聞く記憶として復習にも入っています。"
     },
     again: { en: "Run the room again", ja: "もう一度教室を動かす" },
-    return: { en: "Return to the lesson", ja: "レッスンに戻る" },
+    return: { en: "Continue your day", ja: "今日の続きを見る" },
     pause: { en: "Save and leave", ja: "保存して戻る" },
     audioError: { en: "Rie could not be heard. Try the replay control once more.", ja: "音声を再生できませんでした。もう一度お試しください。" },
     saveError: { en: "That move could not be saved. Please try once more.", ja: "動作を保存できませんでした。もう一度お試しください。" }
@@ -254922,12 +254922,13 @@ ${spelling}`);
         await options.onTransition(before, transition);
         state = transition.state;
         render2();
-        await playCurrent();
       } catch {
         live.textContent = COPY$3.saveError[options.language];
+        return;
       } finally {
         busy = false;
       }
+      await playCurrent();
     };
     const choose = async (cue, action2) => {
       if (busy) return;
@@ -254939,6 +254940,8 @@ ${spelling}`);
         Date.now()
       );
       if (!transition.evaluation || transition.cue?.id !== cue.id) return;
+      playback?.dispose();
+      playback = null;
       try {
         busy = true;
         screen.setAttribute("aria-busy", "true");

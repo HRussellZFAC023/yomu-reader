@@ -138,6 +138,7 @@
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",
     "manual:academy-vowels": "node scripts/manual/lesson-zero-vowel-browser.mjs",
     "manual:academy-vowel-writing": "node scripts/manual/lesson-zero-vowel-writing-browser.mjs",
+    "manual:academy-classroom-instructions": "node scripts/manual/lesson-zero-classroom-instructions-browser.mjs",
     "smoke:hosted-settings": "node scripts/hosted-settings-self-enhancement-smoke.mjs",
     "manual:jiten-newtab": "node scripts/manual/jiten-newtab-smoke.mjs",
     "smoke:jiten-keyless-definition": "node scripts/jiten-keyless-definition-smoke.mjs",
