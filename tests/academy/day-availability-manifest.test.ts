@@ -90,6 +90,14 @@ describe('unbounded Academy day availability', () => {
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-greet-rie'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-vowel-doodle'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'partial',

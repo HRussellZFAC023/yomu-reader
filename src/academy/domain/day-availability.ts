@@ -100,7 +100,7 @@ const VERIFIED_STANDALONE_ACTIVITY_DELIVERY: DayActivityDelivery = Object.freeze
     journeyProof: 'partial',
 });
 
-const VERIFIED_REPEATABLE_GAME_DELIVERY: DayActivityDelivery = Object.freeze({
+const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY: DayActivityDelivery = Object.freeze({
     implementation: 'verified',
     reachability: 'verified',
     media: 'partial',
@@ -282,7 +282,9 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
         `Attempt, support, and completion evidence persist for ${activityId}.`,
         `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
         [],
-        activityId === 'activity:lesson-zero-vowel-listen' || activityId === 'activity:lesson-zero-vowel-doodle'
+        activityId === 'activity:lesson-zero-greet-rie'
+            ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
+            : activityId === 'activity:lesson-zero-vowel-listen' || activityId === 'activity:lesson-zero-vowel-doodle'
             ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
             : UNVERIFIED_DELIVERY,
     ));
@@ -310,7 +312,7 @@ const DAY_ONE_GAMES: readonly DayActivityAvailability[] = [
         { route: 'source-activity', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-vowel-listen' } },
         ['game:lesson-zero-vowel-listening-bingo'], { audio: 'learning-audio', visual: 'interactive' },
         'Each heard choice and confusion pair can seed review.', 'A full randomized board is playable with deterministic audio and no answer-first cue.',
-        [], VERIFIED_REPEATABLE_GAME_DELIVERY),
+        [], VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY),
     entry('day:1:game:kana-trace', 'Trace the first kana', 'minigame', ['required', 'repeatable'],
         { route: 'writing-practice', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-kanji-one' } },
         ['activity:lesson-zero-kanji-one', 'cue:kana-trace-one-stroke'], { audio: 'music-ambience-sfx', visual: 'interactive' },
