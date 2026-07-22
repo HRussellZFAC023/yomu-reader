@@ -4319,7 +4319,9 @@ function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
 
 function detachedReadingLaneLineHeight(style: CSSStyleDeclaration, alreadyReserved: boolean): string {
     const fontSize = cssPixels(style.fontSize) || 16;
-    const minimum = Math.ceil(fontSize * 2);
+    // One device pixel beyond 2em keeps the reading lane visibly separate
+    // across engines whose glyph boxes land on different subpixel boundaries.
+    const minimum = Math.ceil(fontSize * 2) + 1;
     const current = cssPixels(style.lineHeight);
     if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
     return current >= minimum ? '' : `${minimum}px`;

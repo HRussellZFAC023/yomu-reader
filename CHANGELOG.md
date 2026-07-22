@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.411] - 2026-07-23
+
+### Fixed
+
+- Multiline detached-furigana lanes now retain a visible interline gap across subpixel font rasterization differences in Chromium and WebKit, while single-line text and constrained controls keep their authored dimensions.
+
 ## [1.6.410] - 2026-07-23
 
 ### Added

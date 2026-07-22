@@ -37455,7 +37455,7 @@ ${spelling}`);
   }
   function detachedReadingLaneLineHeight(style, alreadyReserved) {
     const fontSize = cssPixels(style.fontSize) || 16;
-    const minimum = Math.ceil(fontSize * 2);
+    const minimum = Math.ceil(fontSize * 2) + 1;
     const current = cssPixels(style.lineHeight);
     if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
     return current >= minimum ? "" : `${minimum}px`;

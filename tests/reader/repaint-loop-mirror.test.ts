@@ -151,7 +151,7 @@ describe('repaint-loop mirror fallback', () => {
         const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
         expect(reading).toBeTruthy();
         expect(reading?.style.insetBlockEnd).toBe('calc(100% + 5px)');
-        expect(host.style.getPropertyValue('line-height')).toBe('28px');
+        expect(host.style.getPropertyValue('line-height')).toBe('29px');
         expect(host.style.getPropertyPriority('line-height')).toBe('important');
 
         expect(removeNonDestructiveScanMirrors(document)).toBe(1);
@@ -190,7 +190,7 @@ describe('repaint-loop mirror fallback', () => {
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
 
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
     });
 
     it('re-reserves from and restores a newer page line-height', () => {
@@ -206,11 +206,11 @@ describe('repaint-loop mirror fallback', () => {
             proseWrap: true,
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
 
         host.style.setProperty('line-height', '18px');
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
 
         removeNonDestructiveScanMirrors(document);
         expect(host.style.lineHeight).toBe('18px');
@@ -232,7 +232,7 @@ describe('repaint-loop mirror fallback', () => {
 
         host.style.lineHeight = '18px';
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
         removeNonDestructiveScanMirrors(document);
 
         expect(host.style.lineHeight).toBe('18px');
@@ -250,11 +250,11 @@ describe('repaint-loop mirror fallback', () => {
             decoration: 'content-ruby',
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('32px');
+        expect(host.style.lineHeight).toBe('33px');
 
         host.style.fontSize = '14px';
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('32px');
+        expect(host.style.lineHeight).toBe('33px');
         removeNonDestructiveScanMirrors(document);
 
         expect(host.style.lineHeight).toBe('30px');
@@ -273,13 +273,13 @@ describe('repaint-loop mirror fallback', () => {
             decoration: 'content-ruby',
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
 
         host.style.removeProperty('line-height');
         host.classList.add('roomy-prose');
         await new Promise(resolve => setTimeout(resolve, 0));
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
         removeNonDestructiveScanMirrors(document);
 
         expect(host.style.lineHeight).toBe('');

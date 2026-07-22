@@ -60,7 +60,7 @@ describe('identical-text re-render replays the cached render (class Y/BB)', () =
             proseWrap: true,
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
 
         host.textContent = prose;
         await flushObservers();
@@ -68,7 +68,7 @@ describe('identical-text re-render replays the cached render (class Y/BB)', () =
 
         const replayed = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(replayed.dataset.yomuReadingLaneCandidate).toBe('true');
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
     });
 
     it('does not restore a removed inline line-height while replaying a wiped mirror', async () => {
@@ -83,7 +83,7 @@ describe('identical-text re-render replays the cached render (class Y/BB)', () =
             decoration: 'content-ruby',
         }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         projectAdditiveTextMirrors(document);
-        expect(host.style.lineHeight).toBe('28px');
+        expect(host.style.lineHeight).toBe('29px');
 
         host.style.removeProperty('line-height');
         host.textContent = prose;

@@ -210,6 +210,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Multiline detached-furigana lanes now retain a visible interline gap across subpixel font rasterization differences in Chromium and WebKit, while single-line text and constrained controls keep their authored dimensions.': '複数行の分離ふりがな表示では、ChromiumとWebKitのサブピクセル単位のフォント描画差があっても見える行間を維持します。一方、1行のテキストや寸法が制約されたコントロールは、ページ本来の大きさを保ちます。',
     'Multiline framework-owned prose now reserves measured room for detached furigana, while clipped previews, titles, and compact controls retain the page\'s dimensions. The shared source-projection path also removes the duplicate pale underline and keeps late compound pitch such as': 'フレームワークが管理する複数行の文章では、分離表示するふりがなのために計測済みの行間を確保する一方、クリップされたプレビュー、タイトル、コンパクトなコントロールはページ本来の寸法を維持します。共通のソース投影経路によって重複した薄い下線も取り除き、',
     'continuous across wrapped fragments.': 'のような後から補完される複合語のピッチも、折り返された断片をまたいで連続表示します。',
     'Detached readings now clear rounded chip and tab edges instead of sitting flush with the clipping boundary. The geometry is shared across sites and verified in Chromium and WebKit.': '分離表示する読みは、クリップ境界に密着せず、角丸のチップやタブの縁を越えて十分な余白を持つようになりました。この配置はサイト間で共通で、ChromiumとWebKitの両方で検証済みです。',

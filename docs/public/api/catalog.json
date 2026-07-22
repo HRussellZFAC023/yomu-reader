@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedFrom": "scripts/openapi/yomu-openapi.mjs",
-  "applicationVersion": "1.6.410",
+  "applicationVersion": "1.6.411",
   "services": [
     {
       "id": "academy",
