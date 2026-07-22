@@ -30,7 +30,7 @@ Uninstalling the extension normally removes its browser-managed local data. Expo
 Core dictionary imports, local parsing, annotations, settings, and local study progress work in your browser. Yomu contacts a service only when the related feature is enabled or used:
 
 - Jiten, JPDB, Bunpro, or WaniKani may receive a word, sentence, review action, and the credential you supplied when you use their lookup, mining, or review features. WaniKani requests go directly to `api.wanikani.com`, never through Yomu's public or configured proxy.
-- Immersion Kit and Nadeshiko may receive a search term or sentence when you request examples. Google Translate may receive subtitle or sentence text when you request a translation.
+- Immersion Kit and Nadeshiko may receive a search term or sentence when you request examples. Google Translate may receive subtitle or sentence text when you request a translation, including when an enabled Jiten, Bunpro, or JPDB example omits its own translation and よむ fills the missing line.
 - The configured audio sources may receive a word and reading. These can include Yomu Audio, Jiten, JPDB, Bunpro's audio CDN, JapanesePod101, Wikimedia Commons, or an endpoint you add yourself.
 - OCR sends an image only when you invoke or enable the selected OCR route. That can be Google Lens, Google Cloud Vision with your key, a local OCR server, or another endpoint you configure.
 - Recommended dictionaries and optional kanji data are downloaded from the publisher named in the interface, such as GitHub, Hugging Face, KanjiVG, or Yomu's static site.

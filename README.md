@@ -50,6 +50,7 @@
 - **Mine and review while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
 - **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
 - **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page.
+- **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.

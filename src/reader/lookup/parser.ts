@@ -66,13 +66,14 @@ export interface ReaderParserParseOptions {
     requireApi?: boolean;
     requireJpdb?: boolean;
     allowSegmentedFallback?: boolean;
+    publicJitenDetailLimit?: number;
 }
 
 export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
-    jitenPublicVocabulary?: { parse: (paragraphs: readonly string[]) => Promise<JPDBToken[][]> };
+    jitenPublicVocabulary?: { parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]> };
     dictionaries: YomitanDictionaryStore;
 }
 
@@ -227,7 +228,9 @@ export class ReaderParser {
         const parser = this.dependencies.jitenPublicVocabulary;
         if (typeof parser?.parse !== 'function') return null;
         try {
-            const parsed = await parser.parse(paragraphs);
+            const parsed = options.publicJitenDetailLimit === undefined
+                ? await parser.parse(paragraphs)
+                : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
             if (!parsed.some(tokens => tokens.length)) return null;
             return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
         } catch (error) {

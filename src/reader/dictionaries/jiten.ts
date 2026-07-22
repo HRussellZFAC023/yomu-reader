@@ -251,6 +251,7 @@ export interface JitenVocabularyExample {
     wordPosition: number;
     wordLength: number;
     difficulty: number | null;
+    translation: string;
     sourceTitle: string;
     audioUrls?: string[];
 }
@@ -1263,6 +1264,7 @@ function normalizeJitenVocabularyExample(value: unknown): JitenVocabularyExample
         wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
         wordLength: finiteJitenInteger(value.wordLength) ?? 0,
         difficulty: nullableFiniteNumber(value.difficulty),
+        translation: firstRecordString(value, ['translation', 'english', 'englishText', 'translatedText']) ?? '',
         sourceTitle: jitenExampleSourceTitle(value),
         audioUrls: normalizeJitenAudioUrls(value),
     };

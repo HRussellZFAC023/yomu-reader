@@ -762,6 +762,7 @@ describe('new tab review — search mode', () => {
                 wordLength: 2,
                 difficulty: null,
                 sourceTitle: 'Jiten examples',
+                translation: '',
                 audioUrls: ['https://audio.example.test/review-sentence.mp3'],
             }],
         }));

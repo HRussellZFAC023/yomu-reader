@@ -161,7 +161,7 @@ export class JitenPublicVocabularyClient {
         return result;
     }
 
-    async parse(paragraphs: readonly string[]): Promise<JPDBToken[][]> {
+    async parse(paragraphs: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<JPDBToken[][]> {
         const result = paragraphs.map((): JPDBToken[] => []);
         if (!paragraphs.length || this.isBackoffActive()) return result;
         const chunks = publicParseChunks(paragraphs);
@@ -173,7 +173,7 @@ export class JitenPublicVocabularyClient {
             });
             applyPublicParseChunk(result, chunk, parsed, paragraphs);
         });
-        await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+        await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
         return result;
     }
 

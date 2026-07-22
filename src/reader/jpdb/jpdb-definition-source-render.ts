@@ -108,6 +108,7 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
     if (!info.examples.length) return '';
     const items: ProviderExampleView[] = info.examples.map((example, index) => ({
         id: String(index),
+        sentence: example.sentence,
         sentenceHtml: renderJpdbExampleSentence(example, card),
         translation: example.translation,
         ...(example.audioIds?.length ? {

@@ -724,6 +724,7 @@ describe('JitenApiClient', () => {
                 text: '訓むこともある。',
                 wordPosition: 0,
                 wordLength: 2,
+                translation: 'Sometimes it is read using the native Japanese reading.',
                 audioUrls: ['https://audio.example.test/sentence.mp3'],
             }]);
         });
@@ -738,6 +739,7 @@ describe('JitenApiClient', () => {
         expect(info?.alternativeReadings[0]).toMatchObject({ text: '訓む', readingIndex: 1 });
         expect(info?.composedOf[0]?.audioUrls).toEqual(['https://audio.example.test/yomu.mp3']);
         expect(info?.examples[0]?.audioUrls).toEqual(['https://audio.example.test/sentence.mp3']);
+        expect(info?.examples[0]?.translation).toBe('Sometimes it is read using the native Japanese reading.');
         expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/vocabulary/42/0/info`, expect.objectContaining({ method: 'GET' }));
         expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/vocabulary/42/0/random-example-sentences`, expect.objectContaining({ method: 'POST' }));
     });
@@ -1067,6 +1069,7 @@ describe('JitenApiClient', () => {
                 wordLength: 6,
                 difficulty: null,
                 sourceTitle: 'Jiten examples',
+                translation: '',
                 audioUrls: ['https://audio.example.test/sentence.mp3'],
             }],
         });
@@ -1143,6 +1146,10 @@ describe('JitenApiClient', () => {
         const sentence = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-sentence');
         expect(sentence?.innerHTML).toContain('今日は');
         expect(sentence?.innerHTML).toContain('こともある。');
+        const translation = exampleRow?.querySelector<HTMLElement>('[data-provider-example-translation]');
+        expect(translation?.hidden).toBe(true);
+        expect(translation?.dataset.providerTranslationPending).toBe('true');
+        expect(translation?.textContent).not.toContain('Jiten examples');
     });
 
     it('marks long Jiten related words with horizontal wrapping and neutral decoration hooks', () => {

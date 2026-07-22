@@ -72,6 +72,7 @@ import {
     renderKanjiDefinitions,
 } from '../sources/definition-render';
 import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
@@ -274,12 +275,13 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, createMutation
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { translateJapaneseSentence } from '../study/tools';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
@@ -7744,10 +7746,24 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
+        installProviderExampleBehaviors(popover, {
+            language: this.settings.interfaceLanguage,
+            blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+            translate: translateJapaneseSentence,
+            isCurrentRoot: root => this.isCurrentPopoverRoot(root),
+        });
         this.enrichJpdbRelatedWords(popover);
-        const plan = nestedTextParsePlan(popover, 120);
-        if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+        const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
+        if (plan && !nestedParseAlreadyScheduled(popover, plan.parseKey)) {
+            await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+        }
+        if (!this.isCurrentPopoverRoot(popover)) return;
+        const providerPlan = providerExampleTextParsePlan(popover, 24);
+        if (providerPlan && !nestedParseAlreadyScheduled(popover, providerPlan.parseKey)) {
+            await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+                publicJitenDetailLimit: 24,
+            }, false);
+        }
     }
 
     private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
@@ -7869,6 +7885,7 @@ export class ReaderApp {
         plan: NestedParsePlan,
         isCurrent: () => boolean,
         options: ReaderParserParseOptions = {},
+        recordParseKey = true,
     ): Promise<void> {
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
@@ -7886,7 +7903,7 @@ export class ReaderApp {
             this.scheduleCachedPublicVocabularyHydration(root);
             highlightCardTargetScopes(root);
             refreshReaderWordContrast(root);
-            root.dataset.jpdbReaderParseKey = plan.parseKey;
+            if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
             this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : undefined);
         } catch {
         } finally {
@@ -7915,7 +7932,7 @@ export class ReaderApp {
     private loadAndCacheNestedParseContent(
         key: string,
         texts: string[],
-        parseOptions: Required<ReaderParserParseOptions>,
+        parseOptions: ReaderParserParseOptions,
         now: number,
     ): Promise<JPDBToken[][]> {
         const promise = this.parseJapanese(texts, parseOptions).catch(error => {

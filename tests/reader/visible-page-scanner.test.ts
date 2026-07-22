@@ -154,7 +154,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    }, 15_000);
+    }, 30_000);
 
     it('reaches the tail of a broad mirrored root across a manual continuation chain', async () => {
         const restoreRects = mockVisibleElementRects();

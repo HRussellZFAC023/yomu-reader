@@ -267135,7 +267135,7 @@ ${entry2.reading || ""}`;
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map((example) => renderProviderExample(example, language)).join("")}</ul>
             </div>
         </details>
     `;
@@ -267143,19 +267143,66 @@ ${entry2.reading || ""}`;
   function definitionSourceStateKey$3(sourceId2) {
     return `definition-source:${sourceId2}`;
   }
-  function renderProviderExample(example) {
+  function renderProviderExample(example, language) {
     const hasAudio = Boolean(example.audio);
+    const translation2 = example.translation.trim();
+    const translationPending = !translation2;
     return `
         <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$2(example.id)}">
             <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
                 <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$2(example.translation)}</div>` : ""}
+                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
+                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}" hidden` : ""} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language, "revealTranslation"))}">${escapeHtml$2(translation2)}</div>
                 </div>
             </div>
         </li>
     `;
+  }
+  function installProviderExampleBehaviors(root, options) {
+    installProviderTranslationReveal(root);
+    const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
+    if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
+    translations.filter((translation2) => translation2.dataset.providerTranslationPending === "true").forEach((translation2) => hydrateProviderTranslation(root, translation2, options));
+  }
+  function installProviderTranslationReveal(root) {
+    if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
+    root.dataset.providerExampleBehaviorsInstalled = "true";
+    root.addEventListener("click", (event) => {
+      const translation2 = event.target?.closest("[data-provider-example-translation]");
+      if (translation2 && root.contains(translation2)) revealProviderTranslation(translation2);
+    });
+    root.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const translation2 = event.target?.closest("[data-provider-example-translation]");
+      if (!translation2 || !root.contains(translation2)) return;
+      event.preventDefault();
+      revealProviderTranslation(translation2);
+    });
+  }
+  function hydrateProviderTranslation(root, translation2, options) {
+    if (translation2.dataset.providerTranslationLoading === "true") return;
+    const sentence = translation2.dataset.providerTranslationSentence?.trim() ?? "";
+    if (!sentence) return;
+    translation2.dataset.providerTranslationLoading = "true";
+    void options.translate(sentence, options.language).then((translated) => {
+      if (!translated.trim() || !translation2.isConnected || !isCurrentProviderRoot(root, options)) return;
+      translation2.textContent = translated.trim();
+      translation2.hidden = false;
+      delete translation2.dataset.providerTranslationPending;
+      delete translation2.dataset.providerTranslationSentence;
+    }).catch(() => void 0).finally(() => {
+      delete translation2.dataset.providerTranslationLoading;
+    });
+  }
+  function isCurrentProviderRoot(root, options) {
+    return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
+  }
+  function revealProviderTranslation(translation2) {
+    delete translation2.dataset.providerTranslationBlurred;
+    translation2.removeAttribute("role");
+    translation2.removeAttribute("tabindex");
+    translation2.removeAttribute("aria-label");
   }
   function renderProviderExampleAudio(audio2) {
     const attributes = Object.entries(audio2.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$2(value)}"`).join("");
@@ -267250,6 +267297,7 @@ ${entry2.reading || ""}`;
     if (!info.examples.length) return "";
     const items = info.examples.map((example, index) => ({
       id: String(index),
+      sentence: example.sentence,
       sentenceHtml: renderJpdbExampleSentence(example, card),
       translation: example.translation,
       ...example.audioIds?.length ? {
@@ -271579,6 +271627,7 @@ ${component.reading}`;
       wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
       wordLength: finiteJitenInteger(value.wordLength) ?? 0,
       difficulty: nullableFiniteNumber(value.difficulty),
+      translation: firstRecordString(value, ["translation", "english", "englishText", "translatedText"]) ?? "",
       sourceTitle: jitenExampleSourceTitle(value),
       audioUrls: normalizeJitenAudioUrls(value)
     };
@@ -272372,7 +272421,7 @@ ${component.reading}`;
       const parser = this.dependencies.jitenPublicVocabulary;
       if (typeof parser?.parse !== "function") return null;
       try {
-        const parsed = await parser.parse(paragraphs);
+        const parsed = options.publicJitenDetailLimit === void 0 ? await parser.parse(paragraphs) : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
       } catch (error) {
@@ -274091,8 +274140,9 @@ ${component.reading}`;
     if (!examples.length) return "";
     const items = examples.map((example, index) => ({
       id: String(example.sentenceId ?? index),
+      sentence: example.text,
       sentenceHtml: renderJitenExampleSentence(example, card, info),
-      translation: example.sourceTitle,
+      translation: example.translation,
       itemClassName: "jpdb-reader-jiten-example",
       rowClassName: "jpdb-reader-jiten-example-row",
       textClassName: "jpdb-reader-jiten-example-text",
@@ -278615,7 +278665,7 @@ ${key2}`] = { t: now, v: value };
       }));
       return result;
     }
-    async parse(paragraphs) {
+    async parse(paragraphs, options = {}) {
       const result = paragraphs.map(() => []);
       if (!paragraphs.length || this.isBackoffActive()) return result;
       const chunks2 = publicParseChunks(paragraphs);
@@ -278627,7 +278677,7 @@ ${key2}`] = { t: now, v: value };
         });
         applyPublicParseChunk(result, chunk, parsed, paragraphs);
       });
-      await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+      await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
       return result;
     }
     async hydrateCards(cards, options = {}) {
@@ -280479,10 +280529,29 @@ ${normalizedReading}`;
     "[data-settings-panel]",
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
-  function nestedTextParsePlan(root, limit) {
-    const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+  function nestedTextParsePlan(root, limit, options = {}) {
+    const discoveredRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+    const parseRoots = options.excludeProviderExamples ? discoveredRoots.filter((parseRoot) => !parseRoot.matches("[data-provider-example-sentence]")) : discoveredRoots;
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
+    normalizePartiallyParsedRoots(root, parseRoots);
+    const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+      includeReaderRoot: true,
+      allowUiText: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1,
+      readerRootPassiveInteractions: true,
+      parseSurfaceIgnoredRoot: true
+    })).slice(0, limit);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  }
+  function providerExamplePriority(parseRoot) {
+    return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
+  }
+  function providerExampleTextParsePlan(root, limit) {
+    const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
+    if (!parseRoots.length) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
@@ -308527,18 +308596,33 @@ ${rank2.detail}` : baseTitle;
     }
     async parseNewTabContent(root, options = {}) {
       if (!root.isConnected || !this.parser.canParse()) return;
+      installProviderExampleBehaviors(root, {
+        language: this.settings.interfaceLanguage,
+        blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+        translate: translateJapaneseSentence,
+        isCurrentRoot: (candidate2) => candidate2.isConnected
+      });
       this.enrichJpdbRelatedWords(root);
-      const plan = nestedTextParsePlan(root, 160);
-      if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+      const plan = nestedTextParsePlan(root, 160, { excludeProviderExamples: true });
+      if (plan && !nestedParseAlreadyScheduled(root, plan.parseKey)) {
+        await this.parseNewTabPlan(root, plan, options);
+      }
+      if (!root.isConnected) return;
+      const providerPlan = providerExampleTextParsePlan(root, 24);
+      if (providerPlan && !nestedParseAlreadyScheduled(root, providerPlan.parseKey)) {
+        await this.parseNewTabPlan(root, providerPlan, options, 24, false);
+      }
+    }
+    async parseNewTabPlan(root, plan, options, publicJitenDetailLimit, recordParseKey = true) {
       const parseLoadingId = `${Date.now()}:${Math.random()}`;
       root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
       root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
       try {
-        const parsed = await this.loadParsedNewTabContent(plan.targets.map((target2) => target2.text), options);
+        const parsed = await this.loadParsedNewTabContent(plan.targets.map((target2) => target2.text), options, publicJitenDetailLimit);
         if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         applyNestedParsePlan(plan, parsed, this.settings);
         highlightCardTargetScopes(root);
-        root.dataset.jpdbReaderParseKey = plan.parseKey;
+        if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
         const tokens = parsed.flat();
         void this.enrichPublicVocabularyWords(tokens);
         void this.enrichPitchWords(tokens);
@@ -308558,12 +308642,13 @@ ${rank2.detail}` : baseTitle;
       void this.enrichPitchWords(tokens);
       void this.enrichAnkiWords(tokens, [root]);
     }
-    loadParsedNewTabContent(texts, options = {}) {
+    loadParsedNewTabContent(texts, options = {}, publicJitenDetailLimit) {
       const parseOptions = {
         jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
         allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
         includeLocalPitch: false,
-        allowSegmentedFallback: true
+        allowSegmentedFallback: true,
+        ...publicJitenDetailLimit === void 0 ? {} : { publicJitenDetailLimit }
       };
       const key2 = parseContentCacheKey(texts, parseOptions, this.settings);
       const now = Date.now();

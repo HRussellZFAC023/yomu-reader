@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -157,6 +157,41 @@ describe('nested text parse plans', () => {
         root.dataset.jpdbReaderParseKey = plan.parseKey;
         expect(nestedTextParsePlan(root, 24)).toBeNull();
         expect(sentence.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+    });
+
+    it('prioritizes a partially parsed provider sentence so every content word receives furigana', () => {
+        document.body.innerHTML = '<section data-jpdb-reader-root="true"><div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-provider-example-sentence data-yomu-furigana-mode="all">毎日<mark class="jpdb-reader-example-target"><span class="jpdb-reader-word jpdb-reader-example-target" data-vid="1" data-sid="0">復習</span></mark>する。</div></section>';
+        const root = document.body.querySelector<HTMLElement>('section')!;
+        const plan = providerExampleTextParsePlan(root, 24)!;
+
+        expect(plan.targets.map(target => target.text)).toEqual(['毎日復習する。']);
+        applyNestedParsePlan(plan, [[
+            token('毎日', 0, 'まいにち', 'heiban'),
+            token('復習', 2, 'ふくしゅう', 'heiban'),
+        ]], { ...DEFAULT_SETTINGS, ankiEnabled: false });
+
+        const sentence = root.querySelector<HTMLElement>('[data-provider-example-sentence]')!;
+        expect(Array.from(sentence.querySelectorAll('rt')).map(rt => rt.textContent)).toEqual(['まいにち', 'ふくしゅう']);
+        expect(sentence.querySelector('mark')?.textContent).toContain('復習');
+    });
+
+    it('puts provider sentences first without dropping the rest of the shared parse plan', () => {
+        document.body.innerHTML = `
+            <section>
+                <div class="jpdb-reader-parseable">日本語を読む。</div>
+                <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-provider-example-sentence>毎日復習する。</div>
+            </section>
+        `;
+        const root = document.body.querySelector<HTMLElement>('section')!;
+
+        expect(nestedTextParsePlan(root, 1)?.targets.map(target => target.text)).toEqual(['毎日復習する。']);
+        expect(nestedTextParsePlan(root, 24)?.targets.map(target => target.text)).toEqual([
+            '毎日復習する。',
+            '日本語を読む。',
+        ]);
+        expect(nestedTextParsePlan(root, 24, { excludeProviderExamples: true })?.targets.map(target => target.text)).toEqual([
+            '日本語を読む。',
+        ]);
     });
 
     it('collects Japanese fragments from parseable grammar examples', () => {

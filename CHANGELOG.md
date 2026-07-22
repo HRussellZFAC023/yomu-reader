@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.403] - 2026-07-21
+
+### Fixed
+
+- Bunpro, Jiten, and JPDB example sentences now receive furigana across the full Japanese sentence instead of annotating only the highlighted lookup word. Every provider translation is blurred by default and can be revealed with a click, tap, Enter, or Space; when Jiten supplies no translation, よむ fills it with the existing cached sentence translator instead of showing source metadata or an empty row.
+
 ## [1.6.402] - 2026-07-21
 
 ### Fixed

@@ -21,6 +21,7 @@ import {
     renderKanjiDefinitions,
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
@@ -72,7 +73,7 @@ import {
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
 import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
@@ -138,6 +139,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
+import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
@@ -2357,20 +2359,42 @@ export class NewTabRuntime {
 
     private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
         if (!root.isConnected || !this.parser.canParse()) return;
+        installProviderExampleBehaviors(root, {
+            language: this.settings.interfaceLanguage,
+            blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+            translate: translateJapaneseSentence,
+            isCurrentRoot: candidate => candidate.isConnected,
+        });
         this.enrichJpdbRelatedWords(root);
-        const plan = nestedTextParsePlan(root, 160);
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        const plan = nestedTextParsePlan(root, 160, { excludeProviderExamples: true });
+        if (plan && !nestedParseAlreadyScheduled(root, plan.parseKey)) {
+            await this.parseNewTabPlan(root, plan, options);
+        }
+        if (!root.isConnected) return;
+        const providerPlan = providerExampleTextParsePlan(root, 24);
+        if (providerPlan && !nestedParseAlreadyScheduled(root, providerPlan.parseKey)) {
+            await this.parseNewTabPlan(root, providerPlan, options, 24, false);
+        }
+    }
+
+    private async parseNewTabPlan(
+        root: HTMLElement,
+        plan: NestedParsePlan,
+        options: NewTabParseContentOptions,
+        publicJitenDetailLimit?: number,
+        recordParseKey = true,
+    ): Promise<void> {
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
-            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options);
+            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options, publicJitenDetailLimit);
             if (!root.isConnected
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             highlightCardTargetScopes(root);
-            root.dataset.jpdbReaderParseKey = plan.parseKey;
+            if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
             const tokens = parsed.flat();
             void this.enrichPublicVocabularyWords(tokens);
             void this.enrichPitchWords(tokens);
@@ -2391,12 +2415,13 @@ export class NewTabRuntime {
         void this.enrichAnkiWords(tokens, [root]);
     }
 
-    private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}): Promise<JPDBToken[][]> {
+    private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}, publicJitenDetailLimit?: number): Promise<JPDBToken[][]> {
         const parseOptions = {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
             allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
             allowSegmentedFallback: true,
+            ...(publicJitenDetailLimit === undefined ? {} : { publicJitenDetailLimit }),
         };
         const key = parseContentCacheKey(texts, parseOptions, this.settings);
         const now = Date.now();

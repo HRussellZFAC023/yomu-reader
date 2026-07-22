@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.402
+// @version 1.6.403
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,10 +15,10 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.e8c9a564f63f.user.js#sha256=6MmlZPY/cUy4oms3xPhZkWZyicuFXKZWyQCrk4Htnvg=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.612f3ab34644.user.js#sha256=YS86s0ZEfFtK1RmprV8jQQ2B+vvRiJMkEDo1HKL3Hhk=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.1fdcf9d25c51.user.js#sha256=H9z50lxRvUm2AM6wWb0otF/sYp6htHWPDVrQC4jDhs4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b0cc34deb30f.user.js#sha256=sMw03rMPM9iLmUD+LTawb5G9IbWruKS6NqzvygAU04o=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.fc7e21ac466f.user.js#sha256=/H4hrEZv5dW92Hnqn5e6Cx/ZuUYht5WK+Utv67qU5rA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.c8a39e048c7d.user.js#sha256=yKOeBIx9DA90fuu5ydX8xCsAjiIBZFk1Hkv9IstWrdU=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.64a7fdc2ab32.user.js#sha256=ZKf9wqsyetNAGdPqhRNVsjKTlmw2uM59DSXLDa85uWE=
 // @require https://yomureader.com/greasyfork/yomu-video.1ded38a4bfde.user.js#sha256=He04pL/eZ27nn6wcS/E21sBwIKEQi5cb0yNHEopQGIE=
-// @resource yomuCss  https://yomureader.com/yomu.3ec6085457f8.css#sha256=PsYIVFf4MXon1N1Pe8YcGAPmpWcbnhSCfu2d/twD4/A=
+// @resource yomuCss  https://yomureader.com/yomu.de23e354c277.css#sha256=3iPjVMJ3kTkEYhdx91llVPIci58zEb+39Zj0JMRS8F8=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -18160,7 +18160,7 @@ function renderProviderExamples(provider, sourceId, collection, sourceAttributes
             <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
         </summary>
         <div class="jpdb-reader-local-glossary">
-            <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
+            <ul class="jpdb-reader-jpdb-examples">${collection.items.map((example) => renderProviderExample(example, language)).join("")}</ul>
         </div>
     </details>
   `;
@@ -18168,19 +18168,66 @@ function renderProviderExamples(provider, sourceId, collection, sourceAttributes
 function definitionSourceStateKey$3(sourceId) {
   return `definition-source:${sourceId}`;
 }
-function renderProviderExample(example) {
+function renderProviderExample(example, language) {
   const hasAudio = Boolean(example.audio);
+  const translation = example.translation.trim();
+  const translationPending = !translation;
   return `
     <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$2(example.id)}">
         <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
             ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
             <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$2(example.translation)}</div>` : ""}
+                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
+                <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}" hidden` : ""} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
             </div>
         </div>
     </li>
   `;
+}
+function installProviderExampleBehaviors(root, options) {
+  installProviderTranslationReveal(root);
+  const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
+  if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
+  translations.filter((translation) => translation.dataset.providerTranslationPending === "true").forEach((translation) => hydrateProviderTranslation(root, translation, options));
+}
+function installProviderTranslationReveal(root) {
+  if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
+  root.dataset.providerExampleBehaviorsInstalled = "true";
+  root.addEventListener("click", (event) => {
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (translation && root.contains(translation)) revealProviderTranslation(translation);
+  });
+  root.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (!translation || !root.contains(translation)) return;
+  event.preventDefault();
+  revealProviderTranslation(translation);
+  });
+}
+function hydrateProviderTranslation(root, translation, options) {
+  if (translation.dataset.providerTranslationLoading === "true") return;
+  const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
+  if (!sentence) return;
+  translation.dataset.providerTranslationLoading = "true";
+  void options.translate(sentence, options.language).then((translated) => {
+  if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
+  translation.textContent = translated.trim();
+  translation.hidden = false;
+  delete translation.dataset.providerTranslationPending;
+  delete translation.dataset.providerTranslationSentence;
+  }).catch(() => void 0).finally(() => {
+  delete translation.dataset.providerTranslationLoading;
+  });
+}
+function isCurrentProviderRoot(root, options) {
+  return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
+}
+function revealProviderTranslation(translation) {
+  delete translation.dataset.providerTranslationBlurred;
+  translation.removeAttribute("role");
+  translation.removeAttribute("tabindex");
+  translation.removeAttribute("aria-label");
 }
 function renderProviderExampleAudio(audio) {
   const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$2(value)}"`).join("");
@@ -18275,6 +18322,7 @@ function renderJpdbExamples(info, sourceAttributes, language, card) {
   if (!info.examples.length) return "";
   const items = info.examples.map((example, index) => ({
   id: String(index),
+  sentence: example.sentence,
   sentenceHtml: renderJpdbExampleSentence(example, card),
   translation: example.translation,
   ...example.audioIds?.length ? {
@@ -20563,6 +20611,7 @@ function normalizeJitenVocabularyExample(value) {
   wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
   wordLength: finiteJitenInteger(value.wordLength) ?? 0,
   difficulty: nullableFiniteNumber(value.difficulty),
+  translation: firstRecordString(value, ["translation", "english", "englishText", "translatedText"]) ?? "",
   sourceTitle: jitenExampleSourceTitle(value),
   audioUrls: normalizeJitenAudioUrls(value)
   };
@@ -21351,7 +21400,7 @@ class ReaderParser {
   const parser = this.dependencies.jitenPublicVocabulary;
   if (typeof parser?.parse !== "function") return null;
   try {
-    const parsed = await parser.parse(paragraphs);
+    const parsed = options.publicJitenDetailLimit === void 0 ? await parser.parse(paragraphs) : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
     if (!parsed.some((tokens) => tokens.length)) return null;
     return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
   } catch (error) {
@@ -25558,8 +25607,9 @@ function renderJitenExamples(examples, sourceAttributes, language, card, info) {
   if (!examples.length) return "";
   const items = examples.map((example, index) => ({
   id: String(example.sentenceId ?? index),
+  sentence: example.text,
   sentenceHtml: renderJitenExampleSentence(example, card, info),
-  translation: example.sourceTitle,
+  translation: example.translation,
   itemClassName: "jpdb-reader-jiten-example",
   rowClassName: "jpdb-reader-jiten-example-row",
   textClassName: "jpdb-reader-jiten-example-text",
@@ -27135,7 +27185,7 @@ class JitenPublicVocabularyClient {
   }));
   return result;
   }
-  async parse(paragraphs) {
+  async parse(paragraphs, options = {}) {
   const result = paragraphs.map(() => []);
   if (!paragraphs.length || this.isBackoffActive()) return result;
   const chunks = publicParseChunks(paragraphs);
@@ -27147,7 +27197,7 @@ class JitenPublicVocabularyClient {
     });
     applyPublicParseChunk(result, chunk, parsed, paragraphs);
   });
-  await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+  await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
   return result;
   }
   async hydrateCards(cards, options = {}) {
@@ -32443,10 +32493,29 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
   "[data-settings-panel]",
   SETTINGS_CHROME_PARSE_ROOT_SELECTOR
 ].join(",");
-function nestedTextParsePlan(root, limit) {
-  const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+function nestedTextParsePlan(root, limit, options = {}) {
+  const discoveredRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+  const parseRoots = options.excludeProviderExamples ? discoveredRoots.filter((parseRoot) => !parseRoot.matches("[data-provider-example-sentence]")) : discoveredRoots;
   const renderedParseKey = renderedNestedParseKey(parseRoots);
   if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
+  normalizePartiallyParsedRoots(root, parseRoots);
+  const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  includeReaderRoot: true,
+  allowUiText: true,
+  includePassiveInteractions: true,
+  heading: true,
+  minLength: 1,
+  readerRootPassiveInteractions: true,
+  parseSurfaceIgnoredRoot: true
+  })).slice(0, limit);
+  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+function providerExamplePriority(parseRoot) {
+  return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
+}
+function providerExampleTextParsePlan(root, limit) {
+  const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
+  if (!parseRoots.length) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
   const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
@@ -32834,6 +32903,9 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
   word.replaceChildren(ruby);
   word.classList.add("jpdb-reader-has-furi");
   }
+}
+async function translateJapaneseSentence(sentence, language = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
 }
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
@@ -35475,8 +35547,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.402"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.402"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.403"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.403"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35608,7 +35680,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.402"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.403"}`;
   } catch {
   return null;
   }
@@ -36489,7 +36561,8 @@ function normalizedNestedParseOptions(options, _settings) {
   skipJpdb: options.skipJpdb ?? skipApi,
   requireApi,
   requireJpdb: options.requireJpdb ?? requireApi,
-  allowSegmentedFallback: options.allowSegmentedFallback ?? true
+  allowSegmentedFallback: options.allowSegmentedFallback ?? true,
+  ...options.publicJitenDetailLimit === void 0 ? {} : { publicJitenDetailLimit: options.publicJitenDetailLimit }
   };
 }
 function nestedParseApiTimeoutMs(options) {
@@ -42126,10 +42199,24 @@ class ReaderApp {
   }
   async parsePopoverJapanese(popover) {
   if (!this.isCurrentPopoverRoot(popover)) return;
+  installProviderExampleBehaviors(popover, {
+    language: this.settings.interfaceLanguage,
+    blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+    translate: translateJapaneseSentence,
+    isCurrentRoot: (root) => this.isCurrentPopoverRoot(root)
+  });
   this.enrichJpdbRelatedWords(popover);
-  const plan = nestedTextParsePlan(popover, 120);
-  if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-  await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+  const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
+  if (plan && !nestedParseAlreadyScheduled(popover, plan.parseKey)) {
+    await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+  }
+  if (!this.isCurrentPopoverRoot(popover)) return;
+  const providerPlan = providerExampleTextParsePlan(popover, 24);
+  if (providerPlan && !nestedParseAlreadyScheduled(popover, providerPlan.parseKey)) {
+    await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+      publicJitenDetailLimit: 24
+    }, false);
+  }
   }
   async parseJpdbPageAddonJapanese(root) {
   if (!this.isJpdbPageAddonRoot(root)) return;
@@ -42233,7 +42320,7 @@ class ReaderApp {
   void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
   this.queueAnkiWordEnrichment(tokens, [form]);
   }
-  async parseNestedJapaneseContent(root, plan, isCurrent, options = {}) {
+  async parseNestedJapaneseContent(root, plan, isCurrent, options = {}, recordParseKey = true) {
   const parseLoadingId = `${Date.now()}:${Math.random()}`;
   root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
   root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
@@ -42248,7 +42335,7 @@ class ReaderApp {
     this.scheduleCachedPublicVocabularyHydration(root);
     highlightCardTargetScopes(root);
     refreshReaderWordContrast(root);
-    root.dataset.jpdbReaderParseKey = plan.parseKey;
+    if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
     this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : void 0);
   } catch {
   } finally {

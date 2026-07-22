@@ -189,11 +189,16 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
         await page.addStyleTag({ path: CSS_PATH });
         for (const companionPath of COMPANION_PATHS) await page.addScriptTag({ path: companionPath });
         await page.addScriptTag({ path: SCRIPT_PATH });
-        await page.waitForFunction(({ term }) => {
-            return Array.from(document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word'))
-                .some(node => node.textContent?.includes(term));
-        }, { term: TERM }, { timeout: 30_000 });
-        await page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: TERM }).first().click();
+        try {
+            await page.waitForFunction(({ term }) => {
+                return Array.from(document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word'))
+                    .some(node => node.getAttribute('data-expression') === term);
+            }, { term: TERM }, { timeout: 30_000 });
+        } catch (error) {
+            const body = await page.locator('body').evaluate(node => node.innerHTML).catch(() => '');
+            throw new Error(`${scenario.label} popover page annotation did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ body, requests: summarizeRequests(requests) }, null, 2)}`);
+        }
+        await page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first().click();
         const popover = page.locator('.jpdb-reader-popover').last();
         await popover.waitFor({ state: 'visible', timeout: 15_000 });
         try {
@@ -203,6 +208,7 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
             throw new Error(`${scenario.label} popover sources did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ dom, requests: summarizeRequests(requests) }, null, 2)}`);
         }
         await openSourceCards(popover);
+        await waitForExampleTranslations(popover, sourceExpectation(scenario, 'popover'));
         const dom = await popover.evaluate(summarizeSourceDom);
         assertSurface(scenario, dom, requests, 'popover');
         const bunproMining = scenario.id === 'all-three-sources'
@@ -272,6 +278,7 @@ async function runSearchSurface(browser, fixture, scenario, settings) {
             throw new Error(`${scenario.label} search sources did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ dom, requests: summarizeRequests(requests) }, null, 2)}`);
         }
         await openSourceCards(detail);
+        await waitForExampleTranslations(detail, sourceExpectation(scenario, 'search'));
         const dom = await detail.evaluate(summarizeSourceDom);
         assertSurface(scenario, dom, requests, 'search');
         const screenshot = artifactPath(scenario.id, 'search.png');
@@ -314,7 +321,7 @@ async function installPage(browser, scenario, settings, surface, viewport) {
             }));
         }, { key: NEW_TAB_UI_KEY });
     }
-    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*api\.bunpro\.jp|api\.wanikani\.com|[^/]*jpdb\.io|[^/]*workers\.dev|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
+    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*api\.bunpro\.jp|api\.wanikani\.com|[^/]*jpdb\.io|[^/]*workers\.dev|translate\.googleapis\.com|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
     return { context, page, requests };
 }
 
@@ -334,6 +341,13 @@ async function openSourceCards(root) {
             if (node instanceof HTMLDetailsElement) node.open = true;
         });
     });
+}
+
+async function waitForExampleTranslations(root, expected) {
+    if (!expected.jiten) return;
+    await root.locator('[data-example-provider="jiten"] [data-provider-example-translation]:not([hidden])')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10_000 });
 }
 
 function summarizeSourceDom(node) {
@@ -368,6 +382,27 @@ function summarizeSourceDom(node) {
             backgroundColor: style.backgroundColor,
         };
     }
+    function exampleSummary(source) {
+        const translations = source
+            ? Array.from(source.querySelectorAll('[data-provider-example-translation]'))
+            : [];
+        const sentenceText = source
+            ? Array.from(source.querySelectorAll('[data-provider-example-sentence]')).map(sentence => {
+                const clone = sentence.cloneNode(true);
+                clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+                return clean(clone.textContent);
+            }).join(' | ')
+            : '';
+        return {
+            sentenceText,
+            rubyCount: queryCount(source, '[data-provider-example-sentence] rt.jpdb-reader-furi'),
+            translationText: translations.map(item => clean(item.textContent)).join(' | '),
+            translationCount: translations.length,
+            translationsBlurred: translations.length > 0
+                && translations.every(item => item.getAttribute('data-provider-translation-blurred') === 'true'),
+            pendingTranslationCount: translations.filter(item => item.getAttribute('data-provider-translation-pending') === 'true').length,
+        };
+    }
     function bunproFrequencySummary(root) {
         const pill = root.querySelector('.jpdb-reader-word-pills a[href*="bunpro.jp/search"]');
         if (!pill) return { bunproFrequencyPillText: '', bunproFrequencyPillTitle: '' };
@@ -378,7 +413,7 @@ function summarizeSourceDom(node) {
             bunproFrequencyPillTitle: clean(title),
         };
     }
-    function summarizeBunpro(root, source) {
+    function summarizeBunpro(root, source, examples) {
         const bunproText = sourceText(source);
         const common = {
             bunproText,
@@ -387,7 +422,7 @@ function summarizeSourceDom(node) {
             bunproNuance: bunproText.includes('Study again to strengthen memory'),
             bunproAcceptedAnswer: bunproText.includes('to review'),
             bunproLearnerPos: bunproText.includes('noun'),
-            bunproExampleSentence: /毎日.*復習.*する/u.test(bunproText),
+            bunproExampleSentence: /毎日.*復習.*する/u.test(examples.sentenceText),
             bunproHasInlineKanaBrackets: /（[ぁ-ゖァ-ヺー・]+）/u.test(bunproText),
             ...bunproFrequencySummary(root),
         };
@@ -429,6 +464,9 @@ function summarizeSourceDom(node) {
     const wanikani = node.querySelector('.yomu-wanikani-source');
     const jpdbText = sourceText(jpdb);
     const jitenText = sourceText(jiten);
+    const jpdbExamples = exampleSummary(jpdb);
+    const jitenExamples = exampleSummary(jiten);
+    const bunproExamples = exampleSummary(bunpro);
     return {
         detailText: clean(node.textContent),
         sourceIds,
@@ -441,22 +479,33 @@ function summarizeSourceDom(node) {
         wanikaniAudioButtonCount: queryCount(wanikani, '[data-action="wanikani-audio"]'),
         jpdbText,
         jitenText,
-        ...summarizeBunpro(node, bunpro),
+        ...summarizeBunpro(node, bunpro, bunproExamples),
         jpdbMeaning: jpdbText.includes('review; revision'),
         jpdbUsedIn: jpdbText.includes('復習会'),
         jpdbComposedOf: jpdbText.includes('again; restore') && jpdbText.includes('learn'),
-        jpdbExampleSentence: /毎日.*復習.*する/u.test(jpdbText),
+        jpdbExampleSentence: /毎日.*復習.*する/u.test(jpdbExamples.sentenceText),
+        jpdbExampleRubyCount: jpdbExamples.rubyCount,
+        jpdbTranslationCount: jpdbExamples.translationCount,
+        jpdbTranslationsBlurred: jpdbExamples.translationsBlurred,
         jpdbExampleFrame: exampleFrame(jpdb),
         jpdbAudioButtonCount: queryCount(jpdb, '.jpdb-reader-jpdb-example-audio'),
         jitenMeaning: jitenText.includes('review; revision'),
         jitenReading: jitenText.includes('ふくしゅう'),
         jitenUsedIn: jitenText.includes('復習会'),
         jitenComposedOf: jitenText.includes('again; restore') && jitenText.includes('learn'),
-        jitenExampleSentence: /毎日.*復習.*する/u.test(jitenText),
+        jitenExampleSentence: /毎日.*復習.*する/u.test(jitenExamples.sentenceText),
+        jitenExampleRubyCount: jitenExamples.rubyCount,
+        jitenTranslationText: jitenExamples.translationText,
+        jitenTranslationCount: jitenExamples.translationCount,
+        jitenTranslationsBlurred: jitenExamples.translationsBlurred,
+        jitenPendingTranslationCount: jitenExamples.pendingTranslationCount,
         jitenExampleFrame: exampleFrame(jiten),
         jitenAudioButtonCount: queryCount(jiten, '.jpdb-reader-jiten-audio'),
         hasJitenLocalFallbackCard: hasDescendant(jiten, '.jpdb-reader-jiten-local-definitions, .jpdb-reader-jiten-local-entry'),
         hasOpenInJitenButton: hasDescendant(jiten, '.jpdb-reader-jiten-external-lookup') || /Jitenで開く|Open in Jiten/.test(jitenText),
+        bunproExampleRubyCount: bunproExamples.rubyCount,
+        bunproTranslationCount: bunproExamples.translationCount,
+        bunproTranslationsBlurred: bunproExamples.translationsBlurred,
     };
 }
 
@@ -495,6 +544,8 @@ function assertJpdbSurface(scenario, dom, surface, expected, settings) {
     assert(dom.jpdbUsedIn, `${scenario.label} ${surface}: credentialed JPDB source did not render used-in words`, dom);
     assert(dom.jpdbComposedOf, `${scenario.label} ${surface}: credentialed JPDB source did not render composed-of words`, dom);
     assert(dom.jpdbExampleSentence, `${scenario.label} ${surface}: credentialed JPDB source did not render examples`, dom);
+    assert(dom.jpdbExampleRubyCount >= 2, `${scenario.label} ${surface}: JPDB example did not retain full-sentence furigana`, dom);
+    assert(dom.jpdbTranslationCount >= 1 && dom.jpdbTranslationsBlurred, `${scenario.label} ${surface}: JPDB translations were not blurred by default`, dom);
     assert(dom.jpdbAudioButtonCount >= 2, `${scenario.label} ${surface}: credentialed JPDB source did not render TTS/audio buttons`, dom);
 }
 
@@ -505,6 +556,10 @@ function assertJitenSurface(scenario, dom, surface, expected) {
     assert(dom.jitenUsedIn, `${scenario.label} ${surface}: Jiten source did not render used-in words`, dom);
     assert(dom.jitenComposedOf, `${scenario.label} ${surface}: Jiten source did not render composed-of words`, dom);
     assert(dom.jitenExampleSentence, `${scenario.label} ${surface}: Jiten source did not render examples`, dom);
+    assert(dom.jitenExampleRubyCount >= 2, `${scenario.label} ${surface}: Jiten example did not receive full-sentence furigana`, dom);
+    assert(dom.jitenTranslationCount >= 1 && dom.jitenTranslationsBlurred, `${scenario.label} ${surface}: Jiten translations were not blurred by default`, dom);
+    assert(dom.jitenTranslationText.includes('I review every day.'), `${scenario.label} ${surface}: Jiten missing translation was not filled`, dom);
+    assert(dom.jitenPendingTranslationCount === 0, `${scenario.label} ${surface}: Jiten translation was still pending`, dom);
     assert(dom.jitenAudioButtonCount >= 3, `${scenario.label} ${surface}: Jiten source did not render TTS/audio buttons`, dom);
     assert(!dom.hasJitenLocalFallbackCard, `${scenario.label} ${surface}: Jiten source rendered the old inner fallback card`, dom);
     assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
@@ -525,6 +580,8 @@ function assertBunproSurface(scenario, dom, surface, expected, settings) {
     assert(!dom.bunproHasInlineKanaBrackets, `${scenario.label} ${surface}: Bunpro Japanese text retained inline kana brackets`, dom);
     assertBunproFrequencyEvidence(scenario, dom, surface);
     assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
+    assert(dom.bunproExampleRubyCount >= 2, `${scenario.label} ${surface}: Bunpro example did not receive full-sentence furigana`, dom);
+    assert(dom.bunproTranslationCount >= 1 && dom.bunproTranslationsBlurred, `${scenario.label} ${surface}: Bunpro translations were not blurred by default`, dom);
     assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
     if (!settings.bunproFrontendApiToken) return;
     assert(dom.bunproReading, `${scenario.label} ${surface}: credentialed Bunpro source did not render reading`, dom);
@@ -605,7 +662,17 @@ function assertJitenRequestAuthState(scenario, surface, requests, settings) {
         assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but info still loaded`, jitenDefinitionRequests);
         assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but examples still loaded`, jitenDefinitionRequests);
     }
-    assert(jitenDefinitionRequests.every(request => request.hasAuthorization === Boolean(settings.jitenApiKey)), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
+    assert(jitenDefinitionRequests.every(request => {
+        if (!settings.jitenApiKey) return !request.hasAuthorization;
+        // Full-sentence enrichment may hydrate a provisional parsed card via
+        // Jiten's public GET /info lane even when the signed-in parser is also
+        // active. That public request must remain anonymous; authenticated
+        // definition/parser traffic must still carry the ApiKey scheme.
+        if (request.method === 'GET'
+            && /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)
+            && !request.hasAuthorization) return true;
+        return request.hasAuthorization && request.authorizationScheme === 'ApiKey';
+    }), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
 }
 
 function assertBunproRequestAuthState(scenario, surface, requests, settings) {
@@ -689,6 +756,7 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
     if (summary.host === 'api.bunpro.jp') return mockBunproResponse(summary, request);
     if (summary.host === 'api.wanikani.com') return mockWanikaniResponse(summary, request);
     if (summary.host === 'jpdb.io') return mockJpdbResponse(summary, request);
+    if (summary.host === 'translate.googleapis.com') return jsonHttpResponse({ sentences: [{ trans: 'I review every day.' }] });
     if (summary.host === 'audio.example.test') return { status: 204, responseText: '', contentType: 'text/plain; charset=utf-8' };
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
 }
@@ -862,6 +930,7 @@ function mockJpdbResponse(summary, request) {
         const body = readJsonBody(request.data);
         return jsonHttpResponse(mockJpdbParseFromVocabulary(body, [
             [TERM, TERM, READING, GLOSS, ['n', 'vs'], 12435, ['not-in-deck'], ['LHH']],
+            ['毎日', '毎日', 'まいにち', 'every day', ['n'], 100, ['not-in-deck'], ['LHHH']],
         ], {
             vocabularyIdBase: JPDB_VID,
             spellingIdBase: JPDB_SID,
@@ -877,12 +946,20 @@ function mockJpdbResponse(summary, request) {
     return textResponse(404, 'unknown JPDB endpoint');
 }
 
-function mockJitenResponse(summary) {
+function mockJitenResponse(summary, request) {
     if (summary.method === 'POST' && summary.path === '/api/reader/parse') {
+        const body = readJsonBody(request.data);
+        summary.body = body;
+        const paragraphs = Array.isArray(body?.text) ? body.text.map(String) : [];
         return jsonHttpResponse({
-            tokens: [[{ wordId: JITEN_WORD_ID, readingIndex: JITEN_READING_INDEX, start: 0, end: TERM.length, length: TERM.length }]],
-            vocabulary: [jitenSearchVocabulary()],
+            tokens: paragraphs.map(jitenParseTokens),
+            vocabulary: [jitenSearchVocabulary(), jitenEverydayVocabulary()],
         });
+    }
+    if (summary.method === 'GET' && summary.path.startsWith('/api/vocabulary/parse')) {
+        const url = new URL(`https://api.jiten.moe${summary.path}`);
+        const text = url.searchParams.get('text') ?? '';
+        return jsonHttpResponse(jitenPublicParseWords(text));
     }
     if (summary.method === 'GET' && summary.path.startsWith('/api/vocabulary/search')) {
         return jsonHttpResponse({
@@ -900,11 +977,39 @@ function mockJitenResponse(summary) {
     if (summary.method === 'GET' && summary.path === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`) {
         return jsonHttpResponse(jitenVocabularyInfoPayload());
     }
+    if (summary.method === 'GET' && summary.path === `/api/vocabulary/${JITEN_WORD_ID + 1}/0/info`) {
+        return jsonHttpResponse(jitenEverydayVocabularyInfoPayload());
+    }
     if (summary.method === 'POST' && summary.path === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/random-example-sentences`) {
         return jsonHttpResponse(jitenExamplePayload());
     }
     if (summary.path === '/api/reader/ping') return jsonHttpResponse({});
     return textResponse(404, 'unknown Jiten endpoint');
+}
+
+function jitenParseTokens(text) {
+    return [
+        jitenParseToken(text, '毎日', JITEN_WORD_ID + 1),
+        jitenParseToken(text, TERM, JITEN_WORD_ID),
+    ].filter(Boolean).sort((left, right) => left.start - right.start);
+}
+
+function jitenPublicParseWords(text) {
+    return [
+        text.includes('毎日') ? { wordId: JITEN_WORD_ID + 1, readingIndex: 0, originalText: '毎日' } : null,
+        text.includes(TERM) ? { wordId: JITEN_WORD_ID, readingIndex: JITEN_READING_INDEX, originalText: TERM } : null,
+    ].filter(Boolean);
+}
+
+function jitenParseToken(text, surface, wordId) {
+    const start = text.indexOf(surface);
+    return start < 0 ? null : {
+        wordId,
+        readingIndex: 0,
+        start,
+        end: start + surface.length,
+        length: surface.length,
+    };
 }
 
 function jitenSearchVocabulary() {
@@ -922,10 +1027,39 @@ function jitenSearchVocabulary() {
     };
 }
 
+function jitenEverydayVocabulary() {
+    return {
+        wordId: JITEN_WORD_ID + 1,
+        readingIndex: 0,
+        spelling: '毎日',
+        reading: '毎[まい]日[にち]',
+        frequencyRank: 100,
+        partsOfSpeech: ['noun'],
+        meaningsChunks: [['every day']],
+        meaningsPartOfSpeech: [['noun']],
+        knownState: [],
+        pitchAccents: [0],
+    };
+}
+
+function jitenEverydayVocabularyInfoPayload() {
+    return {
+        wordId: JITEN_WORD_ID + 1,
+        mainReading: { text: '毎[まい]日[にち]', readingIndex: 0, frequencyRank: 100 },
+        alternativeReadings: [],
+        partsOfSpeech: ['noun'],
+        definitions: [{ senseIndex: 0, englishMeanings: ['every day'], pos: ['noun'] }],
+        pitchAccents: [0],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [],
+    };
+}
+
 function jitenVocabularyInfoPayload() {
     return {
         wordId: JITEN_WORD_ID,
-        mainReading: { text: TERM, readingIndex: JITEN_READING_INDEX, frequencyRank: 12435, usedInMediaAmount: 123 },
+        mainReading: { text: '復[ふく]習[しゅう]', readingIndex: JITEN_READING_INDEX, frequencyRank: 12435, usedInMediaAmount: 123 },
         alternativeReadings: [],
         partsOfSpeech: ['noun', 'suru verb'],
         definitions: [{
@@ -1172,6 +1306,7 @@ function isMockedExternalUrl(url) {
         || url.host === 'jpdb.io'
         || url.host === 'api.bunpro.jp'
         || url.host === 'api.wanikani.com'
+        || url.host === 'translate.googleapis.com'
         || url.host.endsWith('workers.dev')
         || url.host === 'audio.example.test';
 }

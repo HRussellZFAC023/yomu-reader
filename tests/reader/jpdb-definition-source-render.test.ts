@@ -71,5 +71,6 @@ describe('JPDB definition source rendering', () => {
         expect(exampleWord).not.toBeNull();
         expect(example?.textContent?.startsWith('大学')).toBe(true);
         expect(example?.textContent).toContain('で日本語を勉強します。');
+        expect(mount.querySelector<HTMLElement>('[data-provider-example-translation]')?.dataset.providerTranslationBlurred).toBe('true');
     });
 });

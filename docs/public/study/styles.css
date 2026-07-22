@@ -12298,7 +12298,11 @@ mark.jpdb-reader-example-target {
   text-wrap: balance;
 }
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"],
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] {
+.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"],
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"] {
+  box-sizing: border-box;
+  min-height: 24px;
+  padding-block: 4px;
   filter: blur(4px);
   user-select: none;
   cursor: pointer;
@@ -12307,8 +12311,10 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:hover,
 .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:hover,
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"]:hover,
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:focus-visible,
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:focus-visible {
+.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:focus-visible,
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"]:focus-visible {
   filter: blur(3px);
   outline: none;
 }
