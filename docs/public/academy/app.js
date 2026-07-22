@@ -279714,6 +279714,7 @@ ${key2}`] = { t: now, v: value };
   const DETAIL_CONCURRENCY = 4;
   const LOOKUP_DETAIL_LIMIT = 12;
   const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
+  const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -279881,7 +279882,8 @@ ${key2}`] = { t: now, v: value };
     async hydrateParsedTokens(result, limit) {
       const tokens = result.flat();
       if (!tokens.length || limit <= 0) return;
-      const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
+      const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
+      const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
       if (!cards.size) return;
       for (const token of tokens) {
         const card = cards.get(parsedCardHydrationKey(token.card));
@@ -279996,6 +279998,31 @@ ${key2}`] = { t: now, v: value };
     noteSuccess() {
       sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
+  }
+  function parsedCardsWithinTargetBoundary(result, limit) {
+    const normalizedLimit = normalizedDetailLimit(limit);
+    if (normalizedLimit <= 0) return [];
+    const selected2 = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const targetTokens of result) {
+      const targetCards = [];
+      const targetSeen = /* @__PURE__ */ new Set();
+      for (const token of targetTokens) {
+        const key2 = parsedCardHydrationKey(token.card);
+        if (seen.has(key2) || targetSeen.has(key2)) continue;
+        targetSeen.add(key2);
+        targetCards.push(token.card);
+      }
+      if (!targetCards.length) continue;
+      const remaining = normalizedLimit - selected2.length;
+      if (remaining <= 0) break;
+      const cardsToTake = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
+      for (const card of cardsToTake) {
+        selected2.push(card);
+        seen.add(parsedCardHydrationKey(card));
+      }
+    }
+    return selected2;
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
     if (!isNonNullObject(payload)) return null;

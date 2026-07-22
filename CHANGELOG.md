@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.406] - 2026-07-22
+
+### Fixed
+
+- Short controls, menu rows, and other compact annotation targets now finish Jiten detail hydration when the normal request cap lands inside a multi-token label. Furigana and pitch underlines no longer stop partway through compounds such as `賛成票率順` or replace only the first half of `並べ替え基準`; the bounded fix applies to the same structure on every site.
+
 ## [1.6.405] - 2026-07-21
 
 ### Fixed

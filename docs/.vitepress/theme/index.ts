@@ -210,6 +210,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Short controls, menu rows, and other compact annotation targets now finish Jiten detail hydration when the normal request cap lands inside a multi-token label. Furigana and pitch underlines no longer stop partway through compounds such as': '短いコントロール、メニュー行、その他のコンパクトな注釈対象では、通常のリクエスト上限が複数トークンのラベル途中に達しても、Jitenの詳細取得をその対象の最後まで完了するようになりました。ふりがなとピッチ下線が、次のような複合ラベルの途中で止まらなくなります：',
+    'or replace only the first half of': 'また、次のラベルの前半だけが置き換わることもありません：',
+    '; the bounded fix applies to the same structure on every site.': '。この上限付き修正は、すべてのサイトで同じ構造に適用されます。',
     "Website account controls and Yomu Gaming's native backup controls now mount relative to their direct container even when the target UI is nested, preventing account setup from breaking alternate navbar and settings shells.": 'WebサイトのアカウントコントロールとYomu Gamingのネイティブバックアップ操作が、対象UIが入れ子の場合でも直接のコンテナを基準に安全に追加されるようになり、アカウント設定によって別形式のナビゲーションバーや設定シェルが壊れないようにしました。',
     'Create a Yomu account and sync Academy words (optional)': 'Yomuアカウントを作成してAcademyの単語を同期する（任意）',
     'Permalink to "Create a Yomu account and sync Academy words (optional)"': '「Yomuアカウントを作成してAcademyの単語を同期する（任意）」への固定リンク',

@@ -48,13 +48,17 @@ const VOCABULARY = [
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['フィード', 'フィード', 'フィード', 'feed', ['noun'], 100, ['not-in-deck'], ['LHHH']],
-    ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
-    ['並べ替え基準', '並べ替え基準', 'ならべかえきじゅん', 'sort criterion', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
+    // Match the public parser's real compound boundaries. Whole-compound mock
+    // rows hid partial hydration because each control appeared to be one card.
+    ['並べ替え', '並べ替え', 'ならべかえ', 'sort', ['verb'], 100, ['not-in-deck'], ['LHHHHH']],
+    ['基準', '基準', 'きじゅん', 'criterion', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['注目順', '注目順', 'ちゅうもくじゅん', 'hot', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['新しい順', '新しい順', 'あたらしいじゅん', 'new', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['賛成票数順', '賛成票数順', 'さんせいひょうすうじゅん', 'most votes', ['noun'], 100, ['not-in-deck'], ['LHHHHHH']],
     ['告知', '告知', 'こくち', 'announcement', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['賛成票', '賛成票', 'さんせいひょう', 'upvote', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['率', '率', 'りつ', 'rate', ['noun'], 100, ['not-in-deck'], ['HL']],
+    ['順', '順', 'じゅん', 'order', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['コメント', 'コメント', 'コメント', 'comment', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['時間', '時間', 'じかん', 'hour', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['前', '前', 'まえ', 'ago', ['noun'], 100, ['not-in-deck'], ['LH']],
@@ -360,7 +364,7 @@ async function runEngine(engineName, browser) {
         await Promise.all([
             page.locator('#create-post .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
             page.locator('#card-metadata .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
-            page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#share .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
         await page.evaluate(() => {
@@ -379,9 +383,9 @@ async function runEngine(engineName, browser) {
         });
 
         await Promise.all([
-            page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#feed .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#join .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
+            page.locator('#feed .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
+            page.locator('#sort .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
             signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
@@ -441,9 +445,9 @@ async function runEngine(engineName, browser) {
             });
         });
         try {
-            await page.locator('#late-join .jpdb-reader-word').waitFor({ timeout: 20_000 });
-            await page.locator('#late-hydrate .jpdb-reader-word').waitFor({ timeout: 20_000 });
-            await page.locator('#late-upgrade .jpdb-reader-word').waitFor({ timeout: 20_000 });
+            await page.locator('#late-join .jpdb-reader-word').first().waitFor({ timeout: 20_000 });
+            await page.locator('#late-hydrate .jpdb-reader-word').first().waitFor({ timeout: 20_000 });
+            await page.locator('#late-upgrade .jpdb-reader-word').first().waitFor({ timeout: 20_000 });
         } catch (error) {
             const lateState = await page.evaluate(() => Object.fromEntries(
                 ['reddit-late-join-host', 'reddit-late-hydrate-host', 'reddit-late-upgrade-host'].map(selector => {
@@ -470,8 +474,8 @@ async function runEngine(engineName, browser) {
             join.click();
             sort.click();
         });
-        await page.locator('#menu-heading .jpdb-reader-word').waitFor({ timeout: 20_000 });
-        await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
+        await page.locator('#menu-heading .jpdb-reader-word').first().waitFor({ timeout: 20_000 });
+        await page.locator('#menu-votes .jpdb-reader-word').first().waitFor({ timeout: 20_000 });
         await page.locator('.jpdb-reader-fab').click();
         await waitForSettledRadialMenu(page);
 
@@ -1535,6 +1539,16 @@ function snapshotRedditElement(element, expected) {
             '.jpdb-mature', '.jpdb-mastered', '.jpdb-never-forget', '.jpdb-redundant', '.jpdb-due',
         ].join(','))).length,
         decoratedExpressions: decoratedWords.map(word => word.getAttribute('data-expression')),
+        expectedKanji: [...String(expected ?? '').matchAll(/[\u3400-\u9fff]/gu)].map(match => match[0]).join(''),
+        pitchKanji: words
+            .filter(word => Boolean(word.dataset.pitchClass && word.dataset.pitchClass !== 'unknown'))
+            .flatMap(word => [...String(word.getAttribute('data-expression') ?? '').matchAll(/[\u3400-\u9fff]/gu)])
+            .map(match => match[0])
+            .join(''),
+        decoratedKanji: decoratedWords
+            .flatMap(word => [...String(word.getAttribute('data-expression') ?? '').matchAll(/[\u3400-\u9fff]/gu)])
+            .map(match => match[0])
+            .join(''),
         projectedFragments: words.flatMap(word => [...word.querySelectorAll('.jpdb-reader-source-fragment')])
             .map(fragment => {
                 const underline = getComputedStyle(fragment, '::after');
@@ -1902,6 +1916,12 @@ function assertAnnotatedLabels(engineName, labels) {
             `${engineName}: ${name} is missing vocabulary status state`, label);
         assert(expectedPitchExpressions.every(expression => label.decoratedExpressions.includes(expression)),
             `${engineName}: ${name} pitch/status decoration is not visibly painted`, label);
+        if (label.expectedKanji) {
+            assert(label.pitchKanji === label.expectedKanji,
+                `${engineName}: ${name} has only partial lexical pitch coverage`, label);
+            assert(label.decoratedKanji === label.expectedKanji,
+                `${engineName}: ${name} has only partial visible underline coverage`, label);
+        }
         assert(label.nativePaintVisible, `${engineName}: ${name} lost its native source paint`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
