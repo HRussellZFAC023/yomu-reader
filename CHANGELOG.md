@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.405] - 2026-07-21
+
+### Fixed
+
+- Website account controls and Yomu Gaming's native backup controls now mount relative to their direct container even when the target UI is nested, preventing account setup from breaking alternate navbar and settings shells.
+
 ## [1.6.404] - 2026-07-21
 
 ### Added

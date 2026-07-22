@@ -147,6 +147,26 @@ describe('hosted Academy account controls', () => {
         controls.destroy();
     });
 
+    it('mounts before the direct navbar group when Appearance is nested', () => {
+        hostedNavShell();
+        const target = document.querySelector<HTMLElement>('.VPNavBar .content-body')!;
+        const appearance = target.querySelector<HTMLElement>('.VPNavBarAppearance')!;
+        const group = document.createElement('div');
+        group.className = 'VPNavBarExtra';
+        group.append(appearance);
+        target.append(group);
+        const controls = new HostedAcademyAccountControls({
+            client: new HostedAcademyAccountClient({ request: vi.fn(async () => response({}, 401)) }),
+            document,
+        });
+
+        expect(() => controls.sync('en')).not.toThrow();
+        const account = document.getElementById('yomu-hosted-account');
+        expect(account?.nextElementSibling).toBe(group);
+
+        controls.destroy();
+    });
+
     it('renders both signed-out account actions in English and Japanese', async () => {
         hostedNavShell();
         const request = vi.fn(async (input: RequestInfo | URL) => (

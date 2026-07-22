@@ -325,6 +325,7 @@ export class AcademySyncClient {
         return ticket;
     }
 
+    // fallow-ignore-next-line unused-class-member
     async listReaderDevices(): Promise<AcademyReaderDeviceView[]> {
         const body = await this.json('/academy/api/account/devices') as { devices?: unknown };
         if (!Array.isArray(body.devices)) throw new Error('Reader device list was malformed.');
@@ -338,6 +339,7 @@ export class AcademySyncClient {
         });
     }
 
+    // fallow-ignore-next-line unused-class-member
     async revokeReaderDevice(deviceId: string): Promise<void> {
         if (!/^[0-9a-f-]{36}$/iu.test(deviceId)) throw new Error('Reader device id is invalid.');
         await this.json(`/academy/api/account/devices/${deviceId}`, { method: 'DELETE', body: {} });
@@ -1096,41 +1098,6 @@ export async function decryptProfileEvent(
         profileEventAdditionalData(purpose, envelope.id, envelope.occurredAt, envelope.keyVersion),
     );
     return JSON.parse(new TextDecoder().decode(plaintext));
-}
-
-/** Encrypt a non-Academy profile payload with the same client-held key. */
-export async function encryptProfilePayload(
-    key: string,
-    keyVersion: number,
-    purpose: string,
-    value: unknown,
-): Promise<EncryptedProfilePayload> {
-    const nonce = randomBytes(12);
-    const plaintext = new TextEncoder().encode(JSON.stringify(value));
-    const ciphertext = await aesEncrypt(
-        fromBase64Url(key), nonce, plaintext, profilePayloadAdditionalData(purpose, keyVersion),
-    );
-    return { keyVersion, nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
-}
-
-/** Decrypt an opaque profile payload after its envelope shape is validated. */
-export async function decryptProfilePayload(
-    key: string,
-    purpose: string,
-    envelope: EncryptedProfilePayload,
-): Promise<unknown> {
-    const plaintext = await aesDecrypt(
-        fromBase64Url(key),
-        fromBase64Url(envelope.nonce),
-        fromBase64Url(envelope.ciphertext),
-        profilePayloadAdditionalData(purpose, envelope.keyVersion),
-    );
-    return JSON.parse(new TextDecoder().decode(plaintext));
-}
-
-function profilePayloadAdditionalData(purpose: string, keyVersion: number): Uint8Array {
-    if (!/^[a-z0-9-]{1,64}$/u.test(purpose)) throw new TypeError('Profile payload purpose is invalid.');
-    return new TextEncoder().encode(`profile:${purpose}:v${keyVersion}`);
 }
 
 function profileEventAdditionalData(purpose: string, id: string, occurredAt: number, keyVersion: number): Uint8Array {

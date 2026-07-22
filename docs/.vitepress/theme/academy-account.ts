@@ -222,7 +222,10 @@ export class HostedAcademyAccountControls {
         const control = this.control(DESKTOP_ACCOUNT_ID, false);
         if (!target.contains(control)) {
             const anchor = target.querySelector<HTMLElement>('.VPNavBarAppearance');
-            target.insertBefore(control, anchor);
+            const directAnchor = anchor
+                ? [...target.children].find(child => child === anchor || child.contains(anchor)) ?? null
+                : null;
+            target.insertBefore(control, directAnchor);
         }
     }
 

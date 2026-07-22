@@ -210,6 +210,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Website account controls and Yomu Gaming's native backup controls now mount relative to their direct container even when the target UI is nested, preventing account setup from breaking alternate navbar and settings shells.": 'WebサイトのアカウントコントロールとYomu Gamingのネイティブバックアップ操作が、対象UIが入れ子の場合でも直接のコンテナを基準に安全に追加されるようになり、アカウント設定によって別形式のナビゲーションバーや設定シェルが壊れないようにしました。',
     'Create a Yomu account and sync Academy words (optional)': 'Yomuアカウントを作成してAcademyの単語を同期する（任意）',
     'Permalink to "Create a Yomu account and sync Academy words (optional)"': '「Yomuアカウントを作成してAcademyの単語を同期する（任意）」への固定リンク',
     'You do not need an account for lookup, local dictionaries, or local Study. If you want the Academy/local SRS deck to stay synchronized between paired Readers:': '検索、ローカル辞書、ローカルStudyにアカウントは必要ありません。Academy・ローカルのSRSデッキをペアリング済みReader間で同期する場合は、次の手順を行います。',

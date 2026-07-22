@@ -270,19 +270,13 @@ export interface JitenVocabularyInfo {
     examples: JitenVocabularyExample[];
 }
 
-export interface JitenVocabularyIdentity {
-    spelling: string;
-    reading: string;
-    wordWithReading: string | null;
-}
-
 /**
  * Returns the exact spelling/reading identity attested by a Jiten detail
  * response. Detail hydration is allowed to repair a provisional parse card,
  * but callers must still fail closed when the response belongs to another
  * spelling (homographs must never share pitch or frequency evidence).
  */
-export function jitenVocabularyIdentity(info: JitenVocabularyInfo | null): JitenVocabularyIdentity | null {
+function jitenVocabularyIdentity(info: JitenVocabularyInfo | null) {
     const annotated = info?.mainReading?.text.trim() ?? '';
     if (!annotated) return null;
     const spelling = cleanJitenAnnotatedSpelling(annotated).trim();

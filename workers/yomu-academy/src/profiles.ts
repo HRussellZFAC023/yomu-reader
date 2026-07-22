@@ -61,7 +61,7 @@ export async function requireAcademyAccessSession(request: Request, env: Env, no
 }
 
 /** Authorize account-owned encrypted sync without granting Academy content. */
-export async function requireSignedInProfileSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
+async function requireSignedInProfileSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
     if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');

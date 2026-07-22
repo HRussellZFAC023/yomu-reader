@@ -517,6 +517,7 @@
       await this.json(`/academy/api/pairings/${ticket.pairingId}`, { method: "PUT", body: envelope });
       return ticket;
     }
+    // fallow-ignore-next-line unused-class-member
     async listReaderDevices() {
       const body = await this.json("/academy/api/account/devices");
       if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
@@ -527,6 +528,7 @@
         return value;
       });
     }
+    // fallow-ignore-next-line unused-class-member
     async revokeReaderDevice(deviceId) {
       if (!/^[0-9a-f-]{36}$/iu.test(deviceId)) throw new Error("Reader device id is invalid.");
       await this.json(`/academy/api/account/devices/${deviceId}`, { method: "DELETE", body: {} });

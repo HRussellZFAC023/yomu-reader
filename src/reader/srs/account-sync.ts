@@ -170,7 +170,7 @@ export function createAcademyReaderRecoveryPairing(): Promise<AcademyPairingTick
     });
 }
 
-export function scheduleAcademyReaderSrsSync(): void {
+function scheduleAcademyReaderSrsSync(): void {
     if (scheduled) return;
     scheduled = true;
     setTimeout(() => {
