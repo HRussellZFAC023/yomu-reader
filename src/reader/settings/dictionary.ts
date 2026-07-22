@@ -1,6 +1,7 @@
 import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from './values';
 import { NEW_TAB_PAGE_URL } from '../app/constants';
 import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize';
+import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from '../immersion/search-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 16;
@@ -102,7 +103,14 @@ const WIKTIONARY_LOOKUP_LINK: DictionaryLookupLink = {
 const IMMERSION_KIT_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'immersion-kit',
     label: 'Immersion Kit',
-    urlTemplate: 'https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1',
+    urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+    enabled: false,
+};
+
+const NADESHIKO_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'nadeshiko',
+    label: 'Nadeshiko',
+    urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
     enabled: false,
 };
 
@@ -135,6 +143,7 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
     IMMERSION_KIT_LOOKUP_LINK,
+    NADESHIKO_LOOKUP_LINK,
     UCHISEN_LOOKUP_LINK,
     COPY_LOOKUP_LINK,
 ];
@@ -150,6 +159,25 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
 ];
 
 const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    // The Yomu-first default immediately before the Nadeshiko search pill was
+    // added. Untouched installs receive the new pill beside Immersion Kit;
+    // custom orders still keep their order and get new built-ins appended.
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    BUNPRO_LOOKUP_LINK.id,
+    BUNPRO_LIVE_FREQUENCY_PILL.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+], [
     // The jiten-first default that shipped before Yomu was promoted to the front
     // of the pill row. Users who never re-ordered their pills are migrated to the
     // current Yomu-first default order instead of being pinned to the old layout.

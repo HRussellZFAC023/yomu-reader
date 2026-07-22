@@ -176,20 +176,18 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
 
-    const passiveWord = word.classList.contains('jpdb-reader-passive-word');
     const preserveHostPaint = isPassiveChromeWord(word);
     const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
     const accessibleHex = rgbaToHex(accessibleRgba);
 
-    // Compact passive chrome keeps the host's own paint/tint, so its label text
-    // sits on the host background, not on a preserved highlight tint. Passive
-    // prose/links still keep Yomu highlights and must contrast against them.
+    // Control surfaces keep their authored background; enabled word colours
+    // still apply and must contrast with that surface.
     const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
 
     const sourceText = cssColorToHex(m.fg, accessibleRgba);
     const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-    const textSource = passiveWord ? nativeText : (sourceText ?? nativeText);
+    const textSource = sourceText ?? nativeText;
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));

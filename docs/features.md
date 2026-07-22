@@ -23,7 +23,7 @@ Keyboard shortcuts can move lookup to the previous or next parsed word, and if y
 
 API mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, source link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
 
-Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off.
+Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Academy, Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off. Lookup and Study headings attach kana to the kanji as furigana; they do not repeat the same reading as trailing text.
 
 Pitch stays attached to the vocabulary it actually describes. A word with an exact accent gets one whole-word underline; an aligned compound with only component accents keeps one clickable lookup target but shows separate component-colour segments. On a wide tablet sheet, multiple pitch graphs use the upper-right header space instead of consuming a full row.
 
@@ -51,11 +51,15 @@ Parsing itself is local-first: with term dictionaries imported, よむ segments 
 
 The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten and optional JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
 
-When Bunpro is connected, its definitions use the same compact example rows as Jiten and JPDB. よむ removes Bunpro's inline full-width kana brackets before display, then applies its own furigana and pitch annotations to the Japanese text. Bunpro's General, Anime, Novels, Netflix, and Dictionary ranks remain separately labelled because they describe different corpora. Bunpro pronunciation is also available in the audio-source list, disabled by default. Its recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
+When Bunpro is connected, its definitions use the same compact example rows as Jiten and JPDB. All three providers receive よむ furigana across the full Japanese sentence. Their translations are blurred by default and reveal on click, tap, Enter, or Space; if a provider omits the translation, よむ fills it with its cached sentence translator. よむ removes Bunpro's inline full-width kana brackets before display, then applies its own furigana and pitch annotations to the Japanese text. Bunpro's General, Anime, Novels, Netflix, and Dictionary ranks remain separately labelled because they describe different corpora. Bunpro pronunciation is also available in the audio-source list, disabled by default. Its recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
 
 Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
-Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them only when you choose the translation.
+Every Immersion example card also links to public searches on Immersion Kit and Nadeshiko. These links work without API keys in popup lookup, Study, and enhanced jpdb/Jiten pages; Nadeshiko is also available as an opt-in lookup pill in Settings.
+
+The same Immersion Kit section can live directly inside jpdb, Jiten, and Bunpro. On Bunpro it follows vocabulary and grammar details, the lesson carousel, and the lesson-quiz or review SRS loop. Question prompts stay untouched; the section mounts only with revealed answer information and updates for the next item.
+
+Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. Example translations are blurred by default; choose the translation to reveal it, or turn the blur setting off if you prefer to see translations immediately.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
@@ -147,7 +151,15 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## Study Page
 
-Open the [Study page](/study/) whenever you want a focused Japanese review session. The browser extension leaves your new tabs alone and puts **Open Study** in its toolbar menu; the hosted page can also be bookmarked, added to a Home Screen, or deliberately chosen as a home page. Study pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, WaniKani, or the local dictionary words already in your browser — so it works even with no account. A fresh standalone session begins at **Word**, then follows the rest of your configured steps. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. WaniKani cards come only from assignments currently due on the account: Okay, Good, and Easy submit a clean answer, while anything below Okay records one incorrect meaning attempt and, except for radicals, one incorrect reading attempt. WaniKani writes are live-only and are never replayed later from the offline queue. The old `/newtab/` URL remains a compatibility route.
+Open the [Yomu app](/study/) for one offline-first place to study, search your Library, inspect combined Stats, and manage Connections. Install it from **Share → Add to Home Screen** on iPhone or iPad, or your browser's **Install app** action on Android. The browser extension still leaves new tabs alone and offers **Open Study** from its toolbar.
+
+Study pulls words from Academy, Anki, Jiten, Bunpro, JPDB, WaniKani, or local dictionaries, and caches the review queue on the device for the train. **Academy** is the local Yomu SRS deck that was previously labelled Dictionary: mining and grading update its real due/new/learning/known state, swatch, and page highlighting. JPDB is omitted from the source switcher until a JPDB key is present. A fresh card starts at its first configured learning step — Kanji 1 by default — and the compact step rail, attached answer action, retry feedback, audio, and final grade stay in one focused flow. Grades for supported providers wait in a local outbox and sync after reconnecting; WaniKani writes remain live-only and are never replayed later. The old `/newtab/` URL remains a compatibility route.
+
+### Yomu account and encrypted Reader sync
+
+The website navigation offers **Create account** and **Sign in**, then shows the signed-in display name and a **Profile & sync** link. A free Reader account keeps local SRS cards synchronized but does not unlock Academy lessons; curriculum access still requires an eligible Academy grant.
+
+Pair from **Profile & sync** with a ten-minute, one-time code, then paste that code into **Study → Settings → Backup & sync**. Reader stores its device bearer and 32-byte profile key only in extension/userscript-owned storage. Card updates and tombstones are encrypted before upload, merged by their semantic card identity and timestamps, and repainted in open tabs when the winning state changes. If the website loses its local key, a paired Reader can create a reverse recovery code. The account page lists devices so an owner can revoke one that was lost or retired.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 
@@ -162,7 +174,7 @@ Steps only show up when they fit the card, so a kana-only word skips the kanji d
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, the study page works well for quick daily review. Full Anki status on mobile still needs desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
+On iPhone, iPad, and Android, the installed app opens as a standalone client and its cached shell, local cards, and warmed review queue remain available without a connection. Full Anki status and review sync on mobile still need desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">

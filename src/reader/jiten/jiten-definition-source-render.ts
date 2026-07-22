@@ -209,8 +209,9 @@ function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttribute
     if (!examples.length) return '';
     const items: ProviderExampleView[] = examples.map((example, index) => ({
         id: String(example.sentenceId ?? index),
+        sentence: example.text,
         sentenceHtml: renderJitenExampleSentence(example, card, info),
-        translation: example.sourceTitle,
+        translation: example.translation,
         itemClassName: 'jpdb-reader-jiten-example',
         rowClassName: 'jpdb-reader-jiten-example-row',
         textClassName: 'jpdb-reader-jiten-example-text',

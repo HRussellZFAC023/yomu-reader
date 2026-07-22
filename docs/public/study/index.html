@@ -4,18 +4,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Yomu Study — Japanese vocabulary and kanji review</title>
-    <meta name="description" content="A focused Japanese study page for Jiten, Anki, or imported-dictionary cards. Open it whenever you want to review; no account needed.">
+    <title>よむ — Offline Japanese Reader & Study</title>
+    <meta name="description" content="An offline-first Japanese study, dictionary, and SRS companion for Anki, Bunpro, Jiten, JPDB, WaniKani, and local cards.">
     <link rel="canonical" href="https://yomureader.com/study/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="よむ">
-    <meta property="og:title" content="Yomu Study — Japanese vocabulary and kanji review">
-    <meta property="og:description" content="Open a focused study page for your Jiten, Anki, or imported-dictionary cards whenever you want to review. Free, no account needed.">
+    <meta property="og:title" content="よむ — Offline Japanese Reader & Study">
+    <meta property="og:description" content="Install an offline-first Japanese study, dictionary, and SRS companion for your connected and local cards.">
     <meta property="og:url" content="https://yomureader.com/study/">
     <meta property="og:image" content="https://yomureader.com/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Yomu Study — Japanese vocabulary and kanji review">
-    <meta name="twitter:description" content="Open a focused study page for your Jiten, Anki, or imported-dictionary cards whenever you want to review. Free, no account needed.">
+    <meta name="twitter:title" content="よむ — Offline Japanese Reader & Study">
+    <meta name="twitter:description" content="Install an offline-first Japanese study, dictionary, and SRS companion for your connected and local cards.">
     <meta name="twitter:image" content="https://yomureader.com/og-image.png">
     <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
@@ -25,7 +25,7 @@
     <meta name="theme-color" content="#181b20">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="stylesheet" href="./styles.css?v=1c4ab6b37065">
+    <link rel="stylesheet" href="./styles.css?v=871910a0ae2b">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -353,6 +353,19 @@
         transform: translateY(4px);
       }
 
+      /* Type is also an answer-producing front. Keep its field interactive in
+         this late critical-CSS layer as well as in the bundled stylesheet. */
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed)
+        .jpdb-reader-newtab-study[data-newtab-study-step="type-word"]
+        .jpdb-reader-newtab-answer {
+        min-height: clamp(68px, 11vh, 124px);
+        opacity: 1;
+        filter: none;
+        transform: none;
+        pointer-events: auto;
+        visibility: visible;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,
@@ -504,8 +517,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '5f2a23100625';
-        const buildId = '1.6.273-5f2a23100625';
+        const appHash = '8f72abb89af1';
+        const buildId = '1.6.405-8f72abb89af1';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -542,7 +555,7 @@
         }, { once: true });
       }
     </script>
-    <script src="./app.js?v=5f2a23100625"></script>
+    <script src="./app.js?v=8f72abb89af1"></script>
   </body>
 
 </html>

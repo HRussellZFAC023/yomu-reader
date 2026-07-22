@@ -567,6 +567,32 @@ const COPY = {
         localDictionaryMaxResults: 'Dictionary result limit',
         cloudSettingsSync: 'Google Drive settings sync',
         cloudSettingsSyncHelp: 'Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.',
+        academyAccountSync: 'Academy account sync',
+        academyAccountSyncHelp: 'Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.',
+        academyAccountManage: 'Manage account & pairing code',
+        academyPairingCode: 'One-time pairing code',
+        academyPairingCodePlaceholder: 'XXXX-XXXX-XXXX-XXXX-XXXX',
+        academyAccountConnect: 'Connect',
+        academyAccountSyncNow: 'Sync now',
+        academyRecoveryCodeCreate: 'Create website recovery code',
+        academyRecoveryCodeCreating: 'Creating a one-time website recovery code...',
+        academyRecoveryCodeReady: 'Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.',
+        academyRecoveryCodeDone: 'Website recovery code created.',
+        academyAccountDisconnect: 'Disconnect',
+        academyAccountChecking: 'Checking Academy account connection...',
+        academyAccountDisconnected: 'Not connected. Academy reviews stay on this device until you connect an account.',
+        academyAccountConnected: 'Connected as {name}.',
+        academyAccountConnectedNoName: 'Academy account connected.',
+        academyAccountLastSynced: 'Last synced {time}.',
+        academyAccountNeverSynced: 'Not synced yet.',
+        academyAccountConnectionProblem: 'Could not refresh the account status: {message}',
+        academyAccountConnecting: 'Connecting and syncing Academy progress...',
+        academyAccountSyncing: 'Syncing Academy progress...',
+        academyAccountDisconnecting: 'Disconnecting this Reader...',
+        academyPairingCodeRequired: 'Enter the one-time pairing code from your Yomu account.',
+        academyAccountConnectedDone: 'Academy account connected and progress synced.',
+        academyAccountSyncedDone: 'Academy progress synced.',
+        academyAccountDisconnectedDone: 'This Reader is disconnected. Local Academy progress is still available.',
         importSettings: 'Import settings JSON',
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
@@ -846,6 +872,7 @@ const COPY = {
         reveal: 'Reveal',
         revealTranslation: 'Reveal translation',
         immersionExampleControls: 'Immersion Kit example controls',
+        exampleSearchLinks: 'Example searches',
         loadingKanjiDetails: 'Loading kanji details...',
         loadingMnemonicImages: 'Loading mnemonic images...',
         lookupDialog: `${APP_NAME} lookup`,
@@ -921,6 +948,7 @@ const COPY = {
         discord: 'Discord',
         openOnJpdb: 'Open on JPDB',
         openOnLookup: 'Open on {label}',
+        viewOnLookup: 'View on {label}',
         copyWord: 'Copy',
         copyWordTitle: 'Copy word',
         copiedWord: 'Copied word.',
@@ -1256,6 +1284,7 @@ loading	読み込み中...
 reveal	表示
 revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
+exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
 loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
@@ -1419,6 +1448,7 @@ nextExample	次の例文
 playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
+viewOnLookup	{label}で見る
 copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
@@ -2183,6 +2213,32 @@ dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
+academyAccountSync	Academyアカウント同期
+academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountManage	アカウントとペアリングコードを管理
+academyPairingCode	1回限りのペアリングコード
+academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
+academyAccountConnect	接続
+academyAccountSyncNow	今すぐ同期
+academyRecoveryCodeCreate	Webサイト復旧コードを作成
+academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中...
+academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
+academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
+academyAccountDisconnect	接続解除
+academyAccountChecking	Academyアカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountConnected	{name}として接続中です。
+academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountLastSynced	最終同期: {time}。
+academyAccountNeverSynced	まだ同期していません。
+academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
+academyAccountConnecting	接続してAcademyの進捗を同期中...
+academyAccountSyncing	Academyの進捗を同期中...
+academyAccountDisconnecting	このReaderの接続を解除中...
+academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
+academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
+academyAccountSyncedDone	Academyの進捗を同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート

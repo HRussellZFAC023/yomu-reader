@@ -19,7 +19,10 @@ export function uniqueTokensByCard(tokens: JPDBToken[]): JPDBToken[] {
     });
 }
 
-export function normalizedNestedParseOptions(options: ReaderParserParseOptions, _settings: ReaderSettings): Required<ReaderParserParseOptions> {
+type NormalizedNestedParseOptions = Required<Omit<ReaderParserParseOptions, 'publicJitenDetailLimit'>>
+    & Pick<ReaderParserParseOptions, 'publicJitenDetailLimit'>;
+
+export function normalizedNestedParseOptions(options: ReaderParserParseOptions, _settings: ReaderSettings): NormalizedNestedParseOptions {
     const apiTimeoutMs = nestedParseApiTimeoutMs(options);
     const allowApiTimeoutFallback = nestedParseAllowApiTimeoutFallback(options);
     const skipApi = nestedParseSkipApi(options);
@@ -38,6 +41,9 @@ export function normalizedNestedParseOptions(options: ReaderParserParseOptions, 
         // credentials used to disable this pass, leaving dictionary examples
         // with the same partial-name misparses as credentialed subtitles.
         allowSegmentedFallback: options.allowSegmentedFallback ?? true,
+        ...(options.publicJitenDetailLimit === undefined
+            ? {}
+            : { publicJitenDetailLimit: options.publicJitenDetailLimit }),
     };
 }
 

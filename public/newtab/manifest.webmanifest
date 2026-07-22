@@ -1,13 +1,36 @@
 {
-  "name": "Yomu Study",
-  "short_name": "よむ Study",
-  "description": "Review Jiten, JPDB, Anki, and local dictionary cards from the hosted Yomu Study page.",
+  "id": "./",
+  "name": "よむ — Japanese Reader & Study",
+  "short_name": "よむ",
+  "description": "An offline-first Japanese study, dictionary, and SRS companion for Anki, Bunpro, Jiten, JPDB, WaniKani, and local cards.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#181b20",
   "theme_color": "#5ea780",
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Study",
+      "short_name": "Study",
+      "description": "Continue your offline-ready review queue.",
+      "url": "./?mode=word"
+    },
+    {
+      "name": "Library",
+      "short_name": "Library",
+      "description": "Search and browse your Japanese cards.",
+      "url": "./?mode=search"
+    },
+    {
+      "name": "Stats",
+      "short_name": "Stats",
+      "description": "Open your combined learning progress.",
+      "url": "./?mode=stats"
+    }
+  ],
   "icons": [
     {
       "src": "../yomu-icon.svg",

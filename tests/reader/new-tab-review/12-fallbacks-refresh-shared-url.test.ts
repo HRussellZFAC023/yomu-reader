@@ -197,8 +197,8 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
         expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
-        expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toBe('Settings');
-        expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Search');
+        expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toContain('Connections & settings');
+        expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Library');
         document.body.replaceChildren();
     });
 
@@ -1717,7 +1717,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             let readToken = '';
             await waitForExpect(() => {
                 readToken = expectOpaqueStudyCardToken(document, '読む', 'よむ');
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+                expect(document.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')?.dataset.expression).toBe('読む');
             });
 
             showNextNewTabWord(controller);
@@ -1725,7 +1725,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             await waitForExpect(() => {
                 writeToken = expectOpaqueStudyCardToken(document, '書く', 'かく');
                 expect(writeToken).not.toBe(readToken);
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('書く');
+                expect(document.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')?.dataset.expression).toBe('書く');
             });
 
             liveEntries.resolve([{
@@ -1738,7 +1738,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             await render;
 
             expect(expectOpaqueStudyCardToken(document, '書く', 'かく')).toBe(writeToken);
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('書く');
+            expect(document.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')?.dataset.expression).toBe('書く');
             expect((controller as unknown as { allWords: JPDBCard[] }).allWords.map(card => card.spelling)).toEqual(['書く', '歩く']);
         } finally {
             restoreCanvas();

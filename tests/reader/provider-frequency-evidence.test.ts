@@ -118,6 +118,79 @@ describe('provider-specific frequency evidence', () => {
         expect(frequencyRanks.jpdb).toBeUndefined();
     });
 
+    it('uses late Jiten identity to recover pitch and the exact JPDB rank for a provisional card', async () => {
+        const provisional = {
+            ...jitenCard(),
+            spelling: '人気',
+            reading: '人気',
+            frequencyRank: null,
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'local' as const,
+            reviewSource: undefined,
+            jitenWordId: undefined,
+            jitenReadingIndex: undefined,
+        };
+        const jpdb = {
+            ...jpdbSearchCard('にんき', 1900),
+            spelling: '人気',
+            reading: 'にんき',
+        };
+        const lookupVocabularyInfoForCard = vi.fn(async () => ({
+            wordId: 777,
+            mainReading: { text: '人気[にんき]', readingIndex: 0, frequencyRank: 1465, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: ['noun'],
+            definitions: [],
+            pitchAccents: [0],
+            knownStates: [],
+            composedOf: [],
+            usedIn: [],
+            usedInTotal: 0,
+            examples: [],
+        }));
+        const search = vi.fn(async () => [
+            { ...jpdb, reading: 'ひとけ', frequencyRank: 90 },
+            jpdb,
+        ]);
+
+        const data = await loader({
+            jitenDefinitionsEnabled: true,
+            showPitchAccent: true,
+        }, search, { lookupVocabularyInfoForCard }).load(provisional).all;
+
+        expect(provisional.reading).toBe('にんき');
+        expect(provisional.wordWithReading).toBe('人気[にんき]');
+        expect(provisional.pitchAccent).toEqual(['LHHH']);
+        expect(data.frequencyRanks).toMatchObject({
+            jiten: { rank: 1465, reading: 'にんき' },
+            jpdb: { rank: 1900, reading: 'にんき' },
+        });
+    });
+
+    it('does not let mismatched Jiten detail rewrite a populated homograph reading', async () => {
+        const original = jitenCard();
+        const lookupVocabularyInfoForCard = vi.fn(async () => ({
+            wordId: 777,
+            mainReading: { text: '日本[にっぽん]', readingIndex: 1, frequencyRank: 10, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: [],
+            definitions: [],
+            pitchAccents: [0],
+            knownStates: [],
+            composedOf: [],
+            usedIn: [],
+            usedInTotal: 0,
+            examples: [],
+        }));
+
+        await loader({ jitenDefinitionsEnabled: true }, async () => [], { lookupVocabularyInfoForCard }).load(original).all;
+
+        expect(original.reading).toBe('にほん');
+        expect(original.wordWithReading).toBeNull();
+        expect(original.pitchAccent).toEqual([]);
+    });
+
     it('uses lightweight Jiten search for rank-only evidence when Jiten definitions are disabled', async () => {
         const searchVocabulary = vi.fn(async () => [jitenCard()]);
         const lookupVocabularyInfoForCard = vi.fn(async () => null);

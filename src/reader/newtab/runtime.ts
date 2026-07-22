@@ -8,7 +8,6 @@ import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
-import { isPlainReadingRedundantForHeadword } from '../cards/reading-display';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
@@ -21,6 +20,7 @@ import {
     renderKanjiDefinitions,
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
@@ -72,7 +72,7 @@ import {
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
 import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
@@ -83,7 +83,6 @@ import {
     buildKanjiFacts,
     buildKanjiOriginGraph,
     buildRtkComponentSummaries,
-    cardPronunciationReading,
     installOriginGraphInteractions,
     isKanjiCharacter,
     pickTokenForSelection,
@@ -117,6 +116,7 @@ import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
 import { SettingsDialogController } from '../settings/dialog-controller';
+import { getUserscriptHttpRequest } from '../userscript';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import {
@@ -137,6 +137,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
+import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
@@ -144,6 +145,8 @@ import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { BunproClient } from '../bunpro/bunpro';
 import { createBunproSrsAdapter, createWanikaniSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
+import { installAcademyReaderSrsSync } from '../srs/account-sync';
+import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
@@ -306,6 +309,7 @@ export class NewTabRuntime {
         getFrontendToken: () => this.activeBunproFrontendApiToken(),
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
         getProxyUrl: () => this.settings.corsProxyUrl,
+        isTransportAvailable: () => Boolean(this.settings.corsProxyUrl.trim() || getUserscriptHttpRequest()),
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
@@ -442,6 +446,7 @@ export class NewTabRuntime {
         jpdb: this.jpdb,
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
+        yomuLocalSrs: this.yomuLocalSrs,
     });
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
@@ -520,6 +525,7 @@ export class NewTabRuntime {
         }
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
+        installAcademyReaderSrsSync();
         this.installSettingsStorageSubscription();
         void this.settingsDialog.resumePendingCloudSettingsSync();
     }
@@ -578,6 +584,7 @@ export class NewTabRuntime {
         this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card);
             if (card.source === 'bunpro') {
                 this.dismissLookupPopover();
                 void this.newTab?.refreshBunproQueueAfterExternalGrade();
@@ -649,6 +656,7 @@ export class NewTabRuntime {
     private handleApiCardStateChanged(card: JPDBCard): void {
         this.cardRenderData.clear();
         this.applyPublicVocabularyToRenderedWords(card, card);
+        repaintYomuLocalSrsRenderedWords(card);
         this.newTab?.refreshBrowseAfterCardMutation(card);
     }
 
@@ -808,9 +816,6 @@ export class NewTabRuntime {
             surface: this.options.mountHost ? 'academy' : 'standalone',
             sessionClock: this.options.sessionClock,
             showSessionClockControl: !this.options.mountHost,
-            // Opening the standalone Study page should feel recognition-first:
-            // land on Word, then use the configured order for later cards.
-            initialStudyStepId: this.options.mountHost ? undefined : 'word',
         });
     }
 
@@ -1032,26 +1037,13 @@ export class NewTabRuntime {
     private refreshNewTabLookupHeader(popover: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {
         const titleRow = popover.querySelector<HTMLElement>('.jpdb-reader-title-row');
         if (!titleRow) return;
-        this.ensureNewTabLookupReading(titleRow, card);
+        this.removeNewTabLookupTrailingReading(titleRow);
         this.refreshNewTabLookupMeta(titleRow, card, data);
     }
 
-    private ensureNewTabLookupReading(titleRow: HTMLElement, card: JPDBCard): void {
-        const reading = cardPronunciationReading(card) || card.reading.trim();
-        if (!reading || isPlainReadingRedundantForHeadword(card, this.settings, reading)) {
-            titleRow.querySelector<HTMLElement>('[data-newtab-lookup-reading]')?.remove();
-            return;
-        }
-        let readingElement = titleRow.querySelector<HTMLElement>('.jpdb-reader-reading');
-        if (!readingElement) {
-            readingElement = document.createElement('div');
-            readingElement.className = 'jpdb-reader-reading';
-            const spelling = titleRow.querySelector<HTMLElement>('.jpdb-reader-spelling');
-            spelling?.after(readingElement);
-            if (!readingElement.isConnected) titleRow.prepend(readingElement);
-        }
-        readingElement.dataset.newtabLookupReading = 'true';
-        readingElement.textContent = reading;
+    private removeNewTabLookupTrailingReading(titleRow: HTMLElement): void {
+        titleRow.querySelectorAll<HTMLElement>('.jpdb-reader-reading, .jpdb-reader-meta-reading')
+            .forEach(reading => reading.remove());
     }
 
     private refreshNewTabLookupMeta(titleRow: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {
@@ -2358,20 +2350,42 @@ export class NewTabRuntime {
 
     private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
         if (!root.isConnected || !this.parser.canParse()) return;
+        installProviderExampleBehaviors(root, {
+            language: this.settings.interfaceLanguage,
+            blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+            translate: translateJapaneseSentence,
+            isCurrentRoot: candidate => candidate.isConnected,
+        });
         this.enrichJpdbRelatedWords(root);
-        const plan = nestedTextParsePlan(root, 160);
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        const plan = nestedTextParsePlan(root, 160, { excludeProviderExamples: true });
+        if (plan && !nestedParseAlreadyScheduled(root, plan.parseKey)) {
+            await this.parseNewTabPlan(root, plan, options);
+        }
+        if (!root.isConnected) return;
+        const providerPlan = providerExampleTextParsePlan(root, 24);
+        if (providerPlan && !nestedParseAlreadyScheduled(root, providerPlan.parseKey)) {
+            await this.parseNewTabPlan(root, providerPlan, options, 24, false);
+        }
+    }
+
+    private async parseNewTabPlan(
+        root: HTMLElement,
+        plan: NestedParsePlan,
+        options: NewTabParseContentOptions,
+        publicJitenDetailLimit?: number,
+        recordParseKey = true,
+    ): Promise<void> {
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
-            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options);
+            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options, publicJitenDetailLimit);
             if (!root.isConnected
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             highlightCardTargetScopes(root);
-            root.dataset.jpdbReaderParseKey = plan.parseKey;
+            if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
             const tokens = parsed.flat();
             void this.enrichPublicVocabularyWords(tokens);
             void this.enrichPitchWords(tokens);
@@ -2392,12 +2406,13 @@ export class NewTabRuntime {
         void this.enrichAnkiWords(tokens, [root]);
     }
 
-    private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}): Promise<JPDBToken[][]> {
+    private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}, publicJitenDetailLimit?: number): Promise<JPDBToken[][]> {
         const parseOptions = {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
             allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
             allowSegmentedFallback: true,
+            ...(publicJitenDetailLimit === undefined ? {} : { publicJitenDetailLimit }),
         };
         const key = parseContentCacheKey(texts, parseOptions, this.settings);
         const now = Date.now();

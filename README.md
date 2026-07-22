@@ -47,8 +47,11 @@
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
-- **Mine and review while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
+- **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
+- **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.
 - **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
+- **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page.
+- **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
@@ -76,12 +79,12 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 
 | Workflow | よむ helps with |
 | --- | --- |
-| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples, and kanji drilldown with source-labelled keyword comparisons |
+| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples with public Immersion Kit/Nadeshiko search links, configurable lookup pills, and kanji drilldown with source-labelled keyword comparisons |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
-| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, live due-only WaniKani reviews, supported-provider offline review queues, and the hosted study page |
+| Yomu app | An installable, offline-first Study, Library, Stats, and Connections client with Academy/local SRS highlighting and encrypted account sync; kanji, word, typing, listening, and speaking practice; AnkiConnect; Jiten/Bunpro/JPDB sync; and live due-only WaniKani reviews |
 | Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
 
 ## Hosted Tools
@@ -89,7 +92,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
-- [Study page](https://yomureader.com/study/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut. Cards without classifiable pitch skip Listen/Speak; exact pitch resolved from local, Jiten, or public JPDB sources adds those steps automatically. The old `/newtab/` URL remains a compatibility route.
+- [Yomu app](https://yomureader.com/study/) for an installable offline-first review queue, local dictionary and card Library, combined Stats, and Connections for Anki, Bunpro, Jiten, JPDB, and WaniKani. The local source is called **Academy**, and JPDB appears only after its key is configured. On iPhone/iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
@@ -98,6 +101,8 @@ The reader built into yomureader.com is only a no-install fallback. When the よ
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.
+
+An optional Yomu account can synchronize the Academy/local SRS deck. The Reader encrypts card mutations before upload and keeps the profile key in extension/userscript-owned storage; the server receives ciphertext, opaque ids, timestamps, and device metadata, not words, readings, meanings, or schedules in plaintext. Account export, device revocation, profile deletion, and account deletion are available from Profile & sync.
 
 The imported Bunpro frontend token grants account read/write access for reviews. Treat it like a password. Bunpro support uses an authenticated private frontend endpoint rather than a documented public API, so it can change without notice; no Bunpro corpus is bundled.
 
@@ -161,7 +166,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can be loaded manually.
 - The subtitle side panel includes Lines, Tracks, Shadow, and Batch Mine modes; Batch Mine scans the loaded transcript and queues i+1 vocabulary so you can add cards, grade individual words, or batch-assign a review grade after watching.
 - The subtitle control rail starts on the left, can be moved or pinned open, and leaves playback to the video's native controls. Transparent space around subtitle words stays click-through for controls such as mobile fullscreen. Transcript auto-follow pauses only after direct scrolling, and Locate resumes it.
-- Dynamic page text—including buttons, menus, comments, and open web components—uses the same generic annotation path on YouTube, Reddit, and other sites, including nested components that start empty, hydrate later, upgrade after page load, or attach an open root in a later task. Compact controls keep layout-neutral pitch, vocabulary status, and detached furigana: readings stay visible whenever their painted lane is measurable, unclipped, and clear of page text; only an unsafe reading is hidden, while its base word, lookup, and pitch remain. Kana-only labels keep pitch and status paint without duplicating their reading. On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate per-site full-page view scaling so their controls, text, anchors, and screen-edge placement stay at the intended physical size; inline page readings remain aligned with Reddit content.
+- Dynamic page text—including buttons, menus, comments, and open web components—uses the same generic annotation path on YouTube, Reddit, and other sites, including nested components that start empty, hydrate later, upgrade after page load, or attach an open root in a later task. Framework-owned text keeps its native wrapping; Yomu projects each highlight, underline, lookup target, and detached reading from the page's live text ranges instead of reflowing a duplicate line. Compact controls stay layout-neutral while every enabled annotation remains visible at rest; passive controls never silently lose furigana or pitch. Kana-only labels keep pitch and status paint without duplicating their reading. On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate per-site full-page view scaling so their controls, text, anchors, and screen-edge placement stay at the intended physical size; inline page readings remain aligned with Reddit content.
 - On yomureader.com itself, translated navigation and documentation copy stay ordinary site UI; only declared demos and reading surfaces are annotated, keeping the Japanese-language site responsive.
 - On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network.
 - Support links, Factory Reset, API keys, imports, and appearance settings live in the settings panel.

@@ -1,8 +1,8 @@
 import { hmacSha256Hex, randomBytes } from './crypto';
-import { assertSessionEntitlementCanLink } from './entitlements';
+import { academyAccessForAccount, assertSessionEntitlementCanLink } from './entitlements';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
-import { ACCOUNT_RECOVERY_INVITE_ID, activeSession, type ActiveSession } from './sessions';
+import { ACCOUNT_RECOVERY_INVITE_ID, READER_ACCOUNT_INVITE_ID, activeSession, type ActiveSession } from './sessions';
 
 const AVATARS = new Set(['quality-2', 'quality-3', 'quality-4', 'quality-5']);
 const DISPLAY_NAME_MAX = 32;
@@ -16,6 +16,7 @@ export interface AccountRow {
     readonly avatar_key: string | null;
     readonly board_visible: number;
     readonly share_avatar: number;
+    readonly access_tier: 'reader' | 'academy';
 }
 
 export interface AccountContext {
@@ -93,11 +94,20 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             const results = await env.ACADEMY_DB.batch<LinkedAccountRow>([
                 env.ACADEMY_DB.prepare(
                     'INSERT INTO accounts '
-                    + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, created_at, updated_at) '
-                    + "SELECT ?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, ?5, ?5 FROM sessions s "
-                    + 'WHERE s.public_id = ?6 AND s.revoked_at IS NULL AND s.account_id IS NULL AND s.invite_id <> ?7 '
+                    + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, access_tier, created_at, updated_at) '
+                    + "SELECT ?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, CASE WHEN s.invite_id = ?7 THEN 'reader' ELSE 'academy' END, ?5, ?5 FROM sessions s "
+                    + 'WHERE s.public_id = ?6 AND s.revoked_at IS NULL AND s.account_id IS NULL AND s.invite_id <> ?8 '
                     + 'ON CONFLICT(google_sub_hash) DO NOTHING',
-                ).bind(accountId, accountPublicId, subjectHash, discriminator, now, session.public_id, ACCOUNT_RECOVERY_INVITE_ID),
+                ).bind(
+                    accountId,
+                    accountPublicId,
+                    subjectHash,
+                    discriminator,
+                    now,
+                    session.public_id,
+                    READER_ACCOUNT_INVITE_ID,
+                    ACCOUNT_RECOVERY_INVITE_ID,
+                ),
                 env.ACADEMY_DB.prepare(
                     'INSERT INTO profiles (id, public_id, account_id, sync_key_version, created_at, updated_at) '
                     + 'SELECT ?1, ?2, NULL, 1, ?3, ?3 FROM sessions s JOIN accounts a ON a.google_sub_hash = ?4 '
@@ -151,6 +161,7 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
                     + 'last_seen_at = ?2 WHERE id = ?3 AND profile_id = ?4 AND revoked_at IS NULL '
                     + 'AND EXISTS (SELECT 1 FROM profiles source WHERE source.id = ?4 AND source.account_id IS NULL) '
                     + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4) '
+                    + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events e WHERE e.profile_id = ?4) '
                     + 'AND 1 = (SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = ?4 AND d.revoked_at IS NULL) '
                     + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = ?4 AND s.revoked_at IS NULL) '
                     + 'AND EXISTS (SELECT 1 FROM sessions s JOIN accounts a ON a.google_sub_hash = ?1 '
@@ -172,6 +183,7 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
                 env.ACADEMY_DB.prepare(
                     'DELETE FROM profiles WHERE id = ?1 AND account_id IS NULL '
                     + 'AND NOT EXISTS (SELECT 1 FROM srs_events WHERE profile_id = ?1) '
+                    + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events WHERE profile_id = ?1) '
                     + 'AND NOT EXISTS (SELECT 1 FROM profile_devices WHERE profile_id = ?1 AND revoked_at IS NULL) '
                     + 'AND NOT EXISTS (SELECT 1 FROM sessions WHERE profile_id = ?1 AND revoked_at IS NULL)',
                 ).bind(sourceProfileId),
@@ -189,8 +201,19 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
                     + 'AND p.account_id = accounts.id)',
                 ).bind(subjectHash, session.public_id, now),
                 env.ACADEMY_DB.prepare(
+                    "UPDATE accounts SET access_tier = 'academy', updated_at = ?3 WHERE google_sub_hash = ?1 "
+                    + 'AND EXISTS (SELECT 1 FROM sessions s WHERE s.public_id = ?2 AND s.revoked_at IS NULL '
+                    + 'AND s.invite_id NOT IN (?4, ?5))',
+                ).bind(subjectHash, session.public_id, now, READER_ACCOUNT_INVITE_ID, ACCOUNT_RECOVERY_INVITE_ID),
+                env.ACADEMY_DB.prepare(
+                    'INSERT OR IGNORE INTO account_academy_grants (account_id, source_invite_id, granted_at) '
+                    + 'SELECT a.id, i.id, ?3 FROM sessions s JOIN invites i ON i.id = s.invite_id '
+                    + 'JOIN accounts a ON a.google_sub_hash = ?1 WHERE s.public_id = ?2 '
+                    + "AND s.revoked_at IS NULL AND i.kind = 'seed' AND i.id NOT IN (?4, ?5)",
+                ).bind(subjectHash, session.public_id, now, READER_ACCOUNT_INVITE_ID, ACCOUNT_RECOVERY_INVITE_ID),
+                env.ACADEMY_DB.prepare(
                     'SELECT a.id, a.public_id, a.display_name, a.name_chosen, a.discriminator, a.avatar_key, '
-                    + 'a.board_visible, a.share_avatar, CASE WHEN ('
+                    + 'a.board_visible, a.share_avatar, a.access_tier, CASE WHEN ('
                     + 'EXISTS (SELECT 1 FROM sessions s JOIN profiles p ON p.id = s.profile_id '
                     + 'JOIN profile_devices d ON d.id = s.device_id AND d.profile_id = p.id '
                     + 'WHERE s.public_id = ?2 AND s.revoked_at IS NULL AND d.revoked_at IS NULL '
@@ -253,6 +276,7 @@ async function resolveAccountLinkFailure(
             'SELECT EXISTS (SELECT 1 FROM profiles target WHERE target.account_id = ?1 AND target.id <> ?2) '
             + 'AND NOT EXISTS (SELECT 1 FROM profiles source WHERE source.id = ?2 AND source.account_id IS NULL '
             + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = source.id) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events e WHERE e.profile_id = source.id) '
             + 'AND 1 = (SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = source.id AND d.revoked_at IS NULL) '
             + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = source.id AND s.revoked_at IS NULL)) '
             + 'AS blocked',
@@ -290,7 +314,7 @@ export async function requireAccount(request: Request, env: Env, now: number): P
     if (!session) throw new HttpError(401, 'No active session.');
     if (!session.account_id) throw new HttpError(401, 'An Academy account is required.');
     const account = await env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE id = ?1',
     ).bind(session.account_id).first<AccountRow>();
     if (!account) throw new HttpError(401, 'An Academy account is required.');
@@ -329,7 +353,7 @@ export async function handlePatchAccount(request: Request, env: Env, clock: Cloc
         + 'board_visible = ?4, share_avatar = ?5, updated_at = ?6 WHERE id = ?7',
     ).bind(displayName, nameChosen, avatarKey, boardVisible ? 1 : 0, shareAvatar ? 1 : 0, now, account.id).run();
     const updated = await env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE id = ?1',
     ).bind(account.id).first<AccountRow>();
     if (!updated) throw new HttpError(500, 'Account update failed.');
@@ -361,7 +385,7 @@ function randomDiscriminator(): string {
 
 async function accountBySubjectHash(env: Env, subjectHash: string): Promise<AccountRow | null> {
     return env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE google_sub_hash = ?1',
     ).bind(subjectHash).first<AccountRow>();
 }
@@ -392,6 +416,7 @@ export async function getAccountView(env: Env, account: AccountRow): Promise<Rec
         avatarKey: account.avatar_key,
         boardVisible: account.board_visible === 1,
         shareAvatar: account.share_avatar === 1,
+        academyAccess: await academyAccessForAccount(env, account.id),
         classes: memberships.results.map(row => ({
             classId: row.class_id,
             name: row.name,

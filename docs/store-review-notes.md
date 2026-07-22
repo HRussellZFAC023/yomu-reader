@@ -22,11 +22,15 @@ Study is a normal bundled extension page. The user opens it deliberately from th
 - Site access is required to annotate Japanese on the page the user is reading. It is the extension's main function.
 - `activeTab` supports visible-tab capture only after a user action for OCR.
 - `scripting` installs and coordinates the reader content script.
-- `storage` holds settings, imported dictionaries, caches, and local review state.
+- `storage` holds settings, imported dictionaries, caches, local review state, and—only after the user pairs an optional Yomu account—the Reader device credential and client-side encryption key. Those secrets stay in extension-owned storage and are not exposed to page scripts.
 - `contextMenus`/`menus` exposes reader shortcuts.
 - The package does not request the `tabs` browsing-history permission.
 - `identity` and the Google Drive application-data scope are included only in a Chrome build produced with an approved OAuth client ID. They are absent from ordinary packages.
-- Firefox declares required `websiteContent` and optional `authenticationInfo` data categories. Its native account-information prompt is requested directly from Save on the bundled Study settings page. Ordinary content scripts cannot call Firefox's permission API, so credential saves and settings imports fail closed there and tell the user to open Study. The Bunpro page helper does not read the token in the Firefox extension; it opens Study settings instead. If permission is denied, the credential is not stored and that integration remains off.
+- Firefox declares required `websiteContent` and optional `authenticationInfo` data categories. Its native account-information prompt is requested directly from Save, credential import, or **Connect** for Academy account sync on the bundled Study settings page. Ordinary content scripts cannot call Firefox's permission API, so credential saves, settings imports, and first-time Reader pairing fail closed there and tell the user to open Study. The Bunpro page helper does not read the token in the Firefox extension; it opens Study settings instead. If permission is denied, the credential is not stored and that integration remains off.
+
+## Optional account sync
+
+The public website can create a free Reader account through Google OIDC and display the signed-in Yomu name. Google name, email, photo, access token, and refresh token are discarded. Reader pairing is an explicit user action with a ten-minute, one-use code. The extension stores the resulting device bearer and profile key only in its private storage, encrypts Academy/local SRS card updates before upload, and sends the Worker only ciphertext plus opaque ids/timestamps/device metadata. Users can revoke Reader devices, export encrypted account/profile data, or delete the profile/account from the website. A Reader account does not unlock Academy curriculum.
 
 ## Executable code and data
 
@@ -41,5 +45,6 @@ Mozilla's linter may identify the centralized assignment inside `src/reader/dom/
 3. During first-run setup, note that **Japanese text on webpages** clearly offers three choices: leave pages unchanged, scan Japanese automatically, or scan only when requested.
 4. Open a page containing Japanese, select a word, and confirm the bundled dictionary popup opens. Optional account-backed actions require the reviewer's own credentials and are not necessary for core lookup.
 5. Optional Firefox consent check: from **Open Study → Settings**, add a temporary service key and select **Save**. Firefox asks for the optional `authenticationInfo` category. Decline it and confirm the settings dialog remains open and the key is not saved.
+6. Optional account-sync check: create/sign in to a Yomu account on the website, open **Profile & sync**, create a one-time pairing code, and paste it into **Open Study → Settings → Backup & sync**. Firefox requests `authenticationInfo` before Connect stores the device credential. Decline and confirm no request is sent; grant it, connect, and confirm the account name and last-sync state appear.
 
 The public privacy policy is at [yomureader.com/privacy](https://yomureader.com/privacy).

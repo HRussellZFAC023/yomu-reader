@@ -56,6 +56,7 @@ interface AccountDbRow {
     avatar_key: string | null;
     board_visible: number;
     share_avatar: number;
+    access_tier: 'reader' | 'academy';
     created_at: number;
     updated_at: number;
     recovery_bound_at: number | null;
@@ -101,6 +102,7 @@ class FakeAcademyDb implements D1Database {
     readonly webhookEvents = new Set<string>();
     readonly rateCounters = new Map<string, number>();
     readonly accounts: AccountDbRow[] = [];
+    readonly academyGrants = new Set<string>();
     readonly classes: ClassDbRow[] = [];
     readonly memberships: MembershipDbRow[] = [];
     readonly oauthFlows: Array<{ state_hash: string; session_public_id: string; created_at: number; expires_at: number; consumed_at: number | null }> = [];
@@ -498,6 +500,10 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private selectEntitlement(): unknown[] | undefined {
+        if (this.sql.startsWith('SELECT p.id, p.status, p.amount_pence, p.fulfilled_at, p.redeemed_by_account_id, p.redeemed_at, pe.state AS provider_state')) {
+            const purchase = this.db.purchases.find(row => row.redeemed_by_account_id === this.values[0]);
+            return purchase ? [{ ...purchase, provider_state: null, provider_expires_at: null }] : [];
+        }
         const prefix = 'SELECT id, status, amount_pence, fulfilled_at, redeemed_by_account_id, redeemed_at FROM purchases WHERE';
         if (!this.sql.startsWith(prefix)) return undefined;
         const purchase = this.sql.endsWith('WHERE id = ?1')
@@ -547,17 +553,28 @@ class FakeStatement implements D1PreparedStatement {
         const sql = this.sql;
         const v = this.values;
 
-        if (sql.startsWith('SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar FROM accounts WHERE google_sub_hash')) {
+        if (sql.startsWith('SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier FROM accounts WHERE google_sub_hash')) {
             const account = db.accounts.find(row => row.google_sub_hash === v[0]);
             return account ? [{ ...account }] : [];
         }
-        if (sql.startsWith('SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar FROM accounts WHERE id')) {
+        if (sql.startsWith('SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier FROM accounts WHERE id')) {
             const account = db.accounts.find(row => row.id === v[0]);
             return account ? [{ ...account }] : [];
         }
         if (sql.startsWith('SELECT id FROM accounts WHERE id')) {
             const account = db.accounts.find(row => row.id === v[0]);
             return account ? [{ id: account.id }] : [];
+        }
+        if (sql.startsWith('SELECT 1 AS granted FROM account_academy_grants')) {
+            return db.academyGrants.has(v[0] as string) ? [{ granted: 1 }] : [];
+        }
+        if (sql.startsWith('INSERT OR IGNORE INTO account_academy_grants')) {
+            const accountId = v[0] as string;
+            if (!db.academyGrants.has(accountId)) {
+                db.academyGrants.add(accountId);
+                this.lastChanges = 1;
+            }
+            return [];
         }
         if (sql.startsWith('SELECT (EXISTS (SELECT 1 FROM accounts WHERE id')) {
             const accountId = v[0] as string;
@@ -584,8 +601,9 @@ class FakeStatement implements D1PreparedStatement {
                 avatar_key: null,
                 board_visible: 0,
                 share_avatar: 0,
-                created_at: v[4] as number,
-                updated_at: v[4] as number,
+                access_tier: (v[4] as 'reader' | 'academy') ?? 'academy',
+                created_at: v[5] as number,
+                updated_at: v[5] as number,
                 recovery_bound_at: null,
             });
             this.lastChanges = 1;

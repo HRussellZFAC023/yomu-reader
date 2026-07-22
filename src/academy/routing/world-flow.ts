@@ -706,6 +706,8 @@ class WorldFlow implements AcademyRouteFlow {
             onExport: async () => downloadExport(sync),
             onSignOut: async () => { await sync.signOut(); this.renderProfileSync(context); },
             onDelete: async scope => { await sync.deleteRemoteData(scope); this.renderProfileSync(context); },
+            onListReaderDevices: () => sync.listReaderDevices(),
+            onRevokeReaderDevice: deviceId => sync.revokeReaderDevice(deviceId),
             onClassBoard: sync.status.account?.classes.length
                 ? () => void context.go('class-board')
                 : undefined,

@@ -4978,8 +4978,7 @@ export class SubtitlePlayerController {
     }
 
     private async discoverYouTubeTracks(): Promise<void> {
-        const hostname = (typeof window !== 'undefined' ? window.location?.hostname : undefined) || '';
-        if (!hostname.includes('youtube.com')) return;
+        if (!isYouTubePage()) return;
         const videoId = getYouTubeVideoId();
         if (!videoId) return;
 

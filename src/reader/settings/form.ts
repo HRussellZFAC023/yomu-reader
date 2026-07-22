@@ -44,6 +44,7 @@ export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, Sett
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
+const ACADEMY_ACCOUNT_SYNC_URL = 'https://yomureader.com/academy/?view=profile-sync';
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
@@ -1144,6 +1145,7 @@ function renderBackupSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
                 <legend>${escapedUiText(language, 'backupSync')}</legend>
                 <div class="jpdb-reader-help" data-help-key="backupSyncHelp">${escapedUiText(language, 'backupSyncHelp')}</div>
+                ${renderAcademyAccountSyncSection(settings)}
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">${escapedUiText(language, 'importSettings')}</button>
@@ -1155,6 +1157,36 @@ function renderBackupSettingsPanel(settings: ReaderSettings): string {
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
+    `;
+}
+
+function renderAcademyAccountSyncSection(settings: ReaderSettings): string {
+    const language = resolveUiLanguage(settings.interfaceLanguage);
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-academy-account" data-academy-reader-account data-connected="false">
+                    <div class="jpdb-reader-local-title" data-academy-account-title>${escapedUiText(language, 'academyAccountSync')}</div>
+                    <div class="jpdb-reader-help" data-help-key="academyAccountSyncHelp">${escapedUiText(language, 'academyAccountSyncHelp')}</div>
+                    <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
+                        <a class="jpdb-reader-btn jpdb-reader-academy-account-link" href="${ACADEMY_ACCOUNT_SYNC_URL}" target="_blank" rel="noopener" data-academy-account-link>${externalButtonLabel(uiText(language, 'academyAccountManage'))}</a>
+                    </div>
+                    <div class="jpdb-reader-help jpdb-reader-academy-account-status" data-academy-reader-status data-status-tone="pending" role="status" aria-live="polite">${escapedUiText(language, 'academyAccountChecking')}</div>
+                    <div class="jpdb-reader-academy-account-connect" data-academy-reader-connect-controls>
+                        <label for="jpdb-reader-academy-pairing-code">
+                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-academy-pairing-code-label>${escapedUiText(language, 'academyPairingCode')}</span>
+                        </label>
+                        <div class="jpdb-reader-academy-account-code-row">
+                            <input id="jpdb-reader-academy-pairing-code" data-academy-pairing-code type="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="24" placeholder="${escapedUiText(language, 'academyPairingCodePlaceholder')}" aria-describedby="jpdb-reader-academy-account-help">
+                            <button class="jpdb-reader-btn" type="button" data-action="connect-academy-account">${escapedUiText(language, 'academyAccountConnect')}</button>
+                        </div>
+                        <span id="jpdb-reader-academy-account-help" class="jpdb-reader-sr-only">${escapedUiText(language, 'academyAccountSyncHelp')}</span>
+                    </div>
+                    <div class="jpdb-reader-settings-actions" data-academy-reader-connected-controls hidden>
+                        <button class="jpdb-reader-btn" type="button" data-action="sync-academy-account">${escapedUiText(language, 'academyAccountSyncNow')}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="create-academy-recovery-code">${escapedUiText(language, 'academyRecoveryCodeCreate')}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="disconnect-academy-account">${escapedUiText(language, 'academyAccountDisconnect')}</button>
+                    </div>
+                    <output class="jpdb-reader-help jpdb-reader-academy-recovery-code" data-academy-recovery-code hidden></output>
+                </div>
     `;
 }
 
@@ -1368,6 +1400,8 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-proxy-guide-show]', 'show'],
     ['[data-proxy-guide-hide]', 'hide'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
+    ['[data-academy-account-title]', 'academyAccountSync'],
+    ['[data-academy-pairing-code-label]', 'academyPairingCode'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const HIDE_GROUP_LEGEND_TEXT_KEYS = [
     ['[data-furigana-hide-groups]', 'hideFuriganaFor'],
@@ -1382,6 +1416,10 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="export-reader-settings"]', 'exportSettings'],
     ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
     ['[data-action="export-yomitan-dictionary"]', 'exportDictionaries'],
+    ['[data-action="connect-academy-account"]', 'academyAccountConnect'],
+    ['[data-action="sync-academy-account"]', 'academyAccountSyncNow'],
+    ['[data-action="create-academy-recovery-code"]', 'academyRecoveryCodeCreate'],
+    ['[data-action="disconnect-academy-account"]', 'academyAccountDisconnect'],
     ['[data-action="audio-source-add"]', 'addAudioSource'],
     ['[data-action="cancel"]', 'cancel'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
@@ -1694,6 +1732,9 @@ function localizeSettingsActions(form: HTMLFormElement, text: SettingsText): voi
         form.querySelectorAll<HTMLElement>(selector).forEach(button => button.replaceChildren(text(key)));
     });
     form.querySelector<HTMLButtonElement>('button[type="submit"]')?.replaceChildren(text('save'));
+    setExternalButtonLabel(form.querySelector<HTMLElement>('[data-academy-account-link]'), text('academyAccountManage'));
+    const pairingCode = form.querySelector<HTMLInputElement>('[data-academy-pairing-code]');
+    if (pairingCode) pairingCode.placeholder = text('academyPairingCodePlaceholder');
     localizePreviewAudioButtons(form, text);
 }
 

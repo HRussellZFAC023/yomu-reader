@@ -748,17 +748,14 @@ describe('study flow: doodle first-attempt discipline', () => {
 });
 
 describe('standalone Study entry step', () => {
-    it('starts a fresh Study page at Word once, then returns to the configured order', () => {
+    it('starts every fresh card at the first configured learning step', () => {
         const cards = [drinkCard(), drinkCard({ vid: 32, sid: 33, spelling: '読書', reading: 'どくしょ' })];
-        const { controller, internals } = studyController(cards, {}, {}, {
-            surface: 'standalone',
-            initialStudyStepId: 'word',
-        });
+        const { controller, internals } = studyController(cards, {}, {}, { surface: 'standalone' });
         const root = studyRoot();
         try {
             internals.state.mode = 'word';
             internals.renderWord(root, cards[0]);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
 
             internals.index = 1;
             internals.renderWord(root, cards[1]);

@@ -1,4 +1,5 @@
 import { displayTag, requireAccount } from './accounts';
+import { requireAcademyAccessSession } from './profiles';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { inviteCodeHash, normalizeInviteCode, requireAdmin } from './invites';
@@ -131,7 +132,9 @@ export async function handleClassRoute(request: Request, env: Env, clock: Clock)
 
 async function handleBoard(request: Request, env: Env, clock: Clock, rawClassId: string): Promise<Response> {
     const classId = parseClassId(rawClassId);
-    const { account } = await requireAccount(request, env, clock());
+    const now = clock();
+    await requireAcademyAccessSession(request, env, now);
+    const { account } = await requireAccount(request, env, now);
     await requireMembership(env, classId, account.id);
     const members = await boardMembers(env, classId, clock());
     return jsonResponse({ classId, members });
@@ -140,6 +143,7 @@ async function handleBoard(request: Request, env: Env, clock: Clock, rawClassId:
 async function handleLeaderboard(request: Request, env: Env, clock: Clock, rawClassId: string): Promise<Response> {
     const classId = parseClassId(rawClassId);
     const now = clock();
+    await requireAcademyAccessSession(request, env, now);
     const { account } = await requireAccount(request, env, now);
     await requireMembership(env, classId, account.id);
     const { metric, page, limit } = parseLeaderboardQuery(new URL(request.url).searchParams);
@@ -200,7 +204,9 @@ async function handleLeaderboard(request: Request, env: Env, clock: Clock, rawCl
 
 async function handleSummary(request: Request, env: Env, clock: Clock, rawClassId: string): Promise<Response> {
     const classId = parseClassId(rawClassId);
-    const { account } = await requireAccount(request, env, clock());
+    const now = clock();
+    await requireAcademyAccessSession(request, env, now);
+    const { account } = await requireAccount(request, env, now);
     await requireMembership(env, classId, account.id);
     const members = await boardMembers(env, classId, clock());
     const average = (values: number[]): number => values.length === 0 ? 0 : Math.round(values.reduce((a, b) => a + b, 0) / values.length);
@@ -226,7 +232,9 @@ async function handleModeration(
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const classId = parseClassId(rawClassId);
     const accountPublicId = parsePublicId(rawAccountId);
-    const { account } = await requireAccount(request, env, clock());
+    const now = clock();
+    await requireAcademyAccessSession(request, env, now);
+    const { account } = await requireAccount(request, env, now);
     const membership = await requireMembership(env, classId, account.id);
     if (membership.role !== 'sensei') throw new HttpError(403, 'Sensei access required.');
     const body = await readJsonBody(request);

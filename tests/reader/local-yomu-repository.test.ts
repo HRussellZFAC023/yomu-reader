@@ -1,10 +1,12 @@
 import { LocalYomuSrsRepository, yomuSrsImportBatch } from '../../src/reader/srs/local-yomu';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
+import { mergeStoredYomuSrsDecks } from '../../src/reader/srs/local-yomu-deck';
 
 const STORAGE_KEY = 'yomu:srs-local:v1';
 
 describe('LocalYomuSrsRepository semantic collection', () => {
     beforeEach(() => localStorage.clear());
+    afterEach(() => { vi.unstubAllGlobals(); });
 
     it('migrates raw and source-card ids into one canonical semantic card without losing review state', async () => {
         const now = Date.parse('2026-07-13T10:00:00.000Z');
@@ -77,6 +79,32 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         const secondUndo = await secondRepository.removeAcademyVocabularyProvenance(secondSource.cardId, 'lesson:b');
         expect(secondUndo).toMatchObject({ provenanceRemoved: true, cardDeleted: true, reason: 'deleted' });
         expect((await firstRepository.queue(10)).cards).toHaveLength(0);
+    });
+
+    it('keeps distinct cards when independent tab runtimes mutate the shared GM deck together', async () => {
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, structuredClone(value)); }));
+        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { values.delete(key); }));
+        vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
+
+        vi.resetModules();
+        const FirstRuntimeRepository = (await import('../../src/reader/srs/local-yomu')).LocalYomuSrsRepository;
+        vi.resetModules();
+        const SecondRuntimeRepository = (await import('../../src/reader/srs/local-yomu')).LocalYomuSrsRepository;
+        const first = new FirstRuntimeRepository(() => 1_000_000);
+        const second = new SecondRuntimeRepository(() => 1_000_001);
+
+        await Promise.all([
+            first.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' }),
+            second.mine({ expression: '書く', reading: 'かく', meaning: 'to write' }),
+        ]);
+
+        const stored = values.get(STORAGE_KEY) as { cards?: Record<string, unknown> };
+        expect(Object.keys(stored.cards ?? {}).sort()).toEqual([
+            canonicalStudyCardKey('書く', 'かく'),
+            canonicalStudyCardKey('読む', 'よむ'),
+        ].sort());
     });
 
     it('keeps a stable review-seed provenance across a lapse followed by a pass', async () => {
@@ -173,6 +201,39 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         expect((await repository.queue(10)).cards).toEqual([]);
     });
 
+    it('resolves a parse batch from one deck snapshot and keeps exact reading identities distinct', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const mined = await repository.mine({ expression: '生', reading: 'なま', meaning: 'raw' });
+        await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        await repository.review({ card: mined.card!, grade: 'good' });
+
+        const cards = await repository.lookupCards([
+            { expression: '生', reading: 'なま' },
+            { expression: '生', reading: 'せい' },
+            { expression: '読む', reading: 'よむ' },
+            { expression: '読む', reading: 'よむ' },
+        ]);
+
+        expect(cards).toHaveLength(2);
+        expect(cards.find(card => card.reading === 'なま')).toMatchObject({ state: ['learning'], dueAt: now + 2 * 86_400_000 });
+        expect(cards.find(card => card.expression === '読む')).toMatchObject({ state: ['new'], dueAt: now });
+    });
+
+    it('returns the authoritative stored schedule when an existing card is mined again', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const mined = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+        await repository.review({ card: mined.card!, grade: 'good' });
+
+        const duplicate = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'read' });
+
+        expect(duplicate).toMatchObject({
+            card: { state: ['learning'], dueAt: now + 2 * 86_400_000, lastReviewAt: now },
+            raw: { imported: 0, skipped: 1 },
+        });
+    });
+
     it('never deletes an independently mined card when Academy provenance is undone', async () => {
         const now = 1_000_000;
         const repository = new LocalYomuSrsRepository(() => now);
@@ -186,6 +247,20 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         const removed = await repository.removeAcademyVocabularyProvenance(collected.cardId, 'lesson:a');
         expect(removed).toMatchObject({ provenanceRemoved: true, cardDeleted: false, reason: 'independent-card' });
         expect((await repository.queue(10)).cards).toHaveLength(1);
+    });
+
+    it('converges deletions across replicas without resurrecting stale cards', () => {
+        const id = canonicalStudyCardKey('読む', 'よむ');
+        const staleCard = storedCard({ id, updatedAt: 100 });
+        const deletedReplica = { version: 1, cards: {}, tombstones: { [id]: 200 } };
+        const merged = mergeStoredYomuSrsDecks({ version: 1, cards: { [id]: staleCard } }, deletedReplica);
+        expect(merged.cards[id]).toBeUndefined();
+        expect(merged.tombstones?.[id]).toBe(200);
+
+        const revivedCard = storedCard({ id, updatedAt: 300 });
+        const revived = mergeStoredYomuSrsDecks(merged, { version: 1, cards: { [id]: revivedCard } });
+        expect(revived.cards[id]).toMatchObject({ updatedAt: 300 });
+        expect(revived.tombstones?.[id]).toBeUndefined();
     });
 });
 

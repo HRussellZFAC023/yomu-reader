@@ -8,7 +8,7 @@ import { authenticatedSessionSubject, enforceRateLimit, EXPORT_RATE } from './ra
 
 const EXPORT_PAGE_SIZE = 200;
 const EXPORT_TTL_MS = 15 * 60_000;
-const EXPORT_CURSOR_PATTERN = /^v1\.([A-Za-z0-9_-]{43})\.([0-9a-z]+)\.([0-9a-f]{64})$/u;
+const EXPORT_CURSOR_PATTERN = /^v2\.([A-Za-z0-9_-]{43})\.([0-9a-z]+)\.([0-9a-f]{64})$/u;
 
 type ExportScope = 'profile' | 'account';
 
@@ -17,6 +17,9 @@ interface DeviceExportRow {
     readonly created_at: number;
     readonly last_seen_at: number;
     readonly revoked_at: number | null;
+    readonly credential_created_at: number | null;
+    readonly credential_last_seen_at: number | null;
+    readonly credential_revoked_at: number | null;
 }
 
 interface AggregateProgressRow {
@@ -40,15 +43,19 @@ interface StoredEventRow {
 }
 
 interface ExportProgressRow {
-    readonly snapshot_sequence: number;
-    readonly next_cursor: number;
+    readonly academy_snapshot_sequence: number;
+    readonly academy_page_start_cursor: number;
+    readonly academy_next_cursor: number;
+    readonly reader_snapshot_sequence: number;
+    readonly reader_page_start_cursor: number;
+    readonly reader_next_cursor: number;
     readonly page_number: number;
     readonly completed_at: number | null;
 }
 
 interface ExportCursor {
     readonly secret: string;
-    readonly cursor: number;
+    readonly pageNumber: number;
 }
 
 interface ExportPage {
@@ -56,6 +63,11 @@ interface ExportPage {
     readonly nextCursor: number;
     readonly hasMore: boolean;
     readonly exportCursor: string | null;
+}
+
+interface ExportPageBundle {
+    readonly eventPage: ExportPage;
+    readonly readerSrsEventPage: Omit<ExportPage, 'exportCursor'>;
 }
 
 export async function handleProfileExport(request: Request, env: Env, clock: Clock): Promise<Response> {
@@ -88,11 +100,11 @@ async function handleExport(request: Request, env: Env, clock: Clock, scope: Exp
             : await profileExportMetadata(env, context, now);
         const secret = randomToken(32);
         const page = await startExportTraversal(env, context, scope, secret, now);
-        return jsonResponse({ ...metadata, eventPage: page });
+        return jsonResponse({ ...metadata, ...page });
     }
     const cursor = await parseExportCursor(env, suppliedCursor);
     const page = await continueExportTraversal(env, context, scope, cursor, now);
-    return jsonResponse({ schemaVersion: 2, eventPage: page });
+    return jsonResponse({ schemaVersion: 2, ...page });
 }
 
 async function startExportTraversal(
@@ -101,14 +113,16 @@ async function startExportTraversal(
     scope: ExportScope,
     secret: string,
     now: number,
-): Promise<ExportPage> {
+): Promise<ExportPageBundle> {
     const idHash = await exportSessionHash(env, secret);
     const statements = [
         env.ACADEMY_DB.prepare(
             'INSERT INTO export_traversals '
-            + '(id_hash, session_public_id, profile_id, scope, snapshot_sequence, next_cursor, page_size, page_number, created_at, expires_at) '
-            + 'SELECT ?1, ?2, ?3, ?4, COALESCE(MAX(sequence), 0), 0, ?5, 0, ?6, ?7 '
-            + 'FROM srs_events WHERE profile_id = ?3',
+            + '(id_hash, session_public_id, profile_id, scope, academy_snapshot_sequence, academy_next_cursor, '
+            + 'reader_snapshot_sequence, reader_next_cursor, page_size, page_number, created_at, expires_at) '
+            + 'VALUES (?1, ?2, ?3, ?4, '
+            + 'COALESCE((SELECT MAX(sequence) FROM srs_events WHERE profile_id = ?3), 0), 0, '
+            + 'COALESCE((SELECT MAX(sequence) FROM reader_srs_events WHERE profile_id = ?3), 0), 0, ?5, 0, ?6, ?7)',
         ).bind(
             idHash,
             context.session.public_id,
@@ -121,7 +135,7 @@ async function startExportTraversal(
         ...exportAdvanceStatements(env, context, scope, idHash, 0, now),
     ];
     const results = await env.ACADEMY_DB.batch<ExportProgressRow | StoredEventRow>(statements);
-    return exportPageFromResults(env, secret, 0, results[1], results[2]);
+    return exportPageFromResults(env, secret, results[1], results[2], results[3]);
 }
 
 async function continueExportTraversal(
@@ -130,15 +144,15 @@ async function continueExportTraversal(
     scope: ExportScope,
     cursor: ExportCursor,
     now: number,
-): Promise<ExportPage> {
+): Promise<ExportPageBundle> {
     const idHash = await exportSessionHash(env, cursor.secret);
-    const [progress, events] = await env.ACADEMY_DB.batch<ExportProgressRow | StoredEventRow>(
-        exportAdvanceStatements(env, context, scope, idHash, cursor.cursor, now),
+    const [progress, events, readerEvents] = await env.ACADEMY_DB.batch<ExportProgressRow | StoredEventRow>(
+        exportAdvanceStatements(env, context, scope, idHash, cursor.pageNumber, now),
     );
     if (!progress?.results[0]) {
         throw new HttpError(409, 'Export cursor was already used, expired, or belongs to another session.');
     }
-    return exportPageFromResults(env, cursor.secret, cursor.cursor, progress, events);
+    return exportPageFromResults(env, cursor.secret, progress, events, readerEvents);
 }
 
 function exportAdvanceStatements(
@@ -146,59 +160,95 @@ function exportAdvanceStatements(
     context: ProfileContext,
     scope: ExportScope,
     idHash: string,
-    cursor: number,
+    pageNumber: number,
     now: number,
 ) {
-    const pageMaximum = 'SELECT MAX(sequence) FROM (SELECT sequence FROM srs_events e '
-        + 'WHERE e.profile_id = export_traversals.profile_id AND e.sequence > ?5 '
-        + 'AND e.sequence <= export_traversals.snapshot_sequence ORDER BY e.sequence LIMIT 200)';
+    const academyPageMaximum = 'SELECT MAX(sequence) FROM (SELECT sequence FROM srs_events e '
+        + 'WHERE e.profile_id = export_traversals.profile_id AND e.sequence > export_traversals.academy_next_cursor '
+        + 'AND e.sequence <= export_traversals.academy_snapshot_sequence ORDER BY e.sequence LIMIT 200)';
+    const readerPageMaximum = 'SELECT MAX(sequence) FROM (SELECT sequence FROM reader_srs_events e '
+        + 'WHERE e.profile_id = export_traversals.profile_id AND e.sequence > export_traversals.reader_next_cursor '
+        + 'AND e.sequence <= export_traversals.reader_snapshot_sequence ORDER BY e.sequence LIMIT 200)';
+    const academyAdvances = 'academy_next_cursor < academy_snapshot_sequence';
+    const nextAcademyCursor = `CASE WHEN ${academyAdvances} THEN COALESCE((${academyPageMaximum}), academy_next_cursor) ELSE academy_next_cursor END`;
+    const nextReaderCursor = `CASE WHEN NOT (${academyAdvances}) THEN COALESCE((${readerPageMaximum}), reader_next_cursor) ELSE reader_next_cursor END`;
     return [
         env.ACADEMY_DB.prepare(
-            'UPDATE export_traversals SET next_cursor = COALESCE((' + pageMaximum + '), next_cursor), '
-            + 'page_number = page_number + 1, completed_at = CASE WHEN NOT EXISTS ('
-            + 'SELECT 1 FROM srs_events remaining WHERE remaining.profile_id = export_traversals.profile_id '
-            + 'AND remaining.sequence > COALESCE((' + pageMaximum + '), ?5) '
-            + 'AND remaining.sequence <= export_traversals.snapshot_sequence) THEN ?6 ELSE NULL END '
+            `UPDATE export_traversals SET academy_page_start_cursor = academy_next_cursor, `
+            + `reader_page_start_cursor = reader_next_cursor, academy_next_cursor = ${nextAcademyCursor}, `
+            + `reader_next_cursor = ${nextReaderCursor}, page_number = page_number + 1, `
+            + `completed_at = CASE WHEN (${nextAcademyCursor}) >= academy_snapshot_sequence `
+            + `AND (${nextReaderCursor}) >= reader_snapshot_sequence THEN ?6 ELSE NULL END `
             + 'WHERE id_hash = ?1 AND session_public_id = ?2 AND profile_id = ?3 AND scope = ?4 '
-            + 'AND next_cursor = ?5 AND completed_at IS NULL AND expires_at > ?6 '
-            + 'RETURNING snapshot_sequence, next_cursor, page_number, completed_at',
-        ).bind(idHash, context.session.public_id, context.profile.id, scope, cursor, now),
+            + 'AND page_number = ?5 AND completed_at IS NULL AND expires_at > ?6 '
+            + 'RETURNING academy_snapshot_sequence, academy_page_start_cursor, academy_next_cursor, '
+            + 'reader_snapshot_sequence, reader_page_start_cursor, reader_next_cursor, page_number, completed_at',
+        ).bind(idHash, context.session.public_id, context.profile.id, scope, pageNumber, now),
         env.ACADEMY_DB.prepare(
             'SELECT e.sequence, e.event_id, e.occurred_at, e.key_version, e.nonce, e.ciphertext, '
             + 'd.public_id AS source_device_public_id, e.received_at FROM srs_events e '
-            + 'LEFT JOIN profile_devices d ON d.id = e.source_device_id '
-            + 'WHERE e.profile_id = ?1 AND e.sequence > ?2 AND e.sequence <= COALESCE('
-            + '(SELECT snapshot_sequence FROM export_traversals WHERE id_hash = ?3 AND session_public_id = ?4 '
-            + 'AND profile_id = ?1 AND scope = ?5 AND expires_at > ?6), -1) '
+            + 'LEFT JOIN profile_devices d ON d.id = e.source_device_id WHERE e.profile_id = ?1 '
+            + 'AND e.sequence > COALESCE((SELECT academy_page_start_cursor FROM export_traversals '
+            + 'WHERE id_hash = ?2 AND session_public_id = ?3 AND profile_id = ?1 AND scope = ?4 AND expires_at > ?5), -1) '
+            + 'AND e.sequence <= COALESCE((SELECT academy_next_cursor FROM export_traversals '
+            + 'WHERE id_hash = ?2 AND session_public_id = ?3 AND profile_id = ?1 AND scope = ?4 AND expires_at > ?5), -1) '
             + 'ORDER BY e.sequence LIMIT 200',
-        ).bind(context.profile.id, cursor, idHash, context.session.public_id, scope, now),
+        ).bind(context.profile.id, idHash, context.session.public_id, scope, now),
+        env.ACADEMY_DB.prepare(
+            'SELECT e.sequence, e.event_id, e.occurred_at, e.key_version, e.nonce, e.ciphertext, '
+            + 'd.public_id AS source_device_public_id, e.received_at FROM reader_srs_events e '
+            + 'JOIN profile_devices d ON d.id = e.source_device_id WHERE e.profile_id = ?1 '
+            + 'AND e.sequence > COALESCE((SELECT reader_page_start_cursor FROM export_traversals '
+            + 'WHERE id_hash = ?2 AND session_public_id = ?3 AND profile_id = ?1 AND scope = ?4 AND expires_at > ?5), -1) '
+            + 'AND e.sequence <= COALESCE((SELECT reader_next_cursor FROM export_traversals '
+            + 'WHERE id_hash = ?2 AND session_public_id = ?3 AND profile_id = ?1 AND scope = ?4 AND expires_at > ?5), -1) '
+            + 'ORDER BY e.sequence LIMIT 200',
+        ).bind(context.profile.id, idHash, context.session.public_id, scope, now),
     ];
 }
 
 async function exportPageFromResults(
     env: Env,
     secret: string,
-    previousCursor: number,
     progressResult: { readonly results: readonly (ExportProgressRow | StoredEventRow)[] } | undefined,
     eventResult: { readonly results: readonly (ExportProgressRow | StoredEventRow)[] } | undefined,
-): Promise<ExportPage> {
+    readerEventResult: { readonly results: readonly (ExportProgressRow | StoredEventRow)[] } | undefined,
+): Promise<ExportPageBundle> {
     const progress = progressResult?.results[0] as ExportProgressRow | undefined;
     if (!progress) throw new HttpError(503, 'Export traversal could not be started.');
-    const rows = (eventResult?.results ?? []) as readonly StoredEventRow[];
-    const events = rows.map(eventView);
-    if (events.length > 0 && progress.next_cursor !== rows.at(-1)?.sequence) {
-        throw new HttpError(503, 'Export traversal became inconsistent.');
-    }
-    if (events.length === 0 && progress.next_cursor !== previousCursor) {
-        throw new HttpError(503, 'Export traversal became inconsistent.');
-    }
-    const hasMore = progress.completed_at === null;
+    const academyRows = (eventResult?.results ?? []) as readonly StoredEventRow[];
+    const readerRows = (readerEventResult?.results ?? []) as readonly StoredEventRow[];
+    assertPageConsistent(academyRows, progress.academy_page_start_cursor, progress.academy_next_cursor);
+    assertPageConsistent(readerRows, progress.reader_page_start_cursor, progress.reader_next_cursor);
+    const academyHasMore = progress.academy_next_cursor < progress.academy_snapshot_sequence;
+    const readerHasMore = progress.reader_next_cursor < progress.reader_snapshot_sequence;
+    const traversalHasMore = progress.completed_at === null;
+    const exportCursor = traversalHasMore ? await createExportCursor(env, secret, progress.page_number) : null;
     return {
-        events,
-        nextCursor: progress.next_cursor,
-        hasMore,
-        exportCursor: hasMore ? await createExportCursor(env, secret, progress.next_cursor) : null,
+        eventPage: {
+            events: academyRows.map(eventView),
+            nextCursor: progress.academy_next_cursor,
+            hasMore: academyHasMore,
+            exportCursor,
+        },
+        readerSrsEventPage: {
+            events: readerRows.map(eventView),
+            nextCursor: progress.reader_next_cursor,
+            hasMore: readerHasMore,
+        },
     };
+}
+
+function assertPageConsistent(rows: readonly StoredEventRow[], startCursor: number, nextCursor: number): void {
+    if (rows.length > 0 && (rows[0]?.sequence ?? 0) <= startCursor) {
+        throw new HttpError(503, 'Export traversal became inconsistent.');
+    }
+    if (rows.length > 0 && rows.at(-1)?.sequence !== nextCursor) {
+        throw new HttpError(503, 'Export traversal became inconsistent.');
+    }
+    if (rows.length === 0 && nextCursor !== startCursor) {
+        throw new HttpError(503, 'Export traversal became inconsistent.');
+    }
 }
 
 async function profileExportMetadata(env: Env, context: ProfileContext, now: number): Promise<Record<string, unknown>> {
@@ -258,14 +308,22 @@ async function accountExportMetadata(
 
 async function exportedDevices(env: Env, profileId: string): Promise<Array<Record<string, unknown>>> {
     const devices = await env.ACADEMY_DB.prepare(
-        'SELECT public_id, created_at, last_seen_at, revoked_at FROM profile_devices '
-        + 'WHERE profile_id = ?1 ORDER BY created_at, public_id',
+        'SELECT d.public_id, d.created_at, d.last_seen_at, d.revoked_at, '
+        + 'c.created_at AS credential_created_at, c.last_seen_at AS credential_last_seen_at, '
+        + 'c.revoked_at AS credential_revoked_at FROM profile_devices d '
+        + 'LEFT JOIN profile_device_credentials c ON c.profile_device_id = d.id '
+        + 'WHERE d.profile_id = ?1 ORDER BY d.created_at, d.public_id',
     ).bind(profileId).all<DeviceExportRow>();
     return devices.results.map(device => ({
         deviceId: device.public_id,
         createdAt: device.created_at,
         lastSeenAt: device.last_seen_at,
         revokedAt: device.revoked_at,
+        readerCredential: device.credential_created_at === null ? null : {
+            createdAt: device.credential_created_at,
+            lastSeenAt: device.credential_last_seen_at,
+            revokedAt: device.credential_revoked_at,
+        },
     }));
 }
 
@@ -282,20 +340,20 @@ function eventView(row: StoredEventRow): Record<string, unknown> {
     };
 }
 
-async function createExportCursor(env: Env, secret: string, cursor: number): Promise<string> {
-    const encodedCursor = cursor.toString(36);
-    const signature = await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `export-cursor:${secret}:${encodedCursor}`);
-    return `v1.${secret}.${encodedCursor}.${signature}`;
+async function createExportCursor(env: Env, secret: string, pageNumber: number): Promise<string> {
+    const encodedPage = pageNumber.toString(36);
+    const signature = await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `export-cursor:${secret}:${encodedPage}`);
+    return `v2.${secret}.${encodedPage}.${signature}`;
 }
 
 async function parseExportCursor(env: Env, value: string): Promise<ExportCursor> {
     const match = EXPORT_CURSOR_PATTERN.exec(value);
     if (!match) throw new HttpError(400, 'Export cursor is invalid.');
-    const cursor = Number.parseInt(match[2], 36);
-    if (!Number.isSafeInteger(cursor) || cursor < 0) throw new HttpError(400, 'Export cursor is invalid.');
+    const pageNumber = Number.parseInt(match[2], 36);
+    if (!Number.isSafeInteger(pageNumber) || pageNumber < 1) throw new HttpError(400, 'Export cursor is invalid.');
     const expected = await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `export-cursor:${match[1]}:${match[2]}`);
     if (!(await timingSafeEqual(expected, match[3]))) throw new HttpError(400, 'Export cursor is invalid.');
-    return { secret: match[1], cursor };
+    return { secret: match[1], pageNumber };
 }
 
 async function exportSessionHash(env: Env, secret: string): Promise<string> {

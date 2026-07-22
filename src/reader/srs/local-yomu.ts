@@ -1,10 +1,11 @@
-import { gmStorageGet, gmStorageSet } from '../app/storage';
+import { gmStorageGet, gmStorageSet, withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { canonicalStudyCardIdentity } from './shared';
 import {
     mergeStoredYomuSrsCards,
+    mergeStoredYomuSrsDecks,
     normalizeStoredYomuSrsDeck,
     removeAcademyVocabularyProvenance as removeAcademyProvenanceFromDeck,
     upsertAcademyVocabulary,
@@ -17,6 +18,7 @@ import type {
     YomuSrsAdapter,
     YomuSrsImportBatch,
     YomuSrsImportItem,
+    YomuSrsLookupItem,
     YomuSrsMiningRequest,
     YomuSrsMiningResult,
     YomuSrsQueueSnapshot,
@@ -35,6 +37,12 @@ export type {
 
 const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 let localDeckMutation = Promise.resolve();
+const localDeckMutationListeners = new Set<(cardIds: readonly string[]) => void>();
+
+export function subscribeLocalYomuSrsMutations(listener: (cardIds: readonly string[]) => void): () => void {
+    localDeckMutationListeners.add(listener);
+    return () => localDeckMutationListeners.delete(listener);
+}
 
 export interface AcademyVocabularyCollectionResult {
     readonly cardId: string;
@@ -164,6 +172,38 @@ export class LocalYomuSrsRepository {
         };
     }
 
+    /** Read the normalized encrypted-sync payload without exposing the storage key. */
+    async snapshot(): Promise<StoredYomuSrsDeck> {
+        return structuredClone(await this.readDeck());
+    }
+
+    /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+    async mergeSnapshot(value: unknown, options: { notifyMutations?: boolean } = {}): Promise<StoredYomuSrsDeck> {
+        return this.mutateDeck(deck => {
+            const merged = mergeStoredYomuSrsDecks(deck, value);
+            deck.cards = merged.cards;
+            deck.tombstones = merged.tombstones;
+            return structuredClone(merged);
+        }, options.notifyMutations !== false);
+    }
+
+    /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+    async lookupCards(items: readonly YomuSrsLookupItem[]): Promise<YomuSrsReviewable[]> {
+        const now = this.now();
+        const deck = await this.readDeck();
+        const cards = new Map<string, YomuSrsReviewable>();
+        for (const item of items) {
+            try {
+                const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+                const stored = deck.cards[identity.key];
+                if (stored) cards.set(identity.key, this.toReviewable(stored, now));
+            } catch {
+                // A malformed parser candidate is simply not a local SRS card.
+            }
+        }
+        return [...cards.values()];
+    }
+
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
         return this.mutateDeck(deck => {
             const now = this.now();
@@ -172,28 +212,36 @@ export class LocalYomuSrsRepository {
                 ?? deck.cards[identity.key]
                 ?? this.cardFromReviewable(request.card, now);
             const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
-            if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+            if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
+                delete deck.cards[request.card.providerCardId];
+                deck.tombstones = { ...(deck.tombstones ?? {}), [request.card.providerCardId]: now };
+            }
             deck.cards[identity.key] = updated;
+            if ((deck.tombstones?.[identity.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity.key];
             return { card: this.toReviewable(updated, now), raw: updated };
         });
     }
 
-    // fallow-ignore-next-line unused-class-member
     async mine(request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult> {
-        const now = this.now();
-        const card = reviewableFromMiningRequest(request, now);
-        const raw = await this.importBatch({
-            source: 'manual-mining',
-            importedAt: now,
-            items: [{
-                expression: card.expression,
-                reading: card.reading,
-                meanings: card.meanings.flatMap(meaning => meaning.glosses),
+        return this.mutateDeck(deck => {
+            const now = this.now();
+            const candidate = this.cardFromImportItem({
+                expression: request.expression,
+                reading: request.reading,
+                meanings: request.meaning ? [request.meaning] : [],
                 sentence: request.sentence,
                 sourceUrl: request.sourceUrl,
-            }],
+            }, now);
+            if (!candidate) throw new TypeError('Vocabulary expression is required.');
+            const existing = deck.cards[candidate.id];
+            const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+            deck.cards[candidate.id] = stored;
+            if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
+            return {
+                card: this.toReviewable(stored, now),
+                raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 },
+            };
         });
-        return { card, raw };
     }
 
     private readDeck(): Promise<StoredYomuSrsDeck> {
@@ -211,13 +259,24 @@ export class LocalYomuSrsRepository {
         return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
     }
 
-    private mutateDeck<Result>(operation: (deck: StoredYomuSrsDeck) => Result): Promise<Result> {
-        const result = localDeckMutation.then(async () => {
+    private mutateDeck<Result>(operation: (deck: StoredYomuSrsDeck) => Result, notifyMutations = true): Promise<Result> {
+        const result = localDeckMutation.then(() => withGmStorageLease('local-yomu-srs-deck', async () => {
             const deck = await this.readDeckUncoordinated();
+            const previousCards = new Map(Object.entries(deck.cards));
+            const previousTombstones = { ...(deck.tombstones ?? {}) };
             const value = operation(deck);
-            await this.writeDeck(deck);
+            await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+            const changedCardIds = new Set([...previousCards.keys(), ...Object.keys(deck.cards),
+                ...Object.keys(previousTombstones), ...Object.keys(deck.tombstones ?? {})]);
+            const changed = [...changedCardIds].filter(id => !sameStoredCard(previousCards.get(id), deck.cards[id])
+                || previousTombstones[id] !== deck.tombstones?.[id]);
+            if (notifyMutations) {
+                localDeckMutationListeners.forEach(listener => {
+                    try { listener(changed); } catch { /* local persistence already succeeded */ }
+                });
+            }
             return value;
-        });
+        }));
         localDeckMutation = result.then(() => undefined, () => undefined);
         return result;
     }
@@ -295,6 +354,12 @@ export class LocalYomuSrsRepository {
     }
 }
 
+function sameStoredCard(left: StoredYomuSrsCard | undefined, right: StoredYomuSrsCard | undefined): boolean {
+    if (left === right) return true;
+    if (!left || !right) return false;
+    return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()): YomuSrsAdapter {
     return {
         id: 'yomu-local',
@@ -307,6 +372,7 @@ export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepositor
         queue: limit => repository.queue(limit),
         review: request => repository.review(request),
         mine: request => repository.mine(request),
+        lookupCards: items => repository.lookupCards(items),
         importBatch: batch => repository.importBatch(batch),
     };
 }
@@ -341,23 +407,6 @@ function easeDelta(grade: YomuSrsReviewRequest['grade']): number {
     if (grade === 'hard') return -0.15;
     if (grade === 'nothing' || grade === 'something' || grade === 'fail' || grade === 'again') return -0.25;
     return 0;
-}
-
-function reviewableFromMiningRequest(request: YomuSrsMiningRequest, now: number): YomuSrsReviewable {
-    const identity = canonicalStudyCardIdentity(request.expression, request.reading);
-    return {
-        providerId: 'yomu-local',
-        providerCardId: identity.key,
-        providerReviewId: identity.key,
-        kind: request.kind ?? 'vocabulary',
-        expression: identity.expression,
-        reading: identity.reading,
-        meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
-        state: ['new'],
-        dueAt: now,
-        lastReviewAt: null,
-        sourceUrl: request.sourceUrl,
-    };
 }
 
 function meaningsFromGlosses(glosses: string[]): JPDBMeaning[] {

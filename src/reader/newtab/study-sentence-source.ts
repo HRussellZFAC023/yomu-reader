@@ -10,6 +10,29 @@ export interface StudySentenceTier {
     sentences: string[];
 }
 
+/**
+ * Study clozes need a complete thought, not an arbitrary subtitle slice. A
+ * fragment is worse than a word-only production prompt because it teaches the
+ * learner to reproduce Japanese that no speaker actually finished saying.
+ */
+export function isCompleteStudySentence(value: string): boolean {
+    const sentence = value.replace(/\s+/gu, ' ').trim();
+    if (sentence.length < 4) return false;
+    if (!balancedStudySentenceMarks(sentence)) return false;
+    if (/[、,，:：;；…]$/u.test(sentence)) return false;
+    if (/[♪♫♬♩]/u.test(sentence)) return false;
+    // Subtitle speaker/stage labels are context metadata, not sentence starts.
+    if (/^[（(][^）)]{1,32}[）)]\s*/u.test(sentence)) return false;
+    // An unpunctuated noun/title ending is usually a caption or lyric slice,
+    // not a sentence. Normal verb/adjective/casual endings end in kana.
+    if (!/[。！？!?」』]$/u.test(sentence) && /[\p{Script=Han}\p{Script=Katakana}]$/u.test(sentence)) return false;
+    // Common subtitle/API truncation tails. Keep ordinary unpunctuated spoken
+    // sentences (行く, そうです, 分かったよ), but reject connective particles
+    // and continuative forms such as the reported 「同じ説明をし」.
+    if (/(?:をし|にし|として|について|によって|による|ながら|つつ|ので|のに|けど|けれど|たり|って|ばかり|ばっかり|[をにへでとがはも])$/u.test(sentence)) return false;
+    return true;
+}
+
 export function studySentenceTiers(
     card: JPDBCard,
     dictionaryEntries: readonly YomitanTermEntry[],
@@ -88,9 +111,25 @@ function uniqueSentences(values: readonly string[]): string[] {
     const sentences: string[] = [];
     for (const value of values) {
         const sentence = value.replace(/\s+/gu, ' ').trim();
-        if (!sentence || seen.has(sentence)) continue;
+        if (!isCompleteStudySentence(sentence) || seen.has(sentence)) continue;
         seen.add(sentence);
         sentences.push(sentence);
     }
     return sentences;
+}
+
+function balancedStudySentenceMarks(value: string): boolean {
+    const pairs: ReadonlyArray<readonly [string, string]> = [
+        ['「', '」'],
+        ['『', '』'],
+        ['（', '）'],
+        ['(', ')'],
+        ['［', '］'],
+        ['[', ']'],
+    ];
+    return pairs.every(([open, close]) => countMark(value, open) === countMark(value, close));
+}
+
+function countMark(value: string, mark: string): number {
+    return Array.from(value).filter(character => character === mark).length;
 }

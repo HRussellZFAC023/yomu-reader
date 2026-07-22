@@ -1896,12 +1896,10 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         && !sourcePreservingFrameworkHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
-    // Clip-constrained rows are NOT mirror-rerouted (paint-invariant design,
-    // 2026-07-10 third live gate): hiding the host and anchoring the mirror to
-    // a clamped box collapsed feed titles to 0px. They render in place — the
-    // in-place channel suppresses/rest-hides readings — and only hosts that
-    // REQUIRE the mirror (framework/shadow/nonDestructive) keep it, where the
-    // mirror becomes a hover-only overlay over the still-painted host text.
+    // Clip-constrained rows are not mirror-rerouted merely because they clip:
+    // replacing page-owned layout with a clamped mirror can collapse titles.
+    // Framework/shadow/non-destructive hosts still use a source-projected
+    // mirror, while ordinary DOM keeps the simpler in-place render path.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || repaintLooping)
         && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
@@ -2110,15 +2108,6 @@ function renderTokenizedScanText(
     for (const plan of tokenPlans) {
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
-        // Mirrored words are atomic nowrap inline boxes; Japanese prose has no
-        // inter-word spaces, so back-to-back tokens would give the line ZERO
-        // soft-wrap opportunities and a long mirrored line overflows its host
-        // sideways. <wbr> restores the wrap point the host's raw text had
-        // between those characters without entering textContent (copy, mining,
-        // and re-scan comparisons all stay byte-identical to the source).
-        if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
-            fragment.append(document.createElement('wbr'));
-        }
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
             // Content in clipped rows and interactive controls use detached
             // readings so the native centred line box remains invariant on
@@ -2700,7 +2689,7 @@ function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderConte
     mirror.setAttribute('aria-hidden', 'true');
     // Source-preserving is the only mirror contract. The page's glyphs remain
     // authoritative; this layer contributes hit areas, pitch/status decoration,
-    // and collision-checked readings. Losing the layer therefore degrades to
+    // and always-visible detached readings. Losing the layer therefore degrades to
     // plain readable text rather than a blank host.
     mirror.classList.add('jpdb-reader-additive-text-mirror');
     if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = 'true';
@@ -2725,9 +2714,8 @@ function mountNonDestructiveTextMirror(
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
     // room for only one tall line — hiding base glyphs (invisible subscriber
-    // count) and over-clamping 2-line titles to one. Readings are rest-hidden
-    // there anyway, so the mirror keeps the host's own line metrics and the
-    // host's overflow stays closed.
+    // count) and over-clamping 2-line titles to one. Detached readings remain
+    // out of flow, so the mirror keeps the host's own line metrics.
     const state = styleTextMirrorHost(host);
     try {
         styleTextMirror(mirror, host, false);
@@ -2765,15 +2753,9 @@ function mountNonDestructiveTextMirror(
             openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
-        // Correct the mirror's inline offset (a source run beginning inside the
-        // padding box — leading icon sibling, centred/RTL control — that
-        // styleTextMirror's cross-axis-only anchor leaves uncorrected). Measuring
-        // it here forced a layout inside the synchronous mount task, on the boot
-        // scan's critical path (the WebKit frame-lane cost). Defer to a single
-        // coalesced post-paint realign instead: the mount still stamps the
-        // mirror, and alignment lands next frame (idempotent with the
-        // settle-driven realign, so a hidden mount aligns when it is shown).
-        scheduleAdditiveMirrorRealign();
+        // Source projection needs live client rects. Batch it after paint rather
+        // than forcing layout once per mirror during the synchronous boot scan.
+        scheduleAdditiveMirrorProjection();
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2795,272 +2777,182 @@ function stabilizeReadingFreeControlMirror(mirror: HTMLElement, host: HTMLElemen
 
 function stampMirrorWordSourceRanges(mirror: HTMLElement, tokens: JPDBToken[]): void {
     const words = Array.from(mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word'));
+    const sourceText = mirror.dataset.sourceText ?? '';
     for (const [index, word] of words.entries()) {
         const token = tokens[index];
         if (!token) continue;
         word.dataset.yomuSourceStart = String(token.start);
         word.dataset.yomuSourceEnd = String(token.end);
+        stampProjectedRubySourceRanges(word, sourceText.slice(token.start, token.end), token, token.start);
     }
 }
 
-// styleTextMirror pins the additive mirror to the host's padding-box origin
-// (inset 0 0 auto 0) and corrects only the CROSS axis (vertical centring). The
-// page's own text run, though, need not begin at that inline-start: a flex/grid
-// control with a leading icon sibling, justify-content centring, or RTL flow
-// all shift the real glyphs horizontally. The transparent mirror word then
-// carries its ::after underline and detached readings beside the glyphs it
-// annotates (Reddit 投票 underline sitting under the neighbouring icon,
-// 2026-07-19). Measure the source run's inline-start against the mirror's the
-// same way — a Range over the stamped source nodes vs the mirror's first word —
-// and fold the residual into the mirror's translate. This is layout-structural
-// (leading sibling / alignment / writing direction), never a site profile, and
-// re-runs idempotently on settle: the residual is measured AFTER any prior
-// translateX, so an already-aligned run leaves the transform untouched.
-const ADDITIVE_MIRROR_RUN_ALIGN_EPSILON = 1;
-
-export function alignAdditiveTextMirrorRun(mirror: HTMLElement, host: HTMLElement): void {
-    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
-    const word = mirror.querySelector<HTMLElement>(
-        '.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]',
-    );
-    if (!word) return;
-    const mirrorLeft = firstFragmentLeft(word.getClientRects());
-    const sourceLeft = hostSourceRunLeft(host, word);
-    if (mirrorLeft === null || sourceLeft === null) return;
-    const residual = sourceLeft - mirrorLeft;
-    // An unshifted run (ordinary prose whose text starts at the content box)
-    // must not acquire a transform, and a re-align must not churn a run already
-    // within a pixel of its source — that keeps this a no-op on the hot path.
-    if (Math.abs(residual) <= ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) return;
-    const { x: currentX, y } = parseMirrorTranslate(mirror);
-    const nextX = currentX + residual;
-    const parts: string[] = [];
-    if (Math.abs(nextX) > ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) parts.push(`translateX(${nextX}px)`);
-    // Preserve the cross-axis correction styleTextMirror may have applied for a
-    // vertically-centred control; the two translations are order-independent.
-    if (y) parts.push(`translateY(${y})`);
-    if (parts.length) mirror.style.setProperty('transform', parts.join(' '));
-    else mirror.style.removeProperty('transform');
+function stampProjectedRubySourceRanges(
+    word: HTMLElement,
+    surface: string,
+    token: JPDBToken,
+    sourceStart: number,
+): void {
+    const rubies = effectiveTokenRubies(surface, token, true);
+    word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby').forEach((wrapper, rubyIndex) => {
+        const ruby = rubies[rubyIndex];
+        const local = ruby ? localRubyRange(surface, token, ruby) : null;
+        if (!local) return;
+        wrapper.dataset.yomuSourceStart = String(sourceStart + local.start);
+        wrapper.dataset.yomuSourceEnd = String(sourceStart + local.end);
+    });
 }
 
-// Re-align every additive mirror after a settle signal (fonts.ready/loadingdone,
-// viewport/reflow resize): a webfont swap or reflow can move the source run out
-// from under a mirror whose horizontal offset was measured against the fallback
-// metrics. Shares the read-then-write discipline of the wrapped-underline sweep.
-export function realignAdditiveTextMirrorRuns(root: ParentNode = document): void {
+const SOURCE_FRAGMENT_CLASS = 'jpdb-reader-source-fragment';
+
+/** Project decorations and readings onto the page-owned text fragments. The
+ * mirror never tries to reproduce another renderer's CJK wrapping; Range is
+ * the source of truth for every line fragment. */
+export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement): void {
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return;
+
+    mirror.style.setProperty('inset', '0 auto auto 0');
+    mirror.style.setProperty('width', `${host.offsetWidth || host.getBoundingClientRect().width}px`);
+    mirror.style.setProperty('height', `${host.offsetHeight || host.getBoundingClientRect().height}px`);
+    mirror.style.setProperty('padding', '0');
+    mirror.style.setProperty('transform', 'none');
+    const mirrorRect = mirror.getBoundingClientRect();
+    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return;
+    const scaleX = mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1;
+    const scaleY = mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1;
+    const clipRect = closestRubyFragileConstrainedRow(host)?.getBoundingClientRect() ?? null;
+
+    for (const word of mirror.querySelectorAll<HTMLElement>(
+        '.jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]',
+    )) {
+        word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
+        const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+        const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+        const rects = sourceClientRects(host, source.nodeOffsets, start, end)
+            .filter(rect => !clipRect || rectsIntersect(rect, clipRect));
+        if (!rects.length) continue;
+
+        word.dataset.yomuSourceProjected = 'true';
+        word.style.setProperty('position', 'absolute', 'important');
+        word.style.setProperty('inset', '0', 'important');
+        word.style.setProperty('width', 'auto', 'important');
+        word.style.setProperty('height', 'auto', 'important');
+        word.style.setProperty('margin', '0', 'important');
+        for (const rect of rects) {
+            const fragment = document.createElement('span');
+            fragment.className = SOURCE_FRAGMENT_CLASS;
+            fragment.setAttribute('aria-hidden', 'true');
+            positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
+            word.append(fragment);
+        }
+
+        for (const ruby of word.querySelectorAll<HTMLElement>(
+            '.jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]',
+        )) {
+            const rubyStart = Number.parseInt(ruby.dataset.yomuSourceStart ?? '', 10);
+            const rubyEnd = Number.parseInt(ruby.dataset.yomuSourceEnd ?? '', 10);
+            const rubyRect = sourceClientRects(host, source.nodeOffsets, rubyStart, rubyEnd)
+                .find(rect => !clipRect || rectsIntersect(rect, clipRect));
+            if (rubyRect) positionProjectedElement(ruby, rubyRect, mirrorRect, scaleX, scaleY);
+        }
+    }
+    mirror.dataset.yomuSourceProjected = 'true';
+}
+
+function sourceClientRects(
+    host: HTMLElement,
+    nodeOffsets: Map<Text, number>,
+    start: number,
+    end: number,
+): DOMRect[] {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+    const startBoundary = sourceRangeBoundary(nodeOffsets, start, 'start');
+    const endBoundary = sourceRangeBoundary(nodeOffsets, end, 'end');
+    if (!startBoundary || !endBoundary) return [];
+    const range = host.ownerDocument.createRange();
+    range.setStart(startBoundary.node, startBoundary.offset);
+    range.setEnd(endBoundary.node, endBoundary.offset);
+    return mergeSourceLineRects(Array.from(range.getClientRects())
+        .filter(rect => rect.width > 0 && rect.height > 0));
+}
+
+/** Browsers may report nested/duplicate rects for one range (notably native
+ * ruby and attributed-string wrappers). One painted source line needs one
+ * continuous annotation fragment. */
+function mergeSourceLineRects(rects: DOMRect[]): DOMRect[] {
+    const sorted = [...rects].sort((left, right) => left.top - right.top || left.left - right.left);
+    const merged: DOMRect[] = [];
+    for (const rect of sorted) {
+        const previous = merged.at(-1);
+        const sameLine = previous
+            && Math.abs(previous.top - rect.top) <= 1
+            && Math.abs(previous.bottom - rect.bottom) <= 1;
+        if (!sameLine || rect.left > previous.right + 1) {
+            merged.push(rect);
+            continue;
+        }
+        const left = Math.min(previous.left, rect.left);
+        const top = Math.min(previous.top, rect.top);
+        const right = Math.max(previous.right, rect.right);
+        const bottom = Math.max(previous.bottom, rect.bottom);
+        merged[merged.length - 1] = {
+            left, top, right, bottom,
+            x: left, y: top,
+            width: right - left, height: bottom - top,
+            toJSON: () => ({}),
+        } as DOMRect;
+    }
+    return merged;
+}
+
+function positionProjectedElement(
+    element: HTMLElement,
+    rect: DOMRect,
+    mirrorRect: DOMRect,
+    scaleX: number,
+    scaleY: number,
+): void {
+    element.style.setProperty('position', 'absolute', 'important');
+    element.style.setProperty('left', `${(rect.left - mirrorRect.left) / scaleX}px`, 'important');
+    element.style.setProperty('top', `${(rect.top - mirrorRect.top) / scaleY}px`, 'important');
+    element.style.setProperty('width', `${rect.width / scaleX}px`, 'important');
+    element.style.setProperty('height', `${rect.height / scaleY}px`, 'important');
+    element.style.setProperty('margin', '0', 'important');
+}
+
+function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
+    return left.right > right.left + 0.5
+        && left.left < right.right - 0.5
+        && left.bottom > right.top + 0.5
+        && left.top < right.bottom - 0.5;
+}
+
+// Re-project every additive mirror after a settle signal (fonts, resize,
+// virtualized reflow). Reads always come from the live source ranges.
+export function projectAdditiveTextMirrors(root: ParentNode = document): void {
     if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
     for (const mirror of root.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror')) {
         const host = registeredTextMirrorHostFor(mirror);
         if (!host?.isConnected) continue;
-        // Run-level (whole-mirror translateX) first, then per-word source pinning
-        // for the wrapped multi-line residual the single translate cannot fix.
-        alignAdditiveTextMirrorRun(mirror, host);
-        alignMirrorWordsToSourceRects(mirror, host);
+        projectAdditiveTextMirror(mirror, host);
     }
 }
 
-// A prose/label additive mirror re-flows the host's text as a chain of word
-// boxes and can only HOPE that reflow reproduces the host's own line breaking
-// and rhythm. It structurally cannot on wrapped multi-line CJK: the mirror wraps
-// at token boundaries (word-break:keep-all + inter-token <wbr>) while the source
-// breaks between any two ideographs; the inline-block ruby box's line box
-// (line-height:1 on a CJK glyph) does not collapse into the host's text strut,
-// inflating each wrapped line; and an inline host's containing block resolves a
-// few px narrow. The result is cumulative furigana/underline drift down every
-// line past the first. So pin each mirror word to the client rect of ITS OWN
-// source Range — the same source-range authority readerWordSourcePointScore
-// already trusts for hit-testing ("their own boxes are never authoritative").
-// Alignment then no longer depends on the mirror reproducing the host layout at
-// all. Runs from the shared settle sweep (realignAdditiveTextMirrorRuns) so it
-// rides the existing mount rAF + width-gated reflow triggers rather than adding
-// its own observers. Idempotent (absolute values, no accumulation).
-// A computed transform is safe for source-rect pinning only when it is a pure
-// translation: getClientRects is measured in the same viewport space the mirror
-// itself lives in, so a translate cancels out in the (source − mirror) delta,
-// but any scale/rotate/skew (or matrix3d) does not. Anything not recognised as a
-// 2D translate matrix is treated as unsafe so the pin is skipped.
-function isPureTranslateTransform(transform: string): boolean {
-    const match = transform.match(/^matrix\(([^)]+)\)$/u);
-    if (!match) return false;
-    const parts = match[1].split(',').map(value => Number.parseFloat(value));
-    if (parts.length !== 6 || parts.some(value => !Number.isFinite(value))) return false;
-    const [a, b, c, d] = parts;
-    return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
-}
-
-function alignMirrorWordsToSourceRects(mirror: HTMLElement, host: HTMLElement): void {
-    if (!mirror.classList.contains('jpdb-reader-additive-text-mirror')) return;
-    // Absolute words leave the mirror's flow, collapsing its box to zero height.
-    // Harmless when the mirror is overflow:visible (detached prose + ordinary
-    // controls), but an overflow:hidden clamp mirror (constrainMirrorToClampBox)
-    // would then clip EVERY word to nothing. Those clamped rows lay out
-    // single-line and already align, so leave them in flow.
-    if (mirror.style.getPropertyValue('overflow') === 'hidden') return;
-    if (typeof Range.prototype.getClientRects !== 'function' || !host.isConnected) return;
-    // Cheap early-out: a mirror already pinned whose host box is unchanged since
-    // cannot have re-wrapped, so skip the host text walk entirely. This keeps the
-    // all-mirror settle sweep proportional to what actually reflowed.
-    const hostRect = host.getBoundingClientRect();
-    if (mirror.dataset.yomuAlignedHostW !== undefined
-        && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5
-        && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
-    // A CSS transform on the mirror or an ancestor (YouTube hover/transition
-    // scale, a scaled container) makes getClientRects report POST-transform
-    // viewport coordinates; written back as local offsets they would be scaled a
-    // second time. Leave such a mirror in flow rather than double-apply — an
-    // already-pinned mirror keeps its correct offsets under a later transform
-    // (its absolute words transform with it), and a transient animation clears by
-    // the next settle. Runs only for changed/new mirrors (after the early-out).
-    for (let node: HTMLElement | null = mirror, depth = 0; node && depth < 10; depth += 1, node = composedParentElement(node)) {
-        const transform = safeComputedStyle(node).transform;
-        if (transform && transform !== 'none' && !isPureTranslateTransform(transform)) return;
-    }
-    const source = hostOriginalTextWithNodeOffsets(host);
-    // Same guard as the hit-test: if the framework mutated the host text since
-    // render, the stamped offsets no longer map — bail and leave the reflow
-    // layout in place until the next clean render.
-    if (mirror.dataset.sourceText !== source.hostText) return;
-    const words = Array.from(mirror.querySelectorAll<HTMLElement>(
-        '.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]'));
-    if (!words.length) return;
-    const range = host.ownerDocument.createRange();
-    // READ phase: gather every source rect AND the word's current box before
-    // writing, so no interleaved write forces a layout between measurements.
-    const mirrorRect = mirror.getBoundingClientRect();
-    const placements: { word: HTMLElement; left: number; top: number; width: number; height: number }[] = [];
-    let maxDrift = 0;
-    for (const word of words) {
-        const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
-        const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
-        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
-        const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
-        const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
-        if (!startBoundary || !endBoundary) continue;
-        range.setStart(startBoundary.node, startBoundary.offset);
-        range.setEnd(endBoundary.node, endBoundary.offset);
-        const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
-        if (!rects.length) continue;
-        // A wrapped token spans multiple line boxes; pin it to its first, the
-        // same trade-off the in-place underline already accepts for split tokens.
-        const rect = rects[0];
-        const current = word.getBoundingClientRect();
-        // Width is part of the drift: a font/letter-spacing change can move a
-        // word's right edge (and thus its underline span / highlight box) while
-        // its left/top stay put — realign then instead of leaving it stale.
-        maxDrift = Math.max(maxDrift,
-            Math.abs(current.left - rect.left),
-            Math.abs(current.top - rect.top),
-            Math.abs(current.width - rect.width));
-        placements.push({
-            word,
-            left: rect.left - mirrorRect.left,
-            top: rect.top - mirrorRect.top,
-            width: rect.width,
-            height: rect.height,
-        });
-    }
-    if (!placements.length) return;
-    // Only rewrite when the reflow layout has actually drifted off the source
-    // glyphs. A correctly-placed single-line mirror (every fixed-height control
-    // pill/chip — the iPad-fragile surface — and single-line metadata) has ~0
-    // drift and is left untouched in flow. Re-runs are idempotent because a
-    // re-measure of already-pinned words reports ~0 drift.
-    const DRIFT_TOLERANCE_PX = 1.5;
-    if (maxDrift <= DRIFT_TOLERANCE_PX) {
-        mirror.dataset.yomuAlignedHostW = String(hostRect.width);
-        mirror.dataset.yomuAlignedHostH = String(hostRect.height);
-        return;
-    }
-    // WRITE phase.
-    for (const { word, left, top, width, height } of placements) {
-        word.style.setProperty('position', 'absolute', 'important');
-        word.style.setProperty('left', `${left}px`, 'important');
-        word.style.setProperty('top', `${top}px`, 'important');
-        word.style.setProperty('width', `${width}px`, 'important');
-        word.style.setProperty('height', `${height}px`, 'important');
-        word.style.setProperty('margin', '0', 'important');
-        word.style.setProperty('white-space', 'nowrap', 'important');
-    }
-    // A vertically-centred mirror (styleTextMirror's translateY(-50%) on a
-    // flex/button host) shifts its own origin once the words leave flow and its
-    // box collapses to ~0 height. The offsets above were computed against the
-    // pre-collapse origin, so re-anchor against the settled box in one
-    // correction (only when a transform is actually present — the common inset:0
-    // prose mirror never moves and skips this).
-    if (mirror.style.getPropertyValue('transform')) {
-        const settled = mirror.getBoundingClientRect();
-        const dx = settled.left - mirrorRect.left;
-        const dy = settled.top - mirrorRect.top;
-        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-            for (const { word, left, top } of placements) {
-                word.style.setProperty('left', `${left - dx}px`, 'important');
-                word.style.setProperty('top', `${top - dy}px`, 'important');
-            }
-        }
-    }
-    mirror.dataset.yomuSourceAligned = '1';
-    const finalHostRect = host.getBoundingClientRect();
-    mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
-    mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
-}
-
-// Coalesce every freshly-mounted mirror's run-alignment into ONE post-paint
-// pass. Aligning at mount forced a synchronous layout read per mirror inside the
-// boot scan task; batching to a single rAF moves that work off the critical
-// path while still landing alignment on the next frame. Idempotent with the
-// settle-driven realign, so a mirror mounted while its host is hidden is aligned
-// by the settle pass once it becomes visible.
-let pendingAdditiveMirrorAlignFrame = 0;
-function scheduleAdditiveMirrorRealign(): void {
+// Coalesce freshly-mounted mirrors into one post-paint projection pass. A hidden
+// mount is picked up by the next settle once its source rects become measurable.
+let pendingAdditiveMirrorProjectionFrame = 0;
+function scheduleAdditiveMirrorProjection(): void {
     if (typeof requestAnimationFrame !== 'function') {
-        realignAdditiveTextMirrorRuns(document);
+        projectAdditiveTextMirrors(document);
         return;
     }
-    if (pendingAdditiveMirrorAlignFrame) return;
-    pendingAdditiveMirrorAlignFrame = requestAnimationFrame(() => {
-        pendingAdditiveMirrorAlignFrame = 0;
-        realignAdditiveTextMirrorRuns(document);
+    if (pendingAdditiveMirrorProjectionFrame) return;
+    pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
+        pendingAdditiveMirrorProjectionFrame = 0;
+        projectAdditiveTextMirrors(document);
     });
-}
-
-// The inline-start (leftmost) live edge across a fragment list. Degenerate
-// zero-area rects (range boundaries, collapsed glyphs) are skipped so a
-// boundary rect can never masquerade as the run origin.
-function firstFragmentLeft(rects: DOMRectList | DOMRect[]): number | null {
-    let left: number | null = null;
-    for (const rect of Array.from(rects)) {
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        if (left === null || rect.left < left) left = rect.left;
-    }
-    return left;
-}
-
-// The live inline-start of the page-owned source range for a mirrored word,
-// resolved through the same node-offset walk the hit-test scorer uses so the
-// two measurements are apples-to-apples.
-function hostSourceRunLeft(host: HTMLElement, word: HTMLElement): number | null {
-    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
-    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-    const source = hostOriginalTextWithNodeOffsets(host);
-    if (end > source.hostText.length) return null;
-    const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
-    const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
-    if (!startBoundary || !endBoundary) return null;
-    const range = host.ownerDocument.createRange();
-    range.setStart(startBoundary.node, startBoundary.offset);
-    range.setEnd(endBoundary.node, endBoundary.offset);
-    return firstFragmentLeft(range.getClientRects());
-}
-
-function parseMirrorTranslate(mirror: HTMLElement): { x: number; y: string } {
-    const transform = mirror.style.transform;
-    const xMatch = /translateX\((-?[\d.]+)px\)/.exec(transform);
-    const yMatch = /translateY\(([^)]+)\)/.exec(transform);
-    return {
-        x: xMatch ? Number.parseFloat(xMatch[1]) : 0,
-        y: yMatch ? yMatch[1].trim() : '',
-    };
 }
 
 /**
@@ -3160,15 +3052,11 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         setInlineStyleIfChanged(reading, 'position', 'absolute', 'important');
         setInlineStyleIfChanged(reading, 'z-index', '2');
         setInlineStyleIfChanged(reading, 'inset-inline-start', '50%');
-        // Leave a visible lane between the kana and its base glyph. WebKit's
-        // ruby/font rounding consumes roughly one CSS pixel, so 3px here
-        // produces a measured >=2px gap in both Chromium and WebKit.
+        // A Range rect describes the source line box, but CJK ink can overhang
+        // its top edge by about 2px. Preserve a small gap so source-projected
+        // readings cannot collide with their base in WebKit or Chromium.
         setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 3px)');
-        // A reading inside a clip-constrained row whose clip was NOT safely
-        // opened (multi-line clamps never open) sits in the fixed inter-line
-        // leading and paints over the line above — same at-rest rule as
-        // in-place rt, applied here because inline !important is what wins.
-        setInlineStyleIfChanged(reading, 'display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+        setInlineStyleIfChanged(reading, 'display', 'block', 'important');
         setInlineStyleIfChanged(reading, 'width', 'max-content');
         setInlineStyleIfChanged(reading, 'max-width', 'none');
         setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
@@ -3199,56 +3087,62 @@ function setInlineStyleIfChanged(element: HTMLElement, property: string, value: 
 
 type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
 const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'anki', 'pitch'];
+const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => source !== 'pitch');
 
 // A document-root mode selector cannot cross into an open shadow root. The
 // shadow stylesheet supplies the word/state variables, while this small inline
-// contract supplies the active channel and native underline paint. Source
-// order deliberately matches the stylesheet cascade (pitch is last).
+// contract supplies the active channel to the shared synthetic underline.
+// Source order deliberately matches the stylesheet cascade (pitch is last).
 function styleAdditiveMirrorPaint(root: HTMLElement): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
     root.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
-    const source = activeAdditiveDecorationSource();
-    if (!source) return;
+    const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+    const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     // The injected shadow stylesheet owns glyph suppression and word
-    // decoration geometry. Only the document-level active channel cannot
-    // cross the shadow boundary, so bridge that one inherited variable.
-    const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
-    for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
-        word.style.setProperty('text-decoration-color', paint, 'important');
+    // decoration geometry. Document-level mode selectors cannot cross a shadow
+    // boundary, so bridge the selected semantic source onto the word. Painting
+    // a native text-decoration here would create a second engine-dependent
+    // baseline beside the exact source-fragment underline.
+    const paint = source
+        ? `var(--jpdb-reader-source-${source}-decoration, transparent)`
+        : 'transparent';
+    const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+    const softPaint = highlightSource
+        ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
+        : '';
+    for (const word of words) {
+        word.style.removeProperty('text-decoration-color');
+        word.style.removeProperty('--jpdb-reader-additive-decoration');
+        word.style.setProperty('--jpdb-reader-word-decoration-source', paint);
+        if (softPaint) word.style.setProperty('--jpdb-reader-mirror-status-soft', softPaint);
+        else word.style.removeProperty('--jpdb-reader-mirror-status-soft');
     }
 }
 
-function activeAdditiveDecorationSource(): AdditiveDecorationSource | null {
+function activeAdditiveHighlightSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
+    let active: AdditiveDecorationSource | null = null;
+    for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
+        if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
+    }
+    return active;
+}
+
+function activeAdditiveDecorationSource(documentElement: HTMLElement): AdditiveDecorationSource | null {
     let active: AdditiveDecorationSource | null = null;
     for (const source of ADDITIVE_DECORATION_SOURCES) {
-        if (['highlight', 'underline', 'text'].some(channel => document.documentElement.classList
+        if (['highlight', 'underline', 'text'].some(channel => documentElement.classList
             .contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
     }
     return active;
 }
 
 // Detached readings are geometry overlays, not ruby layout boxes. Keep only
-// words whose BASE intersects the authored clamp, then show a reading only in
-// its natural lane immediately above that base. Moving a reading farther up can
-// make it cover the previous row (and moving neighboring readings independently
-// can make their kana cover each other), so an unsafe lane hides only the kana
-// overlay. The annotated base, pitch decoration, and lookup hit area remain.
+// words whose base intersects the authored clamp, then position each reading
+// above that base without changing the source line layout.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
-    // Pin words to their source rects FIRST, so both the clip filter and the
-    // collision sweep read final base geometry rather than the drifted reflow
-    // layout. The root is the mirror on the mount/replay paths; guard the
-    // reconcile path where it may be a broader collision surface.
-    if (root.classList.contains('jpdb-reader-additive-text-mirror')) {
-        const alignHost = registeredTextMirrorHostFor(root);
-        if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
-    }
-    if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
+    if (filterWordsToClip && root.dataset.yomuSourceProjected !== 'true') filterDetachedWordsToClip(root, clipRow);
 
-    settleDetachedReadingLanes(
-        Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')),
-        Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base')),
-    );
-    if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+    settleDetachedReadingLanes(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')));
 }
 
 // Clip filtering is a reversible Yomu-owned verdict. A line-clamped surface
@@ -3276,653 +3170,26 @@ function filterDetachedWordsToClip(root: HTMLElement, clipRow: HTMLElement | nul
     }
 }
 
-const DETACHED_READING_COLLISION_SLOP = 0.5;
-const DETACHED_READING_CLEARANCE_PX = 3;
-const pendingDetachedReadingSurfaces = new Set<HTMLElement>();
 const settledDetachedReadingGeometry = new WeakMap<HTMLElement, string>();
 
-function detachedReadingCollisionSurface(root: HTMLElement): HTMLElement {
-    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR)
-        ? composedParentElement(root) ?? root
-        : root;
-    return composedParentElement(owner) ?? owner;
-}
-
 function detachedReadingSurfaceGeometrySignature(root: HTMLElement): string {
-    const surface = detachedReadingCollisionSurface(root);
-    const elements = [
-        surface,
-        ...queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'),
-    ];
-    return elements.map(element => {
-        const rect = element.getBoundingClientRect();
-        return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element.className}:${element.textContent ?? ''}`;
-    }).join('|');
+    const rect = root.getBoundingClientRect();
+    return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${root.textContent ?? ''}`;
 }
 
-// Candidate-first: every reading — including ones the at-rest default
-// would blanket-hide — is forced into a measurable state in this same
-// synchronous task, so the collision checks below see its real rect. The
-// commit step at the end of this function is the ONLY place that decides a
-// reading's final display; nothing here is a lasting verdict.
 function exposeDetachedReadingCandidate(reading: HTMLElement): void {
     delete reading.dataset.yomuDetachedReadingHidden;
     reading.style.setProperty('display', 'block', 'important');
 }
 
-function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[]): void {
-    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    for (const reading of readings) {
-        exposeDetachedReadingCandidate(reading);
-        reading.style.removeProperty('--jpdb-reader-detached-lift');
-        reading.style.removeProperty('margin-left');
-    }
-    const viewportShifts = readings.map(reading => {
-        const rect = reading.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0 || viewportWidth <= 0) return { reading, shift: 0 };
-        const leftShift = rect.left < 1 ? 1 - rect.left : 0;
-        const rightShift = rect.right > viewportWidth - 1 ? viewportWidth - 1 - rect.right : 0;
-        return { reading, shift: leftShift || rightShift };
-    });
-    for (const { reading, shift } of viewportShifts) {
-        if (shift) reading.style.setProperty('margin-left', `${Math.round(shift)}px`);
-    }
-    // A reading that straddles its control's painted top border renders half
-    // on the page background and half on the control surface (join/share
-    // pills) — unreadable in both themes. Lift a straddling reading fully
-    // clear of the control's border so it sits on one background; the
-    // collision verdicts below then judge the lifted position.
-    for (const reading of readings) {
-        const rect = reading.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        const host = reading.closest<HTMLElement>(ANNOTATABLE_CONTROL_SELECTOR);
-        if (!host) continue;
-        const hostRect = host.getBoundingClientRect();
-        if (rect.top < hostRect.top - 1 && rect.bottom > hostRect.top + 1) {
-            const lift = Math.ceil(rect.bottom - hostRect.top) + 1;
-            reading.style.setProperty('inset-block-end', `calc(100% + ${3 + lift}px)`);
-        }
-    }
-
-    const readingRects = readings
-        .map(reading => ({ element: reading, rect: reading.getBoundingClientRect() }))
-        .filter(({ rect }) => rect.width > 0 && rect.height > 0)
-        .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-    const baseRects = bases
-        .map(base => ({ element: base, rect: base.getBoundingClientRect() }))
-        .filter(({ element, rect }) => rect.width > 0 && rect.height > 0
-            && safeComputedStyle(element).visibility !== 'hidden')
-        .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-    const unsafe = new Set<HTMLElement>();
-
-    for (const reading of readingRects) {
-        const ownRuby = reading.element.closest('.jpdb-reader-detached-ruby');
-        const ownBase = ownRuby?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
-        if (detachedReadingIsClipped(reading.element, reading.rect)
-            || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
-        for (const base of baseRects) {
-            if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-            if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
-            if (ownRuby && base.element.closest('.jpdb-reader-detached-ruby') === ownRuby) continue;
-            // Adjacent bases on the same authored line are expected reading
-            // overhang, not a foreign row; spacing them would erase compact
-            // compounds such as 新しい順.
-            if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
-            if (rectanglesWithinClearance(reading.rect, base.rect)
-                && !opaqueReadingSurfacePaintsAbove(
-                    reading.element,
-                    reading.rect,
-                    base.element,
-                    base.rect,
-                )) unsafe.add(reading.element);
-        }
-    }
-    for (let index = 0; index < readingRects.length; index += 1) {
-        const current = readingRects[index];
-        for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
-            const other = readingRects[otherIndex];
-            if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-            if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-            // A foreground menu/dialog reading and an annotated page reading
-            // behind its fully opaque surface do not share a visible lane.
-            // Preserve only the candidate whose own surface is proven above;
-            // the background candidate still fails closed and is reconsidered
-            // when the composed layout settles after the surface closes.
-            if (opaqueReadingSurfacePaintsAbove(
-                current.element,
-                current.rect,
-                other.element,
-                other.rect,
-            )) {
-                unsafe.add(other.element);
-            } else if (opaqueReadingSurfacePaintsAbove(
-                other.element,
-                other.rect,
-                current.element,
-                current.rect,
-            )) {
-                unsafe.add(current.element);
-            } else {
-                unsafe.add(current.element);
-                unsafe.add(other.element);
-            }
-        }
-    }
-    // Commit: the measured checks above are the sole authority on final
-    // visibility. A zero-sized candidate has no safety evidence (for example
-    // while an ancestor is display:none), so it fails closed and can only be
-    // revived by a later measured settle after the surface is revealed.
-    const measured = new Set(readingRects.map(({ element }) => element));
-    for (const reading of readings) {
-        if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
-    }
+function settleDetachedReadingLanes(readings: HTMLElement[]): void {
+    // Visibility follows the user's furigana setting. Geometry stays anchored
+    // to the base characters; viewport/collision heuristics must never slide a
+    // reading away from the word it annotates.
+    readings.forEach(exposeDetachedReadingCandidate);
 }
 
-function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): boolean {
-    const ownWord = reading.closest('.jpdb-reader-word');
-    const ownBase = reading.closest('.jpdb-reader-detached-ruby')
-        ?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
-    const ownMirror = reading.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
-    const sourceHost = ownMirror?.parentElement ?? null;
-    // Query every composed paint plane from the reading's own root outward.
-    // A nested component can place its text in an inner root while an opaque
-    // menu surface belongs to an ancestor root; checking only the innermost
-    // root and document flattens those planes again on WebKit.
-    const hitRoots = composedHitRootChain(reading);
-    const inset = Math.min(2, rect.width / 4);
-    const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
-    const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
-    const rows = [
-        rect.top - clearanceProbe,
-        (rect.top + rect.bottom) / 2,
-        rect.bottom + clearanceProbe,
-    ];
-    const hits = uniqueElements(hitRoots.flatMap(hitRoot => {
-        const elementsFromPoint = hitRoot.elementsFromPoint;
-        if (typeof elementsFromPoint !== 'function') return [];
-        return rows.flatMap(y => points.flatMap(x => {
-            let pointHits = elementsFromPoint.call(hitRoot, x, y)
-                .filter((element): element is HTMLElement => element instanceof HTMLElement);
-            // WebKit may leak document/ancestor-root layers through a
-            // ShadowRoot query. Each composed root is queried separately, so
-            // retain only that root's own representatives in this stack.
-            if (hitRoot instanceof ShadowRoot) {
-                pointHits = pointHits.filter(element => element.getRootNode() === hitRoot);
-            }
-            // elementsFromPoint() includes every painted layer behind an
-            // opaque menu/dialog; WebKit does so even for a ShadowRoot query.
-            // That exposed card text UNDER the foreground panel to the
-            // collision detector and made otherwise-clear menu readings
-            // disappear. Trim each stack only through a fully opaque composed
-            // ancestor covering this exact probe point. Transparent overlays
-            // remain conservative and keep the complete hit stack.
-            const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x, y);
-            const occlusionBoundary = opaqueBackdrop
-                ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot)
-                : null;
-            if (occlusionBoundary) {
-                const boundaryIndex = pointHits.indexOf(occlusionBoundary);
-                if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
-            }
-            return pointHits;
-        }));
-    }));
-    for (const hit of hits) {
-        // Additive mirrors deliberately sit over their framework host's native
-        // source text. That is the same base copy, not foreign content; other
-        // annotated mirror bases are checked independently below.
-        if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
-        const hitWord = hit.closest<HTMLElement>('.jpdb-reader-word');
-        if (ownWord && hitWord === ownWord) continue;
-        const hitBase = hitWord?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
-        const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
-        if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
-        // Another word's annotated surface counts as covered text even when
-        // the sampled point lands on a wrapper with no direct text node (the
-        // point-sampling blind spot that let inter-line readings survive).
-        if (hitWord && hitWord !== ownWord && !hitWord.contains(reading)
-            && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
-        for (const node of hit.childNodes) {
-            if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
-            const range = document.createRange();
-            range.selectNodeContents(node);
-            if (Array.from(range.getClientRects()).some(textRect => {
-                if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
-                return rectanglesWithinClearance(rect, textRect);
-            })) return true;
-        }
-    }
-    return false;
-}
-
-// Collision candidates can live in different composed paint planes even when
-// their viewport rectangles overlap (for example a shadow-DOM sort menu over
-// an annotated title). Treat the obstacle as occluded only when every relevant
-// fact is proved at one collision point: the candidate owns an exclusive,
-// fully opaque ancestor there, both surfaces have distinct representatives in
-// one common hit-test root, and the candidate's representative paints first.
-// Any missing/retargeted/transparent evidence fails closed.
-function opaqueReadingSurfacePaintsAbove(
-    reading: HTMLElement,
-    readingRect: DOMRect,
-    obstacle: HTMLElement,
-    obstacleRect: DOMRect,
-): boolean {
-    const points = collisionProbePoints(readingRect, obstacleRect);
-    if (!points.length) return false;
-    const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
-    if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
-    return points.every(point => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
-}
-
-function composedSurfacePaintsAboveAtPoint(
-    backdrop: HTMLElement,
-    obstacle: HTMLElement,
-    point: { x: number; y: number },
-): boolean {
-    for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
-        const elementsFromPoint = hitRoot.elementsFromPoint;
-        if (typeof elementsFromPoint !== 'function') continue;
-        const hits = elementsFromPoint.call(hitRoot, point.x, point.y)
-            .filter((element): element is HTMLElement => element instanceof HTMLElement);
-        const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
-        const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
-        if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
-        const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
-        const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
-        if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
-        // A shared ancestor/descendant representative cannot order the two
-        // surfaces; trying an outer root may still expose distinct hosts.
-        if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
-        const backdropIndex = hits.indexOf(backdropHit);
-        const obstacleIndex = hits.indexOf(obstacleHit);
-        if (backdropIndex < 0 || obstacleIndex < 0) continue;
-        return backdropIndex < obstacleIndex;
-    }
-    return false;
-}
-
-function collisionProbePoints(
-    readingRect: DOMRect,
-    obstacleRect: DOMRect,
-): Array<{ x: number; y: number }> {
-    const left = Math.max(readingRect.left, obstacleRect.left);
-    const right = Math.min(readingRect.right, obstacleRect.right);
-    if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
-    const xInset = Math.min(0.5, (right - left) / 4);
-    const xs = [...new Set([left + xInset, right - xInset])];
-    const overlapTop = Math.max(readingRect.top, obstacleRect.top);
-    const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
-    let ys: number[];
-    if (overlapBottom > overlapTop) {
-        const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
-        ys = [...new Set([overlapTop + yInset, overlapBottom - yInset])];
-    } else {
-        const inset = Math.min(0.5, obstacleRect.height / 2);
-        ys = [readingRect.bottom <= obstacleRect.top
-            ? obstacleRect.top + inset
-            : obstacleRect.bottom - inset];
-    }
-    return xs.flatMap(x => ys.map(y => ({ x, y })));
-}
-
-function commonComposedHitRoots(
-    left: HTMLElement,
-    right: HTMLElement,
-): Array<Document | ShadowRoot> {
-    const rightRoots = new Set(composedHitRootChain(right));
-    const roots = composedHitRootChain(left).filter(root => rightRoots.has(root));
-    if (!roots.includes(document)) roots.push(document);
-    return roots;
-}
-
-function composedHitRootChain(element: HTMLElement): Array<Document | ShadowRoot> {
-    const roots: Array<Document | ShadowRoot> = [];
-    let current: HTMLElement = element;
-    while (true) {
-        const root = current.getRootNode();
-        if (root instanceof ShadowRoot) {
-            roots.push(root);
-            current = root.host as HTMLElement;
-            continue;
-        }
-        roots.push(document);
-        return roots;
-    }
-}
-
-function nearestHitStackRepresentative(
-    boundary: HTMLElement,
-    hitRoot: Document | ShadowRoot,
-    hits: HTMLElement[],
-): HTMLElement | null {
-    let current: HTMLElement | null = boundary;
-    while (current && current.getRootNode() === hitRoot) {
-        if (hits.includes(current)) return current;
-        if (current === document.body || current === document.documentElement) return null;
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function opaqueComposedBackdropAtPoint(
-    reading: HTMLElement,
-    x: number,
-    y: number,
-): HTMLElement | null {
-    for (let current: HTMLElement | null = reading; current; current = composedParentElement(current)) {
-        const rect = current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0
-            && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-            && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor)
-            && composedBackdropIsOpaqueAtPoint(current, x, y)) return current;
-    }
-    return null;
-}
-
-function opaqueComposedBackdropCoveringPoints(
-    reading: HTMLElement,
-    points: Array<{ x: number; y: number }>,
-): HTMLElement | null {
-    for (let current: HTMLElement | null = reading; current; current = composedParentElement(current)) {
-        const rect = current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0
-            && points.every(point => point.x >= rect.left && point.x <= rect.right
-                && point.y >= rect.top && point.y <= rect.bottom)
-            && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor)
-            && points.every(point => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
-    }
-    return null;
-}
-
-function occlusionBoundaryInHitRoot(
-    backdrop: HTMLElement,
-    hitRoot: Document | ShadowRoot,
-): HTMLElement | null {
-    let boundary = backdrop;
-    while (boundary.getRootNode() !== hitRoot) {
-        const boundaryRoot = boundary.getRootNode();
-        if (!(boundaryRoot instanceof ShadowRoot)) return null;
-        boundary = boundaryRoot.host as HTMLElement;
-    }
-    return boundary;
-}
-
-function composedBackdropIsOpaqueAtPoint(element: HTMLElement, x: number, y: number): boolean {
-    for (let current: HTMLElement | null = element; current; current = composedParentElement(current)) {
-        const style = safeComputedStyle(current);
-        const opacity = Number.parseFloat(style.opacity || '1');
-        if (Number.isFinite(opacity) && opacity < 0.999) return false;
-        // Computed background alpha and `opacity` alone do not prove visual
-        // occlusion: filters, masks, clips, and blending can expose or sample
-        // the page below while still reporting an alpha-1 background. This is
-        // the exception to a fail-closed collision rule, so ambiguous effects
-        // deliberately forfeit the proof.
-        if (!cssEffectIsNone(style.filter)
-            || !cssEffectIsNone(style.maskImage)
-            || !cssEffectIsNone(style.getPropertyValue('-webkit-mask-image'))
-            || !cssEffectIsNone(style.getPropertyValue('mask-border-source'))
-            || !cssEffectIsNone(style.getPropertyValue('-webkit-mask-box-image-source'))
-            || !cssEffectIsNone(style.clipPath)
-            || (style.mixBlendMode && style.mixBlendMode !== 'normal')
-            || !cssTransformPreservesBackdropGeometry(style.transform)
-            || !cssScaleIsOne(style.getPropertyValue('scale'))
-            || !cssRotationIsZero(style.getPropertyValue('rotate'))
-            || !cssZoomIsOne(style.getPropertyValue('zoom'))) return false;
-    }
-    return opaqueBackgroundPaintsAtPoint(element, safeComputedStyle(element), x, y);
-}
-
-function cssEffectIsNone(value: string | undefined): boolean {
-    const effect = value?.trim().toLowerCase() ?? '';
-    return !effect || effect === 'none';
-}
-
-function cssTransformPreservesBackdropGeometry(value: string | undefined): boolean {
-    const transform = value?.trim().toLowerCase() ?? '';
-    if (!transform || transform === 'none') return true;
-    const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
-    if (!match) return false;
-    const values = match[2].split(',').map(part => Number.parseFloat(part.trim()));
-    if (values.some(part => !Number.isFinite(part))) return false;
-    const close = (left: number, right: number) => Math.abs(left - right) < 0.0001;
-    if (!match[1]) {
-        return values.length === 6
-            && close(values[0], 1) && close(values[1], 0)
-            && close(values[2], 0) && close(values[3], 1);
-    }
-    const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-    return values.length === 16 && values.every((part, index) =>
-        [12, 13, 14].includes(index) || close(part, identity[index]));
-}
-
-function cssScaleIsOne(value: string): boolean {
-    const scale = value.trim().toLowerCase();
-    if (!scale || scale === 'none') return true;
-    const parts = scale.split(/\s+/).map(part => Number.parseFloat(part));
-    return parts.length > 0 && parts.length <= 3
-        && parts.every(part => Number.isFinite(part) && Math.abs(part - 1) < 0.0001);
-}
-
-function cssRotationIsZero(value: string): boolean {
-    const rotation = value.trim().toLowerCase();
-    return !rotation || rotation === 'none' || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
-}
-
-function cssZoomIsOne(value: string): boolean {
-    const zoom = value.trim().toLowerCase();
-    return !zoom || zoom === 'normal' || Math.abs(Number.parseFloat(zoom) - 1) < 0.0001;
-}
-
-type RoundedCorner = { x: number; y: number };
-
-function opaqueBackgroundPaintsAtPoint(
-    element: HTMLElement,
-    style: CSSStyleDeclaration,
-    x: number,
-    y: number,
-): boolean {
-    const rect = element.getBoundingClientRect();
-    const clip = (style.backgroundClip || 'border-box').split(',').at(-1)?.trim() || 'border-box';
-    if (!['border-box', 'padding-box', 'content-box'].includes(clip)) return false;
-    const border = cssBoxInsets(style, 'border');
-    const padding = cssBoxInsets(style, 'padding');
-    if (!border || !padding) return false;
-    const inset = clip === 'border-box'
-        ? { top: 0, right: 0, bottom: 0, left: 0 }
-        : clip === 'padding-box'
-            ? border
-            : {
-                top: border.top + padding.top,
-                right: border.right + padding.right,
-                bottom: border.bottom + padding.bottom,
-                left: border.left + padding.left,
-            };
-    const box = {
-        left: rect.left + inset.left,
-        top: rect.top + inset.top,
-        right: rect.right - inset.right,
-        bottom: rect.bottom - inset.bottom,
-    };
-    const width = box.right - box.left;
-    const height = box.bottom - box.top;
-    if (width <= 0 || height <= 0 || x < box.left || x > box.right || y < box.top || y > box.bottom) return false;
-    const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
-    return corners ? pointInsideRoundedBox(box, corners, x, y) : false;
-}
-
-function cssBoxInsets(
-    style: CSSStyleDeclaration,
-    kind: 'border' | 'padding',
-): { top: number; right: number; bottom: number; left: number } | null {
-    const values = (kind === 'border'
-        ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth]
-        : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft])
-        .map(value => Number.parseFloat(value || '0'));
-    if (values.some(value => !Number.isFinite(value))) return null;
-    return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
-}
-
-function roundedBackgroundCorners(
-    style: CSSStyleDeclaration,
-    outerWidth: number,
-    outerHeight: number,
-    inset: { top: number; right: number; bottom: number; left: number },
-    width: number,
-    height: number,
-): [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner] | null {
-    const raw = [
-        parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
-        parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
-        parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
-        parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight),
-    ];
-    if (raw.some(corner => !corner)) return null;
-    const corners = raw as [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner];
-    corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
-    corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
-    corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
-    corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
-    const ratios = [
-        width / (corners[0].x + corners[1].x || width),
-        width / (corners[3].x + corners[2].x || width),
-        height / (corners[0].y + corners[3].y || height),
-        height / (corners[1].y + corners[2].y || height),
-    ];
-    const scale = Math.min(1, ...ratios);
-    if (scale < 1) {
-        for (const corner of corners) {
-            corner.x *= scale;
-            corner.y *= scale;
-        }
-    }
-    return corners;
-}
-
-function parseCornerRadius(value: string, width: number, height: number): RoundedCorner | null {
-    const parts = value.trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return { x: 0, y: 0 };
-    if (parts.length > 2) return null;
-    const x = parseLengthPercentage(parts[0], width);
-    const y = parseLengthPercentage(parts[1] ?? parts[0], height);
-    return x === null || y === null ? null : { x, y };
-}
-
-function parseLengthPercentage(value: string, extent: number): number | null {
-    const parsed = Number.parseFloat(value);
-    if (!Number.isFinite(parsed) || parsed < 0) return null;
-    if (value.endsWith('%')) return parsed * extent / 100;
-    return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
-}
-
-function pointInsideRoundedBox(
-    box: { left: number; top: number; right: number; bottom: number },
-    corners: [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner],
-    x: number,
-    y: number,
-): boolean {
-    const centers = [
-        { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x < box.left + corners[0].x && y < box.top + corners[0].y },
-        { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x > box.right - corners[1].x && y < box.top + corners[1].y },
-        { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x > box.right - corners[2].x && y > box.bottom - corners[2].y },
-        { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x < box.left + corners[3].x && y > box.bottom - corners[3].y },
-    ];
-    for (const center of centers) {
-        if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
-        const dx = (x - center.x) / center.corner.x;
-        const dy = (y - center.y) / center.corner.y;
-        if (dx * dx + dy * dy > 1) return false;
-    }
-    return true;
-}
-
-function cssBackgroundIsOpaque(value: string): boolean {
-    const color = value.trim().toLowerCase();
-    if (!color || color === 'transparent') return false;
-    const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
-    const commaMatch = color.startsWith('rgba(') ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
-    const slashAlpha = slashMatch?.[1].trim();
-    const commaAlpha = commaMatch?.[1].trim();
-    const alphaText = slashAlpha ?? commaAlpha;
-    if (!alphaText) return !slashMatch && !commaMatch;
-    if (alphaText === 'none') return false;
-    const alpha = Number(alphaText.endsWith('%') ? alphaText.slice(0, -1) : alphaText)
-        / (alphaText.endsWith('%') ? 100 : 1);
-    return Number.isFinite(alpha) && alpha >= 0.999;
-}
-
-function rectanglesWithinClearance(left: DOMRect, right: DOMRect): boolean {
-    return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP
-        && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX
-        && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
-}
-
-function rectsShareAuthoredLine(left: DOMRect, right: DOMRect): boolean {
-    const leftHeight = Math.max(0, left.bottom - left.top);
-    const rightHeight = Math.max(0, right.bottom - right.top);
-    const shorterHeight = Math.min(leftHeight, rightHeight);
-    if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
-    const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
-    if (overlap < shorterHeight * 0.5) return false;
-    const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
-    return centreDistance <= Math.max(2, shorterHeight * 0.4);
-}
-
-function detachedReadingIsClipped(reading: HTMLElement, rect: DOMRect): boolean {
-    let ancestor = composedParentElement(reading);
-    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedParentElement(ancestor)) {
-        const style = safeComputedStyle(ancestor);
-        const clips = [style.overflow, style.overflowX, style.overflowY]
-            .some(value => value === 'hidden' || value === 'clip');
-        if (!clips) continue;
-        const box = ancestor.getBoundingClientRect();
-        if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP
-            || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP
-            || rect.left < box.left - DETACHED_READING_COLLISION_SLOP
-            || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
-    }
-    return false;
-}
-
-function hideUnsafeDetachedReading(reading: HTMLElement): void {
-    reading.dataset.yomuDetachedReadingHidden = 'unsafe-lane';
-    reading.style.setProperty('display', 'none', 'important');
-}
-
-// At-rest readings are hidden inside a clip-constrained row unless the row's
-// clip was verified safe to open (single-line, base fits). This mirrors the
-// in-place rt policy so the two channels can never disagree on a row.
-function detachedReadingRestHidden(reading: HTMLElement): boolean {
-    // Composed walk: the stamped clip row can sit past a shadow boundary
-    // (Reddit shreddit labels), where closest() never reaches it.
-    for (let row: HTMLElement | null = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedParentElement(row)) {
-        if (row.dataset.yomuClipConstrained === 'true') return row.dataset.yomuDetachedReadingOverflow !== 'true';
-    }
-    return false;
-}
-
-// Individual targets are applied one at a time, but neighboring menu rows and
-// compact labels are often separate targets. Reconcile once at the end of the
-// guarded batch so readings cannot collide across target or open-shadow-root
-// boundaries. The vertical sweep keeps the comparison bounded to nearby rows.
-function reconcilePendingDetachedReadingLanes(): void {
-    const surfaces = [...pendingDetachedReadingSurfaces];
-    pendingDetachedReadingSurfaces.clear();
-    const readings = uniqueElements(surfaces.flatMap(surface => queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-furi')));
-    if (!readings.length) return;
-    settleDetachedReadingLanes(
-        readings,
-        uniqueElements(surfaces.flatMap(surface => queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'))),
-    );
-}
-
-function uniqueElements(elements: HTMLElement[]): HTMLElement[] {
-    return [...new Set(elements)];
-}
-
-// Aligned with the collision detector's composed-tree walk depth: the clip
-// box a detached reading can spill into may sit past a shadow boundary or
-// deeper than inline wrapper chains reach in 6 hops.
+// A clip box may sit past a shadow boundary or a deep inline-wrapper chain.
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
 // Ceiling for the proven-single-line extension of the clip opener: covers
@@ -4073,12 +3340,12 @@ function detachedReadingGeometrySignature(box: HTMLElement): string {
     return `${box.clientWidth}:${box.clientHeight}:${rect.width}:${rect.height}:${box.className}:${box.textContent ?? ''}`;
 }
 
-// Styling can run before the open/close verdict lands; re-evaluate the
-// at-rest visibility of the box's readings whenever that verdict changes.
+// Styling can run before the clip verdict lands. Keep the reading visible
+// whenever Yomu opens or restores its detached lane.
 function syncDetachedReadingRestVisibility(box: HTMLElement): void {
     box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi').forEach(reading => {
-        if (reading.dataset.yomuDetachedReadingHidden) return;
-        setInlineStyleIfChanged(reading, 'display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+        delete reading.dataset.yomuDetachedReadingHidden;
+        setInlineStyleIfChanged(reading, 'display', 'block', 'important');
     });
 }
 
@@ -4171,8 +3438,7 @@ function textMirrorClipMode(
         renderPlan.text.slice(token.start, token.end), token, settings, !hasNativeRuby, true,
     ));
     // Every mirror is additive, so readings are always detached from the line
-    // box. If collision/clip checks find no safe lane, only the reading is
-    // hidden; source glyphs, pitch and lookup remain available.
+    // box and source projection can keep them visible without changing layout.
     const detachedReadings = hasReadings;
     return {
         clipRow,
@@ -4972,7 +4238,6 @@ export function withMirrorTokenApply<T>(callback: () => T): T {
         // Only drain once the outermost apply block completes, so a nested
         // apply does not clear records the outer block still needs to ignore.
         if (mirrorTokenApplyDepth === 0) {
-            reconcilePendingDetachedReadingLanes();
             sweepAndDrainTextMirrorObservers();
         }
     }
@@ -5029,10 +4294,6 @@ export function healTextMirrorPageVisibility(): void {
         healStuckHiddenTextMirror(host);
         healLateClipConstrainedStamp(host);
     }
-    // Reconcile once per collision surface after every host has restored and
-    // reclassified its clip. This catches cross-host reading collisions while
-    // avoiding a separate point-sampling sweep for each label in the surface.
-    reconcilePendingDetachedReadingLanes();
 }
 
 // Clip classification runs at token-apply time, but framework chrome
@@ -5041,11 +4302,8 @@ export function healTextMirrorPageVisibility(): void {
 // short-circuit means it is never re-examined. A detached reading then sits
 // visible inside a closed ellipsis clip: its absolute width:max-content box
 // spills sideways, raises the row's scrollWidth, and iOS ellipsizes the
-// native base (共有 → 共…). Re-examine on every scan settle. The safety
-// verdict depends on arbitrary neighboring page text and readings, not only
-// on the host's own rectangle; a rect-only cache can preserve an overlap after
-// a sibling moves. Hosts enqueue their collision surface and the caller
-// reconciles each surface once.
+// native base (共有 → 共…). Re-examine on every scan settle and then
+// re-project from the live source ranges.
 
 function healLateClipConstrainedStamp(host: HTMLElement): void {
     const mirror = currentTextMirror(host);
@@ -5060,8 +4318,8 @@ function healLateClipConstrainedStamp(host: HTMLElement): void {
             : 'true';
     }
     openSafeDetachedReadingClips(host);
-    filterDetachedWordsToClip(mirror, clipRow);
-    pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+    if (mirror.dataset.yomuSourceProjected !== 'true') filterDetachedWordsToClip(mirror, clipRow);
+    projectAdditiveTextMirror(mirror, host);
     settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
 }
 
@@ -6710,7 +5968,7 @@ function renderDetachedReadings(
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += '<span class="jpdb-reader-detached-ruby">';
+        html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
         html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
         html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span>`;
         html += '</span>';
@@ -6724,7 +5982,7 @@ function renderDetachedReadings(
  * Replace a rendered word's reading without changing the layout channel that
  * owns it. Async public-vocabulary enrichment is deliberately routed through
  * this DOM operation so native/detached policy, open-shadow inline geometry,
- * clip handling, and collision safety stay encapsulated in the renderer.
+ * clip handling and source projection stay encapsulated in the renderer.
  */
 export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, token: JPDBToken): boolean {
     const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
@@ -6748,6 +6006,8 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
         // detached state used by an initially-known reading.
         mirror.dataset.yomuDetachedReadings = 'true';
         styleConstrainedTextMirror(mirror, clipRow, true);
+        const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+        if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
     }
     styleDetachedReadingElements(renderSurface, host);
     if (mirror) healLateClipConstrainedStamp(host);
@@ -7471,8 +6731,6 @@ export function refreshWrappedScanWordUnderlines(root: ParentNode = document): v
     const wrapped: HTMLElement[] = [];
     const unwrapped: HTMLElement[] = [];
     for (const word of words) {
-        // Text-mirror words are atomic (nowrap) and never fragment.
-        if (word.closest('.jpdb-reader-text-mirror')) continue;
         (scanWordSpansMultipleLines(word) ? wrapped : unwrapped).push(word);
     }
     for (const word of wrapped) word.setAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE, 'true');

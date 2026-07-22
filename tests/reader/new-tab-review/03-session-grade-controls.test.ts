@@ -87,7 +87,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[3]!);
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
             expect(root.querySelector('[data-newtab-status] .jpdb-reader-newtab-status-light')).toBeNull();
-            expect(newTabSourceSelect(root).value).toBe('dictionary');
+            expect(newTabSourceSelect(root).value).toBe('yomu-local');
         } finally {
             controller.destroy();
             root.remove();

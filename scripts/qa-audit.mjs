@@ -2535,7 +2535,9 @@ function assertNewTabDictionarySnapshot(snapshot) {
     assertAudit(/[一-龯ぁ-んァ-ン]/u.test(snapshot.expression), `new-tab did not render a Japanese dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.meaning.trim().length > 0, `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
-    assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
+    // Do not treat the app's positive "Offline ready" status as the old
+    // dictionary-disabled warning. Match the retired setup copy precisely.
+    assertAudit(!/warning|No dictionary enabled|Add dictionary|dictionar(?:y|ies) (?:is |are )?off/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
 }
 
 function isDocsHomeHref(href) {
@@ -3754,6 +3756,10 @@ async function auditImmersionKitPopover(browser, server) {
         const debug = await page.evaluate(immersionKitFirstSnapshotFromDom);
         throw new Error(`existing Anki card preview did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
     });
+    await waitForAudit(page, currentImmersionExampleTextSettledFromDom, 9000, 'first Immersion Kit example text did not settle').catch(async error => {
+        const debug = await page.evaluate(immersionKitFirstSnapshotFromDom);
+        throw new Error(`first Immersion Kit example text did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     const firstSnapshot = await page.evaluate(immersionKitFirstSnapshotFromDom);
     assertImmersionKitFirstSnapshot(firstSnapshot);
     await page.evaluate(() => {
@@ -3853,6 +3859,7 @@ async function auditImmersionKitPopover(browser, server) {
 
 function immersionKitFirstSnapshotFromDom() {
     const helpers = window.__yomuQaReaderWordDomHelpers;
+    const popover = document.querySelector('.jpdb-reader-popover');
     return {
         sectionPresent: Boolean(document.querySelector('[data-immersion-kit]')),
         sectionText: text('[data-immersion-kit]'),
@@ -3867,6 +3874,17 @@ function immersionKitFirstSnapshotFromDom() {
         hasAnkiEdit: Boolean(document.querySelector('[data-action="anki-edit"]')),
         hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
         ankiExisting: text('.jpdb-reader-anki-existing'),
+        parseState: popover instanceof HTMLElement ? {
+            key: popover.dataset.jpdbReaderParseKey ?? '',
+            loadingKey: popover.dataset.jpdbReaderParseLoadingKey ?? '',
+            loadingId: popover.dataset.jpdbReaderParseLoadingId ?? '',
+        } : null,
+        parseRoots: [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-parseable')].map(root => ({
+            className: root.className,
+            provider: root.hasAttribute('data-provider-example-sentence'),
+            text: normalizedText(root),
+            wordCount: root.querySelectorAll('.jpdb-reader-word').length,
+        })),
     };
 
     function text(selector) {
@@ -3952,7 +3970,7 @@ function nestedImmersionBackSnapshotFromDom() {
 function assertImmersionKitFirstSnapshot(snapshot) {
     assertAudit(snapshot.sectionPresent, 'Immersion Kit section is missing');
     assertAudit(snapshot.exampleCards > 0, `Immersion Kit examples are missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
+    assertAudit(snapshot.exampleWords >= 2, `Immersion Kit sentence is not recursively tokenized: ${JSON.stringify(snapshot)}`);
     assertAudit(!snapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(snapshot.imageVisible, 'Immersion Kit thumbnail did not render');
     assertAudit(hasRecursivelyParsedLocalDefinitions(snapshot), `local dictionary recursive parsing did not run: ${JSON.stringify(snapshot)}`);

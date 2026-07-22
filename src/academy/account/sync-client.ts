@@ -77,8 +77,17 @@ export interface AcademyClassBoardProfileUpdate {
     readonly shareAvatar: boolean;
 }
 
+export interface AcademyReaderDeviceView {
+    readonly deviceId: string;
+    readonly createdAt: number;
+    readonly lastSeenAt: number;
+    readonly revokedAt: number | null;
+}
+
 interface StoredSyncState {
     readonly profile: AcademyProfileView;
+    /** Last exact Worker projection. It is trusted only while offline. */
+    readonly account?: AcademyAccountView;
     readonly key: string;
     readonly cursor: number;
     readonly envelopes: Readonly<Record<string, AcademyEncryptedSyncEventInput>>;
@@ -117,6 +126,8 @@ export class AcademySyncClient {
     private readonly exportFallbackByteLimit: number;
     private state: StoredSyncState | null;
     private account: AcademyAccountView | null = null;
+    /** A restored projection must be refreshed before it authorizes online curriculum. */
+    private accountProjectionFresh = false;
     private entitlement: AcademyEntitlementView | null = null;
     /** A bound profile this device cannot decrypt until it pairs for the key. */
     private awaitingPairProfile: AcademyProfileView | null = null;
@@ -143,6 +154,7 @@ export class AcademySyncClient {
             ? Math.min(options.exportFallbackByteLimit as number, ACADEMY_EXPORT_FALLBACK_MAX_BYTES)
             : ACADEMY_EXPORT_FALLBACK_MAX_BYTES;
         this.state = loadState(this.storage);
+        this.account = this.state?.account ?? null;
     }
 
     /**
@@ -152,6 +164,16 @@ export class AcademySyncClient {
      */
     get hasLinkedAccount(): boolean {
         return Boolean(this.account ?? this.awaitingPairProfile?.accountId ?? this.state?.profile.accountId);
+    }
+
+    /** Exact Worker-projected authority for Academy curriculum. */
+    get hasAcademyAccess(): boolean {
+        return this.account?.academyAccess === true && (this.accountProjectionFresh || !this.online());
+    }
+
+    /** Whether this runtime refreshed the account projection from the Worker. */
+    get hasCurrentAccountProjection(): boolean {
+        return this.accountProjectionFresh;
     }
 
     get status(): AcademySyncStatus {
@@ -248,13 +270,15 @@ export class AcademySyncClient {
             if (!profile.accountId) throw new Error('Only an account profile needs first-device setup.');
             const previousState = this.state;
             const reusableState = previousState?.profile.profileId === profile.profileId ? previousState : null;
-            if (!reusableState && await this.remoteHasEvents()) {
+            this.account = await this.loadAccount();
+            this.entitlement = await this.loadEntitlement();
+            if (!reusableState && this.hasAcademyEventAccess() && await this.remoteHasEvents()) {
                 this.phase = 'pair';
                 this.error = 'This account already has encrypted history. Pair with a device that can decrypt it.';
                 return this.status;
             }
             const candidate = reusableState ?? freshState(profile);
-            this.state = candidate;
+            this.state = this.account ? { ...candidate, account: this.account } : candidate;
             if (!this.persistOrReflect()) return this.status;
             try {
                 await this.pinProfileKey(candidate);
@@ -271,9 +295,7 @@ export class AcademySyncClient {
                 return this.status;
             }
             this.awaitingPairProfile = null;
-            this.account = await this.loadAccount();
-            this.entitlement = await this.loadEntitlement();
-            await this.queueKnownEvents();
+            if (this.hasAcademyEventAccess()) await this.queueKnownEvents();
             this.persist();
             await this.syncNow();
             return this.status;
@@ -287,6 +309,9 @@ export class AcademySyncClient {
                 this.entitlement = parseAcademyEntitlementView(
                     await this.json('/academy/api/entitlement/redeem', { method: 'POST', body: { code } }),
                 );
+                // Redemption can change curriculum authority. Refresh before
+                // rendering a Continue action or entering an Academy route.
+                this.account = await this.loadAccount();
                 this.phase = 'claimed';
                 this.error = null;
             } catch (error) {
@@ -305,6 +330,24 @@ export class AcademySyncClient {
         const envelope = await wrapProfileKey(state.key, ticket.code, ticket.pairingId, state.profile.keyVersion);
         await this.json(`/academy/api/pairings/${ticket.pairingId}`, { method: 'PUT', body: envelope });
         return ticket;
+    }
+
+    async listReaderDevices(): Promise<AcademyReaderDeviceView[]> {
+        const body = await this.json('/academy/api/account/devices') as { devices?: unknown };
+        if (!Array.isArray(body.devices)) throw new Error('Reader device list was malformed.');
+        return body.devices.map(value => {
+            if (!isRecord(value) || typeof value.deviceId !== 'string'
+                || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt)
+                || (value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt))) {
+                throw new Error('Reader device list was malformed.');
+            }
+            return value as unknown as AcademyReaderDeviceView;
+        });
+    }
+
+    async revokeReaderDevice(deviceId: string): Promise<void> {
+        if (!/^[0-9a-f-]{36}$/iu.test(deviceId)) throw new Error('Reader device id is invalid.');
+        await this.json(`/academy/api/account/devices/${deviceId}`, { method: 'DELETE', body: {} });
     }
 
     claimPairing(code: string): Promise<AcademySyncStatus> {
@@ -328,11 +371,12 @@ export class AcademySyncClient {
             try {
                 this.account = profile.accountId ? await this.loadAccount() : null;
                 this.entitlement = profile.accountId ? await this.loadEntitlement() : null;
-                // Learn remote event ids before encrypting local history. A
-                // locally retained copy of the same event must not be pushed
-                // under a second sync id after account recovery.
-                await this.pullRemote();
-                await this.queueKnownEvents();
+                if (this.hasAcademyEventAccess()) {
+                    // Learn remote event ids before encrypting local history. A
+                    // retained copy must not be pushed under a second sync id.
+                    await this.pullRemote();
+                    await this.queueKnownEvents();
+                }
                 this.persist();
                 await this.syncNow();
             } catch (error) {
@@ -360,8 +404,11 @@ export class AcademySyncClient {
         await this.connect();
         const endpoint = this.account ? '/academy/api/account/export' : '/academy/api/profile/export';
         let cursor: string | null = null;
-        let numericCursor = 0;
-        let firstEvent = true;
+        let academyCursor = 0;
+        let readerCursor = 0;
+        let firstAcademyEvent = true;
+        let firstReaderEvent = true;
+        let academyClosed = false;
         let wroteHeader = false;
         const encoder = new TextEncoder();
         const writer = destination?.getWriter() ?? null;
@@ -392,32 +439,63 @@ export class AcademySyncClient {
                 if (!response.ok) throw await responseError(response);
                 const body: unknown = await response.json();
                 if (!isRecord(body)) throw new Error('Academy export response was malformed.');
-                const page = parseAcademyExportPage(body.eventPage);
+                const page = parseAcademyExportBundle(body);
                 if (!wroteHeader) {
-                    const { eventPage: _eventPage, ...metadata } = body;
+                    const {
+                        eventPage: _eventPage,
+                        readerSrsEventPage: _readerSrsEventPage,
+                        ...metadata
+                    } = body;
                     const serializedMetadata = JSON.stringify(metadata);
                     await write(serializedMetadata === '{}'
                         ? '{"eventPage":{"events":['
                         : `${serializedMetadata.slice(0, -1)},"eventPage":{"events":[`);
                     wroteHeader = true;
                 }
-                for (const event of page.events) {
-                    if (!firstEvent) await write(',');
-                    await write(JSON.stringify(event));
-                    firstEvent = false;
+                if (academyClosed && page.eventPage.events.length > 0) {
+                    throw new Error('Academy export resumed a completed event stream.');
                 }
-                if (!page.hasMore) {
-                    await write(`],"nextCursor":${page.nextCursor},"hasMore":false,"exportCursor":null}}`);
+                if (!academyClosed && page.readerSrsEventPage.events.length > 0 && page.eventPage.hasMore) {
+                    throw new Error('Academy export interleaved independent event streams.');
+                }
+                for (const event of page.eventPage.events) {
+                    if (!firstAcademyEvent) await write(',');
+                    await write(JSON.stringify(event));
+                    firstAcademyEvent = false;
+                }
+                if (!academyClosed && !page.eventPage.hasMore) {
+                    await write(`],"nextCursor":${page.eventPage.nextCursor},"hasMore":false,"exportCursor":null},`);
+                    await write('"readerSrsEventPage":{"events":[');
+                    academyClosed = true;
+                }
+                if (academyClosed) {
+                    for (const event of page.readerSrsEventPage.events) {
+                        if (!firstReaderEvent) await write(',');
+                        await write(JSON.stringify(event));
+                        firstReaderEvent = false;
+                    }
+                }
+                const academyAdvanced = page.eventPage.nextCursor > academyCursor;
+                const readerAdvanced = page.readerSrsEventPage.nextCursor > readerCursor;
+                if (page.eventPage.nextCursor < academyCursor || page.readerSrsEventPage.nextCursor < readerCursor) {
+                    throw new Error('Academy export pagination moved backwards.');
+                }
+                academyCursor = page.eventPage.nextCursor;
+                readerCursor = page.readerSrsEventPage.nextCursor;
+                if (!page.exportCursor) {
+                    if (!academyClosed || page.eventPage.hasMore || page.readerSrsEventPage.hasMore) {
+                        throw new Error('Academy export ended before every event stream completed.');
+                    }
+                    await write(`],"nextCursor":${page.readerSrsEventPage.nextCursor},"hasMore":false}}`);
                     if (writer) {
                         await writer.close();
                         return null;
                     }
                     return new Blob(chunks, { type: 'application/json' });
                 }
-                if (page.nextCursor <= numericCursor || !page.exportCursor) {
+                if (!academyAdvanced && !readerAdvanced) {
                     throw new Error('Academy export pagination did not advance.');
                 }
-                numericCursor = page.nextCursor;
                 cursor = page.exportCursor;
             }
         } catch (error) {
@@ -436,7 +514,8 @@ export class AcademySyncClient {
         if (epoch !== this.sessionEpoch || this.phase === 'signed-out') {
             throw new Error('The session changed before the Class Board profile was saved.');
         }
-        this.account = account;
+        this.rememberAccount(account);
+        this.persist();
         return account;
     }
 
@@ -471,10 +550,13 @@ export class AcademySyncClient {
         if (!response.ok) throw await responseError(response);
         await this.enqueue(async () => {
             this.account = null;
+            this.accountProjectionFresh = false;
             this.entitlement = null;
             this.awaitingPairProfile = null;
             this.phase = 'signed-out';
             this.error = null;
+            this.forgetStoredAccount();
+            this.persist();
         });
     }
 
@@ -488,6 +570,7 @@ export class AcademySyncClient {
         this.sessionEpoch += 1;
         this.state = null;
         this.account = null;
+        this.accountProjectionFresh = false;
         this.entitlement = null;
         this.awaitingPairProfile = null;
         this.phase = 'local';
@@ -542,7 +625,7 @@ export class AcademySyncClient {
         }
         this.account = profile.accountId ? await this.loadAccount() : null;
         this.entitlement = profile.accountId ? await this.loadEntitlement() : null;
-        await this.queueKnownEvents();
+        if (this.hasAcademyEventAccess()) await this.queueKnownEvents();
         this.persist();
         await this.syncNow();
     }
@@ -571,6 +654,11 @@ export class AcademySyncClient {
         if (!this.persistOrReflect()) return;
         if (!this.online()) {
             this.phase = 'offline';
+            this.error = null;
+            return;
+        }
+        if (!this.hasAcademyEventAccess()) {
+            this.phase = 'ready';
             this.error = null;
             return;
         }
@@ -658,7 +746,10 @@ export class AcademySyncClient {
     }
 
     private async loadAccount(): Promise<AcademyAccountView> {
-        return parseAcademyAccountView(await this.json('/academy/api/account'));
+        const account = parseAcademyAccountView(await this.json('/academy/api/account'));
+        this.rememberAccount(account);
+        this.persist();
+        return account;
     }
 
     /** Entitlement is informational and never blocks sync, so failures are absorbed. */
@@ -672,7 +763,10 @@ export class AcademySyncClient {
 
     private reflectGate(error: unknown): AcademySyncStatus {
         if (error instanceof AcademyRequestError) {
-            if (error.status === 401) { this.phase = 'sign-in'; this.error = null; }
+            if (error.status === 401) {
+                this.forgetAccountProjection();
+                this.phase = 'sign-in'; this.error = null;
+            }
             else if (error.status === 403) { this.phase = 'pending'; this.error = null; }
             else if (error.status === 409) { this.phase = 'conflict'; this.error = error.message; }
             else if (error.status >= 500) { this.phase = 'retry'; this.error = null; }
@@ -708,7 +802,9 @@ export class AcademySyncClient {
         if (error instanceof AcademyRequestError && error.status !== 401) { this.phase = 'error'; this.error = error.message; return; }
         if (error instanceof AcademyRequestError) {
             this.account = null;
+            this.accountProjectionFresh = false;
             this.entitlement = null;
+            this.forgetStoredAccount();
             this.phase = 'sign-in';
             this.error = null;
             return;
@@ -791,6 +887,31 @@ export class AcademySyncClient {
         return this.state;
     }
 
+    /** Reader accounts own profiles and devices, but not Academy event routes. */
+    private hasAcademyEventAccess(): boolean {
+        const accountId = this.state?.profile.accountId ?? this.awaitingPairProfile?.accountId ?? null;
+        return !accountId || this.hasAcademyAccess;
+    }
+
+    private rememberAccount(account: AcademyAccountView): void {
+        this.account = account;
+        this.accountProjectionFresh = true;
+        if (this.state) this.state = { ...this.state, account };
+    }
+
+    private forgetStoredAccount(): void {
+        if (!this.state?.account) return;
+        const { account: _account, ...state } = this.state;
+        this.state = state;
+    }
+
+    private forgetAccountProjection(): void {
+        this.account = null;
+        this.accountProjectionFresh = false;
+        this.forgetStoredAccount();
+        this.persist();
+    }
+
     private persist(): boolean {
         try {
             if (this.state) {
@@ -857,18 +978,26 @@ async function responseError(response: Response): Promise<AcademyRequestError> {
     return new AcademyRequestError(response.status, message);
 }
 
-function parseAcademyExportPage(value: unknown): ReturnType<typeof parseAcademySyncPage> & { exportCursor: string | null } {
-    const record = isRecord(value) ? value : {};
-    const page = parseAcademySyncPage(value);
-    const exportCursor = record.exportCursor;
-    if (page.hasMore) {
+function parseAcademyExportBundle(value: Record<string, unknown>): {
+    eventPage: ReturnType<typeof parseAcademySyncPage>;
+    readerSrsEventPage: ReturnType<typeof parseAcademySyncPage>;
+    exportCursor: string | null;
+} {
+    const eventPage = parseAcademySyncPage(value.eventPage);
+    const readerSrsEventPage = value.readerSrsEventPage === undefined
+        ? { events: [], nextCursor: 0, hasMore: false }
+        : parseAcademySyncPage(value.readerSrsEventPage);
+    const eventRecord = isRecord(value.eventPage) ? value.eventPage : {};
+    const exportCursor = eventRecord.exportCursor;
+    const hasMore = eventPage.hasMore || readerSrsEventPage.hasMore;
+    if (hasMore) {
         if (typeof exportCursor !== 'string' || exportCursor.length < 80 || exportCursor.length > 256) {
             throw new TypeError('Academy export continuation cursor is invalid.');
         }
-        return { ...page, exportCursor };
+        return { eventPage, readerSrsEventPage, exportCursor };
     }
     if (exportCursor !== null) throw new TypeError('Completed Academy export retained a cursor.');
-    return { ...page, exportCursor: null };
+    return { eventPage, readerSrsEventPage, exportCursor: null };
 }
 
 function safeStorage(): AcademySyncStorage | null {
@@ -885,6 +1014,7 @@ function loadState(storage: AcademySyncStorage | null): StoredSyncState | null {
         if (!value) return null;
         const parsed = JSON.parse(value) as Partial<StoredSyncState>;
         const profile = parseAcademyProfileView(parsed.profile);
+        const account = parsed.account === undefined ? undefined : parseStoredAccountView(parsed.account);
         if (typeof parsed.key !== 'string' || decodedLength(parsed.key) !== 32
             || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0
             || !isRecord(parsed.envelopes) || !isRecord(parsed.eventSyncIds)
@@ -895,6 +1025,7 @@ function loadState(storage: AcademySyncStorage | null): StoredSyncState | null {
         if (Object.entries(parsed.eventSyncIds).some(([eventId, id]) => !eventId || typeof id !== 'string' || !UUID_V4.test(id))) return null;
         return {
             profile,
+            ...(account ? { account } : {}),
             key: parsed.key,
             cursor: parsed.cursor as number,
             envelopes: envelopes as Record<string, AcademyEncryptedSyncEventInput>,
@@ -902,6 +1033,25 @@ function loadState(storage: AcademySyncStorage | null): StoredSyncState | null {
             lastSyncAt: parsed.lastSyncAt ?? null,
         };
     } catch { return null; }
+}
+
+function parseStoredAccountView(value: unknown): AcademyAccountView {
+    if (!isRecord(value) || !isRecord(value.identity)) throw new TypeError('Stored Academy account is malformed.');
+    const parsed = parseAcademyAccountView({
+        accountId: value.accountId,
+        displayName: value.identity.displayName,
+        displayTag: value.identity.label,
+        nameChosen: value.nameChosen,
+        avatarKey: value.avatarKey,
+        boardVisible: value.boardVisible,
+        shareAvatar: value.shareAvatar,
+        academyAccess: value.academyAccess,
+        classes: value.classes,
+    });
+    if (value.identity.discriminator !== parsed.identity.discriminator) {
+        throw new TypeError('Stored Academy account identity is malformed.');
+    }
+    return parsed;
 }
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -950,7 +1100,7 @@ function eventAdditionalData(id: string, occurredAt: number, keyVersion: number)
     return new TextEncoder().encode(`event:${id}:${occurredAt}:v${keyVersion}`);
 }
 
-async function wrapProfileKey(
+export async function wrapProfileKey(
     key: string,
     code: string,
     pairingId: string,
@@ -963,7 +1113,7 @@ async function wrapProfileKey(
     return { keyVersion, salt: toBase64Url(salt), nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
 }
 
-async function unwrapProfileKey(
+export async function unwrapProfileKey(
     envelope: AcademyPairingKeyEnvelope,
     code: string,
     pairingId: string,
@@ -971,6 +1121,80 @@ async function unwrapProfileKey(
     const wrappingKey = await derivePairingKey(code, fromBase64Url(envelope.salt));
     const aad = pairingAdditionalData(pairingId, envelope.keyVersion);
     return toBase64Url(await aesDecrypt(wrappingKey, fromBase64Url(envelope.nonce), fromBase64Url(envelope.ciphertext), aad));
+}
+
+export interface EncryptedProfilePayload {
+    readonly keyVersion: number;
+    readonly nonce: string;
+    readonly ciphertext: string;
+}
+
+export interface EncryptedProfileEvent extends EncryptedProfilePayload {
+    readonly id: string;
+    readonly occurredAt: number;
+}
+
+/**
+ * Encrypt an immutable non-Academy event with a content-derived opaque id and
+ * nonce. Identical retries are byte-identical; different payloads derive
+ * different nonces without exposing the card identity to the Worker.
+ */
+export async function encryptProfileEvent(
+    key: string,
+    keyVersion: number,
+    purpose: string,
+    value: unknown,
+    occurredAt: number,
+): Promise<EncryptedProfileEvent> {
+    if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError('Profile event time is invalid.');
+    const plaintext = new TextEncoder().encode(JSON.stringify(value));
+    const hmacKey = await crypto.subtle.importKey(
+        'raw',
+        cryptoBuffer(fromBase64Url(key)),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+    );
+    const digest = new Uint8Array(await crypto.subtle.sign(
+        'HMAC',
+        hmacKey,
+        cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`)),
+    ));
+    const id = toBase64Url(digest);
+    const nonce = digest.slice(0, 12);
+    const ciphertext = await aesEncrypt(
+        fromBase64Url(key),
+        nonce,
+        plaintext,
+        profileEventAdditionalData(purpose, id, occurredAt, keyVersion),
+    );
+    return { id, occurredAt, keyVersion, nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
+}
+
+export async function decryptProfileEvent(
+    key: string,
+    purpose: string,
+    envelope: EncryptedProfileEvent,
+): Promise<unknown> {
+    const plaintext = await aesDecrypt(
+        fromBase64Url(key),
+        fromBase64Url(envelope.nonce),
+        fromBase64Url(envelope.ciphertext),
+        profileEventAdditionalData(purpose, envelope.id, envelope.occurredAt, envelope.keyVersion),
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+function profileEventAdditionalData(
+    purpose: string,
+    id: string,
+    occurredAt: number,
+    keyVersion: number,
+): Uint8Array {
+    if (!/^[a-z0-9-]{1,64}$/u.test(purpose) || !/^[A-Za-z0-9_-]{43}$/u.test(id)) {
+        throw new TypeError('Profile event purpose or id is invalid.');
+    }
+    return new TextEncoder().encode(`profile-event:${purpose}:${id}:${occurredAt}:v${keyVersion}`);
 }
 
 function pairingAdditionalData(pairingId: string, keyVersion: number): Uint8Array {

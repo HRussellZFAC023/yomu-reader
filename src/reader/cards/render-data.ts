@@ -3,7 +3,7 @@ import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLo
 import { cardKey } from './utils';
 import { delay } from '../core/async-utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
-import type { JitenApiClient, JitenVocabularyInfo, JitenVocabularyWordSummary } from '../dictionaries/jiten';
+import { enrichCardFromJitenVocabularyInfo, type JitenApiClient, type JitenVocabularyInfo, type JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -14,7 +14,7 @@ import { Logger } from '../app/logger';
 import { fallbackLookupTermsForCard } from '../lookup/parser';
 import { normalizePitchPatternsForReading, pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
-import { cardPronunciationReading, EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
+import { EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { isJitenBackedCard } from './srs-providers';
@@ -111,6 +111,12 @@ interface LocalMetaEntriesLoad {
 interface FrequencyRankLoad {
     initial: Promise<ProviderFrequencyRanks>;
     hydrated: Promise<ProviderFrequencyRanks>;
+}
+
+function cardNeedsCanonicalReading(card: JPDBCard): boolean {
+    const spelling = card.spelling.normalize('NFKC').trim();
+    const reading = card.reading.normalize('NFKC').trim();
+    return !reading || reading === spelling;
 }
 
 export interface BunproDefinitionHydrationResult {
@@ -415,7 +421,7 @@ export class CardRenderDataLoader {
     private loadJitenVocabularyInfo(card: JPDBCard, enabled: boolean): Promise<JitenVocabularyInfo | null> {
         if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
         return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
-            this.applyJitenVocabularyInfoPitchAccent(card, info);
+            enrichCardFromJitenVocabularyInfo(card, info);
             return info;
         }).catch(error => {
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
@@ -444,9 +450,12 @@ export class CardRenderDataLoader {
                     : Promise.resolve(null)
             : Promise.resolve(null);
         const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
+        const jpdbIdentityReady = cardNeedsCanonicalReading(card)
+            ? jitenVocabularyLookup.then(() => card, () => card)
+            : Promise.resolve(card);
         const jpdb = liveFrequencyEnabled(settings, 'jpdb') && !seeded.jpdb && searchJpdb
-            ? searchJpdb(card.spelling, 10)
-                .then(candidates => exactJpdbFrequencyRank(card, candidates))
+            ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady])
+                .then(([candidates]) => exactJpdbFrequencyRank(card, candidates))
                 .catch(error => {
                     log.warn('JPDB frequency lookup failed', { term: card.spelling }, error);
                     return null;
@@ -748,22 +757,6 @@ export class CardRenderDataLoader {
         }
         // UT-65: jpdb supplies one accent — append the other accepted
         // variants the pitch dictionary knows about.
-        for (const pattern of patterns) {
-            if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
-        }
-    }
-
-    private applyJitenVocabularyInfoPitchAccent(card: JPDBCard, info: JitenVocabularyInfo | null): void {
-        if (!info?.pitchAccents.length) return;
-        const reading = cardPronunciationReading(card) || card.reading.trim();
-        const patterns = info.pitchAccents
-            .map(position => pitchPatternFromPosition(reading, position))
-            .filter(Boolean);
-        if (!patterns.length) return;
-        if (!card.pitchAccent.length) {
-            card.pitchAccent = patterns;
-            return;
-        }
         for (const pattern of patterns) {
             if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
         }

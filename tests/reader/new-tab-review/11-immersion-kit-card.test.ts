@@ -230,6 +230,15 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
         expect(node.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1/2');
         expect(node.querySelectorAll('.jpdb-reader-example-title')).toHaveLength(1);
         expect(node.querySelector('.jpdb-reader-example-inline-source')).toBeNull();
+        const searchLinks = Array.from(node.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-immersion-search-link'));
+        expect(searchLinks.map(link => link.textContent?.trim())).toEqual([
+            expect.stringContaining('View on Immersion Kit'),
+            expect.stringContaining('View on Nadeshiko'),
+        ]);
+        expect(searchLinks.map(link => link.getAttribute('href'))).toEqual([
+            'https://www.immersionkit.com/dictionary?keyword=%E4%B8%AD%E5%AD%A6%E7%94%9F&sort=sentence_length:asc&page=1',
+            'https://nadeshiko.co/search/%E4%B8%AD%E5%AD%A6%E7%94%9F',
+        ]);
         const sentence = node.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
         expect(sentence?.classList.contains('jpdb-reader-parseable')).toBe(true);
         expect(sentence?.getAttribute('data-immersion-sentence-render')).toBe('');

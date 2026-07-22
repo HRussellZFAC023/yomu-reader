@@ -283,7 +283,12 @@ function installNativeSettingsSyncSection(form: HTMLFormElement): void {
         </div>
     `;
     const actions = panel.querySelector<HTMLElement>('.jpdb-reader-settings-actions');
-    panel.insertBefore(section, actions);
+    panel.insertBefore(section, directChildAnchor(panel, actions) ?? panel.firstChild);
+}
+
+function directChildAnchor(parent: HTMLElement, descendant: HTMLElement | null): Element | null {
+    if (!descendant) return null;
+    return [...parent.children].find(child => child === descendant || child.contains(descendant)) ?? null;
 }
 
 function bindSettingsForm(form: HTMLFormElement): void {

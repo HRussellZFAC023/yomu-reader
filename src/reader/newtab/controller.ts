@@ -31,6 +31,7 @@ import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popu
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
 import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
+import { renderImmersionSearchLinks } from '../immersion/search-links';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
@@ -165,7 +166,7 @@ import {
     promoteCardByKey,
     sentenceForCard,
 } from './study-queue';
-import { firstStudySentenceTier, studySentenceTiers } from './study-sentence-source';
+import { firstStudySentenceTier, isCompleteStudySentence, studySentenceTiers } from './study-sentence-source';
 import {
     compactFacts,
     doodlePreviewDataUrl,
@@ -309,7 +310,7 @@ export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
 
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
-const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
+const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
 // Immersion Kit applies `limit` per deck (100+ decks), so 48 balloons the
 // response to 1-2 MB and times out; 10 keeps it ~400 KB with hundreds of
 // post-filter candidates. See IMMERSION_POPUP_SEARCH_REQUEST_LIMIT.
@@ -689,7 +690,13 @@ interface StudyStepState {
     // Type-word production: the in-progress typed answer plus the FIRST-attempt
     // outcome (recall grades reused; 'skipped' when the learner skips). First
     // attempt counts — a later retry never rewrites the recorded outcome.
-    type?: { answer?: string; outcome?: NewTabRecallOutcome | 'skipped' };
+    type?: {
+        answer?: string;
+        /** First attempt only; this is the value folded into the reveal summary. */
+        outcome?: NewTabRecallOutcome | 'skipped';
+        /** Latest check; retries can improve this without laundering outcome. */
+        feedback?: NewTabRecallOutcome;
+    };
     // Pitch-selection pick per card (the chosen downstep position + graded
     // outcome), persisted so it survives step navigation and folds into reveal.
     pitch?: { position: number; outcome: ListenOutcome };
@@ -1243,10 +1250,17 @@ export class NewTabController {
                     ),
                     el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'word' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'study')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'library')),
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
                     ),
                     this.options.surface === 'academy' ? null : el('div', { class: 'jpdb-reader-newtab-theme-controls' },
+                        el('span', {
+                            class: 'jpdb-reader-newtab-connectivity',
+                            dataset: { newtabConnectivity: true },
+                            role: 'status',
+                            'aria-live': 'polite',
+                            hidden: true,
+                        }, newTabText(language, 'offlineReady')),
                         this.options.showSessionClockControl === false ? null : el('div', {
                             class: 'jpdb-reader-newtab-session-clock-host',
                             dataset: { newtabSessionClockHost: true },
@@ -1332,6 +1346,7 @@ export class NewTabController {
                     el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, uiText(language, 'reveal')),
                     el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
                 ),
+                this.options.surface === 'academy' ? null : this.renderAppNavigation(language),
                 el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
             ),
         );
@@ -1340,7 +1355,9 @@ export class NewTabController {
     private renderOverflowMenu(language: ReaderSettings['interfaceLanguage']): HTMLElement {
         const nextLanguage = nextExplicitUiLanguage(language);
         return el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
-            this.renderOverflowMenuButton(uiText(language, 'settings'), 'settings', language),
+            this.renderOverflowMenuButton(newTabText(language, 'connectionsAndSettings'), 'settings', language, {
+                description: newTabText(language, 'connectionsDescription'),
+            }),
             this.renderOverflowMenuLink(uiText(language, 'academy'), `${DOCS_BASE_URL}academy/`, language),
             this.renderOverflowMenuLink(uiText(language, 'videoPlayer'), VIDEO_PLAYER_PAGE_URL, language),
             this.renderOverflowMenuLink(uiText(language, 'pdfReader'), PDF_READER_PAGE_URL, language),
@@ -1367,6 +1384,26 @@ export class NewTabController {
             this.renderOverflowMenuLink(uiText(language, 'discord'), DISCORD_INVITE_URL, language),
             this.renderOverflowMenuLink(uiText(language, 'support'), `${DOCS_BASE_URL}support`, language),
         );
+    }
+
+    private renderAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
+        const item = (label: string, mark: string, action: string, mode?: string) => el('button', {
+            class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
+            type: 'button',
+            dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
+            lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
+        },
+        el('span', { class: 'jpdb-reader-newtab-app-nav-mark', 'aria-hidden': 'true' }, mark),
+        el('span', { class: 'jpdb-reader-newtab-app-nav-label' }, label));
+        return el('nav', {
+            class: 'jpdb-reader-newtab-app-nav',
+            dataset: { newtabAppNavigation: true },
+            'aria-label': newTabText(language, 'appNavigation'),
+        },
+        item(newTabText(language, 'study'), '学', 'mode', 'word'),
+        item(newTabText(language, 'library'), '辞', 'mode', 'search'),
+        item(newTabText(language, 'stats'), '統', 'mode', 'stats'),
+        item(newTabText(language, 'connections'), '連', 'settings'));
     }
 
     private renderOverflowMenuButton(
@@ -1436,7 +1473,10 @@ export class NewTabController {
                 const card = this.visibleWords[this.index];
                 if (card) {
                     const state = this.ensureStepState(cardKey(card));
-                    state.type = { ...state.type, answer: typeInput.value };
+                    state.type = { ...state.type, answer: typeInput.value, feedback: undefined };
+                    const answer = typeInput.closest<HTMLElement>('[data-newtab-answer]');
+                    if (answer) answer.dataset.typeWordOutcome = 'pending';
+                    answer?.querySelector<HTMLElement>('[data-newtab-type-result]')?.remove();
                 }
                 return;
             }
@@ -1598,8 +1638,10 @@ export class NewTabController {
         const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
         window.addEventListener('online', () => {
             this.offlineReviewingAccepted = false;
+            this.syncConnectivityIndicator(root);
             syncQueuedGrades();
         }, { signal: controller.signal });
+        window.addEventListener('offline', () => this.syncConnectivityIndicator(root), { signal: controller.signal });
         window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) syncQueuedGrades();
@@ -1614,7 +1656,17 @@ export class NewTabController {
             this.syncInstallAppButton(root);
             this.dependencies.toast?.(this.text('installStudyAppInstalled'));
         }, { signal: controller.signal });
+        this.syncConnectivityIndicator(root);
         this.rootEventController = controller;
+    }
+
+    private syncConnectivityIndicator(root: HTMLElement): void {
+        const indicator = root.querySelector<HTMLElement>('[data-newtab-connectivity]');
+        if (!indicator) return;
+        const offline = navigator.onLine === false;
+        indicator.hidden = !offline;
+        indicator.dataset.connectivity = offline ? 'offline' : 'online';
+        indicator.textContent = this.text('offlineReady');
     }
 
     private statsDropzoneTarget(root: HTMLElement, event: Event): HTMLElement | null {
@@ -4604,6 +4656,7 @@ export class NewTabController {
             },
             role: 'listitem',
             'aria-current': active ? 'step' : undefined,
+            'aria-label': `${index + 1}. ${this.studyStepLabel(step, session)}`,
             title: step.label,
         },
             el('span', { class: 'jpdb-reader-newtab-study-step-index' }, String(index + 1)),
@@ -5504,12 +5557,12 @@ export class NewTabController {
     private emptyStateSelectorSources(current: ConcreteNewTabWordSource): ConcreteNewTabWordSource[] {
         const sources: ConcreteNewTabWordSource[] = [];
         if (this.canUseYomuLocalSource()) sources.push('yomu-local');
-        if (this.canUseJpdbSource()) sources.push('jpdb');
+        if (this.hasApiReviewSourceCredential()) sources.push('jpdb');
         if (this.canUseBunproSource()) sources.push('bunpro');
         if (this.canUseWanikaniSource()) sources.push('wanikani');
         if (this.canOfferAnkiSource()) sources.push('anki');
         if (!sources.includes(current)) sources.push(current);
-        return sources;
+        return this.visibleSourceSelectorSources(sources);
     }
 
     private sourceToggleSources(card: JPDBCard): ConcreteNewTabWordSource[] {
@@ -5521,29 +5574,14 @@ export class NewTabController {
             this.wanikaniToggleSource(context),
             this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context),
         ]);
-        if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push('dictionary');
-        return this.unifyStarterSourceToggle(sources, card, context);
+        if (this.shouldIncludeAcademyFallbackSource(context, sources)) sources.unshift('yomu-local');
+        return this.visibleSourceSelectorSources(sources);
     }
 
-    // Keyless, "Academy" (yomu-local SRS) and "Dictionary" both resolve to the same
-    // built-in starter-word queue — no reviews are due and no dictionary is
-    // imported, so both flags are on-by-default yet neither carries distinct
-    // content. Offering both in the dropdown reads as a meaningless duplicate
-    // (the owner's complaint). Collapse to one entry (which hides the selector)
-    // whenever the visible queue is the starter/fallback set with no genuine
-    // yomu-local review behind it. A real SRS queue or imported dictionary keeps
-    // both options distinct.
-    private unifyStarterSourceToggle(
-        sources: ConcreteNewTabWordSource[],
-        card: JPDBCard,
-        context: SourceToggleContext,
-    ): ConcreteNewTabWordSource[] {
-        const onlyStarterPair = sources.length === 2
-            && sources.includes('yomu-local')
-            && sources.includes('dictionary');
-        if (!onlyStarterPair) return sources;
-        const starterQueue = card.source === 'fallback' && this.isDictionaryCard(card) && !context.hasYomuLocal;
-        return starterQueue ? ['yomu-local'] : sources;
+    private visibleSourceSelectorSources(sources: ConcreteNewTabWordSource[]): ConcreteNewTabWordSource[] {
+        return uniqueConcreteSources(sources
+            .map(source => source === 'dictionary' ? 'yomu-local' : source)
+            .filter(source => source !== 'jpdb' || this.hasApiReviewSourceCredential()));
     }
 
     private shouldSuppressJitenOnlyJpdbCardToggle(card: JPDBCard): boolean {
@@ -5590,7 +5628,8 @@ export class NewTabController {
     }
 
     private shouldIncludeJpdbToggleSource(context: SourceToggleContext): boolean {
-        return context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb';
+        return this.hasApiReviewSourceCredential()
+            && (context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb');
     }
 
     private bunproToggleSource(context: SourceToggleContext): ConcreteNewTabWordSource | null {
@@ -5634,8 +5673,8 @@ export class NewTabController {
         return context.current === 'jpdb' || context.selected === 'jpdb';
     }
 
-    private shouldIncludeDictionaryToggleSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
-        return !sources.includes('dictionary')
+    private shouldIncludeAcademyFallbackSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
+        return !sources.includes('yomu-local')
             && (context.current === 'dictionary'
                 || context.selected === 'dictionary'
                 || context.configured === 'dictionary'
@@ -5690,6 +5729,10 @@ export class NewTabController {
 
     private canUseJpdbSource(): boolean {
         return this.hasAvailableJpdbReviewSource(this.dependencies.getSettings());
+    }
+
+    private hasApiReviewSourceCredential(settings = this.dependencies.getSettings()): boolean {
+        return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
     }
 
     private canUseBunproSource(): boolean {
@@ -6130,7 +6173,7 @@ export class NewTabController {
             ? el('span', { class: 'jpdb-reader-newtab-recall-question jpdb-reader-newtab-recall-cloze' },
                 el('span', { class: 'jpdb-reader-newtab-recall-cloze-sentence' },
                     cloze.before,
-                    el('span', { class: 'jpdb-reader-newtab-recall-gap', 'aria-label': this.text('recallAnswer') }),
+                    el('span', { class: 'jpdb-reader-newtab-recall-gap', role: 'img', 'aria-label': this.text('recallAnswer') }),
                     cloze.after,
                 ),
                 el('span', { class: 'jpdb-reader-newtab-recall-hint', lang: resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en' }, meaning),
@@ -6339,7 +6382,7 @@ export class NewTabController {
     // the target word becomes a gap. If highlighting failed to mark it (parse
     // fallback), rebuild the line from the cloze's before/after halves.
     private blankTypeWordSentenceTargets(root: ParentNode, cloze: NewTabRecallCloze): void {
-        const gapNode = () => el('span', { class: 'jpdb-reader-newtab-recall-gap', 'aria-label': this.text('recallAnswer') });
+        const gapNode = () => el('span', { class: 'jpdb-reader-newtab-recall-gap', role: 'img', 'aria-label': this.text('recallAnswer') });
         const targets = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-example-target')];
         if (targets.length) {
             targets.forEach(word => word.replaceWith(gapNode()));
@@ -6363,19 +6406,21 @@ export class NewTabController {
         if (!answer) return;
         delete answer.dataset.newtabAnswerDetailsRequest;
         const mode = this.typeWordInputMode();
-        const outcome = this.stepState(cardKey(card))?.type?.outcome;
+        const feedback = this.stepState(cardKey(card))?.type?.feedback;
         answer.dataset.typeWordMode = mode;
-        answer.dataset.typeWordOutcome = outcome ?? 'pending';
+        answer.dataset.typeWordOutcome = feedback ?? 'pending';
         replaceChildrenWith(answer,
-            this.renderTypeWordModeToggle(mode),
             mode === 'handwriting'
                 ? this.renderTypeWordHandwriting(card)
-                : this.renderTypeWordKeyboard(card),
-            outcome && outcome !== 'skipped' ? el('div', {
+                : this.renderTypeWordKeyboard(card, feedback),
+            feedback ? el('div', {
                 class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result',
-                dataset: { newtabTypeResult: outcome },
-            }, this.typeWordOutcomeLabel(outcome, card)) : null,
-            el('div', { class: 'jpdb-reader-newtab-type-skip-row' },
+                dataset: { newtabTypeResult: feedback },
+                role: 'status',
+                'aria-live': 'polite',
+            }, this.typeWordOutcomeLabel(feedback, card)) : null,
+            el('div', { class: 'jpdb-reader-newtab-type-secondary' },
+                this.renderTypeWordModeToggle(mode),
                 el('button', {
                     class: 'jpdb-reader-btn jpdb-reader-newtab-type-skip',
                     type: 'button',
@@ -6399,8 +6444,10 @@ export class NewTabController {
         );
     }
 
-    private renderTypeWordKeyboard(card: JPDBCard): HTMLElement {
+    private renderTypeWordKeyboard(card: JPDBCard, feedback?: NewTabRecallOutcome): HTMLElement {
+        const readyToContinue = feedback === 'correct' || feedback === 'accepted';
         return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
+            this.renderStudyWordAudioButton(card),
             el('input', {
                 class: 'jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input',
                 dataset: { newtabTypeInput: true },
@@ -6415,12 +6462,14 @@ export class NewTabController {
                 lang: 'ja',
                 'aria-label': this.text('typeWordPlaceholder'),
                 disabled: this.state.revealAnswer,
+                readOnly: readyToContinue,
             }),
             el('button', {
                 class: 'jpdb-reader-newtab-recall-check',
                 type: 'button',
                 dataset: { newtabAction: 'type-word-submit' },
-            }, this.text('recallCheck')),
+                'aria-label': this.text(readyToContinue ? 'continueStudying' : 'recallCheck'),
+            }, readyToContinue ? `${this.text('continueStudying')} →` : `${this.text('recallCheck')} →`),
         );
     }
 
@@ -6526,20 +6575,22 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
         if (!card || !input) return;
+        const state = this.ensureStepState(cardKey(card));
+        if (state.type?.feedback === 'correct' || state.type?.feedback === 'accepted') {
+            if (!this.navigateStudyStep('next')) this.renderWord(root, card);
+            return;
+        }
         input.value = convertRomajiToKana(input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
-        {
-            const state = this.ensureStepState(cardKey(card));
-            state.type = { ...state.type, answer: input.value };
-        }
+        state.type = { ...state.type, answer: input.value, feedback: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
             this.renderWord(root, card);
             return;
         }
         this.recordTypeOutcome(card, evaluation.outcome);
-        // Stay on the step and show correct/incorrect feedback + the answer;
-        // the learner advances with Continue. (Auto-advancing would hide the
-        // feedback the moment they checked, unlike recall which is pass-through.)
+        // Stay on the step and show immediate feedback. Incorrect attempts keep
+        // the answer concealed for retrieval practice; a pass turns the attached
+        // action into Continue so the result is not lost to auto-navigation.
         this.renderWord(root, card);
     }
 
@@ -6561,7 +6612,8 @@ export class NewTabController {
     private typeWordOutcomeLabel(outcome: NewTabRecallOutcome | 'skipped', card: JPDBCard): string {
         if (outcome === 'correct') return `${this.text('recallCorrect')} · ${this.typeWordTarget(card)}`;
         if (outcome === 'accepted') return `${this.text('recallAccepted')} · ${this.typeWordTarget(card)}`;
-        if (outcome === 'incorrect') return `${this.text('recallIncorrect')} · ${this.typeWordTarget(card)}`;
+        if (outcome === 'incorrect') return this.text('typeWordTryAgain');
+        if (outcome === 'empty') return this.text('recallEmpty');
         return this.text('typeWordSkipped');
     }
 
@@ -7192,6 +7244,7 @@ export class NewTabController {
             }
             : { class: 'jpdb-reader-newtab-immersion' },
             this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji ? { showSource: true } : {}),
+            renderImmersionSearchLinks(card.spelling, settings.interfaceLanguage),
             this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
         );
         if (!isKanji) this.highlightNewTabImmersionTarget(node, card);
@@ -7613,7 +7666,7 @@ export class NewTabController {
     private newTabImmersionSearchOptions(settings: ReaderSettings): ImmersionKitSearchOptions {
         const resultLimit = this.newTabImmersionResultLimit(settings);
         return {
-            requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, resultLimit),
+            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
             resultLimit,
             fastFirst: true,
         };
@@ -7754,7 +7807,7 @@ export class NewTabController {
             fallback: card.fallbackLookupTerms ?? [],
             source: settings.immersionKitExampleSource,
             nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-            requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, this.newTabImmersionResultLimit(settings)),
+            requestLimit: NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT,
             resultLimit: this.newTabImmersionResultLimit(settings),
             limitEnabled: settings.immersionKitLimitEnabled,
             limit: settings.immersionKitLimit,
@@ -10575,7 +10628,7 @@ function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {
 
 function normalizePromptContextSentence(value: string | undefined, card: JPDBCard): string {
     const sentence = value?.replace(/\s+/g, ' ').trim() ?? '';
-    return isPromptContextSentence(sentence, card) ? sentence : '';
+    return isPromptContextSentence(sentence, card) && isCompleteStudySentence(sentence) ? sentence : '';
 }
 
 function isPromptContextSentence(sentence: string, card: JPDBCard): boolean {

@@ -93,12 +93,48 @@ export interface NestedParsePlan {
     parseKey: string;
 }
 
-export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
-    const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR)
+export function nestedTextParsePlan(
+    root: HTMLElement,
+    limit: number,
+    options: { excludeProviderExamples?: boolean } = {},
+): NestedParsePlan | null {
+    const discoveredRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR)
         ? [root]
         : Array.from(root.querySelectorAll<HTMLElement>(NESTED_PARSE_ROOT_SELECTOR));
+    const parseRoots = options.excludeProviderExamples
+        ? discoveredRoots.filter(parseRoot => !parseRoot.matches('[data-provider-example-sentence]'))
+        : discoveredRoots;
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
+    normalizePartiallyParsedRoots(root, parseRoots);
+    const targets = [...parseRoots]
+        .sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right))
+        .flatMap(parseRoot => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+            includeReaderRoot: true,
+            allowUiText: true,
+            includePassiveInteractions: true,
+            heading: true,
+            minLength: 1,
+            readerRootPassiveInteractions: true,
+            parseSurfaceIgnoredRoot: true,
+        }))
+        .slice(0, limit);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
+function providerExamplePriority(parseRoot: HTMLElement): number {
+    return parseRoot.matches('[data-provider-example-sentence]') ? 0 : 1;
+}
+
+export function providerExampleTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
+    const parseRoots = root.matches('[data-provider-example-sentence]')
+        ? [root]
+        : Array.from(root.querySelectorAll<HTMLElement>('[data-provider-example-sentence]'));
+    if (!parseRoots.length) return null;
+    // Provider sentences contain a pre-rendered target word. A provider-only
+    // pass must normalize that partial render before checking for work, or the
+    // target alone makes the sentence look fully parsed and strands the rest
+    // of the row without readings.
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots
         .flatMap(parseRoot => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {

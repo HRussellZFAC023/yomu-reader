@@ -314,8 +314,8 @@ async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {
         assert(/[一-龯ぁ-んァ-ン]/u.test(snapshot.prompt), 'No-API/no-Anki fallback prompt is not a Japanese study word', snapshot);
         assert(!/No review cards ready|No cards|Add dictionary|Start with a dictionary|Loading words/i.test(snapshot.body), 'No-API/no-Anki fallback regressed to setup/empty/loading copy', snapshot);
         assert(!snapshot.layout.overlaps.length, 'Newtab mobile tabs overlap brand or controls', snapshot.layout);
-        assert(snapshot.layout.modeButtons.every(button => button.visible && button.width >= 44 && button.height >= 32), 'Newtab mobile mode buttons are cramped or hidden', snapshot.layout);
-        assert(snapshot.layout.modeButtons.some(button => /単語|漢字|検索|統計/u.test(button.text)), 'Newtab mobile mode buttons did not localize in Japanese mode', snapshot.layout);
+        assert(snapshot.layout.modeButtons.every(button => button.visible && button.width >= 44 && button.height >= 44), 'Study app navigation targets are cramped or hidden', snapshot.layout);
+        assert(snapshot.layout.modeButtons.some(button => /学習|単語帳|統計|連携/u.test(button.text)), 'Study app navigation did not localize in Japanese mode', snapshot.layout);
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-newtab-fallback-smoke.png'), fullPage: false });
         return {
@@ -745,7 +745,7 @@ function newTabMobileSnapshotFromDom() {
     };
     const newTabMobileLayoutSnapshot = () => {
         const brandRect = elementRect(document.querySelector('.jpdb-reader-newtab-brand'));
-        const modeRect = elementRect(document.querySelector('.jpdb-reader-newtab-mode'));
+        const modeRect = elementRect(document.querySelector('.jpdb-reader-newtab-app-nav'));
         const controlsRect = elementRect(document.querySelector('.jpdb-reader-newtab-theme-controls'));
         return {
             viewportWidth: innerWidth,
@@ -758,7 +758,7 @@ function newTabMobileSnapshotFromDom() {
             ]
                 .filter(([, first, second]) => first && second && rectsOverlap(first, second))
                 .map(([label]) => label),
-            modeButtons: [...document.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
+            modeButtons: [...document.querySelectorAll('.jpdb-reader-newtab-app-nav [data-newtab-action]')]
                 .map(newTabModeButtonSnapshot),
         };
     };

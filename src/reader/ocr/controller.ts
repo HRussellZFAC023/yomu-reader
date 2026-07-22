@@ -66,6 +66,7 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { promiseWithTimeout } from '../core/async-utils';
 import { Logger } from '../app/logger';
+import { isYouTubeAppHostname } from '../app/youtube-host';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import {
@@ -4735,7 +4736,7 @@ function youtubeFullscreenHostForOcrVideo(video: HTMLVideoElement): HTMLElement 
 }
 
 function isYouTubePageForOcr(): boolean {
-    return /(^|\.)youtube\.com$/i.test(location.hostname) || /(^|\.)youtu\.be$/i.test(location.hostname);
+    return isYouTubeAppHostname();
 }
 
 function isYouTubeMobileFullscreenHostForOcr(element: HTMLElement): boolean {

@@ -1,4 +1,5 @@
 import { appendToDocumentHead } from '../dom/index';
+import { HAS_JAPANESE } from '../dom/constants';
 import { ReaderApp } from './main';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from '../platform/window-events';
 import {
@@ -39,7 +40,7 @@ export function bootReaderApp(): void {
     reconcileActiveRuntimeMarker();
     const embeddedFrame = isEmbeddedFrameWindow();
     if (embeddedFrame && !shouldBootEmbeddedFrame()) {
-        watchEmbeddedFrameForVideo();
+        watchEmbeddedFrameForEligibleContent();
         return;
     }
     const bootWindow = window as YomuBootWindow;
@@ -148,31 +149,57 @@ function isEmbeddedFrameWindow(): boolean {
 }
 
 function shouldBootEmbeddedFrame(): boolean {
-    return isYouTubeMediaFrame() || embeddedFrameHasVideo();
+    return isYouTubeMediaFrame() || embeddedFrameHasVideo() || embeddedFrameHasJapaneseText();
 }
 
 function embeddedFrameHasVideo(): boolean {
     return Boolean(document.querySelector('video'));
 }
 
-// Streaming sites (kaa.lt et al.) host their player in a third-party iframe
-// that has no <video> at document-start. Booting the full reader in every
-// embedded frame would waste work in ad/analytics frames, so wait until a
-// video element actually appears and only then boot this frame.
-let embeddedFrameVideoObserver: MutationObserver | undefined;
+function embeddedFrameHasJapaneseText(): boolean {
+    // Keep the document-start gate cheap. This is only a wake-up verdict; the
+    // Reader's ordinary visible-surface collector applies the precise
+    // visibility, annotation-scope, and text budgets after boot.
+    const text = document.body?.textContent ?? document.documentElement?.textContent ?? '';
+    return HAS_JAPANESE.test(text.slice(0, 200_000));
+}
 
-function watchEmbeddedFrameForVideo(): void {
-    if (embeddedFrameVideoObserver) return;
-    const observer = new MutationObserver(() => {
-        if (!embeddedFrameHasVideo()) return;
+// Streaming sites (kaa.lt et al.) host their player in a third-party iframe
+// that has no <video> at document-start. Sign-in and payment widgets likewise
+// start with a Latin placeholder and localise their control label later.
+// Booting the full reader in every ad/analytics frame would waste work, so keep
+// only this tiny wake-up observer until either eligible signal appears.
+let embeddedFrameEligibilityObserver: MutationObserver | undefined;
+
+function watchEmbeddedFrameForEligibleContent(): void {
+    if (embeddedFrameEligibilityObserver) return;
+    const observer = new MutationObserver(mutations => {
+        // Inspect only the changed text/subtree. Serializing the whole body on
+        // every ad-frame mutation would turn this cheap dormant wake-up gate
+        // into permanent work on frames that never become eligible.
+        if (!mutations.some(mutationContainsEmbeddedFrameEligibilitySignal)) return;
         observer.disconnect();
-        embeddedFrameVideoObserver = undefined;
+        embeddedFrameEligibilityObserver = undefined;
         if (isEmbeddedFrameWindow()) bootReaderApp();
     });
-    embeddedFrameVideoObserver = observer;
-    const observe = () => observer.observe(document.documentElement, { childList: true, subtree: true });
+    embeddedFrameEligibilityObserver = observer;
+    const observe = () => observer.observe(document.documentElement, {
+        characterData: true,
+        childList: true,
+        subtree: true,
+    });
     if (document.documentElement) observe();
     else document.addEventListener('DOMContentLoaded', observe, { once: true });
+}
+
+function mutationContainsEmbeddedFrameEligibilitySignal(mutation: MutationRecord): boolean {
+    if (mutation.type === 'characterData') {
+        return HAS_JAPANESE.test((mutation.target.textContent ?? '').slice(0, 200_000));
+    }
+    return [...mutation.addedNodes].some(node => {
+        if (node instanceof Element && (node.matches('video') || Boolean(node.querySelector('video')))) return true;
+        return HAS_JAPANESE.test((node.textContent ?? '').slice(0, 200_000));
+    });
 }
 
 function isYouTubeMediaFrame(): boolean {

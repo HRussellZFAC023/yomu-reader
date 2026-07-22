@@ -13,14 +13,16 @@ const READER_TESTS_DIR = join(ROOT, 'tests/reader');
 // is the jpdb lane; everything else is "regular".
 const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 
-// These tests cannot safely share a fork yet. The first six still use vi.mock
-// against shared reader modules; the remainder depend on indexedDB absence,
+// These tests cannot safely share a fork yet. The leading group still uses
+// vi.mock against shared reader modules; the remainder depend on indexedDB absence,
 // ReaderApp internals, or large fixtures whose state leaked in the fork-reuse
 // hunt. settings-form.test.ts was later split into eight real files, so keep all
 // eight in the equivalent isolated pass until repeated isolate:false runs prove
 // a narrower boundary.
 const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/reader-boot.test.ts'),
+    join(ROOT, 'tests/reader/academy-account-settings.test.ts'),
+    join(ROOT, 'tests/reader/newtab-runtime-onboarding.test.ts'),
     join(ROOT, 'tests/reader/settings-dialog-controller.test.ts'),
     join(ROOT, 'tests/reader/cloud-sync-web.test.ts'),
     join(ROOT, 'tests/reader/jisho-audio.test.ts'),
@@ -33,6 +35,9 @@ const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/bridge-fetch-fallback.test.ts'),
     join(ROOT, 'tests/reader/mirror-text-fidelity.test.ts'),
     join(ROOT, 'tests/reader/startup-hosted-language.test.ts'),
+    // The late bridge test owns storage-bridge globals and is deterministic
+    // alone, but can inherit stale state in the fork-reuse pass.
+    join(ROOT, 'tests/reader/newtab-runtime-onboarding.test.ts'),
     join(ROOT, 'tests/reader/settings-form/01-help-panel.test.ts'),
     join(ROOT, 'tests/reader/settings-form/02-recommended-dictionaries.test.ts'),
     join(ROOT, 'tests/reader/settings-form/03-source-display-names.test.ts'),

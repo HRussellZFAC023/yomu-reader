@@ -19,7 +19,9 @@ const COOKIE_PART_PATTERN = '[A-Za-z0-9_-]{43}';
 const VERSIONED_SESSION_COOKIE = new RegExp(`^${SESSION_COOKIE_VERSION}(${COOKIE_PART_PATTERN})(${COOKIE_PART_PATTERN})$`);
 const LEGACY_SESSION_COOKIE = new RegExp(`^${COOKIE_PART_PATTERN}$`);
 export const ACCOUNT_RECOVERY_INVITE_ID = 'system_google_recovery_v1';
+export const READER_ACCOUNT_INVITE_ID = 'system_reader_account_v1';
 const RECOVERY_INVITE_PREIMAGE = '\u0000GOOGLE-ACCOUNT-RECOVERY\u0000';
+const READER_INVITE_PREIMAGE = '\u0000YOMU-READER-ACCOUNT\u0000';
 
 export interface ActiveSession {
     readonly public_id: string;
@@ -152,6 +154,38 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
  * exchangeable through the public session endpoint.
  */
 export async function handleCreateRecoverySession(request: Request, env: Env, clock: Clock): Promise<Response> {
+    return handleCreateSystemAccountSession(request, env, clock, {
+        inviteId: ACCOUNT_RECOVERY_INVITE_ID,
+        invitePreimage: RECOVERY_INVITE_PREIMAGE,
+        failureMessage: 'Account recovery could not be started.',
+    });
+}
+
+/**
+ * POST /academy/api/auth/google/reader — issue a free Reader account session.
+ * It may create or recover a Google-bound identity and its encrypted-sync
+ * profile, but it is deliberately not an Academy curriculum entitlement.
+ */
+export async function handleCreateReaderAccountSession(request: Request, env: Env, clock: Clock): Promise<Response> {
+    return handleCreateSystemAccountSession(request, env, clock, {
+        inviteId: READER_ACCOUNT_INVITE_ID,
+        invitePreimage: READER_INVITE_PREIMAGE,
+        failureMessage: 'Reader account sign-in could not be started.',
+    });
+}
+
+interface SystemAccountSessionOptions {
+    readonly inviteId: string;
+    readonly invitePreimage: string;
+    readonly failureMessage: string;
+}
+
+async function handleCreateSystemAccountSession(
+    request: Request,
+    env: Env,
+    clock: Clock,
+    options: SystemAccountSessionOptions,
+): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), OAUTH_RATE, now);
@@ -167,14 +201,14 @@ export async function handleCreateRecoverySession(request: Request, env: Env, cl
     await env.ACADEMY_DB.prepare(
         'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
         + "VALUES (?1, ?2, 100000, 'seed', ?3, NULL, NULL, 1) ON CONFLICT(id) DO NOTHING",
-    ).bind(ACCOUNT_RECOVERY_INVITE_ID, await inviteCodeHash(env, RECOVERY_INVITE_PREIMAGE), now).run();
+    ).bind(options.inviteId, await inviteCodeHash(env, options.invitePreimage), now).run();
     const inserted = await env.ACADEMY_DB.prepare(
         'INSERT INTO sessions (token_hash, public_id, invite_id, created_at, expires_at, offline_resume_until) '
         + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING public_id',
     ).bind(
-        await storedTokenHash(env, credential.parts), row.public_id, ACCOUNT_RECOVERY_INVITE_ID, now, row.expires_at, row.offline_resume_until,
+        await storedTokenHash(env, credential.parts), row.public_id, options.inviteId, now, row.expires_at, row.offline_resume_until,
     ).run();
-    if ((inserted.meta.changes ?? 0) !== 1) throw new HttpError(500, 'Account recovery could not be started.');
+    if ((inserted.meta.changes ?? 0) !== 1) throw new HttpError(500, options.failureMessage);
     return jsonResponse(sessionContract(row), 201, {
         'set-cookie': hostCookie(SESSION_COOKIE, credential.value, OFFLINE_RESUME_MS / 1000),
     });

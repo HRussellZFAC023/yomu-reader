@@ -2,7 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { inflateSync } from 'node:zlib';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     assert,
@@ -27,7 +27,8 @@ const NEWTAB_CSS_PATH = path.join(NEWTAB_DIR, 'styles.css');
 const PAGE_PATH = '/pitch-underline.html';
 const TARGET = '英会話';
 const READING = 'えいかいわ';
-const SENTENCE = `${TARGET}の練習をします。`;
+const ADJACENT_TARGET = 'する';
+const SENTENCE = `${TARGET}${ADJACENT_TARGET}練習をします。`;
 const PITCH_COLOR = '#f59e0b';
 const EXPECT_MODE = process.env.YOMU_PITCH_UNDERLINE_EXPECT === 'broken' ? 'broken' : 'fixed';
 const SCREENSHOT_NAME = EXPECT_MODE === 'broken'
@@ -81,12 +82,14 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, NEWTAB_CSS_PATH], ROOT, 'Run npm ru
 
 const requests = [];
 const server = await startLoopbackServer(serveFixture, 'Could not bind pitch underline smoke server');
-const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+const engineName = process.env.YOMU_PITCH_UNDERLINE_ENGINE === 'webkit' ? 'webkit' : 'chromium';
+const browserType = engineName === 'webkit' ? webkit : chromium;
+const browser = await launchSmokeBrowser(browserType, engineName, { headless: true });
 
 try {
     const context = await browser.newContext({
         bypassCSP: true,
-        viewport: { width: 900, height: 520 },
+        viewport: { width: 900, height: 720 },
         deviceScaleFactor: 1,
     });
     const page = await context.newPage();
@@ -120,6 +123,14 @@ try {
             && word.dataset.pitchClass !== 'unknown'
             && !word.classList.contains('jpdb-pitch-unknown');
     }, wordSelector, { timeout: 20_000 });
+    const adjacentSelector = `.jpdb-reader-word[data-expression="${ADJACENT_TARGET}"]`;
+    await page.waitForFunction(selector => {
+        const word = document.querySelector(selector);
+        return word
+            && word.dataset.pitchClass
+            && word.dataset.pitchClass !== 'unknown'
+            && !word.classList.contains('jpdb-reader-has-furi');
+    }, adjacentSelector, { timeout: 20_000 });
     await page.waitForTimeout(120);
 
     const pitchRequestCount = requests.filter(request => request.kind === 'jpdb-public-pitch').length;
@@ -135,19 +146,53 @@ try {
     const analysis = analyzeUnderline(wordScreenshot, {
         ...geometry,
         cropOffsetX: geometry.rect.x - wordClip.x,
-    }, TARGET_RGB);
+    }, rgbFromCssColor(geometry.underlineColor, TARGET_RGB));
+    const adjacentGeometry = await wordGeometry(page, adjacentSelector);
+    const adjacentClip = paddedClip(adjacentGeometry.rect, 22);
+    const adjacentScreenshot = await page.screenshot({ clip: adjacentClip });
+    const adjacentAnalysis = analyzeUnderline(adjacentScreenshot, {
+        ...adjacentGeometry,
+        cropOffsetX: adjacentGeometry.rect.x - adjacentClip.x,
+    }, rgbFromCssColor(adjacentGeometry.underlineColor, TARGET_RGB));
+    const underlineBaselineDelta = Math.abs(
+        wordClip.y + analysis.sampledRow - (adjacentClip.y + adjacentAnalysis.sampledRow),
+    );
+    const mixedMirrorGeometry = await wordGeometry(page, '#mixed-mirror-word');
+    const mixedPlainGeometry = await wordGeometry(page, '#mixed-plain-word');
+    const mixedMirrorClip = paddedClip(mixedMirrorGeometry.rect, 22);
+    const mixedPlainClip = paddedClip(mixedPlainGeometry.rect, 22);
+    const mixedMirrorAnalysis = analyzeUnderline(await page.screenshot({ clip: mixedMirrorClip }), {
+        ...mixedMirrorGeometry,
+        cropOffsetX: mixedMirrorGeometry.rect.x - mixedMirrorClip.x,
+    }, rgbFromCssColor(mixedMirrorGeometry.underlineColor, TARGET_RGB));
+    const mixedPlainAnalysis = analyzeUnderline(await page.screenshot({ clip: mixedPlainClip }), {
+        ...mixedPlainGeometry,
+        cropOffsetX: mixedPlainGeometry.rect.x - mixedPlainClip.x,
+    }, rgbFromCssColor(mixedPlainGeometry.underlineColor, TARGET_RGB));
+    const mixedUnderlineBaselineDelta = Math.abs(
+        mixedMirrorClip.y + mixedMirrorAnalysis.sampledRow
+        - (mixedPlainClip.y + mixedPlainAnalysis.sampledRow),
+    );
     const screenshotPath = path.join(ARTIFACTS, SCREENSHOT_NAME);
     await page.screenshot({ path: screenshotPath, clip: paddedClip(await fixtureClip(page)) });
 
     const fixed = analysis.largestInternalGap <= 2
         && analysis.coverage >= 0.92
         && geometry.textDecorationSkipInk === 'none'
-        && !rubyDecorations.hasDecoratedChildren;
+        && !rubyDecorations.hasDecoratedChildren
+        && underlineBaselineDelta <= 1
+        && mixedUnderlineBaselineDelta <= 1
+        && mixedMirrorAnalysis.largestInternalGap <= 2
+        && mixedMirrorAnalysis.coverage >= 0.9
+        && mixedPlainAnalysis.largestInternalGap <= 2
+        && mixedPlainAnalysis.coverage >= 0.78;
     const report = {
         ok: EXPECT_MODE === 'broken' ? !fixed : fixed,
         expect: EXPECT_MODE,
         fixed,
         target: TARGET,
+        adjacentTarget: ADJACENT_TARGET,
+        engine: engineName,
         reading: READING,
         sentence: SENTENCE,
         pitchClass: geometry.pitchClass,
@@ -156,6 +201,15 @@ try {
         screenshot: screenshotPath,
         wordScreenshot: path.join(ARTIFACTS, WORD_SCREENSHOT_NAME),
         underline: analysis,
+        adjacentUnderline: adjacentAnalysis,
+        underlineBaselineDelta,
+        mixedUnderline: {
+            mirror: mixedMirrorAnalysis,
+            plain: mixedPlainAnalysis,
+            baselineDelta: mixedUnderlineBaselineDelta,
+            mirrorGeometry: mixedMirrorGeometry,
+            plainGeometry: mixedPlainGeometry,
+        },
         rubyDecorations,
         geometry,
     };
@@ -223,7 +277,8 @@ function serveFixture(request, response) {
         linear-gradient(160deg, rgba(255, 255, 255, .08), transparent 58%);
     }
     [data-pitch-sentence],
-    [data-pitch-ocr-line] {
+    [data-pitch-ocr-line],
+    [data-mixed-baseline] {
       position: relative;
       z-index: 1;
       margin: 0;
@@ -235,6 +290,7 @@ function serveFixture(request, response) {
         0 1px 2px rgba(0, 0, 0, .72),
         0 0 8px rgba(0, 0, 0, .42);
     }
+    [data-mixed-baseline] { margin-top: 28px; }
   </style>
 </head>
 <body>
@@ -242,6 +298,13 @@ function serveFixture(request, response) {
     <section data-pitch-scene class="jpdb-reader-example-card has-image">
       <p class="jpdb-reader-example-sentence jpdb-reader-parseable" data-pitch-sentence>${SENTENCE}</p>
     </section>
+    <p data-mixed-baseline data-jpdb-reader-root class="jpdb-reader-word-underline-pitch">
+      <span class="jpdb-reader-text-mirror jpdb-reader-additive-text-mirror" style="display:inline">
+        <span id="mixed-mirror-word" class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi jpdb-pitch-heiban" data-pitch-class="heiban">
+          <ruby><span class="jpdb-reader-ruby-base">立</span><rt class="jpdb-reader-furi">た</rt></ruby>つ
+        </span>
+      </span><span id="mixed-plain-word" class="jpdb-reader-word jpdb-reader-scan-word jpdb-pitch-atamadaka" data-pitch-class="atamadaka" style="--jpdb-reader-pitch-atamadaka:#f43f5e">文</span>
+    </p>
   </main>
 </body>
 </html>`);
@@ -284,8 +347,24 @@ function jpdbParseResponse() {
             ['not-in-deck'],
             [],
             null,
+        ], [
+            424243,
+            1,
+            0,
+            ADJACENT_TARGET,
+            ADJACENT_TARGET,
+            800,
+            ['v'],
+            [['do']],
+            [['v']],
+            ['not-in-deck'],
+            ['LH'],
+            null,
         ]],
-        tokens: [[[0, 0, TARGET.length, [['英会', 'えいかい'], ['話', 'わ']]]]],
+        tokens: [[
+            [0, 0, TARGET.length, [['英会', 'えいかい'], ['話', 'わ']]],
+            [1, TARGET.length, ADJACENT_TARGET.length, []],
+        ]],
     };
 }
 
@@ -305,9 +384,10 @@ async function wordGeometry(page, selector) {
                     width: baseRect.width,
                 };
             });
-        const baseLeft = Math.floor(Math.min(...bases.map(base => base.left)));
-        const baseRight = Math.ceil(Math.max(...bases.map(base => base.right)));
+        const baseLeft = bases.length ? Math.floor(Math.min(...bases.map(base => base.left))) : 0;
+        const baseRight = bases.length ? Math.ceil(Math.max(...bases.map(base => base.right))) : Math.ceil(rect.width);
         const style = getComputedStyle(word);
+        const underlineStyle = getComputedStyle(word, '::after');
         return {
             rect: {
                 x: rect.x,
@@ -326,8 +406,22 @@ async function wordGeometry(page, selector) {
             textDecorationThickness: style.textDecorationThickness,
             textUnderlineOffset: style.textUnderlineOffset,
             textDecorationSkipInk: style.textDecorationSkipInk,
+            underlineColor: underlineStyle.borderBlockEndColor || underlineStyle.borderBottomColor,
+            wordUnderline: style.getPropertyValue('--jpdb-reader-word-underline').trim(),
+            sourcePitchDecoration: style.getPropertyValue('--jpdb-reader-source-pitch-decoration').trim(),
+            pitchColor: style.getPropertyValue('--jpdb-reader-pitch-color').trim(),
         };
     }, selector);
+}
+
+function rgbFromCssColor(value, fallback) {
+    const channels = String(value).match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/i);
+    return channels ? {
+        r: Number(channels[1]),
+        g: Number(channels[2]),
+        b: Number(channels[3]),
+        a: channels[4] === undefined ? 1 : Number(channels[4]),
+    } : { ...fallback, a: fallback.a ?? 1 };
 }
 
 async function rubyDecorationInfo(page, selector) {
@@ -372,6 +466,8 @@ function paddedClip(clip, padding = 18) {
 }
 
 function analyzeUnderline(buffer, geometry, targetRgb) {
+    assert((targetRgb.a ?? 1) > 0.05,
+        'Pitch underline computed to a transparent colour.', { targetRgb, geometry });
     const png = decodePng(buffer);
     const pitchRows = [];
     for (let y = 0; y < png.height; y++) {
@@ -415,7 +511,7 @@ function isPitchPixel(png, x, y, targetRgb) {
     const a = png.data[offset + 3];
     if (a < 120) return false;
     const distance = Math.abs(r - targetRgb.r) + Math.abs(g - targetRgb.g) + Math.abs(b - targetRgb.b);
-    return distance < 115 && r > 180 && g > 90 && b < 90;
+    return distance < 115;
 }
 
 function columnRuns(columns, start, end) {

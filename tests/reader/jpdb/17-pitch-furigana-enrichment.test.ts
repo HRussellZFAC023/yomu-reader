@@ -410,6 +410,137 @@ describe('reader helpers', () => {
         }
     });
 
+    it('hydrates sparse Jiten parse cards even when the authenticated Jiten parser is active', async () => {
+        const app = new ReaderApp();
+        const parsed = testPublicCard({
+            vid: 777,
+            sid: 0,
+            spelling: '毎日',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+        });
+        const hydrated = testPublicCard({
+            ...parsed,
+            reading: 'まいにち',
+            source: 'jiten',
+            pitchAccent: ['LHHH'],
+            wordWithReading: '毎[まい]日[にち]',
+        });
+        const token = testTokenForCard(parsed, '毎日使う。');
+        const word = appendRenderedReaderWord(parsed);
+        const hydrateCards = vi.fn(async () => new Map([['777:0', hydrated]]));
+        const publicPitch = vi.fn(async () => [] as string[]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            jitenApiKey: 'authenticated-jiten',
+            localDictionariesEnabled: false,
+            showPitchAccent: true,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
+
+            expect(hydrateCards).toHaveBeenCalledWith([parsed], expect.any(Object));
+            expect(token.card).toBe(hydrated);
+            expect(word.dataset.reading).toBe('まいにち');
+            expect(word.dataset.pitchClass).toBe('heiban');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('まいにち');
+            expect(publicPitch).not.toHaveBeenCalled();
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('reconciles missing ruby from an already pitch-complete parse token without another lookup', async () => {
+        const app = new ReaderApp();
+        const complete = testPublicCard({
+            vid: 888,
+            sid: 0,
+            spelling: '漫画',
+            reading: 'まんが',
+            pitchAccent: ['LHH'],
+            wordWithReading: null,
+        });
+        const token = testTokenForCard(complete, '漫画を読む。', { rubies: [] });
+        const word = appendRenderedReaderWord(complete);
+        const search = vi.fn(async () => [] as JPDBCard[]);
+        const { internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: {
+                localDictionariesEnabled: false,
+                showPitchAccent: true,
+                showFurigana: true,
+                furiganaMode: 'all',
+            },
+        });
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(search).not.toHaveBeenCalled();
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('まんが');
+            expect(word.dataset.pitchClass).toBe('heiban');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('aligns a pitch-complete dictionary reading onto an inflected rendered surface', async () => {
+        const app = new ReaderApp();
+        const complete = testPublicCard({
+            vid: 889,
+            sid: 0,
+            spelling: '使う',
+            reading: 'つかう',
+            pitchAccent: ['LHH'],
+            wordWithReading: null,
+        });
+        const surface = '使える';
+        const token = testTokenForCard(complete, surface, { end: surface.length, rubies: [] });
+        const word = appendRenderedReaderWord(complete, { text: surface });
+        const search = vi.fn(async () => [] as JPDBCard[]);
+        const { internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: {
+                localDictionariesEnabled: false,
+                showPitchAccent: true,
+                showFurigana: true,
+                furiganaMode: 'all',
+            },
+        });
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(search).not.toHaveBeenCalled();
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('つか');
+            expect(word.dataset.pitchClass).toBe('heiban');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
     it('renders aligned compound component accents without inventing a whole-word pitch', async () => {
         const app = new ReaderApp();
         const compound = testPublicCard({

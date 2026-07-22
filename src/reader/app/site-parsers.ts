@@ -14,6 +14,8 @@ import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfRe
 import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
 import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
+import { isYouTubeAppHostname } from './youtube-host';
+import { isBunproReviewFrontPrompt } from '../bunpro/page-targets';
 
 export interface SiteParserProfile {
     id: string;
@@ -799,7 +801,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         suppressResidualVisibleScan: true,
         includePassiveInteractionRoots: false,
         scanLimit: 80,
-        matches: url => (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com'))
+        matches: url => isYouTubeAppHostname(url.hostname)
             && (url.pathname === '/live_chat' || url.pathname === '/live_chat_replay'),
     },
     {
@@ -925,9 +927,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         nonDestructive: true,
         includePassiveInteractionRoots: true,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
+        matches: url => isYouTubeAppHostname(url.hostname),
     },
     {
         id: 'cijapanese-transcript-parser',
@@ -1372,7 +1372,9 @@ function shouldRejectProfileScanTarget(profile: SiteParserProfile, target: Fragm
 // plain on the front and re-annotates on reveal, matching the hosted study page.
 export function isReviewCardFrontPromptElement(element: Element): boolean {
     if (!(element instanceof HTMLElement)) return false;
-    return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
+    return isBunproReviewFrontPrompt(element)
+        || isJitenStudyFrontPrompt(element)
+        || isJpdbReviewFrontPrompt(element);
 }
 
 // Sub-count and subscribe rows re-render constantly — the flicker that once

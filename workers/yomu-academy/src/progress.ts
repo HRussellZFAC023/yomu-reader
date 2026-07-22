@@ -2,6 +2,7 @@ import { randomToken } from './crypto';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { requireAccount } from './accounts';
+import { requireAcademyAccessSession } from './profiles';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MUTATION_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
@@ -25,6 +26,7 @@ export interface Streaks {
 export async function handleProgressSync(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
+    await requireAcademyAccessSession(request, env, now);
     const { account } = await requireAccount(request, env, now);
     const body = await readJsonBody(request, 32_768);
     const mutationId = parseMutationId(body.mutationId);

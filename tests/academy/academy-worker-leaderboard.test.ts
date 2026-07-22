@@ -129,6 +129,9 @@ async function authenticatedCookie(academy: SqliteAcademy, accountId: string): P
     await academy.env.ACADEMY_DB.prepare(
         'UPDATE sessions SET account_id = ?1 WHERE public_id = ?2',
     ).bind(accountId, session.sessionId).run();
+    await academy.env.ACADEMY_DB.prepare(
+        'INSERT OR IGNORE INTO account_academy_grants (account_id, source_invite_id, granted_at) VALUES (?1, ?2, ?3)',
+    ).bind(accountId, inviteId, now - 5_000).run();
     const cookie = response.headers.get('set-cookie')?.split(';')[0];
     if (!cookie) throw new Error('Session cookie was not created.');
     return cookie;

@@ -45,7 +45,7 @@ async function seedSqliteInvite(
 }
 
 describe('Academy Worker sessions', () => {
-    it('applies the family-index migration and uses it for the logout lookup', () => {
+    it('has the family-index migration and uses it for the logout lookup', () => {
         const academy = createSqliteAcademy();
         try {
             expect(academy.db.rows<{ name: string }>(

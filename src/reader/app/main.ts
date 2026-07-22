@@ -72,6 +72,7 @@ import {
     renderKanjiDefinitions,
 } from '../sources/definition-render';
 import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
@@ -103,6 +104,8 @@ import {
     currentPageLocalDictionaryTargets,
     currentPageTermTarget,
     isCurrentKanjiSurface,
+    isBunproHost,
+    isBunproQuizAnswerHidden,
     isJitenHost,
     isPageEnhancementHost,
     isPageEnhancementReady,
@@ -272,12 +275,13 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, createMutation
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { translateJapaneseSentence } from '../study/tools';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
@@ -346,6 +350,8 @@ import {
 } from '../settings/api-credential';
 
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
+import { installAcademyReaderSrsSync } from '../srs/account-sync';
+import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { createWanikaniSrsAdapter } from '../srs/wanikani';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
@@ -700,7 +706,7 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
     return resolution.patterns[0] ?? '';
 }
 
-// Identity of a jiten page-addon key by SPELLING only ("word:食べる:たべる" ->
+// Identity of a dynamic page-addon key by SPELLING only ("word:食べる:たべる" ->
 // "word:食べる", "kanji:食" -> "kanji:食"). A jiten headword can momentarily
 // resolve its reading from the page title (reading === spelling) or gain
 // furigana after the addon mounts, both of which flip only the reading half of
@@ -708,7 +714,7 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
 // refetch the Immersion Kit on every such flip; the spelling is the stable card
 // identity, and same-spelling content is word-keyed so a rare reading-only
 // change is a safe no-op.
-function jitenAddonKeyIdentity(key: string): string {
+function pageAddonKeyIdentity(key: string): string {
     const parts = key.split(':');
     return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
 }
@@ -899,7 +905,10 @@ export class ReaderApp {
             void saveSettings(this.settings);
         },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
-        onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
+        onApiCardStateChanged: card => {
+            this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
+        },
     });
     private immersionPopoverInstance: InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null = null;
     private get immersionPopover(): InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null {
@@ -940,6 +949,7 @@ export class ReaderApp {
         jiten: this.jiten,
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
+        yomuLocalSrs: this.yomuLocalSrs,
     });
     private onboarding = this.createOnboardingController();
     private subtitles = this.createSubtitlePlayer();
@@ -1287,8 +1297,14 @@ export class ReaderApp {
             // Player iframes need OCR too: the subtitle rail's OCR button and
             // paused-frame OCR dispatch/listen inside this frame's document.
             this.ocr.init();
-            if (this.shouldScanEmbeddedFrame()) {
-                this.setupAutoScan();
+            // Sign-in widgets and other compact embedded controls often boot
+            // with a Latin placeholder and localise to Japanese later. Every
+            // frame gets the same mutation-driven scanner, but an initial scan
+            // is still scheduled only when Japanese is already present (or for
+            // the existing YouTube chat surface). Without the observer, a
+            // Latin -> Japanese characterData mutation was invisible forever.
+            this.setupAutoScan();
+            if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
                 this.scheduleAutoScan(0, { force: true });
             }
             return;
@@ -1306,6 +1322,7 @@ export class ReaderApp {
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
         this.installCardStateSignalSubscription();
+        installAcademyReaderSrsSync();
         this.resumePendingCloudSettingsSync();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
@@ -1365,6 +1382,7 @@ export class ReaderApp {
         this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
         });
     }
 
@@ -1924,7 +1942,12 @@ export class ReaderApp {
     private jitenEnhancementsNeedRefresh(): boolean {
         if (location.href !== this.lastEnhancedHref) return true;
         if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
-        if (!document.querySelector('[data-yomu-jpdb-addon]')) return true;
+        const hasAddon = Boolean(document.querySelector('[data-yomu-jpdb-addon]'));
+        // Bunpro keeps the previous answer console alive briefly while the next
+        // prompt renders. Remove its addon immediately so the preceding answer
+        // cannot leak into the unrevealed question phase.
+        if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+        if (!hasAddon) return true;
         if (this.jitenAddonWordIdentityChanged()) return true;
         return this.jitenAddonStrandedOnFallbackAnchor();
     }
@@ -1936,11 +1959,11 @@ export class ReaderApp {
     // and its Immersion Kit — kept showing the previous card. Refresh whenever
     // the mounted addon's word/kanji identity no longer matches the current target.
     private jitenAddonWordIdentityChanged(): boolean {
-        const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+        const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
         if (!expected.length) return false;
         const mounted = new Set(
             Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
-                .map(element => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
+                .map(element => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
         );
         return !expected.some(identity => mounted.has(identity));
     }
@@ -2056,14 +2079,14 @@ export class ReaderApp {
             entries.length
             || (data?.jpdbVocabularyInfo && !isJpdbHost())
             || (data?.jitenVocabularyInfo && !isJitenHost())
-            || data?.bunproDefinitionInfo
+            || (data?.bunproDefinitionInfo && !isBunproHost())
             || this.settings.immersionKitEnabled,
         );
     }
 
     private jpdbPageWordCard(target: LocalDictionaryTarget): JPDBCard {
         const card = jpdbAudioCard(target.term, target.reading);
-        card.source = isJitenHost() ? 'jiten' : 'jpdb';
+        card.source = isBunproHost() ? 'bunpro' : isJitenHost() ? 'jiten' : 'jpdb';
         return card;
     }
 
@@ -2556,6 +2579,11 @@ export class ReaderApp {
             if (isJitenHost()) {
                 this.maybeScrollJitenStudyToNewCard();
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+            } else if (isBunproHost()) {
+                // Bunpro's lesson carousel and review loop both replace the
+                // active item in place, so the generic JPDB mutation selector
+                // is too narrow. The identity gate keeps steady DOM churn cheap.
+                if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
             } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
                 this.scheduleJpdbPageEnhancements(500);
             }
@@ -6797,6 +6825,7 @@ export class ReaderApp {
         anchor?: HTMLElement,
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
+        this.applyCardEnrichmentToRenderedAnchor(card, anchor);
         const renderedRoots = this.renderedWordUpdateRootsForCardRender(trigger, anchor);
         this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, {
             preserveExistingEmpty: trigger === 'hover',
@@ -6813,6 +6842,18 @@ export class ReaderApp {
         this.updateCardPopoverPosition(trigger);
         this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
             relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
+        });
+    }
+
+    private applyCardEnrichmentToRenderedAnchor(card: JPDBCard, anchor?: HTMLElement): void {
+        const word = anchor?.closest<HTMLElement>('.jpdb-reader-word');
+        if (!word?.isConnected) return;
+        const surface = normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
+        if (!surface || !cardMatchesRenderedLookupValue(card, surface)) return;
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+        this.pauseAutoScanObserver(() => {
+            this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+            refreshReaderWordContrast(word.parentElement ?? word);
         });
     }
 
@@ -7713,10 +7754,24 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
+        installProviderExampleBehaviors(popover, {
+            language: this.settings.interfaceLanguage,
+            blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+            translate: translateJapaneseSentence,
+            isCurrentRoot: root => this.isCurrentPopoverRoot(root),
+        });
         this.enrichJpdbRelatedWords(popover);
-        const plan = nestedTextParsePlan(popover, 120);
-        if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+        const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
+        if (plan && !nestedParseAlreadyScheduled(popover, plan.parseKey)) {
+            await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+        }
+        if (!this.isCurrentPopoverRoot(popover)) return;
+        const providerPlan = providerExampleTextParsePlan(popover, 24);
+        if (providerPlan && !nestedParseAlreadyScheduled(popover, providerPlan.parseKey)) {
+            await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+                publicJitenDetailLimit: 24,
+            }, false);
+        }
     }
 
     private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
@@ -7838,6 +7893,7 @@ export class ReaderApp {
         plan: NestedParsePlan,
         isCurrent: () => boolean,
         options: ReaderParserParseOptions = {},
+        recordParseKey = true,
     ): Promise<void> {
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
@@ -7855,7 +7911,7 @@ export class ReaderApp {
             this.scheduleCachedPublicVocabularyHydration(root);
             highlightCardTargetScopes(root);
             refreshReaderWordContrast(root);
-            root.dataset.jpdbReaderParseKey = plan.parseKey;
+            if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
             this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : undefined);
         } catch {
         } finally {
@@ -7884,7 +7940,7 @@ export class ReaderApp {
     private loadAndCacheNestedParseContent(
         key: string,
         texts: string[],
-        parseOptions: Required<ReaderParserParseOptions>,
+        parseOptions: ReaderParserParseOptions,
         now: number,
     ): Promise<JPDBToken[][]> {
         const promise = this.parseJapanese(texts, parseOptions).catch(error => {
@@ -8220,6 +8276,12 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+        // Parsing and visual enrichment are independent channels. A parser can
+        // already know a card's reading/pitch while omitting ruby spans for the
+        // contextual surface (inflections are the common example). Reconcile
+        // that exact evidence onto the connected word before the pitch-complete
+        // fast path filters the token out of network work.
+        tokens.forEach(token => this.reconcileRenderedTokenFurigana(token));
         // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
         // pitch source: the at-rest pass stays offline. But local-FIRST, not
         // local-ONLY (class F): words the local bank misses are fed into the
@@ -8323,11 +8385,20 @@ export class ReaderApp {
         return this.settings.showPitchAccent || (this.settings.showFurigana && this.settings.furiganaMode !== 'off');
     }
 
+    private reconcileRenderedTokenFurigana(token: JPDBToken): void {
+        if (!this.settings.showFurigana || this.settings.furiganaMode === 'off' || token.rubies.length) return;
+        const reading = token.card.reading.trim();
+        if (!reading || reading === token.card.spelling.trim()) return;
+        const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
+        if (![...surface].some(isKanjiCharacter)) return;
+        const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || 'unknown';
+        this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
+    }
+
     private async resolvePublicFallbackPitchTokens(
         tokens: JPDBToken[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {},
     ): Promise<JPDBToken[]> {
-        if (this.isJitenApiActive()) return tokens;
         const queuedTokens: JPDBToken[] = [];
         const fallbackGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
         const jitenGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();

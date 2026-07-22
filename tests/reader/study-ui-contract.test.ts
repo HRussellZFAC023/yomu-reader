@@ -47,6 +47,25 @@ describe('Reader Study UI contract', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"] :is( .jpdb-reader-newtab-brand, .jpdb-reader-newtab-theme-controls, .jpdb-reader-newtab-overflow, [data-newtab-session-clock-host] ) { display: none !important; }');
     });
 
+    it('keeps the desktop learning flow compact and the answer action attached to its field', () => {
+        expect(newTabCss).toContain('@media (min-width: 641px)');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { flex-wrap: nowrap;');
+        expect(newTabCss).toContain('min-height: min(70dvh, 720px);');
+        expect(newTabCss).toContain('border-radius: 18px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { width: 100%; min-width: 0; max-width: 100%; grid-template-columns: minmax(0, 1fr); }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-type-form { width: min(100%, 680px); grid-template-columns: 48px minmax(0, 1fr) auto;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-type-input[readonly] { border-color:');
+        expect(newTabCss).toContain('position: sticky; bottom: max(12px, env(safe-area-inset-bottom));');
+    });
+
+    it('uses native-style bottom navigation and a single-line step rail on phones', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab-app-nav { display: none; }');
+        expect(newTabCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+        expect(newTabCss).toContain('min-height: calc(64px + env(safe-area-inset-bottom));');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(72px + env(safe-area-inset-bottom));');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { width: min(100%, calc(100vw - 16px)); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;');
+    });
+
     it('stacks text entry and contains grading controls on narrow Academy phones', () => {
         expect(newTabCss).toContain('@media (max-width: 420px)');
         expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-shell, .jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-mode, .jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-controls { width: 100%; max-width: 100%; }');

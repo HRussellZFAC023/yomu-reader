@@ -130,6 +130,7 @@ export function hardenExtensionManifest(manifest, options = {}) {
     const chromeOAuthConfigured = target === 'chrome' && Boolean(googleOAuthClientId);
     const permissions = uniqueArray([
         ...(manifest.permissions ?? []).filter(permission => permission !== 'tabs'),
+        'storage',
         ...(chromeOAuthConfigured ? ['identity'] : []),
     ]);
     const oauth2 = chromeOAuthConfigured

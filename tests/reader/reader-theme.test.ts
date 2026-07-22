@@ -417,7 +417,7 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
-    it('keeps passive UI scan words on the host control text color', () => {
+    it('honours enabled word text colours on passive UI while preserving contrast', () => {
         document.body.innerHTML = `
             <p style="background: rgb(24, 27, 32);">
                 <a role="button" style="background: rgb(55, 108, 80); color: rgb(255, 255, 255);">
@@ -432,7 +432,7 @@ describe('reader theme', () => {
         refreshReaderWordContrastForWord(word);
 
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-        expect(text).toBe('#ffffff');
+        expect(text).not.toBe('#ffffff');
         expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight')).toBe('');
         expect(contrastRatio(text, '#376c50')).toBeGreaterThanOrEqual(4.5);
@@ -463,7 +463,7 @@ describe('reader theme', () => {
         expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
     });
 
-    it('infers dark transparent host surfaces from light native text instead of assuming a white page', () => {
+    it('infers dark transparent host surfaces while honouring the enabled word text source', () => {
         document.documentElement.style.colorScheme = 'dark';
         document.body.innerHTML = `
             <section style="color: rgb(242, 243, 245);">
@@ -478,7 +478,7 @@ describe('reader theme', () => {
 
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
         expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 27, 32)');
-        expect(text).toBe('#f2f3f5');
+        expect(text).not.toBe('#f2f3f5');
         expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
     });
 
@@ -521,7 +521,7 @@ describe('reader theme', () => {
 
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
         expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(18, 18, 20)');
-        expect(text).toBe('#efeff1');
+        expect(text).not.toBe('#efeff1');
         expect(text).not.toBe('#000000');
         expect(contrastRatio(text, '#121214')).toBeGreaterThanOrEqual(4.5);
     });

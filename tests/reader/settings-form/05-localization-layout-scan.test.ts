@@ -483,6 +483,7 @@ describe('settings form localization', () => {
             dictionaryLookupLinks: priorDefaultOrder.map(id => ({ ...defaultLinks.get(id)! })),
         });
         expect(migratedFromPriorDefault.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
+        expect(migratedFromPriorDefault.dictionaryLookupLinks.map(link => link.id).slice(-4)).toEqual(['immersion-kit', 'nadeshiko', 'uchisen', 'copy']);
 
         const custom = normalizeReaderSettings({
             dictionaryLookupLinks: [
@@ -494,6 +495,40 @@ describe('settings form localization', () => {
         expect(custom.dictionaryLookupLinks.map(link => link.id).indexOf('jiten')).toBeLessThan(
             custom.dictionaryLookupLinks.map(link => link.id).indexOf('jpdb'),
         );
+    });
+
+    it('expands the old untouched three-example Immersion Kit default while preserving deliberate limits', () => {
+        expect(DEFAULT_SETTINGS).toMatchObject({
+            immersionKitExpandedLimitMigrated20260721: true,
+            immersionKitLimitEnabled: false,
+            immersionKitLimit: 12,
+        });
+
+        expect(normalizeReaderSettings({
+            immersionKitLimitEnabled: true,
+            immersionKitLimit: 3,
+        })).toMatchObject({
+            immersionKitExpandedLimitMigrated20260721: true,
+            immersionKitLimitEnabled: false,
+            immersionKitLimit: 12,
+        });
+
+        expect(normalizeReaderSettings({
+            immersionKitExpandedLimitMigrated20260721: true,
+            immersionKitLimitEnabled: true,
+            immersionKitLimit: 3,
+        })).toMatchObject({
+            immersionKitLimitEnabled: true,
+            immersionKitLimit: 3,
+        });
+
+        expect(normalizeReaderSettings({
+            immersionKitLimitEnabled: true,
+            immersionKitLimit: 5,
+        })).toMatchObject({
+            immersionKitLimitEnabled: true,
+            immersionKitLimit: 5,
+        });
     });
 
     it('keeps scan shortcuts configurable while preserving stored scan behavior', () => {

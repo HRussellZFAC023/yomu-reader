@@ -26,6 +26,9 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // App-level signals / flags / caches.
     { owner: 'app/storage', kind: 'gm', key: 'yomu:factory-reset-signal' },
     { owner: 'app/card-state-signal', kind: 'gm', key: 'yomu:card-state-signal' },
+    { owner: 'app/storage leases', kind: 'gm', prefix: 'yomu:lease:' },
+    { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device:v1' },
+    { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device-pending:v1' },
     { owner: 'app/logger', kind: 'gm', key: 'yomu:enable-logs' },
     { owner: 'app/main', kind: 'gm', key: 'yomu:jpdb-review-examples-visible:v1' },
     { owner: 'app/preferred-site-language', kind: 'gm', key: 'yomu:prefer-japanese-site-language' },

@@ -596,7 +596,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
 
             await vi.waitFor(() => {
                 const labels = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-meta > span')).map(item => item.textContent);
-                expect(labels).toEqual(['#20200', 'JPDB Redundant', 'Anki Known']);
+                expect(labels).toEqual(['JPDB Redundant', 'Anki Known']);
             });
             expect(document.querySelector<HTMLElement>('[data-newtab-lookup-reading]')).toBeNull();
         } finally {
@@ -646,7 +646,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
 
             await vi.waitFor(() => {
                 const labels = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-meta > span')).map(item => item.textContent);
-                expect(labels).toEqual(['#20200', 'JPDB Redundant']);
+                expect(labels).toEqual(['JPDB Redundant']);
             });
         } finally {
             runtime.destroy();
@@ -1119,10 +1119,10 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             return element.textContent ?? '';
         });
 
-        expect(metaItems()).toEqual(['#250', 'Anki Due']);
+        expect(metaItems()).toEqual(['Anki Due']);
 
         apiKey = 'jpdb-key';
-        expect(metaItems()).toEqual(['#250', 'JPDB Not in deck', 'Anki Due']);
+        expect(metaItems()).toEqual(['JPDB Not in deck', 'Anki Due']);
     });
 
     it('does not show Add to Anki while a new-tab lookup Anki miss is untrusted', async () => {
@@ -1182,7 +1182,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
 
             await vi.waitFor(() => expect(document.querySelector('.jpdb-reader-popover')).not.toBeNull());
             const labels = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-meta > span')).map(item => item.textContent);
-            expect(labels).toEqual(['#640', 'Anki Due']);
+            expect(labels).toEqual(['Anki Due']);
             expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.jpdb-due')).toBeNull();
             expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-due')).not.toBeNull();
         } finally {

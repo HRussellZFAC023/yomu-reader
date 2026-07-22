@@ -537,6 +537,23 @@ async function auditMilestone(page, viewport, runtime, name, selector) {
                     : [];
             });
         const brokenImages = [...surface.querySelectorAll('img')].filter(visible).filter(image => !image.complete || image.naturalWidth <= 0 || !image.hasAttribute('alt'));
+        const surfaceRect = surface.getBoundingClientRect();
+        const overflowingDescendants = [...surface.querySelectorAll('*')]
+            .filter(element => element instanceof HTMLElement && visible(element))
+            .map(element => {
+                const rect = element.getBoundingClientRect();
+                return {
+                    element: element.id ? `#${element.id}` : element.classList.length
+                        ? `${element.tagName.toLowerCase()}.${[...element.classList].join('.')}`
+                        : element.tagName.toLowerCase(),
+                    overflow: Math.max(0, element.scrollWidth - element.clientWidth, rect.right - surfaceRect.right),
+                    clientWidth: element.clientWidth,
+                    scrollWidth: element.scrollWidth,
+                };
+            })
+            .filter(entry => entry.overflow > 2)
+            .sort((left, right) => right.overflow - left.overflow)
+            .slice(0, 12);
         return {
             missing: false,
             documentWidth: document.documentElement.scrollWidth,
@@ -549,6 +566,7 @@ async function auditMilestone(page, viewport, runtime, name, selector) {
             mobileZoomRiskControls,
             clippedControls,
             clippedText,
+            overflowingDescendants,
             brokenImages: brokenImages.map(image => image.getAttribute('src')),
         };
     }, selector);
@@ -853,9 +871,17 @@ function watchRuntime(page, label) {
     const errors = [];
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     page.on('console', message => {
+        // Chromium omits the request URL from this network console line. The
+        // response listener below still rejects every non-profile 401.
+        if (message.type() === 'error'
+            && message.text() === 'Failed to load resource: the server responded with a status of 401 (Unauthorized)') {
+            return;
+        }
         if (message.type() === 'error') errors.push(`console: ${message.text()}`);
     });
     page.on('response', response => {
+        const url = new URL(response.url());
+        if (response.status() === 401 && url.pathname === '/academy/api/profile') return;
         if (response.status() >= 400) {
             errors.push(`response ${response.status()}: ${response.url()}`);
         }
@@ -883,6 +909,11 @@ function serveAcademy(request, response) {
             expiresAt: now + 28_800_000,
             offlineResumeUntil: now + 2_592_000_000,
         }));
+        return;
+    }
+    if (url.pathname === '/academy/api/profile') {
+        response.writeHead(401, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'Sign in with Google to use an Academy profile.' }));
         return;
     }
     if (url.pathname.startsWith('/academy/media/audio/')) {

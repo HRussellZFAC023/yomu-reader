@@ -146,6 +146,16 @@ describe('reader helpers', () => {
 
         await internals.immersionPopover.loadExamples(popover, card);
 
+        const searchLinks = Array.from(container.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-immersion-search-link'));
+        expect(searchLinks.map(link => link.textContent?.trim())).toEqual([
+            expect.stringContaining('View on Immersion Kit'),
+            expect.stringContaining('View on Nadeshiko'),
+        ]);
+        expect(searchLinks.map(link => link.getAttribute('href'))).toEqual([
+            'https://www.immersionkit.com/dictionary?keyword=%E9%A3%9F%E3%81%B9%E3%82%8B&sort=sentence_length:asc&page=1',
+            'https://nadeshiko.co/search/%E9%A3%9F%E3%81%B9%E3%82%8B',
+        ]);
+
         const translation = container.querySelector<HTMLElement>('.jpdb-reader-example-translation');
         expect(translation?.dataset.immersionTranslationBlurred).toBe('true');
 
@@ -158,6 +168,28 @@ describe('reader helpers', () => {
 
         expect(internals.settings.immersionKitRevealTranslationOnClick).toBe(true);
         expect(translation?.dataset.immersionTranslationBlurred).toBe('true');
+    });
+
+    it('shows both external example searches on Jiten-backed Immersion cards', async () => {
+        const { app, container, popover } = testImmersionPopoverSurface();
+        const internals = testImmersionPopoverInternals(app);
+        internals.settings = { ...DEFAULT_SETTINGS, immersionKitShowImages: false };
+        internals.immersionPopover.searchExamples = vi.fn(async () => ({
+            examples: [testImmersionKitExample({ sentence: '本を読む。', soundFile: '' })],
+            query: '読む',
+            usedFallback: false,
+            triedQueries: ['読む'],
+        }));
+        internals.parseJapanese = vi.fn(async () => []);
+        internals.immersionPopover.playExampleAudio = vi.fn(async () => undefined);
+        internals.immersionPopover.mediaUrls = vi.fn(() => []);
+
+        await internals.immersionPopover.loadExamples(popover, jitenTestCard());
+
+        expect(Array.from(container.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-immersion-search-link')).map(link => link.getAttribute('href'))).toEqual([
+            'https://www.immersionkit.com/dictionary?keyword=%E8%AA%AD%E3%82%80&sort=sentence_length:asc&page=1',
+            'https://nadeshiko.co/search/%E8%AA%AD%E3%82%80',
+        ]);
     });
 
     it('keeps the current Immersion Kit image in place until the next one preloads', async () => {

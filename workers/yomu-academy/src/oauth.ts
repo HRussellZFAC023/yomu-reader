@@ -3,7 +3,7 @@ import type { Clock, Env } from './env';
 import { clearHostCookie, hostCookie, HttpError, readBoundedText } from './http';
 import { AccountLinkFailure, linkGoogleSubject } from './accounts';
 import { clientSubject, enforceRateLimit, OAUTH_RATE } from './rate-limit';
-import { activeSession } from './sessions';
+import { activeSession, READER_ACCOUNT_INVITE_ID } from './sessions';
 
 const AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -153,7 +153,11 @@ export async function handleGoogleCallback(
     const claims = await verifyGoogleIdToken(idToken, env.GOOGLE_OIDC_CLIENT_ID, flow.nonce, now, fetcher);
     await linkGoogleSubject(env, session, claims.sub, now);
 
-    return redirect(`${academyOrigin(env)}/academy/?account=linked`, clearHostCookie(FLOW_COOKIE));
+    const origin = academyOrigin(env);
+    const destination = session.invite_id === READER_ACCOUNT_INVITE_ID
+        ? `${origin}/?account=linked`
+        : `${origin}/academy/?account=linked`;
+    return redirect(destination, clearHostCookie(FLOW_COOKIE));
 }
 
 /** Scrub provider parameters even when callback verification or linking fails. */

@@ -459,7 +459,7 @@ describe('new tab review — cache reuse & source switching', () => {
 
         await waitForExpect(() => expect(settings.newTabSource).toBe('anki'));
         await expectNewTabDictionaryCard('書く', document, null);
-        expect(newTabSourceSelect().value).toBe('dictionary');
+        expect(newTabSourceSelect().value).toBe('yomu-local');
         expect(listNewTabCards).toHaveBeenCalledOnce();
         expect(listRandomTopTerms).toHaveBeenCalled();
 
@@ -548,7 +548,7 @@ describe('new tab review — cache reuse & source switching', () => {
 
         await waitForExpect(() => expect(settings.newTabSource).toBe('anki'));
         await expectNewTabDictionaryCard('書く', document, null);
-        expect(newTabSourceSelect().value).toBe('dictionary');
+        expect(newTabSourceSelect().value).toBe('yomu-local');
         expect(listNewTabCards).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalled();
 
@@ -645,7 +645,7 @@ describe('new tab review — cache reuse & source switching', () => {
         }
     });
 
-    it('keeps the Anki-only status pill inert and lists sources only in the dropdown', () => {
+    it('keeps the Anki-only status pill inert and replaces the Dictionary selector option with Academy', () => {
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -693,10 +693,37 @@ describe('new tab review — cache reuse & source switching', () => {
         expect(status.title).toBe('');
         expect(status.disabled).toBe(true);
         expect(newTabSourceSelect(root).value).toBe('anki');
-        // The dropdown lists Dictionary as an explicit destination — unlike
-        // the old cycle-toggle, picking it is a deliberate choice, not a
-        // misleading implied alternative.
-        expect(newTabSourceSelectValues(root)).toEqual(['anki', 'dictionary']);
+        expect(newTabSourceSelectValues(root)).toEqual(['yomu-local', 'anki']);
+        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['Academy', 'Anki']);
+    });
+
+    it('does not offer JPDB without an API key and never exposes Dictionary beside Bunpro', () => {
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            bunproFrontendApiToken: 'bunpro-token',
+        });
+        const root = renderEnabledNewTabRoot(controller);
+        const bunproCard = newTabTestCard({
+            spelling: '勉強',
+            reading: 'べんきょう',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+        });
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [bunproCard],
+            sourceLabel: 'Bunpro',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'bunpro', revealAnswer: false },
+        });
+
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, bunproCard);
+
+        expect(newTabSourceSelectValues(root)).toEqual(['yomu-local', 'bunpro']);
+        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['Academy', 'Bunpro']);
     });
 
     it('falls back to study words when the selected Anki source has no card lister', async () => {
@@ -799,7 +826,7 @@ describe('new tab review — cache reuse & source switching', () => {
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
                 expect(newTabPromptText(root)).toBe('読む');
-                expect(newTabSourceSelect(root).value).toBe('dictionary');
+                expect(newTabSourceSelect(root).value).toBe('yomu-local');
                 expect(root.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
             });
         } finally {

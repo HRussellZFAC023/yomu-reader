@@ -79,6 +79,51 @@ describe('Academy encrypted profile sync client', () => {
         expect(JSON.stringify(request.mock.calls)).not.toContain('googleToken');
     });
 
+    it('restores bounded Academy access on a cold offline launch but denies Reader accounts', async () => {
+        const academyStorage = memoryStorage();
+        const academy = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: fakeApi({ accountId: ACCOUNT_ID, academyAccess: true }),
+            storage: academyStorage,
+        });
+        await academy.connect();
+        await academy.initializeAccountProfile();
+
+        const coldOfflineAcademy = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: vi.fn(),
+            online: () => false,
+            storage: academyStorage,
+        });
+        expect(coldOfflineAcademy.hasCurrentAccountProjection).toBe(false);
+        expect(coldOfflineAcademy.hasAcademyAccess).toBe(true);
+
+        const coldOnlineAcademy = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: vi.fn(),
+            online: () => true,
+            storage: academyStorage,
+        });
+        expect(coldOnlineAcademy.hasAcademyAccess).toBe(false);
+
+        const readerStorage = memoryStorage();
+        const reader = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: fakeApi({ accountId: ACCOUNT_ID, academyAccess: false }),
+            storage: readerStorage,
+        });
+        await reader.connect();
+        await reader.initializeAccountProfile();
+        const coldOfflineReader = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request: vi.fn(),
+            online: () => false,
+            storage: readerStorage,
+        });
+        expect(coldOfflineReader.hasAcademyAccess).toBe(false);
+        expect(coldOfflineReader.status.account?.academyAccess).toBe(false);
+    });
+
     it('rotates an expired session cookie once and restores the account instead of demanding a new invite', async () => {
         const api = fakeApi({ accountId: ACCOUNT_ID });
         let expired = true;
@@ -131,6 +176,20 @@ describe('Academy encrypted profile sync client', () => {
         expect(request.mock.calls.map(([path]) => path)).not.toContain('/academy/api/srs/push');
         expect((await client.initializeAccountProfile()).phase).toBe('ready');
         expect(request.mock.calls.map(([path]) => path)).toContain('/academy/api/srs/push');
+    });
+
+    it('initializes a Reader account key and pairing without calling Academy learner-event routes', async () => {
+        const request = fakeApi({ accountId: ACCOUNT_ID, academyAccess: false });
+        const client = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository([event('reader-local-event', 'Reader account')]),
+            request,
+        });
+
+        expect((await client.connect()).phase).toBe('pair');
+        expect((await client.initializeAccountProfile()).phase).toBe('ready');
+        await expect(client.startPairing()).resolves.toMatchObject({ pairingId: PAIRING_ID });
+        expect(request.mock.calls.map(([path]) => String(path))).not.toContain('/academy/api/srs/push');
+        expect(request.mock.calls.some(([path]) => String(path).startsWith('/academy/api/srs/pull'))).toBe(false);
     });
 
     it('lets only one empty account device pin the first encryption key', async () => {
@@ -425,11 +484,16 @@ describe('Academy encrypted profile sync client', () => {
         const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request, storage });
         await client.connect();
         await client.initializeAccountProfile();
-        const keyedState = storage.getItem('yomu:academy:profile-sync:v1');
+        const keyedState = JSON.parse(storage.getItem('yomu:academy:profile-sync:v1') ?? '{}') as {
+            profile?: unknown;
+            key?: unknown;
+        };
 
         await client.signOut();
         expect(client.status.phase).toBe('signed-out');
-        expect(storage.getItem('yomu:academy:profile-sync:v1')).toBe(keyedState);
+        const signedOutState = JSON.parse(storage.getItem('yomu:academy:profile-sync:v1') ?? '{}') as Record<string, unknown>;
+        expect(signedOutState).toMatchObject({ profile: keyedState.profile, key: keyedState.key });
+        expect(signedOutState).not.toHaveProperty('account');
 
         const recovered = new AcademySyncClient({
             events: createMemoryLearnerEventRepository(),
@@ -651,6 +715,48 @@ describe('Academy encrypted profile sync client', () => {
         expect(JSON.parse(String(exportCalls[1]?.[1]?.body))).toEqual({ cursor: continuation });
     });
 
+    it('streams every independently paginated Academy and Reader event into one export', async () => {
+        const base = await encryptedRemoteEnvelope(event('dual-export', 'Dual'));
+        const academyOne = { ...base, id: '11111111-1111-4111-8111-111111111111', cursor: 1 };
+        const academyTwo = { ...base, id: '22222222-2222-4222-8222-222222222222', cursor: 2 };
+        const readerOne = { ...base, id: '33333333-3333-4333-8333-333333333333', cursor: 4 };
+        const readerTwo = { ...base, id: '44444444-4444-4444-8444-444444444444', cursor: 5 };
+        const academyCursor = `v2.${'a'.repeat(43)}.1.${'b'.repeat(64)}`;
+        const readerCursor = `v2.${'c'.repeat(43)}.2.${'d'.repeat(64)}`;
+        const request = fakeApi({
+            exportPages: {
+                start: {
+                    schemaVersion: 2,
+                    profile: profile(),
+                    eventPage: { events: [academyOne], nextCursor: 1, hasMore: true, exportCursor: academyCursor },
+                    readerSrsEventPage: { events: [], nextCursor: 0, hasMore: true },
+                },
+                [academyCursor]: {
+                    schemaVersion: 2,
+                    eventPage: { events: [academyTwo], nextCursor: 2, hasMore: false, exportCursor: readerCursor },
+                    readerSrsEventPage: { events: [], nextCursor: 0, hasMore: true },
+                },
+                [readerCursor]: {
+                    schemaVersion: 2,
+                    eventPage: { events: [], nextCursor: 2, hasMore: false, exportCursor: null },
+                    readerSrsEventPage: { events: [readerOne, readerTwo], nextCursor: 5, hasMore: false },
+                },
+            },
+        });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+        await client.connect();
+
+        const blob = await client.exportData();
+        if (!blob) throw new Error('fallback export blob missing');
+        const exported = JSON.parse(await readBlobText(blob)) as {
+            eventPage: { events: Array<{ id: string }> };
+            readerSrsEventPage: { events: Array<{ id: string }> };
+        };
+        expect(exported.eventPage.events.map(item => item.id)).toEqual([academyOne.id, academyTwo.id]);
+        expect(exported.readerSrsEventPage.events.map(item => item.id)).toEqual([readerOne.id, readerTwo.id]);
+        expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile/export')).toHaveLength(3);
+    });
+
     it('streams meaningful large ciphertext volume without retaining an aggregate browser copy', async () => {
         const pageCount = 12;
         const rowsPerPage = 200;
@@ -794,8 +900,9 @@ describe('Academy encrypted profile sync client', () => {
 
         expect(ready.textContent).toContain('Continue to Academy');
         expect(pending.textContent).not.toContain('Continue to Academy');
-        // Offline first-run learners without a linked account must stay at the
-        // Google gate; offline devices holding an account-bound profile may go on.
+        // Offline first-run learners without cached Academy access stay at the
+        // account gate. A profile id alone cannot distinguish a Reader-only
+        // account from one entitled to the Academy.
         const offlineAnonymous = renderProfileSyncScreen({
             language: 'en',
             status: { phase: 'offline', profile: null, account: null, entitlement: null, pending: 0, lastSyncAt: null, error: null },
@@ -813,7 +920,7 @@ describe('Academy encrypted profile sync client', () => {
             onContinue,
         });
         expect(offlineAnonymous.textContent).not.toContain('Continue to Academy');
-        expect(offlineLinked.textContent).toContain('Continue to Academy');
+        expect(offlineLinked.textContent).not.toContain('Continue to Academy');
         const readyAnonymous = renderProfileSyncScreen({
             language: 'en',
             status: { phase: 'ready', profile: profile(), account: null, entitlement: null, pending: 0, lastSyncAt: null, error: null },
@@ -945,6 +1052,7 @@ function account() {
         avatarKey: null,
         boardVisible: false,
         shareAvatar: false,
+        academyAccess: true,
         classes: [],
     } as const;
 }
@@ -958,6 +1066,8 @@ function fakeApi(options: {
     pull?: unknown[];
     exportBody?: unknown;
     exportPages?: Readonly<Record<string, unknown>>;
+    academyAccess?: boolean;
+    entitlement?: AcademyEntitlementView;
     profileStatus?: number;
     profileError?: string;
     redeemStatus?: number;
@@ -983,10 +1093,11 @@ function fakeApi(options: {
             if (options.accountStatus) return response({ error: 'Account unavailable.' }, options.accountStatus);
             return response({
                 accountId: options.accountId ?? ACCOUNT_ID, displayName: 'Aakash', displayTag: 'Aakash#419213', nameChosen: true,
-                avatarKey: null, boardVisible: false, shareAvatar: false, classes: [],
+                avatarKey: null, boardVisible: false, shareAvatar: false,
+                academyAccess: options.academyAccess ?? true, classes: [],
             });
         }
-        if (url === '/academy/api/entitlement') return response({ entitlement: 'none' });
+        if (url === '/academy/api/entitlement') return response(options.entitlement ?? { entitlement: 'none' });
         if (url === '/academy/api/profile/key' && init?.method === 'POST') {
             const body = JSON.parse(String(init.body)) as { keyCommitment: string };
             if (profileKeyCommitment && profileKeyCommitment !== body.keyCommitment) {

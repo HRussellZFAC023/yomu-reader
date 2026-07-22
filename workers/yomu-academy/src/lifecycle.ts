@@ -133,7 +133,8 @@ export async function handleDeleteProfile(request: Request, env: Env, clock: Clo
         + '(id, scope, deleted_at, profile_count, device_count, synced_record_count, prune_after) '
         + "SELECT ?1, 'profile', ?2, 1, "
         + '(SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = p.id), '
-        + '(SELECT COUNT(*) FROM srs_events e WHERE e.profile_id = p.id), ?4 '
+        + '((SELECT COUNT(*) FROM srs_events e WHERE e.profile_id = p.id) + '
+        + '(SELECT COUNT(*) FROM reader_srs_events e WHERE e.profile_id = p.id)), ?4 '
         + 'FROM profiles p WHERE p.id = ?3 '
         + 'RETURNING id, scope, deleted_at, profile_count, device_count, synced_record_count, prune_after',
     ).bind(deletionId, now, context.profile.id, now + DELETION_RECEIPT_RETENTION_MS)];
@@ -173,7 +174,8 @@ export async function handleDeleteAccount(request: Request, env: Env, clock: Clo
             + "SELECT ?1, 'account', ?2, "
             + '(SELECT COUNT(*) FROM profiles p WHERE p.account_id = a.id), '
             + '(SELECT COUNT(*) FROM profile_devices d JOIN profiles p ON p.id = d.profile_id WHERE p.account_id = a.id), '
-            + '(SELECT COUNT(*) FROM srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id), ?4 '
+            + '((SELECT COUNT(*) FROM srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id) + '
+            + '(SELECT COUNT(*) FROM reader_srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id)), ?4 '
             + 'FROM accounts a WHERE a.id = ?3 '
             + 'RETURNING id, scope, deleted_at, profile_count, device_count, synced_record_count, prune_after',
         ).bind(deletionId, now, account.id, now + DELETION_RECEIPT_RETENTION_MS),
@@ -233,7 +235,8 @@ export async function handleDeleteLifecycleProofAccount(request: Request, env: E
             + "SELECT ?1, 'account', ?2, "
             + '(SELECT COUNT(*) FROM profiles p WHERE p.account_id = a.id), '
             + '(SELECT COUNT(*) FROM profile_devices d JOIN profiles p ON p.id = d.profile_id WHERE p.account_id = a.id), '
-            + '(SELECT COUNT(*) FROM srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id), ?4 '
+            + '((SELECT COUNT(*) FROM srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id) + '
+            + '(SELECT COUNT(*) FROM reader_srs_events e JOIN profiles p ON p.id = e.profile_id WHERE p.account_id = a.id)), ?4 '
             + 'FROM accounts a WHERE a.id = ?3 AND EXISTS ('
             + 'SELECT 1 FROM account_lifecycle_proof_grants g WHERE g.token_hash = ?5 AND g.run_nonce_hash = ?6 '
             + 'AND g.account_id = a.id AND g.consume_nonce = ?7 AND g.consumed_at = ?2 '

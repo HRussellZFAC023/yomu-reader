@@ -17,6 +17,7 @@ export interface ProviderExampleAudioView {
 
 export interface ProviderExampleView {
     id: string;
+    sentence: string;
     sentenceHtml: string;
     translation: string;
     audio?: ProviderExampleAudioView;
@@ -27,6 +28,13 @@ export interface ProviderExampleView {
 }
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
+
+export interface ProviderExampleBehaviorOptions {
+    language: InterfaceLanguage;
+    blurTranslations: boolean;
+    translate: (sentence: string, language: InterfaceLanguage) => Promise<string>;
+    isCurrentRoot?: (root: HTMLElement) => boolean;
+}
 
 export function renderProviderExamples(
     provider: 'bunpro' | 'jiten' | 'jpdb',
@@ -47,7 +55,7 @@ export function renderProviderExamples(
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join('')}</ul>
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(example => renderProviderExample(example, language)).join('')}</ul>
             </div>
         </details>
     `;
@@ -57,19 +65,72 @@ function definitionSourceStateKey(sourceId: string): string {
     return `definition-source:${sourceId}`;
 }
 
-function renderProviderExample(example: ProviderExampleView): string {
+function renderProviderExample(example: ProviderExampleView, language: InterfaceLanguage): string {
     const hasAudio = Boolean(example.audio);
+    const translation = example.translation.trim();
+    const translationPending = !translation;
     return `
         <li class="${classes('jpdb-reader-jpdb-example', example.itemClassName)}" data-provider-example-id="${escapeHtml(example.id)}">
             <div class="${classes('jpdb-reader-jpdb-example-row', example.rowClassName, hasAudio ? 'has-audio' : '')}">
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ''}
                 <div class="${classes('jpdb-reader-jpdb-example-text', example.textClassName)}">
-                    <div class="${classes('jpdb-reader-example-sentence jpdb-reader-parseable', example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
+                    <div class="${classes('jpdb-reader-example-sentence jpdb-reader-parseable', example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
+                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml(example.sentence)}" hidden` : ''} role="button" tabindex="0" aria-label="${escapeHtml(uiText(language, 'revealTranslation'))}">${escapeHtml(translation)}</div>
                 </div>
             </div>
         </li>
     `;
+}
+
+export function installProviderExampleBehaviors(root: HTMLElement, options: ProviderExampleBehaviorOptions): void {
+    installProviderTranslationReveal(root);
+    const translations = Array.from(root.querySelectorAll<HTMLElement>('[data-provider-example-translation]'));
+    if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
+    translations.filter(translation => translation.dataset.providerTranslationPending === 'true')
+        .forEach(translation => hydrateProviderTranslation(root, translation, options));
+}
+
+function installProviderTranslationReveal(root: HTMLElement): void {
+    if (root.dataset.providerExampleBehaviorsInstalled === 'true') return;
+    root.dataset.providerExampleBehaviorsInstalled = 'true';
+    root.addEventListener('click', event => {
+        const translation = (event.target as Element | null)?.closest<HTMLElement>('[data-provider-example-translation]');
+        if (translation && root.contains(translation)) revealProviderTranslation(translation);
+    });
+    root.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const translation = (event.target as Element | null)?.closest<HTMLElement>('[data-provider-example-translation]');
+        if (!translation || !root.contains(translation)) return;
+        event.preventDefault();
+        revealProviderTranslation(translation);
+    });
+}
+
+function hydrateProviderTranslation(root: HTMLElement, translation: HTMLElement, options: ProviderExampleBehaviorOptions): void {
+    if (translation.dataset.providerTranslationLoading === 'true') return;
+    const sentence = translation.dataset.providerTranslationSentence?.trim() ?? '';
+    if (!sentence) return;
+    translation.dataset.providerTranslationLoading = 'true';
+    void options.translate(sentence, options.language).then(translated => {
+        if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
+        translation.textContent = translated.trim();
+        translation.hidden = false;
+        delete translation.dataset.providerTranslationPending;
+        delete translation.dataset.providerTranslationSentence;
+    }).catch(() => undefined).finally(() => {
+        delete translation.dataset.providerTranslationLoading;
+    });
+}
+
+function isCurrentProviderRoot(root: HTMLElement, options: ProviderExampleBehaviorOptions): boolean {
+    return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
+}
+
+function revealProviderTranslation(translation: HTMLElement): void {
+    delete translation.dataset.providerTranslationBlurred;
+    translation.removeAttribute('role');
+    translation.removeAttribute('tabindex');
+    translation.removeAttribute('aria-label');
 }
 
 function renderProviderExampleAudio(audio: ProviderExampleAudioView): string {

@@ -21,6 +21,7 @@ import type {
     JPDBCard,
     JPDBToken,
 } from './fixtures';
+import { cardKey } from '../../../src/reader/cards/utils';
 
 function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]): { root: HTMLElement; clicks: string[] } {
     const root = document.createElement('main');
@@ -219,6 +220,58 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             const previous = dispatchNewTabKeyboard(root, 'H');
             expect(previous.defaultPrevented).toBe(true);
             expect(study.dataset.newtabStudyStep).toBe('word');
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('keeps the Type field primary, supports retry feedback, and advances only after a correct retry', () => {
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            newTabStudyDisabledSteps: ['kanji-doodle', 'listen-pitch', 'speaking'],
+        });
+        const card = newTabTestCard({
+            spelling: '猫',
+            reading: 'ねこ',
+            meanings: [{ glosses: ['cat'], partOfSpeech: [] }],
+            sentence: '猫が好きです。',
+            pitchAccent: [],
+        });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', revealAnswer: false },
+            bindRootEvents: true,
+        });
+
+        try {
+            root.querySelector<HTMLButtonElement>('[data-study-step-kind="type-word"]')?.click();
+            const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            expect(input).not.toBeNull();
+            expect(root.querySelector('[data-action="study-word-audio"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="previous"]')?.textContent).toBe('Previous');
+
+            input.value = 'いぬ';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-submit"]')?.click();
+
+            expect(root.querySelector('[data-newtab-type-result]')?.textContent).toBe('Not quite — try again');
+            expect(root.querySelector('[data-newtab-type-result]')?.textContent).not.toContain('猫');
+            expect(root.querySelector<HTMLInputElement>('[data-newtab-type-input]')?.readOnly).toBe(false);
+
+            const retry = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            retry.value = 'ねこ';
+            retry.dispatchEvent(new Event('input', { bubbles: true }));
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-submit"]')?.click();
+
+            expect(root.querySelector('[data-newtab-type-result]')?.textContent).toBe('Reading accepted · 猫');
+            expect(root.querySelector<HTMLInputElement>('[data-newtab-type-input]')?.readOnly).toBe(true);
+            const states = (controller as unknown as {
+                studyStepStates: Map<string, { type?: { outcome?: string; feedback?: string } }>;
+            }).studyStepStates;
+            expect(states.get(cardKey(card))?.type).toMatchObject({ outcome: 'incorrect', feedback: 'accepted' });
+
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-submit"]')?.click();
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('recall-cloze');
         } finally {
             root.remove();
         }

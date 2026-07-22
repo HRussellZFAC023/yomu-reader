@@ -75,6 +75,12 @@ export interface YomuSrsMiningResult {
     raw?: unknown;
 }
 
+/** Semantic vocabulary identities resolved in one local SRS read. */
+export interface YomuSrsLookupItem {
+    expression: string;
+    reading?: string;
+}
+
 export interface YomuSrsImportItem {
     expression: string;
     reading?: string;
@@ -111,5 +117,6 @@ export interface YomuSrsAdapter {
     queue(limit?: number): Promise<YomuSrsQueueSnapshot>;
     review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult>;
     mine(request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult>;
+    lookupCards?(items: readonly YomuSrsLookupItem[]): Promise<YomuSrsReviewable[]>;
     importBatch?(batch: YomuSrsImportBatch): Promise<{ imported: number; skipped: number }>;
 }

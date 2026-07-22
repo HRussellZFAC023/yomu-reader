@@ -339,7 +339,8 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             expect(status.dataset.sourceToggleTarget).toBeUndefined();
             const select = newTabSourceSelect();
             expect(select.hidden).toBe(false);
-            expect(select.value).toBe('dictionary');
+            expect(select.value).toBe('yomu-local');
+            expect(select.querySelector<HTMLOptionElement>('option[value="yomu-local"]')?.textContent).toBe('Academy');
             expect(select.querySelector<HTMLOptionElement>('option[value="jpdb"]')?.textContent).toBe('Jiten');
             expect(newTabSourceSelectValues()).not.toContain('anki');
         } finally {

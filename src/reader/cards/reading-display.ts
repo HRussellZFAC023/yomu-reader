@@ -20,14 +20,13 @@ function compactReading(value: string): string {
     return value.normalize('NFC').replace(/\s+/g, '').trim();
 }
 
-// Card headwords are dictionary entries: the reading belongs on the word as
-// furigana whenever ruby data exists. Page-level furigana modes (known-status,
-// difficult-kanji, hover) only govern in-page words — without this override a
-// known word's headword lost its ruby and the kana fell back beside the word.
-// An explicit furigana-off still wins (the kana then shows beside instead).
+// Card headwords are dictionary entries: their reading belongs on the word as
+// furigana whenever ruby data exists. Page-level furigana preferences govern
+// annotated page text, not lookup headings. Keeping that distinction absolute
+// prevents the same reading from ever falling back to loose kana beside a
+// lookup headword when page furigana is disabled.
 export function headwordFuriganaSettings(settings: ReaderSettings): ReaderSettings {
-    if (!settings.showFurigana || settings.furiganaMode === 'off') return settings;
-    return { ...settings, furiganaMode: 'all' };
+    return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
 export function renderCardSpellingWithFurigana(

@@ -42,6 +42,7 @@ export const NIGHTLY_SMOKES = [
     'smoke:ocr-provider-matrix',
     'smoke:onboarding-popover',
     'smoke:pitch-underline',
+    'smoke:pitch-underline:webkit',
     'smoke:popover-headword-furigana',
     'smoke:study-personas',
     'smoke:subtitle-network',

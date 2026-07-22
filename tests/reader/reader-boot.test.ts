@@ -78,6 +78,36 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
     });
 
+    it('boots embedded frames that already contain Japanese in restricted mode', () => {
+        document.body.textContent = 'Google で続ける';
+
+        withWindowProperty('top', {} as Window, () => {
+            bootReaderApp();
+        });
+
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+    });
+
+    it('boots an embedded frame when a Latin control localises to Japanese', async () => {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'top');
+        Object.defineProperty(window, 'top', { configurable: true, value: {} as Window });
+        try {
+            const button = document.createElement('button');
+            button.textContent = 'Continue with Google';
+            document.body.append(button);
+            bootReaderApp();
+            expect(appMocks.init).not.toHaveBeenCalled();
+
+            button.textContent = 'Google で続ける';
+            await vi.waitFor(() => {
+                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+            });
+        } finally {
+            if (descriptor) Object.defineProperty(window, 'top', descriptor);
+            else delete (window as unknown as Record<string, unknown>).top;
+        }
+    });
+
     it('boots embedded frames that already contain a video in restricted mode', () => {
         document.body.append(document.createElement('video'));
 

@@ -5,11 +5,114 @@
 ### Added
 
 - Yomu Academy account/profile deletion now returns a privacy-minimized 90-day receipt while retaining declared minimal payment/redemption audit records, and a credential-gated live proof can bind real Google recovery, two-device pairing, deployed-client export, deletion, hosted app bytes, Worker version, migrations, and reviewed git commit without forging provider callbacks.
+- Reader-account devices and Academy profiles now share one bounded encrypted export without mixing their independent event cursors. The export freezes both logs, streams Academy then Reader history, includes revocable Reader credential metadata without bearer secrets, and counts both logs in deletion receipts.
+
+### Changed
+
+- Aakash's approved v009 anime-style sprite family is now the runtime source across Academy surfaces; the superseded v005 family is archived outside the repository rather than retained as an active candidate.
+- The Academy production plan now treats the calendar as Day 1 through Day N. A day closes only after every required, optional, revisitable, one-off, social, study, exploration, minigame, and evening activity available on that date is implemented and verified; the 48 core chapters do not cap the calendar.
 
 ### Fixed
 
 - Academy Google linking now rolls back paid-code redemption and every account/profile write on conflicts or later failures and logs only a fixed failure category. Signed session-bound export traversals terminate beyond 24,000 records without shared-NAT budget coupling, and account holders can delete encrypted profile data without deleting their identity.
 - Academy lifecycle proof deletion now requires an expiring, single-use server grant bound to the authenticated production test account and run nonce. The supervised proof compares the active immutable Worker version and script digest with a locally reproduced reviewed bundle, exports large encrypted histories through a bounded stream, protects export creation as a same-origin POST, and prunes 90-day receipts on an observable scheduled retry path.
+
+## [1.6.405] - 2026-07-21
+
+### Fixed
+
+- Website account controls and Yomu Gaming's native backup controls now mount relative to their direct container even when the target UI is nested, preventing account setup from breaking alternate navbar and settings shells.
+
+## [1.6.404] - 2026-07-21
+
+### Added
+
+- The Yomu website now offers Create account and Sign in controls, shows the current signed-in name, and links directly to Profile & sync. A free Reader account can pair the userscript or browser extension and keep the Academy/local Study deck encrypted and synchronized across devices; Academy curriculum access remains a separate entitlement.
+- Reader Settings → Backup & sync can claim a one-time website pairing code, show the connected account and last-sync state, sync immediately, revoke the current Reader device, or create a recovery code that restores the website key from a surviving Reader.
+- Academy cards now carry their local SRS state, due date, highlighting, and swatch through reading pages and Study, with cross-tab repainting after mining, grading, remote updates, and deletions.
+
+### Changed
+
+- Study's former Dictionary source is now Academy. JPDB appears in the source switcher only when a JPDB key is configured; a Jiten-only or keyless setup no longer advertises an unusable JPDB queue.
+- Reader account sync uses client-side AES-256-GCM encryption. Yomu's Worker stores only hashed device credentials plus opaque encrypted card events and their delivery metadata; the 32-byte profile key remains on paired clients.
+
+### Fixed
+
+- Study lookup headers no longer repeat a bare frequency value such as `#400`, and Japanese readings are rendered as furigana on the word instead of as a trailing kana label.
+- Cross-device deck reconciliation now preserves the newest schedule or deletion even when events arrive out of order, and startup performs a full comparison so a missed cross-tab notification cannot strand a local card.
+
+## [1.6.403] - 2026-07-21
+
+### Fixed
+
+- Bunpro, Jiten, and JPDB example sentences now receive furigana across the full Japanese sentence instead of annotating only the highlighted lookup word. Every provider translation is blurred by default and can be revealed with a click, tap, Enter, or Space; when Jiten supplies no translation, よむ fills it with the existing cached sentence translator instead of showing source metadata or an empty row.
+
+## [1.6.402] - 2026-07-21
+
+### Fixed
+
+- Late vocabulary detail now updates the exact word already on the page instead of only the popup. Jiten's confirmed reading is shared with pitch and provider-frequency enrichment, so a first lookup no longer says exact pitch is unavailable, JPDB no longer loses its frequency number in the identity race, and words such as 毎日, 使える, 漫画, 問わず, and 人気 gain their available furigana and pitch without a refresh or second click.
+- Embedded controls that begin in English and localize later are now noticed on every site. A sign-in button such as “Continue with Google” can change to Japanese after the frame loads and is then parsed normally, while non-Japanese frames retain only a small mutation wake-up check instead of running the full reader.
+- Safari and WebKit now paint mirrored controls and ordinary page words through one synthetic pitch-underline channel. Furigana stays aligned in compact controls, pitch lines remain visible under segmented ruby, and adjacent differently coloured words sit on the same vertical baseline.
+
+## [1.6.401] - 2026-07-21
+
+### Added
+
+- The hosted Study page is now an installable offline-first Yomu app on iPhone, iPad, and Android, with native-style bottom navigation for Study, Library, Stats, and Connections, an explicit offline state, a stable app identity, and direct launch shortcuts. It keeps the same local cache and supported-provider grade outbox, so warmed reviews keep moving on the train and sync after reconnecting.
+
+### Changed
+
+- Every fresh card now starts at its first enabled learning step—Kanji 1 by default—instead of jumping to Word. The numbered step rail stays on one line on desktop and scrolls horizontally on phones, while the prompt, answer, and actions now read as one focused learning surface.
+- Type practice now keeps the input and its action together, supports audio, accepts typed kana or the reading, gives retry feedback without revealing a missed answer, preserves the first-attempt grade, and turns Check into Continue after a correct response. The navigation label is now the clearer Previous.
+
+### Fixed
+
+- Incomplete subtitle and API sentence fragments, including continuative endings such as 「E組の全員に同じ説明をし」, are rejected before they can become Study clozes.
+
+## [1.6.400] - 2026-07-21
+
+### Fixed
+
+- Source-projected annotations now keep their active underline and highlight colours inside shadow-root controls as well as ordinary page DOM. The projection layer passes the selected annotation paint to each exact source fragment, so web components no longer get correctly positioned but transparent pitch/status decoration.
+- Layout regression coverage now enforces the new passive-annotation contract across Chromium and WebKit: furigana stays visible in buttons, metadata, clipped rows, and neighboring-text cases without changing the page's authored dimensions.
+
+## [1.6.399] - 2026-07-21
+
+### Fixed
+
+- Removed an unused cache reset hook from the Jiten lookup performance work so the published source passes the repository dead-code gate.
+
+## [1.6.301] - 2026-07-21
+
+### Added
+
+- Immersion Kit now appears inside Bunpro vocabulary and grammar pages, lesson cards, and revealed quiz or review answers, using the same in-page enhancement as jpdb and Jiten. It follows Bunpro's in-place SRS loop as the item changes, stays out of unrevealed question prompts, and removes the previous item's examples before the next question can appear.
+
+## [1.6.300] - 2026-07-21
+
+### Added
+
+- Immersion example cards now include View on Immersion Kit and View on Nadeshiko links in popup lookup, Study, and enhanced jpdb/Jiten pages. Nadeshiko is also available as an optional Settings lookup pill, and its public website search needs no API key.
+
+### Fixed
+
+- Immersion Kit no longer stops at the old untouched three-example default. Existing installs using that default move to All, popup and Study surfaces can keep up to 12 examples, and deliberately configured limits stay unchanged.
+- Blurred Immersion Kit translations now reveal reliably with one tap on phones and tablets, remain revealed after the finger lifts, and use a full-size touch target on coarse-pointer devices.
+
+## [1.6.275] - 2026-07-21
+
+### Changed
+
+- Overlapping Jiten parsing work is now coalesced into bounded provider batches. Page scans, subtitle preparation, and popup fallbacks that start together share one `reader/parse` request per unique text row instead of each caller issuing its own lookup, while large payloads remain split and concurrency-limited.
+- Repeated Jiten vocabulary details, searches, kanji facts, and kanji word pages now reuse a bounded session cache, including in-flight requests. Failed reads are evicted immediately so a transient outage can still heal on the next lookup.
+
+## [1.6.274] - 2026-07-21
+
+### Fixed
+
+- Furigana, pitch underlines, and word highlights on framework-owned text now use the same source-range projection on every site. Yomu no longer injects wrap points or reflows a duplicate line, so annotations stay attached to their exact glyphs even when one Japanese word wraps across two lines; furigana sits directly above its kanji and the underline follows each real line fragment.
+- Enabled annotations no longer disappear from buttons, navigation, metadata, or other passive chrome because a collision heuristic considered their lane unsafe. Passive now controls interaction only, never visibility. YouTube-specific scanning is also restricted to actual YouTube app hosts, so consent.youtube.com and other ordinary pages use the standard in-flow annotation path.
 
 ## [1.6.273] - 2026-07-21
 
@@ -141,8 +244,6 @@
 
 ### Added
 
-- Academy now ships one Codex-accepted native-band Japanese learning voice on the Cafe price binding with `humanReviewed: false`; the narrator, Mary, and Rie takes are rejected after critical ASR mismatches and are absent from the public catalog. Exact model distributions, licence/query/output hashes, bounded pronunciation caching, request-owned teardown, and a read-only local browser proof are recorded, while deployment verification and the broader voice backlog remain open.
-- Yomu Academy now includes a five-stage N3 mock-listening route with original teaching, guided and independent practice, targeted repair, delayed SRS review, changed-context transfer, and speaking prompts. Its 36-item CUR-007 audit records rights, wording, answer, and media decisions item by item while keeping protected source-specific wording and recordings out of the product and explicitly disclosing conventional-language overlap.
 - The documentation navbar and README now link to Stripe support, with Patreon and Ko-fi entries ready to appear only after their public pages are verified.
 - Yomu Academy now has a canonical, verified-provider foundation for granting payment entitlements without duplicate events. Provider accounts still need to be connected and published, and ordinary Stripe support donations remain support-only unless Academy owns the checkout.
 

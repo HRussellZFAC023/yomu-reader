@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.273
+// @version 1.6.405
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,14 +11,14 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.64ab6b590f19.user.js#sha256=ZKtrWQ8ZPOrOOmPRt6FF4SStYMIBClN/idN1h82rfCE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.8078164e351c.user.js#sha256=gHgWTjUciJtfNWATOQ2Od6W0TPpwf1qleCoQLkVzgM0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.9d08dbe99848.user.js#sha256=nQjb6ZhIdiXh3zFAOxA/7asMVC60wCnz7TdZuGoPH0w=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.832cf9ae5018.user.js#sha256=gyz5rlAY66IfRPTnNwj0AHWsHJgYlSAiEe+B1XPQ8qM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.21c3bf4ef228.user.js#sha256=IcO/TvIo/exW4dEm0DsbQzlYlrl5qVZPqfRtMHVn1KA=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.804d3c6f38ea.user.js#sha256=gE08bzjqLD9RiE/WkLQUo0EM/lQVKqr0TJ3OZp4CUE8=
-// @require https://yomureader.com/greasyfork/yomu-video.acb445eac71e.user.js#sha256=rLRF6sceMhgrx/xUGak5YgwB2sDl8HOBkRgiY121SWo=
-// @resource yomuCss  https://yomureader.com/yomu.a03d44645870.css#sha256=oD1EZFhwLl/3hZCHY+GPz3t7wF3sQCcsrDvOYrZyRGA=
+// @require https://yomureader.com/greasyfork/yomu-anki.cb627313461d.user.js#sha256=y2JzE0YdIOG9+4YhmBQPIMvhXNKcC0mQxwUyrXswIWY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.b3d08d99f048.user.js#sha256=s9CNmfBIXLDNLKd+6In6eNQ6FRLHehHxWTk8gzAx3BA=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
+// @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
+// @resource yomuCss  https://yomureader.com/yomu.f77c1eff9e04.css#sha256=93we/54EQvMY7n3z84yv4HOdr5zCFnkVMxJEqgEnOtw=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -603,7 +603,7 @@ const RENDERED_WORD_CARD_STATES = [
   "frequent",
   "unparsed"
 ];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
 const BUNPRO_FILLABLE_CARD_STATES = new Set(["", "not-in-deck"]);
@@ -702,6 +702,7 @@ function setRenderedWordCardIdentity(word, card, options = {}) {
   if (!preserveState) {
   clearRenderedWordCardStateClasses(word);
   delete word.dataset.bunproState;
+  delete word.dataset.srsProvider;
   clearRenderedWordDeckMembershipClasses(word, ["anki"]);
   }
   word.dataset.vid = String(card.vid);
@@ -721,6 +722,20 @@ function setRenderedWordCardIdentity(word, card, options = {}) {
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
+}
+function applyLocalYomuSrsStateToRenderedWord(word, card) {
+  const state = primaryCardState(card.cardState);
+  const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
+  clearRenderedWordCardStateClasses(word);
+  delete word.dataset.bunproState;
+  delete word.dataset.bunproPrefillState;
+  delete word.dataset.bunproPrefillProvenance;
+  word.dataset.cardState = state;
+  word.dataset.srsProvider = "yomu-local";
+  word.dataset.stateProvenance = "authoritative";
+  word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+  if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+  return changed;
 }
 function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
   return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
@@ -886,6 +901,7 @@ const LOOKUP_PILL_COLOR_TOKENS = {
   takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
   "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
   "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+  nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
   uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
   anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
   copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
@@ -898,6 +914,19 @@ const LOGGER_COLOR_TOKENS = {
   warn: "#a15c00",
   error: "#b91c1c"
 };
+const YOUTUBE_APP_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "studio.youtube.com",
+  "kids.youtube.com",
+  "gaming.youtube.com",
+  "youtu.be"
+]);
+function isYouTubeAppHostname(hostname = location.hostname) {
+  return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+}
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -1359,8 +1388,7 @@ function shouldSuppressCompactMediaRuby(parent) {
   return isYouTubeFeedbackChromeLinkText(parent);
 }
 function isYouTubeHost() {
-  const hostname = location.hostname.toLowerCase();
-  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+  return isYouTubeAppHostname();
 }
 function isYouTubeFeedbackChromeLinkText(parent) {
   if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
@@ -2215,22 +2243,22 @@ function wakeShadowHostPoll() {
 }
 function pollPotentialShadowHosts() {
   potentialShadowHostTimer = void 0;
-  for (const pending of potentialShadowHosts) {
-  const host = pending.ref.deref();
+  for (const pending2 of potentialShadowHosts) {
+  const host = pending2.ref.deref();
   if (!host || !host.isConnected) {
-    potentialShadowHosts.delete(pending);
+    potentialShadowHosts.delete(pending2);
     if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
     continue;
   }
   if (host.shadowRoot) {
-    potentialShadowHosts.delete(pending);
+    potentialShadowHosts.delete(pending2);
     noteShadowRoot(host.shadowRoot, "attached");
     continue;
   }
-  if (pending.remainingPolls <= 1) {
-    potentialShadowHosts.delete(pending);
+  if (pending2.remainingPolls <= 1) {
+    potentialShadowHosts.delete(pending2);
   } else {
-    pending.remainingPolls -= 1;
+    pending2.remainingPolls -= 1;
   }
   }
   schedulePotentialShadowHostPoll();
@@ -2701,6 +2729,12 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+function isPrivateManagedStorageKey(key) {
+  return key.startsWith("yomu:private:");
+}
+function isBridgeManagedStorageKey(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key);
+}
 const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
   showFurigana: true,
   furiganaMode: "all",
@@ -3067,10 +3101,10 @@ async function handleStorageBridgeRequest(detail, accessors) {
   const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
   try {
   if (detail.op === "list") {
-    send({ ok: true, keys: await accessors.listValues() });
+    send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
     return;
   }
-  if (!detail.key || !isManagedStorageKey(detail.key)) {
+  if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
     send({ ok: false, found: false, message: "Unmanaged storage key." });
     return;
   }
@@ -3115,8 +3149,8 @@ function storageBridgeRequest(request) {
 }
 const MISSING$1 = { __yomuStorageBridgeMissing: true };
 function gmStorageAccessors() {
-  const getValue = directGmGetValue();
-  const setValue = directGmSetValue();
+  const getValue = directGmGetValue$1();
+  const setValue = directGmSetValue$1();
   const deleteValue = directGmDeleteValue();
   const listValues = directGmListValues();
   if (!getValue || !setValue) return null;
@@ -3127,12 +3161,12 @@ function gmStorageAccessors() {
   listValues: listValues ?? (() => [])
   };
 }
-function directGmGetValue() {
+function directGmGetValue$1() {
   if (typeof GM_getValue === "function") return GM_getValue;
   const modern = globalThis.GM?.getValue;
   return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
 }
-function directGmSetValue() {
+function directGmSetValue$1() {
   if (typeof GM_setValue === "function") return GM_setValue;
   const modern = globalThis.GM?.setValue;
   return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
@@ -3314,6 +3348,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
   { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
   { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
   { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
@@ -3377,6 +3414,7 @@ const MANAGED_CACHE_NAME_PREFIXES = [
   "yomu-video-player-",
   "yomu-docs-shell-"
 ];
+const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
 function hasAsyncGmStorageBackend() {
   return asyncGmGetValue() !== null;
 }
@@ -3414,6 +3452,84 @@ async function gmStorageGet(key, fallback) {
   localStorageSet(key, fallback);
   }
   return fallback;
+}
+async function gmPrivateStorageGet(key, fallback) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  if (!getValue) return fallback;
+  try {
+  const value = await getValue(key, MISSING);
+  return isMissingSentinel(value) ? fallback : value;
+  } catch (error) {
+  debugStorageError("Private GM storage read failed", key, error);
+  return fallback;
+  }
+}
+async function withGmStorageLease(name, operation, options = {}) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  const deleteValue = asyncGmDeleteValue();
+  const listValues = asyncGmListValues();
+  if (!getValue || !setValue || !deleteValue || !listValues) {
+  return withWebStorageLock(name, operation);
+  }
+  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
+  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
+  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
+  const owner = createFactoryResetId();
+  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+  const key = `${prefix}${owner}`;
+  const startedAt = Date.now();
+  let claim = {
+  version: 1,
+  owner,
+  choosing: true,
+  ticket: 0,
+  leaseUntil: startedAt + leaseMs
+  };
+  await setValue(key, claim);
+  try {
+  const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
+  const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+  claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+  await setValue(key, claim);
+  while (true) {
+    const now = Date.now();
+    if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
+    const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+    if (!blocked) break;
+    if (claim.leaseUntil - now <= leaseMs / 2) {
+      claim = { ...claim, leaseUntil: now + leaseMs };
+      await setValue(key, claim);
+    }
+    await storageLeaseDelay(pollMs);
+  }
+  let renewalStopped = false;
+  let renewal = Promise.resolve();
+  const renewalTimer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (renewalStopped) return;
+      claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+      await setValue(key, claim);
+    }).catch((error) => debugStorageError("GM storage lease renewal failed", key, error));
+  }, Math.max(250, Math.floor(leaseMs / 3)));
+  try {
+    return await operation();
+  } finally {
+    renewalStopped = true;
+    clearInterval(renewalTimer);
+    await renewal;
+  }
+  } finally {
+  try {
+    await deleteValue(key);
+  } catch (error) {
+    debugStorageError("GM storage lease release failed", key, error);
+  }
+  }
 }
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
@@ -3492,6 +3608,19 @@ async function gmStorageSet(key, value) {
   }
   localStorageSet(key, localFallbackValueForWrite(key, value));
 }
+async function gmPrivateStorageSet(key, value) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const setValue = directGmSetValue();
+  if (!setValue) throw new Error("Secure extension storage is unavailable.");
+  try {
+  await setValue(key, value);
+  } catch (error) {
+  debugStorageError("Private GM storage write failed", key, error);
+  throw new Error("Secure extension storage is unavailable.");
+  }
+}
 function gmStorageSetSync(key, value) {
   if (typeof GM_setValue === "function") {
   try {
@@ -3518,6 +3647,9 @@ async function gmStorageDelete(key) {
   }
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
+}
+function assertPrivateStorageKey(key) {
+  if (!isPrivateManagedStorageKey(key)) throw new TypeError("Private storage requires a yomu:private: key.");
 }
 function gmStorageDeleteSync(key) {
   if (typeof GM_deleteValue === "function") {
@@ -3618,6 +3750,15 @@ function subscribeToStoredValueChanges(key, onChange) {
   addWebStorageCleanup(cleanups, key, (event) => {
   onChange(JSON.parse(event.newValue || "null"));
   });
+  const extensionChanges = extensionStorageChangedEvent();
+  if (extensionChanges) {
+  const listener = (changes, areaName) => {
+    if (areaName !== "local" || !(key in changes)) return;
+    onChange(changes[key]?.newValue);
+  };
+  extensionChanges.addListener(listener);
+  cleanups.push(() => extensionChanges.removeListener(listener));
+  }
   return () => runStorageCleanups(cleanups);
 }
 function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
@@ -3751,7 +3892,7 @@ function cacheManagedValueForHostedStartup(key, value) {
   mirrorManagedValueToHostedStorage(key, value);
 }
 function shouldMirrorManagedValueToHostedStorage(key) {
-  return isManagedStorageKey(key) && isHostedYomuOrigin();
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
 }
 function isHostedYomuOrigin() {
   try {
@@ -3815,20 +3956,46 @@ function asyncGmGetValue() {
   if (typeof GM_getValue === "function") return GM_getValue;
   const modern = globalThis.GM?.getValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
   const bridge = getUserscriptGmStorage();
   return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  } : null;
 }
 function asyncGmSetValue() {
   if (typeof GM_setValue === "function") return GM_setValue;
   const modern = globalThis.GM?.setValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key, value) => extension.set({ [key]: value });
   const bridge = getUserscriptGmStorage();
   return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function directGmSetValue() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
 }
 function asyncGmDeleteValue() {
   if (typeof GM_deleteValue === "function") return GM_deleteValue;
   const modern = globalThis.GM?.deleteValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key) => extension.remove(key);
   const bridge = getUserscriptGmStorage();
   return bridge ? (key) => bridge.deleteValue(key) : null;
 }
@@ -3837,8 +4004,24 @@ function asyncGmListValues() {
   if (typeof directListValues === "function") return directListValues;
   const modern = globalThis.GM?.listValues;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
   const bridge = getUserscriptGmStorage();
   return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  const candidate = globalThis;
+  const browser = candidate.browser;
+  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+  const chrome = candidate.chrome;
+  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+  return null;
+}
+function extensionStorageChangedEvent() {
+  const candidate = globalThis;
+  if (candidate.browser?.runtime?.id && candidate.browser.storage?.onChanged) return candidate.browser.storage.onChanged;
+  if (candidate.chrome?.runtime?.id && candidate.chrome.storage?.onChanged) return candidate.chrome.storage.onChanged;
+  return null;
 }
 function normalizeFactoryResetSignal(signal) {
   return {
@@ -3903,6 +4086,35 @@ function publishBroadcastFactoryResetSignal(signal) {
 }
 function createFactoryResetId() {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+async function readStorageLeaseClaims(prefix, listValues, getValue, now) {
+  const keys = (await listValues()).filter((key) => key.startsWith(prefix));
+  const values = await Promise.all(keys.map((key) => getValue(key, null)));
+  return values.flatMap((value) => {
+  const claim = parseStorageLeaseClaim(value);
+  return claim && claim.leaseUntil > now ? [claim] : [];
+  });
+}
+function parseStorageLeaseClaim(value) {
+  if (!isPlainRecord(value) || value.version !== 1 || typeof value.owner !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+  return value;
+}
+function normalizedStorageLeaseName(name) {
+  const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+  if (!normalized) throw new TypeError("Storage lease name is required.");
+  return normalized;
+}
+function boundedLeaseOption(value, fallback, minimum, maximum) {
+  if (value === void 0) return fallback;
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+  return value;
+}
+function storageLeaseDelay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+async function withWebStorageLock(name, operation) {
+  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
+  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
 }
 function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -4163,6 +4375,136 @@ function finiteNumber$1(value, fallback) {
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
+let sandboxCompanions = {};
+function yomuSettingsDialogController() {
+  return yomuCompanions().settings?.SettingsDialogController;
+}
+function yomuOnboardingController() {
+  return yomuCompanions().settings?.OnboardingController;
+}
+function yomuAnkiCompanion() {
+  return yomuCompanions().anki;
+}
+function yomuVideoCompanionSlot() {
+  return yomuCompanions().video;
+}
+function yomuSubtitlePlayerController() {
+  return yomuCompanions().video?.SubtitlePlayerController;
+}
+function yomuYoutubeImmersionFilter() {
+  return yomuCompanions().video?.YoutubeImmersionFilter;
+}
+function yomuImageOcrController() {
+  return yomuCompanions().ocr?.ImageOcrController;
+}
+function yomuNormalizeOcrRenderedText() {
+  return yomuCompanions().ocr?.normalizeOcrRenderedText;
+}
+function yomuLocalDictionaries() {
+  return yomuCompanions().localDictionaries;
+}
+function yomuI18nCompanion() {
+  return yomuCompanions().i18n;
+}
+function yomuBunproCompanion() {
+  return yomuCompanions().bunpro;
+}
+function yomuKanjiStudyCompanion() {
+  return yomuCompanions().kanjiStudy;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+const CARD_STATE_LABEL_KEYS = {
+  new: "stateNew",
+  learning: "stateLearning",
+  young: "stateYoung",
+  mature: "stateMature",
+  known: "stateKnown",
+  mastered: "stateMastered",
+  due: "stateDue",
+  failed: "stateFailed",
+  locked: "stateLocked",
+  "never-forget": "stateNeverForget",
+  blacklisted: "stateBlacklisted",
+  suspended: "stateSuspended",
+  "in-deck": "stateInDeck",
+  "not-in-deck": "stateNotInDeck",
+  redundant: "stateRedundant",
+  frequent: "stateFrequent",
+  unparsed: "stateUnparsed"
+};
+function resolveUiLanguage(language) {
+  return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
+}
+function uiText(language, key) {
+  return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
+}
+function cardStateLabel(state, language, fallback = state) {
+  return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
+}
+function formatUiText(language, key, values) {
+  return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
+}
+function uiList(language, parts) {
+  return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
+}
+function fallbackResolveUiLanguage(language) {
+  if (language === "ja" || language === "en") return language;
+  const languages = typeof navigator === "undefined" ? [] : [
+  ...Array.isArray(navigator.languages) ? navigator.languages : [],
+  navigator.language
+  ];
+  return languages.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
+}
+function fallbackCardStateLabel(state, fallback) {
+  return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
+}
+function fallbackUiText(key) {
+  return String(key);
+}
+function formatTemplate(template, values) {
+  return Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+  template
+  );
+}
+function externalLinkIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M7 17 17 7"></path>
+    <path d="M9 7h8v8"></path>
+  </svg>`;
+}
+function copyIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+  </svg>`;
+}
+function ankiIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+    <path d="M12 8v8"></path>
+    <path d="M8 12h8"></path>
+  </svg>`;
+}
+function speakerIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+  </svg>`;
+}
+const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
 const MAX_DICTIONARY_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
   id: "jpdb",
@@ -4243,7 +4585,13 @@ const WIKTIONARY_LOOKUP_LINK = {
 const IMMERSION_KIT_LOOKUP_LINK = {
   id: "immersion-kit",
   label: "Immersion Kit",
-  urlTemplate: "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1",
+  urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+  enabled: false
+};
+const NADESHIKO_LOOKUP_LINK = {
+  id: "nadeshiko",
+  label: "Nadeshiko",
+  urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
   enabled: false
 };
 const UCHISEN_LOOKUP_LINK = {
@@ -4273,6 +4621,7 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   TAKOBOTO_LOOKUP_LINK,
   WIKTIONARY_LOOKUP_LINK,
   IMMERSION_KIT_LOOKUP_LINK,
+  NADESHIKO_LOOKUP_LINK,
   UCHISEN_LOOKUP_LINK,
   COPY_LOOKUP_LINK
 ];
@@ -4282,6 +4631,22 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
   COPY_LOOKUP_LINK
 ];
 const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+  YOMU_LOOKUP_LINK.id,
+  JITEN_LOOKUP_LINK.id,
+  JITEN_LIVE_FREQUENCY_PILL.id,
+  JPDB_LOOKUP_LINK.id,
+  JPDB_LIVE_FREQUENCY_PILL.id,
+  BUNPRO_LOOKUP_LINK.id,
+  BUNPRO_LIVE_FREQUENCY_PILL.id,
+  JISHO_LOOKUP_LINK.id,
+  WEBLIO_LOOKUP_LINK.id,
+  KOTOBANK_LOOKUP_LINK.id,
+  TAKOBOTO_LOOKUP_LINK.id,
+  WIKTIONARY_LOOKUP_LINK.id,
+  IMMERSION_KIT_LOOKUP_LINK.id,
+  UCHISEN_LOOKUP_LINK.id,
+  COPY_LOOKUP_LINK.id
+], [
   JITEN_LOOKUP_LINK.id,
   JITEN_LIVE_FREQUENCY_PILL.id,
   JPDB_LOOKUP_LINK.id,
@@ -4966,8 +5331,9 @@ const DEFAULT_SETTINGS = {
   immersionKitExampleSource: "immersion-kit",
   nadeshikoApiKey: "",
   immersionKitPriority: 80,
-  immersionKitLimitEnabled: true,
-  immersionKitLimit: 3,
+  immersionKitExpandedLimitMigrated20260721: true,
+  immersionKitLimitEnabled: false,
+  immersionKitLimit: 12,
   immersionKitMinLength: 8,
   immersionKitMaxLength: 80,
   immersionKitCategory: "all",
@@ -5511,14 +5877,14 @@ function normalizeOptionalIsoDateString(value) {
 function normalizeMediaSettings(value) {
   const settings = value ?? {};
   const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+  const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
   return {
   audioViaBlob: booleanSetting(value, "audioViaBlob"),
   audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
   immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
   nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
   immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-  immersionKitLimitEnabled: booleanSetting(value, "immersionKitLimitEnabled"),
-  immersionKitLimit: clampNumber(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+  ...immersionExampleLimit,
   immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
   immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
   immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
@@ -5536,6 +5902,14 @@ function normalizeMediaSettings(value) {
   ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
   ocrBackgroundOpacity,
   ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+  };
+}
+function normalizeImmersionExampleLimitSettings(value) {
+  const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
+  return {
+  immersionKitExpandedLimitMigrated20260721: true,
+  immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
+  immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
   };
 }
 function normalizeOcrTextColor(settings) {
@@ -8051,9 +8425,6 @@ function renderTokenizedScanText(text, tokens, settings, target) {
   for (const plan of tokenPlans) {
   const { token, tokenWithSentence } = plan;
   appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
-  if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
-    fragment.append(document.createElement("wbr"));
-  }
   fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
     allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
     detachedReadings: target.detachedReadings ?? suppressRuby,
@@ -8446,7 +8817,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
   }
-  scheduleAdditiveMirrorRealign();
+  scheduleAdditiveMirrorProjection();
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -8461,171 +8832,140 @@ function stabilizeReadingFreeControlMirror(mirror, host) {
 }
 function stampMirrorWordSourceRanges(mirror, tokens) {
   const words = Array.from(mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word"));
+  const sourceText = mirror.dataset.sourceText ?? "";
   for (const [index, word] of words.entries()) {
   const token = tokens[index];
   if (!token) continue;
   word.dataset.yomuSourceStart = String(token.start);
   word.dataset.yomuSourceEnd = String(token.end);
+  stampProjectedRubySourceRanges(word, sourceText.slice(token.start, token.end), token, token.start);
   }
 }
-const ADDITIVE_MIRROR_RUN_ALIGN_EPSILON = 1;
-function alignAdditiveTextMirrorRun(mirror, host) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-  const word = mirror.querySelector(
-  ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
-  );
-  if (!word) return;
-  const mirrorLeft = firstFragmentLeft(word.getClientRects());
-  const sourceLeft = hostSourceRunLeft(host, word);
-  if (mirrorLeft === null || sourceLeft === null) return;
-  const residual = sourceLeft - mirrorLeft;
-  if (Math.abs(residual) <= ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) return;
-  const { x: currentX, y } = parseMirrorTranslate(mirror);
-  const nextX = currentX + residual;
-  const parts = [];
-  if (Math.abs(nextX) > ADDITIVE_MIRROR_RUN_ALIGN_EPSILON) parts.push(`translateX(${nextX}px)`);
-  if (y) parts.push(`translateY(${y})`);
-  if (parts.length) mirror.style.setProperty("transform", parts.join(" "));
-  else mirror.style.removeProperty("transform");
+function stampProjectedRubySourceRanges(word, surface, token, sourceStart) {
+  const rubies = effectiveTokenRubies(surface, token, true);
+  word.querySelectorAll(".jpdb-reader-detached-ruby").forEach((wrapper, rubyIndex) => {
+  const ruby = rubies[rubyIndex];
+  const local = ruby ? localRubyRange(surface, token, ruby) : null;
+  if (!local) return;
+  wrapper.dataset.yomuSourceStart = String(sourceStart + local.start);
+  wrapper.dataset.yomuSourceEnd = String(sourceStart + local.end);
+  });
 }
-function realignAdditiveTextMirrorRuns(root = document) {
+const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
+function projectAdditiveTextMirror(mirror, host) {
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+  const source = hostOriginalTextWithNodeOffsets(host);
+  if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return;
+  mirror.style.setProperty("inset", "0 auto auto 0");
+  mirror.style.setProperty("width", `${host.offsetWidth || host.getBoundingClientRect().width}px`);
+  mirror.style.setProperty("height", `${host.offsetHeight || host.getBoundingClientRect().height}px`);
+  mirror.style.setProperty("padding", "0");
+  mirror.style.setProperty("transform", "none");
+  const mirrorRect = mirror.getBoundingClientRect();
+  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return;
+  const scaleX = mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1;
+  const scaleY = mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1;
+  const clipRect = closestRubyFragileConstrainedRow(host)?.getBoundingClientRect() ?? null;
+  for (const word of mirror.querySelectorAll(
+  ".jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]"
+  )) {
+  word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
+  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+  const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+  if (!rects.length) continue;
+  word.dataset.yomuSourceProjected = "true";
+  word.style.setProperty("position", "absolute", "important");
+  word.style.setProperty("inset", "0", "important");
+  word.style.setProperty("width", "auto", "important");
+  word.style.setProperty("height", "auto", "important");
+  word.style.setProperty("margin", "0", "important");
+  for (const rect of rects) {
+    const fragment = document.createElement("span");
+    fragment.className = SOURCE_FRAGMENT_CLASS;
+    fragment.setAttribute("aria-hidden", "true");
+    positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
+    word.append(fragment);
+  }
+  for (const ruby of word.querySelectorAll(
+    ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]"
+  )) {
+    const rubyStart = Number.parseInt(ruby.dataset.yomuSourceStart ?? "", 10);
+    const rubyEnd = Number.parseInt(ruby.dataset.yomuSourceEnd ?? "", 10);
+    const rubyRect = sourceClientRects(host, source.nodeOffsets, rubyStart, rubyEnd).find((rect) => !clipRect || rectsIntersect(rect, clipRect));
+    if (rubyRect) positionProjectedElement(ruby, rubyRect, mirrorRect, scaleX, scaleY);
+  }
+  }
+  mirror.dataset.yomuSourceProjected = "true";
+}
+function sourceClientRects(host, nodeOffsets, start, end) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+  const startBoundary = sourceRangeBoundary(nodeOffsets, start, "start");
+  const endBoundary = sourceRangeBoundary(nodeOffsets, end, "end");
+  if (!startBoundary || !endBoundary) return [];
+  const range = host.ownerDocument.createRange();
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  return mergeSourceLineRects(Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+}
+function mergeSourceLineRects(rects) {
+  const sorted = [...rects].sort((left, right) => left.top - right.top || left.left - right.left);
+  const merged = [];
+  for (const rect of sorted) {
+  const previous = merged.at(-1);
+  const sameLine = previous && Math.abs(previous.top - rect.top) <= 1 && Math.abs(previous.bottom - rect.bottom) <= 1;
+  if (!sameLine || rect.left > previous.right + 1) {
+    merged.push(rect);
+    continue;
+  }
+  const left = Math.min(previous.left, rect.left);
+  const top = Math.min(previous.top, rect.top);
+  const right = Math.max(previous.right, rect.right);
+  const bottom = Math.max(previous.bottom, rect.bottom);
+  merged[merged.length - 1] = {
+    left,
+    top,
+    right,
+    bottom,
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+    toJSON: () => ({})
+  };
+  }
+  return merged;
+}
+function positionProjectedElement(element, rect, mirrorRect, scaleX, scaleY) {
+  element.style.setProperty("position", "absolute", "important");
+  element.style.setProperty("left", `${(rect.left - mirrorRect.left) / scaleX}px`, "important");
+  element.style.setProperty("top", `${(rect.top - mirrorRect.top) / scaleY}px`, "important");
+  element.style.setProperty("width", `${rect.width / scaleX}px`, "important");
+  element.style.setProperty("height", `${rect.height / scaleY}px`, "important");
+  element.style.setProperty("margin", "0", "important");
+}
+function rectsIntersect(left, right) {
+  return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
+}
+function projectAdditiveTextMirrors(root = document) {
   if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
   for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
-  alignAdditiveTextMirrorRun(mirror, host);
-  alignMirrorWordsToSourceRects(mirror, host);
+  projectAdditiveTextMirror(mirror, host);
   }
 }
-function isPureTranslateTransform(transform) {
-  const match = transform.match(/^matrix\(([^)]+)\)$/u);
-  if (!match) return false;
-  const parts = match[1].split(",").map((value) => Number.parseFloat(value));
-  if (parts.length !== 6 || parts.some((value) => !Number.isFinite(value))) return false;
-  const [a, b, c, d] = parts;
-  return Math.abs(a - 1) < 1e-3 && Math.abs(b) < 1e-3 && Math.abs(c) < 1e-3 && Math.abs(d - 1) < 1e-3;
-}
-function alignMirrorWordsToSourceRects(mirror, host) {
-  if (!mirror.classList.contains("jpdb-reader-additive-text-mirror")) return;
-  if (mirror.style.getPropertyValue("overflow") === "hidden") return;
-  if (typeof Range.prototype.getClientRects !== "function" || !host.isConnected) return;
-  const hostRect = host.getBoundingClientRect();
-  if (mirror.dataset.yomuAlignedHostW !== void 0 && Math.abs(hostRect.width - Number(mirror.dataset.yomuAlignedHostW)) < 0.5 && Math.abs(hostRect.height - Number(mirror.dataset.yomuAlignedHostH)) < 0.5) return;
-  for (let node = mirror, depth = 0; node && depth < 10; depth += 1, node = composedAncestorElement(node)) {
-  const transform = safeComputedStyle(node).transform;
-  if (transform && transform !== "none" && !isPureTranslateTransform(transform)) return;
-  }
-  const source = hostOriginalTextWithNodeOffsets(host);
-  if (mirror.dataset.sourceText !== source.hostText) return;
-  const words = Array.from(mirror.querySelectorAll(
-  ".jpdb-reader-word.jpdb-reader-scan-word[data-yomu-source-start][data-yomu-source-end]"
-  ));
-  if (!words.length) return;
-  const range = host.ownerDocument.createRange();
-  const mirrorRect = mirror.getBoundingClientRect();
-  const placements = [];
-  let maxDrift = 0;
-  for (const word of words) {
-  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
-  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end > source.hostText.length) continue;
-  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
-  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
-  if (!startBoundary || !endBoundary) continue;
-  range.setStart(startBoundary.node, startBoundary.offset);
-  range.setEnd(endBoundary.node, endBoundary.offset);
-  const rects = Array.from(range.getClientRects()).filter((rect2) => rect2.width > 0 && rect2.height > 0);
-  if (!rects.length) continue;
-  const rect = rects[0];
-  const current = word.getBoundingClientRect();
-  maxDrift = Math.max(
-    maxDrift,
-    Math.abs(current.left - rect.left),
-    Math.abs(current.top - rect.top),
-    Math.abs(current.width - rect.width)
-  );
-  placements.push({
-    word,
-    left: rect.left - mirrorRect.left,
-    top: rect.top - mirrorRect.top,
-    width: rect.width,
-    height: rect.height
-  });
-  }
-  if (!placements.length) return;
-  const DRIFT_TOLERANCE_PX = 1.5;
-  if (maxDrift <= DRIFT_TOLERANCE_PX) {
-  mirror.dataset.yomuAlignedHostW = String(hostRect.width);
-  mirror.dataset.yomuAlignedHostH = String(hostRect.height);
-  return;
-  }
-  for (const { word, left, top, width, height } of placements) {
-  word.style.setProperty("position", "absolute", "important");
-  word.style.setProperty("left", `${left}px`, "important");
-  word.style.setProperty("top", `${top}px`, "important");
-  word.style.setProperty("width", `${width}px`, "important");
-  word.style.setProperty("height", `${height}px`, "important");
-  word.style.setProperty("margin", "0", "important");
-  word.style.setProperty("white-space", "nowrap", "important");
-  }
-  if (mirror.style.getPropertyValue("transform")) {
-  const settled = mirror.getBoundingClientRect();
-  const dx = settled.left - mirrorRect.left;
-  const dy = settled.top - mirrorRect.top;
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-    for (const { word, left, top } of placements) {
-      word.style.setProperty("left", `${left - dx}px`, "important");
-      word.style.setProperty("top", `${top - dy}px`, "important");
-    }
-  }
-  }
-  mirror.dataset.yomuSourceAligned = "1";
-  const finalHostRect = host.getBoundingClientRect();
-  mirror.dataset.yomuAlignedHostW = String(finalHostRect.width);
-  mirror.dataset.yomuAlignedHostH = String(finalHostRect.height);
-}
-let pendingAdditiveMirrorAlignFrame = 0;
-function scheduleAdditiveMirrorRealign() {
+let pendingAdditiveMirrorProjectionFrame = 0;
+function scheduleAdditiveMirrorProjection() {
   if (typeof requestAnimationFrame !== "function") {
-  realignAdditiveTextMirrorRuns(document);
+  projectAdditiveTextMirrors(document);
   return;
   }
-  if (pendingAdditiveMirrorAlignFrame) return;
-  pendingAdditiveMirrorAlignFrame = requestAnimationFrame(() => {
-  pendingAdditiveMirrorAlignFrame = 0;
-  realignAdditiveTextMirrorRuns(document);
+  if (pendingAdditiveMirrorProjectionFrame) return;
+  pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
+  pendingAdditiveMirrorProjectionFrame = 0;
+  projectAdditiveTextMirrors(document);
   });
-}
-function firstFragmentLeft(rects) {
-  let left = null;
-  for (const rect of Array.from(rects)) {
-  if (rect.width <= 0 || rect.height <= 0) continue;
-  if (left === null || rect.left < left) left = rect.left;
-  }
-  return left;
-}
-function hostSourceRunLeft(host, word) {
-  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
-  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-  const source = hostOriginalTextWithNodeOffsets(host);
-  if (end > source.hostText.length) return null;
-  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
-  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
-  if (!startBoundary || !endBoundary) return null;
-  const range = host.ownerDocument.createRange();
-  range.setStart(startBoundary.node, startBoundary.offset);
-  range.setEnd(endBoundary.node, endBoundary.offset);
-  return firstFragmentLeft(range.getClientRects());
-}
-function parseMirrorTranslate(mirror) {
-  const transform = mirror.style.transform;
-  const xMatch = /translateX\((-?[\d.]+)px\)/.exec(transform);
-  const yMatch = /translateY\(([^)]+)\)/.exec(transform);
-  return {
-  x: xMatch ? Number.parseFloat(xMatch[1]) : 0,
-  y: yMatch ? yMatch[1].trim() : ""
-  };
 }
 function readerWordSourcePointScore(word, x, y) {
   const mirror = word.closest(".jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror");
@@ -8698,7 +9038,7 @@ function styleDetachedReadingElements(root, host) {
   setInlineStyleIfChanged(reading, "z-index", "2");
   setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
   setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
-  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  setInlineStyleIfChanged(reading, "display", "block", "important");
   setInlineStyleIfChanged(reading, "width", "max-content");
   setInlineStyleIfChanged(reading, "max-width", "none");
   setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
@@ -8721,34 +9061,40 @@ function setInlineStyleIfChanged(element, property, value, priority2 = "") {
   element.style.setProperty(property, value, priority2);
 }
 const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
+const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source) => source !== "pitch");
 function styleAdditiveMirrorPaint(root) {
   if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
   root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
-  const source = activeAdditiveDecorationSource();
-  if (!source) return;
-  const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
-  for (const word of root.querySelectorAll(".jpdb-reader-word")) {
-  word.style.setProperty("text-decoration-color", paint, "important");
+  const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
+  const words = root.querySelectorAll(".jpdb-reader-word");
+  const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
+  const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
+  const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
+  for (const word of words) {
+  word.style.removeProperty("text-decoration-color");
+  word.style.removeProperty("--jpdb-reader-additive-decoration");
+  word.style.setProperty("--jpdb-reader-word-decoration-source", paint);
+  if (softPaint) word.style.setProperty("--jpdb-reader-mirror-status-soft", softPaint);
+  else word.style.removeProperty("--jpdb-reader-mirror-status-soft");
   }
 }
-function activeAdditiveDecorationSource() {
+function activeAdditiveHighlightSource(documentElement) {
+  let active = null;
+  for (const source of ADDITIVE_HIGHLIGHT_SOURCES) {
+  if (documentElement.classList.contains(`jpdb-reader-word-highlight-${source}`)) active = source;
+  }
+  return active;
+}
+function activeAdditiveDecorationSource(documentElement) {
   let active = null;
   for (const source of ADDITIVE_DECORATION_SOURCES) {
-  if (["highlight", "underline", "text"].some((channel) => document.documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
+  if (["highlight", "underline", "text"].some((channel) => documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
   }
   return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
-  if (root.classList.contains("jpdb-reader-additive-text-mirror")) {
-  const alignHost = registeredTextMirrorHostFor(root);
-  if (alignHost) alignMirrorWordsToSourceRects(root, alignHost);
-  }
-  if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
-  settleDetachedReadingLanes(
-  Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
-  Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"))
-  );
-  if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+  if (filterWordsToClip && root.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(root, clipRow);
+  settleDetachedReadingLanes(Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")));
 }
 function filterDetachedWordsToClip(root, clipRow) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
@@ -8768,442 +9114,17 @@ function filterDetachedWordsToClip(root, clipRow) {
   word.style.setProperty("visibility", "hidden", "important");
   }
 }
-const DETACHED_READING_COLLISION_SLOP = 0.5;
-const DETACHED_READING_CLEARANCE_PX = 3;
-const pendingDetachedReadingSurfaces = new Set();
 const settledDetachedReadingGeometry = new WeakMap();
-function detachedReadingCollisionSurface(root) {
-  const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
-  return composedAncestorElement(owner) ?? owner;
-}
 function detachedReadingSurfaceGeometrySignature(root) {
-  const surface = detachedReadingCollisionSurface(root);
-  const elements = [
-  surface,
-  ...queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi,.jpdb-reader-detached-ruby .jpdb-reader-ruby-base")
-  ];
-  return elements.map((element) => {
-  const rect = element.getBoundingClientRect();
-  return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${element.className}:${element.textContent ?? ""}`;
-  }).join("|");
+  const rect = root.getBoundingClientRect();
+  return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${root.textContent ?? ""}`;
 }
 function exposeDetachedReadingCandidate(reading) {
   delete reading.dataset.yomuDetachedReadingHidden;
   reading.style.setProperty("display", "block", "important");
 }
-function settleDetachedReadingLanes(readings, bases) {
-  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-  for (const reading of readings) {
-  exposeDetachedReadingCandidate(reading);
-  reading.style.removeProperty("--jpdb-reader-detached-lift");
-  reading.style.removeProperty("margin-left");
-  }
-  const viewportShifts = readings.map((reading) => {
-  const rect = reading.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0 || viewportWidth <= 0) return { reading, shift: 0 };
-  const leftShift = rect.left < 1 ? 1 - rect.left : 0;
-  const rightShift = rect.right > viewportWidth - 1 ? viewportWidth - 1 - rect.right : 0;
-  return { reading, shift: leftShift || rightShift };
-  });
-  for (const { reading, shift } of viewportShifts) {
-  if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
-  }
-  for (const reading of readings) {
-  const rect = reading.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) continue;
-  const host = reading.closest(ANNOTATABLE_CONTROL_SELECTOR);
-  if (!host) continue;
-  const hostRect = host.getBoundingClientRect();
-  if (rect.top < hostRect.top - 1 && rect.bottom > hostRect.top + 1) {
-    const lift = Math.ceil(rect.bottom - hostRect.top) + 1;
-    reading.style.setProperty("inset-block-end", `calc(100% + ${3 + lift}px)`);
-  }
-  }
-  const readingRects = readings.map((reading) => ({ element: reading, rect: reading.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0).sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-  const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-  const unsafe = new Set();
-  for (const reading of readingRects) {
-  const ownRuby = reading.element.closest(".jpdb-reader-detached-ruby");
-  const ownBase = ownRuby?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  if (detachedReadingIsClipped(reading.element, reading.rect) || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
-  for (const base of baseRects) {
-    if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-    if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
-    if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
-    if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
-    if (rectanglesWithinClearance(reading.rect, base.rect) && !opaqueReadingSurfacePaintsAbove(
-      reading.element,
-      reading.rect,
-      base.element,
-      base.rect
-    )) unsafe.add(reading.element);
-  }
-  }
-  for (let index = 0; index < readingRects.length; index += 1) {
-  const current = readingRects[index];
-  for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
-    const other = readingRects[otherIndex];
-    if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
-    if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-    if (opaqueReadingSurfacePaintsAbove(
-      current.element,
-      current.rect,
-      other.element,
-      other.rect
-    )) {
-      unsafe.add(other.element);
-    } else if (opaqueReadingSurfacePaintsAbove(
-      other.element,
-      other.rect,
-      current.element,
-      current.rect
-    )) {
-      unsafe.add(current.element);
-    } else {
-      unsafe.add(current.element);
-      unsafe.add(other.element);
-    }
-  }
-  }
-  const measured = new Set(readingRects.map(({ element }) => element));
-  for (const reading of readings) {
-  if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
-  }
-}
-function detachedReadingCoversForeignText(reading, rect) {
-  const ownWord = reading.closest(".jpdb-reader-word");
-  const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
-  const sourceHost = ownMirror?.parentElement ?? null;
-  const hitRoots = composedHitRootChain(reading);
-  const inset = Math.min(2, rect.width / 4);
-  const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
-  const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
-  const rows = [
-  rect.top - clearanceProbe,
-  (rect.top + rect.bottom) / 2,
-  rect.bottom + clearanceProbe
-  ];
-  const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
-  const elementsFromPoint = hitRoot.elementsFromPoint;
-  if (typeof elementsFromPoint !== "function") return [];
-  return rows.flatMap((y) => points.flatMap((x) => {
-    let pointHits = elementsFromPoint.call(hitRoot, x, y).filter((element) => element instanceof HTMLElement);
-    if (hitRoot instanceof ShadowRoot) {
-      pointHits = pointHits.filter((element) => element.getRootNode() === hitRoot);
-    }
-    const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x, y);
-    const occlusionBoundary = opaqueBackdrop ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot) : null;
-    if (occlusionBoundary) {
-      const boundaryIndex = pointHits.indexOf(occlusionBoundary);
-      if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
-    }
-    return pointHits;
-  }));
-  }));
-  for (const hit of hits) {
-  if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
-  const hitWord = hit.closest(".jpdb-reader-word");
-  if (ownWord && hitWord === ownWord) continue;
-  const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
-  if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
-  if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
-  for (const node of hit.childNodes) {
-    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    if (Array.from(range.getClientRects()).some((textRect) => {
-      if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
-      return rectanglesWithinClearance(rect, textRect);
-    })) return true;
-  }
-  }
-  return false;
-}
-function opaqueReadingSurfacePaintsAbove(reading, readingRect, obstacle, obstacleRect) {
-  const points = collisionProbePoints(readingRect, obstacleRect);
-  if (!points.length) return false;
-  const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
-  if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
-  return points.every((point) => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
-}
-function composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point) {
-  for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
-  const elementsFromPoint = hitRoot.elementsFromPoint;
-  if (typeof elementsFromPoint !== "function") continue;
-  const hits = elementsFromPoint.call(hitRoot, point.x, point.y).filter((element) => element instanceof HTMLElement);
-  const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
-  const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
-  if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
-  const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
-  const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
-  if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
-  if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
-  const backdropIndex = hits.indexOf(backdropHit);
-  const obstacleIndex = hits.indexOf(obstacleHit);
-  if (backdropIndex < 0 || obstacleIndex < 0) continue;
-  return backdropIndex < obstacleIndex;
-  }
-  return false;
-}
-function collisionProbePoints(readingRect, obstacleRect) {
-  const left = Math.max(readingRect.left, obstacleRect.left);
-  const right = Math.min(readingRect.right, obstacleRect.right);
-  if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
-  const xInset = Math.min(0.5, (right - left) / 4);
-  const xs = [...new Set([left + xInset, right - xInset])];
-  const overlapTop = Math.max(readingRect.top, obstacleRect.top);
-  const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
-  let ys;
-  if (overlapBottom > overlapTop) {
-  const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
-  ys = [...new Set([overlapTop + yInset, overlapBottom - yInset])];
-  } else {
-  const inset = Math.min(0.5, obstacleRect.height / 2);
-  ys = [readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset];
-  }
-  return xs.flatMap((x) => ys.map((y) => ({ x, y })));
-}
-function commonComposedHitRoots(left, right) {
-  const rightRoots = new Set(composedHitRootChain(right));
-  const roots = composedHitRootChain(left).filter((root) => rightRoots.has(root));
-  if (!roots.includes(document)) roots.push(document);
-  return roots;
-}
-function composedHitRootChain(element) {
-  const roots = [];
-  let current = element;
-  while (true) {
-  const root = current.getRootNode();
-  if (root instanceof ShadowRoot) {
-    roots.push(root);
-    current = root.host;
-    continue;
-  }
-  roots.push(document);
-  return roots;
-  }
-}
-function nearestHitStackRepresentative(boundary, hitRoot, hits) {
-  let current = boundary;
-  while (current && current.getRootNode() === hitRoot) {
-  if (hits.includes(current)) return current;
-  if (current === document.body || current === document.documentElement) return null;
-  current = current.parentElement;
-  }
-  return null;
-}
-function opaqueComposedBackdropAtPoint(reading, x, y) {
-  for (let current = reading; current; current = composedAncestorElement(current)) {
-  const rect = current.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedBackdropIsOpaqueAtPoint(current, x, y)) return current;
-  }
-  return null;
-}
-function opaqueComposedBackdropCoveringPoints(reading, points) {
-  for (let current = reading; current; current = composedAncestorElement(current)) {
-  const rect = current.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0 && points.every((point) => point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && points.every((point) => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
-  }
-  return null;
-}
-function occlusionBoundaryInHitRoot(backdrop, hitRoot) {
-  let boundary = backdrop;
-  while (boundary.getRootNode() !== hitRoot) {
-  const boundaryRoot = boundary.getRootNode();
-  if (!(boundaryRoot instanceof ShadowRoot)) return null;
-  boundary = boundaryRoot.host;
-  }
-  return boundary;
-}
-function composedBackdropIsOpaqueAtPoint(element, x, y) {
-  for (let current = element; current; current = composedAncestorElement(current)) {
-  const style = safeComputedStyle(current);
-  const opacity = Number.parseFloat(style.opacity || "1");
-  if (Number.isFinite(opacity) && opacity < 0.999) return false;
-  if (!cssEffectIsNone(style.filter) || !cssEffectIsNone(style.maskImage) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-image")) || !cssEffectIsNone(style.getPropertyValue("mask-border-source")) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-box-image-source")) || !cssEffectIsNone(style.clipPath) || style.mixBlendMode && style.mixBlendMode !== "normal" || !cssTransformPreservesBackdropGeometry(style.transform) || !cssScaleIsOne(style.getPropertyValue("scale")) || !cssRotationIsZero(style.getPropertyValue("rotate")) || !cssZoomIsOne(style.getPropertyValue("zoom"))) return false;
-  }
-  return opaqueBackgroundPaintsAtPoint(element, safeComputedStyle(element), x, y);
-}
-function cssEffectIsNone(value) {
-  const effect = value?.trim().toLowerCase() ?? "";
-  return !effect || effect === "none";
-}
-function cssTransformPreservesBackdropGeometry(value) {
-  const transform = value?.trim().toLowerCase() ?? "";
-  if (!transform || transform === "none") return true;
-  const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
-  if (!match) return false;
-  const values = match[2].split(",").map((part) => Number.parseFloat(part.trim()));
-  if (values.some((part) => !Number.isFinite(part))) return false;
-  const close = (left, right) => Math.abs(left - right) < 1e-4;
-  if (!match[1]) {
-  return values.length === 6 && close(values[0], 1) && close(values[1], 0) && close(values[2], 0) && close(values[3], 1);
-  }
-  const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  return values.length === 16 && values.every((part, index) => [12, 13, 14].includes(index) || close(part, identity[index]));
-}
-function cssScaleIsOne(value) {
-  const scale = value.trim().toLowerCase();
-  if (!scale || scale === "none") return true;
-  const parts = scale.split(/\s+/).map((part) => Number.parseFloat(part));
-  return parts.length > 0 && parts.length <= 3 && parts.every((part) => Number.isFinite(part) && Math.abs(part - 1) < 1e-4);
-}
-function cssRotationIsZero(value) {
-  const rotation = value.trim().toLowerCase();
-  return !rotation || rotation === "none" || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
-}
-function cssZoomIsOne(value) {
-  const zoom = value.trim().toLowerCase();
-  return !zoom || zoom === "normal" || Math.abs(Number.parseFloat(zoom) - 1) < 1e-4;
-}
-function opaqueBackgroundPaintsAtPoint(element, style, x, y) {
-  const rect = element.getBoundingClientRect();
-  const clip = (style.backgroundClip || "border-box").split(",").at(-1)?.trim() || "border-box";
-  if (!["border-box", "padding-box", "content-box"].includes(clip)) return false;
-  const border = cssBoxInsets(style, "border");
-  const padding = cssBoxInsets(style, "padding");
-  if (!border || !padding) return false;
-  const inset = clip === "border-box" ? { top: 0, right: 0, bottom: 0, left: 0 } : clip === "padding-box" ? border : {
-  top: border.top + padding.top,
-  right: border.right + padding.right,
-  bottom: border.bottom + padding.bottom,
-  left: border.left + padding.left
-  };
-  const box = {
-  left: rect.left + inset.left,
-  top: rect.top + inset.top,
-  right: rect.right - inset.right,
-  bottom: rect.bottom - inset.bottom
-  };
-  const width = box.right - box.left;
-  const height = box.bottom - box.top;
-  if (width <= 0 || height <= 0 || x < box.left || x > box.right || y < box.top || y > box.bottom) return false;
-  const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
-  return corners ? pointInsideRoundedBox(box, corners, x, y) : false;
-}
-function cssBoxInsets(style, kind) {
-  const values = (kind === "border" ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth] : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]).map((value) => Number.parseFloat(value || "0"));
-  if (values.some((value) => !Number.isFinite(value))) return null;
-  return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
-}
-function roundedBackgroundCorners(style, outerWidth, outerHeight, inset, width, height) {
-  const raw = [
-  parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
-  parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight)
-  ];
-  if (raw.some((corner) => !corner)) return null;
-  const corners = raw;
-  corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
-  corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
-  corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
-  corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
-  const ratios = [
-  width / (corners[0].x + corners[1].x || width),
-  width / (corners[3].x + corners[2].x || width),
-  height / (corners[0].y + corners[3].y || height),
-  height / (corners[1].y + corners[2].y || height)
-  ];
-  const scale = Math.min(1, ...ratios);
-  if (scale < 1) {
-  for (const corner of corners) {
-    corner.x *= scale;
-    corner.y *= scale;
-  }
-  }
-  return corners;
-}
-function parseCornerRadius(value, width, height) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return { x: 0, y: 0 };
-  if (parts.length > 2) return null;
-  const x = parseLengthPercentage(parts[0], width);
-  const y = parseLengthPercentage(parts[1] ?? parts[0], height);
-  return x === null || y === null ? null : { x, y };
-}
-function parseLengthPercentage(value, extent) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  if (value.endsWith("%")) return parsed * extent / 100;
-  return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
-}
-function pointInsideRoundedBox(box, corners, x, y) {
-  const centers = [
-  { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x < box.left + corners[0].x && y < box.top + corners[0].y },
-  { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x > box.right - corners[1].x && y < box.top + corners[1].y },
-  { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x > box.right - corners[2].x && y > box.bottom - corners[2].y },
-  { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x < box.left + corners[3].x && y > box.bottom - corners[3].y }
-  ];
-  for (const center of centers) {
-  if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
-  const dx = (x - center.x) / center.corner.x;
-  const dy = (y - center.y) / center.corner.y;
-  if (dx * dx + dy * dy > 1) return false;
-  }
-  return true;
-}
-function cssBackgroundIsOpaque(value) {
-  const color = value.trim().toLowerCase();
-  if (!color || color === "transparent") return false;
-  const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
-  const commaMatch = color.startsWith("rgba(") ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
-  const slashAlpha = slashMatch?.[1].trim();
-  const commaAlpha = commaMatch?.[1].trim();
-  const alphaText = slashAlpha ?? commaAlpha;
-  if (!alphaText) return !slashMatch && !commaMatch;
-  if (alphaText === "none") return false;
-  const alpha = Number(alphaText.endsWith("%") ? alphaText.slice(0, -1) : alphaText) / (alphaText.endsWith("%") ? 100 : 1);
-  return Number.isFinite(alpha) && alpha >= 0.999;
-}
-function rectanglesWithinClearance(left, right) {
-  return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
-}
-function rectsShareAuthoredLine(left, right) {
-  const leftHeight = Math.max(0, left.bottom - left.top);
-  const rightHeight = Math.max(0, right.bottom - right.top);
-  const shorterHeight = Math.min(leftHeight, rightHeight);
-  if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
-  const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
-  if (overlap < shorterHeight * 0.5) return false;
-  const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
-  return centreDistance <= Math.max(2, shorterHeight * 0.4);
-}
-function detachedReadingIsClipped(reading, rect) {
-  let ancestor = composedAncestorElement(reading);
-  for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedAncestorElement(ancestor)) {
-  const style = safeComputedStyle(ancestor);
-  const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
-  if (!clips) continue;
-  const box = ancestor.getBoundingClientRect();
-  if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP || rect.left < box.left - DETACHED_READING_COLLISION_SLOP || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
-  }
-  return false;
-}
-function hideUnsafeDetachedReading(reading) {
-  reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
-  reading.style.setProperty("display", "none", "important");
-}
-function detachedReadingRestHidden(reading) {
-  for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
-  if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
-  }
-  return false;
-}
-function reconcilePendingDetachedReadingLanes() {
-  const surfaces = [...pendingDetachedReadingSurfaces];
-  pendingDetachedReadingSurfaces.clear();
-  const readings = uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi")));
-  if (!readings.length) return;
-  settleDetachedReadingLanes(
-  readings,
-  uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
-  );
-}
-function uniqueElements(elements) {
-  return [...new Set(elements)];
+function settleDetachedReadingLanes(readings) {
+  readings.forEach(exposeDetachedReadingCandidate);
 }
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
@@ -9287,8 +9208,8 @@ function detachedReadingGeometrySignature(box) {
 }
 function syncDetachedReadingRestVisibility(box) {
   box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
-  if (reading.dataset.yomuDetachedReadingHidden) return;
-  setInlineStyleIfChanged(reading, "display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  delete reading.dataset.yomuDetachedReadingHidden;
+  setInlineStyleIfChanged(reading, "display", "block", "important");
   });
 }
 function restoreDetachedReadingClip(box) {
@@ -9857,7 +9778,6 @@ function withMirrorTokenApply(callback) {
   } finally {
   mirrorTokenApplyDepth -= 1;
   if (mirrorTokenApplyDepth === 0) {
-    reconcilePendingDetachedReadingLanes();
     sweepAndDrainTextMirrorObservers();
   }
   }
@@ -9893,7 +9813,6 @@ function healTextMirrorPageVisibility() {
   healStuckHiddenTextMirror(host);
   healLateClipConstrainedStamp(host);
   }
-  reconcilePendingDetachedReadingLanes();
 }
 function healLateClipConstrainedStamp(host) {
   const mirror = currentTextMirror(host);
@@ -9906,8 +9825,8 @@ function healLateClipConstrainedStamp(host) {
   clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? void 0, clipRow) ? "content" : "true";
   }
   openSafeDetachedReadingClips(host);
-  filterDetachedWordsToClip(mirror, clipRow);
-  pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
+  if (mirror.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(mirror, clipRow);
+  projectAdditiveTextMirror(mirror, host);
   settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
 }
 function dispatchTextMirrorStale(host) {
@@ -10968,7 +10887,7 @@ function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRu
   const start = ruby.start - token.start;
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-  html += '<span class="jpdb-reader-detached-ruby">';
+  html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
   html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
   html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
   html += "</span>";
@@ -10992,6 +10911,8 @@ function replaceRenderedWordFurigana(word, surface, token) {
   if (mirror) {
   mirror.dataset.yomuDetachedReadings = "true";
   styleConstrainedTextMirror(mirror, clipRow, true);
+  const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
   }
   styleDetachedReadingElements(renderSurface, host);
   if (mirror) healLateClipConstrainedStamp(host);
@@ -11500,7 +11421,6 @@ function refreshWrappedScanWordUnderlines(root = document) {
   const wrapped = [];
   const unwrapped = [];
   for (const word of words) {
-  if (word.closest(".jpdb-reader-text-mirror")) continue;
   (scanWordSpansMultipleLines(word) ? wrapped : unwrapped).push(word);
   }
   for (const word of wrapped) word.setAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE, "true");
@@ -11868,108 +11788,6 @@ function previousRubyRoomHeight(box) {
 }
 function baseVisibleInBox(baseRect, boxRect) {
   return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
-}
-let sandboxCompanions = {};
-function yomuSettingsDialogController() {
-  return yomuCompanions().settings?.SettingsDialogController;
-}
-function yomuOnboardingController() {
-  return yomuCompanions().settings?.OnboardingController;
-}
-function yomuAnkiCompanion() {
-  return yomuCompanions().anki;
-}
-function yomuVideoCompanionSlot() {
-  return yomuCompanions().video;
-}
-function yomuSubtitlePlayerController() {
-  return yomuCompanions().video?.SubtitlePlayerController;
-}
-function yomuYoutubeImmersionFilter() {
-  return yomuCompanions().video?.YoutubeImmersionFilter;
-}
-function yomuImageOcrController() {
-  return yomuCompanions().ocr?.ImageOcrController;
-}
-function yomuNormalizeOcrRenderedText() {
-  return yomuCompanions().ocr?.normalizeOcrRenderedText;
-}
-function yomuLocalDictionaries() {
-  return yomuCompanions().localDictionaries;
-}
-function yomuI18nCompanion() {
-  return yomuCompanions().i18n;
-}
-function yomuBunproCompanion() {
-  return yomuCompanions().bunpro;
-}
-function yomuKanjiStudyCompanion() {
-  return yomuCompanions().kanjiStudy;
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
-const CARD_STATE_LABEL_KEYS = {
-  new: "stateNew",
-  learning: "stateLearning",
-  young: "stateYoung",
-  mature: "stateMature",
-  known: "stateKnown",
-  mastered: "stateMastered",
-  due: "stateDue",
-  failed: "stateFailed",
-  locked: "stateLocked",
-  "never-forget": "stateNeverForget",
-  blacklisted: "stateBlacklisted",
-  suspended: "stateSuspended",
-  "in-deck": "stateInDeck",
-  "not-in-deck": "stateNotInDeck",
-  redundant: "stateRedundant",
-  frequent: "stateFrequent",
-  unparsed: "stateUnparsed"
-};
-function resolveUiLanguage(language) {
-  return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
-}
-function uiText(language, key) {
-  return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
-}
-function cardStateLabel(state, language, fallback = state) {
-  return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
-}
-function formatUiText(language, key, values) {
-  return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
-}
-function uiList(language, parts) {
-  return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
-}
-function fallbackResolveUiLanguage(language) {
-  if (language === "ja" || language === "en") return language;
-  const languages = typeof navigator === "undefined" ? [] : [
-  ...Array.isArray(navigator.languages) ? navigator.languages : [],
-  navigator.language
-  ];
-  return languages.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
-}
-function fallbackCardStateLabel(state, fallback) {
-  return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
-}
-function fallbackUiText(key) {
-  return String(key);
-}
-function formatTemplate(template, values) {
-  return Object.entries(values).reduce(
-  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-  template
-  );
 }
 class ShuffledAudioDeck {
   constructor(random = Math.random) {
@@ -12909,12 +12727,12 @@ async function requestHttp(url, options = {}) {
     return await requestViaFetch(url, options, userscriptRequest ?? null);
   } catch (error) {
     if (!userscriptRequest) throw error;
-    return await requestViaUserscript(url, options, userscriptRequest);
+    return await requestViaUserscript$1(url, options, userscriptRequest);
   }
   }
   if (userscriptRequest) {
   try {
-    return await requestViaUserscript(url, options, userscriptRequest);
+    return await requestViaUserscript$1(url, options, userscriptRequest);
   } catch (error) {
     if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
     userscriptRequest = void 0;
@@ -12922,7 +12740,7 @@ async function requestHttp(url, options = {}) {
   }
   return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
-function requestViaUserscript(url, options, userscriptRequest) {
+function requestViaUserscript$1(url, options, userscriptRequest) {
   return new Promise((resolve, reject) => {
   const signal = options.signal;
   if (signal?.aborted) {
@@ -15991,6 +15809,9 @@ function cardStateSignalCard(card) {
   cardState: [...card.cardState],
   pitchAccent: [...card.pitchAccent],
   source: card.source,
+  reviewSource: card.reviewSource,
+  dueAt: card.dueAt,
+  lastReviewAt: card.lastReviewAt,
   deckNames: card.deckNames ? [...card.deckNames] : void 0,
   ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
   jpdbDeckMembership: card.jpdbDeckMembership,
@@ -16082,6 +15903,9 @@ function parseCardStateSignal(value) {
     cardState: card.cardState,
     pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
     source: card.source ?? "jpdb",
+    reviewSource: typeof card.reviewSource === "string" ? card.reviewSource : void 0,
+    dueAt: card.dueAt === null || typeof card.dueAt === "number" ? card.dueAt : void 0,
+    lastReviewAt: card.lastReviewAt === null || typeof card.lastReviewAt === "number" ? card.lastReviewAt : void 0,
     deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
     ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
     jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
@@ -16149,6 +15973,585 @@ function isSpecialJpdbDeck(settings, deck) {
 }
 function normalizeDeckChoiceRenderOptions(value) {
   return typeof value === "boolean" ? { includeJpdb: value } : value;
+}
+function cssColorToHex(value, backdrop) {
+  const color = cssColorToRgba(value);
+  if (!color) return null;
+  if (color.alpha >= 1) return rgbaToHex(color);
+  return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
+}
+function cssColorToRgba(value) {
+  const color = value.trim().toLowerCase();
+  if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
+  if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
+  if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
+  if (color.startsWith("oklab(")) return parseOklabFunction(color);
+  if (color.startsWith("oklch(")) return parseOklchFunction(color);
+  return probeCssColor(color);
+}
+const probedColors = new Map();
+let probeContext;
+function probeCssColor(color) {
+  const cached = probedColors.get(color);
+  if (cached !== void 0) return cached;
+  if (probeContext === void 0) {
+  try {
+    probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+  } catch {
+    probeContext = null;
+  }
+  }
+  let parsed = null;
+  if (probeContext) {
+  try {
+    probeContext.fillStyle = "#010203";
+    probeContext.fillStyle = color;
+    const serialized = String(probeContext.fillStyle).toLowerCase();
+    if (serialized !== "#010203") {
+      if (serialized.startsWith("#")) {
+        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+        parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+      } else if (serialized.startsWith("rgb")) {
+        parsed = parseRgbFunction(serialized);
+      } else if (serialized.startsWith("color(srgb ")) {
+        parsed = parseSrgbFunction(serialized);
+      }
+      if (!parsed) parsed = probePixelColor(probeContext, color);
+    }
+  } catch {
+    parsed = null;
+  }
+  }
+  if (probedColors.size > 512) probedColors.clear();
+  probedColors.set(color, parsed);
+  return parsed;
+}
+function probePixelColor(context, color) {
+  try {
+  context.canvas.width = 1;
+  context.canvas.height = 1;
+  context.clearRect(0, 0, 1, 1);
+  context.fillStyle = color;
+  context.fillRect(0, 0, 1, 1);
+  const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
+  return { red, green, blue, alpha: alphaByte / 255 };
+  } catch {
+  return null;
+  }
+}
+function blendRgba(foreground, background) {
+  const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+  if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+  const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
+  return {
+  red: channel(foreground.red, background.red),
+  green: channel(foreground.green, background.green),
+  blue: channel(foreground.blue, background.blue),
+  alpha
+  };
+}
+function rgbaToHex(color) {
+  return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
+}
+function expandHexColor(value) {
+  return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
+}
+function hexToRgbaColor(color) {
+  const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
+  return { red, green, blue, alpha: 1 };
+}
+function parseRgbFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return {
+  red: parseRgbChannel(parts[0]),
+  green: parseRgbChannel(parts[1]),
+  blue: parseRgbChannel(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  };
+}
+function parseSrgbFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return {
+  red: parseSrgbChannel(parts[0]),
+  green: parseSrgbChannel(parts[1]),
+  blue: parseSrgbChannel(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  };
+}
+function parseOklabFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return oklabToRgba({
+  lightness: parseOklabLightness(parts[0]),
+  a: parseOklabAxis(parts[1]),
+  b: parseOklabAxis(parts[2]),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  });
+}
+function parseOklchFunction(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  const chroma = parseOklabAxis(parts[1]);
+  const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
+  return oklabToRgba({
+  lightness: parseOklabLightness(parts[0]),
+  a: chroma * Math.cos(hue),
+  b: chroma * Math.sin(hue),
+  alpha: parts[3] ? parseAlpha(parts[3]) : 1
+  });
+}
+function colorFunctionNumbers(value) {
+  return value.match(/-?\d*\.?\d+%?/g) ?? [];
+}
+function parseRgbChannel(value) {
+  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
+}
+function parseSrgbChannel(value) {
+  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
+}
+function parseOklabLightness(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return value.endsWith("%") ? parsed / 100 : parsed;
+}
+function parseOklabAxis(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return value.endsWith("%") ? parsed / 100 : parsed;
+}
+function oklabToRgba(color) {
+  const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
+  const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
+  const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
+  const long = l ** 3;
+  const medium = m ** 3;
+  const short = s ** 3;
+  return {
+  red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
+  green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
+  blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
+  alpha: color.alpha
+  };
+}
+function linearSrgbToChannel(value) {
+  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+  return clampChannel(channel * 255);
+}
+function parseAlpha(value) {
+  const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
+  return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
+}
+function clampChannel(value) {
+  return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
+}
+function readableOn(color, background, targetContrast) {
+  const safe = sanitizeAccentColor(color);
+  if (contrastRatio(safe, background) >= targetContrast) return safe;
+  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  for (let amount = 0.08; amount <= 1; amount += 0.08) {
+  const mixed = mixHex(safe, toward, amount);
+  if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+  }
+  return toward;
+}
+function readableOnAll(color, backgrounds, targetContrast) {
+  const safe = sanitizeAccentColor(color);
+  if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
+  const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
+  if (candidates[0]) return candidates[0].color;
+  return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
+}
+function contrastRatio(a, b) {
+  return sharedContrastRatio(a, b, sanitizeAccentColor);
+}
+function mixHex(from, to, amount) {
+  return sharedMixHex(from, to, amount, sanitizeAccentColor);
+}
+function isHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(value);
+}
+function closestReadableMix(color, toward, backgrounds, targetContrast) {
+  for (let amount = 0.04; amount <= 1; amount += 0.04) {
+  const mixed = mixHex(color, toward, amount);
+  const contrast = minContrast(mixed, backgrounds);
+  if (contrast >= targetContrast) return { color: mixed, amount, contrast };
+  }
+  return null;
+}
+function minContrast(color, backgrounds) {
+  return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
+}
+const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
+const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
+const TEXT_CONTRAST = 4.5;
+const DECORATION_CONTRAST = 3;
+const HIGHLIGHT_CONTRAST = 1.45;
+const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
+const COLORED_READER_WORD_CLASSES = new Set([
+  "jpdb-new",
+  "jpdb-in-deck",
+  "jpdb-learning",
+  "jpdb-known",
+  "jpdb-never-forget",
+  "jpdb-redundant",
+  "jpdb-due",
+  "jpdb-failed",
+  "jpdb-suspended",
+  "jpdb-blacklisted",
+  "jpdb-locked",
+  "anki-new",
+  "anki-learning",
+  "anki-known",
+  "anki-due",
+  "anki-failed",
+  "anki-suspended",
+  "jpdb-pitch-heiban",
+  "jpdb-pitch-atamadaka",
+  "jpdb-pitch-nakadaka",
+  "jpdb-pitch-odaka"
+]);
+const pendingHoverContrastRefresh = new WeakSet();
+const appliedContrastState = new WeakMap();
+function refreshReaderWordContrast(root = document) {
+  const words = readerWords(root);
+  const activeWords = [];
+  const activeBackgrounds = [];
+  const unknownBackgroundWords = [];
+  const neutralWords = [];
+  const backgroundByParent = new Map();
+  const cachedPageBackgroundFor = (word) => {
+  const parent = word.parentElement;
+  if (!parent) return pageBackgroundFor(word);
+  if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+  const background = pageBackgroundFor(word);
+  backgroundByParent.set(parent, background);
+  return background;
+  };
+  for (const word of words) {
+  const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
+  const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
+  if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
+    delete word.dataset.ankiPreserveContrast;
+    continue;
+  }
+  if (word.closest(YOMU_SURFACE_SELECTOR)) {
+    neutralWords.push(word);
+    continue;
+  }
+  if (isNeutralReaderWord(word)) {
+    neutralWords.push(word);
+    continue;
+  }
+  const background = cachedPageBackgroundFor(word);
+  if (!background) {
+    if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
+    unknownBackgroundWords.push(word);
+    continue;
+  }
+  const isHovered = word.matches(":hover, :focus");
+  const previous = appliedContrastState.get(word);
+  const parentColor = getComputedStyle(word.parentElement ?? word).color;
+  if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
+    continue;
+  }
+  if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+    scheduleHoverSettledContrastRefresh(word);
+    continue;
+  }
+  if (isHovered) {
+    scheduleHoverSettledContrastRefresh(word);
+  }
+  activeWords.push(word);
+  activeBackgrounds.push(background);
+  }
+  const savedVars = activeWords.map((word, i) => {
+  const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
+    name,
+    value: word.style.getPropertyValue(name),
+    priority: word.style.getPropertyPriority(name)
+  }));
+  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+  word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i].css);
+  return saved;
+  });
+  const measurements = activeWords.map((word) => {
+  const style = getComputedStyle(word);
+  const parentStyle = getComputedStyle(word.parentElement ?? word);
+  return {
+    bg: style.backgroundColor,
+    hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
+    fg: style.color,
+    deco: measuredWordDecorationColor(style),
+    parentFg: parentStyle.color,
+    hover: style.getPropertyValue("--jpdb-reader-hover"),
+    hovered: word.matches(":hover, :focus")
+  };
+  });
+  neutralWords.forEach((word) => clearContrastVars(word));
+  unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+  activeWords.forEach((word, i) => {
+  savedVars[i].forEach(({ name, value, priority: priority2 }) => {
+    if (value) word.style.setProperty(name, value, priority2);
+  });
+  applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
+  appliedContrastState.set(word, {
+    background: activeBackgrounds[i].css,
+    className: word.className,
+    cssText: word.style.cssText,
+    hovered: measurements[i].hovered,
+    parentColor: measurements[i].parentFg
+  });
+  });
+}
+function measuredWordDecorationColor(style) {
+  const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
+  if (underline && !underline.includes("var(")) return underline;
+  const source = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
+  return source || underline || style.textDecorationColor;
+}
+function applyWordContrastVars(word, background, m) {
+  word.style.setProperty("--jpdb-reader-page-bg", background.css);
+  word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+  word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+  const preserveHostPaint = isPassiveChromeWord(word);
+  const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
+  const accessibleHex = rgbaToHex(accessibleRgba);
+  const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
+  const sourceText = cssColorToHex(m.fg, accessibleRgba);
+  const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
+  const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
+  const textSource = sourceText ?? nativeText;
+  const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
+  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
+  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
+  if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+  else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+}
+function isPassiveChromeWord(word) {
+  return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
+}
+function uniqueHexes(colors) {
+  return [...new Set(colors)];
+}
+function textBackdropsForMeasurement(m, textBackdropHex) {
+  const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
+  return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+}
+function existingAccessibleColorRemainsReadableOnHover(word, background) {
+  const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
+  if (!existingText) return false;
+  const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
+  const baseBackdrop = existingHighlight ?? background.hex;
+  const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
+  return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+}
+function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
+  if (!hovered) return null;
+  const hover = cssColorToRgba(hoverColor);
+  const backdrop = cssColorToRgba(textBackdropHex);
+  if (!hover || !backdrop || hover.alpha <= 0) return null;
+  return rgbaToHex(blendRgba(hover, backdrop));
+}
+function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
+  const colorRgba = cssColorToRgba(wordBgColor);
+  const hasPaint = !!colorRgba?.alpha;
+  const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
+  const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
+  if (hasPaint && !preserveHostPaint) {
+  const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
+  word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
+  return cssColorToRgba(highlightHex) ?? rgba;
+  }
+  word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+  return rgba;
+}
+function paintRgba(value, el) {
+  const direct = cssColorToRgba(value);
+  if (direct) return direct;
+  const probe = el.appendChild(document.createElement("span"));
+  probe.style.color = value;
+  const rgba = cssColorToRgba(getComputedStyle(probe).color);
+  probe.remove();
+  return rgba;
+}
+function resolveDecorationHex(word, decorationColor, accessibleRgba) {
+  const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
+  return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
+}
+function refreshReaderWordContrastForWord(word) {
+  refreshReaderWordContrast(word.parentElement ?? word);
+}
+function refreshContrastForChangedWords(words) {
+  const lines = new Set();
+  for (const word of words) {
+  if (word.isConnected) lines.add(word.parentElement ?? word);
+  }
+  lines.forEach((line) => refreshReaderWordContrast(line));
+}
+function isNeutralReaderWord(word) {
+  if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
+  return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
+}
+function scheduleHoverSettledContrastRefresh(word) {
+  if (pendingHoverContrastRefresh.has(word)) return;
+  pendingHoverContrastRefresh.add(word);
+  window.setTimeout(() => {
+  pendingHoverContrastRefresh.delete(word);
+  if (!word.isConnected) return;
+  refreshReaderWordContrastForWord(word);
+  }, 120);
+}
+function readerWords(root) {
+  const words = new Set();
+  if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
+  root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
+  return [...words];
+}
+function pageBackgroundFor(word) {
+  const ancestors = [];
+  for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
+  let found = false;
+  let hasImageBackdrop = false;
+  let unknownBase = false;
+  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+  for (const element of ancestors.reverse()) {
+  const style = getComputedStyle(element);
+  hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+  const color = cssColorToRgba(style.backgroundColor);
+  if (!color) {
+    unknownBase = true;
+    continue;
+  }
+  if (color.alpha <= 0) continue;
+  if (color.alpha >= 1) unknownBase = false;
+  rgba = blendRgba(color, rgba);
+  found = true;
+  }
+  if (unknownBase || !found) {
+  if (hasImageBackdrop) return null;
+  return inferredTransparentPageBackground(word);
+  }
+  return pageBackgroundFromRgba(rgba);
+}
+function inferredTransparentPageBackground(word) {
+  const style = getComputedStyle(word.parentElement ?? word);
+  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = getComputedStyle(document.body);
+  const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
+  if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+  if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
+  return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  }
+  return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+function documentBackgroundLooksDark() {
+  if (typeof document === "undefined" || !document.body) return false;
+  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+  let found = false;
+  for (const element of [document.documentElement, document.body]) {
+  const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
+  if (!color || color.alpha <= 0) continue;
+  rgba = blendRgba(color, rgba);
+  found = true;
+  }
+  const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
+  return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
+}
+function pageBackgroundFromCss(color) {
+  return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
+}
+function pageBackgroundFromRgba(rgba) {
+  const hex = rgbaToHex(rgba);
+  return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+}
+function bestTextColor(background) {
+  return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+}
+function readableHighlightBackground(color, background) {
+  if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
+  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
+  const mixed = mixHex(color, toward, amount);
+  if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
+  }
+  return color;
+}
+function applyUnknownBackgroundFallback(word) {
+  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+  word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+}
+function clearContrastVars(word) {
+  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+}
+function canonicalStudyCardIdentity(expression, reading = "") {
+  const normalizedExpression = expression.normalize("NFKC").trim();
+  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
+  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+  return {
+  key: `${normalizedExpression}\0${normalizedReading}`,
+  expression: normalizedExpression,
+  reading: normalizedReading
+  };
+}
+function applyYomuLocalReviewableToCard(card, reviewable) {
+  card.cardState = [...reviewable.state];
+  card.reviewSource = "yomu-local";
+  card.dueAt = reviewable.dueAt;
+  card.lastReviewAt = reviewable.lastReviewAt;
+  delete card.provisionalState;
+  return card;
+}
+async function hydrateYomuLocalSrsCardStates(parsed, adapter) {
+  if (typeof adapter.lookupCards !== "function") return parsed;
+  const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
+  const identities = new Map();
+  for (const card of cards) {
+  const identity = localIdentity(card.spelling, card.reading);
+  if (identity) identities.set(identity.key, identity);
+  }
+  if (!identities.size) return parsed;
+  const reviewables = await adapter.lookupCards([...identities.values()]);
+  const indexed = new Map(reviewables.map((reviewable) => [
+  canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+  reviewable
+  ]));
+  for (const card of cards) {
+  const identity = localIdentity(card.spelling, card.reading);
+  const reviewable = identity ? indexed.get(identity.key) : void 0;
+  if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
+  }
+  return parsed;
+}
+function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
+  if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
+  const target = localIdentity(card.spelling, card.reading);
+  if (!target) return 0;
+  const words = new Set();
+  for (const root of roots) {
+  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-expression]")) words.add(root);
+  root.querySelectorAll(".jpdb-reader-word[data-expression]").forEach((word) => words.add(word));
+  }
+  const changed = [];
+  for (const word of words) {
+  const identity = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+  if (!identity || identity.key !== target.key) continue;
+  if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
+  }
+  refreshContrastForChangedWords(changed);
+  return changed.length;
+}
+function localIdentity(expression, reading) {
+  try {
+  return canonicalStudyCardIdentity(expression, reading);
+  } catch {
+  return null;
+  }
 }
 function apiGradingProviderPreference(settings) {
   if (settings.apiGradingProvider === "bunpro") return "bunpro";
@@ -16393,15 +16796,17 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   selectedDeckId: () => "yomu-local",
   selectedDeckLabel: () => ACADEMY_SRS_LABEL,
   addToDeck: async (_deckId, card, sentence, context) => {
-    await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+    const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+    if (result.card) applyYomuLocalReviewableToCard(card, result.card);
   },
   reviewCard: async (card, grade, reviewOptions = {}) => {
     const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-    await adapter.review({
+    const result = await adapter.review({
       card: yomuLocalReviewableFromCard(card),
       grade,
       sentence: reviewOptions.sentence
     });
+    if (result.card) applyYomuLocalReviewableToCard(card, result.card);
     return { addedBeforeReview: wasNotInDeck };
   },
   setDeckState: async () => void 0
@@ -17385,28 +17790,14 @@ function cardHighlightTargetFromScope(scope) {
 const KANJI_RE$1 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
-function compactReading(value) {
-  return value.normalize("NFC").replace(/\s+/g, "").trim();
-}
 function headwordFuriganaSettings(settings) {
-  if (!settings.showFurigana || settings.furiganaMode === "off") return settings;
-  return { ...settings, furiganaMode: "all" };
+  return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
 function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
   const spelling = card.spelling.trim();
   if (!spelling) return "";
   const token = cardSpellingFuriganaToken(card, spelling);
   return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
-}
-function isPlainReadingRedundantForHeadword(card, settings, plainReading) {
-  const spelling = card.spelling.trim();
-  const normalizedPlainReading = compactReading(plainReading);
-  if (!spelling || !normalizedPlainReading) return false;
-  if (normalizedPlainReading === compactReading(spelling)) return true;
-  const token = cardSpellingFuriganaToken(card, spelling);
-  const visibleReading = headwordFuriganaReading(spelling, token);
-  if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
-  return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true);
 }
 function cardSpellingFuriganaToken(card, spelling) {
   const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
@@ -17421,9 +17812,6 @@ function cardSpellingFuriganaToken(card, spelling) {
   pitchClass: "",
   sentence: spelling
   };
-}
-function headwordFuriganaReading(spelling, token) {
-  return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : normalizedJapaneseCardReading(spelling, token.card.reading).trim();
 }
 function annotatedWordRubies(spelling, annotated) {
   if (!annotated || !annotated.includes("[")) return [];
@@ -17986,7 +18374,7 @@ function nestedFrequencyValue(value) {
 }
 Logger.scope("DictionaryArchiveCache");
 Logger.scope("Yomitan");
-function isRecord$3(value) {
+function isRecord$4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNonNullObject(value) {
@@ -18005,7 +18393,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -18099,7 +18487,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$3(value)) return "";
+  if (!isRecord$4(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -18486,32 +18874,6 @@ function addLearnerTermMeaning(group, entry, key, meaningKeys) {
 function summarizeLearnerGlossary(entry) {
   return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
 }
-function externalLinkIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M7 17 17 7"></path>
-    <path d="M9 7h8v8"></path>
-  </svg>`;
-}
-function copyIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-  </svg>`;
-}
-function ankiIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-    <path d="M12 8v8"></path>
-    <path d="M8 12h8"></path>
-  </svg>`;
-}
-function speakerIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
-}
 const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
 const JPDB_RELATED_WORD_STATE = "not-in-deck";
 const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
@@ -18567,7 +18929,7 @@ function renderProviderExamples(provider, sourceId, collection, sourceAttributes
             <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
         </summary>
         <div class="jpdb-reader-local-glossary">
-            <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
+            <ul class="jpdb-reader-jpdb-examples">${collection.items.map((example) => renderProviderExample(example, language)).join("")}</ul>
         </div>
     </details>
   `;
@@ -18575,19 +18937,66 @@ function renderProviderExamples(provider, sourceId, collection, sourceAttributes
 function definitionSourceStateKey$3(sourceId) {
   return `definition-source:${sourceId}`;
 }
-function renderProviderExample(example) {
+function renderProviderExample(example, language) {
   const hasAudio = Boolean(example.audio);
+  const translation = example.translation.trim();
+  const translationPending = !translation;
   return `
     <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$2(example.id)}">
         <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
             ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
             <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
-                ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$2(example.translation)}</div>` : ""}
+                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
+                <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}" hidden` : ""} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
             </div>
         </div>
     </li>
   `;
+}
+function installProviderExampleBehaviors(root, options) {
+  installProviderTranslationReveal(root);
+  const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
+  if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
+  translations.filter((translation) => translation.dataset.providerTranslationPending === "true").forEach((translation) => hydrateProviderTranslation(root, translation, options));
+}
+function installProviderTranslationReveal(root) {
+  if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
+  root.dataset.providerExampleBehaviorsInstalled = "true";
+  root.addEventListener("click", (event) => {
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (translation && root.contains(translation)) revealProviderTranslation(translation);
+  });
+  root.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (!translation || !root.contains(translation)) return;
+  event.preventDefault();
+  revealProviderTranslation(translation);
+  });
+}
+function hydrateProviderTranslation(root, translation, options) {
+  if (translation.dataset.providerTranslationLoading === "true") return;
+  const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
+  if (!sentence) return;
+  translation.dataset.providerTranslationLoading = "true";
+  void options.translate(sentence, options.language).then((translated) => {
+  if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
+  translation.textContent = translated.trim();
+  translation.hidden = false;
+  delete translation.dataset.providerTranslationPending;
+  delete translation.dataset.providerTranslationSentence;
+  }).catch(() => void 0).finally(() => {
+  delete translation.dataset.providerTranslationLoading;
+  });
+}
+function isCurrentProviderRoot(root, options) {
+  return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
+}
+function revealProviderTranslation(translation) {
+  delete translation.dataset.providerTranslationBlurred;
+  translation.removeAttribute("role");
+  translation.removeAttribute("tabindex");
+  translation.removeAttribute("aria-label");
 }
 function renderProviderExampleAudio(audio) {
   const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$2(value)}"`).join("");
@@ -18682,6 +19091,7 @@ function renderJpdbExamples(info, sourceAttributes, language, card) {
   if (!info.examples.length) return "";
   const items = info.examples.map((example, index) => ({
   id: String(index),
+  sentence: example.sentence,
   sentenceHtml: renderJpdbExampleSentence(example, card),
   translation: example.translation,
   ...example.audioIds?.length ? {
@@ -19735,9 +20145,9 @@ class CardPopoverRenderer {
   }
   renderMetaItems(card, provider, state, data) {
   const settings = this.settings();
-  const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== "yomu-local");
+  const academyBacked = card.source === "yomu-local" || card.reviewSource === "yomu-local";
+  const canShowProviderStatus = Boolean(provider?.hasApiKey && (provider.id !== "yomu-local" || academyBacked));
   return [
-    renderMetaReading(card, settings),
     "",
     canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$2(provider?.label ?? "API")} ${escapeHtml$2(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
     renderAnkiMeta(data.ankiLookup, settings)
@@ -19902,11 +20312,6 @@ function renderApiMiningActionDetails(language, state, addDeckSelect, provider, 
                 </div>
             `;
 }
-function renderMetaReading(card, settings) {
-  const reading = cardPronunciationReading(card);
-  if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
-  return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$2(reading)}</span>` : "";
-}
 function renderAnkiMeta(lookup, settings) {
   if (!settings.ankiEnabled) return "";
   if (lookup.trusted === false && !lookup.primary) return "";
@@ -20047,6 +20452,1473 @@ function ankiFieldsFromSourceCard(card) {
 }
 function cardKey(card) {
   return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+}
+function isAbortError(error) {
+  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+}
+class PromiseLruCache {
+  constructor(maxSize) {
+  this.maxSize = maxSize;
+  }
+  entries = new Map();
+  getOrLoad(key, load) {
+  const cached = this.entries.get(key);
+  if (cached) {
+    this.entries.delete(key);
+    this.entries.set(key, cached);
+    return cached;
+  }
+  const promise = load();
+  this.entries.set(key, promise);
+  this.prune();
+  void promise.catch(() => {
+    if (this.entries.get(key) === promise) this.entries.delete(key);
+  });
+  return promise;
+  }
+  prune() {
+  while (this.entries.size > Math.max(1, this.maxSize)) {
+    const oldest = this.entries.keys().next().value;
+    if (oldest === void 0) return;
+    this.entries.delete(oldest);
+  }
+  }
+}
+const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
+const JITEN_DAILY_STATS_MAX_DAYS = 400;
+function recordJitenDailyStats(counts, now = new Date()) {
+  const newCardsToday = finiteCount(counts.newCardsToday);
+  const reviewsToday = finiteCount(counts.reviewsToday);
+  if (newCardsToday === void 0 && reviewsToday === void 0) return;
+  try {
+  const stored = loadJitenDailyStats();
+  const key = jitenStatsDateKey(now);
+  const previous = stored[key];
+  stored[key] = {
+    newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
+    reviewsToday: Math.max(previous?.reviewsToday ?? 0, reviewsToday ?? 0),
+    updatedAt: now.getTime()
+  };
+  gmStorageSetSync(JITEN_DAILY_STATS_KEY, pruneJitenDailyStats(stored));
+  } catch {
+  }
+}
+function loadJitenDailyStats() {
+  try {
+  const stored = gmStorageGetSync(JITEN_DAILY_STATS_KEY, {});
+  return stored && typeof stored === "object" && !Array.isArray(stored) ? { ...stored } : {};
+  } catch {
+  return {};
+  }
+}
+function jitenStatsDateKey(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+function pruneJitenDailyStats(stored) {
+  const keys = Object.keys(stored).sort();
+  while (keys.length > JITEN_DAILY_STATS_MAX_DAYS) {
+  delete stored[keys.shift() ?? ""];
+  }
+  return stored;
+}
+function finiteCount(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
+}
+const DEFAULT_MAX_BATCH_BYTES = 16384;
+const DEFAULT_MAX_BATCH_ITEMS = 80;
+const DEFAULT_CONCURRENCY = 2;
+const JSON_STRING_OVERHEAD_BYTES = 7;
+const utf8Encoder$1 = new TextEncoder();
+class JitenParseBatcher {
+  constructor(options) {
+  this.options = options;
+  this.gate = new ConcurrencyGate(options.concurrency ?? DEFAULT_CONCURRENCY);
+  }
+  pending = new Map();
+  inFlight = new Map();
+  gate;
+  flushScheduled = false;
+  load(paragraphs) {
+  return Promise.all(paragraphs.map((paragraph) => paragraph.trim() ? this.loadParagraph(paragraph) : Promise.resolve(this.options.emptyResult())));
+  }
+  loadParagraph(paragraph) {
+  const existing = this.inFlight.get(paragraph);
+  if (existing) return existing;
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  const entry = { paragraph, promise, resolve, reject };
+  this.pending.set(paragraph, entry);
+  this.inFlight.set(paragraph, promise);
+  void promise.then(
+    () => this.forgetInFlight(paragraph, promise),
+    () => this.forgetInFlight(paragraph, promise)
+  );
+  this.scheduleFlush();
+  return promise;
+  }
+  scheduleFlush() {
+  if (this.flushScheduled) return;
+  this.flushScheduled = true;
+  queueMicrotask(() => this.flush());
+  }
+  flush() {
+  this.flushScheduled = false;
+  const entries2 = [...this.pending.values()];
+  this.pending.clear();
+  for (const batch of this.batches(entries2)) this.loadQueuedBatch(batch);
+  }
+  loadQueuedBatch(batch) {
+  const paragraphs = batch.map((entry) => entry.paragraph);
+  const request = this.gate.run(() => this.options.loadBatch(paragraphs));
+  batch.forEach((entry, index) => {
+    void request.then(
+      (results) => entry.resolve(results[index] ?? this.options.emptyResult()),
+      (error) => entry.reject(error)
+    );
+  });
+  }
+  batches(entries2) {
+  const maxBytes = Math.max(1, this.options.maxBatchBytes ?? DEFAULT_MAX_BATCH_BYTES);
+  const maxItems = Math.max(1, this.options.maxBatchItems ?? DEFAULT_MAX_BATCH_ITEMS);
+  const batches = [];
+  let batch = [];
+  let batchBytes = 0;
+  for (const entry of entries2) {
+    const bytes = utf8Encoder$1.encode(entry.paragraph).length + JSON_STRING_OVERHEAD_BYTES;
+    if (batch.length && (batch.length >= maxItems || batchBytes + bytes > maxBytes)) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
+    }
+    batch.push(entry);
+    batchBytes += bytes;
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
+  }
+  forgetInFlight(paragraph, promise) {
+  if (this.inFlight.get(paragraph) === promise) this.inFlight.delete(paragraph);
+  }
+}
+const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
+const REQUEST_TIMEOUT_MS$4 = 3e4;
+const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
+const PUBLIC_READ_CACHE_LIMIT = 160;
+class JitenApiError extends Error {
+  constructor(message, status) {
+  super(message);
+  this.status = status;
+  this.name = "JitenApiError";
+  }
+}
+function jitenVocabularyIdentity(info) {
+  const annotated = info?.mainReading?.text.trim() ?? "";
+  if (!annotated) return null;
+  const spelling = cleanJitenAnnotatedSpelling$1(annotated).trim();
+  const cleanedReading = cleanJitenAnnotatedReading$1(annotated).trim();
+  if (!spelling) return null;
+  const reading = cleanedReading === spelling && /[\u3400-\u9fff々〆]/u.test(spelling) ? "" : cleanedReading;
+  return {
+  spelling,
+  reading,
+  wordWithReading: spelling === annotated ? null : annotated
+  };
+}
+function enrichCardFromJitenVocabularyInfo(card, info) {
+  const identity = jitenVocabularyIdentity(info);
+  if (!identity || normalizedJitenIdentity(identity.spelling) !== normalizedJitenIdentity(card.spelling)) return false;
+  let changed = false;
+  const currentReading = card.reading.trim();
+  const normalizedCurrentReading = normalizedJitenIdentity(currentReading);
+  const normalizedSpelling = normalizedJitenIdentity(card.spelling);
+  if (identity.reading && currentReading && normalizedCurrentReading !== normalizedSpelling && normalizedCurrentReading !== normalizedJitenIdentity(identity.reading)) return false;
+  if (identity.reading && (!currentReading || normalizedJitenIdentity(currentReading) === normalizedJitenIdentity(card.spelling)) && currentReading !== identity.reading) {
+  card.reading = identity.reading;
+  changed = true;
+  }
+  if (!card.wordWithReading && identity.wordWithReading) {
+  card.wordWithReading = identity.wordWithReading;
+  changed = true;
+  }
+  if (card.frequencyRank === null && typeof info?.mainReading?.frequencyRank === "number" && info.mainReading.frequencyRank > 0) {
+  card.frequencyRank = info.mainReading.frequencyRank;
+  changed = true;
+  }
+  const pronunciationReading = card.reading.trim() || identity.reading;
+  for (const position of info?.pitchAccents ?? []) {
+  const pattern = pitchPatternFromPosition(pronunciationReading, position);
+  if (!pattern || card.pitchAccent.includes(pattern)) continue;
+  card.pitchAccent.push(pattern);
+  changed = true;
+  }
+  return changed;
+}
+function normalizedJitenIdentity(value) {
+  return value.normalize("NFKC").replace(/\s+/gu, "").trim();
+}
+class JitenApiClient {
+  constructor(getApiKey, options = {}) {
+  this.getApiKey = getApiKey;
+  this.options = options;
+  this.parseBatcher = new JitenParseBatcher({
+    loadBatch: (paragraphs) => this.fetchParseBatch(paragraphs),
+    emptyResult: () => []
+  });
+  }
+  parseBatcher;
+  vocabularyInfoCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  vocabularySearchCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  kanjiCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  kanjiWordsCache = new PromiseLruCache(PUBLIC_READ_CACHE_LIMIT);
+  async ping() {
+  await this.request("reader/ping", void 0);
+  return true;
+  }
+  async validateApiKey(apiKey) {
+  const client = apiKey === void 0 ? this : new JitenApiClient(() => apiKey, this.options);
+  try {
+    await client.ping();
+    return true;
+  } catch (error) {
+    if (isJitenAuthenticationError(error) || isMissingJitenApiKeyError(error)) return false;
+    throw error;
+  }
+  }
+  async parse(paragraphs) {
+  return this.parseBatcher.load(paragraphs);
+  }
+  lookupVocabularyInfo(card) {
+  const reference = jitenCardReference(card);
+  return this.vocabularyInfoCache.getOrLoad(jitenLookupKey(reference.wordId, reference.readingIndex), () => this.fetchVocabularyInfo(reference));
+  }
+  async fetchVocabularyInfo(reference) {
+  const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+  const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
+  const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
+  if (!isJsonRecord$1(info)) return null;
+  const normalized = normalizeJitenVocabularyInfo(info);
+  if (!normalized) return null;
+  normalized.examples = await examplesPromise;
+  return normalized;
+  }
+  async lookupVocabularyInfoForCard(card) {
+  if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
+  const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
+  if (!jitenCard) return null;
+  const reading = card.reading.trim();
+  const exactMatch = jitenCard.spelling === card.spelling && (!reading || jitenCard.reading === reading);
+  if (exactMatch && typeof card.jitenWordId !== "number" && typeof jitenCard.jitenWordId === "number") {
+    card.jitenWordId = jitenCard.jitenWordId;
+    card.jitenReadingIndex = jitenCard.jitenReadingIndex;
+  }
+  return this.lookupVocabularyInfo(jitenCard);
+  }
+  searchVocabulary(query, limit = 10) {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return Promise.resolve([]);
+  const normalizedLimit = Math.max(1, Math.floor(limit));
+  return this.vocabularySearchCache.getOrLoad(`${normalizedQuery}:${normalizedLimit}`, () => this.fetchVocabularySearch(normalizedQuery, normalizedLimit));
+  }
+  async fetchVocabularySearch(query, limit) {
+  const response = await this.requestEndpoint("vocabulary/search", void 0, {
+    method: "GET",
+    query: { query, limit }
+  });
+  if (!isJsonRecord$1(response) || !Array.isArray(response.results)) return [];
+  return response.results.map((result) => ({
+    vid: result.wordId,
+    sid: result.readingIndex,
+    rid: 0,
+    spelling: result.text,
+    reading: cleanJitenAnnotatedReading$1(result.rubyText || result.text),
+    frequencyRank: typeof result.frequencyRank === "number" ? result.frequencyRank : null,
+    partOfSpeech: Array.isArray(result.partsOfSpeech) ? result.partsOfSpeech.map(String) : [],
+    meanings: (Array.isArray(result.meanings) ? result.meanings : []).map((meaning) => ({
+      glosses: [meaning],
+      partOfSpeech: []
+    })),
+    cardState: ["not-in-deck"],
+    pitchAccent: [],
+    wordWithReading: result.rubyText || null,
+    source: "jiten",
+    reviewSource: "jiten-api",
+    jitenWordId: result.wordId,
+    jitenReadingIndex: result.readingIndex
+  }));
+  }
+  async lookupJitenCardForVocabularyInfo(card) {
+  const spelling = card.spelling.trim();
+  if (!spelling) return null;
+  let tokens = [];
+  const apiKey = this.getApiKey().trim();
+  if (apiKey) {
+    try {
+      const [parsed] = await this.parse([spelling]);
+      tokens = parsed ?? [];
+    } catch (error) {
+    }
+  }
+  if (!tokens.length) {
+    try {
+      const searchCards = await this.searchVocabulary(spelling);
+      tokens = searchCards.map((c) => ({
+        card: c,
+        start: 0,
+        end: spelling.length,
+        length: spelling.length,
+        rubies: [],
+        pitchClass: "",
+        sentence: spelling
+      }));
+    } catch (error) {
+    }
+  }
+  return bestParsedJitenCard(card, spelling, tokens);
+  }
+  lookupKanji(character) {
+  const kanji = character.trim();
+  if (!kanji) return Promise.resolve(null);
+  return this.kanjiCache.getOrLoad(kanji, () => this.fetchKanji(kanji));
+  }
+  async fetchKanji(kanji) {
+  const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}`, void 0, { method: "GET" });
+  return normalizeJitenKanjiInfo(payload);
+  }
+  lookupKanjiWords(character, options = {}) {
+  const kanji = character.trim();
+  if (!kanji) return Promise.resolve(null);
+  const key = [kanji, options.reading ?? "", options.page ?? "", options.pageSize ?? ""].join(":");
+  return this.kanjiWordsCache.getOrLoad(key, () => this.fetchKanjiWords(kanji, options));
+  }
+  async fetchKanjiWords(kanji, options) {
+  const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}/words`, void 0, {
+    method: "GET",
+    query: {
+      reading: options.reading,
+      page: options.page,
+      pageSize: options.pageSize
+    }
+  });
+  return normalizeJitenKanjiWordsPage(payload);
+  }
+  async fetchParseBatch(paragraphs) {
+  const response = await this.request("reader/parse", { text: paragraphs });
+  return jitenParseResultToTokens(paragraphs, response);
+  }
+  async listReaderStudyDecks() {
+  const response = await this.request("srs/reader-study-decks", void 0);
+  return normalizeReaderStudyDecks(response);
+  }
+  async listStudyDecks() {
+  const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
+  if (!Array.isArray(response)) return [];
+  return response.map((row) => {
+    const record = row;
+    const id = Number(record?.userStudyDeckId);
+    const name = typeof record?.name === "string" ? record.name : "";
+    return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
+  }).filter((deck) => deck !== null);
+  }
+  async studyDeckWordKeys(deckId) {
+  const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
+  const keys = new Set();
+  if (!Array.isArray(response)) return keys;
+  for (const row of response) {
+    const record = row;
+    const wordId = Number(record?.wordId);
+    if (!Number.isFinite(wordId)) continue;
+    keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
+  }
+  return keys;
+  }
+  async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
+  const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
+  const cardLimit = Math.max(1, Math.floor(limit));
+  const cards = [];
+  let offset = 0;
+  while (cards.length < cardLimit) {
+    const page = normalizeJitenStudyDeckVocabularyPage(
+      await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/vocabulary`, void 0, {
+        method: "GET",
+        query: { offset }
+      })
+    );
+    if (!page.cards.length) break;
+    cards.push(...page.cards);
+    const pageSize = Math.max(1, page.pageSize || page.cards.length);
+    const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+    if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+    offset = nextOffset;
+  }
+  return cards.slice(0, cardLimit);
+  }
+  async listRecentReviews(limit = 5e3) {
+  const reviewLimit = Math.max(1, Math.floor(limit));
+  const reviews = [];
+  let offset = 0;
+  while (reviews.length < reviewLimit) {
+    const page = normalizeJitenRecentReviewsPage(
+      await this.requestEndpoint("srs/review-history", void 0, {
+        method: "GET",
+        query: {
+          offset,
+          limit: Math.min(100, reviewLimit - reviews.length)
+        }
+      })
+    );
+    if (!page.reviews.length) break;
+    reviews.push(...page.reviews);
+    const pageSize = Math.max(1, page.pageSize || page.reviews.length);
+    const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+    if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+    offset = nextOffset;
+  }
+  return reviews.slice(0, reviewLimit);
+  }
+  async listStudyBatchCards(limit = 80) {
+  const cardLimit = Math.max(1, Math.floor(limit));
+  const response = await this.requestEndpoint("srs/study-batch", void 0, {
+    method: "GET",
+    query: { limit: cardLimit }
+  });
+  recordJitenDailyStats(response);
+  return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
+  }
+  async reviewCard(card, grade) {
+  await this.request("srs/review", {
+    ...jitenCardReference(card),
+    rating: jitenRatingForGrade(grade)
+  });
+  }
+  async undoReview(card) {
+  await this.request("srs/undo-review", jitenCardReference(card));
+  }
+  async batchReviewCards(cards, grade) {
+  const reviews = cards.flatMap((card) => {
+    try {
+      return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
+    } catch {
+      return [];
+    }
+  });
+  if (!reviews.length) return 0;
+  await this.request("srs/batch-review", { reviews });
+  return reviews.length;
+  }
+  async refreshCardState(card) {
+  const reference = jitenCardReference(card);
+  const [tokens] = await this.parse([card.spelling]);
+  const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
+  if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
+  }
+  async refreshCardStates(cards) {
+  const entries2 = cards.map((card) => {
+    try {
+      return { card, ref: jitenCardReference(card) };
+    } catch {
+      return null;
+    }
+  }).filter((entry) => entry !== null);
+  if (!entries2.length) return 0;
+  const response = await this.request("reader/lookup-vocabulary", {
+    words: entries2.map((entry) => [entry.ref.wordId, entry.ref.readingIndex])
+  });
+  const states = isJsonRecord$1(response) && Array.isArray(response.result) ? response.result : [];
+  entries2.forEach((entry, index) => {
+    const cardStates = jitenKnownStateToCardStates(states[index]);
+    if (cardStates.length) entry.card.cardState = cardStates;
+  });
+  return entries2.length;
+  }
+  async setVocabularyState(card, deck, action) {
+  await this.request("srs/set-vocabulary-state", {
+    ...jitenCardReference(card),
+    state: `${deck}-${action}`
+  });
+  }
+  async addToStudyDeck(deckId, card, sentence, source) {
+  const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
+  await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/words`, {
+    ...jitenCardReference(card),
+    occurrences: 1,
+    sentence,
+    source
+  });
+  }
+  async lookupVocabularyExamples(card) {
+  const endpoint = `vocabulary/${card.wordId}/${card.readingIndex}/random-example-sentences`;
+  const payload = await this.requestEndpoint(endpoint, [], { method: "POST" });
+  return normalizeJitenVocabularyExamples(payload);
+  }
+  async request(endpoint, body) {
+  return this.requestEndpoint(endpoint, body);
+  }
+  async requestEndpoint(endpoint, body, options = {}) {
+  const apiKey = this.getApiKey().trim();
+  const requiresAuth = endpoint.startsWith("reader/") || endpoint.startsWith("srs/");
+  if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
+  const authenticated = requiresAuth && Boolean(apiKey);
+  const method = options.method ?? "POST";
+  const data = method === "GET" ? void 0 : body === void 0 ? void 0 : JSON.stringify(body);
+  const url = endpointUrl$1(this.options.baseUrl, endpoint, options.query);
+  if (this.options.fetchImpl) {
+    const response = await fetchWithTimeout$1(
+      this.options.fetchImpl,
+      url,
+      {
+        method,
+        headers: this.headers(apiKey),
+        body: data
+      },
+      this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$4
+    );
+    return parseJitenResponse(response, authenticated);
+  }
+  try {
+    const payload = await this.requestImpl()(url, {
+      method,
+      headers: this.headers(apiKey),
+      data,
+      responseType: "json",
+      timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$4,
+      timeoutLabel: "Jiten request timed out.",
+      failureLabel: "Jiten request",
+      statusFailureMessage: (status) => `Jiten request failed (${status}).`,
+      proxyUrl: this.proxyUrl(),
+      allowDirectCrossOrigin: false,
+      allowConfiguredProxy: true,
+      allowSensitiveConfiguredProxy: true,
+      allowPublicProxies: !apiKey,
+      preferFetch: true
+    });
+    return parseJitenPayload(payload);
+  } catch (error) {
+    throw normalizeJitenRequestError(error, authenticated);
+  }
+  }
+  requestImpl() {
+  return this.options.requestImpl ?? requestHttp;
+  }
+  proxyUrl() {
+  return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
+  }
+  headers(apiKey) {
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  };
+  if (apiKey) {
+    headers.Authorization = `ApiKey ${apiKey}`;
+  }
+  return headers;
+  }
+}
+function jitenParseResultToTokens(paragraphs, result) {
+  const payload = isJsonRecord$1(result) ? result : {};
+  const vocabulary = jitenVocabularyEntries(payload.vocabulary);
+  const cardByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), jitenCardFromVocabulary(entry)]));
+  const vocabByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
+  const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
+  const tokens = paragraphs.map((paragraph, paragraphIndex) => {
+  const parsed = [];
+  for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
+    const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
+    if (!card) continue;
+    const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
+    const pitchClass = card.partOfSpeech.includes("prt") ? "" : getPitchClass(card.pitchAccent, card.reading);
+    const span = jitenTokenTextSpan(paragraph, token, card);
+    const rubies = jitenTokenRubies(vocabularyEntry, span.start);
+    if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
+    parsed.push({
+      card,
+      start: span.start,
+      end: span.end,
+      length: span.length,
+      rubies,
+      pitchClass,
+      sentence: paragraph
+    });
+  }
+  return parsed;
+  });
+  addJitenSentenceInfo(paragraphs, tokens);
+  return tokens;
+}
+function jitenCardReference(card) {
+  const wordId = finiteJitenInteger(card.jitenWordId) ?? (card.source === "jiten" ? finiteJitenInteger(card.vid) : void 0);
+  const readingIndex = finiteJitenInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteJitenInteger(card.sid) : void 0);
+  if (wordId === void 0 || readingIndex === void 0 || wordId <= 0 || readingIndex < 0) {
+  throw new JitenApiError("Card is not backed by Jiten.");
+  }
+  return { wordId, readingIndex };
+}
+function isJitenReferenceableCard(card) {
+  try {
+  jitenCardReference(card);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function bestParsedJitenCard(card, spelling, tokens) {
+  const fullSpan = tokens.filter((token) => token.start === 0 && token.end === spelling.length).map((token) => token.card).filter((candidate) => isJitenReferenceableCard(candidate));
+  if (!fullSpan.length) return null;
+  const reading = card.reading.trim();
+  return fullSpan.find((candidate) => candidate.spelling === spelling && (!reading || candidate.reading === reading)) ?? fullSpan.find((candidate) => candidate.spelling === spelling) ?? fullSpan[0] ?? null;
+}
+function jitenRatingForGrade(grade) {
+  if (grade === "easy") return 4;
+  if (grade === "okay" || grade === "pass") return 3;
+  if (grade === "hard" || grade === "something") return 2;
+  return 1;
+}
+function jitenCardFromVocabulary(vocabulary) {
+  const reading = cleanJitenAnnotatedReading$1(vocabulary.reading);
+  const wordWithReading = cleanJitenAnnotatedSpelling$1(vocabulary.reading).trim() === vocabulary.spelling ? vocabulary.reading : null;
+  const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
+  const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
+  const deckNames = jitenVocabularyDeckNames(vocabulary);
+  return {
+  vid: vocabulary.wordId,
+  sid: vocabulary.readingIndex,
+  rid: 0,
+  spelling: vocabulary.spelling,
+  reading,
+  frequencyRank: typeof vocabulary.frequencyRank === "number" ? vocabulary.frequencyRank : null,
+  partOfSpeech: arrayOfStrings(vocabulary.partsOfSpeech),
+  meanings: (Array.isArray(vocabulary.meaningsChunks) ? vocabulary.meaningsChunks : []).map((glosses, index) => ({
+    glosses: arrayOfStrings(glosses),
+    partOfSpeech: jitenMeaningPartOfSpeech(vocabulary.meaningsPartOfSpeech, index)
+  })),
+  cardState: jitenKnownStateToCardStates(vocabulary.knownState),
+  pitchAccent,
+  wordWithReading,
+  source: "jiten",
+  sentence: typeof vocabulary.sentence === "string" && vocabulary.sentence.trim() ? vocabulary.sentence : void 0,
+  reviewSource: "jiten-api",
+  jitenWordId: vocabulary.wordId,
+  jitenReadingIndex: vocabulary.readingIndex,
+  ...deckNames.length ? { deckNames } : {},
+  ...reviewGradeIntervals ? { reviewGradeIntervals } : {}
+  };
+}
+function normalizeJitenStudyBatchCards(response) {
+  const cards = Array.isArray(response.cards) ? response.cards : [];
+  return cards.map(jitenCardFromStudyCard).filter((card) => Boolean(card));
+}
+function normalizeJitenStudyDeckVocabularyPage(response) {
+  if (!isJsonRecord$1(response)) return { cards: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+  const data = response.data ?? response.Data;
+  const cards = arrayOfRecords(data).map(jitenCardFromStudyDeckVocabularyWord).filter((card) => Boolean(card));
+  return {
+  cards,
+  totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? cards.length,
+  pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? cards.length,
+  currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+  };
+}
+function normalizeJitenRecentReviewsPage(response) {
+  if (!isJsonRecord$1(response)) return { reviews: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+  const data = response.data ?? response.Data;
+  const reviews = arrayOfRecords(data).map(normalizeJitenRecentReview).filter((review) => Boolean(review));
+  return {
+  reviews,
+  totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? reviews.length,
+  pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? reviews.length,
+  currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+  };
+}
+function normalizeJitenRecentReview(value) {
+  const wordId = finiteJitenInteger(value.wordId ?? value.WordId);
+  const readingIndex = finiteJitenInteger(value.readingIndex ?? value.ReadingIndex);
+  const reviewDateTime = firstRecordString(value, ["reviewDateTime", "ReviewDateTime"]);
+  const reviewedAt = reviewDateTime ? Date.parse(reviewDateTime) : Number.NaN;
+  if (wordId === void 0 || readingIndex === void 0 || !Number.isFinite(reviewedAt)) return null;
+  return {
+  wordId,
+  readingIndex,
+  wordText: firstRecordString(value, ["wordText", "WordText"]) ?? "",
+  rating: finiteJitenInteger(value.rating ?? value.Rating) ?? 0,
+  reviewDateTime: reviewDateTime ?? "",
+  reviewedAt,
+  reviewDuration: nullableFiniteInteger(value.reviewDuration ?? value.ReviewDuration),
+  cardState: finiteJitenInteger(value.cardState ?? value.CardState) ?? 0
+  };
+}
+function jitenCardFromStudyDeckVocabularyWord(value) {
+  const word = value;
+  if (!isJsonRecord$1(word) || !isJsonRecord$1(word.mainReading)) return null;
+  const wordId = finiteJitenInteger(word.wordId);
+  const readingIndex = finiteJitenInteger(word.mainReading.readingIndex);
+  const annotatedText = typeof word.mainReading.text === "string" ? word.mainReading.text.trim() : "";
+  if (wordId === void 0 || readingIndex === void 0 || !annotatedText) return null;
+  const spelling = cleanJitenAnnotatedSpelling$1(annotatedText).trim() || cleanJitenAnnotatedReading$1(annotatedText).trim();
+  const reading = cleanJitenAnnotatedReading$1(annotatedText).trim() || spelling;
+  if (!spelling) return null;
+  return {
+  vid: wordId,
+  sid: readingIndex,
+  rid: 0,
+  spelling,
+  reading,
+  frequencyRank: positiveJitenInteger(word.mainReading.frequencyRank) ?? null,
+  partOfSpeech: arrayOfStrings(word.partsOfSpeech),
+  meanings: jitenStudyDeckVocabularyMeanings(word.definitions),
+  cardState: jitenKnownStateToCardStates(word.knownStates),
+  pitchAccent: jitenPitchAccentPatterns(word.pitchAccents, reading),
+  wordWithReading: annotatedText,
+  source: "jiten",
+  reviewSource: "jiten-api",
+  jitenWordId: wordId,
+  jitenReadingIndex: readingIndex
+  };
+}
+function jitenStudyDeckVocabularyMeanings(value) {
+  return arrayOfRecords(value).map((definition) => ({
+  glosses: arrayOfStrings(definition.meanings),
+  partOfSpeech: firstNonEmptyStringArray(definition.partsOfSpeech, definition.pos)
+  })).filter((meaning) => meaning.glosses.length);
+}
+function jitenCardFromStudyCard(card) {
+  const wordId = finiteJitenInteger(card.wordId);
+  const readingIndex = finiteJitenInteger(card.readingIndex);
+  if (wordId === void 0 || readingIndex === void 0) return null;
+  const reading = jitenStudyCardReading(card);
+  const reviewGradeIntervals = jitenReviewGradeIntervals(card);
+  return {
+  vid: wordId,
+  sid: readingIndex,
+  rid: finiteJitenInteger(card.cardId) ?? 0,
+  spelling: jitenStudyCardSpelling(card),
+  reading,
+  frequencyRank: jitenStudyCardFrequencyRank(card),
+  partOfSpeech: arrayOfStrings(card.partsOfSpeech),
+  meanings: jitenStudyCardMeanings(card),
+  cardState: jitenStudyStateToCardStates(card.state, card.isNewCard),
+  pitchAccent: jitenStudyCardPitchAccent(card, reading),
+  wordWithReading: card.wordText || null,
+  source: "jiten",
+  sentence: jitenStudyCardSentence(card),
+  reviewSource: "jiten-api",
+  jitenWordId: wordId,
+  jitenReadingIndex: readingIndex,
+  ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { deckNames: [card.sourceDeckName.trim()] } : {},
+  ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
+  ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}
+  };
+}
+function jitenVocabularyDeckNames(vocabulary) {
+  return uniqueJitenText([
+  ...jitenDeckNamesFromValue(vocabulary.deckNames),
+  ...jitenDeckNamesFromValue(vocabulary.decks),
+  ...jitenDeckNamesFromValue(vocabulary.studyDecks),
+  ...jitenDeckNamesFromValue(vocabulary.userStudyDecks),
+  ...jitenDeckNamesFromValue(vocabulary.readerStudyDecks),
+  ...jitenDeckNamesFromValue(vocabulary.lookupDecks),
+  typeof vocabulary.sourceDeckName === "string" ? vocabulary.sourceDeckName : ""
+  ]);
+}
+function jitenDeckNamesFromValue(value) {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(jitenDeckNamesFromValue);
+  if (!isJsonRecord$1(value)) return [];
+  return [
+  firstRecordString(value, ["name", "title", "deckName", "sourceDeckName"]) ?? "",
+  ...jitenDeckNamesFromValue(value.deck),
+  ...jitenDeckNamesFromValue(value.studyDeck),
+  ...jitenDeckNamesFromValue(value.userStudyDeck)
+  ];
+}
+function jitenStudyCardPitchAccent(card, reading) {
+  return jitenPitchAccentPatterns(card.pitchAccents, reading);
+}
+function jitenStudyCardFrequencyRank(card) {
+  return typeof card.frequencyRank === "number" ? card.frequencyRank : null;
+}
+function jitenStudyCardMeanings(card) {
+  return (Array.isArray(card.definitions) ? card.definitions : []).map((definition) => ({
+  glosses: arrayOfStrings(definition.meanings),
+  partOfSpeech: arrayOfStrings(definition.partsOfSpeech)
+  }));
+}
+function jitenStudyCardSentence(card) {
+  return typeof card.exampleSentence?.text === "string" ? card.exampleSentence.text : void 0;
+}
+function jitenStudyCardSpelling(card) {
+  return (card.wordTextPlain || cleanJitenAnnotatedReading$1(card.wordText || "") || jitenStudyCardReading(card)).trim();
+}
+function jitenStudyCardReading(card) {
+  const reading = (Array.isArray(card.readings) ? card.readings : []).find((candidate) => candidate.readingIndex === card.readingIndex);
+  return cleanJitenAnnotatedReading$1(reading?.text || reading?.rubyText || card.wordText || card.wordTextPlain || "").trim();
+}
+function jitenStudyStateToCardStates(state, isNewCard) {
+  if (isNewCard) return ["new"];
+  return [JITEN_FSRS_CARD_STATE_MAP[state] ?? "known"];
+}
+const JITEN_FSRS_CARD_STATE_MAP = {
+  0: "new",
+  1: "learning",
+  2: "due",
+  3: "failed",
+  4: "blacklisted",
+  5: "never-forget",
+  6: "suspended"
+};
+function cleanJitenAnnotatedReading$1(value) {
+  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+}
+function cleanJitenAnnotatedSpelling$1(value) {
+  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
+}
+function jitenKnownStateToCardStates(states) {
+  const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
+  return mapped.length ? mapped : ["not-in-deck"];
+}
+const JITEN_CARD_STATE_MAP = {
+  0: "new",
+  1: "young",
+  2: "mature",
+  3: "blacklisted",
+  4: "due",
+  5: "mastered",
+  6: "redundant",
+  7: "in-deck"
+};
+function normalizeJitenVocabularyInfo(value) {
+  const record = jitenPayloadRecord(value);
+  if (!record) return null;
+  const wordId = finiteJitenInteger(record.wordId);
+  if (wordId === void 0 || wordId <= 0) return null;
+  const mainReading = normalizeJitenVocabularyReading(record.mainReading);
+  return {
+  wordId,
+  mainReading,
+  alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
+  partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
+  definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
+  pitchAccents: jitenStateNumbers(record.pitchAccents),
+  knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
+  composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
+  usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
+  usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
+  examples: []
+  };
+}
+function jitenPayloadRecord(value) {
+  if (!isJsonRecord$1(value)) return null;
+  return isJsonRecord$1(value.data) ? value.data : value;
+}
+function normalizeJitenVocabularyReading(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const text = firstRecordString(value, ["text"]);
+  const readingIndex = finiteJitenInteger(value.readingIndex);
+  if (!text || readingIndex === void 0) return null;
+  return {
+  text,
+  readingIndex,
+  frequencyRank: nullableFiniteInteger(value.frequencyRank),
+  usedInMediaAmount: nullableFiniteInteger(value.usedInMediaAmount)
+  };
+}
+function normalizeJitenVocabularyDefinition(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const meanings = firstNonEmptyStringArray(value.meanings, value.englishMeanings);
+  if (!meanings.length) return null;
+  return {
+  index: finiteJitenInteger(value.index) ?? finiteJitenInteger(value.senseIndex) ?? 0,
+  meanings,
+  partsOfSpeech: firstNonEmptyStringArray(value.partsOfSpeech, value.pos),
+  field: arrayOfStrings(value.field),
+  dial: arrayOfStrings(value.dial),
+  misc: arrayOfStrings(value.misc),
+  restrictedToReadingIndices: jitenStateNumbers(value.restrictedToReadingIndices)
+  };
+}
+function normalizeJitenVocabularyWordSummaries(value) {
+  return arrayOfRecords(value).map(normalizeJitenVocabularyWordSummary).filter((item) => Boolean(item));
+}
+function normalizeJitenVocabularyWordSummary(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const wordId = finiteJitenInteger(value.wordId);
+  const readingIndex = finiteJitenInteger(value.readingIndex);
+  const reading = firstRecordString(value, ["reading"]) ?? "";
+  if (wordId === void 0 || readingIndex === void 0 || !reading) return null;
+  return {
+  wordId,
+  readingIndex,
+  reading,
+  readingFurigana: firstRecordString(value, ["readingFurigana"]) ?? "",
+  mainDefinition: firstRecordString(value, ["mainDefinition"]) ?? "",
+  frequencyRank: nullableFiniteInteger(value.frequencyRank),
+  matchSurface: firstRecordString(value, ["matchSurface"]) ?? "",
+  audioUrls: normalizeJitenAudioUrls(value),
+  knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : void 0,
+  pitchAccents: jitenStateNumbers(value.pitchAccents)
+  };
+}
+function normalizeJitenVocabularyExamples(value) {
+  return arrayOfRecords(value).map(normalizeJitenVocabularyExample).filter((item) => Boolean(item));
+}
+function normalizeJitenVocabularyExample(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const text = firstRecordString(value, ["text"]);
+  if (!text) return null;
+  return {
+  sentenceId: finiteJitenInteger(value.sentenceId) ?? 0,
+  text,
+  wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
+  wordLength: finiteJitenInteger(value.wordLength) ?? 0,
+  difficulty: nullableFiniteNumber(value.difficulty),
+  translation: firstRecordString(value, ["translation", "english", "englishText", "translatedText"]) ?? "",
+  sourceTitle: jitenExampleSourceTitle(value),
+  audioUrls: normalizeJitenAudioUrls(value)
+  };
+}
+function normalizeJitenKanjiInfo(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const character = firstRecordString(value, ["character"]);
+  if (!character) return null;
+  return {
+  character,
+  onReadings: arrayOfStrings(value.onReadings),
+  kunReadings: arrayOfStrings(value.kunReadings),
+  meanings: arrayOfStrings(value.meanings),
+  strokeCount: nullableFiniteInteger(value.strokeCount),
+  jlptLevel: nullableFiniteInteger(value.jlptLevel),
+  grade: nullableFiniteInteger(value.grade),
+  frequencyRank: nullableFiniteInteger(value.frequencyRank),
+  groupingTags: normalizeJitenKanjiGroupingTags(value),
+  topWords: normalizeJitenVocabularyWordSummaries(value.topWords),
+  wordsByReading: arrayOfRecords(value.wordsByReading).map(normalizeJitenKanjiReadingWords).filter((item) => Boolean(item))
+  };
+}
+const JITEN_KANJI_GROUPING_TAG_FIELDS = {
+  kanken: ["kanken", "kankenLevel"],
+  wanikani: ["wanikani", "waniKani", "wanikaniLevel", "waniKaniLevel", "wk", "wkLevel"],
+  rtk: ["rtk", "rtkFrame", "rtkIndex"],
+  klc: ["klc", "klcFrame", "klcIndex"],
+  tmw: ["tmw", "tmwLevel", "tmwIndex", "theMoeWay", "theMoeWayLevel"]
+};
+function normalizeJitenKanjiGroupingTags(value) {
+  return {
+  kanken: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.kanken),
+  wanikani: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.wanikani),
+  rtk: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.rtk),
+  klc: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.klc),
+  tmw: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.tmw)
+  };
+}
+function jitenKanjiGroupingTag(value, keys) {
+  const text = firstRecordString(value, keys);
+  if (text) return text;
+  const number = firstRecordFiniteNumber(value, keys);
+  return number === null ? null : String(number);
+}
+function normalizeJitenKanjiReadingWords(value) {
+  if (!isJsonRecord$1(value)) return null;
+  const reading = firstRecordString(value, ["reading"]);
+  if (!reading) return null;
+  return {
+  reading,
+  totalWords: finiteJitenInteger(value.totalWords) ?? 0,
+  words: normalizeJitenVocabularyWordSummaries(value.words)
+  };
+}
+function normalizeJitenKanjiWordsPage(value) {
+  if (!isJsonRecord$1(value)) return null;
+  return {
+  items: normalizeJitenVocabularyWordSummaries(value.items ?? value.data),
+  total: finiteJitenInteger(value.total ?? value.totalItems) ?? 0,
+  pageSize: finiteJitenInteger(value.pageSize) ?? 0,
+  offset: finiteJitenInteger(value.offset ?? value.currentOffset) ?? 0
+  };
+}
+function jitenMeaningPartOfSpeech(value, index) {
+  if (!Array.isArray(value)) return [];
+  return Array.isArray(value[index]) ? arrayOfStrings(value[index]) : arrayOfStrings(value);
+}
+function jitenTokenTextSpan(paragraph, token, card) {
+  const raw = { start: token.start, end: token.end, length: token.end - token.start };
+  const utf8 = utf8ByteRangeToUtf16Range$1(paragraph, token.start, token.end);
+  return bestJitenTextSpan(paragraph, card.spelling, [raw, utf8]) ?? raw;
+}
+function bestJitenTextSpan(text, expectedSurface, candidates) {
+  let best = null;
+  for (const span of candidates) {
+  if (span.start < 0 || span.end <= span.start || span.end > text.length) continue;
+  const surface = text.slice(span.start, span.end);
+  let score = 1;
+  if (surface === expectedSurface) score += 100;
+  else if (expectedSurface && (expectedSurface.startsWith(surface) || surface.startsWith(expectedSurface))) score += 20;
+  if (/[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(surface)) score += 10;
+  if (!best || score > best.score) best = { span, score };
+  }
+  return best?.span ?? null;
+}
+function utf8ByteRangeToUtf16Range$1(text, start, end) {
+  const utf16Start = utf16OffsetForUtf8ByteOffset$1(text, start);
+  const utf16End = utf16OffsetForUtf8ByteOffset$1(text, end);
+  return { start: utf16Start, end: utf16End, length: utf16End - utf16Start };
+}
+function utf16OffsetForUtf8ByteOffset$1(text, byteOffset) {
+  if (byteOffset <= 0) return 0;
+  let bytes = 0;
+  let offset = 0;
+  for (const char of text) {
+  if (bytes >= byteOffset) return offset;
+  const nextBytes = bytes + utf8ByteLength$1(char);
+  if (nextBytes > byteOffset) return offset;
+  bytes = nextBytes;
+  offset += char.length;
+  }
+  return text.length;
+}
+function utf8ByteLength$1(char) {
+  const point = char.codePointAt(0) ?? 0;
+  if (point <= 127) return 1;
+  if (point <= 2047) return 2;
+  if (point <= 65535) return 3;
+  return 4;
+}
+function jitenTokenRubies(vocabulary, tokenStart) {
+  return extractJitenRubiesFromAnnotated(vocabulary?.reading ?? "").map((ruby) => ({
+  ...ruby,
+  start: tokenStart + ruby.start,
+  end: tokenStart + ruby.end
+  }));
+}
+function extractJitenRubiesFromAnnotated(input) {
+  const rubies = [];
+  const regex = /((?:.|\n)*?)([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g;
+  let match;
+  let currentOffset = 0;
+  while ((match = regex.exec(input)) !== null) {
+  const prefix = match[1] ?? "";
+  const base = match[2] ?? "";
+  const text = match[3] ?? "";
+  currentOffset += prefix.length;
+  const start = currentOffset;
+  const length = base.length;
+  rubies.push({ text, start, end: start + length, length });
+  currentOffset += length;
+  }
+  return rubies;
+}
+function jitenWordWithReading(spelling, rubies, tokenStart) {
+  const word = Array.from(spelling);
+  for (let index = rubies.length - 1; index >= 0; index -= 1) {
+  const ruby = rubies[index];
+  if (!ruby) continue;
+  word.splice(ruby.start - tokenStart + ruby.length, 0, `[${ruby.text}]`);
+  }
+  return word.join("");
+}
+function addJitenSentenceInfo(paragraphs, tokens) {
+  paragraphs.forEach((paragraph, index) => {
+  const group = tokens[index] ?? [];
+  const sentences = splitJitenJapaneseTextIntoSentences(paragraph);
+  if (sentences.length === 1) {
+    group.forEach((token) => {
+      token.sentence = sentences[0];
+    });
+    return;
+  }
+  let offset = 0;
+  sentences.forEach((sentence, sentenceIndex) => {
+    const compareSentence = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+    const position = paragraph.substring(offset).indexOf(compareSentence);
+    if (position === -1) return;
+    const sentenceStart = offset + position;
+    const nextCompareSentence = sentences[sentenceIndex + 1]?.replace(/(^[「『])|([。！？」』]$)/g, "");
+    const nextPosition = nextCompareSentence ? paragraph.indexOf(nextCompareSentence, sentenceStart + compareSentence.length) : -1;
+    const sentenceEnd = nextPosition !== -1 ? nextPosition : paragraph.length;
+    group.forEach((token) => {
+      if (token.start >= sentenceStart && token.end <= sentenceEnd) token.sentence = sentence;
+    });
+    offset = sentenceStart + compareSentence.length;
+  });
+  });
+}
+function splitJitenJapaneseTextIntoSentences(text) {
+  const sentences = text.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
+  return sentences.length ? sentences.map((sentence) => sentence.trim()).filter(Boolean).filter((sentence) => !/^[」』]$/.test(sentence)).map((sentence) => {
+  if (/「.*?」|『.*?』/.test(sentence)) return sentence;
+  const trimmed = sentence.replace(/(^「|『)|(」|』$)/, "");
+  return /[。！？]$/.test(trimmed) ? trimmed : `${trimmed}。`;
+  }) : [text];
+}
+function arrayOfStrings(value) {
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
+  return typeof value === "string" ? [value] : [];
+}
+function firstNonEmptyStringArray(...values) {
+  for (const value of values) {
+  const strings = arrayOfStrings(value);
+  if (strings.length) return strings;
+  }
+  return [];
+}
+function arrayOfRecords(value) {
+  return Array.isArray(value) ? value.filter(isJsonRecord$1) : [];
+}
+function nullableFiniteInteger(value) {
+  return finiteJitenInteger(value) ?? null;
+}
+function positiveJitenInteger(value) {
+  const parsed = finiteJitenInteger(value);
+  return parsed !== void 0 && parsed > 0 ? parsed : void 0;
+}
+function nullableFiniteNumber(value) {
+  return finiteJitenNumber(value) ?? null;
+}
+function firstRecordString(record, keys) {
+  for (const key of keys) {
+  const value = record[key];
+  if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+function firstRecordFiniteNumber(record, keys) {
+  for (const key of keys) {
+  const value = finiteJitenNumber(record[key]);
+  if (value !== void 0) return value;
+  }
+  return null;
+}
+function jitenExampleSourceTitle(value) {
+  const direct = firstRecordString(value, ["sourceTitle", "title"]);
+  if (direct) return direct;
+  const sourceDeck = isJsonRecord$1(value.sourceDeck) ? firstRecordString(value.sourceDeck, ["title", "name"]) : null;
+  const sourceDeckParent = isJsonRecord$1(value.sourceDeckParent) ? firstRecordString(value.sourceDeckParent, ["title", "name"]) : null;
+  return sourceDeck ?? sourceDeckParent ?? "";
+}
+function normalizeJitenAudioUrls(value) {
+  const urls = uniqueJitenText([
+  ...arrayOfStrings(value.audioUrls),
+  ...arrayOfStrings(value.audioUrl),
+  ...arrayOfStrings(value.soundUrls),
+  ...arrayOfStrings(value.soundUrl)
+  ]).filter(isLikelyJitenAudioUrl);
+  return urls.length ? urls : void 0;
+}
+function uniqueJitenText(values) {
+  const seen = new Set();
+  return values.map((value) => value.trim()).filter((value) => {
+  if (!value || seen.has(value)) return false;
+  seen.add(value);
+  return true;
+  });
+}
+function isLikelyJitenAudioUrl(value) {
+  try {
+  const url = new URL(value);
+  return /^https?:$/i.test(url.protocol);
+  } catch {
+  return false;
+  }
+}
+function jitenVocabularyEntries(value) {
+  return Array.isArray(value) ? value.filter(isJitenRawVocabulary) : [];
+}
+function isJitenRawVocabulary(value) {
+  if (!isJsonRecord$1(value)) return false;
+  const wordId = finiteJitenInteger(value.wordId);
+  const readingIndex = finiteJitenInteger(value.readingIndex);
+  return wordId !== void 0 && wordId > 0 && readingIndex !== void 0 && readingIndex >= 0 && typeof value.spelling === "string" && typeof value.reading === "string";
+}
+function jitenTokenEntries(value) {
+  return Array.isArray(value) ? value.filter(isJitenRawToken) : [];
+}
+function isJitenRawToken(value) {
+  if (!isJsonRecord$1(value)) return false;
+  return [
+  hasPositiveJitenInteger(value.wordId),
+  hasNonNegativeJitenInteger(value.readingIndex),
+  hasNonNegativeJitenInteger(value.start),
+  hasPositiveJitenInteger(value.length),
+  hasJitenRawTokenEndAfterStart(value)
+  ].every(Boolean);
+}
+function hasPositiveJitenInteger(value) {
+  const parsed = finiteJitenInteger(value);
+  return parsed !== void 0 && parsed > 0;
+}
+function hasNonNegativeJitenInteger(value) {
+  const parsed = finiteJitenInteger(value);
+  return parsed !== void 0 && parsed >= 0;
+}
+function hasJitenRawTokenEndAfterStart(value) {
+  const start = finiteJitenInteger(value.start);
+  const end = finiteJitenInteger(value.end);
+  return start !== void 0 && end !== void 0 && end > start;
+}
+function jitenPitchAccentPatterns(value, reading) {
+  return jitenStateNumbers(value).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean);
+}
+function jitenStateNumbers(value) {
+  return Array.isArray(value) ? value.map(finiteJitenInteger).filter((item) => item !== void 0) : [];
+}
+function jitenReviewGradeIntervals(payload) {
+  const record = payload;
+  for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
+  const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
+  if (parsed) return parsed;
+  }
+  return void 0;
+}
+function jitenReviewGradeIntervalsFromValue(value) {
+  if (Array.isArray(value)) return jitenReviewGradeIntervalsFromArray(value);
+  if (isJsonRecord$1(value)) return jitenReviewGradeIntervalsFromRecord(value);
+  return void 0;
+}
+function jitenReviewGradeIntervalsFromArray(values) {
+  const intervals = {};
+  values.forEach((value, index) => {
+  const meta = isJsonRecord$1(value) ? jitenReviewRatingMetaFromRecord(value) : void 0;
+  addJitenReviewInterval(intervals, meta ?? JITEN_REVIEW_RATINGS[index], value);
+  });
+  return Object.keys(intervals).length ? intervals : void 0;
+}
+function jitenReviewGradeIntervalsFromRecord(record) {
+  const intervals = {};
+  for (const meta of JITEN_REVIEW_RATINGS) {
+  const value = meta.keys.map((key) => record[key]).find((candidate) => candidate !== void 0);
+  addJitenReviewInterval(intervals, meta, value);
+  }
+  return Object.keys(intervals).length ? intervals : void 0;
+}
+function addJitenReviewInterval(intervals, meta, value) {
+  if (!meta) return;
+  const interval = jitenReviewInterval(value, meta);
+  if (!interval) return;
+  for (const grade of meta.grades) intervals[grade] = interval;
+}
+function jitenReviewInterval(value, meta) {
+  const record = isJsonRecord$1(value) ? value : null;
+  const buttonLabel = jitenReviewButtonLabel(record, meta);
+  const intervalLabel = jitenReviewIntervalLabel(value, record);
+  if (!intervalLabel) return null;
+  return {
+  buttonLabel,
+  intervalLabel,
+  label: prefixedReviewIntervalLabel(buttonLabel, intervalLabel),
+  source: "jiten-study-batch"
+  };
+}
+function jitenReviewButtonLabel(record, meta) {
+  return firstString(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
+}
+function jitenReviewIntervalLabel(value, record) {
+  if (typeof value === "string") return normalizeIntervalLabel(value);
+  const explicit = firstString(record, [
+  "intervalLabel",
+  "nextReviewLabel",
+  "nextIntervalLabel",
+  "nextReviewInterval",
+  "nextInterval",
+  "interval",
+  "duration",
+  "time",
+  "label",
+  "text"
+  ]);
+  if (explicit) return normalizeIntervalLabel(explicit);
+  return jitenReviewIntervalNumberLabel(record) ?? "";
+}
+function jitenReviewIntervalNumberLabel(record) {
+  if (!record) return null;
+  for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
+  const value = finiteJitenNumber(record[key]);
+  if (value !== void 0) return formatJitenInterval(value, unit);
+  }
+  return null;
+}
+function jitenReviewRatingMetaFromRecord(record) {
+  const rating = finiteJitenInteger(record.rating) ?? finiteJitenInteger(record.ease) ?? finiteJitenInteger(record.button) ?? finiteJitenInteger(record.value);
+  if (rating !== void 0) return JITEN_REVIEW_RATINGS.find((meta) => meta.rating === rating);
+  const label = firstString(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
+  return label ? JITEN_REVIEW_RATINGS.find((meta) => meta.keys.includes(normalizeJitenReviewKey(label))) : void 0;
+}
+function firstString(record, keys) {
+  if (!record) return null;
+  for (const key of keys) {
+  const value = record[key];
+  if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+function normalizeIntervalLabel(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+function prefixedReviewIntervalLabel(buttonLabel, intervalLabel) {
+  return intervalLabel.toLocaleLowerCase().startsWith(buttonLabel.toLocaleLowerCase()) ? intervalLabel : `${buttonLabel} ${intervalLabel}`;
+}
+function normalizeJitenReviewKey(value) {
+  return value.replace(/[_\s-]+/g, "").toLocaleLowerCase();
+}
+function formatJitenInterval(value, unit) {
+  if (unit === "seconds") return formatJitenSeconds(value);
+  if (unit === "minutes") return `${formatJitenIntervalNumber(value)}m`;
+  if (unit === "hours") return `${formatJitenIntervalNumber(value)}h`;
+  if (unit === "days") return `${formatJitenIntervalNumber(value)}d`;
+  if (unit === "months") return `${formatJitenIntervalNumber(value)}mo`;
+  return `${formatJitenIntervalNumber(value)}y`;
+}
+function formatJitenSeconds(seconds) {
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${formatJitenIntervalNumber(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${formatJitenIntervalNumber(hours)}h`;
+  const days = hours / 24;
+  if (days < 365) return `${formatJitenIntervalNumber(days)}d`;
+  return `${formatJitenIntervalNumber(days / 365)}y`;
+}
+function formatJitenIntervalNumber(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+const JITEN_REVIEW_INTERVAL_KEYS = [
+  "reviewButtons",
+  "reviewGradeIntervals",
+  "nextReviewIntervals",
+  "nextIntervals",
+  "nextReviews",
+  "reviewIntervals",
+  "srsIntervals",
+  "ratingIntervals"
+];
+const JITEN_REVIEW_RATINGS = [
+  { rating: 1, buttonLabel: "Again", grades: ["nothing", "fail"], keys: ["1", "rating1", "again", "nothing", "fail"] },
+  { rating: 2, buttonLabel: "Hard", grades: ["something", "hard"], keys: ["2", "rating2", "hard", "something"] },
+  { rating: 3, buttonLabel: "Good", grades: ["okay", "pass"], keys: ["3", "rating3", "good", "okay", "pass"] },
+  { rating: 4, buttonLabel: "Easy", grades: ["easy"], keys: ["4", "rating4", "easy"] }
+];
+const JITEN_REVIEW_INTERVAL_NUMERIC_KEYS = [
+  ["intervalSeconds", "seconds"],
+  ["nextIntervalSeconds", "seconds"],
+  ["nextReviewSeconds", "seconds"],
+  ["intervalMinutes", "minutes"],
+  ["nextIntervalMinutes", "minutes"],
+  ["nextReviewMinutes", "minutes"],
+  ["intervalHours", "hours"],
+  ["nextIntervalHours", "hours"],
+  ["nextReviewHours", "hours"],
+  ["intervalDays", "days"],
+  ["nextIntervalDays", "days"],
+  ["nextReviewDays", "days"],
+  ["intervalMonths", "months"],
+  ["nextIntervalMonths", "months"],
+  ["nextReviewMonths", "months"],
+  ["intervalYears", "years"],
+  ["nextIntervalYears", "years"],
+  ["nextReviewYears", "years"]
+];
+function jitenLookupKey(wordId, readingIndex) {
+  return `${wordId}:${readingIndex}`;
+}
+function isJitenAuthenticationError(error) {
+  return error instanceof JitenApiError && (error.status === 401 || error.status === 403);
+}
+async function fetchWithTimeout$1(fetchImpl, url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+  return await fetchImpl(url, { ...init, signal: controller.signal });
+  } catch (error) {
+  if (isAbortError(error)) throw new JitenApiError("Jiten request timed out.");
+  throw error;
+  } finally {
+  globalThis.clearTimeout(timeoutId);
+  }
+}
+async function parseJitenResponse(response, authenticated) {
+  const text = await response.text();
+  const json = parseJson(text);
+  const errorMessage2 = jitenApplicationErrorMessage(json);
+  const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
+  if (errorMessage2) {
+  throw rejectedKey ? new JitenApiError("Jiten rejected the API key.", response.status) : new JitenApiError(errorMessage2, response.status);
+  }
+  if (!response.ok) throw new JitenApiError(jitenStatusMessage(response.status, authenticated), response.status);
+  return json;
+}
+function parseJitenPayload(payload) {
+  const errorMessage2 = jitenApplicationErrorMessage(payload);
+  if (errorMessage2) throw new JitenApiError(errorMessage2);
+  return payload;
+}
+function normalizeJitenRequestError(error, authenticated) {
+  if (error instanceof JitenApiError) return error;
+  const status = error instanceof Error ? statusFromMessage(error.message) : void 0;
+  if (status) return new JitenApiError(jitenStatusMessage(status, authenticated), status);
+  if (error instanceof Error && /timed out|abort/i.test(error.message)) return new JitenApiError("Jiten request timed out.");
+  return error instanceof Error ? error : new JitenApiError("Jiten request failed.");
+}
+function jitenStatusMessage(status, authenticated) {
+  return authenticated && (status === 401 || status === 403) ? "Jiten rejected the API key." : `Jiten request failed (${status}).`;
+}
+function statusFromMessage(message) {
+  const match = /\((\d{3})\)/.exec(message);
+  return match ? Number(match[1]) : void 0;
+}
+function parseJson(text) {
+  if (!text) return void 0;
+  try {
+  return JSON.parse(text);
+  } catch {
+  return void 0;
+  }
+}
+function jitenApplicationErrorMessage(value) {
+  if (!isJsonRecord$1(value)) return void 0;
+  const message = value.error_message;
+  return typeof message === "string" && message ? message : void 0;
+}
+function normalizeReaderStudyDecks(value) {
+  if (!Array.isArray(value)) throw new JitenApiError("Jiten reader study deck response was invalid.");
+  return value.map(normalizeReaderStudyDeck);
+}
+function normalizeReaderStudyDeck(value) {
+  if (!isJsonRecord$1(value)) throw new JitenApiError("Jiten reader study deck response was invalid.");
+  const { userStudyDeckId, name } = value;
+  if (typeof userStudyDeckId !== "number" || !Number.isFinite(userStudyDeckId) || typeof name !== "string") {
+  throw new JitenApiError("Jiten reader study deck response was invalid.");
+  }
+  return { userStudyDeckId, name };
+}
+function normalizeJitenStudyDeckId(value) {
+  const id = typeof value === "number" ? value : Number(value.trim());
+  if (!Number.isInteger(id) || id <= 0) throw new JitenApiError("Jiten study deck id was invalid.");
+  return id;
+}
+function finiteJitenInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) ? value : void 0;
+}
+function finiteJitenNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function isMissingJitenApiKeyError(error) {
+  return error instanceof JitenApiError && error.message === MISSING_API_KEY_MESSAGE;
+}
+function isJsonRecord$1(value) {
+  return Boolean(value && typeof value === "object");
+}
+function endpointUrl$1(baseUrl, endpoint, query) {
+  const base = (baseUrl?.trim() || JITEN_API_BASE_URL).replace(/\/+$/, "");
+  const url = `${base}/${endpoint}`;
+  const params = new URLSearchParams();
+  Object.entries(query ?? {}).forEach(([key, value]) => {
+  if (value === void 0 || value === null || value === "") return;
+  params.set(key, String(value));
+  });
+  const queryString2 = params.toString();
+  return queryString2 ? `${url}?${queryString2}` : url;
 }
 const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
 const KANA_CHAR_RE = /^[぀-ヿー]$/u;
@@ -20205,7 +22077,14 @@ class ReaderParser {
     const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
     const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
     const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
-    return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+    const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+    if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
+    try {
+      return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+    } catch (error) {
+      log$c.warn("Academy SRS state hydration failed; keeping provider states", error);
+      return normalized;
+    }
   } finally {
     done();
   }
@@ -20292,7 +22171,7 @@ class ReaderParser {
   const parser = this.dependencies.jitenPublicVocabulary;
   if (typeof parser?.parse !== "function") return null;
   try {
-    const parsed = await parser.parse(paragraphs);
+    const parsed = options.publicJitenDetailLimit === void 0 ? await parser.parse(paragraphs) : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
     if (!parsed.some((tokens) => tokens.length)) return null;
     return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
   } catch (error) {
@@ -21031,6 +22910,11 @@ const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
 const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
 const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
 const CARD_RENDER_META_LOOKUP_LIMIT = 12;
+function cardNeedsCanonicalReading(card) {
+  const spelling = card.spelling.normalize("NFKC").trim();
+  const reading = card.reading.normalize("NFKC").trim();
+  return !reading || reading === spelling;
+}
 function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, frequencyRanks = {}, bunproDefinitionStatus = { state: "loading" }) {
   return {
   localEntries,
@@ -21261,7 +23145,7 @@ class CardRenderDataLoader {
   loadJitenVocabularyInfo(card, enabled) {
   if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
   return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
-    this.applyJitenVocabularyInfoPitchAccent(card, info);
+    enrichCardFromJitenVocabularyInfo(card, info);
     return info;
   }).catch((error) => {
     log$b.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
@@ -21276,7 +23160,8 @@ class CardRenderDataLoader {
     return null;
   }) : Promise.resolve(null) : Promise.resolve(null);
   const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
-  const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
+  const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
+  const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([candidates]) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
     log$b.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
     return null;
   }) : Promise.resolve(null);
@@ -21502,19 +23387,6 @@ class CardRenderDataLoader {
     if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
   }
   }
-  applyJitenVocabularyInfoPitchAccent(card, info) {
-  if (!info?.pitchAccents.length) return;
-  const reading = cardPronunciationReading(card) || card.reading.trim();
-  const patterns = info.pitchAccents.map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean);
-  if (!patterns.length) return;
-  if (!card.pitchAccent.length) {
-    card.pitchAccent = patterns;
-    return;
-  }
-  for (const pattern of patterns) {
-    if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
-  }
-  }
   cachedJpdbDecks(settings) {
   const key = `jpdb:${effectiveJpdbApiKey(settings)}`;
   const now = Date.now();
@@ -21628,12 +23500,12 @@ ${component.reading}`;
 }
 function jitenExpressionComponent(word) {
   const annotated = word.readingFurigana.trim();
-  const text = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling$1(annotated) || cleanJitenAnnotatedSpelling$1(word.reading)).trim();
+  const text = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling(annotated) || cleanJitenAnnotatedSpelling(word.reading)).trim();
   if (!text) return null;
   const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text).trim();
   return { text, reading };
 }
-function cleanJitenAnnotatedSpelling$1(value) {
+function cleanJitenAnnotatedSpelling(value) {
   return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
 }
 function jitenAnnotatedReading(value) {
@@ -22372,7 +24244,7 @@ function uniqueLookupValues(values) {
   }
   return result;
 }
-const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+const READER_OWNED_SELECTOR$1 = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
 const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
 const HEADWORD_SELECTOR = [
   '.text-3xl[lang="ja"]',
@@ -22426,14 +24298,14 @@ function jitenContentAnchor() {
 }
 function jitenStudyCardAnchor() {
   if (jitenStudyAnswerHidden()) return null;
-  const wrap = ownedElement(document.querySelector(".relative.touch-pan-y"));
+  const wrap = ownedElement$1(document.querySelector(".relative.touch-pan-y"));
   if (!wrap) return null;
   const content = Array.from(wrap.children).find(
   (child) => child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className))
   );
   const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
   const last = card?.lastElementChild;
-  if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
+  if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR$1)) return last;
   return card ?? null;
 }
 function jitenStudyAnswerHidden() {
@@ -22469,7 +24341,7 @@ function currentJitenLocalDictionaryTargets() {
   }];
 }
 function jitenHeadword() {
-  const element = ownedElement(document.querySelector(HEADWORD_SELECTOR));
+  const element = ownedElement$1(document.querySelector(HEADWORD_SELECTOR));
   const domTerm = element ? cleanText(extractBaseText(element)) : "";
   if (element && domTerm && JAPANESE_RE.test(domTerm)) {
   return { term: domTerm, reading: cleanText(extractReadingText(element)) || domTerm };
@@ -22487,15 +24359,152 @@ function jitenAlternateForms() {
   return Array.from(heading.parentElement.querySelectorAll('[lang="ja"], ruby')).map((node) => cleanText(extractBaseText(node))).filter((value) => value && JAPANESE_RE.test(value)).slice(0, 8);
 }
 function jitenVocabAnchor() {
-  const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
+  const column = ownedElement$1(document.querySelector(VOCAB_COLUMN_SELECTOR));
   const lastChild = column?.lastElementChild;
   if (lastChild instanceof HTMLElement) return lastChild;
   return column;
 }
 function jitenKanjiAnchor() {
-  const header = ownedElement(document.querySelector(".text-center"));
+  const header = ownedElement$1(document.querySelector(".text-center"));
   if (header) return header;
   return document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2") ?? null;
+}
+function ownedElement$1(element) {
+  return element && !element.closest(READER_OWNED_SELECTOR$1) ? element : null;
+}
+const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+const REVIEW_HEADER_SELECTOR = '#js-rev-header h1[id^="rev-id-"]';
+const QUIZ_ROOT_SELECTOR = "#js-quiz";
+const QUIZ_QUESTION_SELECTOR = '#js-tour-quiz-question, .bp-quiz-question, [id^="study-question-"]';
+const QUIZ_ANSWER_RUBY_SELECTOR = '#js-tour-quiz-question button ruby, .bp-quiz-question button ruby, [id^="study-question-"] button ruby';
+const QUIZ_ANSWER_SELECTOR = "#js-tour-quiz-answer";
+const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
+function isBunproHost() {
+  return location.hostname === "bunpro.jp" || location.hostname.endsWith(".bunpro.jp");
+}
+function isBunproEnhanceablePage() {
+  const pathname = bunproPathname();
+  return pathname === "/learn" || pathname.startsWith("/learn/") || pathname === "/reviews" || pathname.startsWith("/vocabs/") || pathname.startsWith("/grammar_points/");
+}
+function currentBunproTermTarget() {
+  if (!isBunproHost() || !isBunproEnhanceablePage() || isBunproQuizAnswerHidden()) return null;
+  const headword = bunproHeadword();
+  const anchor = bunproAddonAnchor();
+  if (!headword || !anchor) return null;
+  return {
+  term: headword.term,
+  reading: headword.reading,
+  queries: uniqueLookupValues([headword.term, headword.reading]),
+  examples: bunproPageExamples(),
+  anchor
+  };
+}
+function currentBunproLocalDictionaryTargets() {
+  const target = currentBunproTermTarget();
+  if (!target) return [];
+  return [{
+  term: target.term,
+  reading: target.reading,
+  alternates: uniqueLookupValues(target.queries),
+  compounds: [],
+  examples: target.examples,
+  anchor: target.anchor
+  }];
+}
+function isBunproQuizAnswerHidden() {
+  if (!isBunproHost() || !isBunproEnhanceablePage()) return false;
+  const quiz = document.querySelector(QUIZ_ROOT_SELECTOR);
+  if (!quiz) return false;
+  if (document.querySelector(REVIEW_HEADER_SELECTOR)) return false;
+  const manualInput = quiz.querySelector("#js-manual-input");
+  if (manualInput) return !manualInput.readOnly;
+  if (quiz.querySelector(".InputFlashcardReveal, .InputFlashcardSubmit")) return true;
+  return !quiz.querySelector(QUIZ_ANSWER_SELECTOR);
+}
+function isBunproReviewFrontPrompt(element) {
+  if (!isBunproHost() || !element.closest(QUIZ_QUESTION_SELECTOR)) return false;
+  if (element.closest(QUIZ_ANSWER_SELECTOR)) return false;
+  return isBunproQuizAnswerHidden();
+}
+function bunproPathname() {
+  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX, "");
+  return stripped || "/";
+}
+function bunproHeadword() {
+  const heading = ownedElement(document.querySelector(REVIEW_HEADER_SELECTOR));
+  const headword = heading?.querySelector('ruby, [lang="ja"]') ?? heading;
+  const domTerm = headword ? cleanText(extractBaseText(headword)) : "";
+  const domReading = headword ? cleanText(extractReadingText(headword)) : "";
+  if (domTerm && isCompactJapaneseTerm(domTerm)) {
+  return {
+    term: domTerm,
+    reading: domReading || domTerm
+  };
+  }
+  const quizHeadword = bunproRevealedQuizHeadword();
+  if (quizHeadword) return quizHeadword;
+  const pathTerm = bunproVocabularyPathTerm();
+  return pathTerm ? { term: pathTerm, reading: pathTerm } : null;
+}
+function bunproRevealedQuizHeadword() {
+  const quiz = document.querySelector(QUIZ_ROOT_SELECTOR);
+  const input = quiz?.querySelector("#js-manual-input");
+  if (!quiz || !input?.readOnly) return null;
+  const reading = cleanText(input.value);
+  if (!isCompactJapaneseTerm(reading)) return null;
+  const answerRuby = quiz.querySelector(QUIZ_ANSWER_RUBY_SELECTOR);
+  const base = answerRuby ? cleanText(extractBaseText(answerRuby)) : "";
+  const stemReading = answerRuby ? cleanText(extractReadingText(answerRuby)) : "";
+  const suffix = stemReading && reading.startsWith(stemReading) ? reading.slice(stemReading.length) : "";
+  const term = base && stemReading && suffix ? `${base}${suffix}` : reading;
+  return isCompactJapaneseTerm(term) ? { term, reading } : null;
+}
+function bunproVocabularyPathTerm() {
+  const parts = bunproPathname().split("/").filter(Boolean);
+  if (parts[0] !== "vocabs" || !parts[1]) return "";
+  try {
+  const term = cleanText(decodeURIComponent(parts[1]));
+  return isCompactJapaneseTerm(term) ? term : "";
+  } catch {
+  return "";
+  }
+}
+function bunproAddonAnchor() {
+  const answer = ownedElement(document.querySelector(QUIZ_ANSWER_SELECTOR));
+  if (answer) return lastOwnedChild(answer) ?? answer;
+  const header = ownedElement(document.querySelector("#js-rev-header"));
+  if (header) {
+  for (const selector of ["#examples", "#about", "#dictionary-definition"]) {
+    const sectionHeader = ownedElement(document.querySelector(selector));
+    const section = sectionHeader?.closest("section");
+    if (section) return section;
+  }
+  return header;
+  }
+  if (!isBunproQuizAnswerHidden()) {
+  return ownedElement(document.querySelector("#js-tour-quiz-question"));
+  }
+  return null;
+}
+function bunproPageExamples() {
+  const root = document.querySelector(QUIZ_QUESTION_SELECTOR) ?? document.querySelector("#examples")?.closest("section") ?? document;
+  const seen = new Set();
+  const examples = [];
+  for (const element of Array.from(root.querySelectorAll('[lang="ja"], .bp-quiz-question'))) {
+  if (element.closest(READER_OWNED_SELECTOR)) continue;
+  const sentence = cleanText(extractBaseText(element));
+  if (!sentence || sentence.length > 180 || !JAPANESE_RE.test(sentence) || seen.has(sentence)) continue;
+  seen.add(sentence);
+  examples.push({ sentence, translation: "" });
+  if (examples.length >= 8) break;
+  }
+  return examples;
+}
+function isCompactJapaneseTerm(value) {
+  return value.length <= 40 && JAPANESE_RE.test(value) && !/[。！？!?]/.test(value);
+}
+function lastOwnedChild(element) {
+  return Array.from(element.children).reverse().find((child) => child instanceof HTMLElement && !child.closest(READER_OWNED_SELECTOR)) ?? null;
 }
 function ownedElement(element) {
   return element && !element.closest(READER_OWNED_SELECTOR) ? element : null;
@@ -23188,7 +25197,7 @@ const SITE_PARSER_PROFILES = [
   suppressResidualVisibleScan: true,
   includePassiveInteractionRoots: false,
   scanLimit: 80,
-  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
+  matches: (url) => isYouTubeAppHostname(url.hostname) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
   },
   {
   id: "youtube-comments-parser",
@@ -23283,7 +25292,7 @@ const SITE_PARSER_PROFILES = [
   includeUiChrome: true,
   nonDestructive: true,
   includePassiveInteractionRoots: true,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+  matches: (url) => isYouTubeAppHostname(url.hostname)
   },
   {
   id: "cijapanese-transcript-parser",
@@ -23557,7 +25566,7 @@ function shouldRejectProfileScanTarget(profile, target) {
 }
 function isReviewCardFrontPromptElement(element) {
   if (!(element instanceof HTMLElement)) return false;
-  return isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
+  return isBunproReviewFrontPrompt(element) || isJitenStudyFrontPrompt(element) || isJpdbReviewFrontPrompt(element);
 }
 function volatileYouTubeTargetAsPassiveMirror(profile, target) {
   if (!isYouTubeSiteParserProfile(profile)) return target;
@@ -24369,8 +26378,9 @@ function renderJitenExamples(examples, sourceAttributes, language, card, info) {
   if (!examples.length) return "";
   const items = examples.map((example, index) => ({
   id: String(example.sentenceId ?? index),
+  sentence: example.text,
   sentenceHtml: renderJitenExampleSentence(example, card, info),
-  translation: example.sourceTitle,
+  translation: example.translation,
   itemClassName: "jpdb-reader-jiten-example",
   rowClassName: "jpdb-reader-jiten-example-row",
   textClassName: "jpdb-reader-jiten-example-text",
@@ -24479,7 +26489,7 @@ function jitenExampleTargetRange(example, card, info) {
   if (example.wordPosition < 0 || example.wordLength <= 0) return null;
   const references = jitenDefinitionTextReferences(card, info);
   const raw = { start: example.wordPosition, end: example.wordPosition + example.wordLength };
-  const utf8 = utf8ByteRangeToUtf16Range$1(example.text, example.wordPosition, example.wordPosition + example.wordLength);
+  const utf8 = utf8ByteRangeToUtf16Range(example.text, example.wordPosition, example.wordPosition + example.wordLength);
   return bestJitenExampleRange(example.text, references, [raw, utf8]);
 }
 function bestJitenExampleRange(text, references, candidates) {
@@ -24494,26 +26504,26 @@ function bestJitenExampleRange(text, references, candidates) {
   }
   return best?.range ?? null;
 }
-function utf8ByteRangeToUtf16Range$1(text, start, end) {
+function utf8ByteRangeToUtf16Range(text, start, end) {
   return {
-  start: utf16OffsetForUtf8ByteOffset$1(text, start),
-  end: utf16OffsetForUtf8ByteOffset$1(text, end)
+  start: utf16OffsetForUtf8ByteOffset(text, start),
+  end: utf16OffsetForUtf8ByteOffset(text, end)
   };
 }
-function utf16OffsetForUtf8ByteOffset$1(text, byteOffset) {
+function utf16OffsetForUtf8ByteOffset(text, byteOffset) {
   if (byteOffset <= 0) return 0;
   let bytes = 0;
   let offset = 0;
   for (const char of text) {
   if (bytes >= byteOffset) return offset;
-  const nextBytes = bytes + utf8ByteLength$1(char);
+  const nextBytes = bytes + utf8ByteLength(char);
   if (nextBytes > byteOffset) return offset;
   bytes = nextBytes;
   offset += char.length;
   }
   return text.length;
 }
-function utf8ByteLength$1(char) {
+function utf8ByteLength(char) {
   const point = char.codePointAt(0) ?? 0;
   if (point <= 127) return 1;
   if (point <= 2047) return 2;
@@ -24557,10 +26567,10 @@ function definitionSourceStateKey(sourceId) {
   return `definition-source:${sourceId}`;
 }
 function parseWanikaniSubject(raw) {
-  if (!isRecord$2(raw)) return null;
+  if (!isRecord$3(raw)) return null;
   const type = typeof raw.object === "string" ? raw.object : "";
   if (!isSubjectType(type)) return null;
-  const data = isRecord$2(raw.data) ? raw.data : {};
+  const data = isRecord$3(raw.data) ? raw.data : {};
   const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
   if (!Number.isFinite(id)) return null;
   return {
@@ -24599,7 +26609,7 @@ function isSubjectType(value) {
 }
 function parseMeanings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   meaning: typeof item.meaning === "string" ? item.meaning : "",
   primary: item.primary === true,
   acceptedAsCorrect: item.accepted_answer === true || item.accepted_as_correct === true
@@ -24607,14 +26617,14 @@ function parseMeanings(raw) {
 }
 function parseAuxiliaryMeanings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   meaning: typeof item.meaning === "string" ? item.meaning : "",
   type: item.type === "whitelist" || item.type === "blacklist" ? item.type : "unknown"
   })).filter((item) => item.meaning);
 }
 function parseReadings(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => {
+  return raw.filter(isRecord$3).map((item) => {
   const type = item.type === "onyomi" || item.type === "kunyomi" || item.type === "nanori" ? item.type : void 0;
   return {
     reading: typeof item.reading === "string" ? item.reading : "",
@@ -24630,15 +26640,15 @@ function parseNumberArray(raw) {
 }
 function parseContextSentences(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => ({
+  return raw.filter(isRecord$3).map((item) => ({
   en: typeof item.en === "string" ? item.en : "",
   ja: typeof item.ja === "string" ? item.ja : ""
   })).filter((item) => item.en || item.ja);
 }
 function parseAudio(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord$2).map((item) => {
-  const metadata = isRecord$2(item.metadata) ? item.metadata : {};
+  return raw.filter(isRecord$3).map((item) => {
+  const metadata = isRecord$3(item.metadata) ? item.metadata : {};
   return {
     url: typeof item.url === "string" ? item.url : "",
     contentType: typeof item.content_type === "string" ? item.content_type : "",
@@ -24650,7 +26660,7 @@ function parseAudio(raw) {
   };
   }).filter((item) => item.url);
 }
-function isRecord$2(value) {
+function isRecord$3(value) {
   return typeof value === "object" && value !== null;
 }
 const KNOWN_TAGS = new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
@@ -25680,1290 +27690,6 @@ function visibleVideos() {
 function intersects(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
-function isAbortError(error) {
-  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-}
-const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
-const JITEN_DAILY_STATS_MAX_DAYS = 400;
-function recordJitenDailyStats(counts, now = new Date()) {
-  const newCardsToday = finiteCount(counts.newCardsToday);
-  const reviewsToday = finiteCount(counts.reviewsToday);
-  if (newCardsToday === void 0 && reviewsToday === void 0) return;
-  try {
-  const stored = loadJitenDailyStats();
-  const key = jitenStatsDateKey(now);
-  const previous = stored[key];
-  stored[key] = {
-    newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
-    reviewsToday: Math.max(previous?.reviewsToday ?? 0, reviewsToday ?? 0),
-    updatedAt: now.getTime()
-  };
-  gmStorageSetSync(JITEN_DAILY_STATS_KEY, pruneJitenDailyStats(stored));
-  } catch {
-  }
-}
-function loadJitenDailyStats() {
-  try {
-  const stored = gmStorageGetSync(JITEN_DAILY_STATS_KEY, {});
-  return stored && typeof stored === "object" && !Array.isArray(stored) ? { ...stored } : {};
-  } catch {
-  return {};
-  }
-}
-function jitenStatsDateKey(date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-function pruneJitenDailyStats(stored) {
-  const keys = Object.keys(stored).sort();
-  while (keys.length > JITEN_DAILY_STATS_MAX_DAYS) {
-  delete stored[keys.shift() ?? ""];
-  }
-  return stored;
-}
-function finiteCount(value) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
-}
-const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
-const REQUEST_TIMEOUT_MS$4 = 3e4;
-const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
-class JitenApiError extends Error {
-  constructor(message, status) {
-  super(message);
-  this.status = status;
-  this.name = "JitenApiError";
-  }
-}
-class JitenApiClient {
-  constructor(getApiKey, options = {}) {
-  this.getApiKey = getApiKey;
-  this.options = options;
-  }
-  async ping() {
-  await this.request("reader/ping", void 0);
-  return true;
-  }
-  async validateApiKey(apiKey) {
-  const client = apiKey === void 0 ? this : new JitenApiClient(() => apiKey, this.options);
-  try {
-    await client.ping();
-    return true;
-  } catch (error) {
-    if (isJitenAuthenticationError(error) || isMissingJitenApiKeyError(error)) return false;
-    throw error;
-  }
-  }
-  async parse(paragraphs) {
-  const response = await this.request("reader/parse", { text: paragraphs });
-  return jitenParseResultToTokens(paragraphs, response);
-  }
-  async lookupVocabularyInfo(card) {
-  const reference = jitenCardReference(card);
-  const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
-  const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
-  const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
-  if (!isJsonRecord$1(info)) return null;
-  const normalized = normalizeJitenVocabularyInfo(info);
-  if (!normalized) return null;
-  normalized.examples = await examplesPromise;
-  return normalized;
-  }
-  async lookupVocabularyInfoForCard(card) {
-  if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
-  const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
-  if (!jitenCard) return null;
-  const reading = card.reading.trim();
-  const exactMatch = jitenCard.spelling === card.spelling && (!reading || jitenCard.reading === reading);
-  if (exactMatch && typeof card.jitenWordId !== "number" && typeof jitenCard.jitenWordId === "number") {
-    card.jitenWordId = jitenCard.jitenWordId;
-    card.jitenReadingIndex = jitenCard.jitenReadingIndex;
-  }
-  return this.lookupVocabularyInfo(jitenCard);
-  }
-  async searchVocabulary(query, limit = 10) {
-  const response = await this.requestEndpoint("vocabulary/search", void 0, {
-    method: "GET",
-    query: { query, limit }
-  });
-  if (!isJsonRecord$1(response) || !Array.isArray(response.results)) return [];
-  return response.results.map((result) => ({
-    vid: result.wordId,
-    sid: result.readingIndex,
-    rid: 0,
-    spelling: result.text,
-    reading: cleanJitenAnnotatedReading$1(result.rubyText || result.text),
-    frequencyRank: typeof result.frequencyRank === "number" ? result.frequencyRank : null,
-    partOfSpeech: Array.isArray(result.partsOfSpeech) ? result.partsOfSpeech.map(String) : [],
-    meanings: (Array.isArray(result.meanings) ? result.meanings : []).map((meaning) => ({
-      glosses: [meaning],
-      partOfSpeech: []
-    })),
-    cardState: ["not-in-deck"],
-    pitchAccent: [],
-    wordWithReading: result.rubyText || null,
-    source: "jiten",
-    reviewSource: "jiten-api",
-    jitenWordId: result.wordId,
-    jitenReadingIndex: result.readingIndex
-  }));
-  }
-  async lookupJitenCardForVocabularyInfo(card) {
-  const spelling = card.spelling.trim();
-  if (!spelling) return null;
-  let tokens = [];
-  const apiKey = this.getApiKey().trim();
-  if (apiKey) {
-    try {
-      const [parsed] = await this.parse([spelling]);
-      tokens = parsed ?? [];
-    } catch (error) {
-    }
-  }
-  if (!tokens.length) {
-    try {
-      const searchCards = await this.searchVocabulary(spelling);
-      tokens = searchCards.map((c) => ({
-        card: c,
-        start: 0,
-        end: spelling.length,
-        length: spelling.length,
-        rubies: [],
-        pitchClass: "",
-        sentence: spelling
-      }));
-    } catch (error) {
-    }
-  }
-  return bestParsedJitenCard(card, spelling, tokens);
-  }
-  async lookupKanji(character) {
-  const kanji = character.trim();
-  if (!kanji) return null;
-  const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}`, void 0, { method: "GET" });
-  return normalizeJitenKanjiInfo(payload);
-  }
-  async lookupKanjiWords(character, options = {}) {
-  const kanji = character.trim();
-  if (!kanji) return null;
-  const payload = await this.requestEndpoint(`kanji/${encodeURIComponent(kanji)}/words`, void 0, {
-    method: "GET",
-    query: {
-      reading: options.reading,
-      page: options.page,
-      pageSize: options.pageSize
-    }
-  });
-  return normalizeJitenKanjiWordsPage(payload);
-  }
-  async listReaderStudyDecks() {
-  const response = await this.request("srs/reader-study-decks", void 0);
-  return normalizeReaderStudyDecks(response);
-  }
-  async listStudyDecks() {
-  const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
-  if (!Array.isArray(response)) return [];
-  return response.map((row) => {
-    const record = row;
-    const id = Number(record?.userStudyDeckId);
-    const name = typeof record?.name === "string" ? record.name : "";
-    return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
-  }).filter((deck) => deck !== null);
-  }
-  async studyDeckWordKeys(deckId) {
-  const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
-  const keys = new Set();
-  if (!Array.isArray(response)) return keys;
-  for (const row of response) {
-    const record = row;
-    const wordId = Number(record?.wordId);
-    if (!Number.isFinite(wordId)) continue;
-    keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
-  }
-  return keys;
-  }
-  async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
-  const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
-  const cardLimit = Math.max(1, Math.floor(limit));
-  const cards = [];
-  let offset = 0;
-  while (cards.length < cardLimit) {
-    const page = normalizeJitenStudyDeckVocabularyPage(
-      await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/vocabulary`, void 0, {
-        method: "GET",
-        query: { offset }
-      })
-    );
-    if (!page.cards.length) break;
-    cards.push(...page.cards);
-    const pageSize = Math.max(1, page.pageSize || page.cards.length);
-    const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
-    if (nextOffset <= offset || nextOffset >= page.totalItems) break;
-    offset = nextOffset;
-  }
-  return cards.slice(0, cardLimit);
-  }
-  async listRecentReviews(limit = 5e3) {
-  const reviewLimit = Math.max(1, Math.floor(limit));
-  const reviews = [];
-  let offset = 0;
-  while (reviews.length < reviewLimit) {
-    const page = normalizeJitenRecentReviewsPage(
-      await this.requestEndpoint("srs/review-history", void 0, {
-        method: "GET",
-        query: {
-          offset,
-          limit: Math.min(100, reviewLimit - reviews.length)
-        }
-      })
-    );
-    if (!page.reviews.length) break;
-    reviews.push(...page.reviews);
-    const pageSize = Math.max(1, page.pageSize || page.reviews.length);
-    const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
-    if (nextOffset <= offset || nextOffset >= page.totalItems) break;
-    offset = nextOffset;
-  }
-  return reviews.slice(0, reviewLimit);
-  }
-  async listStudyBatchCards(limit = 80) {
-  const cardLimit = Math.max(1, Math.floor(limit));
-  const response = await this.requestEndpoint("srs/study-batch", void 0, {
-    method: "GET",
-    query: { limit: cardLimit }
-  });
-  recordJitenDailyStats(response);
-  return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
-  }
-  async reviewCard(card, grade) {
-  await this.request("srs/review", {
-    ...jitenCardReference(card),
-    rating: jitenRatingForGrade(grade)
-  });
-  }
-  async undoReview(card) {
-  await this.request("srs/undo-review", jitenCardReference(card));
-  }
-  async batchReviewCards(cards, grade) {
-  const reviews = cards.flatMap((card) => {
-    try {
-      return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
-    } catch {
-      return [];
-    }
-  });
-  if (!reviews.length) return 0;
-  await this.request("srs/batch-review", { reviews });
-  return reviews.length;
-  }
-  async refreshCardState(card) {
-  const reference = jitenCardReference(card);
-  const [tokens] = await this.parse([card.spelling]);
-  const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
-  if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
-  }
-  async refreshCardStates(cards) {
-  const entries2 = cards.map((card) => {
-    try {
-      return { card, ref: jitenCardReference(card) };
-    } catch {
-      return null;
-    }
-  }).filter((entry) => entry !== null);
-  if (!entries2.length) return 0;
-  const response = await this.request("reader/lookup-vocabulary", {
-    words: entries2.map((entry) => [entry.ref.wordId, entry.ref.readingIndex])
-  });
-  const states = isJsonRecord$1(response) && Array.isArray(response.result) ? response.result : [];
-  entries2.forEach((entry, index) => {
-    const cardStates = jitenKnownStateToCardStates(states[index]);
-    if (cardStates.length) entry.card.cardState = cardStates;
-  });
-  return entries2.length;
-  }
-  async setVocabularyState(card, deck, action) {
-  await this.request("srs/set-vocabulary-state", {
-    ...jitenCardReference(card),
-    state: `${deck}-${action}`
-  });
-  }
-  async addToStudyDeck(deckId, card, sentence, source) {
-  const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
-  await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/words`, {
-    ...jitenCardReference(card),
-    occurrences: 1,
-    sentence,
-    source
-  });
-  }
-  async lookupVocabularyExamples(card) {
-  const endpoint = `vocabulary/${card.wordId}/${card.readingIndex}/random-example-sentences`;
-  const payload = await this.requestEndpoint(endpoint, [], { method: "POST" });
-  return normalizeJitenVocabularyExamples(payload);
-  }
-  async request(endpoint, body) {
-  return this.requestEndpoint(endpoint, body);
-  }
-  async requestEndpoint(endpoint, body, options = {}) {
-  const apiKey = this.getApiKey().trim();
-  const requiresAuth = endpoint.startsWith("reader/") || endpoint.startsWith("srs/");
-  if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
-  const authenticated = requiresAuth && Boolean(apiKey);
-  const method = options.method ?? "POST";
-  const data = method === "GET" ? void 0 : body === void 0 ? void 0 : JSON.stringify(body);
-  const url = endpointUrl$1(this.options.baseUrl, endpoint, options.query);
-  if (this.options.fetchImpl) {
-    const response = await fetchWithTimeout$1(
-      this.options.fetchImpl,
-      url,
-      {
-        method,
-        headers: this.headers(apiKey),
-        body: data
-      },
-      this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$4
-    );
-    return parseJitenResponse(response, authenticated);
-  }
-  try {
-    const payload = await this.requestImpl()(url, {
-      method,
-      headers: this.headers(apiKey),
-      data,
-      responseType: "json",
-      timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$4,
-      timeoutLabel: "Jiten request timed out.",
-      failureLabel: "Jiten request",
-      statusFailureMessage: (status) => `Jiten request failed (${status}).`,
-      proxyUrl: this.proxyUrl(),
-      allowDirectCrossOrigin: false,
-      allowConfiguredProxy: true,
-      allowSensitiveConfiguredProxy: true,
-      allowPublicProxies: !apiKey,
-      preferFetch: true
-    });
-    return parseJitenPayload(payload);
-  } catch (error) {
-    throw normalizeJitenRequestError(error, authenticated);
-  }
-  }
-  requestImpl() {
-  return this.options.requestImpl ?? requestHttp;
-  }
-  proxyUrl() {
-  return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
-  }
-  headers(apiKey) {
-  const headers = {
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  };
-  if (apiKey) {
-    headers.Authorization = `ApiKey ${apiKey}`;
-  }
-  return headers;
-  }
-}
-function jitenParseResultToTokens(paragraphs, result) {
-  const payload = isJsonRecord$1(result) ? result : {};
-  const vocabulary = jitenVocabularyEntries(payload.vocabulary);
-  const cardByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), jitenCardFromVocabulary(entry)]));
-  const vocabByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
-  const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
-  const tokens = paragraphs.map((paragraph, paragraphIndex) => {
-  const parsed = [];
-  for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
-    const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
-    if (!card) continue;
-    const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
-    const pitchClass = card.partOfSpeech.includes("prt") ? "" : getPitchClass(card.pitchAccent, card.reading);
-    const span = jitenTokenTextSpan(paragraph, token, card);
-    const rubies = jitenTokenRubies(vocabularyEntry, span.start);
-    if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
-    parsed.push({
-      card,
-      start: span.start,
-      end: span.end,
-      length: span.length,
-      rubies,
-      pitchClass,
-      sentence: paragraph
-    });
-  }
-  return parsed;
-  });
-  addJitenSentenceInfo(paragraphs, tokens);
-  return tokens;
-}
-function jitenCardReference(card) {
-  const wordId = finiteJitenInteger(card.jitenWordId) ?? (card.source === "jiten" ? finiteJitenInteger(card.vid) : void 0);
-  const readingIndex = finiteJitenInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteJitenInteger(card.sid) : void 0);
-  if (wordId === void 0 || readingIndex === void 0 || wordId <= 0 || readingIndex < 0) {
-  throw new JitenApiError("Card is not backed by Jiten.");
-  }
-  return { wordId, readingIndex };
-}
-function isJitenReferenceableCard(card) {
-  try {
-  jitenCardReference(card);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function bestParsedJitenCard(card, spelling, tokens) {
-  const fullSpan = tokens.filter((token) => token.start === 0 && token.end === spelling.length).map((token) => token.card).filter((candidate) => isJitenReferenceableCard(candidate));
-  if (!fullSpan.length) return null;
-  const reading = card.reading.trim();
-  return fullSpan.find((candidate) => candidate.spelling === spelling && (!reading || candidate.reading === reading)) ?? fullSpan.find((candidate) => candidate.spelling === spelling) ?? fullSpan[0] ?? null;
-}
-function jitenRatingForGrade(grade) {
-  if (grade === "easy") return 4;
-  if (grade === "okay" || grade === "pass") return 3;
-  if (grade === "hard" || grade === "something") return 2;
-  return 1;
-}
-function jitenCardFromVocabulary(vocabulary) {
-  const reading = cleanJitenAnnotatedReading$1(vocabulary.reading);
-  const wordWithReading = cleanJitenAnnotatedSpelling(vocabulary.reading).trim() === vocabulary.spelling ? vocabulary.reading : null;
-  const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
-  const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
-  const deckNames = jitenVocabularyDeckNames(vocabulary);
-  return {
-  vid: vocabulary.wordId,
-  sid: vocabulary.readingIndex,
-  rid: 0,
-  spelling: vocabulary.spelling,
-  reading,
-  frequencyRank: typeof vocabulary.frequencyRank === "number" ? vocabulary.frequencyRank : null,
-  partOfSpeech: arrayOfStrings(vocabulary.partsOfSpeech),
-  meanings: (Array.isArray(vocabulary.meaningsChunks) ? vocabulary.meaningsChunks : []).map((glosses, index) => ({
-    glosses: arrayOfStrings(glosses),
-    partOfSpeech: jitenMeaningPartOfSpeech(vocabulary.meaningsPartOfSpeech, index)
-  })),
-  cardState: jitenKnownStateToCardStates(vocabulary.knownState),
-  pitchAccent,
-  wordWithReading,
-  source: "jiten",
-  sentence: typeof vocabulary.sentence === "string" && vocabulary.sentence.trim() ? vocabulary.sentence : void 0,
-  reviewSource: "jiten-api",
-  jitenWordId: vocabulary.wordId,
-  jitenReadingIndex: vocabulary.readingIndex,
-  ...deckNames.length ? { deckNames } : {},
-  ...reviewGradeIntervals ? { reviewGradeIntervals } : {}
-  };
-}
-function normalizeJitenStudyBatchCards(response) {
-  const cards = Array.isArray(response.cards) ? response.cards : [];
-  return cards.map(jitenCardFromStudyCard).filter((card) => Boolean(card));
-}
-function normalizeJitenStudyDeckVocabularyPage(response) {
-  if (!isJsonRecord$1(response)) return { cards: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
-  const data = response.data ?? response.Data;
-  const cards = arrayOfRecords(data).map(jitenCardFromStudyDeckVocabularyWord).filter((card) => Boolean(card));
-  return {
-  cards,
-  totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? cards.length,
-  pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? cards.length,
-  currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
-  };
-}
-function normalizeJitenRecentReviewsPage(response) {
-  if (!isJsonRecord$1(response)) return { reviews: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
-  const data = response.data ?? response.Data;
-  const reviews = arrayOfRecords(data).map(normalizeJitenRecentReview).filter((review) => Boolean(review));
-  return {
-  reviews,
-  totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? reviews.length,
-  pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? reviews.length,
-  currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
-  };
-}
-function normalizeJitenRecentReview(value) {
-  const wordId = finiteJitenInteger(value.wordId ?? value.WordId);
-  const readingIndex = finiteJitenInteger(value.readingIndex ?? value.ReadingIndex);
-  const reviewDateTime = firstRecordString(value, ["reviewDateTime", "ReviewDateTime"]);
-  const reviewedAt = reviewDateTime ? Date.parse(reviewDateTime) : Number.NaN;
-  if (wordId === void 0 || readingIndex === void 0 || !Number.isFinite(reviewedAt)) return null;
-  return {
-  wordId,
-  readingIndex,
-  wordText: firstRecordString(value, ["wordText", "WordText"]) ?? "",
-  rating: finiteJitenInteger(value.rating ?? value.Rating) ?? 0,
-  reviewDateTime: reviewDateTime ?? "",
-  reviewedAt,
-  reviewDuration: nullableFiniteInteger(value.reviewDuration ?? value.ReviewDuration),
-  cardState: finiteJitenInteger(value.cardState ?? value.CardState) ?? 0
-  };
-}
-function jitenCardFromStudyDeckVocabularyWord(value) {
-  const word = value;
-  if (!isJsonRecord$1(word) || !isJsonRecord$1(word.mainReading)) return null;
-  const wordId = finiteJitenInteger(word.wordId);
-  const readingIndex = finiteJitenInteger(word.mainReading.readingIndex);
-  const annotatedText = typeof word.mainReading.text === "string" ? word.mainReading.text.trim() : "";
-  if (wordId === void 0 || readingIndex === void 0 || !annotatedText) return null;
-  const spelling = cleanJitenAnnotatedSpelling(annotatedText).trim() || cleanJitenAnnotatedReading$1(annotatedText).trim();
-  const reading = cleanJitenAnnotatedReading$1(annotatedText).trim() || spelling;
-  if (!spelling) return null;
-  return {
-  vid: wordId,
-  sid: readingIndex,
-  rid: 0,
-  spelling,
-  reading,
-  frequencyRank: positiveJitenInteger(word.mainReading.frequencyRank) ?? null,
-  partOfSpeech: arrayOfStrings(word.partsOfSpeech),
-  meanings: jitenStudyDeckVocabularyMeanings(word.definitions),
-  cardState: jitenKnownStateToCardStates(word.knownStates),
-  pitchAccent: jitenPitchAccentPatterns(word.pitchAccents, reading),
-  wordWithReading: annotatedText,
-  source: "jiten",
-  reviewSource: "jiten-api",
-  jitenWordId: wordId,
-  jitenReadingIndex: readingIndex
-  };
-}
-function jitenStudyDeckVocabularyMeanings(value) {
-  return arrayOfRecords(value).map((definition) => ({
-  glosses: arrayOfStrings(definition.meanings),
-  partOfSpeech: firstNonEmptyStringArray(definition.partsOfSpeech, definition.pos)
-  })).filter((meaning) => meaning.glosses.length);
-}
-function jitenCardFromStudyCard(card) {
-  const wordId = finiteJitenInteger(card.wordId);
-  const readingIndex = finiteJitenInteger(card.readingIndex);
-  if (wordId === void 0 || readingIndex === void 0) return null;
-  const reading = jitenStudyCardReading(card);
-  const reviewGradeIntervals = jitenReviewGradeIntervals(card);
-  return {
-  vid: wordId,
-  sid: readingIndex,
-  rid: finiteJitenInteger(card.cardId) ?? 0,
-  spelling: jitenStudyCardSpelling(card),
-  reading,
-  frequencyRank: jitenStudyCardFrequencyRank(card),
-  partOfSpeech: arrayOfStrings(card.partsOfSpeech),
-  meanings: jitenStudyCardMeanings(card),
-  cardState: jitenStudyStateToCardStates(card.state, card.isNewCard),
-  pitchAccent: jitenStudyCardPitchAccent(card, reading),
-  wordWithReading: card.wordText || null,
-  source: "jiten",
-  sentence: jitenStudyCardSentence(card),
-  reviewSource: "jiten-api",
-  jitenWordId: wordId,
-  jitenReadingIndex: readingIndex,
-  ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { deckNames: [card.sourceDeckName.trim()] } : {},
-  ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
-  ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}
-  };
-}
-function jitenVocabularyDeckNames(vocabulary) {
-  return uniqueJitenText([
-  ...jitenDeckNamesFromValue(vocabulary.deckNames),
-  ...jitenDeckNamesFromValue(vocabulary.decks),
-  ...jitenDeckNamesFromValue(vocabulary.studyDecks),
-  ...jitenDeckNamesFromValue(vocabulary.userStudyDecks),
-  ...jitenDeckNamesFromValue(vocabulary.readerStudyDecks),
-  ...jitenDeckNamesFromValue(vocabulary.lookupDecks),
-  typeof vocabulary.sourceDeckName === "string" ? vocabulary.sourceDeckName : ""
-  ]);
-}
-function jitenDeckNamesFromValue(value) {
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value)) return value.flatMap(jitenDeckNamesFromValue);
-  if (!isJsonRecord$1(value)) return [];
-  return [
-  firstRecordString(value, ["name", "title", "deckName", "sourceDeckName"]) ?? "",
-  ...jitenDeckNamesFromValue(value.deck),
-  ...jitenDeckNamesFromValue(value.studyDeck),
-  ...jitenDeckNamesFromValue(value.userStudyDeck)
-  ];
-}
-function jitenStudyCardPitchAccent(card, reading) {
-  return jitenPitchAccentPatterns(card.pitchAccents, reading);
-}
-function jitenStudyCardFrequencyRank(card) {
-  return typeof card.frequencyRank === "number" ? card.frequencyRank : null;
-}
-function jitenStudyCardMeanings(card) {
-  return (Array.isArray(card.definitions) ? card.definitions : []).map((definition) => ({
-  glosses: arrayOfStrings(definition.meanings),
-  partOfSpeech: arrayOfStrings(definition.partsOfSpeech)
-  }));
-}
-function jitenStudyCardSentence(card) {
-  return typeof card.exampleSentence?.text === "string" ? card.exampleSentence.text : void 0;
-}
-function jitenStudyCardSpelling(card) {
-  return (card.wordTextPlain || cleanJitenAnnotatedReading$1(card.wordText || "") || jitenStudyCardReading(card)).trim();
-}
-function jitenStudyCardReading(card) {
-  const reading = (Array.isArray(card.readings) ? card.readings : []).find((candidate) => candidate.readingIndex === card.readingIndex);
-  return cleanJitenAnnotatedReading$1(reading?.text || reading?.rubyText || card.wordText || card.wordTextPlain || "").trim();
-}
-function jitenStudyStateToCardStates(state, isNewCard) {
-  if (isNewCard) return ["new"];
-  return [JITEN_FSRS_CARD_STATE_MAP[state] ?? "known"];
-}
-const JITEN_FSRS_CARD_STATE_MAP = {
-  0: "new",
-  1: "learning",
-  2: "due",
-  3: "failed",
-  4: "blacklisted",
-  5: "never-forget",
-  6: "suspended"
-};
-function cleanJitenAnnotatedReading$1(value) {
-  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
-}
-function cleanJitenAnnotatedSpelling(value) {
-  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
-}
-function jitenKnownStateToCardStates(states) {
-  const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
-  return mapped.length ? mapped : ["not-in-deck"];
-}
-const JITEN_CARD_STATE_MAP = {
-  0: "new",
-  1: "young",
-  2: "mature",
-  3: "blacklisted",
-  4: "due",
-  5: "mastered",
-  6: "redundant",
-  7: "in-deck"
-};
-function normalizeJitenVocabularyInfo(value) {
-  const record = jitenPayloadRecord(value);
-  if (!record) return null;
-  const wordId = finiteJitenInteger(record.wordId);
-  if (wordId === void 0 || wordId <= 0) return null;
-  const mainReading = normalizeJitenVocabularyReading(record.mainReading);
-  return {
-  wordId,
-  mainReading,
-  alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
-  partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
-  definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
-  pitchAccents: jitenStateNumbers(record.pitchAccents),
-  knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
-  composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
-  usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
-  usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
-  examples: []
-  };
-}
-function jitenPayloadRecord(value) {
-  if (!isJsonRecord$1(value)) return null;
-  return isJsonRecord$1(value.data) ? value.data : value;
-}
-function normalizeJitenVocabularyReading(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const text = firstRecordString(value, ["text"]);
-  const readingIndex = finiteJitenInteger(value.readingIndex);
-  if (!text || readingIndex === void 0) return null;
-  return {
-  text,
-  readingIndex,
-  frequencyRank: nullableFiniteInteger(value.frequencyRank),
-  usedInMediaAmount: nullableFiniteInteger(value.usedInMediaAmount)
-  };
-}
-function normalizeJitenVocabularyDefinition(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const meanings = firstNonEmptyStringArray(value.meanings, value.englishMeanings);
-  if (!meanings.length) return null;
-  return {
-  index: finiteJitenInteger(value.index) ?? finiteJitenInteger(value.senseIndex) ?? 0,
-  meanings,
-  partsOfSpeech: firstNonEmptyStringArray(value.partsOfSpeech, value.pos),
-  field: arrayOfStrings(value.field),
-  dial: arrayOfStrings(value.dial),
-  misc: arrayOfStrings(value.misc),
-  restrictedToReadingIndices: jitenStateNumbers(value.restrictedToReadingIndices)
-  };
-}
-function normalizeJitenVocabularyWordSummaries(value) {
-  return arrayOfRecords(value).map(normalizeJitenVocabularyWordSummary).filter((item) => Boolean(item));
-}
-function normalizeJitenVocabularyWordSummary(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const wordId = finiteJitenInteger(value.wordId);
-  const readingIndex = finiteJitenInteger(value.readingIndex);
-  const reading = firstRecordString(value, ["reading"]) ?? "";
-  if (wordId === void 0 || readingIndex === void 0 || !reading) return null;
-  return {
-  wordId,
-  readingIndex,
-  reading,
-  readingFurigana: firstRecordString(value, ["readingFurigana"]) ?? "",
-  mainDefinition: firstRecordString(value, ["mainDefinition"]) ?? "",
-  frequencyRank: nullableFiniteInteger(value.frequencyRank),
-  matchSurface: firstRecordString(value, ["matchSurface"]) ?? "",
-  audioUrls: normalizeJitenAudioUrls(value),
-  knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : void 0,
-  pitchAccents: jitenStateNumbers(value.pitchAccents)
-  };
-}
-function normalizeJitenVocabularyExamples(value) {
-  return arrayOfRecords(value).map(normalizeJitenVocabularyExample).filter((item) => Boolean(item));
-}
-function normalizeJitenVocabularyExample(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const text = firstRecordString(value, ["text"]);
-  if (!text) return null;
-  return {
-  sentenceId: finiteJitenInteger(value.sentenceId) ?? 0,
-  text,
-  wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
-  wordLength: finiteJitenInteger(value.wordLength) ?? 0,
-  difficulty: nullableFiniteNumber(value.difficulty),
-  sourceTitle: jitenExampleSourceTitle(value),
-  audioUrls: normalizeJitenAudioUrls(value)
-  };
-}
-function normalizeJitenKanjiInfo(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const character = firstRecordString(value, ["character"]);
-  if (!character) return null;
-  return {
-  character,
-  onReadings: arrayOfStrings(value.onReadings),
-  kunReadings: arrayOfStrings(value.kunReadings),
-  meanings: arrayOfStrings(value.meanings),
-  strokeCount: nullableFiniteInteger(value.strokeCount),
-  jlptLevel: nullableFiniteInteger(value.jlptLevel),
-  grade: nullableFiniteInteger(value.grade),
-  frequencyRank: nullableFiniteInteger(value.frequencyRank),
-  groupingTags: normalizeJitenKanjiGroupingTags(value),
-  topWords: normalizeJitenVocabularyWordSummaries(value.topWords),
-  wordsByReading: arrayOfRecords(value.wordsByReading).map(normalizeJitenKanjiReadingWords).filter((item) => Boolean(item))
-  };
-}
-const JITEN_KANJI_GROUPING_TAG_FIELDS = {
-  kanken: ["kanken", "kankenLevel"],
-  wanikani: ["wanikani", "waniKani", "wanikaniLevel", "waniKaniLevel", "wk", "wkLevel"],
-  rtk: ["rtk", "rtkFrame", "rtkIndex"],
-  klc: ["klc", "klcFrame", "klcIndex"],
-  tmw: ["tmw", "tmwLevel", "tmwIndex", "theMoeWay", "theMoeWayLevel"]
-};
-function normalizeJitenKanjiGroupingTags(value) {
-  return {
-  kanken: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.kanken),
-  wanikani: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.wanikani),
-  rtk: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.rtk),
-  klc: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.klc),
-  tmw: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.tmw)
-  };
-}
-function jitenKanjiGroupingTag(value, keys) {
-  const text = firstRecordString(value, keys);
-  if (text) return text;
-  const number = firstRecordFiniteNumber(value, keys);
-  return number === null ? null : String(number);
-}
-function normalizeJitenKanjiReadingWords(value) {
-  if (!isJsonRecord$1(value)) return null;
-  const reading = firstRecordString(value, ["reading"]);
-  if (!reading) return null;
-  return {
-  reading,
-  totalWords: finiteJitenInteger(value.totalWords) ?? 0,
-  words: normalizeJitenVocabularyWordSummaries(value.words)
-  };
-}
-function normalizeJitenKanjiWordsPage(value) {
-  if (!isJsonRecord$1(value)) return null;
-  return {
-  items: normalizeJitenVocabularyWordSummaries(value.items ?? value.data),
-  total: finiteJitenInteger(value.total ?? value.totalItems) ?? 0,
-  pageSize: finiteJitenInteger(value.pageSize) ?? 0,
-  offset: finiteJitenInteger(value.offset ?? value.currentOffset) ?? 0
-  };
-}
-function jitenMeaningPartOfSpeech(value, index) {
-  if (!Array.isArray(value)) return [];
-  return Array.isArray(value[index]) ? arrayOfStrings(value[index]) : arrayOfStrings(value);
-}
-function jitenTokenTextSpan(paragraph, token, card) {
-  const raw = { start: token.start, end: token.end, length: token.end - token.start };
-  const utf8 = utf8ByteRangeToUtf16Range(paragraph, token.start, token.end);
-  return bestJitenTextSpan(paragraph, card.spelling, [raw, utf8]) ?? raw;
-}
-function bestJitenTextSpan(text, expectedSurface, candidates) {
-  let best = null;
-  for (const span of candidates) {
-  if (span.start < 0 || span.end <= span.start || span.end > text.length) continue;
-  const surface = text.slice(span.start, span.end);
-  let score = 1;
-  if (surface === expectedSurface) score += 100;
-  else if (expectedSurface && (expectedSurface.startsWith(surface) || surface.startsWith(expectedSurface))) score += 20;
-  if (/[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(surface)) score += 10;
-  if (!best || score > best.score) best = { span, score };
-  }
-  return best?.span ?? null;
-}
-function utf8ByteRangeToUtf16Range(text, start, end) {
-  const utf16Start = utf16OffsetForUtf8ByteOffset(text, start);
-  const utf16End = utf16OffsetForUtf8ByteOffset(text, end);
-  return { start: utf16Start, end: utf16End, length: utf16End - utf16Start };
-}
-function utf16OffsetForUtf8ByteOffset(text, byteOffset) {
-  if (byteOffset <= 0) return 0;
-  let bytes = 0;
-  let offset = 0;
-  for (const char of text) {
-  if (bytes >= byteOffset) return offset;
-  const nextBytes = bytes + utf8ByteLength(char);
-  if (nextBytes > byteOffset) return offset;
-  bytes = nextBytes;
-  offset += char.length;
-  }
-  return text.length;
-}
-function utf8ByteLength(char) {
-  const point = char.codePointAt(0) ?? 0;
-  if (point <= 127) return 1;
-  if (point <= 2047) return 2;
-  if (point <= 65535) return 3;
-  return 4;
-}
-function jitenTokenRubies(vocabulary, tokenStart) {
-  return extractJitenRubiesFromAnnotated(vocabulary?.reading ?? "").map((ruby) => ({
-  ...ruby,
-  start: tokenStart + ruby.start,
-  end: tokenStart + ruby.end
-  }));
-}
-function extractJitenRubiesFromAnnotated(input) {
-  const rubies = [];
-  const regex = /((?:.|\n)*?)([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g;
-  let match;
-  let currentOffset = 0;
-  while ((match = regex.exec(input)) !== null) {
-  const prefix = match[1] ?? "";
-  const base = match[2] ?? "";
-  const text = match[3] ?? "";
-  currentOffset += prefix.length;
-  const start = currentOffset;
-  const length = base.length;
-  rubies.push({ text, start, end: start + length, length });
-  currentOffset += length;
-  }
-  return rubies;
-}
-function jitenWordWithReading(spelling, rubies, tokenStart) {
-  const word = Array.from(spelling);
-  for (let index = rubies.length - 1; index >= 0; index -= 1) {
-  const ruby = rubies[index];
-  if (!ruby) continue;
-  word.splice(ruby.start - tokenStart + ruby.length, 0, `[${ruby.text}]`);
-  }
-  return word.join("");
-}
-function addJitenSentenceInfo(paragraphs, tokens) {
-  paragraphs.forEach((paragraph, index) => {
-  const group = tokens[index] ?? [];
-  const sentences = splitJitenJapaneseTextIntoSentences(paragraph);
-  if (sentences.length === 1) {
-    group.forEach((token) => {
-      token.sentence = sentences[0];
-    });
-    return;
-  }
-  let offset = 0;
-  sentences.forEach((sentence, sentenceIndex) => {
-    const compareSentence = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-    const position = paragraph.substring(offset).indexOf(compareSentence);
-    if (position === -1) return;
-    const sentenceStart = offset + position;
-    const nextCompareSentence = sentences[sentenceIndex + 1]?.replace(/(^[「『])|([。！？」』]$)/g, "");
-    const nextPosition = nextCompareSentence ? paragraph.indexOf(nextCompareSentence, sentenceStart + compareSentence.length) : -1;
-    const sentenceEnd = nextPosition !== -1 ? nextPosition : paragraph.length;
-    group.forEach((token) => {
-      if (token.start >= sentenceStart && token.end <= sentenceEnd) token.sentence = sentence;
-    });
-    offset = sentenceStart + compareSentence.length;
-  });
-  });
-}
-function splitJitenJapaneseTextIntoSentences(text) {
-  const sentences = text.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
-  return sentences.length ? sentences.map((sentence) => sentence.trim()).filter(Boolean).filter((sentence) => !/^[」』]$/.test(sentence)).map((sentence) => {
-  if (/「.*?」|『.*?』/.test(sentence)) return sentence;
-  const trimmed = sentence.replace(/(^「|『)|(」|』$)/, "");
-  return /[。！？]$/.test(trimmed) ? trimmed : `${trimmed}。`;
-  }) : [text];
-}
-function arrayOfStrings(value) {
-  if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
-  return typeof value === "string" ? [value] : [];
-}
-function firstNonEmptyStringArray(...values) {
-  for (const value of values) {
-  const strings = arrayOfStrings(value);
-  if (strings.length) return strings;
-  }
-  return [];
-}
-function arrayOfRecords(value) {
-  return Array.isArray(value) ? value.filter(isJsonRecord$1) : [];
-}
-function nullableFiniteInteger(value) {
-  return finiteJitenInteger(value) ?? null;
-}
-function positiveJitenInteger(value) {
-  const parsed = finiteJitenInteger(value);
-  return parsed !== void 0 && parsed > 0 ? parsed : void 0;
-}
-function nullableFiniteNumber(value) {
-  return finiteJitenNumber(value) ?? null;
-}
-function firstRecordString(record, keys) {
-  for (const key of keys) {
-  const value = record[key];
-  if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return null;
-}
-function firstRecordFiniteNumber(record, keys) {
-  for (const key of keys) {
-  const value = finiteJitenNumber(record[key]);
-  if (value !== void 0) return value;
-  }
-  return null;
-}
-function jitenExampleSourceTitle(value) {
-  const direct = firstRecordString(value, ["sourceTitle", "title"]);
-  if (direct) return direct;
-  const sourceDeck = isJsonRecord$1(value.sourceDeck) ? firstRecordString(value.sourceDeck, ["title", "name"]) : null;
-  const sourceDeckParent = isJsonRecord$1(value.sourceDeckParent) ? firstRecordString(value.sourceDeckParent, ["title", "name"]) : null;
-  return sourceDeck ?? sourceDeckParent ?? "";
-}
-function normalizeJitenAudioUrls(value) {
-  const urls = uniqueJitenText([
-  ...arrayOfStrings(value.audioUrls),
-  ...arrayOfStrings(value.audioUrl),
-  ...arrayOfStrings(value.soundUrls),
-  ...arrayOfStrings(value.soundUrl)
-  ]).filter(isLikelyJitenAudioUrl);
-  return urls.length ? urls : void 0;
-}
-function uniqueJitenText(values) {
-  const seen = new Set();
-  return values.map((value) => value.trim()).filter((value) => {
-  if (!value || seen.has(value)) return false;
-  seen.add(value);
-  return true;
-  });
-}
-function isLikelyJitenAudioUrl(value) {
-  try {
-  const url = new URL(value);
-  return /^https?:$/i.test(url.protocol);
-  } catch {
-  return false;
-  }
-}
-function jitenVocabularyEntries(value) {
-  return Array.isArray(value) ? value.filter(isJitenRawVocabulary) : [];
-}
-function isJitenRawVocabulary(value) {
-  if (!isJsonRecord$1(value)) return false;
-  const wordId = finiteJitenInteger(value.wordId);
-  const readingIndex = finiteJitenInteger(value.readingIndex);
-  return wordId !== void 0 && wordId > 0 && readingIndex !== void 0 && readingIndex >= 0 && typeof value.spelling === "string" && typeof value.reading === "string";
-}
-function jitenTokenEntries(value) {
-  return Array.isArray(value) ? value.filter(isJitenRawToken) : [];
-}
-function isJitenRawToken(value) {
-  if (!isJsonRecord$1(value)) return false;
-  return [
-  hasPositiveJitenInteger(value.wordId),
-  hasNonNegativeJitenInteger(value.readingIndex),
-  hasNonNegativeJitenInteger(value.start),
-  hasPositiveJitenInteger(value.length),
-  hasJitenRawTokenEndAfterStart(value)
-  ].every(Boolean);
-}
-function hasPositiveJitenInteger(value) {
-  const parsed = finiteJitenInteger(value);
-  return parsed !== void 0 && parsed > 0;
-}
-function hasNonNegativeJitenInteger(value) {
-  const parsed = finiteJitenInteger(value);
-  return parsed !== void 0 && parsed >= 0;
-}
-function hasJitenRawTokenEndAfterStart(value) {
-  const start = finiteJitenInteger(value.start);
-  const end = finiteJitenInteger(value.end);
-  return start !== void 0 && end !== void 0 && end > start;
-}
-function jitenPitchAccentPatterns(value, reading) {
-  return jitenStateNumbers(value).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean);
-}
-function jitenStateNumbers(value) {
-  return Array.isArray(value) ? value.map(finiteJitenInteger).filter((item) => item !== void 0) : [];
-}
-function jitenReviewGradeIntervals(payload) {
-  const record = payload;
-  for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
-  const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
-  if (parsed) return parsed;
-  }
-  return void 0;
-}
-function jitenReviewGradeIntervalsFromValue(value) {
-  if (Array.isArray(value)) return jitenReviewGradeIntervalsFromArray(value);
-  if (isJsonRecord$1(value)) return jitenReviewGradeIntervalsFromRecord(value);
-  return void 0;
-}
-function jitenReviewGradeIntervalsFromArray(values) {
-  const intervals = {};
-  values.forEach((value, index) => {
-  const meta = isJsonRecord$1(value) ? jitenReviewRatingMetaFromRecord(value) : void 0;
-  addJitenReviewInterval(intervals, meta ?? JITEN_REVIEW_RATINGS[index], value);
-  });
-  return Object.keys(intervals).length ? intervals : void 0;
-}
-function jitenReviewGradeIntervalsFromRecord(record) {
-  const intervals = {};
-  for (const meta of JITEN_REVIEW_RATINGS) {
-  const value = meta.keys.map((key) => record[key]).find((candidate) => candidate !== void 0);
-  addJitenReviewInterval(intervals, meta, value);
-  }
-  return Object.keys(intervals).length ? intervals : void 0;
-}
-function addJitenReviewInterval(intervals, meta, value) {
-  if (!meta) return;
-  const interval = jitenReviewInterval(value, meta);
-  if (!interval) return;
-  for (const grade of meta.grades) intervals[grade] = interval;
-}
-function jitenReviewInterval(value, meta) {
-  const record = isJsonRecord$1(value) ? value : null;
-  const buttonLabel = jitenReviewButtonLabel(record, meta);
-  const intervalLabel = jitenReviewIntervalLabel(value, record);
-  if (!intervalLabel) return null;
-  return {
-  buttonLabel,
-  intervalLabel,
-  label: prefixedReviewIntervalLabel(buttonLabel, intervalLabel),
-  source: "jiten-study-batch"
-  };
-}
-function jitenReviewButtonLabel(record, meta) {
-  return firstString(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
-}
-function jitenReviewIntervalLabel(value, record) {
-  if (typeof value === "string") return normalizeIntervalLabel(value);
-  const explicit = firstString(record, [
-  "intervalLabel",
-  "nextReviewLabel",
-  "nextIntervalLabel",
-  "nextReviewInterval",
-  "nextInterval",
-  "interval",
-  "duration",
-  "time",
-  "label",
-  "text"
-  ]);
-  if (explicit) return normalizeIntervalLabel(explicit);
-  return jitenReviewIntervalNumberLabel(record) ?? "";
-}
-function jitenReviewIntervalNumberLabel(record) {
-  if (!record) return null;
-  for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
-  const value = finiteJitenNumber(record[key]);
-  if (value !== void 0) return formatJitenInterval(value, unit);
-  }
-  return null;
-}
-function jitenReviewRatingMetaFromRecord(record) {
-  const rating = finiteJitenInteger(record.rating) ?? finiteJitenInteger(record.ease) ?? finiteJitenInteger(record.button) ?? finiteJitenInteger(record.value);
-  if (rating !== void 0) return JITEN_REVIEW_RATINGS.find((meta) => meta.rating === rating);
-  const label = firstString(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
-  return label ? JITEN_REVIEW_RATINGS.find((meta) => meta.keys.includes(normalizeJitenReviewKey(label))) : void 0;
-}
-function firstString(record, keys) {
-  if (!record) return null;
-  for (const key of keys) {
-  const value = record[key];
-  if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return null;
-}
-function normalizeIntervalLabel(value) {
-  return value.replace(/\s+/g, " ").trim();
-}
-function prefixedReviewIntervalLabel(buttonLabel, intervalLabel) {
-  return intervalLabel.toLocaleLowerCase().startsWith(buttonLabel.toLocaleLowerCase()) ? intervalLabel : `${buttonLabel} ${intervalLabel}`;
-}
-function normalizeJitenReviewKey(value) {
-  return value.replace(/[_\s-]+/g, "").toLocaleLowerCase();
-}
-function formatJitenInterval(value, unit) {
-  if (unit === "seconds") return formatJitenSeconds(value);
-  if (unit === "minutes") return `${formatJitenIntervalNumber(value)}m`;
-  if (unit === "hours") return `${formatJitenIntervalNumber(value)}h`;
-  if (unit === "days") return `${formatJitenIntervalNumber(value)}d`;
-  if (unit === "months") return `${formatJitenIntervalNumber(value)}mo`;
-  return `${formatJitenIntervalNumber(value)}y`;
-}
-function formatJitenSeconds(seconds) {
-  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
-  const minutes = seconds / 60;
-  if (minutes < 60) return `${formatJitenIntervalNumber(minutes)}m`;
-  const hours = minutes / 60;
-  if (hours < 24) return `${formatJitenIntervalNumber(hours)}h`;
-  const days = hours / 24;
-  if (days < 365) return `${formatJitenIntervalNumber(days)}d`;
-  return `${formatJitenIntervalNumber(days / 365)}y`;
-}
-function formatJitenIntervalNumber(value) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
-}
-const JITEN_REVIEW_INTERVAL_KEYS = [
-  "reviewButtons",
-  "reviewGradeIntervals",
-  "nextReviewIntervals",
-  "nextIntervals",
-  "nextReviews",
-  "reviewIntervals",
-  "srsIntervals",
-  "ratingIntervals"
-];
-const JITEN_REVIEW_RATINGS = [
-  { rating: 1, buttonLabel: "Again", grades: ["nothing", "fail"], keys: ["1", "rating1", "again", "nothing", "fail"] },
-  { rating: 2, buttonLabel: "Hard", grades: ["something", "hard"], keys: ["2", "rating2", "hard", "something"] },
-  { rating: 3, buttonLabel: "Good", grades: ["okay", "pass"], keys: ["3", "rating3", "good", "okay", "pass"] },
-  { rating: 4, buttonLabel: "Easy", grades: ["easy"], keys: ["4", "rating4", "easy"] }
-];
-const JITEN_REVIEW_INTERVAL_NUMERIC_KEYS = [
-  ["intervalSeconds", "seconds"],
-  ["nextIntervalSeconds", "seconds"],
-  ["nextReviewSeconds", "seconds"],
-  ["intervalMinutes", "minutes"],
-  ["nextIntervalMinutes", "minutes"],
-  ["nextReviewMinutes", "minutes"],
-  ["intervalHours", "hours"],
-  ["nextIntervalHours", "hours"],
-  ["nextReviewHours", "hours"],
-  ["intervalDays", "days"],
-  ["nextIntervalDays", "days"],
-  ["nextReviewDays", "days"],
-  ["intervalMonths", "months"],
-  ["nextIntervalMonths", "months"],
-  ["nextReviewMonths", "months"],
-  ["intervalYears", "years"],
-  ["nextIntervalYears", "years"],
-  ["nextReviewYears", "years"]
-];
-function jitenLookupKey(wordId, readingIndex) {
-  return `${wordId}:${readingIndex}`;
-}
-function isJitenAuthenticationError(error) {
-  return error instanceof JitenApiError && (error.status === 401 || error.status === 403);
-}
-async function fetchWithTimeout$1(fetchImpl, url, init, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-  return await fetchImpl(url, { ...init, signal: controller.signal });
-  } catch (error) {
-  if (isAbortError(error)) throw new JitenApiError("Jiten request timed out.");
-  throw error;
-  } finally {
-  globalThis.clearTimeout(timeoutId);
-  }
-}
-async function parseJitenResponse(response, authenticated) {
-  const text = await response.text();
-  const json = parseJson(text);
-  const errorMessage2 = jitenApplicationErrorMessage(json);
-  const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
-  if (errorMessage2) {
-  throw rejectedKey ? new JitenApiError("Jiten rejected the API key.", response.status) : new JitenApiError(errorMessage2, response.status);
-  }
-  if (!response.ok) throw new JitenApiError(jitenStatusMessage(response.status, authenticated), response.status);
-  return json;
-}
-function parseJitenPayload(payload) {
-  const errorMessage2 = jitenApplicationErrorMessage(payload);
-  if (errorMessage2) throw new JitenApiError(errorMessage2);
-  return payload;
-}
-function normalizeJitenRequestError(error, authenticated) {
-  if (error instanceof JitenApiError) return error;
-  const status = error instanceof Error ? statusFromMessage(error.message) : void 0;
-  if (status) return new JitenApiError(jitenStatusMessage(status, authenticated), status);
-  if (error instanceof Error && /timed out|abort/i.test(error.message)) return new JitenApiError("Jiten request timed out.");
-  return error instanceof Error ? error : new JitenApiError("Jiten request failed.");
-}
-function jitenStatusMessage(status, authenticated) {
-  return authenticated && (status === 401 || status === 403) ? "Jiten rejected the API key." : `Jiten request failed (${status}).`;
-}
-function statusFromMessage(message) {
-  const match = /\((\d{3})\)/.exec(message);
-  return match ? Number(match[1]) : void 0;
-}
-function parseJson(text) {
-  if (!text) return void 0;
-  try {
-  return JSON.parse(text);
-  } catch {
-  return void 0;
-  }
-}
-function jitenApplicationErrorMessage(value) {
-  if (!isJsonRecord$1(value)) return void 0;
-  const message = value.error_message;
-  return typeof message === "string" && message ? message : void 0;
-}
-function normalizeReaderStudyDecks(value) {
-  if (!Array.isArray(value)) throw new JitenApiError("Jiten reader study deck response was invalid.");
-  return value.map(normalizeReaderStudyDeck);
-}
-function normalizeReaderStudyDeck(value) {
-  if (!isJsonRecord$1(value)) throw new JitenApiError("Jiten reader study deck response was invalid.");
-  const { userStudyDeckId, name } = value;
-  if (typeof userStudyDeckId !== "number" || !Number.isFinite(userStudyDeckId) || typeof name !== "string") {
-  throw new JitenApiError("Jiten reader study deck response was invalid.");
-  }
-  return { userStudyDeckId, name };
-}
-function normalizeJitenStudyDeckId(value) {
-  const id = typeof value === "number" ? value : Number(value.trim());
-  if (!Number.isInteger(id) || id <= 0) throw new JitenApiError("Jiten study deck id was invalid.");
-  return id;
-}
-function finiteJitenInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) ? value : void 0;
-}
-function finiteJitenNumber(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
-}
-function isMissingJitenApiKeyError(error) {
-  return error instanceof JitenApiError && error.message === MISSING_API_KEY_MESSAGE;
-}
-function isJsonRecord$1(value) {
-  return Boolean(value && typeof value === "object");
-}
-function endpointUrl$1(baseUrl, endpoint, query) {
-  const base = (baseUrl?.trim() || JITEN_API_BASE_URL).replace(/\/+$/, "");
-  const url = `${base}/${endpoint}`;
-  const params = new URLSearchParams();
-  Object.entries(query ?? {}).forEach(([key, value]) => {
-  if (value === void 0 || value === null || value === "") return;
-  params.set(key, String(value));
-  });
-  const queryString2 = params.toString();
-  return queryString2 ? `${url}?${queryString2}` : url;
-}
 const RECOMMENDED_JAPANESE_DICTIONARIES = [
   {
   id: "jitendex",
@@ -27230,7 +27956,7 @@ class JitenPublicVocabularyClient {
   }));
   return result;
   }
-  async parse(paragraphs) {
+  async parse(paragraphs, options = {}) {
   const result = paragraphs.map(() => []);
   if (!paragraphs.length || this.isBackoffActive()) return result;
   const chunks = publicParseChunks(paragraphs);
@@ -27242,13 +27968,13 @@ class JitenPublicVocabularyClient {
     });
     applyPublicParseChunk(result, chunk, parsed, paragraphs);
   });
-  await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+  await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
   return result;
   }
   async hydrateCards(cards, options = {}) {
   const result = new Map();
   if (!cards.length || this.isBackoffActive()) return result;
-  const pending = [];
+  const pending2 = [];
   const seen = new Set();
   const limit = normalizedDetailLimit(options.detailLimit);
   const now = Date.now();
@@ -27264,9 +27990,9 @@ class JitenPublicVocabularyClient {
       this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
       continue;
     }
-    if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
+    if (pending2.length < limit) pending2.push({ key, word, requestedTerm: card.spelling || word.originalText });
   }
-  await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
+  await mapLimited(pending2, DETAIL_CONCURRENCY, async (item) => {
     const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
       this.noteFailure(error);
       logPublicJitenFailure("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
@@ -28644,9 +29370,9 @@ function isTestRuntime() {
   return typeof process !== "undefined" && (define_process_env_default?.VITEST === "true" || false);
 }
 function orderScheduledJpdbCards(cards) {
-  const scheduled = cards.filter(isScheduledJpdbStudyCard);
-  const withDue = scheduled.filter((card) => typeof card.dueAt === "number");
-  const withoutDue = scheduled.filter((card) => typeof card.dueAt !== "number");
+  const scheduled2 = cards.filter(isScheduledJpdbStudyCard);
+  const withDue = scheduled2.filter((card) => typeof card.dueAt === "number");
+  const withoutDue = scheduled2.filter((card) => typeof card.dueAt !== "number");
   withDue.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
   return [...withDue, ...withoutDue];
 }
@@ -28866,23 +29592,28 @@ function requestText$1(url, proxyUrl = "") {
   });
 }
 function isPageEnhancementHost() {
-  return isJpdbHost() || isJitenHost();
+  return isJpdbHost() || isJitenHost() || isBunproHost();
 }
 function isPageEnhancementReady() {
   if (isJpdbHost()) return true;
+  if (isBunproHost()) return isBunproEnhanceablePage();
   return isJitenHost() && isJitenEnhanceablePage();
 }
 function isCurrentKanjiSurface() {
+  if (isBunproHost()) return false;
   if (isJitenHost()) return isJitenKanjiPage();
   return isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack();
 }
 function currentPageKanji() {
+  if (isBunproHost()) return "";
   return isJitenHost() ? extractCurrentJitenKanji() : extractCurrentKanji();
 }
 function currentPageTermTarget() {
+  if (isBunproHost()) return currentBunproTermTarget();
   return isJitenHost() ? currentJitenTermTarget() : currentJpdbTermTarget();
 }
 function currentPageLocalDictionaryTargets() {
+  if (isBunproHost()) return currentBunproLocalDictionaryTargets();
   return isJitenHost() ? currentJitenLocalDictionaryTargets() : currentLocalDictionaryTargets();
 }
 function vocabularyRoot(doc, spelling, reading) {
@@ -29958,6 +30689,7 @@ const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
   "[data-yomu-jpdb-addon] [data-action]",
   "[data-settings-preview-lookup]",
   ".jpdb-reader-settings .jpdb-reader-word",
+  "[data-jpdb-reader-root] .jpdb-reader-example-translation",
   ".jpdb-reader-onboarding"
 ].join(",");
 const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
@@ -30336,7 +31068,7 @@ function allowsFrequentVisibleAutoScan() {
   return true;
 }
 function isYouTubeHostname(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = false) {
   return {
@@ -30367,7 +31099,7 @@ function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequen
   return Math.max(delay2, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
 }
 function isYouTubeHostForAutoScan(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function hasPressLookupEnabled(settings) {
   return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover);
@@ -32021,12 +32753,12 @@ function findMokuroOcrToggleInputs(root) {
 function watchMokuroOcrToggle(onChange) {
   if (typeof document === "undefined" || typeof window === "undefined" || !isMokuroReaderHost()) return () => void 0;
   let last = mokuroDisplayOcrEnabled();
-  let scheduled = false;
+  let scheduled2 = false;
   let disposed = false;
   let scheduledFrame = 0;
   const fireIfChanged = () => {
   if (disposed) return;
-  scheduled = false;
+  scheduled2 = false;
   scheduledFrame = 0;
   const next = mokuroDisplayOcrEnabled();
   if (next === last) return;
@@ -32034,8 +32766,8 @@ function watchMokuroOcrToggle(onChange) {
   onChange(next);
   };
   const schedule = () => {
-  if (disposed || scheduled) return;
-  scheduled = true;
+  if (disposed || scheduled2) return;
+  scheduled2 = true;
   scheduledFrame = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => window.setTimeout(cb, 16))(fireIfChanged);
   };
   const bindToggleInputs = () => {
@@ -32071,14 +32803,14 @@ function watchMokuroOcrToggle(onChange) {
 }
 function installMokuroOcrToggleNote() {
   if (typeof document === "undefined" || !isMokuroReaderHost()) return;
-  let scheduled = false;
+  let scheduled2 = false;
   const run = () => {
-  scheduled = false;
+  scheduled2 = false;
   injectMokuroToggleNote(document);
   };
   const schedule = () => {
-  if (scheduled) return;
-  scheduled = true;
+  if (scheduled2) return;
+  scheduled2 = true;
   (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(run);
   };
   run();
@@ -32532,10 +33264,29 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
   "[data-settings-panel]",
   SETTINGS_CHROME_PARSE_ROOT_SELECTOR
 ].join(",");
-function nestedTextParsePlan(root, limit) {
-  const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+function nestedTextParsePlan(root, limit, options = {}) {
+  const discoveredRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
+  const parseRoots = options.excludeProviderExamples ? discoveredRoots.filter((parseRoot) => !parseRoot.matches("[data-provider-example-sentence]")) : discoveredRoots;
   const renderedParseKey = renderedNestedParseKey(parseRoots);
   if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
+  normalizePartiallyParsedRoots(root, parseRoots);
+  const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  includeReaderRoot: true,
+  allowUiText: true,
+  includePassiveInteractions: true,
+  heading: true,
+  minLength: 1,
+  readerRootPassiveInteractions: true,
+  parseSurfaceIgnoredRoot: true
+  })).slice(0, limit);
+  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+function providerExamplePriority(parseRoot) {
+  return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
+}
+function providerExampleTextParsePlan(root, limit) {
+  const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
+  if (!parseRoots.length) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
   const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
@@ -32923,6 +33674,9 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
   word.replaceChildren(ruby);
   word.classList.add("jpdb-reader-has-furi");
   }
+}
+async function translateJapaneseSentence(sentence, language = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
 }
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
@@ -33572,541 +34326,41 @@ function recolorRenderedAnkiWordsFromCache(options) {
   const promise = options.recolorRenderedAnkiWordsFromCache();
   if (options.onRecolorError) void promise.catch(options.onRecolorError);
 }
-function cssColorToHex(value, backdrop) {
-  const color = cssColorToRgba(value);
-  if (!color) return null;
-  if (color.alpha >= 1) return rgbaToHex(color);
-  return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
-}
-function cssColorToRgba(value) {
-  const color = value.trim().toLowerCase();
-  if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-  if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
-  if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
-  if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
-  if (color.startsWith("oklab(")) return parseOklabFunction(color);
-  if (color.startsWith("oklch(")) return parseOklchFunction(color);
-  return probeCssColor(color);
-}
-const probedColors = new Map();
-let probeContext;
-function probeCssColor(color) {
-  const cached = probedColors.get(color);
-  if (cached !== void 0) return cached;
-  if (probeContext === void 0) {
-  try {
-    probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
-  } catch {
-    probeContext = null;
-  }
-  }
-  let parsed = null;
-  if (probeContext) {
-  try {
-    probeContext.fillStyle = "#010203";
-    probeContext.fillStyle = color;
-    const serialized = String(probeContext.fillStyle).toLowerCase();
-    if (serialized !== "#010203") {
-      if (serialized.startsWith("#")) {
-        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
-        parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
-      } else if (serialized.startsWith("rgb")) {
-        parsed = parseRgbFunction(serialized);
-      } else if (serialized.startsWith("color(srgb ")) {
-        parsed = parseSrgbFunction(serialized);
-      }
-      if (!parsed) parsed = probePixelColor(probeContext, color);
-    }
-  } catch {
-    parsed = null;
-  }
-  }
-  if (probedColors.size > 512) probedColors.clear();
-  probedColors.set(color, parsed);
-  return parsed;
-}
-function probePixelColor(context, color) {
-  try {
-  context.canvas.width = 1;
-  context.canvas.height = 1;
-  context.clearRect(0, 0, 1, 1);
-  context.fillStyle = color;
-  context.fillRect(0, 0, 1, 1);
-  const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
-  return { red, green, blue, alpha: alphaByte / 255 };
-  } catch {
-  return null;
-  }
-}
-function blendRgba(foreground, background) {
-  const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
-  if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
-  const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
-  return {
-  red: channel(foreground.red, background.red),
-  green: channel(foreground.green, background.green),
-  blue: channel(foreground.blue, background.blue),
-  alpha
-  };
-}
-function rgbaToHex(color) {
-  return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
-}
-function expandHexColor(value) {
-  return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
-}
-function hexToRgbaColor(color) {
-  const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
-  return { red, green, blue, alpha: 1 };
-}
-function parseRgbFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return {
-  red: parseRgbChannel(parts[0]),
-  green: parseRgbChannel(parts[1]),
-  blue: parseRgbChannel(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  };
-}
-function parseSrgbFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return {
-  red: parseSrgbChannel(parts[0]),
-  green: parseSrgbChannel(parts[1]),
-  blue: parseSrgbChannel(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  };
-}
-function parseOklabFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return oklabToRgba({
-  lightness: parseOklabLightness(parts[0]),
-  a: parseOklabAxis(parts[1]),
-  b: parseOklabAxis(parts[2]),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  });
-}
-function parseOklchFunction(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  const chroma = parseOklabAxis(parts[1]);
-  const hue = Number.parseFloat(parts[2]) * Math.PI / 180;
-  return oklabToRgba({
-  lightness: parseOklabLightness(parts[0]),
-  a: chroma * Math.cos(hue),
-  b: chroma * Math.sin(hue),
-  alpha: parts[3] ? parseAlpha(parts[3]) : 1
-  });
-}
-function colorFunctionNumbers(value) {
-  return value.match(/-?\d*\.?\d+%?/g) ?? [];
-}
-function parseRgbChannel(value) {
-  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
-}
-function parseSrgbChannel(value) {
-  return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
-}
-function parseOklabLightness(value) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return value.endsWith("%") ? parsed / 100 : parsed;
-}
-function parseOklabAxis(value) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return value.endsWith("%") ? parsed / 100 : parsed;
-}
-function oklabToRgba(color) {
-  const l = color.lightness + 0.3963377774 * color.a + 0.2158037573 * color.b;
-  const m = color.lightness - 0.1055613458 * color.a - 0.0638541728 * color.b;
-  const s = color.lightness - 0.0894841775 * color.a - 1.291485548 * color.b;
-  const long = l ** 3;
-  const medium = m ** 3;
-  const short = s ** 3;
-  return {
-  red: linearSrgbToChannel(4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short),
-  green: linearSrgbToChannel(-1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short),
-  blue: linearSrgbToChannel(-0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short),
-  alpha: color.alpha
-  };
-}
-function linearSrgbToChannel(value) {
-  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-  return clampChannel(channel * 255);
-}
-function parseAlpha(value) {
-  const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
-  return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
-}
-function clampChannel(value) {
-  return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
-}
-function readableOn(color, background, targetContrast) {
-  const safe = sanitizeAccentColor(color);
-  if (contrastRatio(safe, background) >= targetContrast) return safe;
-  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-  for (let amount = 0.08; amount <= 1; amount += 0.08) {
-  const mixed = mixHex(safe, toward, amount);
-  if (contrastRatio(mixed, background) >= targetContrast) return mixed;
-  }
-  return toward;
-}
-function readableOnAll(color, backgrounds, targetContrast) {
-  const safe = sanitizeAccentColor(color);
-  if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
-  const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
-  if (candidates[0]) return candidates[0].color;
-  return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
-}
-function contrastRatio(a, b) {
-  return sharedContrastRatio(a, b, sanitizeAccentColor);
-}
-function mixHex(from, to, amount) {
-  return sharedMixHex(from, to, amount, sanitizeAccentColor);
-}
-function isHexColor(value) {
-  return /^#[0-9a-f]{6}$/i.test(value);
-}
-function closestReadableMix(color, toward, backgrounds, targetContrast) {
-  for (let amount = 0.04; amount <= 1; amount += 0.04) {
-  const mixed = mixHex(color, toward, amount);
-  const contrast = minContrast(mixed, backgrounds);
-  if (contrast >= targetContrast) return { color: mixed, amount, contrast };
-  }
-  return null;
-}
-function minContrast(color, backgrounds) {
-  return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
-}
-const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
-const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
-const TEXT_CONTRAST = 4.5;
-const DECORATION_CONTRAST = 3;
-const HIGHLIGHT_CONTRAST = 1.45;
-const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
-const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
-const COLORED_READER_WORD_CLASSES = new Set([
-  "jpdb-new",
-  "jpdb-in-deck",
-  "jpdb-learning",
-  "jpdb-known",
-  "jpdb-never-forget",
-  "jpdb-redundant",
-  "jpdb-due",
-  "jpdb-failed",
-  "jpdb-suspended",
-  "jpdb-blacklisted",
-  "jpdb-locked",
-  "anki-new",
-  "anki-learning",
-  "anki-known",
-  "anki-due",
-  "anki-failed",
-  "anki-suspended",
-  "jpdb-pitch-heiban",
-  "jpdb-pitch-atamadaka",
-  "jpdb-pitch-nakadaka",
-  "jpdb-pitch-odaka"
-]);
-const pendingHoverContrastRefresh = new WeakSet();
-const appliedContrastState = new WeakMap();
-function refreshReaderWordContrast(root = document) {
-  const words = readerWords(root);
-  const activeWords = [];
-  const activeBackgrounds = [];
-  const unknownBackgroundWords = [];
-  const neutralWords = [];
-  const backgroundByParent = new Map();
-  const cachedPageBackgroundFor = (word) => {
-  const parent = word.parentElement;
-  if (!parent) return pageBackgroundFor(word);
-  if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-  const background = pageBackgroundFor(word);
-  backgroundByParent.set(parent, background);
-  return background;
-  };
-  for (const word of words) {
-  const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
-  const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
-  if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
-    delete word.dataset.ankiPreserveContrast;
-    continue;
-  }
-  if (word.closest(YOMU_SURFACE_SELECTOR)) {
-    neutralWords.push(word);
-    continue;
-  }
-  if (isNeutralReaderWord(word)) {
-    neutralWords.push(word);
-    continue;
-  }
-  const background = cachedPageBackgroundFor(word);
-  if (!background) {
-    if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
-    unknownBackgroundWords.push(word);
-    continue;
-  }
-  const isHovered = word.matches(":hover, :focus");
-  const previous = appliedContrastState.get(word);
-  const parentColor = getComputedStyle(word.parentElement ?? word).color;
-  if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
-    continue;
-  }
-  if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-    scheduleHoverSettledContrastRefresh(word);
-    continue;
-  }
-  if (isHovered) {
-    scheduleHoverSettledContrastRefresh(word);
-  }
-  activeWords.push(word);
-  activeBackgrounds.push(background);
-  }
-  const savedVars = activeWords.map((word, i) => {
-  const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
-    name,
-    value: word.style.getPropertyValue(name),
-    priority: word.style.getPropertyPriority(name)
-  }));
-  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-  word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i].css);
-  return saved;
-  });
-  const measurements = activeWords.map((word) => {
-  const style = getComputedStyle(word);
-  const parentStyle = getComputedStyle(word.parentElement ?? word);
-  return {
-    bg: style.backgroundColor,
-    hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
-    fg: style.color,
-    deco: measuredWordDecorationColor(style),
-    parentFg: parentStyle.color,
-    hover: style.getPropertyValue("--jpdb-reader-hover"),
-    hovered: word.matches(":hover, :focus")
-  };
-  });
-  neutralWords.forEach((word) => clearContrastVars(word));
-  unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
-  activeWords.forEach((word, i) => {
-  savedVars[i].forEach(({ name, value, priority: priority2 }) => {
-    if (value) word.style.setProperty(name, value, priority2);
-  });
-  applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
-  appliedContrastState.set(word, {
-    background: activeBackgrounds[i].css,
-    className: word.className,
-    cssText: word.style.cssText,
-    hovered: measurements[i].hovered,
-    parentColor: measurements[i].parentFg
-  });
-  });
-}
-function measuredWordDecorationColor(style) {
-  const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
-  if (underline && !underline.includes("var(")) return underline;
-  const source = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
-  return source || underline || style.textDecorationColor;
-}
-function applyWordContrastVars(word, background, m) {
-  word.style.setProperty("--jpdb-reader-page-bg", background.css);
-  word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
-  word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-  const passiveWord = word.classList.contains("jpdb-reader-passive-word");
-  const preserveHostPaint = isPassiveChromeWord(word);
-  const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
-  const accessibleHex = rgbaToHex(accessibleRgba);
-  const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
-  const sourceText = cssColorToHex(m.fg, accessibleRgba);
-  const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
-  const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-  const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
-  const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
-  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-  if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
-  else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-}
-function isPassiveChromeWord(word) {
-  return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
-}
-function uniqueHexes(colors) {
-  return [...new Set(colors)];
-}
-function textBackdropsForMeasurement(m, textBackdropHex) {
-  const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
-  return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
-}
-function existingAccessibleColorRemainsReadableOnHover(word, background) {
-  const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
-  if (!existingText) return false;
-  const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
-  const baseBackdrop = existingHighlight ?? background.hex;
-  const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
-  return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
-}
-function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
-  if (!hovered) return null;
-  const hover = cssColorToRgba(hoverColor);
-  const backdrop = cssColorToRgba(textBackdropHex);
-  if (!hover || !backdrop || hover.alpha <= 0) return null;
-  return rgbaToHex(blendRgba(hover, backdrop));
-}
-function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
-  const colorRgba = cssColorToRgba(wordBgColor);
-  const hasPaint = !!colorRgba?.alpha;
-  const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
-  const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
-  if (hasPaint && !preserveHostPaint) {
-  const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
-  word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
-  return cssColorToRgba(highlightHex) ?? rgba;
-  }
-  word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-  return rgba;
-}
-function paintRgba(value, el) {
-  const direct = cssColorToRgba(value);
-  if (direct) return direct;
-  const probe = el.appendChild(document.createElement("span"));
-  probe.style.color = value;
-  const rgba = cssColorToRgba(getComputedStyle(probe).color);
-  probe.remove();
-  return rgba;
-}
-function resolveDecorationHex(word, decorationColor, accessibleRgba) {
-  const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
-  return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
-}
-function refreshReaderWordContrastForWord(word) {
-  refreshReaderWordContrast(word.parentElement ?? word);
-}
-function refreshContrastForChangedWords(words) {
-  const lines = new Set();
-  for (const word of words) {
-  if (word.isConnected) lines.add(word.parentElement ?? word);
-  }
-  lines.forEach((line) => refreshReaderWordContrast(line));
-}
-function isNeutralReaderWord(word) {
-  if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
-  return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
-}
-function scheduleHoverSettledContrastRefresh(word) {
-  if (pendingHoverContrastRefresh.has(word)) return;
-  pendingHoverContrastRefresh.add(word);
-  window.setTimeout(() => {
-  pendingHoverContrastRefresh.delete(word);
-  if (!word.isConnected) return;
-  refreshReaderWordContrastForWord(word);
-  }, 120);
-}
-function readerWords(root) {
-  const words = new Set();
-  if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
-  root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
-  return [...words];
-}
-function pageBackgroundFor(word) {
-  const ancestors = [];
-  for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
-  let found = false;
-  let hasImageBackdrop = false;
-  let unknownBase = false;
-  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-  for (const element of ancestors.reverse()) {
-  const style = getComputedStyle(element);
-  hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-  const color = cssColorToRgba(style.backgroundColor);
-  if (!color) {
-    unknownBase = true;
-    continue;
-  }
-  if (color.alpha <= 0) continue;
-  if (color.alpha >= 1) unknownBase = false;
-  rgba = blendRgba(color, rgba);
-  found = true;
-  }
-  if (unknownBase || !found) {
-  if (hasImageBackdrop) return null;
-  return inferredTransparentPageBackground(word);
-  }
-  return pageBackgroundFromRgba(rgba);
-}
-function inferredTransparentPageBackground(word) {
-  const style = getComputedStyle(word.parentElement ?? word);
-  const rootStyle = getComputedStyle(document.documentElement);
-  const bodyStyle = getComputedStyle(document.body);
-  const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-  if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-  const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-  if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-  return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-  }
-  return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-}
-function documentBackgroundLooksDark() {
-  if (typeof document === "undefined" || !document.body) return false;
-  let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-  let found = false;
-  for (const element of [document.documentElement, document.body]) {
-  const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
-  if (!color || color.alpha <= 0) continue;
-  rgba = blendRgba(color, rgba);
-  found = true;
-  }
-  const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
-  return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
-}
-function pageBackgroundFromCss(color) {
-  return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-}
-function pageBackgroundFromRgba(rgba) {
-  const hex = rgbaToHex(rgba);
-  return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-}
-function bestTextColor(background) {
-  return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-}
-function readableHighlightBackground(color, background) {
-  if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
-  const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
-  for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
-  const mixed = mixHex(color, toward, amount);
-  if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
-  }
-  return color;
-}
-function applyUnknownBackgroundFallback(word) {
-  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
-  word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
-}
-function clearContrastVars(word) {
-  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-}
-function canonicalStudyCardIdentity(expression, reading = "") {
-  const normalizedExpression = expression.normalize("NFKC").trim();
-  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
-  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
-  return {
-  key: `${normalizedExpression}\0${normalizedReading}`,
-  expression: normalizedExpression,
-  reading: normalizedReading
-  };
-}
 function normalizeStoredYomuSrsDeck(value) {
-  if (!isRecord$3(value) || value.version !== 1 || !isRecord$3(value.cards)) return { version: 1, cards: {} };
+  if (!isRecord$4(value) || value.version !== 1 || !isRecord$4(value.cards)) return { version: 1, cards: {} };
   const cards = {};
   for (const candidate of Object.values(value.cards)) {
   const normalized = normalizeStoredCard(candidate);
   if (!normalized) continue;
   cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
   }
-  return { version: 1, cards };
+  const tombstones = {};
+  if (isRecord$4(value.tombstones)) {
+  for (const [id, timestamp] of Object.entries(value.tombstones)) {
+    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+    const card = cards[id];
+    if (card && card.updatedAt > timestamp) continue;
+    delete cards[id];
+    tombstones[id] = timestamp;
+  }
+  }
+  return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+}
+function mergeStoredYomuSrsDecks(leftValue, rightValue) {
+  const left = normalizeStoredYomuSrsDeck(leftValue);
+  const right = normalizeStoredYomuSrsDeck(rightValue);
+  const cards = { ...left.cards };
+  const tombstones = { ...left.tombstones ?? {} };
+  for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
+  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
+  }
+  for (const [id, incoming] of Object.entries(right.cards)) {
+  const tombstone = tombstones[id];
+  if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
+  if (tombstone !== void 0) delete tombstones[id];
+  cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id], incoming) : incoming;
+  }
+  return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
 }
 function mergeStoredYomuSrsCards(existing, incoming) {
   const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
@@ -34192,6 +34446,7 @@ function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
   const remaining = Object.keys(academyProvenance).length;
   if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
   delete deck.cards[card.id];
+  deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
   return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
   }
   const updated = {
@@ -34205,7 +34460,7 @@ function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
   return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
 }
 function normalizeStoredCard(value) {
-  if (!isRecord$3(value) || typeof value.expression !== "string") return null;
+  if (!isRecord$4(value) || typeof value.expression !== "string") return null;
   let identity;
   try {
   identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -34260,10 +34515,10 @@ function normalizeProvenance(value, addedAt) {
   };
 }
 function normalizeProvenanceRecord(value, fallbackAt) {
-  if (!isRecord$3(value)) return {};
+  if (!isRecord$4(value)) return {};
   const result = {};
   for (const candidate of Object.values(value)) {
-  if (!isRecord$3(candidate)) continue;
+  if (!isRecord$4(candidate)) continue;
   try {
     const normalized = normalizeProvenance({
       id: String(candidate.id ?? ""),
@@ -34310,6 +34565,11 @@ function nonNegativeInteger(value) {
 }
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
 let localDeckMutation = Promise.resolve();
+const localDeckMutationListeners = new Set();
+function subscribeLocalYomuSrsMutations(listener) {
+  localDeckMutationListeners.add(listener);
+  return () => localDeckMutationListeners.delete(listener);
+}
 class LocalYomuSrsRepository {
   constructor(now = () => Date.now()) {
   this.now = now;
@@ -34404,32 +34664,69 @@ class LocalYomuSrsRepository {
     }
   };
   }
+  /** Read the normalized encrypted-sync payload without exposing the storage key. */
+  async snapshot() {
+  return structuredClone(await this.readDeck());
+  }
+  /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+  async mergeSnapshot(value, options = {}) {
+  return this.mutateDeck((deck) => {
+    const merged = mergeStoredYomuSrsDecks(deck, value);
+    deck.cards = merged.cards;
+    deck.tombstones = merged.tombstones;
+    return structuredClone(merged);
+  }, options.notifyMutations !== false);
+  }
+  /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+  async lookupCards(items) {
+  const now = this.now();
+  const deck = await this.readDeck();
+  const cards = new Map();
+  for (const item of items) {
+    try {
+      const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+      const stored = deck.cards[identity.key];
+      if (stored) cards.set(identity.key, this.toReviewable(stored, now));
+    } catch {
+    }
+  }
+  return [...cards.values()];
+  }
   async review(request) {
   return this.mutateDeck((deck) => {
     const now = this.now();
     const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
     const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
     const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
-    if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+    if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
+      delete deck.cards[request.card.providerCardId];
+      deck.tombstones = { ...deck.tombstones ?? {}, [request.card.providerCardId]: now };
+    }
     deck.cards[identity.key] = updated;
+    if ((deck.tombstones?.[identity.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity.key];
     return { card: this.toReviewable(updated, now), raw: updated };
   });
   }
   async mine(request) {
-  const now = this.now();
-  const card = reviewableFromMiningRequest(request, now);
-  const raw = await this.importBatch({
-    source: "manual-mining",
-    importedAt: now,
-    items: [{
-      expression: card.expression,
-      reading: card.reading,
-      meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const candidate = this.cardFromImportItem({
+      expression: request.expression,
+      reading: request.reading,
+      meanings: request.meaning ? [request.meaning] : [],
       sentence: request.sentence,
       sourceUrl: request.sourceUrl
-    }]
+    }, now);
+    if (!candidate) throw new TypeError("Vocabulary expression is required.");
+    const existing = deck.cards[candidate.id];
+    const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+    deck.cards[candidate.id] = stored;
+    if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
+    return {
+      card: this.toReviewable(stored, now),
+      raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
+    };
   });
-  return { card, raw };
   }
   readDeck() {
   const result = localDeckMutation.then(() => this.readDeckUncoordinated());
@@ -34443,13 +34740,30 @@ class LocalYomuSrsRepository {
   writeDeck(deck) {
   return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
   }
-  mutateDeck(operation) {
-  const result = localDeckMutation.then(async () => {
+  mutateDeck(operation, notifyMutations = true) {
+  const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
     const deck = await this.readDeckUncoordinated();
+    const previousCards = new Map(Object.entries(deck.cards));
+    const previousTombstones = { ...deck.tombstones ?? {} };
     const value = operation(deck);
-    await this.writeDeck(deck);
+    await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+    const changedCardIds = new Set([
+      ...previousCards.keys(),
+      ...Object.keys(deck.cards),
+      ...Object.keys(previousTombstones),
+      ...Object.keys(deck.tombstones ?? {})
+    ]);
+    const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
+    if (notifyMutations) {
+      localDeckMutationListeners.forEach((listener) => {
+        try {
+          listener(changed);
+        } catch {
+        }
+      });
+    }
     return value;
-  });
+  }));
   localDeckMutation = result.then(() => void 0, () => void 0);
   return result;
   }
@@ -34523,6 +34837,11 @@ class LocalYomuSrsRepository {
   };
   }
 }
+function sameStoredCard(left, right) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   return {
   id: "yomu-local",
@@ -34534,6 +34853,7 @@ function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   queue: (limit) => repository.queue(limit),
   review: (request) => repository.review(request),
   mine: (request) => repository.mine(request),
+  lookupCards: (items) => repository.lookupCards(items),
   importBatch: (batch) => repository.importBatch(batch)
   };
 }
@@ -34562,22 +34882,6 @@ function easeDelta(grade) {
   if (grade === "nothing" || grade === "something" || grade === "fail" || grade === "again") return -0.25;
   return 0;
 }
-function reviewableFromMiningRequest(request, now) {
-  const identity = canonicalStudyCardIdentity(request.expression, request.reading);
-  return {
-  providerId: "yomu-local",
-  providerCardId: identity.key,
-  providerReviewId: identity.key,
-  kind: request.kind ?? "vocabulary",
-  expression: identity.expression,
-  reading: identity.reading,
-  meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
-  state: ["new"],
-  dueAt: now,
-  lastReviewAt: null,
-  sourceUrl: request.sourceUrl
-  };
-}
 function meaningsFromGlosses(glosses) {
   const normalized = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
   return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
@@ -34602,6 +34906,369 @@ function startOfLocalDay(now) {
 function normalizedQueueLimit(limit) {
   if (Number.isNaN(limit) || limit <= 0) return 0;
   return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
+}
+async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
+  if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
+  const plaintext = new TextEncoder().encode(JSON.stringify(value));
+  const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const digest = new Uint8Array(await crypto.subtle.sign(
+  "HMAC",
+  hmacKey,
+  cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
+  ));
+  const id = toBase64Url(digest);
+  const nonce = digest.slice(0, 12);
+  const ciphertext = await aesEncrypt(
+  fromBase64Url(key),
+  nonce,
+  plaintext,
+  profileEventAdditionalData(purpose, id, occurredAt, keyVersion)
+  );
+  return { id, occurredAt, keyVersion, nonce: toBase64Url(nonce), ciphertext: toBase64Url(ciphertext) };
+}
+async function decryptProfileEvent(key, purpose, envelope) {
+  const plaintext = await aesDecrypt(
+  fromBase64Url(key),
+  fromBase64Url(envelope.nonce),
+  fromBase64Url(envelope.ciphertext),
+  profileEventAdditionalData(purpose, envelope.id, envelope.occurredAt, envelope.keyVersion)
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+function profileEventAdditionalData(purpose, id, occurredAt, keyVersion) {
+  if (!/^[a-z0-9-]{1,64}$/u.test(purpose) || !/^[A-Za-z0-9_-]{43}$/u.test(id)) {
+  throw new TypeError("Profile event purpose or id is invalid.");
+  }
+  return new TextEncoder().encode(`profile-event:${purpose}:${id}:${occurredAt}:v${keyVersion}`);
+}
+async function aesEncrypt(key, nonce, plaintext, additionalData) {
+  const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["encrypt"]);
+  return new Uint8Array(await crypto.subtle.encrypt(
+  { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+  cryptoKey,
+  cryptoBuffer(plaintext)
+  ));
+}
+async function aesDecrypt(key, nonce, ciphertext, additionalData) {
+  const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["decrypt"]);
+  return new Uint8Array(await crypto.subtle.decrypt(
+  { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+  cryptoKey,
+  cryptoBuffer(ciphertext)
+  ));
+}
+function toBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+  binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+function fromBase64Url(value) {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+}
+function cryptoBuffer(bytes) {
+  return bytes.slice().buffer;
+}
+async function requestPrivateApi(url, init = {}) {
+  let userscriptRequest = getUserscriptHttpRequest();
+  if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) userscriptRequest = void 0;
+  if (userscriptRequest) return requestViaUserscript(userscriptRequest, url, init);
+  return fetch(url, {
+  ...init,
+  credentials: "omit",
+  referrerPolicy: "no-referrer",
+  cache: "no-store"
+  });
+}
+function requestViaUserscript(request, url, init) {
+  return new Promise((resolve, reject) => {
+  const headers = new Headers(init.headers);
+  const details = {
+    method: init.method ?? "GET",
+    url,
+    headers: Object.fromEntries(headers.entries()),
+    data: typeof init.body === "string" ? init.body : void 0,
+    responseType: "text",
+    anonymous: true,
+    withCredentials: false,
+    onload: (response) => resolve(new Response(
+      String(response.responseText ?? response.response ?? ""),
+      { status: response.status }
+    )),
+    onerror: (error) => reject(error instanceof Error ? error : new Error("Reader account request failed.")),
+    ontimeout: () => reject(new Error("Reader account request timed out."))
+  };
+  try {
+    const result = request(details);
+    if (result && typeof result.then === "function") {
+      result.then(details.onload, details.onerror);
+    }
+  } catch (error) {
+    reject(error);
+  }
+  });
+}
+const API_ORIGIN = "https://yomureader.com";
+const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
+const EVENT_PURPOSE = "reader-srs-event";
+const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v1";
+const PUSH_BATCH_SIZE = 20;
+let pending = Promise.resolve(void 0);
+let scheduled = false;
+let reconnectInstalled = false;
+function scheduleAcademyReaderSrsSync() {
+  if (scheduled) return;
+  scheduled = true;
+  setTimeout(() => {
+  scheduled = false;
+  void syncAcademyReaderSrs().catch(() => void 0);
+  }, 0);
+}
+function installAcademyReaderSrsSync() {
+  if (reconnectInstalled || typeof window === "undefined") return;
+  reconnectInstalled = true;
+  const reconcileAndSchedule = () => {
+  void enqueue(markFullSeed).finally(scheduleAcademyReaderSrsSync);
+  };
+  reconcileAndSchedule();
+  subscribeLocalYomuSrsMutations((cardIds) => {
+  void enqueue(() => markDirtyCards(cardIds));
+  scheduleAcademyReaderSrsSync();
+  });
+  subscribeToStoredValueChanges(LOCAL_DECK_STORAGE_KEY, reconcileAndSchedule);
+  window.addEventListener("online", scheduleAcademyReaderSrsSync);
+  document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleAcademyReaderSrsSync();
+  });
+}
+async function markFullSeed() {
+  const state = await loadDeviceState();
+  if (!state || state.needsFullSeed) return;
+  await saveDeviceState({ ...state, needsFullSeed: true });
+}
+function syncAcademyReaderSrs(repository = new LocalYomuSrsRepository()) {
+  return enqueue(() => syncAcademyReaderSrsNow(repository));
+}
+async function syncAcademyReaderSrsNow(repository = new LocalYomuSrsRepository()) {
+  let state = await loadDeviceState();
+  if (!state) return { connected: false, displayName: "", lastSyncAt: null, error: null };
+  const changed = new Map();
+  state = await pullRemoteEvents(state, repository, changed);
+  state = await pushLocalEvents(state, await repository.snapshot());
+  state = await pullRemoteEvents(state, repository, changed);
+  state = { ...state, lastSyncAt: Date.now() };
+  await saveDeviceState(state);
+  await publishChangedCards(repository, changed);
+  return statusFromState(state);
+}
+async function pullRemoteEvents(initial, repository, changed) {
+  let state = initial;
+  let hasMore = true;
+  while (hasMore) {
+  const response = await deviceRequest(`/academy/api/device/srs/pull?cursor=${state.cursor}&limit=200`, state);
+  if (!response.ok) throw await responseError(response);
+  const page = parseRemoteEventPage(await response.json(), state.keyVersion);
+  const synced = { ...state.syncedEventByCard };
+  const latestEnvelopeByCard = new Map();
+  let pageDeck = { version: 1, cards: {}, tombstones: {} };
+  for (const envelope of page.events) {
+    const event = parseReaderDeckEvent(await decryptProfileEvent(state.key, EVENT_PURPOSE, envelope));
+    if (event.kind === "card") {
+      pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+        version: 1,
+        cards: { [event.card.id]: event.card }
+      });
+      changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
+      synced[event.card.id] = envelope.id;
+      latestEnvelopeByCard.set(event.card.id, envelope);
+    } else {
+      pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
+        version: 1,
+        cards: {},
+        tombstones: { [event.id]: event.deletedAt }
+      });
+      changed.set(event.id, { expression: event.expression, reading: event.reading });
+      synced[event.id] = envelope.id;
+      latestEnvelopeByCard.set(event.id, envelope);
+    }
+  }
+  const merged = page.events.length ? await repository.mergeSnapshot(pageDeck, { notifyMutations: false }) : await repository.snapshot();
+  const mergedEventByCard = new Map(deckEvents(merged).map((item) => [item.cardId, item]));
+  const dirty = new Set(state.dirtyCardIds);
+  for (const [cardId, remoteEnvelope] of latestEnvelopeByCard) {
+    const localEvent = mergedEventByCard.get(cardId);
+    if (!localEvent) {
+      dirty.add(cardId);
+      continue;
+    }
+    const localEnvelope = await encryptProfileEvent(
+      state.key,
+      state.keyVersion,
+      EVENT_PURPOSE,
+      localEvent.event,
+      localEvent.occurredAt
+    );
+    if (localEnvelope.id === remoteEnvelope.id) dirty.delete(cardId);
+    else dirty.add(cardId);
+  }
+  state = { ...state, cursor: page.nextCursor, syncedEventByCard: synced, dirtyCardIds: [...dirty] };
+  await saveDeviceState(state);
+  hasMore = page.hasMore;
+  }
+  return state;
+}
+async function pushLocalEvents(state, deck) {
+  const pendingIds = state.needsFullSeed ? new Set([...Object.keys(deck.cards), ...Object.keys(deck.tombstones ?? {})]) : new Set(state.dirtyCardIds);
+  const candidates = await Promise.all(deckEvents(deck).filter((item) => pendingIds.has(item.cardId)).map(async (item) => ({
+  cardId: item.cardId,
+  envelope: await encryptProfileEvent(state.key, state.keyVersion, EVENT_PURPOSE, item.event, item.occurredAt)
+  })));
+  const unsynced = candidates.filter((item) => state.syncedEventByCard[item.cardId] !== item.envelope.id);
+  let next = state;
+  for (const batch of eventBatches(unsynced)) {
+  const response = await deviceRequest("/academy/api/device/srs/push", next, {
+    method: "POST",
+    body: JSON.stringify({ events: batch.map((item) => item.envelope) })
+  });
+  if (!response.ok) throw await responseError(response);
+  const body = await response.json();
+  if (body.accepted !== batch.length || !Array.isArray(body.conflicts) || body.conflicts.length) {
+    throw new Error("Reader SRS event push was not accepted.");
+  }
+  const synced = { ...next.syncedEventByCard };
+  batch.forEach((item) => {
+    synced[item.cardId] = item.envelope.id;
+  });
+  const acceptedIds = new Set(batch.map((item) => item.cardId));
+  next = { ...next, syncedEventByCard: synced, dirtyCardIds: next.dirtyCardIds.filter((id) => !acceptedIds.has(id)) };
+  await saveDeviceState(next);
+  }
+  const candidateIds = new Set(candidates.map((item) => item.cardId));
+  const nextDirty = next.dirtyCardIds.filter((id) => !candidateIds.has(id));
+  next = { ...next, dirtyCardIds: nextDirty, needsFullSeed: false };
+  await saveDeviceState(next);
+  return next;
+}
+function eventBatches(items) {
+  const batches = [];
+  let current = [];
+  for (const item of items) {
+  const candidate = [...current, item];
+  const bytes = new TextEncoder().encode(JSON.stringify({ events: candidate.map((entry) => entry.envelope) })).byteLength;
+  if (current.length && (candidate.length > PUSH_BATCH_SIZE || bytes > 250 * 1024)) {
+    batches.push(current);
+    current = [item];
+  } else {
+    current = candidate;
+  }
+  }
+  if (current.length) batches.push(current);
+  return batches;
+}
+async function markDirtyCards(cardIds) {
+  if (!cardIds.length) return;
+  const state = await loadDeviceState();
+  if (!state) return;
+  const dirty = new Set([...state.dirtyCardIds, ...cardIds]);
+  await saveDeviceState({ ...state, dirtyCardIds: [...dirty] });
+}
+function deckEvents(deck) {
+  const events = Object.values(deck.cards).map((card) => ({
+  cardId: card.id,
+  occurredAt: card.updatedAt,
+  event: { version: 1, kind: "card", card }
+  }));
+  for (const [id, deletedAt] of Object.entries(deck.tombstones ?? {})) {
+  const [expression = id, reading = expression] = id.split("\0");
+  events.push({ cardId: id, occurredAt: deletedAt, event: { version: 1, kind: "delete", id, expression, reading, deletedAt } });
+  }
+  return events;
+}
+async function publishChangedCards(repository, changed) {
+  if (!changed.size) return;
+  const cards = await repository.lookupCards([...changed.values()]);
+  const found = new Set(cards.map((card) => card.providerCardId));
+  cards.forEach((card) => publishCardStateSignal({
+  vid: 0,
+  sid: 0,
+  rid: 0,
+  spelling: card.expression,
+  reading: card.reading,
+  meanings: card.meanings,
+  pitchAccent: [],
+  cardState: card.state,
+  source: "yomu-local",
+  reviewSource: "yomu-local",
+  dueAt: card.dueAt,
+  lastReviewAt: card.lastReviewAt
+  }));
+  for (const [id, identity] of changed) {
+  if (found.has(id)) continue;
+  publishCardStateSignal({
+    vid: 0,
+    sid: 0,
+    rid: 0,
+    spelling: identity.expression,
+    reading: identity.reading,
+    pitchAccent: [],
+    cardState: ["not-in-deck"],
+    source: "yomu-local",
+    reviewSource: "yomu-local"
+  });
+  }
+}
+function deviceRequest(path, state, init = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("authorization", `Bearer ${state.credential}`);
+  if (init.body !== void 0) headers.set("content-type", "application/json");
+  return requestPrivateApi(`${API_ORIGIN}${path}`, { ...init, headers });
+}
+async function loadDeviceState() {
+  return parseStoredDeviceState(await gmPrivateStorageGet(DEVICE_STATE_KEY, null));
+}
+function saveDeviceState(state) {
+  return gmPrivateStorageSet(DEVICE_STATE_KEY, state);
+}
+function parseStoredDeviceState(value) {
+  if (!isRecord$2(value) || value.version !== 2 || typeof value.credential !== "string" || !/^yda1\.[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/iu.test(value.credential) || typeof value.profileId !== "string" || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.keyVersion) || value.keyVersion < 1 || typeof value.key !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(value.key) || !Number.isSafeInteger(value.cursor) || value.cursor < 0 || !isRecord$2(value.syncedEventByCard) || Object.values(value.syncedEventByCard).some((id) => typeof id !== "string") || !Array.isArray(value.dirtyCardIds) || value.dirtyCardIds.some((id) => typeof id !== "string") || typeof value.needsFullSeed !== "boolean" || typeof value.displayName !== "string" || value.lastSyncAt !== null && !Number.isSafeInteger(value.lastSyncAt)) return null;
+  return value;
+}
+function parseRemoteEventPage(value, keyVersion) {
+  if (!isRecord$2(value) || !Array.isArray(value.events) || !Number.isSafeInteger(value.nextCursor) || typeof value.hasMore !== "boolean") throw new Error("Reader SRS event page was malformed.");
+  const events = value.events.map((candidate) => {
+  if (!isRecord$2(candidate) || typeof candidate.id !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(candidate.id) || !Number.isSafeInteger(candidate.cursor) || !Number.isSafeInteger(candidate.occurredAt) || candidate.keyVersion !== keyVersion || typeof candidate.nonce !== "string" || typeof candidate.ciphertext !== "string") throw new Error("Reader SRS event page was malformed.");
+  return candidate;
+  });
+  return { events, nextCursor: value.nextCursor, hasMore: value.hasMore };
+}
+function parseReaderDeckEvent(value) {
+  if (!isRecord$2(value) || value.version !== 1) throw new Error("Reader SRS event was malformed.");
+  if (value.kind === "card" && isRecord$2(value.card)) return value;
+  if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && Number.isSafeInteger(value.deletedAt)) return value;
+  throw new Error("Reader SRS event was malformed.");
+}
+async function responseError(response) {
+  let message = `Reader account request failed (${response.status}).`;
+  try {
+  const body = await response.json();
+  if (typeof body.error === "string") message = body.error;
+  } catch {
+  }
+  return new Error(message);
+}
+function statusFromState(state) {
+  return { connected: true, displayName: state.displayName, lastSyncAt: state.lastSyncAt, error: null };
+}
+function enqueue(operation) {
+  const coordinated = () => withGmStorageLease("academy-reader-account-sync", operation);
+  const result = pending.then(coordinated, coordinated);
+  pending = result.then(() => void 0, () => void 0);
+  return result;
+}
+function isRecord$2(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function httpStatusFromError(error) {
   if (!error || typeof error !== "object") return void 0;
@@ -34751,8 +35418,8 @@ class WanikaniClient {
   const key = `${this.currentFingerprint()}:${url}`;
   const cached = this.responseCache.get(key);
   if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-  const pending = this.pending.get(key);
-  if (pending) return pending;
+  const pending2 = this.pending.get(key);
+  if (pending2) return pending2;
   const request = this.requestUrl(url, options).then((value) => {
     this.responseCache.set(key, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
     return value;
@@ -34801,13 +35468,13 @@ class WanikaniClient {
   }
   }
   throttle() {
-  const scheduled = this.requestStartQueue.then(async () => {
+  const scheduled2 = this.requestStartQueue.then(async () => {
     const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
     if (wait > 0) await this.sleep(wait);
     this.lastRequestAt = this.now();
   });
-  this.requestStartQueue = scheduled.catch(() => void 0);
-  return scheduled;
+  this.requestStartQueue = scheduled2.catch(() => void 0);
+  return scheduled2;
   }
   currentFingerprint() {
   const fingerprint = this.tokenFingerprint();
@@ -35480,8 +36147,8 @@ function ensureReaderToastStack() {
   return stack;
 }
 function scheduleToastRemoval(toast, durationMs) {
-  const pending = toastTimers.get(toast);
-  if (pending !== void 0) window.clearTimeout(pending);
+  const pending2 = toastTimers.get(toast);
+  if (pending2 !== void 0) window.clearTimeout(pending2);
   toastTimers.set(toast, window.setTimeout(() => {
   toast.classList.remove(TOAST_VISIBLE_CLASS);
   window.setTimeout(() => {
@@ -35565,8 +36232,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.273"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.273"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.405"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.405"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35698,7 +36365,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.273"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.405"}`;
   } catch {
   return null;
   }
@@ -35964,7 +36631,7 @@ class VisiblePageScanner {
   const healed = healUngrowableInFlowClampRows(document);
   if (healed) log$1.info("Rest-hid in-flow readings on ungrowable clamp rows", { healed });
   refreshWrappedScanWordUnderlines(document);
-  realignAdditiveTextMirrorRuns(document);
+  projectAdditiveTextMirrors(document);
   }
   installSettleTriggers() {
   if (this.settleTriggersInstalled || this.destroyed) return;
@@ -36133,11 +36800,11 @@ class VisiblePageScanner {
   let cursor = 0;
   const unparsedTargets = [];
   const transientTargets = [];
-  const pending = [];
+  const pending2 = [];
   const parseCharBudget = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_PARSE_CHAR_BUDGET : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
   const concurrency = hasRemoteParseApiKey(scanStartSettings) ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   const schedule = () => {
-    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
+    while (!this.isStaleScan(generation) && pending2.length < concurrency && cursor < targets.length) {
       const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
       cursor = next.cursor;
       if (!next.batch.length) continue;
@@ -36148,13 +36815,13 @@ class VisiblePageScanner {
           work.transient = true;
         })
       };
-      pending.push(work);
+      pending2.push(work);
     }
   };
   schedule();
-  while (pending.length) {
+  while (pending2.length) {
     if (this.isStaleScan(generation)) return unparsedTargets;
-    const work = pending.shift();
+    const work = pending2.shift();
     const parsed = await work.result;
     parsed.forEach((tokens, index) => {
       if (tokens.length || !work.batch[index]) return;
@@ -36163,7 +36830,7 @@ class VisiblePageScanner {
     if (this.isStaleScan(generation)) return unparsedTargets;
     await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
     schedule();
-    if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
+    if (pending2.length || cursor < targets.length) await waitForVisibleScanTurn();
   }
   if (allowTransientReparse && transientTargets.length && !this.isStaleScan(generation)) {
     const stillUnparsed = await this.parseAndApplyTargets(transientTargets, generation, scanStartSettings, false);
@@ -36356,7 +37023,7 @@ function isNarrowVisibleScanViewport() {
   return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
 }
 function isYouTubeVisibleScanHost(hostname = location.hostname) {
-  return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
+  return isYouTubeAppHostname(hostname);
 }
 function hasJpdbParseApiKey(settings) {
   return Boolean(settings.apiKey.trim());
@@ -36579,7 +37246,8 @@ function normalizedNestedParseOptions(options, _settings) {
   skipJpdb: options.skipJpdb ?? skipApi,
   requireApi,
   requireJpdb: options.requireJpdb ?? requireApi,
-  allowSegmentedFallback: options.allowSegmentedFallback ?? true
+  allowSegmentedFallback: options.allowSegmentedFallback ?? true,
+  ...options.publicJitenDetailLimit === void 0 ? {} : { publicJitenDetailLimit: options.publicJitenDetailLimit }
   };
 }
 function nestedParseApiTimeoutMs(options) {
@@ -36849,7 +37517,7 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
-function jitenAddonKeyIdentity(key) {
+function pageAddonKeyIdentity(key) {
   const parts = key.split(":");
   return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
 }
@@ -37025,7 +37693,10 @@ class ReaderApp {
     void saveSettings(this.settings);
   },
   onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
-  onApiCardStateChanged: (card) => this.applyPublicVocabularyToRenderedWords(card, card)
+  onApiCardStateChanged: (card) => {
+    this.applyPublicVocabularyToRenderedWords(card, card);
+    repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
+  }
   });
   immersionPopoverInstance = null;
   get immersionPopover() {
@@ -37065,7 +37736,8 @@ class ReaderApp {
   jpdb: this.jpdb,
   jiten: this.jiten,
   jitenPublicVocabulary: this.jitenPublicVocabulary,
-  dictionaries: this.dictionaries
+  dictionaries: this.dictionaries,
+  yomuLocalSrs: this.yomuLocalSrs
   });
   onboarding = this.createOnboardingController();
   subtitles = this.createSubtitlePlayer();
@@ -37359,8 +38031,8 @@ class ReaderApp {
   if (this.embeddedFrame) {
     this.subtitles.init();
     this.ocr.init();
-    if (this.shouldScanEmbeddedFrame()) {
-      this.setupAutoScan();
+    this.setupAutoScan();
+    if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
       this.scheduleAutoScan(0, { force: true });
     }
     return;
@@ -37375,6 +38047,7 @@ class ReaderApp {
   this.setupAutoScan();
   this.initJpdbPageEnhancements();
   this.installCardStateSignalSubscription();
+  installAcademyReaderSrsSync();
   this.resumePendingCloudSettingsSync();
   if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
   if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
@@ -37420,6 +38093,7 @@ class ReaderApp {
   this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
     if (this.isDestroyed) return;
     this.applyPublicVocabularyToRenderedWords(card, card);
+    repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
   });
   }
   installSettingsStorageSubscription() {
@@ -37881,15 +38555,17 @@ class ReaderApp {
   jitenEnhancementsNeedRefresh() {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
-  if (!document.querySelector("[data-yomu-jpdb-addon]")) return true;
+  const hasAddon = Boolean(document.querySelector("[data-yomu-jpdb-addon]"));
+  if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+  if (!hasAddon) return true;
   if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
   }
   jitenAddonWordIdentityChanged() {
-  const expected = this.currentJitenAddonKeys().map(jitenAddonKeyIdentity);
+  const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
   if (!expected.length) return false;
   const mounted = new Set(
-    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => jitenAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
+    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
   );
   return !expected.some((identity) => mounted.has(identity));
   }
@@ -37980,12 +38656,12 @@ class ReaderApp {
   }
   hasJpdbPageWordContent(entries2, data) {
   return Boolean(
-    entries2.length || data?.jpdbVocabularyInfo && !isJpdbHost() || data?.jitenVocabularyInfo && !isJitenHost() || data?.bunproDefinitionInfo || this.settings.immersionKitEnabled
+    entries2.length || data?.jpdbVocabularyInfo && !isJpdbHost() || data?.jitenVocabularyInfo && !isJitenHost() || data?.bunproDefinitionInfo && !isBunproHost() || this.settings.immersionKitEnabled
   );
   }
   jpdbPageWordCard(target) {
   const card = jpdbAudioCard(target.term, target.reading);
-  card.source = isJitenHost() ? "jiten" : "jpdb";
+  card.source = isBunproHost() ? "bunpro" : isJitenHost() ? "jiten" : "jpdb";
   return card;
   }
   jpdbPageWordAddonKey(target) {
@@ -38373,6 +39049,8 @@ class ReaderApp {
     if (isJitenHost()) {
       this.maybeScrollJitenStudyToNewCard();
       if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+    } else if (isBunproHost()) {
+      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
     } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
       this.scheduleJpdbPageEnhancements(500);
     }
@@ -39528,9 +40206,9 @@ class ReaderApp {
   if (this.hoverPointerMoveFrame !== void 0) return;
   this.hoverPointerMoveFrame = requestAnimationFrame(() => {
     this.hoverPointerMoveFrame = void 0;
-    const pending = this.pendingHoverPointerMove;
+    const pending2 = this.pendingHoverPointerMove;
     this.pendingHoverPointerMove = void 0;
-    if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
+    if (pending2 && !this.isDestroyed) this.handleHoverPointer(pending2);
   });
   }
   handleHoverPointer(event) {
@@ -41453,6 +42131,7 @@ class ReaderApp {
   }
   renderCompletedCardPopover(popover, card, sentence, trigger, data, anchor) {
   this.lastAnkiLookup = data.ankiLookup;
+  this.applyCardEnrichmentToRenderedAnchor(card, anchor);
   const renderedRoots = this.renderedWordUpdateRootsForCardRender(trigger, anchor);
   this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, {
     preserveExistingEmpty: trigger === "hover",
@@ -41468,6 +42147,17 @@ class ReaderApp {
   this.updateCardPopoverPosition(trigger);
   this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
     relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo)
+  });
+  }
+  applyCardEnrichmentToRenderedAnchor(card, anchor) {
+  const word = anchor?.closest(".jpdb-reader-word");
+  if (!word?.isConnected) return;
+  const surface = normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
+  if (!surface || !cardMatchesRenderedLookupValue(card, surface)) return;
+  const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
+  this.pauseAutoScanObserver(() => {
+    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+    refreshReaderWordContrast(word.parentElement ?? word);
   });
   }
   installCardPostRenderBehaviors(popover, card, sentence, trigger, immersionOptions) {
@@ -42200,10 +42890,24 @@ class ReaderApp {
   }
   async parsePopoverJapanese(popover) {
   if (!this.isCurrentPopoverRoot(popover)) return;
+  installProviderExampleBehaviors(popover, {
+    language: this.settings.interfaceLanguage,
+    blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
+    translate: translateJapaneseSentence,
+    isCurrentRoot: (root) => this.isCurrentPopoverRoot(root)
+  });
   this.enrichJpdbRelatedWords(popover);
-  const plan = nestedTextParsePlan(popover, 120);
-  if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-  await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+  const plan = nestedTextParsePlan(popover, 120, { excludeProviderExamples: true });
+  if (plan && !nestedParseAlreadyScheduled(popover, plan.parseKey)) {
+    await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+  }
+  if (!this.isCurrentPopoverRoot(popover)) return;
+  const providerPlan = providerExampleTextParsePlan(popover, 24);
+  if (providerPlan && !nestedParseAlreadyScheduled(popover, providerPlan.parseKey)) {
+    await this.parseNestedJapaneseContent(popover, providerPlan, () => this.isCurrentPopoverRoot(popover), {
+      publicJitenDetailLimit: 24
+    }, false);
+  }
   }
   async parseJpdbPageAddonJapanese(root) {
   if (!this.isJpdbPageAddonRoot(root)) return;
@@ -42307,7 +43011,7 @@ class ReaderApp {
   void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
   this.queueAnkiWordEnrichment(tokens, [form]);
   }
-  async parseNestedJapaneseContent(root, plan, isCurrent, options = {}) {
+  async parseNestedJapaneseContent(root, plan, isCurrent, options = {}, recordParseKey = true) {
   const parseLoadingId = `${Date.now()}:${Math.random()}`;
   root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
   root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
@@ -42322,7 +43026,7 @@ class ReaderApp {
     this.scheduleCachedPublicVocabularyHydration(root);
     highlightCardTargetScopes(root);
     refreshReaderWordContrast(root);
-    root.dataset.jpdbReaderParseKey = plan.parseKey;
+    if (recordParseKey) root.dataset.jpdbReaderParseKey = plan.parseKey;
     this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : void 0);
   } catch {
   } finally {
@@ -42451,7 +43155,7 @@ class ReaderApp {
   });
   }
   async resolvePublicOcrFallbackTokens(tokens) {
-  const pending = new Map();
+  const pending2 = new Map();
   for (const token of tokens) {
     const fallback = token.card;
     const key = cardKey(fallback);
@@ -42460,13 +43164,13 @@ class ReaderApp {
       this.applyResolvedFallbackVocabularyToToken(token, fallback, cached);
       continue;
     }
-    const group = pending.get(key) ?? { card: fallback, tokens: [] };
+    const group = pending2.get(key) ?? { card: fallback, tokens: [] };
     group.tokens.push(token);
-    pending.set(key, group);
+    pending2.set(key, group);
   }
-  if (!pending.size) return;
-  const resolved = await this.publicLookupFallbackCards([...pending.values()].map((group) => group.card), { jpdbPublicLookup: false });
-  for (const [key, group] of pending) {
+  if (!pending2.size) return;
+  const resolved = await this.publicLookupFallbackCards([...pending2.values()].map((group) => group.card), { jpdbPublicLookup: false });
+  for (const [key, group] of pending2) {
     const card = resolved.get(key);
     if (!card || card.source === "fallback") continue;
     for (const token of group.tokens) this.applyResolvedFallbackVocabularyToToken(token, group.card, card);
@@ -42620,6 +43324,7 @@ class ReaderApp {
   }
   async enrichPitchWords(tokens, options = {}) {
   if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+  tokens.forEach((token) => this.reconcileRenderedTokenFurigana(token));
   let deferLocalMissesToPublicLane = false;
   if (options.publicLookup === void 0 && options.urgent !== true && await this.hasLocalPitchDictionary()) {
     options = { ...options, publicLookup: false };
@@ -42688,8 +43393,16 @@ class ReaderApp {
   shouldRunPitchOrReadingEnrichment() {
   return this.settings.showPitchAccent || this.settings.showFurigana && this.settings.furiganaMode !== "off";
   }
+  reconcileRenderedTokenFurigana(token) {
+  if (!this.settings.showFurigana || this.settings.furiganaMode === "off" || token.rubies.length) return;
+  const reading = token.card.reading.trim();
+  if (!reading || reading === token.card.spelling.trim()) return;
+  const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
+  if (![...surface].some(isKanjiCharacter)) return;
+  const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || "unknown";
+  this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
+  }
   async resolvePublicFallbackPitchTokens(tokens, options = {}) {
-  if (this.isJitenApiActive()) return tokens;
   const queuedTokens = [];
   const fallbackGroups = new Map();
   const jitenGroups = new Map();
@@ -44185,7 +44898,7 @@ function bootReaderApp() {
   reconcileActiveRuntimeMarker();
   const embeddedFrame = isEmbeddedFrameWindow();
   if (embeddedFrame && !shouldBootEmbeddedFrame()) {
-  watchEmbeddedFrameForVideo();
+  watchEmbeddedFrameForEligibleContent();
   return;
   }
   const bootWindow = window;
@@ -44275,24 +44988,41 @@ function isEmbeddedFrameWindow() {
   }
 }
 function shouldBootEmbeddedFrame() {
-  return isYouTubeMediaFrame() || embeddedFrameHasVideo();
+  return isYouTubeMediaFrame() || embeddedFrameHasVideo() || embeddedFrameHasJapaneseText();
 }
 function embeddedFrameHasVideo() {
   return Boolean(document.querySelector("video"));
 }
-let embeddedFrameVideoObserver;
-function watchEmbeddedFrameForVideo() {
-  if (embeddedFrameVideoObserver) return;
-  const observer = new MutationObserver(() => {
-  if (!embeddedFrameHasVideo()) return;
+function embeddedFrameHasJapaneseText() {
+  const text = document.body?.textContent ?? document.documentElement?.textContent ?? "";
+  return HAS_JAPANESE.test(text.slice(0, 2e5));
+}
+let embeddedFrameEligibilityObserver;
+function watchEmbeddedFrameForEligibleContent() {
+  if (embeddedFrameEligibilityObserver) return;
+  const observer = new MutationObserver((mutations) => {
+  if (!mutations.some(mutationContainsEmbeddedFrameEligibilitySignal)) return;
   observer.disconnect();
-  embeddedFrameVideoObserver = void 0;
+  embeddedFrameEligibilityObserver = void 0;
   if (isEmbeddedFrameWindow()) bootReaderApp();
   });
-  embeddedFrameVideoObserver = observer;
-  const observe = () => observer.observe(document.documentElement, { childList: true, subtree: true });
+  embeddedFrameEligibilityObserver = observer;
+  const observe = () => observer.observe(document.documentElement, {
+  characterData: true,
+  childList: true,
+  subtree: true
+  });
   if (document.documentElement) observe();
   else document.addEventListener("DOMContentLoaded", observe, { once: true });
+}
+function mutationContainsEmbeddedFrameEligibilitySignal(mutation) {
+  if (mutation.type === "characterData") {
+  return HAS_JAPANESE.test((mutation.target.textContent ?? "").slice(0, 2e5));
+  }
+  return [...mutation.addedNodes].some((node) => {
+  if (node instanceof Element && (node.matches("video") || Boolean(node.querySelector("video")))) return true;
+  return HAS_JAPANESE.test((node.textContent ?? "").slice(0, 2e5));
+  });
 }
 function isYouTubeMediaFrame() {
   return YOUTUBE_PLAYBACK_HOST_RE.test(location.hostname) && YOUTUBE_PLAYBACK_PATH_RE.test(location.pathname);

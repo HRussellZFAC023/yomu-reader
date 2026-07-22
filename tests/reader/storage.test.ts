@@ -6,10 +6,14 @@ import {
     gmStorageDelete,
     gmStorageGet,
     gmStorageSet,
+    gmPrivateStorageDelete,
+    gmPrivateStorageGet,
+    gmPrivateStorageSet,
     importStoredValues,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     subscribeToStoredValueChanges,
+    withGmStorageLease,
     type FactoryResetSignal,
 } from '../../src/reader/app/storage';
 
@@ -42,6 +46,83 @@ describe('storage reset', () => {
         expect(deleteValue).toHaveBeenCalledWith('jpdb-popup-reader-settings');
         expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
         expect(sessionStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
+    });
+
+    it('keeps private device credentials out of page storage and DOM bridges', async () => {
+        const key = 'yomu:private:academy-device:v1';
+        const secret = { credential: 'top-secret', key: 'profile-key' };
+        localStorage.setItem(key, JSON.stringify({ credential: 'legacy-leak' }));
+        sessionStorage.setItem(key, JSON.stringify({ credential: 'legacy-session-leak' }));
+        const bridgeSet = vi.fn();
+        document.documentElement.dataset.yomuUserscriptStorageBridge = 'true';
+        window.addEventListener('yomu-userscript-storage-request', bridgeSet);
+
+        await expect(gmPrivateStorageSet(key, secret)).rejects.toThrow('Secure extension storage is unavailable');
+        expect(await gmPrivateStorageGet(key, null)).toBeNull();
+        expect(localStorage.getItem(key)).toBeNull();
+        expect(sessionStorage.getItem(key)).toBeNull();
+        expect(bridgeSet).not.toHaveBeenCalled();
+
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('GM_getValue', vi.fn((name: string, fallback: unknown) => values.get(name) ?? fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((name: string, value: unknown) => { values.set(name, value); }));
+        vi.stubGlobal('GM_deleteValue', vi.fn((name: string) => { values.delete(name); }));
+        await gmPrivateStorageSet(key, secret);
+        expect(await gmPrivateStorageGet(key, null)).toEqual(secret);
+        await gmPrivateStorageDelete(key);
+        expect(values.has(key)).toBe(false);
+        window.removeEventListener('yomu-userscript-storage-request', bridgeSet);
+        delete document.documentElement.dataset.yomuUserscriptStorageBridge;
+    });
+
+    it('shares normal and private state through packaged-extension storage', async () => {
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('chrome', {
+            runtime: { id: 'reader-extension-id' },
+            storage: { local: {
+                get: vi.fn(async (key: string | null) => key === null
+                    ? Object.fromEntries(values)
+                    : values.has(key) ? { [key]: values.get(key) } : {}),
+                set: vi.fn(async (items: Record<string, unknown>) => {
+                    Object.entries(items).forEach(([key, value]) => values.set(key, value));
+                }),
+                remove: vi.fn(async (key: string) => { values.delete(key); }),
+            } },
+        });
+        const deck = { version: 1, cards: { word: { expression: '読む' } } };
+        await gmStorageSet('yomu:srs-local:v1', deck);
+        await gmPrivateStorageSet('yomu:private:academy-device:v1', { credential: 'secret' });
+
+        expect(await gmStorageGet('yomu:srs-local:v1', null)).toEqual(deck);
+        expect(await gmPrivateStorageGet('yomu:private:academy-device:v1', null)).toEqual({ credential: 'secret' });
+        expect(localStorage.getItem('yomu:srs-local:v1')).toBeNull();
+        expect(localStorage.getItem('yomu:private:academy-device:v1')).toBeNull();
+    });
+
+    it('serializes simultaneous GM-backed transactions without a shared-value CAS', async () => {
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, value); }));
+        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { values.delete(key); }));
+        vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
+
+        let active = 0;
+        let maximumActive = 0;
+        const order: string[] = [];
+        const transaction = (id: string): Promise<void> => withGmStorageLease('cross-tab-test', async () => {
+            active++;
+            maximumActive = Math.max(maximumActive, active);
+            order.push(`${id}:start`);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            order.push(`${id}:end`);
+            active--;
+        }, { leaseMs: 1_000, pollMs: 1, timeoutMs: 2_000 });
+
+        await Promise.all([transaction('a'), transaction('b')]);
+
+        expect(maximumActive).toBe(1);
+        expect(order.join(',')).toMatch(/^(?:a:start,a:end,b:start,b:end|b:start,b:end,a:start,a:end)$/u);
+        expect([...values.keys()].filter(key => key.startsWith('yomu:lease:'))).toEqual([]);
     });
 
     it('mirrors hosted GM settings writes to localStorage for the docs app', async () => {

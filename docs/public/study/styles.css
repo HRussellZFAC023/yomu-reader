@@ -539,6 +539,36 @@
   gap: 6px;
 }
 
+.jpdb-reader-newtab-connectivity {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-state-due) 42%, var(--jpdb-reader-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-state-due) 10%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text);
+  font: 760 10px/1 var(--jpdb-reader-font);
+  white-space: nowrap;
+}
+
+.jpdb-reader-newtab-connectivity::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--jpdb-reader-state-due);
+}
+
+.jpdb-reader-newtab-connectivity[hidden] {
+  display: none;
+}
+
+.jpdb-reader-newtab-app-nav {
+  display: none;
+}
+
 .jpdb-reader-newtab-support-banner {
   display: flex;
   align-items: center;
@@ -1668,7 +1698,7 @@
 }
 
 .jpdb-reader-newtab-study-steps {
-  width: min(560px, calc(100vw - 40px));
+  width: min(820px, calc(100vw - 40px));
   min-height: 28px;
   display: flex;
   flex-wrap: wrap;
@@ -1682,6 +1712,7 @@
 }
 
 .jpdb-reader-newtab-study-step {
+  flex: 0 1 auto;
   height: 28px;
   min-width: 0;
   display: inline-flex;
@@ -1720,6 +1751,80 @@
 .jpdb-reader-newtab-study-step[data-active="true"] .jpdb-reader-newtab-study-step-index {
   background: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-contrast, #ffffff);
+}
+
+@media (min-width: 641px) {
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
+    .jpdb-reader-newtab-shell {
+    width: min(1040px, calc(100vw - 40px));
+    gap: 14px;
+  }
+
+  .jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
+    .jpdb-reader-newtab-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
+    .jpdb-reader-newtab-study {
+    min-height: min(70dvh, 720px);
+    padding: clamp(18px, 3vh, 30px) clamp(22px, 4vw, 54px) clamp(26px, 4vh, 42px);
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--jpdb-reader-surface) 72%, var(--jpdb-reader-bg));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 4%, transparent),
+      0 22px 60px color-mix(in srgb, var(--jpdb-reader-black) 16%, transparent);
+  }
+
+  .jpdb-reader-newtab-study-steps {
+    flex-wrap: nowrap;
+    gap: clamp(4px, 0.65vw, 7px);
+  }
+
+  .jpdb-reader-newtab-study-step {
+    padding-inline: 6px 8px;
+    gap: 5px;
+  }
+
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-kanji-mode)
+    .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt {
+    margin-top: clamp(14px, 4vh, 44px);
+  }
+
+  .jpdb-reader-newtab-study[data-newtab-study-step="type-word"] {
+    cursor: auto;
+  }
+
+  .jpdb-reader-newtab-study[data-newtab-study-step="type-word"]
+    > .jpdb-reader-newtab-prompt {
+    max-width: min(840px, 100%);
+    margin-top: clamp(10px, 2.4vh, 26px);
+    font-size: clamp(1.9rem, 4.2vw, 3.45rem);
+    line-height: 1.16;
+  }
+
+  .jpdb-reader-newtab-study[data-newtab-study-step="type-word"]
+    .jpdb-reader-newtab-answer {
+    width: min(720px, 100%);
+    max-width: min(720px, 100%);
+    gap: 10px;
+  }
+
+  .jpdb-reader-newtab-controls[data-newtab-control-count="2"]:not(.jpdb-reader-newtab-grade-controls) {
+    position: sticky;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(720px, calc(100vw - 40px));
+    margin-top: 0;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 76%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--jpdb-reader-bg) 84%, transparent);
+    box-shadow: 0 14px 34px color-mix(in srgb, var(--jpdb-reader-black) 22%, transparent);
+    backdrop-filter: blur(14px);
+  }
 }
 
 .jpdb-reader-newtab-study-tour {
@@ -2633,6 +2738,25 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   align-items: center;
 }
 
+.jpdb-reader-newtab-type-form {
+  width: min(100%, 680px);
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-type-form .jpdb-reader-newtab-term-audio {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
+  color: var(--jpdb-reader-text);
+  transform: none;
+}
+
 .jpdb-reader-newtab-recall-input {
   width: 100%;
   min-width: 0;
@@ -2673,6 +2797,11 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   outline-offset: 2px;
 }
 
+.jpdb-reader-newtab-type-input[readonly] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-known) 68%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-state-known) 8%, var(--jpdb-reader-surface));
+}
+
 .jpdb-reader-newtab-recall-check {
   min-height: 48px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
@@ -2698,7 +2827,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-recall-result[data-newtab-recall-result="incorrect"],
 .jpdb-reader-newtab-recall-result[data-newtab-recall-result="empty"] {
-  color: var(--jpdb-reader-state-failed);
+  color: color-mix(in srgb, var(--jpdb-reader-state-failed) 58%, var(--jpdb-reader-text));
 }
 
 /* ----- Type-word: mode toggle, skip, handwriting track (reuses recall input/result) ----- */
@@ -2732,12 +2861,15 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-type-result[data-newtab-type-result="incorrect"] {
-  color: var(--jpdb-reader-state-failed);
+  color: color-mix(in srgb, var(--jpdb-reader-state-failed) 58%, var(--jpdb-reader-text));
 }
 
-.jpdb-reader-newtab-type-skip-row {
+.jpdb-reader-newtab-type-secondary {
+  width: min(100%, 680px);
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .jpdb-reader-newtab-type-skip {
@@ -2748,6 +2880,33 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: transparent;
   color: var(--jpdb-reader-muted);
   font: 820 12px / 1 var(--jpdb-reader-font);
+}
+
+@media (max-width: 520px) {
+  .jpdb-reader-newtab-type-form {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .jpdb-reader-newtab-type-form .jpdb-reader-newtab-term-audio {
+    width: 44px;
+    min-width: 44px;
+    height: 48px;
+  }
+
+  .jpdb-reader-newtab-type-form .jpdb-reader-newtab-recall-check {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .jpdb-reader-newtab-type-secondary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .jpdb-reader-newtab-type-modes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .jpdb-reader-newtab-type-handwriting {
@@ -4375,9 +4534,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
+.jpdb-reader-newtab-study-step:focus-visible,
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:focus-visible,
 .jpdb-reader-newtab-status:focus-visible,
 .jpdb-reader-newtab-source-select:focus-visible,
+.jpdb-reader-newtab-recall-check:focus-visible,
+.jpdb-reader-newtab-type-mode:focus-visible,
+.jpdb-reader-newtab-type-skip:focus-visible,
 .jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
 .jpdb-reader-newtab-grade-target-summary:focus-visible,
 .jpdb-reader-newtab-grade-target-select:focus-visible,
@@ -4443,15 +4606,98 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-newtab-shell {
     width: min(100vw - 16px, 560px);
     gap: 12px;
+    padding-bottom: max(110px, calc(94px + env(safe-area-inset-bottom)));
   }
 
   .jpdb-reader-newtab-topbar {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "brand controls"
-      "mode mode";
+    grid-template-areas: "brand controls";
     align-items: center;
     gap: 8px 10px;
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-topbar
+    > .jpdb-reader-newtab-mode {
+    display: none;
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-app-nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    min-height: calc(64px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    gap: 2px;
+    padding: 6px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom)
+      max(8px, env(safe-area-inset-left));
+    border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent);
+    background: color-mix(in srgb, var(--jpdb-reader-bg) 92%, transparent);
+    box-shadow: 0 -12px 32px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent);
+    backdrop-filter: blur(18px) saturate(1.18);
+  }
+
+  .jpdb-reader-newtab-app-nav-item {
+    min-width: 0;
+    min-height: 52px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+    padding: 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--jpdb-reader-muted);
+    cursor: pointer;
+  }
+
+  .jpdb-reader-newtab-app-nav-item[data-active="true"] {
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 13%, transparent);
+    color: var(--jpdb-reader-accent-readable);
+  }
+
+  .jpdb-reader-newtab-app-nav-mark {
+    font: 820 16px/1 var(--jpdb-reader-font);
+  }
+
+  .jpdb-reader-newtab-app-nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    font: 720 10px/1.1 var(--jpdb-reader-font);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-study-steps {
+    width: min(100%, calc(100vw - 16px));
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-study-steps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-study-step {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
   }
 
   .jpdb-reader-newtab-brand {
@@ -4762,6 +5008,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     max-width: 100%;
     min-width: 0;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .jpdb-reader-newtab:not([data-study-surface="academy"])
+    .jpdb-reader-newtab-topbar {
+    grid-template-areas: "brand controls";
   }
 }
 
@@ -6561,17 +6814,14 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   -webkit-user-select: none;
 }
 
-/* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
-   as the host does, but keep each rendered word atomic so short YouTube metadata
-   and action labels do not collapse into one-character vertical stacks. */
+/* Text mirrors preserve the host's inline formatting context. Token spans must
+   inherit its wrapping rules: making them atomic changes CJK line breaks and
+   guarantees that an overlay will drift from the source it annotates. */
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
-  white-space: nowrap;
-  word-break: keep-all;
-  overflow-wrap: normal !important;
-  line-break: strict;
-  /* Text-mirror scan words stay nowrap (above), so they never split mid-token.
-     Keep the gapped ::after overlay and its transparent native underline so
-     short host labels (YouTube metadata/action chips) are unchanged. */
+  white-space: inherit;
+  word-break: inherit;
+  overflow-wrap: inherit !important;
+  line-break: inherit;
   text-decoration-color: transparent !important;
 }
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word::after {
@@ -6660,11 +6910,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow-wrap: anywhere;
 }
 
-/* Passive words stay layout-neutral (they inherit the host's wrapping) and
-   never repaint the host's text colour, but they KEEP their pitch underline
-   and state decorations at rest — link-wrapped prose is still content. Only
-   chrome contexts (buttons/menus/nav/marked compact controls, below and in the
-   bare-until-hover rules further down) strip decoration entirely. */
+/* Passive words stay layout-neutral and keep every enabled annotation channel
+   at rest. "Passive" describes interaction ownership, never visibility. */
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
   display: inline !important;
@@ -7234,32 +7481,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
-:is(
-  .jpdb-reader-word-text-status,
-  .jpdb-reader-word-text-jpdb,
-  .jpdb-reader-word-text-anki,
-  .jpdb-reader-word-text-pitch
-) .jpdb-reader-word.jpdb-reader-passive-word {
-  --jpdb-reader-word-color-source: currentColor;
-  color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
-  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
-}
-/* Passive CONTENT words (link-wrapped prose, docs cards, news headlines) keep
-   the status highlight at rest exactly like active words: the word-state
-   colour is the whole point of a connected Jiten/JPDB/Anki source, and a
-   1.6.2 blanket hover-only rule here made every linked word look like a bare
-   host link until hovered (owner report, 2026-07-19). Chrome contexts remain
-   bare-until-hover through the scoped rules below — buttons/nav/tabs and any
-   host the scanner stamped interactive-passive (which covers busy list pages
-   such as search results) never repaint wall-to-wall. */
-/* Chrome passive words (buttons, tabs, menus, timestamps, compact controls)
-   paint their configured word-state highlight at rest exactly like content
-   words. Bare-until-hover chrome previously stripped the highlight channel
-   here behind a per-site carve-out list (YouTube chips/metadata), but the
-   owner's standing feedback — 作成/共有/質問する on YouTube, and the Reddit
-   sort chips, timestamps, 参加/共有 buttons (2026-07-19) — is that unpainted
-   chrome reads as broken when a highlight mode is enabled. The user's
-   highlight setting is the single switch now; no per-surface exceptions. */
+/* Passive describes interaction ownership, never paint. Buttons, tabs, links,
+   metadata and prose all honor the enabled text/highlight/underline channels
+   at rest; only the user's settings switch those channels off. */
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
@@ -7363,7 +7587,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   position: absolute !important;
   z-index: 2;
   inset-inline-start: 50%;
-  /* 3px yields a measured >=2px reading/base gap after WebKit font rounding. */
+  /* Range-projected wrappers use the source line box, whose CJK ink can
+     overhang its top edge by about 2px in both WebKit and Chromium. Keep a
+     small physical gap so the detached reading never collides with that ink. */
   inset-block-end: calc(100% + 3px);
   display: block !important;
   width: max-content;
@@ -7404,40 +7630,38 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow: none !important;
 }
 /* The source glyph stays page-owned, so highlight/text-colour modes cannot
-   safely repaint it from an overlay. Preserve their annotation signal as a
-   quiet underline, while ordinary underline mode uses the same source colour.
-   This also fixes the additive pitch line being accidentally forced
-   transparent after the absolute ::after strip was retired. */
+   safely repaint it from an overlay. Preserve their annotation signal in the
+   same ::after underline lane used by ordinary page words. */
 :is(
   .jpdb-reader-word-highlight-status,
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-text-status
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-jpdb,
   .jpdb-reader-word-underline-jpdb,
   .jpdb-reader-word-text-jpdb
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-anki,
   .jpdb-reader-word-underline-anki,
   .jpdb-reader-word-text-anki
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-anki-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-pitch,
   .jpdb-reader-word-underline-pitch,
   .jpdb-reader-word-text-pitch
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-pitch-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 /* SRS status on additive mirrors. The opaque status highlight was stripped from
    mirrors (background-image:none above) because a page-owned source glyph cannot
@@ -7479,19 +7703,50 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }
-/* A mirrored page word's line box can include ruby leading or a tall host
-   control. Anchor pitch lines to the glyphs with native decoration; the
-   absolute ::after lane otherwise falls at the containing line-box edge. */
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror
-  .jpdb-reader-word {
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+/* Source-projected mirrors do not lay out duplicate text. Each empty fragment
+   box is the exact client rect of the page-owned token, so highlights and
+   underlines follow every CJK line break without changing the host's layout. */
+.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word[data-yomu-source-projected="true"] {
+  background: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
 }
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror
-  .jpdb-reader-word::after {
+.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word[data-yomu-source-projected="true"]::after {
   content: none !important;
 }
+.jpdb-reader-source-fragment {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  display: block;
+  border-radius: 3px;
+  background-image: linear-gradient(
+    var(--jpdb-reader-mirror-status-soft, transparent),
+    var(--jpdb-reader-mirror-status-soft, transparent)
+  );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 86%;
+  pointer-events: none;
+}
+.jpdb-reader-source-fragment::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  border-block-end: var(--jpdb-reader-word-underline-thickness)
+    var(--jpdb-reader-word-underline-style)
+    var(--jpdb-reader-word-underline, transparent);
+}
+/* Mirrors and in-place words use the same synthetic border underline channel:
+   ordinary/mirrored words paint through their ::after lane, while a
+   source-projected word paints the same inherited value on each exact Range
+   fragment. Mixing native mirror decoration with the synthetic overlay put a
+   mirrored ruby word several pixels above its ordinary neighbour on WebKit.
+   The synthetic channel is also continuous across segmented ruby and survives
+   the atomic detached-ruby wrappers used by compact controls. */
 [data-yomu-detached-reading-overflow="true"] {
   overflow: visible !important;
 }
@@ -7596,14 +7851,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 [data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: inherit;
 }
-/* Detached readings obey the same at-rest rule as in-place rt: inside a
-   clip-constrained row whose clip was NOT safely opened (multi-line clamps
-   never open), an absolutely-positioned reading sits in the fixed inter-line
-   leading and paints over the line above. CSS (not the async settle pass)
-   makes this deterministic for readings enriched at any time. */
-[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror):not([data-yomu-detached-reading-overflow="true"]) .jpdb-reader-detached-furi {
-  display: none !important;
-}
 [data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi {
   /* visibility:hidden still participates in ruby layout on WebKit. In a
      fixed/clamped row that hidden annotation can move the BASE below the clip,
@@ -7619,10 +7866,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 /* Semantic prose clip rows that grow in flow (value "content") keep their
-   readings AT REST by default; the row grows naturally via the ruby line
-   height, with no geometry writes. The optional hover-only mode (settings:
-   "readings on clamped rows") re-hides them via a root stamp. Interactive/
-   chrome clip rows (value "true") stay rest-hidden above regardless. */
+   readings at rest by default. The optional hover-only setting can re-hide
+   them; interactive chrome uses the always-visible detached channel. */
 :root[data-yomu-clamped-readings="hover"]
   [data-yomu-clip-constrained="content"]
   .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)
@@ -8906,11 +9151,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   white-space: normal;
 }
 
-/* Mirrored interactive controls (chips, pills, compact buttons): readings are
-   rest-hidden with display:none — visibility:hidden still reserves ruby space
-   on WebKit and pushed the base glyphs out of fixed-height pills (iPad,
-   2026-07-11). A fine-pointer hover/focus reveals them; the absolute mirror
-   grows over its neighbours transiently without moving the host. */
+/* Mirrored interactive controls never use in-flow rt: even hidden rt reserves
+   ruby space on WebKit and can push glyphs out of fixed-height pills. Enabled
+   readings use the always-visible detached channel above. */
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"] rt.jpdb-reader-furi {
   display: none !important;
   visibility: hidden;
@@ -11796,6 +12039,41 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   white-space: nowrap;
   overflow: hidden;
 }
+.jpdb-reader-immersion-search-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 12px;
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 5px;
+}
+.jpdb-reader-immersion-search-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding-inline: 2px;
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.jpdb-reader-immersion-search-link svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-reader-immersion-search-link:hover,
+.jpdb-reader-immersion-search-link:focus-visible {
+  color: var(--jpdb-reader-text);
+}
 .jpdb-reader-example-toolbar {
   display: flex;
   align-items: center;
@@ -12028,15 +12306,23 @@ mark.jpdb-reader-example-target {
   text-wrap: balance;
 }
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"],
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] {
+.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"],
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"] {
+  box-sizing: border-box;
+  min-height: 24px;
+  padding-block: 4px;
   filter: blur(4px);
   user-select: none;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:hover,
 .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:hover,
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"]:hover,
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:focus-visible,
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:focus-visible {
+.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:focus-visible,
+.jpdb-reader-example-translation[data-provider-translation-blurred="true"]:focus-visible {
   filter: blur(3px);
   outline: none;
 }
@@ -12114,6 +12400,14 @@ mark.jpdb-reader-example-target {
   }
 }
 @media (pointer: coarse) {
+  .jpdb-reader-example-translation[data-immersion-translation-blurred="true"],
+  .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] {
+    min-height: 44px;
+    padding: 10px 8px;
+  }
+  .jpdb-reader-immersion-search-link {
+    min-height: 44px;
+  }
   .jpdb-reader-example-actions .jpdb-reader-icon-mini {
     width: 44px !important;
     min-width: 44px !important;
@@ -15617,6 +15911,40 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings-actions-single {
   display: flex;
   justify-content: center;
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-link {
+  width: min(100%, 360px);
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-status {
+  min-height: 1.45em;
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="success"] {
+  color: var(--jpdb-reader-accent-readable);
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="error"] {
+  color: color-mix(in srgb, #d33 72%, var(--jpdb-reader-text));
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-connect {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.jpdb-reader-settings .jpdb-reader-academy-account-code-row .jpdb-reader-btn {
+  min-width: 96px;
+}
+@media (max-width: 520px) {
+  .jpdb-reader-settings .jpdb-reader-academy-account-code-row {
+    grid-template-columns: 1fr;
+  }
+  .jpdb-reader-settings .jpdb-reader-academy-account-code-row .jpdb-reader-btn,
+  .jpdb-reader-settings .jpdb-reader-academy-account-link {
+    width: 100%;
+  }
 }
 .jpdb-reader-settings-actions .jpdb-reader-btn {
   display: inline-flex;

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { installReaderControlPointerActivation } from '../../src/reader/ui/pointer-activation';
+import { shouldIgnoreDocumentClickTarget } from '../../src/reader/app/native-page-lookup-targets';
 import { createPointerEvent } from './helpers/browser-fixtures';
 
 function mountReaderButton(): HTMLButtonElement {
@@ -12,6 +13,17 @@ function mountReaderButton(): HTMLButtonElement {
     const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root]')!;
     installReaderControlPointerActivation(root);
     return root.querySelector<HTMLButtonElement>('button')!;
+}
+
+function mountBlurredImmersionTranslation(): HTMLElement {
+    document.body.innerHTML = `
+        <div data-jpdb-reader-root="true">
+            <div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0">Translation</div>
+        </div>
+    `;
+    const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root]')!;
+    installReaderControlPointerActivation(root);
+    return root.querySelector<HTMLElement>('.jpdb-reader-example-translation')!;
 }
 
 describe('reader control pointer activation', () => {
@@ -71,5 +83,28 @@ describe('reader control pointer activation', () => {
 
         expect(pointerup.defaultPrevented).toBe(false);
         expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('keeps a one-tap touch reveal from being swallowed by enhanced-site document lookup', () => {
+        const translation = mountBlurredImmersionTranslation();
+        const onClick = vi.fn(() => translation.removeAttribute('data-immersion-translation-blurred'));
+        translation.addEventListener('click', onClick);
+
+        const documentClickGuard = (event: MouseEvent): void => {
+            if (shouldIgnoreDocumentClickTarget(event.target)) return;
+            event.stopImmediatePropagation();
+        };
+        document.addEventListener('click', documentClickGuard, { capture: true });
+
+        try {
+            translation.dispatchEvent(createPointerEvent('pointerdown', { pointerId: 9, pointerType: 'touch', clientX: 10, clientY: 10 }));
+            translation.dispatchEvent(createPointerEvent('pointerup', { pointerId: 9, pointerType: 'touch', clientX: 10, clientY: 10 }));
+
+            expect(shouldIgnoreDocumentClickTarget(translation)).toBe(true);
+            expect(onClick).toHaveBeenCalledTimes(1);
+            expect(translation.hasAttribute('data-immersion-translation-blurred')).toBe(false);
+        } finally {
+            document.removeEventListener('click', documentClickGuard, { capture: true });
+        }
     });
 });

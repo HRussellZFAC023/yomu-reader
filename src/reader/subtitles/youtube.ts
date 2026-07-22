@@ -22,8 +22,7 @@ import {
     type YouTubeFilterScanDecision,
 } from './youtube-filter-scan';
 import { escapeRegExp, readYouTubeConfigStringFromScripts } from './youtube-config';
-
-const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
+import { isYouTubeAppHostname } from '../app/youtube-host';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
@@ -238,7 +237,7 @@ type YouTubeConfigSource = {
 };
 
 function isYouTubeHost(hostname = location.hostname): boolean {
-    return YOUTUBE_HOST_RE.test(hostname);
+    return isYouTubeAppHostname(hostname);
 }
 
 function isInsideReaderRoot(node: ParentNode | Node): boolean {

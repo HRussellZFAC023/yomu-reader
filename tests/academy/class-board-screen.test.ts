@@ -341,6 +341,7 @@ function account(overrides: Partial<AcademyAccountView> = {}): AcademyAccountVie
         avatarKey: 'quality-2',
         boardVisible: true,
         shareAvatar: true,
+        academyAccess: true,
         classes: [{ classId: 'ucl-2026', name: 'UCL Japanese 2026', role: 'learner', boardHidden: false }],
         ...overrides,
     };
@@ -355,6 +356,7 @@ function accountPayload(displayName: string, boardVisible: boolean, shareAvatar:
         avatarKey: 'quality-2',
         boardVisible,
         shareAvatar,
+        academyAccess: true,
         classes: [{ classId: 'ucl-2026', name: 'UCL Japanese 2026', role: 'learner', boardHidden: false }],
     };
 }

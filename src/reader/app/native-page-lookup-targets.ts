@@ -5,6 +5,11 @@ const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
     '[data-yomu-jpdb-addon] [data-action]',
     '[data-settings-preview-lookup]',
     '.jpdb-reader-settings .jpdb-reader-word',
+    // Immersion translations own their tap. In particular, touch/pen control
+    // activation dispatches a click on pointerup; letting the document lookup
+    // path intercept that click made the text reveal only for the pressed
+    // moment (or require repeated taps) on JPDB/Jiten page addons.
+    '[data-jpdb-reader-root] .jpdb-reader-example-translation',
     // The welcome panel owns all of its lookups (OnboardingController's click
     // handler); the document path's point-text candidate lookup would otherwise
     // stopPropagation on clicks over annotated words inside the panel's action

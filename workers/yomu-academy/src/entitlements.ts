@@ -124,7 +124,11 @@ export async function handleRedeemEntitlement(request: Request, env: Env, clock:
         + 'AND (i.expires_at IS NULL OR i.expires_at > ?2)',
     ).bind(await inviteCodeHash(env, code), now).first<PaidEntitlementRow>();
     if (!purchase || !isActiveEntitlement(purchase, now)) throw new HttpError(403, 'Paid code was not accepted.');
-    return jsonResponse(entitlementView(await bindPaidEntitlement(env, purchase.id, accountId, now)));
+    const entitlement = await bindPaidEntitlement(env, purchase.id, accountId, now);
+    await env.ACADEMY_DB.prepare(
+        "UPDATE accounts SET access_tier = 'academy', updated_at = ?1 WHERE id = ?2",
+    ).bind(now, accountId).run();
+    return jsonResponse(entitlementView(entitlement));
 }
 
 export async function entitlementForAccount(env: Env, accountId: string, now = Date.now()): Promise<PaidEntitlementRow | null> {
@@ -135,6 +139,15 @@ export async function entitlementForAccount(env: Env, accountId: string, now = D
         + 'WHERE p.redeemed_by_account_id = ?1 AND (pe.id IS NULL OR '
         + "(pe.state = 'active' AND (pe.expires_at IS NULL OR pe.expires_at > ?2)))",
     ).bind(accountId, now).first<PaidEntitlementRow>();
+}
+
+/** Exact curriculum-access projection shared by authorization and clients. */
+export async function academyAccessForAccount(env: Env, accountId: string, now = Date.now()): Promise<boolean> {
+    const permanentGrant = await env.ACADEMY_DB.prepare(
+        'SELECT 1 AS granted FROM account_academy_grants WHERE account_id = ?1',
+    ).bind(accountId).first<{ granted: 1 }>();
+    if (permanentGrant) return true;
+    return Boolean(await entitlementForAccount(env, accountId, now));
 }
 
 function entitlementView(entitlement: PaidEntitlementRow): Record<string, unknown> {

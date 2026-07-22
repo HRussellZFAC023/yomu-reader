@@ -9,9 +9,9 @@
 //   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
 //   - Latin-only and punctuation-only source ranges returned as bogus tokens.
 //
-// The safe contract is annotation without geometry-changing ruby in controls or
-// compact metadata. Base text stays visible, buttons remain clickable, cards do
-// not grow, and only source ranges that actually contain Japanese are painted.
+// The contract is visible annotation without geometry-changing ruby in controls
+// or compact metadata. Base text stays visible, buttons remain clickable, cards
+// do not grow, and only source ranges that actually contain Japanese are painted.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -39,6 +39,9 @@ const ARTIFACTS = smokePaths.artifacts;
 const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
 const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
 const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
+// Browser DOMRects include the font line box. Directly stacked reading/base
+// glyphs can therefore report up to 3px of contact without visibly overlapping.
+const MAX_FONT_BOX_CONTACT_PX = 3.5;
 
 const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -59,6 +62,7 @@ const VOCABULARY = [
     ['国際', '国際', 'こくさい', 'international', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['カップル', 'カップル', 'カップル', 'couple', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['恋愛', '恋愛', 'れんあい', 'romance', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['続ける', '続ける', 'つづける', 'continue', ['verb'], 100, ['not-in-deck'], ['LHHH']],
     // Deliberately malformed parser outputs: valid offsets but non-Japanese
     // source slices. The renderer must discard both at its final boundary.
     ['r/singularity', '日本語', 'にほんご', 'invalid Latin token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -113,6 +117,9 @@ body { display: grid; place-items: start center; }
   box-sizing: border-box; padding: 8px 12px; border: 1px solid #748087; border-radius: 10px;
   background: #172126; color: #f2f4f5; font: 600 18px/24px system-ui, sans-serif;
 }
+#late-localizing-signin {
+  position: absolute; inset: auto 18px 18px auto; width: 260px; height: 64px; border: 0;
+}
 </style>
 </head>
 <body>
@@ -137,6 +144,8 @@ body { display: grid; place-items: start center; }
       <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
     </article>
     <span id="popup-anchor">投稿</span>
+    <iframe id="late-localizing-signin" name="late-localizing-signin"
+      srcdoc="<!doctype html><html lang='en'><head><meta charset='utf-8'><style>body{margin:0;padding:8px;background:#0b1416}button{box-sizing:border-box;width:240px;height:44px;border:1px solid #748087;border-radius:999px;background:#eef0f2;color:#182026;font:600 16px/20px system-ui}</style></head><body><button id='google-signin'>Continue with Google</button></body></html>"></iframe>
   </main>
 </shreddit-app>
 <script>
@@ -326,6 +335,16 @@ async function runEngine(engineName, browser) {
             await page.addScriptTag({ path: companionPath });
         }
         await page.addScriptTag({ path: SCRIPT_PATH });
+        const signInFrame = page.frame({ name: 'late-localizing-signin' });
+        assert(signInFrame, `${engineName}: late-localizing sign-in frame was not available`);
+        await signInFrame.addStyleTag({ path: CSS_PATH });
+        for (const companionPath of REQUIRED_COMPANION_PATHS) {
+            await signInFrame.addScriptTag({ path: companionPath });
+        }
+        await signInFrame.addScriptTag({ path: SCRIPT_PATH });
+        const latinSignInWordCount = await signInFrame.locator('#google-signin .jpdb-reader-word').count();
+        assert(latinSignInWordCount === 0,
+            `${engineName}: Latin sign-in placeholder was parsed before localization`, { latinSignInWordCount });
         // Script injection includes Playwright reading, parsing, and compiling
         // the 2 MB userscript. That host/harness cost can pause an otherwise
         // idle WebKit page for more than a second on a cold CI runner and is
@@ -355,13 +374,30 @@ async function runEngine(engineName, browser) {
             sortRoot.querySelector('#menu-new').textContent = '新しい順';
             sortRoot.querySelector('#menu-votes').textContent = '賛成票数順';
         });
+        await signInFrame.locator('#google-signin').evaluate(button => {
+            button.textContent = 'Google で続ける';
+        });
 
         await Promise.all([
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#feed .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
+            signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
+        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => ({
+            text: button.textContent?.trim() ?? '',
+            expressions: [...button.querySelectorAll('.jpdb-reader-word')]
+                .map(word => word.dataset.expression ?? ''),
+            words: button.querySelectorAll('.jpdb-reader-word').length,
+            furigana: button.querySelectorAll('.jpdb-reader-furi').length,
+            pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
+        }));
+        assert(lateLocalizedSignIn.expressions.includes('続ける')
+            && lateLocalizedSignIn.words > 0
+            && lateLocalizedSignIn.furigana > 0
+            && lateLocalizedSignIn.pitchWords > 0,
+        `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -486,6 +522,7 @@ async function runEngine(engineName, browser) {
             videoAvoidance,
             puckDrag,
             mirrorRemovalFallback,
+            lateLocalizedSignIn,
             performance: {
                 responsiveness,
                 steadyState,
@@ -1470,16 +1507,19 @@ function snapshotRedditElement(element, expected) {
         return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
     });
     const decoratedWords = words.filter(word => {
-        const style = getComputedStyle(word);
-        const nativeUnderline = style.textDecorationLine.includes('underline')
-            && paintIsVisible(style.textDecorationColor);
-        const underline = getComputedStyle(word, '::after');
-        const borderStyle = underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle;
-        const borderWidth = Number.parseFloat(
-            underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
-        );
-        const borderColor = underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor;
-        return nativeUnderline || (borderStyle !== 'none' && borderWidth > 0 && paintIsVisible(borderColor));
+        const surfaces = [word, ...word.querySelectorAll('.jpdb-reader-source-fragment')];
+        return surfaces.some(surface => {
+            const style = getComputedStyle(surface);
+            const nativeUnderline = style.textDecorationLine.includes('underline')
+                && paintIsVisible(style.textDecorationColor);
+            const underline = getComputedStyle(surface, '::after');
+            const borderStyle = underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle;
+            const borderWidth = Number.parseFloat(
+                underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
+            );
+            const borderColor = underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor;
+            return nativeUnderline || (borderStyle !== 'none' && borderWidth > 0 && paintIsVisible(borderColor));
+        });
     });
     return {
         expected,
@@ -1495,6 +1535,17 @@ function snapshotRedditElement(element, expected) {
             '.jpdb-mature', '.jpdb-mastered', '.jpdb-never-forget', '.jpdb-redundant', '.jpdb-due',
         ].join(','))).length,
         decoratedExpressions: decoratedWords.map(word => word.getAttribute('data-expression')),
+        projectedFragments: words.flatMap(word => [...word.querySelectorAll('.jpdb-reader-source-fragment')])
+            .map(fragment => {
+                const underline = getComputedStyle(fragment, '::after');
+                return {
+                    borderStyle: underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle,
+                    borderWidth: underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
+                    borderColor: underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor,
+                    underline: getComputedStyle(fragment).getPropertyValue('--jpdb-reader-word-underline'),
+                    rect: fragment.getBoundingClientRect().toJSON(),
+                };
+            }),
         nativePaintVisible: nativeStyle.display !== 'none'
             && nativeStyle.visibility !== 'hidden'
             && nativeStyle.opacity !== '0'
@@ -1566,15 +1617,16 @@ function snapshotRedditElement(element, expected) {
 
     function readingBaseOverlap(root) {
         const bases = [...root.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
-        let overlaps = 0;
+        let overlap = 0;
         for (const reading of root.querySelectorAll('rt,.jpdb-reader-detached-furi')) {
             const r = reading.getBoundingClientRect();
             for (const b of bases) {
-                if (Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
-                    && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5) overlaps += 1;
+                const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+                const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+                if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
             }
         }
-        return overlaps;
+        return overlap;
     }
 }
 
@@ -1593,7 +1645,10 @@ function snapshotSortMenuSafety(host) {
     for (const reading of visible) {
         const readingRect = reading.getBoundingClientRect();
         for (const base of bases) {
-            if (rectanglesOverlap(readingRect, base.getBoundingClientRect())) readingBaseOverlap += 1;
+            const baseRect = base.getBoundingClientRect();
+            const width = Math.min(readingRect.right, baseRect.right) - Math.max(readingRect.left, baseRect.left);
+            const height = Math.min(readingRect.bottom, baseRect.bottom) - Math.max(readingRect.top, baseRect.top);
+            if (width > 0.5 && height > 0.5) readingBaseOverlap = Math.max(readingBaseOverlap, height);
         }
     }
     for (let index = 0; index < visible.length; index += 1) {
@@ -1648,10 +1703,13 @@ function touchHoverState(element) {
         && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
         && !/\/\s*0(?:\.0+)?%?\s*\)$/.test(value);
     const bases = mirror ? [...mirror.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect()) : [];
-    const readingBaseOverlap = readings.reduce((count, reading) => {
+    const readingBaseOverlap = readings.reduce((overlap, reading) => {
         const r = reading.getBoundingClientRect();
-        return count + bases.filter(b => Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
-            && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5).length;
+        return bases.reduce((largest, b) => {
+            const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+            const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+            return width > 0.5 && height > 0.5 ? Math.max(largest, height) : largest;
+        }, overlap);
     }, 0);
     return {
         height: element.getBoundingClientRect().height,
@@ -1806,7 +1864,7 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assertRejectedSourceRanges(engineName, snapshot.rejected);
     assertStableFixtureLayout(engineName, baseline, snapshot.layout);
     assertSortMenuSafety(engineName, snapshot.menuSafety);
-    assertForeignTextCollisionSafety(engineName, snapshot.labels.foreign);
+    assertForeignTextVisibility(engineName, snapshot.labels.foreign);
     assertControlBehavior(engineName, baseline, snapshot);
     assertCoarsePointerSafety(engineName, touchHover);
 }
@@ -1833,10 +1891,8 @@ function assertAnnotatedLabels(engineName, labels) {
         if (name === 'feed' || name === 'lateHydrate') {
             assert(label.readingCount === 0, `${engineName}: ${name} duplicated an identical kana reading`, label);
         }
-        if (name !== 'foreign') {
-            assert(label.visibleReadingCount === label.readingCount,
-                `${engineName}: ${name} retained hidden furigana`, label);
-        }
+        assert(label.visibleReadingCount === label.readingCount,
+            `${engineName}: ${name} retained hidden furigana`, label);
         const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
         assert(expectedPitchExpressions.length > 0,
             `${engineName}: ${name} fixture has no pitch-bearing lexical expression`, label);
@@ -1849,9 +1905,10 @@ function assertAnnotatedLabels(engineName, labels) {
         assert(label.nativePaintVisible, `${engineName}: ${name} lost its native source paint`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
-        assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
-        assert(label.hiddenReadingCount === label.safetyHiddenReadingCount,
-            `${engineName}: ${name} hid furigana without a measured safety verdict`, label);
+        assert(label.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
+            `${engineName}: ${name} furigana intrudes into base text`, label);
+        assert(label.hiddenReadingCount === 0 && label.safetyHiddenReadingCount === 0,
+            `${engineName}: ${name} hid passive furigana`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
@@ -1861,7 +1918,7 @@ function assertAnnotatedLabels(engineName, labels) {
     for (const name of ['create', 'join', 'sort', 'time', 'share']) {
         const label = labels[name];
         assert(label.visibleReadingCount === label.readingCount,
-            `${engineName}: ${name} hid furigana despite a safe measured lane`, label);
+            `${engineName}: ${name} hid furigana`, label);
     }
 }
 
@@ -1884,21 +1941,19 @@ function assertSortMenuSafety(engineName, menuSafety) {
     assert(menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, menuSafety);
     assert(menuSafety.hiddenReadingCount === 0 && menuSafety.visibleReadingCount === menuSafety.readingCount,
         `${engineName}: a realistically spaced opaque menu retained hidden furigana`, menuSafety);
-    assert(menuSafety.readingBaseOverlap === 0 && menuSafety.readingReadingOverlap === 0,
-        `${engineName}: visible menu furigana overlaps another reading or base line`, menuSafety);
+    assert(menuSafety.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX && menuSafety.readingReadingOverlap === 0,
+        `${engineName}: visible menu furigana intrudes into another reading or base line`, menuSafety);
     assert(menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
         `${engineName}: unsafe furigana was truncated instead of preserved in full`, menuSafety);
 }
 
-function assertForeignTextCollisionSafety(engineName, foreignLabel) {
-    assert(foreignLabel.hiddenReadingCount > 0,
-        `${engineName}: furigana covered an ordinary unannotated line above it`, foreignLabel);
-    assert(foreignLabel.safetyHiddenReadingCount === foreignLabel.hiddenReadingCount,
-        `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, foreignLabel);
-    assert(foreignLabel.hiddenReadingReasons.every(reason => reason === 'unsafe-lane'),
-        `${engineName}: foreign-text furigana disappeared without an explicit collision verdict`, foreignLabel);
+function assertForeignTextVisibility(engineName, foreignLabel) {
+    assert(foreignLabel.visibleReadingCount === foreignLabel.readingCount
+        && foreignLabel.hiddenReadingCount === 0
+        && foreignLabel.safetyHiddenReadingCount === 0,
+    `${engineName}: adjacent foreign text caused passive furigana to disappear`, foreignLabel);
     assert(foreignLabel.pitchWordCount > 0,
-        `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, foreignLabel);
+        `${engineName}: foreign-text adjacency removed pitch annotation`, foreignLabel);
 }
 
 function assertControlBehavior(engineName, baseline, snapshot) {
@@ -1924,13 +1979,14 @@ function assertCoarsePointerInventory(engineName, touchHover) {
 }
 
 function assertCoarsePointerReadingSafety(engineName, touchHover) {
-    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => hasSafetyVerdict(touchHover[state])),
-    `${engineName}: coarse-pointer mirror lost detached readings without a safety verdict`, touchHover);
+    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => allReadingsVisible(touchHover[state])),
+    `${engineName}: coarse-pointer mirror lost detached readings`, touchHover);
     assert(touchHover.hovered.visibleRuby === touchHover.before.visibleRuby
         && touchHover.after.visibleRuby === touchHover.before.visibleRuby,
     `${engineName}: coarse-pointer detached readings changed across sticky hover`, touchHover);
-    assert(touchHover.before.readingBaseOverlap === 0 && touchHover.hovered.readingBaseOverlap === 0,
-        `${engineName}: coarse-pointer furigana overlaps base text`, touchHover);
+    assert(touchHover.before.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX
+        && touchHover.hovered.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
+    `${engineName}: coarse-pointer furigana intrudes into base text`, touchHover);
 }
 
 function assertCoarsePointerFallback(engineName, touchHover) {
@@ -1948,8 +2004,8 @@ function isLinuxWebKitPort(engineName) {
     return engineName === 'webkit' && process.platform === 'linux';
 }
 
-function hasSafetyVerdict(state) {
-    return state.visibleRuby + state.safetyHiddenReadings === state.detachedReadings;
+function allReadingsVisible(state) {
+    return state.visibleRuby === state.detachedReadings && state.safetyHiddenReadings === 0;
 }
 
 function nativeFallbackIsVisible(state) {

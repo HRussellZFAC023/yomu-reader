@@ -22,6 +22,9 @@ export interface BunproClientOptions {
     frontendBaseUrl?: string;
     legacyBaseUrl?: string;
     requestImpl?: BunproRequest;
+    /** Hosted app pages need either Yomu's userscript bridge or the learner's
+     * configured proxy for Bunpro, whose API does not permit browser CORS. */
+    isTransportAvailable?: () => boolean;
     timeoutMs?: number;
 }
 
@@ -60,6 +63,7 @@ export class BunproClient {
     private readonly requestImpl: BunproRequest;
     private readonly timeoutMs: number;
     private readonly getProxyUrl: () => string;
+    private readonly isTransportAvailable: () => boolean;
     private transportRetryAfter = 0;
 
     constructor(options: BunproClientOptions = {}) {
@@ -69,6 +73,7 @@ export class BunproClient {
         this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
         this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
         this.requestImpl = options.requestImpl ?? requestHttp;
+        this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
         this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
     }
 
@@ -274,6 +279,9 @@ export class BunproClient {
     }
 
     private async requestJson(url: string, options: ReaderHttpOptions): Promise<unknown> {
+        if (!this.isTransportAvailable()) {
+            throw new BunproApiError('Bunpro needs the Yomu browser companion or a configured personal proxy in the hosted app.');
+        }
         if (this.transportRetryAfter > Date.now()) {
             throw new BunproApiError('Bunpro is unreachable from this page (cross-origin blocked); backing off.');
         }

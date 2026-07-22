@@ -2,6 +2,7 @@ import { isNonNullObject as isRecord } from '../core/object-utils';
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { readYouTubeConfigStringFromScripts } from './youtube-config';
+import { isYouTubeAppHostname } from '../app/youtube-host';
 
 const YOUTUBE_VIDEO_PLAYER_SELECTOR = '#movie_player, .html5-video-player';
 const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
@@ -195,7 +196,7 @@ export function getYouTubeVideoId(): string {
 }
 
 export function isYouTubePage(): boolean {
-    return /(^|\.)youtube\.com$/i.test(location.hostname);
+    return isYouTubeAppHostname();
 }
 
 // Feed hover-preview players (inline previews on home/subscriptions tiles and

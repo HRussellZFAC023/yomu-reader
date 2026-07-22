@@ -620,6 +620,7 @@ function bunproExampleView(example: BunproExampleSentence, language: InterfaceLa
     const audioUrl = example.audioUrls[0] ?? '';
     return {
         id: example.id,
+        sentence: example.text,
         sentenceHtml: example.parts.map(part => renderBunproExamplePart(part, example.text)).join(''),
         translation: example.translation,
         audio: {

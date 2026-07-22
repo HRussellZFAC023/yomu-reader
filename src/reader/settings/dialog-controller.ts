@@ -65,6 +65,7 @@ import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '..
 import { formatUiText, uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
+import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import {
     overlayViewport,
     overlayViewportBounds,
@@ -562,10 +563,13 @@ export class SettingsDialogController {
     private wanikaniConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
     private yomuUpdateCheckId = 0;
+    private readonly academyAccountSync: AcademyAccountSyncSettingsController;
     private settingsJapaneseParseRefreshFrame: number | undefined;
     private settingsJapaneseParseRefreshTimer: number | undefined;
 
-    constructor(private readonly dependencies: SettingsDialogDependencies) {}
+    constructor(private readonly dependencies: SettingsDialogDependencies) {
+        this.academyAccountSync = new AcademyAccountSyncSettingsController(message => dependencies.toast(message));
+    }
 
     open(panel?: string): void {
         log.info('Opening settings', { panel: panel ?? 'default' });
@@ -589,6 +593,7 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
+        void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
         void this.refreshAnkiConnectionStatus(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
@@ -605,6 +610,7 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
+        void this.academyAccountSync.refresh(form, language);
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
@@ -1678,9 +1684,11 @@ export class SettingsDialogController {
         if (action === 'sync-cloud-settings') {
             return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form), this.settings));
         }
-        if (action === 'restore-cloud-settings' || action === 'import-yomitan-settings') {
+        if (action === 'restore-cloud-settings' || action === 'import-yomitan-settings'
+            || action === 'connect-academy-account') {
             // A cloud snapshot or imported settings file may contain account
-            // keys. Ask before opening/reading it while the click is active.
+            // keys. Academy pairing stores and sends a durable device bearer.
+            // Ask before reading/creating any credential while the click is active.
             return requestFirefoxAuthenticationInfoPermission();
         }
         return undefined;
@@ -1702,6 +1710,7 @@ export class SettingsDialogController {
         const handled = this.handleSettingsEditorAction(form, action, control)
             || await this.handleSettingsAudioAction(form, action, control)
             || await this.handleSettingsDictionaryAction(form, action, control, setStatus)
+            || await this.academyAccountSync.handle(form, action, this.settings.interfaceLanguage)
             || await this.handleSettingsCloudSyncAction(form, action, control, setStatus)
             || await this.handleSettingsImportExportAction(form, action, setStatus);
         if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);

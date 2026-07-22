@@ -45,7 +45,9 @@ async function addAuthenticatedSession(academy: FakeAcademy, code: string, suffi
         account_required: 1,
     });
     const session = await handleCreateSession(jsonRequest('/academy/api/session', { code }), academy.env, Date.now);
-    academy.db.sessions.at(-1)!.account_id = `account-answer-check-${suffix}`;
+    const accountId = `account-answer-check-${suffix}`;
+    academy.db.sessions.at(-1)!.account_id = accountId;
+    academy.db.academyGrants.add(accountId);
     return (session.headers.get('set-cookie') ?? '').split(';')[0];
 }
 
