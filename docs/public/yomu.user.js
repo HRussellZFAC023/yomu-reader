@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.411
+// @version 1.7.0
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,13 +12,13 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.83c0d5fcbc7e.user.js#sha256=g8DV/Lx+zNCHWqtE6ni5YIcPbiIgw2B3E6VxMW820UQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.6b5329a0dcc9.user.js#sha256=a1MpoNzJ9np3uOgYVt/I+AAYGycUKMLt4RssQlZ6P9E=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.3ab556930d12.user.js#sha256=OrVWkw0SGCnXXh+nLehSm2GVsK5J1T7eeNPXFO03TXk=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.09ef73f0f378.user.js#sha256=Ce9z8PN46Gul+NFTtczlBYngfw+SB496xy/ZI8A9vg0=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.c6801d9dd513.user.js#sha256=xoAdndUTAXepZvh4TdjARMFVDcXbwmpVzGGgP3HCruI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d385223e6b83.user.js#sha256=04UiPmuD0ZanLmu2meeJwaJfVgERDYBgctgL8XoKEsQ=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.9f8a6689e670.user.js#sha256=n4pmieZwV56EHnevzO2dGdopeGTXccXJIkLE8JCtLv4=
 // @require https://yomureader.com/greasyfork/yomu-video.6d6511305740.user.js#sha256=bWURMFdA8FsxzJ5kmqR6JskIfoSMqLdKYWXhhR2M+Ic=
-// @resource yomuCss  https://yomureader.com/yomu.779f3dd2fe7c.css#sha256=d5890v58+Ve39HtM7tFXGb5Le0/hk8pexlIjpHs1AOo=
+// @resource yomuCss  https://yomureader.com/yomu.964efe15993a.css#sha256=lk7+FZk62liCw58WUmgC/nOWeiyLUO78qo+nQxnsDc0=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -8859,9 +8859,6 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
-  if (context.detachedReadings && !controlMirror) {
-  mirror.dataset.yomuReadingLaneCandidate = "true";
-  }
   const state = styleTextMirrorHost(host);
   try {
   styleTextMirror(mirror, host, false);
@@ -8891,7 +8888,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
   }
-  scheduleAdditiveMirrorProjection(host.getRootNode());
+  scheduleAdditiveMirrorProjection();
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -8946,15 +8943,7 @@ function projectAdditiveTextMirror(mirror, host) {
   word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
   const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
   const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
-  const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
-  let gradientOffset = 0;
-  const rects = sourceRects.map((rect) => {
-    const projectedWidth = rect.width / scaleX;
-    const projection = { rect, gradientOffset };
-    gradientOffset += projectedWidth;
-    return projection;
-  }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
+  const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
   if (!rects.length) continue;
   word.dataset.yomuSourceProjected = "true";
   word.style.setProperty("position", "absolute", "important");
@@ -8962,12 +8951,10 @@ function projectAdditiveTextMirror(mirror, host) {
   word.style.setProperty("width", "auto", "important");
   word.style.setProperty("height", "auto", "important");
   word.style.setProperty("margin", "0", "important");
-  for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
+  for (const rect of rects) {
     const fragment = document.createElement("span");
     fragment.className = SOURCE_FRAGMENT_CLASS;
     fragment.setAttribute("aria-hidden", "true");
-    fragment.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
-    fragment.style.setProperty("--jpdb-reader-source-gradient-offset", `${-fragmentGradientOffset}px`);
     positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
     word.append(fragment);
   }
@@ -9032,84 +9019,23 @@ function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
 }
 function projectAdditiveTextMirrors(root = document) {
-  const entries2 = [];
-  for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+  for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
-  entries2.push({ mirror, host });
+  projectAdditiveTextMirror(mirror, host);
   }
-  if (settleTextMirrorReadingLanes(entries2)) {
-  scheduleAdditiveMirrorProjection(root);
-  return;
-  }
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-  for (const { mirror, host } of entries2) projectAdditiveTextMirror(mirror, host);
-}
-function settleTextMirrorReadingLanes(entries2) {
-  const updates = [];
-  for (const { mirror, host } of entries2) {
-  if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
-  const state = textMirrorHosts.get(host);
-  if (!state) continue;
-  const inlineLineHeight = host.style.getPropertyValue("line-height");
-  const inlineLineHeightPriority = host.style.getPropertyPriority("line-height");
-  let baselineChanged = false;
-  const ownsReservation = Boolean(state.reservedLineHeight) && inlineLineHeight === state.reservedLineHeight && inlineLineHeightPriority === "important";
-  if (!ownsReservation && (state.reservedLineHeight || inlineLineHeight !== state.lineHeight || inlineLineHeightPriority !== state.lineHeightPriority)) {
-    state.lineHeight = inlineLineHeight;
-    state.lineHeightPriority = inlineLineHeightPriority;
-    state.reservedLineHeight = "";
-    baselineChanged = true;
-  }
-  const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
-  const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state.reservedLineHeight)) : "";
-  if (baselineChanged || lineHeight !== state.reservedLineHeight) {
-    updates.push({ mirror, host, state, lineHeight });
-  }
-  }
-  for (const { mirror, host, state, lineHeight } of updates) {
-  if (!host.isConnected || textMirrorHosts.get(host) !== state || currentTextMirror(host) !== mirror) continue;
-  if (lineHeight) {
-    state.reservedLineHeight = lineHeight;
-    host.style.setProperty("line-height", lineHeight, "important");
-    mirror.style.setProperty("line-height", lineHeight);
-  } else {
-    releaseTextMirrorReadingLane(host, state, mirror);
-  }
-  }
-  return updates.length > 0;
-}
-function releaseTextMirrorReadingLane(host, state, mirror) {
-  const injected = state.reservedLineHeight;
-  if (injected) {
-  const current = host.style.getPropertyValue("line-height");
-  const priority2 = host.style.getPropertyPriority("line-height");
-  if (current === injected && priority2 === "important") {
-    restoreStyleProperty(host, "line-height", injected, state.lineHeight, state.lineHeightPriority);
-  } else {
-    state.lineHeight = current;
-    state.lineHeightPriority = priority2;
-  }
-  state.reservedLineHeight = "";
-  }
-  mirror.style.removeProperty("line-height");
 }
 let pendingAdditiveMirrorProjectionFrame = 0;
-const pendingAdditiveMirrorProjectionRoots = new Set();
-function scheduleAdditiveMirrorProjection(root = document) {
-  pendingAdditiveMirrorProjectionRoots.add(root);
+function scheduleAdditiveMirrorProjection() {
   if (typeof requestAnimationFrame !== "function") {
-  const roots = [...pendingAdditiveMirrorProjectionRoots];
-  pendingAdditiveMirrorProjectionRoots.clear();
-  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+  projectAdditiveTextMirrors(document);
   return;
   }
   if (pendingAdditiveMirrorProjectionFrame) return;
   pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
   pendingAdditiveMirrorProjectionFrame = 0;
-  const roots = [...pendingAdditiveMirrorProjectionRoots];
-  pendingAdditiveMirrorProjectionRoots.clear();
-  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+  projectAdditiveTextMirrors(document);
   });
 }
 function readerWordSourcePointScore(word, x, y) {
@@ -9182,7 +9108,7 @@ function styleDetachedReadingElements(root, host) {
   setInlineStyleIfChanged(reading, "position", "absolute", "important");
   setInlineStyleIfChanged(reading, "z-index", "2");
   setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 5px)");
+  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
   setInlineStyleIfChanged(reading, "display", "block", "important");
   setInlineStyleIfChanged(reading, "width", "max-content");
   setInlineStyleIfChanged(reading, "max-width", "none");
@@ -9809,16 +9735,6 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function sourceTextSpansMultipleLines(host) {
-  const source = hostOriginalTextWithNodeOffsets(host);
-  const style = safeComputedStyle(host);
-  if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
-  const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
-  const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
-  const intervals = rects.map((rect) => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom]).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
-  return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
-}
 function styleTextMirrorHost(host) {
   const computed = safeComputedStyle(host);
   const state = {
@@ -9826,10 +9742,7 @@ function styleTextMirrorHost(host) {
   sourceText: "",
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
-  positioned: computed.position === "static",
-  lineHeight: host.style.getPropertyValue("line-height"),
-  lineHeightPriority: host.style.getPropertyPriority("line-height"),
-  reservedLineHeight: ""
+  positioned: computed.position === "static"
   };
   textMirrorHosts.set(host, state);
   if (state.positioned) host.style.setProperty("position", "relative", "important");
@@ -9871,13 +9784,6 @@ function rubyFriendlyMirrorLineHeight(style) {
   const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
   return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
-function detachedReadingLaneLineHeight(style, alreadyReserved) {
-  const fontSize = cssPixels(style.fontSize) || 16;
-  const minimum = Math.ceil(fontSize * 2) + 1;
-  const current = cssPixels(style.lineHeight);
-  if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-  return current >= minimum ? "" : `${minimum}px`;
-}
 function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
@@ -9907,17 +9813,8 @@ function observeTextMirrorHost(host) {
     removeTextMirror(liveHost);
     return;
   }
-  const hostAttributeMutations = mutations.filter(
-    (mutation) => mutation.type === "attributes" && mutation.target === liveHost
-  );
-  if (hostAttributeMutations.length) {
-    noteConstrainedRowLayoutSettled();
-    if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
-      const mirror = currentTextMirror(liveHost);
-      if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
-    }
+  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
     reassertTextMirrorHostStyles(liveHost, liveState);
-    scheduleAdditiveMirrorProjection(liveHost.getRootNode());
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -10154,13 +10051,10 @@ function reassertTextMirrorHostStyles(host, state) {
 }
 function restoreTextMirrorHost(host, state) {
   if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
-  if (state.reservedLineHeight) {
-  restoreStyleProperty(host, "line-height", state.reservedLineHeight, state.lineHeight, state.lineHeightPriority);
-  }
 }
 function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   const current = host.style.getPropertyValue(property);
-  if (current !== injectedValue || host.style.getPropertyPriority(property) !== "important") return;
+  if (current && current !== injectedValue) return;
   if (value) host.style.setProperty(property, value, priority2);
   else host.style.removeProperty(property);
 }
@@ -24064,13 +23958,16 @@ function isKanjiReviewBack() {
   return state.isKanji && (state.phase === "after" || hasReviewAnswerContent());
 }
 function hasReviewAnswerContent() {
-  return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
+  return sourceElements(document, ".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings").length > 0;
+}
+function isUnrevealedJpdbReview() {
+  return isJpdbHost() && isReviewPage() && !hasReviewAnswerContent();
 }
 function isJpdbReviewFrontPrompt(element) {
   if (!isJpdbHost() || !isReviewPage()) return false;
   if (!element.closest(".review-card, .prompt, .spelling, .kanji, .vocabulary-spelling")) return false;
   if (element.closest(".answer-box, .subsection-meanings, .result, .review-reveal")) return false;
-  return !hasReviewAnswerContent();
+  return isUnrevealedJpdbReview();
 }
 function currentReviewCardState() {
   if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
@@ -24121,6 +24018,7 @@ function canReadCurrentKanjiTarget(kanji) {
   return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
 }
 function currentVocabularyTermTarget() {
+  if (isUnrevealedJpdbReview()) return null;
   const pageTerm = extractCurrentTermTarget();
   const searchQuery = extractSearchQuery();
   const term = currentVocabularyLookupTerm(pageTerm, searchQuery);
@@ -33117,6 +33015,14 @@ const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
   '[role="menuitemradio"]',
   '[role="tab"]'
 ].join(",");
+const REVIEW_ANSWER_CONTROL_SELECTOR = [
+  "button",
+  'input[type="button"]',
+  'input[type="submit"]',
+  '[role="button"]'
+].join(",");
+const REVIEW_ANSWER_ENGLISH_LABEL_RE = /^(?:show|reveal)\s+(?:the\s+)?answers?\b/i;
+const REVIEW_ANSWER_JAPANESE_LABEL_RE = /^(?:答え|解答|正解).*(?:見る|表示|開く)/;
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
   ".result.kanji",
@@ -33154,6 +33060,17 @@ function clickMayRevealDynamicUiText(eventOrTarget) {
   const elements = dynamicUiClickElements(eventOrTarget);
   if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
   return elements.some((element) => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+}
+function clickMayRevealReviewAnswer(eventOrTarget) {
+  const elements = dynamicUiClickElements(eventOrTarget);
+  if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
+  return elements.some((element) => {
+  const control = element.closest(REVIEW_ANSWER_CONTROL_SELECTOR);
+  if (!control) return false;
+  const label = control.getAttribute("aria-label") ?? (control instanceof HTMLInputElement ? control.value : control.textContent) ?? "";
+  const normalizedLabel = label.trim();
+  return REVIEW_ANSWER_ENGLISH_LABEL_RE.test(normalizedLabel) || REVIEW_ANSWER_JAPANESE_LABEL_RE.test(normalizedLabel);
+  });
 }
 function dynamicUiClickElements(eventOrTarget) {
   const path = eventOrTarget instanceof Event ? eventOrTarget.composedPath() : [eventOrTarget];
@@ -36482,8 +36399,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.411"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.411"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.0"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.0"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36615,7 +36532,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.411"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.7.0"}`;
   } catch {
   return null;
   }
@@ -38042,6 +37959,9 @@ class ReaderApp {
   visibleAutoScanWorkVerdict;
   lastAutoScanStartedAt = 0;
   autoScanObserver;
+  documentBodyObserver;
+  observedDocumentBody;
+  documentBodyRecoveryPending = false;
   disposeShadowRootDiscovery;
   lastMirrorStaleScanAt = 0;
   handleNonDestructiveMirrorStale = () => {
@@ -38884,8 +38804,8 @@ class ReaderApp {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
   const hasAddon = Boolean(document.querySelector("[data-yomu-jpdb-addon]"));
-  if (isJitenHost() && location.pathname.startsWith("/srs/study") && currentJitenStudyHeadwordText() && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
   if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+  if (currentPageEnhancementLayoutContext() === "review" && !isCurrentKanjiSurface() && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
   if (!hasAddon) return true;
   if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
@@ -39314,6 +39234,10 @@ class ReaderApp {
   setCustomElementUpgradeHook(null);
   setReviewCardFrontPredicate(null);
   this.autoScanObserver?.disconnect();
+  this.documentBodyObserver?.disconnect();
+  this.documentBodyObserver = void 0;
+  this.observedDocumentBody = void 0;
+  this.documentBodyRecoveryPending = false;
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
   this.ocr.destroy();
@@ -39436,6 +39360,7 @@ class ReaderApp {
       this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
     }
   });
+  this.setupDocumentBodyRecovery();
   setReviewCardFrontPredicate(isReviewCardFrontPromptElement);
   setShadowRootScanHook((root, cause) => {
     if (this.isDestroyed || !nodeWithinAnnotationScope(root)) return;
@@ -39467,6 +39392,9 @@ class ReaderApp {
     }
   }, { passive: true, signal: abortSignal });
   document.addEventListener("click", (event) => {
+    if (!document.hidden && isPageEnhancementHost() && clickMayRevealReviewAnswer(event)) {
+      this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+    }
     if (document.hidden || !this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event)) return;
     this.noteVisibleAutoScanWorkObserved();
     this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
@@ -39491,7 +39419,8 @@ class ReaderApp {
     this.pageScanner.pauseGeometrySweeps();
     return;
   }
-  this.observeAutoScanMutations();
+  if (this.documentBodyRecoveryPending) this.recoverAfterDocumentBodyReplacement();
+  else this.observeAutoScanMutations();
   wakeShadowHostPoll();
   this.scheduleReaderKnownStateBackfill();
   if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
@@ -39505,6 +39434,34 @@ class ReaderApp {
   }
   this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
   this.observeScopedScannedShadowRoots();
+  }
+  setupDocumentBodyRecovery() {
+  this.documentBodyObserver?.disconnect();
+  this.observedDocumentBody = document.body ?? void 0;
+  if (!document.documentElement) return;
+  this.documentBodyObserver = new MutationObserver(() => this.handleDocumentBodyReplacement());
+  this.documentBodyObserver.observe(document.documentElement, { childList: true });
+  }
+  handleDocumentBodyReplacement() {
+  const body = document.body ?? void 0;
+  if (this.isDestroyed || !body || body === this.observedDocumentBody) return;
+  this.observedDocumentBody = body;
+  this.documentBodyRecoveryPending = true;
+  if (!document.hidden) this.recoverAfterDocumentBodyReplacement();
+  }
+  recoverAfterDocumentBodyReplacement() {
+  if (this.isDestroyed || !document.body || !this.documentBodyRecoveryPending) return;
+  this.documentBodyRecoveryPending = false;
+  this.autoScanObserver?.disconnect();
+  this.observeAutoScanMutations();
+  if (!this.embeddedFrame) this.installFab();
+  if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+    this.noteVisibleAutoScanWorkObserved();
+    this.scheduleAutoScan(0, { force: true, debounce: true });
+  }
+  if (isPageEnhancementHost()) {
+    this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+  }
   }
   observeScopedScannedShadowRoots() {
   forEachScannedShadowRoot((root) => {

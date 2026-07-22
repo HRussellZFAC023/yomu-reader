@@ -5095,7 +5095,6 @@ subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
 moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
-noScannedFields
 right	右
 left	左
 bottom	下
@@ -7657,7 +7656,7 @@ ${candidate.depth}`;
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.408".trim() ? "1.6.408".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.0".trim() ? "1.7.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -17061,7 +17060,13 @@ ${glossaryKey}`;
   async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
     if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
     const plaintext = new TextEncoder().encode(JSON.stringify(value));
-    const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const hmacKey = await crypto.subtle.importKey(
+      "raw",
+      cryptoBuffer(fromBase64Url(key)),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
     const digest = new Uint8Array(await crypto.subtle.sign(
       "HMAC",
       hmacKey,
@@ -17311,7 +17316,7 @@ ${glossaryKey}`;
       meanings,
       sentence: cleanOptional(input2.sentence),
       tags: ["academy"],
-      dueAt: now,
+      dueAt: finiteDueAt(input2.dueAt, now),
       lastReviewAt: null,
       createdAt: now,
       updatedAt: now,
@@ -17322,7 +17327,11 @@ ${glossaryKey}`;
       retainWithoutAcademyProvenance: false,
       academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
     };
-    const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
+    const card = existing ? preserveExistingSchedule(
+      mergeStoredYomuSrsCards(existing, incoming),
+      existing,
+      input2.postponeExisting === true && !previousProvenance ? input2.dueAt : void 0
+    ) : incoming;
     deck.cards[identity.key] = card;
     return {
       card,
@@ -17331,10 +17340,13 @@ ${glossaryKey}`;
       provenanceCount: Object.keys(card.academyProvenance ?? {}).length
     };
   }
-  function preserveExistingSchedule(merged, existing) {
+  function finiteDueAt(value, fallback) {
+    return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+  }
+  function preserveExistingSchedule(merged, existing, notBefore) {
     return {
       ...merged,
-      dueAt: existing.dueAt,
+      dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
       lastReviewAt: existing.lastReviewAt,
       reviews: existing.reviews,
       lapses: existing.lapses,
@@ -17434,7 +17446,7 @@ ${glossaryKey}`;
           ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
           ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
           ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-          ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+          ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
         }, finiteNumber(candidate.addedAt, fallbackAt));
         result[normalized.id] = normalized;
       } catch {

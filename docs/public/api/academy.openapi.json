@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Yomu Academy API",
-    "version": "1.6.411",
+    "version": "1.7.0",
     "description": "Accounts, secure browser sessions, Reader device pairing, encrypted SRS sync, class progress, learning feedback, and protected Academy media. Browser mutations marked `x-yomu-same-origin` also require an Origin header matching https://yomureader.com.",
     "contact": {
       "name": "Yomu",
@@ -1002,16 +1002,6 @@
             }
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteAccountRequest"
-              }
-            }
-          }
-        },
         "x-yomu-same-origin": true
       }
     },
@@ -1203,13 +1193,13 @@
       }
     },
     "/academy/api/account/export": {
-      "post": {
+      "get": {
         "operationId": "exportAccountData",
         "tags": [
           "Account"
         ],
         "summary": "Export account data",
-        "description": "Starts or continues a frozen, bounded export of account-owned data.",
+        "description": "Returns a bounded page of account-owned data. Follow nextCursor until hasMore is false.",
         "security": [
           {
             "sessionCookie": []
@@ -1287,213 +1277,31 @@
             }
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExportRequest"
-              }
-            }
-          }
-        },
-        "x-yomu-same-origin": true
-      }
-    },
-    "/academy/api/account/lifecycle-proof/verify": {
-      "post": {
-        "operationId": "verifyAccountLifecycleProof",
-        "tags": [
-          "Account"
-        ],
-        "summary": "Verify a production lifecycle proof grant",
-        "description": "Verifies that the signed-in disposable account matches an unexpired supervised proof grant without consuming it.",
-        "security": [
+        "parameters": [
           {
-            "sessionCookie": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LifecycleProofVerification"
-                }
-              }
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Return events after this cursor.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
             }
           },
-          "400": {
-            "description": "The request was malformed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication is required or invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The authenticated caller is not permitted to perform this operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The request conflicts with current server state.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "The caller exceeded a rate limit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The service could not complete the request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LifecycleProofAuthorizationRequest"
-              }
-            }
-          }
-        },
-        "x-yomu-same-origin": true
-      }
-    },
-    "/academy/api/account/lifecycle-proof": {
-      "delete": {
-        "operationId": "deleteLifecycleProofAccount",
-        "tags": [
-          "Account"
-        ],
-        "summary": "Delete a supervised production proof account",
-        "description": "Consumes the bound single-use proof grant and deletes the authenticated disposable account.",
-        "security": [
           {
-            "sessionCookie": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeletedResource"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request was malformed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication is required or invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The authenticated caller is not permitted to perform this operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The request conflicts with current server state.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "The caller exceeded a rate limit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The service could not complete the request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum events to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 200
             }
           }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LifecycleProofDeletionRequest"
-              }
-            }
-          }
-        },
-        "x-yomu-same-origin": true
+        ]
       }
     },
     "/academy/api/entitlement": {
@@ -1851,16 +1659,6 @@
             }
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteProfileRequest"
-              }
-            }
-          }
-        },
         "x-yomu-same-origin": true
       }
     },
@@ -1963,13 +1761,13 @@
       }
     },
     "/academy/api/profile/export": {
-      "post": {
+      "get": {
         "operationId": "exportProfileData",
         "tags": [
           "Profiles"
         ],
         "summary": "Export profile data",
-        "description": "Starts or continues a frozen, bounded export of encrypted profile data.",
+        "description": "Returns a bounded page of encrypted profile data.",
         "security": [
           {
             "sessionCookie": []
@@ -2047,17 +1845,31 @@
             }
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExportRequest"
-              }
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Return events after this cursor.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum events to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 200
             }
           }
-        },
-        "x-yomu-same-origin": true
+        ]
       }
     },
     "/academy/api/pairings": {
@@ -4247,103 +4059,6 @@
         }
       }
     },
-    "/academy/api/admin/lifecycle-proof-grants": {
-      "post": {
-        "operationId": "createAccountLifecycleProofGrant",
-        "tags": [
-          "Administration"
-        ],
-        "summary": "Create a production lifecycle proof grant",
-        "description": "Creates an expiring single-use grant bound to one disposable production account and run nonce.",
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LifecycleProofGrant"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request was malformed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication is required or invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The authenticated caller is not permitted to perform this operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The request conflicts with current server state.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "The caller exceeded a rate limit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The service could not complete the request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LifecycleProofGrantRequest"
-              }
-            }
-          }
-        }
-      }
-    },
     "/academy/api/admin/payment-code": {
       "post": {
         "operationId": "getAcademyPaymentCode",
@@ -5871,328 +5586,32 @@
         },
         "additionalProperties": false
       },
-      "ExportEventPage": {
+      "ExportPage": {
         "type": "object",
         "required": [
-          "events",
-          "nextCursor",
-          "hasMore",
-          "exportCursor"
+          "schemaVersion"
         ],
         "properties": {
-          "events": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
+          "schemaVersion": {
+            "type": "integer"
           },
           "nextCursor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "hasMore": {
-            "type": "boolean"
-          },
-          "exportCursor": {
             "type": [
               "string",
               "null"
             ]
-          }
-        },
-        "additionalProperties": false
-      },
-      "ReaderExportEventPage": {
-        "type": "object",
-        "required": [
-          "events",
-          "nextCursor",
-          "hasMore"
-        ],
-        "properties": {
-          "events": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "nextCursor": {
-            "type": "integer",
-            "minimum": 0
           },
           "hasMore": {
             "type": "boolean"
           }
         },
-        "additionalProperties": false
-      },
-      "ExportPage": {
-        "type": "object",
-        "required": [
-          "schemaVersion",
-          "eventPage",
-          "readerSrsEventPage"
-        ],
-        "properties": {
-          "schemaVersion": {
-            "type": "integer",
-            "const": 2
-          },
-          "eventPage": {
-            "$ref": "#/components/schemas/ExportEventPage"
-          },
-          "readerSrsEventPage": {
-            "$ref": "#/components/schemas/ReaderExportEventPage"
-          }
-        },
         "additionalProperties": true
-      },
-      "ExportRequest": {
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string",
-            "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$",
-            "description": "Opaque single-use continuation cursor from the previous export page."
-          }
-        },
-        "additionalProperties": false
-      },
-      "DeleteAccountRequest": {
-        "type": "object",
-        "required": [
-          "confirmation"
-        ],
-        "properties": {
-          "confirmation": {
-            "type": "string",
-            "const": "delete-account"
-          }
-        },
-        "additionalProperties": false
-      },
-      "DeleteProfileRequest": {
-        "type": "object",
-        "required": [
-          "confirmation"
-        ],
-        "properties": {
-          "confirmation": {
-            "type": "string",
-            "const": "delete-profile"
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofGrantRequest": {
-        "type": "object",
-        "required": [
-          "accountId",
-          "runNonce"
-        ],
-        "properties": {
-          "accountId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Supervisor-provided 32-byte run nonce.",
-            "minLength": 43,
-            "maxLength": 43
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofAuthorizationRequest": {
-        "type": "object",
-        "required": [
-          "proofToken",
-          "runNonce"
-        ],
-        "properties": {
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Single-use production proof token.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Run nonce bound to the proof token.",
-            "minLength": 43,
-            "maxLength": 43
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofDeletionRequest": {
-        "type": "object",
-        "required": [
-          "proofToken",
-          "runNonce",
-          "confirmation"
-        ],
-        "properties": {
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Single-use production proof token.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Run nonce bound to the proof token.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "confirmation": {
-            "type": "string",
-            "const": "delete-account"
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofGrant": {
-        "type": "object",
-        "required": [
-          "proofToken",
-          "runNonce",
-          "accountId",
-          "environment",
-          "scope",
-          "expiresAt"
-        ],
-        "properties": {
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "accountId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "environment": {
-            "type": "string",
-            "const": "production"
-          },
-          "scope": {
-            "type": "string",
-            "const": "account-lifecycle-production-test"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofVerification": {
-        "type": "object",
-        "required": [
-          "verified",
-          "accountId",
-          "environment",
-          "scope",
-          "expiresAt"
-        ],
-        "properties": {
-          "verified": {
-            "type": "boolean",
-            "const": true
-          },
-          "accountId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "environment": {
-            "type": "string",
-            "const": "production"
-          },
-          "scope": {
-            "type": "string",
-            "const": "account-lifecycle-production-test"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          }
-        },
-        "additionalProperties": false
-      },
-      "DeletionReceipt": {
-        "type": "object",
-        "required": [
-          "deletionId",
-          "scope",
-          "deletedAt",
-          "profileCount",
-          "deviceCount",
-          "syncedRecordCount",
-          "retainedUntil"
-        ],
-        "properties": {
-          "deletionId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "profile",
-              "account"
-            ]
-          },
-          "deletedAt": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          },
-          "profileCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "deviceCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "syncedRecordCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "retainedUntil": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          }
-        },
-        "additionalProperties": false
       },
       "DeletedResource": {
         "type": "object",
         "required": [
           "deleted",
-          "scope",
-          "deletionReceipt"
+          "scope"
         ],
         "properties": {
           "deleted": {
@@ -6205,12 +5624,9 @@
               "profile",
               "account"
             ]
-          },
-          "deletionReceipt": {
-            "$ref": "#/components/schemas/DeletionReceipt"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "securitySchemes": {

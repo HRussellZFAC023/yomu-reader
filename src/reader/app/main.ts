@@ -272,7 +272,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
@@ -1029,6 +1029,9 @@ export class ReaderApp {
     // (5-10 childList mutations/sec) into a bounded scan cadence.
     private lastAutoScanStartedAt = 0;
     private autoScanObserver?: MutationObserver;
+    private documentBodyObserver?: MutationObserver;
+    private observedDocumentBody?: HTMLElement;
+    private documentBodyRecoveryPending = false;
     private disposeShadowRootDiscovery?: () => void;
     private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
@@ -2065,17 +2068,18 @@ export class ReaderApp {
         if (location.href !== this.lastEnhancedHref) return true;
         if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
         const hasAddon = Boolean(document.querySelector('[data-yomu-jpdb-addon]'));
-        // Jiten intentionally exposes no enhancement target on the question
-        // side. Treat a retained previous answer as refresh work so the next
-        // zero-delay pass removes it immediately without mounting a replacement.
-        if (isJitenHost()
-            && location.pathname.startsWith('/srs/study')
-            && currentJitenStudyHeadwordText()
-            && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
         // Bunpro keeps the previous answer console alive briefly while the next
         // prompt renders. Remove its addon immediately so the preceding answer
         // cannot leak into the unrevealed question phase.
         if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+        // Review question fronts intentionally expose no word target. Treat a
+        // retained answer addon as refresh work on every supported SRS host so
+        // the next zero-delay pass removes it without mounting a spoiler. This
+        // also covers JPDB, whose front-side sentence contains generic `.plain`
+        // tokens that are not the reviewed vocabulary headword.
+        if (currentPageEnhancementLayoutContext() === 'review'
+            && !isCurrentKanjiSurface()
+            && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
         if (!hasAddon) return true;
         if (this.jitenAddonWordIdentityChanged()) return true;
         return this.jitenAddonStrandedOnFallbackAnchor();
@@ -2642,6 +2646,10 @@ export class ReaderApp {
         setCustomElementUpgradeHook(null);
         setReviewCardFrontPredicate(null);
         this.autoScanObserver?.disconnect();
+        this.documentBodyObserver?.disconnect();
+        this.documentBodyObserver = undefined;
+        this.observedDocumentBody = undefined;
+        this.documentBodyRecoveryPending = false;
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
         this.ocr.destroy();
@@ -2790,6 +2798,7 @@ export class ReaderApp {
                 this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
             }
         });
+        this.setupDocumentBodyRecovery();
         // Keep the review-card front (jiten study / jpdb review question side)
         // a plain prompt: the decoration policy skips any element this predicate
         // flags, so furigana/pitch never spoil the reading being tested.
@@ -2857,6 +2866,14 @@ export class ReaderApp {
             }
         }, { passive: true, signal: abortSignal });
         document.addEventListener('click', event => {
+            if (!document.hidden
+                && isPageEnhancementHost()
+                && clickMayRevealReviewAnswer(event)) {
+                // Capture runs before the host's handler. A zero-delay refresh
+                // sees the answer DOM after a synchronous reveal; asynchronous
+                // and full-body swaps are covered by the mutation/body watchers.
+                this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+            }
             if (document.hidden
                 || !this.canParseJapanese()
                 || !allowsFrequentVisibleAutoScan()
@@ -2896,7 +2913,8 @@ export class ReaderApp {
         // root (disconnect dropped them all), re-arm the shadow candidate poll
         // that parked itself while hidden, then run one settle scan so any
         // content the page swapped in while hidden gets annotated now.
-        this.observeAutoScanMutations();
+        if (this.documentBodyRecoveryPending) this.recoverAfterDocumentBodyReplacement();
+        else this.observeAutoScanMutations();
         wakeShadowHostPoll();
         // The backfill parks itself while hidden (canScheduleKnownStateBackfill);
         // re-arm it so words scanned while backgrounded still get their state.
@@ -2915,6 +2933,43 @@ export class ReaderApp {
         // disconnect() (pause path) dropped every target — re-attach the
         // registered shadow roots alongside document.body.
         this.observeScopedScannedShadowRoots();
+    }
+
+    private setupDocumentBodyRecovery(): void {
+        this.documentBodyObserver?.disconnect();
+        this.observedDocumentBody = document.body ?? undefined;
+        if (!document.documentElement) return;
+        // The primary observer intentionally stays body-scoped to avoid head
+        // churn. This O(1) companion watches only direct <html> children, so it
+        // survives an SPA replacing <body> without observing ordinary page DOM.
+        this.documentBodyObserver = new MutationObserver(() => this.handleDocumentBodyReplacement());
+        this.documentBodyObserver.observe(document.documentElement, { childList: true });
+    }
+
+    private handleDocumentBodyReplacement(): void {
+        const body = document.body ?? undefined;
+        if (this.isDestroyed || !body || body === this.observedDocumentBody) return;
+        this.observedDocumentBody = body;
+        this.documentBodyRecoveryPending = true;
+        if (!document.hidden) this.recoverAfterDocumentBodyReplacement();
+    }
+
+    private recoverAfterDocumentBodyReplacement(): void {
+        if (this.isDestroyed || !document.body || !this.documentBodyRecoveryPending) return;
+        this.documentBodyRecoveryPending = false;
+        // Drop the detached body target before observing the replacement. The
+        // full body may already be populated, so queue one forced scan instead
+        // of waiting for a later descendant mutation that might never arrive.
+        this.autoScanObserver?.disconnect();
+        this.observeAutoScanMutations();
+        if (!this.embeddedFrame) this.installFab();
+        if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+            this.noteVisibleAutoScanWorkObserved();
+            this.scheduleAutoScan(0, { force: true, debounce: true });
+        }
+        if (isPageEnhancementHost()) {
+            this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+        }
     }
 
     private observeScopedScannedShadowRoots(): void {

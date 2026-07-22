@@ -36,6 +36,8 @@
 
 ### Fixed
 
+- JPDB review questions no longer mistake sentence-side `.plain` tokens for the reviewed headword, so definitions and Immersion media stay hidden until the answer is revealed.
+- Review sites that replace the document body while revealing an answer now reattach Yomu's scanner, puck, and answer addon immediately instead of disappearing until a later card transition.
 - Moving to the next Jiten card removes the previous answer immediately instead of waiting for a resettable 500 ms delay or rebuilding the whole addon after every provider finishes.
 - Turning JPDB or Bunpro definitions off now persists and hides those definition panels; lookup and frequency pills remain independent.
 - Immersion Kit review controls meet the 44 px mobile touch target, blurred translations remain revealed after one tap, and the carousel is no longer limited to two or three examples.
