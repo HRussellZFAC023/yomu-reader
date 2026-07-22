@@ -1,9 +1,9 @@
 import { hmacSha256Hex, randomBytes } from './crypto';
-import { assertSessionEntitlementCanLink, bindSessionEntitlement } from './entitlements';
+import { academyAccessForAccount, assertSessionEntitlementCanLink, bindSessionEntitlement } from './entitlements';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { attachSessionProfileToAccount } from './profiles';
-import { ACCOUNT_RECOVERY_INVITE_ID, activeSession, type ActiveSession } from './sessions';
+import { ACCOUNT_RECOVERY_INVITE_ID, READER_ACCOUNT_INVITE_ID, activeSession, type ActiveSession } from './sessions';
 
 const AVATARS = new Set(['quality-2', 'quality-3', 'quality-4', 'quality-5']);
 const DISPLAY_NAME_MAX = 32;
@@ -17,6 +17,7 @@ export interface AccountRow {
     readonly avatar_key: string | null;
     readonly board_visible: number;
     readonly share_avatar: number;
+    readonly access_tier: 'reader' | 'academy';
 }
 
 export interface AccountContext {
@@ -43,6 +44,7 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
     await assertSessionEntitlementCanLink(env, session, account?.id ?? null);
 
     if (!account) {
+        const accessTier = session.invite_id === READER_ACCOUNT_INVITE_ID ? 'reader' : 'academy';
         for (let attempt = 0; attempt < 24 && !account; attempt += 1) {
             const id = crypto.randomUUID();
             const publicId = crypto.randomUUID();
@@ -50,9 +52,9 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             try {
                 const inserted = await env.ACADEMY_DB.prepare(
                     'INSERT INTO accounts '
-                    + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, created_at, updated_at) '
-                    + "VALUES (?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, ?5, ?5)",
-                ).bind(id, publicId, subjectHash, discriminator, now).run();
+                    + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, access_tier, created_at, updated_at) '
+                    + "VALUES (?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, ?5, ?6, ?6)",
+                ).bind(id, publicId, subjectHash, discriminator, accessTier, now).run();
                 if ((inserted.meta.changes ?? 0) === 1) createdAccountId = id;
                 account = await accountBySubjectHash(env, subjectHash);
             } catch {
@@ -70,6 +72,14 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
         if (createdAccountId === account.id) await deleteUnclaimedAccount(env, account.id);
         throw error;
     }
+    if (session.invite_id !== READER_ACCOUNT_INVITE_ID && session.invite_id !== ACCOUNT_RECOVERY_INVITE_ID
+        && account.access_tier !== 'academy') {
+        const promoted = await env.ACADEMY_DB.prepare(
+            "UPDATE accounts SET access_tier = 'academy', updated_at = ?1 WHERE id = ?2 RETURNING access_tier",
+        ).bind(now, account.id).first<{ access_tier: 'academy' }>();
+        if (!promoted) throw new HttpError(409, 'Academy account access could not be activated.');
+        account = { ...account, access_tier: 'academy' };
+    }
     await attachSessionProfileToAccount(env, session, account.id, now);
 
     const linked = await env.ACADEMY_DB.batch([
@@ -86,6 +96,12 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             + 'WHERE id = ?1 AND EXISTS ('
             + 'SELECT 1 FROM sessions s JOIN profiles p ON p.id = s.profile_id '
             + 'WHERE s.public_id = ?2 AND s.account_id = ?1 AND s.revoked_at IS NULL AND p.account_id = ?1)',
+        ).bind(account.id, session.public_id, now),
+        env.ACADEMY_DB.prepare(
+            'INSERT OR IGNORE INTO account_academy_grants (account_id, source_invite_id, granted_at) '
+            + 'SELECT ?1, i.id, ?3 FROM sessions s JOIN invites i ON i.id = s.invite_id '
+            + "WHERE s.public_id = ?2 AND s.account_id = ?1 AND s.revoked_at IS NULL AND i.kind = 'seed' "
+            + "AND i.id NOT IN ('system_google_recovery_v1', 'system_reader_account_v1')",
         ).bind(account.id, session.public_id, now),
     ]);
     if ((linked[0]?.meta.changes ?? 0) !== 1 || (linked[2]?.meta.changes ?? 0) !== 1) {
@@ -110,7 +126,7 @@ export async function requireAccount(request: Request, env: Env, now: number): P
     if (!session) throw new HttpError(401, 'No active session.');
     if (!session.account_id) throw new HttpError(401, 'An Academy account is required.');
     const account = await env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE id = ?1',
     ).bind(session.account_id).first<AccountRow>();
     if (!account) throw new HttpError(401, 'An Academy account is required.');
@@ -149,7 +165,7 @@ export async function handlePatchAccount(request: Request, env: Env, clock: Cloc
         + 'board_visible = ?4, share_avatar = ?5, updated_at = ?6 WHERE id = ?7',
     ).bind(displayName, nameChosen, avatarKey, boardVisible ? 1 : 0, shareAvatar ? 1 : 0, now, account.id).run();
     const updated = await env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE id = ?1',
     ).bind(account.id).first<AccountRow>();
     if (!updated) throw new HttpError(500, 'Account update failed.');
@@ -181,7 +197,7 @@ function randomDiscriminator(): string {
 
 async function accountBySubjectHash(env: Env, subjectHash: string): Promise<AccountRow | null> {
     return env.ACADEMY_DB.prepare(
-        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
+        'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar, access_tier '
         + 'FROM accounts WHERE google_sub_hash = ?1',
     ).bind(subjectHash).first<AccountRow>();
 }
@@ -212,6 +228,7 @@ export async function getAccountView(env: Env, account: AccountRow): Promise<Rec
         avatarKey: account.avatar_key,
         boardVisible: account.board_visible === 1,
         shareAvatar: account.share_avatar === 1,
+        academyAccess: await academyAccessForAccount(env, account.id),
         classes: memberships.results.map(row => ({
             classId: row.class_id,
             name: row.name,

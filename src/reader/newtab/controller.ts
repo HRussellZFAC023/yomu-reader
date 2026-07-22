@@ -5557,12 +5557,12 @@ export class NewTabController {
     private emptyStateSelectorSources(current: ConcreteNewTabWordSource): ConcreteNewTabWordSource[] {
         const sources: ConcreteNewTabWordSource[] = [];
         if (this.canUseYomuLocalSource()) sources.push('yomu-local');
-        if (this.canUseJpdbSource()) sources.push('jpdb');
+        if (this.hasApiReviewSourceCredential()) sources.push('jpdb');
         if (this.canUseBunproSource()) sources.push('bunpro');
         if (this.canUseWanikaniSource()) sources.push('wanikani');
         if (this.canOfferAnkiSource()) sources.push('anki');
         if (!sources.includes(current)) sources.push(current);
-        return sources;
+        return this.visibleSourceSelectorSources(sources);
     }
 
     private sourceToggleSources(card: JPDBCard): ConcreteNewTabWordSource[] {
@@ -5574,29 +5574,14 @@ export class NewTabController {
             this.wanikaniToggleSource(context),
             this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context),
         ]);
-        if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push('dictionary');
-        return this.unifyStarterSourceToggle(sources, card, context);
+        if (this.shouldIncludeAcademyFallbackSource(context, sources)) sources.unshift('yomu-local');
+        return this.visibleSourceSelectorSources(sources);
     }
 
-    // Keyless, "Academy" (yomu-local SRS) and "Dictionary" both resolve to the same
-    // built-in starter-word queue — no reviews are due and no dictionary is
-    // imported, so both flags are on-by-default yet neither carries distinct
-    // content. Offering both in the dropdown reads as a meaningless duplicate
-    // (the owner's complaint). Collapse to one entry (which hides the selector)
-    // whenever the visible queue is the starter/fallback set with no genuine
-    // yomu-local review behind it. A real SRS queue or imported dictionary keeps
-    // both options distinct.
-    private unifyStarterSourceToggle(
-        sources: ConcreteNewTabWordSource[],
-        card: JPDBCard,
-        context: SourceToggleContext,
-    ): ConcreteNewTabWordSource[] {
-        const onlyStarterPair = sources.length === 2
-            && sources.includes('yomu-local')
-            && sources.includes('dictionary');
-        if (!onlyStarterPair) return sources;
-        const starterQueue = card.source === 'fallback' && this.isDictionaryCard(card) && !context.hasYomuLocal;
-        return starterQueue ? ['yomu-local'] : sources;
+    private visibleSourceSelectorSources(sources: ConcreteNewTabWordSource[]): ConcreteNewTabWordSource[] {
+        return uniqueConcreteSources(sources
+            .map(source => source === 'dictionary' ? 'yomu-local' : source)
+            .filter(source => source !== 'jpdb' || this.hasApiReviewSourceCredential()));
     }
 
     private shouldSuppressJitenOnlyJpdbCardToggle(card: JPDBCard): boolean {
@@ -5643,7 +5628,8 @@ export class NewTabController {
     }
 
     private shouldIncludeJpdbToggleSource(context: SourceToggleContext): boolean {
-        return context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb';
+        return this.hasApiReviewSourceCredential()
+            && (context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb');
     }
 
     private bunproToggleSource(context: SourceToggleContext): ConcreteNewTabWordSource | null {
@@ -5687,8 +5673,8 @@ export class NewTabController {
         return context.current === 'jpdb' || context.selected === 'jpdb';
     }
 
-    private shouldIncludeDictionaryToggleSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
-        return !sources.includes('dictionary')
+    private shouldIncludeAcademyFallbackSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
+        return !sources.includes('yomu-local')
             && (context.current === 'dictionary'
                 || context.selected === 'dictionary'
                 || context.configured === 'dictionary'
@@ -5743,6 +5729,10 @@ export class NewTabController {
 
     private canUseJpdbSource(): boolean {
         return this.hasAvailableJpdbReviewSource(this.dependencies.getSettings());
+    }
+
+    private hasApiReviewSourceCredential(settings = this.dependencies.getSettings()): boolean {
+        return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
     }
 
     private canUseBunproSource(): boolean {

@@ -20,6 +20,7 @@ export interface AcademyAccountView {
     readonly avatarKey: string | null;
     readonly boardVisible: boolean;
     readonly shareAvatar: boolean;
+    readonly academyAccess: boolean;
     readonly classes: readonly AcademyAccountClass[];
 }
 
@@ -167,6 +168,7 @@ export function parseAcademyAccountView(value: unknown): AcademyAccountView {
         avatarKey: nullableAvatar(record.avatarKey),
         boardVisible: boolean(record.boardVisible, 'boardVisible'),
         shareAvatar: boolean(record.shareAvatar, 'shareAvatar'),
+        academyAccess: boolean(record.academyAccess, 'academyAccess'),
         classes: array(record.classes, 'classes').map(parseAccountClass),
     };
 }

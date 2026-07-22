@@ -4,7 +4,7 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
-import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
+import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
@@ -520,9 +520,9 @@ export class CardPopoverRenderer {
 
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
         const settings = this.settings();
-        const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== 'yomu-local');
+        const academyBacked = card.source === 'yomu-local' || card.reviewSource === 'yomu-local';
+        const canShowProviderStatus = Boolean(provider?.hasApiKey && (provider.id !== 'yomu-local' || academyBacked));
         return [
-            renderMetaReading(card, settings),
             shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank!, settings.interfaceLanguage) : '',
             canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
@@ -754,12 +754,6 @@ function renderApiMiningActionDetails(language: InterfaceLanguage, state: Mining
                     ${addDeckSelect}
                 </div>
             `;
-}
-
-function renderMetaReading(card: JPDBCard, settings: ReaderSettings): string {
-    const reading = cardPronunciationReading(card);
-    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return '';
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
 }
 
 function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): string {

@@ -4,6 +4,8 @@ import { canonicalStudyCardIdentity } from './shared';
 export interface StoredYomuSrsDeck {
     version: 1;
     cards: Record<string, StoredYomuSrsCard>;
+    /** Latest deletion per semantic card, retained until every device observes it. */
+    tombstones?: Record<string, number>;
 }
 
 export interface StoredYomuSrsCard {
@@ -84,7 +86,35 @@ export function normalizeStoredYomuSrsDeck(value: unknown): StoredYomuSrsDeck {
             ? mergeStoredYomuSrsCards(cards[normalized.id]!, normalized)
             : normalized;
     }
-    return { version: 1, cards };
+    const tombstones: Record<string, number> = {};
+    if (isRecord(value.tombstones)) {
+        for (const [id, timestamp] of Object.entries(value.tombstones)) {
+            if (typeof timestamp !== 'number' || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+            const card = cards[id];
+            if (card && card.updatedAt > timestamp) continue;
+            delete cards[id];
+            tombstones[id] = timestamp;
+        }
+    }
+    return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+}
+
+/** Merge two complete replicas. Newer tombstones beat older cards; newer cards revive. */
+export function mergeStoredYomuSrsDecks(leftValue: unknown, rightValue: unknown): StoredYomuSrsDeck {
+    const left = normalizeStoredYomuSrsDeck(leftValue);
+    const right = normalizeStoredYomuSrsDeck(rightValue);
+    const cards = { ...left.cards };
+    const tombstones = { ...(left.tombstones ?? {}) };
+    for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
+        tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
+    }
+    for (const [id, incoming] of Object.entries(right.cards)) {
+        const tombstone = tombstones[id];
+        if (tombstone !== undefined && tombstone >= incoming.updatedAt) continue;
+        if (tombstone !== undefined) delete tombstones[id];
+        cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id]!, incoming) : incoming;
+    }
+    return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
 }
 
 export function mergeStoredYomuSrsCards(
@@ -198,6 +228,7 @@ export function removeAcademyVocabularyProvenance(
     const remaining = Object.keys(academyProvenance).length;
     if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
         delete deck.cards[card.id];
+        deck.tombstones = { ...(deck.tombstones ?? {}), [card.id]: now };
         return { card: null, provenanceRemoved: true, cardDeleted: true, reason: 'deleted' };
     }
 
@@ -344,4 +375,3 @@ function finiteNumber<T extends number | null>(value: unknown, fallback: T): num
 function nonNegativeInteger(value: unknown): number {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
-

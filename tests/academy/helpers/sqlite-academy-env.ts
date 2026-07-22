@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import type { DatabaseSync as NodeDatabaseSync, SQLInputValue } from 'node:sqlite';
@@ -106,20 +106,12 @@ export interface SqliteAcademy {
 
 export function createSqliteAcademy(): SqliteAcademy {
     const database = new DatabaseSync(':memory:');
-    const migrations = [
-        '0001_access.sql',
-        '0002_accounts.sql',
-        '0003_profile_sync.sql',
-        '0004_account_entitlements.sql',
-        '0005_profile_key_commitment.sql',
-        '0006_account_recovery_binding.sql',
-        '0007_invite_account_requirement.sql',
-        '0008_all_invites_require_account.sql',
-        '0010_payment_ingress.sql',
-        '0011_permanent_donation_access.sql',
-    ];
+    const migrationDirectory = resolve(process.cwd(), 'workers/yomu-academy/migrations');
+    const migrations = readdirSync(migrationDirectory)
+        .filter(file => /^\d{4}_.+\.sql$/u.test(file))
+        .sort();
     for (const migration of migrations) {
-        database.exec(readFileSync(resolve(process.cwd(), 'workers/yomu-academy/migrations', migration), 'utf8'));
+        database.exec(readFileSync(resolve(migrationDirectory, migration), 'utf8'));
     }
     const db = new SqliteD1(database);
     const env: Env = {

@@ -1,6 +1,6 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
-import { isManagedStorageKey } from '../app/managed-storage-keys';
+import { isBridgeManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 
@@ -106,10 +106,10 @@ async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, ac
         dispatchBridgeEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, ...response });
     try {
         if (detail.op === 'list') {
-            send({ ok: true, keys: await accessors.listValues() });
+            send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
             return;
         }
-        if (!detail.key || !isManagedStorageKey(detail.key)) {
+        if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
             // Only proxy Yomu-owned keys; never let the page read/write arbitrary GM storage.
             send({ ok: false, found: false, message: 'Unmanaged storage key.' });
             return;

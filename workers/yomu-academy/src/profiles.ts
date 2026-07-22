@@ -1,5 +1,5 @@
 import type { Clock, Env } from './env';
-import { requirePaidSessionEntitlement } from './entitlements';
+import { academyAccessForAccount } from './entitlements';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { activeSession, type ActiveSession } from './sessions';
 
@@ -46,20 +46,35 @@ interface ProfileContextRow {
 interface DisposableProfileRow {
     readonly account_id: string | null;
     readonly event_count: number;
+    readonly reader_event_count: number;
     readonly device_count: number;
     readonly session_count: number;
 }
 
-/** Authorize Academy resources: every invite session must be signed in. */
+/** Authorize paid/class Academy resources: Reader-only sessions never pass. */
 export async function requireAcademyAccessSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
+    const session = await requireSignedInProfileSession(request, env, now);
+    if (!(await academyAccessForAccount(env, session.account_id!, now))) {
+        throw new HttpError(403, 'Academy access requires an Academy invitation or active entitlement.');
+    }
+    return session;
+}
+
+/** Authorize account-owned encrypted sync without granting Academy content. */
+export async function requireSignedInProfileSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
     if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
-    await requirePaidSessionEntitlement(env, session, session.account_id, now);
     return session;
 }
 
 export async function requireProfile(request: Request, env: Env, now: number): Promise<ProfileContext> {
+    const session = await requireSignedInProfileSession(request, env, now);
+    return ensureSessionProfile(env, session, now);
+}
+
+/** Academy learner-event sync remains behind the curriculum entitlement gate. */
+export async function requireAcademyProfile(request: Request, env: Env, now: number): Promise<ProfileContext> {
     const session = await requireAcademyAccessSession(request, env, now);
     return ensureSessionProfile(env, session, now);
 }
@@ -167,6 +182,7 @@ export async function attachSessionProfileToAccount(
     const disposable = await env.ACADEMY_DB.prepare(
         'SELECT p.account_id, '
         + '(SELECT COUNT(*) FROM srs_events e WHERE e.profile_id = p.id) AS event_count, '
+        + '(SELECT COUNT(*) FROM reader_srs_events e WHERE e.profile_id = p.id) AS reader_event_count, '
         + '(SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = p.id AND d.revoked_at IS NULL) AS device_count, '
         + '(SELECT COUNT(*) FROM sessions s WHERE s.profile_id = p.id AND s.revoked_at IS NULL) AS session_count '
         + 'FROM profiles p WHERE p.id = ?1',
@@ -175,6 +191,7 @@ export async function attachSessionProfileToAccount(
         !disposable
         || disposable.account_id
         || disposable.event_count !== 0
+        || disposable.reader_event_count !== 0
         || disposable.device_count !== 1
         || disposable.session_count !== 1
     ) {
@@ -187,6 +204,7 @@ export async function attachSessionProfileToAccount(
             + 'WHERE id = ?3 AND profile_id = ?4 AND revoked_at IS NULL '
             + 'AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = ?4 AND p.account_id IS NULL) '
             + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events e WHERE e.profile_id = ?4) '
             + 'AND 1 = (SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = ?4 AND d.revoked_at IS NULL) '
             + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = ?4 AND s.revoked_at IS NULL) '
             + 'AND EXISTS (SELECT 1 FROM sessions s WHERE s.public_id = ?5 AND s.profile_id = ?4 '
@@ -198,12 +216,14 @@ export async function attachSessionProfileToAccount(
             + 'AND EXISTS (SELECT 1 FROM profile_devices d WHERE d.id = ?5 AND d.profile_id = ?1 AND d.revoked_at IS NULL) '
             + 'AND NOT EXISTS (SELECT 1 FROM profile_devices d WHERE d.profile_id = ?4 AND d.revoked_at IS NULL) '
             + 'AND 1 = (SELECT COUNT(*) FROM sessions s WHERE s.profile_id = ?4 AND s.revoked_at IS NULL) '
-            + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4)',
+            + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?4) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events e WHERE e.profile_id = ?4)',
         ).bind(accountProfile.id, accountId, current.session.public_id, current.profile.id, current.device.id),
         env.ACADEMY_DB.prepare('UPDATE profiles SET updated_at = ?1 WHERE id = ?2').bind(now, accountProfile.id),
         env.ACADEMY_DB.prepare(
             'DELETE FROM profiles WHERE id = ?1 AND account_id IS NULL '
             + 'AND NOT EXISTS (SELECT 1 FROM srs_events WHERE profile_id = ?1) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events WHERE profile_id = ?1) '
             + 'AND NOT EXISTS (SELECT 1 FROM profile_devices WHERE profile_id = ?1 AND revoked_at IS NULL) '
             + 'AND NOT EXISTS (SELECT 1 FROM sessions WHERE profile_id = ?1 AND revoked_at IS NULL)',
         ).bind(current.profile.id),

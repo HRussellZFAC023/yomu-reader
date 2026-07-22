@@ -665,6 +665,163 @@ html[lang="ja"] .VPHomeHero .tagline {
   outline-offset: 2px;
 }
 
+.yomu-hosted-account {
+  position: relative;
+  color: var(--vp-c-text-1);
+}
+
+.yomu-hosted-account-details {
+  position: relative;
+}
+
+.yomu-hosted-account-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  max-width: 152px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  list-style: none;
+  cursor: default;
+}
+
+.yomu-hosted-account-summary::-webkit-details-marker {
+  display: none;
+}
+
+.yomu-hosted-account-summary::marker {
+  content: "";
+}
+
+.yomu-hosted-account-summary:hover,
+.yomu-hosted-account-summary:focus-visible,
+.yomu-hosted-account-details[open] > .yomu-hosted-account-summary {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 56%, #fff);
+  outline-offset: 2px;
+}
+
+.yomu-hosted-account-summary-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yomu-hosted-account-state-mark {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--vp-c-text-3);
+}
+
+.yomu-hosted-account-state-mark[data-state="signed-in"] {
+  background: #39b86b;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #39b86b 18%, transparent);
+}
+
+.yomu-hosted-account-state-mark[data-state="error"] {
+  background: var(--vp-c-danger-1);
+}
+
+.yomu-hosted-account-panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 8px);
+  right: 0;
+  width: max-content;
+  min-width: 210px;
+  max-width: min(290px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-elv);
+  box-shadow: var(--vp-shadow-3);
+}
+
+.yomu-hosted-account-status {
+  margin: 0 0 8px;
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.yomu-hosted-account-actions {
+  display: grid;
+  gap: 2px;
+}
+
+.yomu-hosted-account-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vp-c-text-1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+  text-decoration: none !important;
+  cursor: default;
+}
+
+.yomu-hosted-account-action:hover,
+.yomu-hosted-account-action:focus-visible {
+  background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
+  color: var(--vp-c-brand-1);
+  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 56%, #fff);
+  outline-offset: 2px;
+}
+
+.yomu-hosted-account-action:disabled {
+  opacity: 0.55;
+}
+
+.yomu-hosted-account-mobile {
+  padding-left: 12px;
+}
+
+.yomu-hosted-account-mobile .yomu-hosted-account-summary {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 0;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.yomu-hosted-account-mobile .yomu-hosted-account-panel {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin: 0 0 8px;
+  padding: 4px 0 4px 12px;
+  border: 0;
+  border-left: 1px solid var(--vp-c-divider);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .VPNavBarMenu > .VPFlyout.VPNavBarMenuGroup {
   display: none !important;
 }
@@ -831,6 +988,8 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (pointer: coarse) {
   .yomu-language-toggle,
+  .yomu-hosted-account-summary,
+  .yomu-hosted-account-action,
   .yomu-hosted-overflow-link,
   .yomu-install-steps a {
     min-height: 44px;

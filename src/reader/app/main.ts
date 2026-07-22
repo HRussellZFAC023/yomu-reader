@@ -350,6 +350,8 @@ import {
 } from '../settings/api-credential';
 
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
+import { installAcademyReaderSrsSync } from '../srs/account-sync';
+import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { createWanikaniSrsAdapter } from '../srs/wanikani';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
@@ -903,7 +905,10 @@ export class ReaderApp {
             void saveSettings(this.settings);
         },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
-        onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
+        onApiCardStateChanged: card => {
+            this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
+        },
     });
     private immersionPopoverInstance: InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null = null;
     private get immersionPopover(): InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null {
@@ -944,6 +949,7 @@ export class ReaderApp {
         jiten: this.jiten,
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
+        yomuLocalSrs: this.yomuLocalSrs,
     });
     private onboarding = this.createOnboardingController();
     private subtitles = this.createSubtitlePlayer();
@@ -1316,6 +1322,7 @@ export class ReaderApp {
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
         this.installCardStateSignalSubscription();
+        installAcademyReaderSrsSync();
         this.resumePendingCloudSettingsSync();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
@@ -1375,6 +1382,7 @@ export class ReaderApp {
         this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card, this.renderedAnnotationRoots());
         });
     }
 

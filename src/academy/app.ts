@@ -81,6 +81,7 @@ export class AcademyApp {
 
     private get projection() { return this.evidence.projection; }
     private get accountLinked() { return this.devAuthBypass || this.sync.hasLinkedAccount; }
+    private get curriculumAuthorized() { return this.devAuthBypass || this.sync.hasAcademyAccess; }
 
     constructor(host: HTMLElement, options: AcademyAppOptions = {}) {
         this.access = options.access ?? createAccessGateway();
@@ -142,8 +143,10 @@ export class AcademyApp {
         restoredCheckpoint = await this.refreshExpiredSession(restoredCheckpoint);
         // Account evidence must be settled before the resume checkpoint is
         // normalized: an invite session alone never reopens Academy routes.
+        const requestedProfileSync = new URL(location.href).searchParams.get('view') === 'profile-sync';
         const returnedFromGoogle = await this.sync.completeGoogleReturn();
-        if (!returnedFromGoogle && restoredCheckpoint.session && !this.accountLinked && navigator.onLine) {
+        if (!returnedFromGoogle && (restoredCheckpoint.session || requestedProfileSync)
+            && navigator.onLine && (!this.accountLinked || !this.sync.hasCurrentAccountProjection)) {
             await this.sync.connect();
         }
         this.checkpoint = normalizeResumeCheckpoint(
@@ -151,8 +154,16 @@ export class AcademyApp {
             this.projection,
             Date.now(),
             navigator.onLine,
-            this.accountLinked,
+            this.curriculumAuthorized,
         );
+        if (requestedProfileSync && this.accountLinked) {
+            this.checkpoint = {
+                ...this.checkpoint,
+                route: 'profile-sync',
+                routeHistory: [],
+                updatedAt: Date.now(),
+            };
+        }
         if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
         this.shell.setPresentationMode(this.checkpoint.presentationMode);
         this.bindLifecycle();
@@ -220,7 +231,7 @@ export class AcademyApp {
         const globalNavigationAvailable = globalNavigationIsAvailable(
             this.checkpoint,
             Boolean(this.projection.profile),
-            this.accountLinked,
+            this.curriculumAuthorized,
         );
         this.shell.setNavigation(globalNavigationAvailable, navigation);
         this.shell.setUtilityVisible?.(route !== 'review');
@@ -278,7 +289,7 @@ export class AcademyApp {
             schemaVersion: 2,
             updatedAt: now,
         };
-        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.accountLinked);
+        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.curriculumAuthorized);
         await this.persistence.checkpoint.save(this.checkpoint);
     }
 
@@ -298,7 +309,7 @@ export class AcademyApp {
             schemaVersion: 2,
             updatedAt: now,
         };
-        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.accountLinked);
+        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.curriculumAuthorized);
         await this.persistence.checkpoint.save(this.checkpoint);
         await this.render();
     }

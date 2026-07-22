@@ -6,6 +6,7 @@ import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
 import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
+import { applyYomuLocalReviewableToCard } from '../srs/local-yomu-state';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 
 export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local';
@@ -394,16 +395,18 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         selectedDeckId: () => 'yomu-local',
         selectedDeckLabel: () => ACADEMY_SRS_LABEL,
         addToDeck: async (_deckId, card, sentence, context) => {
-            await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+            const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+            if (result.card) applyYomuLocalReviewableToCard(card, result.card);
         },
         reviewCard: async (card, grade, reviewOptions = {}) => {
             const wasNotInDeck = normalizeCardStates(card.cardState).includes('not-in-deck')
                 || card.reviewSource !== 'yomu-local';
-            await adapter.review({
+            const result = await adapter.review({
                 card: yomuLocalReviewableFromCard(card),
                 grade,
                 sentence: reviewOptions.sentence,
             });
+            if (result.card) applyYomuLocalReviewableToCard(card, result.card);
             return { addedBeforeReview: wasNotInDeck };
         },
         setDeckState: async () => undefined,

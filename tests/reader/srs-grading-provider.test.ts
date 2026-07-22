@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import {
     apiGradingProviderPreference,
     apiSrsProviderAvailability,
     apiSrsProviderViewForCard,
     apiSrsSwitchableProviderIds,
+    createApiSrsProviderAdapters,
     isBunproGradeableCard,
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
@@ -177,5 +178,59 @@ describe('apiSrsProviderViewForCard', () => {
             id: 'bunpro',
             hasApiKey: false,
         });
+    });
+});
+
+describe('Academy provider mutation state', () => {
+    it('applies the repository result after mining and review instead of broadcasting stale provider state', async () => {
+        const mine = vi.fn(async () => ({
+            card: {
+                providerId: 'yomu-local' as const,
+                providerCardId: '食べる\u0000たべる',
+                kind: 'vocabulary' as const,
+                expression: '食べる',
+                reading: 'たべる',
+                meanings: [],
+                state: ['new'] as JPDBCard['cardState'],
+                dueAt: 1_000,
+                lastReviewAt: null,
+            },
+        }));
+        const review = vi.fn(async () => ({
+            card: {
+                providerId: 'yomu-local' as const,
+                providerCardId: '食べる\u0000たべる',
+                kind: 'vocabulary' as const,
+                expression: '食べる',
+                reading: 'たべる',
+                meanings: [],
+                state: ['learning'] as JPDBCard['cardState'],
+                dueAt: 2_000,
+                lastReviewAt: 1_000,
+            },
+        }));
+        const [provider] = createApiSrsProviderAdapters({
+            jpdb: {} as never,
+            yomuLocal: {
+                id: 'yomu-local',
+                label: 'Academy',
+                capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+                hasCredential: () => true,
+                verify: async () => true,
+                stats: async () => ({ providerId: 'yomu-local', fetchedAt: 0 }),
+                queue: async () => ({ providerId: 'yomu-local', fetchedAt: 0, cards: [], dueCount: 0, newCount: 0, reviewCount: 0 }),
+                mine,
+                review,
+            },
+            isJpdbBackedCard,
+        }, settings({ apiKey: '', yomuLocalSrsEnabled: true })).filter(candidate => candidate.id === 'yomu-local');
+        const target = { ...baseCard, provisionalState: true };
+
+        await provider!.addToDeck('yomu-local', target);
+        expect(target).toMatchObject({ cardState: ['new'], reviewSource: 'yomu-local', dueAt: 1_000, lastReviewAt: null });
+        expect(target.provisionalState).toBeUndefined();
+
+        await provider!.reviewCard(target, 'okay');
+        expect(target).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', dueAt: 2_000, lastReviewAt: 1_000 });
     });
 });

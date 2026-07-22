@@ -23,7 +23,7 @@ const RENDERED_WORD_CARD_STATES = [
     'frequent',
     'unparsed',
 ];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'bunpro'];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'bunpro', 'yomu-local'];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'anki'];
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(['new', 'not-in-deck', 'in-deck']);
 // States a Bunpro match may colour over: the parse provider had no opinion.
@@ -179,6 +179,7 @@ export function setRenderedWordCardIdentity(
     if (!preserveState) {
         clearRenderedWordCardStateClasses(word);
         delete word.dataset.bunproState;
+        delete word.dataset.srsProvider;
         clearRenderedWordDeckMembershipClasses(word, ['anki']);
     }
     // Identity/pitch always refresh: preserving the status channel must not
@@ -200,6 +201,24 @@ export function setRenderedWordCardIdentity(
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);
+}
+
+/** Repaints only the SRS status channel, preserving the dictionary card identity. */
+export function applyLocalYomuSrsStateToRenderedWord(word: HTMLElement, card: JPDBCard): boolean {
+    const state = primaryCardState(card.cardState);
+    const changed = word.dataset.cardState !== state
+        || word.dataset.srsProvider !== 'yomu-local'
+        || word.dataset.stateProvenance !== 'authoritative';
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.bunproPrefillState;
+    delete word.dataset.bunproPrefillProvenance;
+    word.dataset.cardState = state;
+    word.dataset.srsProvider = 'yomu-local';
+    word.dataset.stateProvenance = 'authoritative';
+    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    return changed;
 }
 
 // The preserve guard fires only for the exact downgrade the public/pitch lane

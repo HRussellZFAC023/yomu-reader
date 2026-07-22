@@ -1,4 +1,4 @@
-import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
+import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey, isPrivateManagedStorageKey } from './managed-storage-keys';
 import { HOSTED_DEMO_SETTINGS_KEYS } from './hosted-demo-settings';
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
@@ -39,6 +39,21 @@ const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     // reset owns it via the '__yomu' prefix, but backups must not replay it.
     '__yomu_cloud_settings_sync_pending_action',
 ]);
+const STORAGE_LEASE_KEY_PREFIX = 'yomu:lease:';
+
+interface StorageLeaseClaim {
+    readonly version: 1;
+    readonly owner: string;
+    readonly choosing: boolean;
+    readonly ticket: number;
+    readonly leaseUntil: number;
+}
+
+export interface GmStorageLeaseOptions {
+    readonly leaseMs?: number;
+    readonly pollMs?: number;
+    readonly timeoutMs?: number;
+}
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };
 type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
@@ -48,6 +63,19 @@ type GmListValues = () => string[] | Promise<string[]>;
 type GmValueChangeListener = (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void;
 type GmAddValueChangeListener = (key: string, listener: GmValueChangeListener) => number;
 type GmRemoveValueChangeListener = (listenerId: number) => void;
+interface ExtensionStorageArea {
+    get(key: string | null): Promise<Record<string, unknown>>;
+    set(values: Record<string, unknown>): Promise<void>;
+    remove(key: string): Promise<void>;
+    getKeys?(): Promise<string[]>;
+}
+interface ExtensionStorageChange {
+    readonly newValue?: unknown;
+}
+interface ExtensionStorageChangedEvent {
+    addListener(listener: (changes: Record<string, ExtensionStorageChange>, areaName: string) => void): void;
+    removeListener(listener: (changes: Record<string, ExtensionStorageChange>, areaName: string) => void): void;
+}
 
 export type FactoryResetSignalPhase = 'prepare' | 'complete';
 
@@ -111,6 +139,108 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
         localStorageSet(key, fallback);
     }
     return fallback;
+}
+
+/**
+ * Read secret material only from the extension/userscript-owned store. This
+ * deliberately never migrates from or falls back to page-readable web storage.
+ */
+export async function gmPrivateStorageGet<T>(key: string, fallback: T): Promise<T> {
+    assertPrivateStorageKey(key);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
+    const getValue = directGmGetValue();
+    if (!getValue) return fallback;
+    try {
+        const value = await getValue<T | typeof MISSING>(key, MISSING);
+        return isMissingSentinel(value) ? fallback : value as T;
+    } catch (error) {
+        debugStorageError('Private GM storage read failed', key, error);
+        return fallback;
+    }
+}
+
+/**
+ * Serializes a storage transaction across tabs, userscript worlds, and packaged
+ * extension contexts. Each contender owns a separate GM key, so acquiring the
+ * lease never relies on an unsafe read-modify-write of one shared lock value.
+ * Expired claims are ignored, allowing recovery after a tab or process dies.
+ */
+export async function withGmStorageLease<T>(
+    name: string,
+    operation: () => Promise<T>,
+    options: GmStorageLeaseOptions = {},
+): Promise<T> {
+    const getValue = asyncGmGetValue();
+    const setValue = asyncGmSetValue();
+    const deleteValue = asyncGmDeleteValue();
+    const listValues = asyncGmListValues();
+    if (!getValue || !setValue || !deleteValue || !listValues) {
+        return withWebStorageLock(name, operation);
+    }
+
+    const leaseMs = boundedLeaseOption(options.leaseMs, 60_000, 1_000, 10 * 60_000);
+    const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1_000);
+    const timeoutMs = boundedLeaseOption(options.timeoutMs, 90_000, leaseMs, 15 * 60_000);
+    const owner = createFactoryResetId();
+    const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+    const key = `${prefix}${owner}`;
+    const startedAt = Date.now();
+    let claim: StorageLeaseClaim = {
+        version: 1,
+        owner,
+        choosing: true,
+        ticket: 0,
+        leaseUntil: startedAt + leaseMs,
+    };
+
+    await setValue(key, claim);
+    try {
+        const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
+        const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+        claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+        await setValue(key, claim);
+
+        while (true) {
+            const now = Date.now();
+            if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+            const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
+            const blocked = claims.some(other => other.owner !== owner && (
+                other.choosing
+                || other.ticket < claim.ticket
+                || (other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0)
+            ));
+            if (!blocked) break;
+            if (claim.leaseUntil - now <= leaseMs / 2) {
+                claim = { ...claim, leaseUntil: now + leaseMs };
+                await setValue(key, claim);
+            }
+            await storageLeaseDelay(pollMs);
+        }
+
+        let renewalStopped = false;
+        let renewal = Promise.resolve();
+        const renewalTimer = setInterval(() => {
+            renewal = renewal.then(async () => {
+                if (renewalStopped) return;
+                claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+                await setValue(key, claim);
+            }).catch(error => debugStorageError('GM storage lease renewal failed', key, error));
+        }, Math.max(250, Math.floor(leaseMs / 3)));
+        try {
+            return await operation();
+        } finally {
+            renewalStopped = true;
+            clearInterval(renewalTimer);
+            await renewal;
+        }
+    } finally {
+        try {
+            await deleteValue(key);
+        } catch (error) {
+            debugStorageError('GM storage lease release failed', key, error);
+        }
+    }
 }
 
 export function gmStorageGetSync<T>(key: string, fallback: T): T {
@@ -217,6 +347,21 @@ export async function gmStorageSet(key: string, value: unknown): Promise<void> {
     localStorageSet(key, localFallbackValueForWrite(key, value));
 }
 
+/** Store secret material fail-closed; page localStorage is never a fallback. */
+export async function gmPrivateStorageSet(key: string, value: unknown): Promise<void> {
+    assertPrivateStorageKey(key);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
+    const setValue = directGmSetValue();
+    if (!setValue) throw new Error('Secure extension storage is unavailable.');
+    try {
+        await setValue(key, value);
+    } catch (error) {
+        debugStorageError('Private GM storage write failed', key, error);
+        throw new Error('Secure extension storage is unavailable.');
+    }
+}
+
 export function gmStorageSetSync(key: string, value: unknown): void {
     if (typeof GM_setValue === 'function') {
         try {
@@ -244,6 +389,26 @@ export async function gmStorageDelete(key: string): Promise<void> {
     }
     removeLocalStorageKey(key);
     removeSessionStorageKey(key);
+}
+
+/** Delete secret material from GM storage and scrub any legacy web fallback. */
+export async function gmPrivateStorageDelete(key: string): Promise<void> {
+    assertPrivateStorageKey(key);
+    const deleteValue = directGmDeleteValue();
+    if (deleteValue) {
+        try {
+            await deleteValue(key);
+        } catch (error) {
+            debugStorageError('Private GM storage delete failed', key, error);
+            throw new Error('Secure extension storage is unavailable.');
+        }
+    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
+}
+
+function assertPrivateStorageKey(key: string): void {
+    if (!isPrivateManagedStorageKey(key)) throw new TypeError('Private storage requires a yomu:private: key.');
 }
 
 export function gmStorageDeleteSync(key: string): void {
@@ -461,6 +626,15 @@ export function subscribeToStoredValueChanges(key: string, onChange: (newValue: 
     addWebStorageCleanup(cleanups, key, event => {
         onChange(JSON.parse(event.newValue || 'null'));
     });
+    const extensionChanges = extensionStorageChangedEvent();
+    if (extensionChanges) {
+        const listener = (changes: Record<string, ExtensionStorageChange>, areaName: string): void => {
+            if (areaName !== 'local' || !(key in changes)) return;
+            onChange(changes[key]?.newValue);
+        };
+        extensionChanges.addListener(listener);
+        cleanups.push(() => extensionChanges.removeListener(listener));
+    }
 
     return () => runStorageCleanups(cleanups);
 }
@@ -685,7 +859,7 @@ export function cacheManagedValueForHostedStartup(key: string, value: unknown): 
 }
 
 function shouldMirrorManagedValueToHostedStorage(key: string): boolean {
-    return isManagedStorageKey(key) && isHostedYomuOrigin();
+    return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
 }
 
 export function isHostedYomuOrigin(): boolean {
@@ -771,24 +945,60 @@ function asyncGmGetValue(): GmGetValue | null {
     if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;
     const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
     if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    if (extension) return (async <T>(key: string, fallback: T): Promise<T> => {
+        const value = (await extension.get(key))[key];
+        return value === undefined ? fallback : value as T;
+    }) as GmGetValue;
     const bridge = getUserscriptGmStorage();
     return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+
+function directGmGetValue(): GmGetValue | null {
+    if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;
+    const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    return extension ? (async <T>(key: string, fallback: T): Promise<T> => {
+        const value = (await extension.get(key))[key];
+        return value === undefined ? fallback : value as T;
+    }) as GmGetValue : null;
 }
 
 function asyncGmSetValue(): GmSetValue | null {
     if (typeof GM_setValue === 'function') return GM_setValue as GmSetValue;
     const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
     if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    if (extension) return (key, value) => extension.set({ [key]: value });
     const bridge = getUserscriptGmStorage();
     return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+
+function directGmSetValue(): GmSetValue | null {
+    if (typeof GM_setValue === 'function') return GM_setValue as GmSetValue;
+    const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    return extension ? (key, value) => extension.set({ [key]: value }) : null;
 }
 
 function asyncGmDeleteValue(): GmDeleteValue | null {
     if (typeof GM_deleteValue === 'function') return GM_deleteValue as GmDeleteValue;
     const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
     if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    if (extension) return key => extension.remove(key);
     const bridge = getUserscriptGmStorage();
     return bridge ? key => bridge.deleteValue(key) : null;
+}
+
+function directGmDeleteValue(): GmDeleteValue | null {
+    if (typeof GM_deleteValue === 'function') return GM_deleteValue as GmDeleteValue;
+    const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    return extension ? key => extension.remove(key) : null;
 }
 
 function asyncGmListValues(): GmListValues | null {
@@ -796,8 +1006,32 @@ function asyncGmListValues(): GmListValues | null {
     if (typeof directListValues === 'function') return directListValues;
     const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
     if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const extension = extensionStorageArea();
+    if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
     const bridge = getUserscriptGmStorage();
     return bridge ? () => bridge.listValues() : null;
+}
+
+function extensionStorageArea(): ExtensionStorageArea | null {
+    const candidate = (globalThis as unknown as {
+        browser?: { runtime?: { id?: string }; storage?: { local?: ExtensionStorageArea } };
+        chrome?: { runtime?: { id?: string }; storage?: { local?: ExtensionStorageArea } };
+    });
+    const browser = candidate.browser;
+    if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+    const chrome = candidate.chrome;
+    if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+    return null;
+}
+
+function extensionStorageChangedEvent(): ExtensionStorageChangedEvent | null {
+    const candidate = (globalThis as unknown as {
+        browser?: { runtime?: { id?: string }; storage?: { onChanged?: ExtensionStorageChangedEvent } };
+        chrome?: { runtime?: { id?: string }; storage?: { onChanged?: ExtensionStorageChangedEvent } };
+    });
+    if (candidate.browser?.runtime?.id && candidate.browser.storage?.onChanged) return candidate.browser.storage.onChanged;
+    if (candidate.chrome?.runtime?.id && candidate.chrome.storage?.onChanged) return candidate.chrome.storage.onChanged;
+    return null;
 }
 
 function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSignal {
@@ -884,7 +1118,56 @@ function createFactoryResetId(): string {
 }
 
 function isBackupStorageKey(key: string): boolean {
-    return isManagedStorageKey(key) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
+    return isManagedStorageKey(key)
+        && !isPrivateManagedStorageKey(key)
+        && !key.startsWith(STORAGE_LEASE_KEY_PREFIX)
+        && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
+}
+
+async function readStorageLeaseClaims(
+    prefix: string,
+    listValues: GmListValues,
+    getValue: GmGetValue,
+    now: number,
+): Promise<StorageLeaseClaim[]> {
+    const keys = (await listValues()).filter(key => key.startsWith(prefix));
+    const values = await Promise.all(keys.map(key => getValue<unknown>(key, null)));
+    return values.flatMap(value => {
+        const claim = parseStorageLeaseClaim(value);
+        return claim && claim.leaseUntil > now ? [claim] : [];
+    });
+}
+
+function parseStorageLeaseClaim(value: unknown): StorageLeaseClaim | null {
+    if (!isPlainRecord(value) || value.version !== 1 || typeof value.owner !== 'string'
+        || typeof value.choosing !== 'boolean' || !Number.isSafeInteger(value.ticket)
+        || (value.ticket as number) < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+    return value as unknown as StorageLeaseClaim;
+}
+
+function normalizedStorageLeaseName(name: string): string {
+    const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, '-').slice(0, 80);
+    if (!normalized) throw new TypeError('Storage lease name is required.');
+    return normalized;
+}
+
+function boundedLeaseOption(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
+    if (value === undefined) return fallback;
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError('Invalid storage lease option.');
+    return value;
+}
+
+function storageLeaseDelay(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function withWebStorageLock<T>(name: string, operation: () => Promise<T>): Promise<T> {
+    const lockManager = typeof navigator === 'undefined'
+        ? undefined
+        : (navigator as Navigator & {
+            locks?: { request<Result>(name: string, callback: () => Promise<Result>): Promise<Result> };
+        }).locks;
+    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
 }
 
 function debugStorageError(message: string, key: string, error: unknown): void {

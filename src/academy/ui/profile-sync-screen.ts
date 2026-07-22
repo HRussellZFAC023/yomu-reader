@@ -1,7 +1,7 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { AcademyPairingTicket } from '../../reader/srs/account-contract';
 import { requestAcademyAccountAction } from '../account/actions';
-import type { AcademySyncPhase, AcademySyncStatus } from '../account/sync-client';
+import type { AcademyReaderDeviceView, AcademySyncPhase, AcademySyncStatus } from '../account/sync-client';
 import { backButton, element, screenFrame } from './dom';
 
 export interface ProfileSyncScreenOptions {
@@ -16,6 +16,8 @@ export interface ProfileSyncScreenOptions {
     readonly onExport: () => Promise<void>;
     readonly onSignOut: () => Promise<void>;
     readonly onDelete: (scope: 'profile' | 'account') => Promise<void>;
+    readonly onListReaderDevices?: () => Promise<AcademyReaderDeviceView[]>;
+    readonly onRevokeReaderDevice?: (deviceId: string) => Promise<void>;
     readonly onClassBoard?: () => void;
     /** Present only when this screen is completing first access onboarding. */
     readonly onContinue?: () => void;
@@ -63,14 +65,65 @@ export function renderProfileSyncScreen(options: ProfileSyncScreenOptions): HTML
     content.append(actions);
 
     if (shouldShowPairClaim(options.status)) content.append(pairClaim(options));
+    if (options.status.account && options.onListReaderDevices && options.onRevokeReaderDevice) {
+        content.append(readerDeviceSection(options as ProfileSyncScreenOptions & Required<Pick<ProfileSyncScreenOptions,
+            'onListReaderDevices' | 'onRevokeReaderDevice'>>));
+    }
     return screen;
 }
 
+function readerDeviceSection(options: ProfileSyncScreenOptions & Required<Pick<ProfileSyncScreenOptions,
+    'onListReaderDevices' | 'onRevokeReaderDevice'>>): HTMLElement {
+    const section = element('section', 'academy-code-section academy-reader-device-section');
+    const heading = element('h3', 'academy-code-heading');
+    heading.textContent = localize(options.language, 'Reader devices', 'Reader 端末');
+    const status = element('p', 'academy-code-help');
+    status.textContent = localize(options.language, 'Loading connected Reader devices…', '接続済みの Reader 端末を読み込んでいます…');
+    const list = element('div', 'academy-profile-sync-actions academy-reader-device-list');
+    section.append(heading, status, list);
+    const refresh = async (): Promise<void> => {
+        try {
+            const devices = await options.onListReaderDevices();
+            list.replaceChildren();
+            const active = devices.filter(device => device.revokedAt === null);
+            status.textContent = active.length
+                ? localize(options.language, `${active.length} connected Reader device(s).`, `接続中の Reader 端末：${active.length}台`)
+                : localize(options.language, 'No connected Reader devices.', '接続中の Reader 端末はありません。');
+            active.forEach(device => {
+                const button = actionButton(
+                    localize(options.language, `Disconnect ${shortDeviceId(device.deviceId)}`, `${shortDeviceId(device.deviceId)} を解除`),
+                    async control => {
+                        const confirmed = window.confirm(localize(
+                            options.language,
+                            'Disconnect this Reader device? It will need a new one-time code to sync again.',
+                            'この Reader 端末の接続を解除しますか？再同期には新しいワンタイムコードが必要です。',
+                        ));
+                        if (!confirmed) return;
+                        await options.onRevokeReaderDevice(device.deviceId);
+                        control.remove();
+                        await refresh();
+                    },
+                );
+                button.title = new Date(device.lastSeenAt).toLocaleString(options.language);
+                list.append(button);
+            });
+        } catch (error) {
+            status.textContent = error instanceof Error ? error.message : String(error);
+            status.setAttribute('role', 'alert');
+        }
+    };
+    void refresh();
+    return section;
+}
+
+function shortDeviceId(deviceId: string): string {
+    return deviceId.slice(0, 8);
+}
+
 function canContinueToAcademy(status: AcademySyncStatus): boolean {
-    // Continuing must never bypass the Google gate: an offline device may
-    // proceed only when it already holds an account-bound profile.
-    const accountLinked = Boolean(status.account) || Boolean(status.profile?.accountId);
-    return accountLinked && (status.phase === 'ready' || status.phase === 'offline');
+    // A Reader account may manage devices here, but only the Worker's exact
+    // grant-or-active-paid projection can reopen bundled/offline curriculum.
+    return status.account?.academyAccess === true && (status.phase === 'ready' || status.phase === 'offline');
 }
 
 function appendPrimaryAction(actions: HTMLElement, options: ProfileSyncScreenOptions): void {

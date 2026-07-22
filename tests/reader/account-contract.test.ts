@@ -38,6 +38,7 @@ describe('Reader account and Class Board client contract', () => {
             avatarKey: 'quality-2',
             boardVisible: true,
             shareAvatar: false,
+            academyAccess: true,
             classes: [{ classId: 'ucl-2026', name: 'UCL Japanese 2026', role: 'learner', boardHidden: false }],
             email: 'private@example.invalid',
             googleName: 'Private Google Name',

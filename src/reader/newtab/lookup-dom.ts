@@ -48,8 +48,7 @@ export function newTabLookupReviewTargetSelection(button: HTMLButtonElement): Ne
 
 export function newTabLookupMetaItems(options: NewTabLookupMetaItemsOptions): HTMLElement[] {
     const items: HTMLElement[] = [];
-    if (options.card.frequencyRank) items.push(newLookupMetaLabel(`#${options.card.frequencyRank}`));
-    const providerLabel = newTabLookupProviderStatusLabel(options.provider, options.settings, options.providerState);
+    const providerLabel = newTabLookupProviderStatusLabel(options.card, options.provider, options.settings, options.providerState);
     if (providerLabel) items.push(newLookupMetaLabel(providerLabel, `jpdb-${options.providerState}`));
     const ankiLabel = newTabLookupAnkiStatusLabel(options.ankiLookup, options.settings);
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
@@ -142,8 +141,9 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 
 // Main-popover parity: name the SRS the grade buttons act on (JPDB, Jiten or
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
-function newTabLookupProviderStatusLabel(provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
-    if (!provider?.hasApiKey || provider.id === 'yomu-local') return '';
+function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
+    if (!provider?.hasApiKey) return '';
+    if (provider.id === 'yomu-local' && card.source !== 'yomu-local' && card.reviewSource !== 'yomu-local') return '';
     return `${provider.label} ${lookupStateLabel(state, settings.interfaceLanguage)}`;
 }
 

@@ -18,6 +18,8 @@ import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-cre
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanDictionaryStore, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
+import { hydrateYomuLocalSrsCardStates } from '../srs/local-yomu-state';
+import type { YomuSrsAdapter } from '../srs/types';
 
 export { fallbackJapaneseSegments, fallbackLookupTermsForText, fallbackDictionaryLookupTermsForText, fallbackLookupTermsForCard } from './japanese-segments';
 
@@ -75,6 +77,7 @@ export interface ReaderParserDependencies {
     jiten?: JitenApiClient;
     jitenPublicVocabulary?: { parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]> };
     dictionaries: YomitanDictionaryStore;
+    yomuLocalSrs?: Pick<YomuSrsAdapter, 'lookupCards'>;
 }
 
 function apiFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
@@ -112,7 +115,14 @@ export class ReaderParser {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
             const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
             const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
-            return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+            const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
+            if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
+            try {
+                return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+            } catch (error) {
+                log.warn('Academy SRS state hydration failed; keeping provider states', error);
+                return normalized;
+            }
         } finally {
             done();
         }

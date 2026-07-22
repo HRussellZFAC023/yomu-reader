@@ -814,6 +814,26 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
     });
 
+    it('shows Academy due state with the same SRS swatch used by external providers', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: '',
+            jitenApiKey: '',
+            yomuLocalSrsEnabled: true,
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            source: 'yomu-local',
+            reviewSource: 'yomu-local',
+            frequencyRank: 400,
+            cardState: ['due'],
+        }, '説明する。');
+
+        expect(document.querySelector('.jpdb-reader-provider-status')?.textContent).toBe('Academy Due');
+        expect(document.querySelector('.jpdb-reader-provider-status .jpdb-reader-state-dot.jpdb-due')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).not.toContain('#400');
+    });
+
     it('suppresses alternate reading metadata when wordWithReading renders as headword ruby', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
@@ -856,7 +876,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
     });
 
-    it('keeps the hiragana reading chip for katakana headwords', () => {
+    it('does not append a loose hiragana reading after katakana headwords', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
             showFurigana: true,
@@ -873,10 +893,10 @@ describe('reader helpers', () => {
         }, 'カメラを買う。');
 
         expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('かめら');
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
     });
 
-    it('keeps alternate reading metadata when headword ruby is hidden', () => {
+    it('keeps headword ruby visible instead of appending alternate reading metadata', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
             showFurigana: false,
@@ -893,9 +913,9 @@ describe('reader helpers', () => {
             pitchAccent: [],
         }, '人気がある。');
 
-        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('にんき');
-        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('にんきJPDB New');
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')?.textContent).toBe('にんき');
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
     });
 
     it('shows separate JPDB and Anki status when JPDB is not in deck but Anki exists', () => {

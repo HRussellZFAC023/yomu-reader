@@ -8,7 +8,6 @@ import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
-import { isPlainReadingRedundantForHeadword } from '../cards/reading-display';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
@@ -84,7 +83,6 @@ import {
     buildKanjiFacts,
     buildKanjiOriginGraph,
     buildRtkComponentSummaries,
-    cardPronunciationReading,
     installOriginGraphInteractions,
     isKanjiCharacter,
     pickTokenForSelection,
@@ -147,6 +145,8 @@ import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { BunproClient } from '../bunpro/bunpro';
 import { createBunproSrsAdapter, createWanikaniSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
+import { installAcademyReaderSrsSync } from '../srs/account-sync';
+import { repaintYomuLocalSrsRenderedWords } from '../srs/local-yomu-state';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
@@ -446,6 +446,7 @@ export class NewTabRuntime {
         jpdb: this.jpdb,
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
+        yomuLocalSrs: this.yomuLocalSrs,
     });
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
@@ -524,6 +525,7 @@ export class NewTabRuntime {
         }
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
+        installAcademyReaderSrsSync();
         this.installSettingsStorageSubscription();
         void this.settingsDialog.resumePendingCloudSettingsSync();
     }
@@ -582,6 +584,7 @@ export class NewTabRuntime {
         this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
+            repaintYomuLocalSrsRenderedWords(card);
             if (card.source === 'bunpro') {
                 this.dismissLookupPopover();
                 void this.newTab?.refreshBunproQueueAfterExternalGrade();
@@ -653,6 +656,7 @@ export class NewTabRuntime {
     private handleApiCardStateChanged(card: JPDBCard): void {
         this.cardRenderData.clear();
         this.applyPublicVocabularyToRenderedWords(card, card);
+        repaintYomuLocalSrsRenderedWords(card);
         this.newTab?.refreshBrowseAfterCardMutation(card);
     }
 
@@ -1033,26 +1037,13 @@ export class NewTabRuntime {
     private refreshNewTabLookupHeader(popover: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {
         const titleRow = popover.querySelector<HTMLElement>('.jpdb-reader-title-row');
         if (!titleRow) return;
-        this.ensureNewTabLookupReading(titleRow, card);
+        this.removeNewTabLookupTrailingReading(titleRow);
         this.refreshNewTabLookupMeta(titleRow, card, data);
     }
 
-    private ensureNewTabLookupReading(titleRow: HTMLElement, card: JPDBCard): void {
-        const reading = cardPronunciationReading(card) || card.reading.trim();
-        if (!reading || isPlainReadingRedundantForHeadword(card, this.settings, reading)) {
-            titleRow.querySelector<HTMLElement>('[data-newtab-lookup-reading]')?.remove();
-            return;
-        }
-        let readingElement = titleRow.querySelector<HTMLElement>('.jpdb-reader-reading');
-        if (!readingElement) {
-            readingElement = document.createElement('div');
-            readingElement.className = 'jpdb-reader-reading';
-            const spelling = titleRow.querySelector<HTMLElement>('.jpdb-reader-spelling');
-            spelling?.after(readingElement);
-            if (!readingElement.isConnected) titleRow.prepend(readingElement);
-        }
-        readingElement.dataset.newtabLookupReading = 'true';
-        readingElement.textContent = reading;
+    private removeNewTabLookupTrailingReading(titleRow: HTMLElement): void {
+        titleRow.querySelectorAll<HTMLElement>('.jpdb-reader-reading, .jpdb-reader-meta-reading')
+            .forEach(reading => reading.remove());
     }
 
     private refreshNewTabLookupMeta(titleRow: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {

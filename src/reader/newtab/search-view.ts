@@ -5,10 +5,9 @@ import { el } from '../dom/builder';
 import { uiText } from '../app/i18n';
 import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
-import { headwordFuriganaSettings, isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../cards/reading-display';
+import { headwordFuriganaSettings, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
-import { normalizedJapaneseCardReading } from '../cards/highlight';
 import { renderAnkiExistingSection } from '../anki/render';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -56,7 +55,6 @@ export function searchWordSummaryMeta(
     ankiLookup?: CardRenderData['ankiLookup'],
 ): string[] {
     return [
-        searchWordVisibleReading(card, context.settings),
         searchWordPooledStatusLabel(card, context, ankiLookup),
         card.frequencyRank ? `#${card.frequencyRank}` : '',
     ].filter(Boolean);
@@ -131,7 +129,7 @@ export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], con
 function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): string {
     const spelling = card.spelling.trim();
     const reading = newTabCardOptionalReading(card);
-    if (!settings.showFurigana || settings.furiganaMode === 'off' || !spelling || !reading) return '';
+    if (!spelling || !reading) return '';
     const token: JPDBToken = {
         card: { ...card, reading },
         start: 0,
@@ -218,8 +216,7 @@ function searchWordLoadingHtml(detail: NewTabSearchWordDetailData, context: NewT
 function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
     const settings = context.getSettings();
     const state = primaryCardState(card.cardState);
-    const visibleReading = searchWordVisibleReading(card, settings);
-    const metaItems = searchWordMetaItems(card, state, detail, settings, visibleReading);
+    const metaItems = searchWordMetaItems(card, state, detail, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
     const pills = searchWordPillsHtml(card, detail, context);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
@@ -228,7 +225,6 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, 'showKanji') })}</div>
-                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml(visibleReading)}</div>` : ''}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
             </div>
             ${pills}
@@ -248,27 +244,12 @@ function searchWordPillsHtml(
     return context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? '';
 }
 
-export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings, visibleReading = ''): string[] {
+export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings): string[] {
     return [
-        searchWordReadingMeta(card, settings, visibleReading),
         searchWordFrequencyMeta(card),
         searchWordCardStateMeta(card, state, settings),
         searchWordLookupAnkiStateMeta(card, detail, settings),
     ].filter(Boolean);
-}
-
-function searchWordReadingMeta(card: JPDBCard, settings: ReaderSettings, visibleReading = ''): string {
-    const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
-    // The header already shows the fallback reading beside the headword; the
-    // meta chip only covers readings that surface nowhere else in the row.
-    if (reading.normalize('NFC') === visibleReading.trim().normalize('NFC')) return '';
-    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return '';
-    return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
-}
-
-function searchWordVisibleReading(card: JPDBCard, settings: ReaderSettings): string {
-    const reading = newTabCardOptionalReading(card);
-    return reading && !isPlainReadingRedundantForHeadword(card, settings, reading) ? reading : '';
 }
 
 function searchWordFrequencyMeta(card: JPDBCard): string {

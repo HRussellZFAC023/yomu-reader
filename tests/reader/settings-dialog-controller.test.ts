@@ -854,6 +854,36 @@ describe('settings dialog keyboard dismissal', () => {
         expect(openFilePicker).not.toHaveBeenCalled();
     });
 
+    it.each([
+        {
+            name: 'denies consent',
+            browser: {
+                runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` },
+                permissions: { request: vi.fn().mockResolvedValue(false) },
+            },
+            message: 'Those account details were not saved because Firefox permission was not granted.',
+        },
+        {
+            name: 'requires the extension page',
+            browser: { runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` } },
+            message: 'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
+        },
+    ])('does not claim an Academy device when Firefox $name', async ({ browser, message }) => {
+        const request = vi.fn();
+        vi.stubGlobal('browser', browser);
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        const { dependencies, form } = createSettingsDialog();
+        form.querySelector<HTMLInputElement>('[data-academy-pairing-code]')!.value = '0234-5678-ABCD-EFGH-JKMN';
+
+        const connect = form.querySelector<HTMLButtonElement>('[data-action="connect-academy-account"]')!;
+        await waitForCondition(() => !connect.disabled);
+        connect.click();
+        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
+
+        expect(request).not.toHaveBeenCalled();
+        expect(dependencies.toast).toHaveBeenCalledWith(message);
+    });
+
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {
         const storage = deferred<void>();
         const setValue = vi.fn(() => storage.promise);

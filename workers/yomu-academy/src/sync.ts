@@ -2,7 +2,7 @@ import { fromBase64Url, sha256Hex } from './crypto';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { SYNC_PULL_RATE, SYNC_PUSH_RATE, clientSubject, enforceRateLimit } from './rate-limit';
-import { requireProfile, type ProfileContext } from './profiles';
+import { requireAcademyProfile, type ProfileContext } from './profiles';
 
 const MAX_PUSH_BYTES = 256 * 1024;
 const MAX_PUSH_EVENTS = 50;
@@ -57,7 +57,7 @@ export async function handleSyncPush(request: Request, env: Env, clock: Clock): 
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), SYNC_PUSH_RATE, now);
-    const context = await requireProfile(request, env, now);
+    const context = await requireAcademyProfile(request, env, now);
     const body = await readJsonBody(request, MAX_PUSH_BYTES);
     assertOnlyKeys(body, ['events']);
     if (!Array.isArray(body.events) || body.events.length === 0 || body.events.length > MAX_PUSH_EVENTS) {
@@ -111,7 +111,7 @@ export async function handleSyncPush(request: Request, env: Env, clock: Clock): 
 export async function handleSyncPull(request: Request, env: Env, clock: Clock): Promise<Response> {
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), SYNC_PULL_RATE, now);
-    const context = await requireProfile(request, env, now);
+    const context = await requireAcademyProfile(request, env, now);
     const { cursor, limit } = readPageRequest(new URL(request.url));
     return jsonResponse(await readSyncPage(env, context.profile.id, cursor, limit));
 }

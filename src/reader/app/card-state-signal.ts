@@ -25,6 +25,9 @@ export interface CardStateSignalCard {
     cardState: CardState[];
     pitchAccent: string[];
     source: JPDBCard['source'];
+    reviewSource?: JPDBCard['reviewSource'];
+    dueAt?: number | null;
+    lastReviewAt?: number | null;
     deckNames?: string[];
     ankiDeckNames?: string[];
     jpdbDeckMembership?: string;
@@ -47,6 +50,9 @@ export function cardStateSignalCard(card: JPDBCard): CardStateSignalCard {
         cardState: [...card.cardState],
         pitchAccent: [...card.pitchAccent],
         source: card.source,
+        reviewSource: card.reviewSource,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
         deckNames: card.deckNames ? [...card.deckNames] : undefined,
         ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : undefined,
         jpdbDeckMembership: card.jpdbDeckMembership,
@@ -155,6 +161,9 @@ function parseCardStateSignal(value: unknown): CardStateSignal | null {
             cardState: card.cardState as CardState[],
             pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent as string[] : [],
             source: (card.source ?? 'jpdb') as JPDBCard['source'],
+            reviewSource: typeof card.reviewSource === 'string' ? card.reviewSource as JPDBCard['reviewSource'] : undefined,
+            dueAt: card.dueAt === null || typeof card.dueAt === 'number' ? card.dueAt : undefined,
+            lastReviewAt: card.lastReviewAt === null || typeof card.lastReviewAt === 'number' ? card.lastReviewAt : undefined,
             deckNames: Array.isArray(card.deckNames) ? card.deckNames as string[] : undefined,
             ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames as string[] : undefined,
             jpdbDeckMembership: typeof card.jpdbDeckMembership === 'string' ? card.jpdbDeckMembership : undefined,

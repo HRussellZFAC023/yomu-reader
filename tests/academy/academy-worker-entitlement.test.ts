@@ -261,6 +261,106 @@ describe('Academy Google account and paid entitlement policy', () => {
         }
     });
 
+    it('creates a free Reader account with encrypted sync but no Academy content entitlement', async () => {
+        const academy = createSqliteAcademy();
+        const now = Date.now();
+        const mediaManifest: MediaManifest = {
+            version: 1,
+            bucket: 'test-media',
+            objects: [{ key: 'lesson/audio.wav', contentType: 'audio/wav', bytes: 1, sha256: 'a'.repeat(64) }],
+        };
+        try {
+            const bootstrap = await dispatch(academy.env, mutation(
+                academy.env, '/academy/api/auth/google/reader', 'POST', {},
+            ));
+            expect(bootstrap.status).toBe(201);
+            const readerCookie = cookie(bootstrap);
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', readerCookie))).status).toBe(401);
+
+            const callback = await signInWithGoogle(academy.env, readerCookie, 'new-reader-account', now);
+            expect(callback.status).toBe(302);
+            expect(callback.headers.get('location')).toBe(`${academy.env.ACADEMY_ORIGIN}/?account=linked`);
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/account', readerCookie))).status).toBe(200);
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', readerCookie))).status).toBe(200);
+
+            await expect(handleMedia(
+                get(academy.env, '/academy/media/audio/lesson/audio.wav', readerCookie),
+                academy.env,
+                () => now + 2,
+                mediaManifest,
+            )).rejects.toMatchObject({ status: 403 });
+            expect(academy.db.rows<{ access_tier: string }>('SELECT access_tier FROM accounts')[0]?.access_tier).toBe('reader');
+
+            const recovery = await dispatch(academy.env, mutation(
+                academy.env, '/academy/api/auth/google/recovery', 'POST', {},
+            ));
+            const recoveredCookie = cookie(recovery);
+            expect((await signInWithGoogle(academy.env, recoveredCookie, 'new-reader-account', now + 3)).status).toBe(302);
+            await expect(handleMedia(
+                get(academy.env, '/academy/media/audio/lesson/audio.wav', recoveredCookie),
+                academy.env,
+                () => now + 4,
+                mediaManifest,
+            )).rejects.toMatchObject({ status: 403 });
+            expect(academy.db.rows<{ access_tier: string }>('SELECT access_tier FROM accounts')[0]?.access_tier).toBe('reader');
+
+            const purchaseId = crypto.randomUUID();
+            await academy.env.ACADEMY_DB.prepare(
+                'INSERT INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
+                + "VALUES (?1, 'reader-upgrade-claim', 500, 'paid', ?2, ?2)",
+            ).bind(purchaseId, now + 4).run();
+            const paidInviteId = await mintPaidInvite(academy.env, purchaseId, now + 4);
+            await academy.env.ACADEMY_DB.prepare('UPDATE purchases SET invite_id = ?1 WHERE id = ?2')
+                .bind(paidInviteId, purchaseId).run();
+            const paidCode = await derivePaidInviteCode(academy.env.ACADEMY_INVITE_HMAC_KEY, purchaseId);
+            const redeemed = await dispatch(academy.env, mutation(
+                academy.env, '/academy/api/entitlement/redeem', 'POST', { code: paidCode }, recoveredCookie,
+            ));
+            expect(redeemed.status).toBe(200);
+            expect(academy.db.rows<{ access_tier: string }>('SELECT access_tier FROM accounts')[0]?.access_tier).toBe('academy');
+            await expect(handleMedia(
+                get(academy.env, '/academy/media/audio/lesson/audio.wav', recoveredCookie),
+                academy.env,
+                () => now + 5,
+                mediaManifest,
+            )).rejects.toMatchObject({ status: 404 });
+
+            await academy.env.ACADEMY_DB.batch([
+                academy.env.ACADEMY_DB.prepare(
+                    'INSERT INTO payment_subjects '
+                    + '(id, provider, provider_subject_hash, subject_kind, created_at, updated_at) '
+                    + "VALUES ('reader-revoked-subject', 'stripe', 'reader-revoked-hash', 'academy_purchase', ?1, ?1)",
+                ).bind(now + 6),
+                academy.env.ACADEMY_DB.prepare(
+                    'INSERT INTO payment_entitlements '
+                    + '(id, provider, subject_id, purchase_id, state, effective_at, expires_at, updated_at) '
+                    + "VALUES ('reader-revoked-entitlement', 'stripe', 'reader-revoked-subject', ?1, 'revoked', ?2, NULL, ?2)",
+                ).bind(purchaseId, now + 6),
+            ]);
+            await expect(handleMedia(
+                get(academy.env, '/academy/media/audio/lesson/audio.wav', recoveredCookie),
+                academy.env,
+                () => now + 7,
+                mediaManifest,
+            )).rejects.toMatchObject({ status: 403 });
+
+            await seedInvite(academy.env, 'UPGRADE2026', 'reader-upgrade-invite');
+            const upgrade = await createSession(academy.env, 'UPGRADE2026');
+            expect((await signInWithGoogle(academy.env, upgrade.cookie, 'new-reader-account', now + 8)).status).toBe(302);
+            expect(academy.db.rows<{ access_tier: string }>('SELECT access_tier FROM accounts')[0]?.access_tier).toBe('academy');
+            await expect(handleMedia(
+                get(academy.env, '/academy/media/audio/lesson/audio.wav', upgrade.cookie),
+                academy.env,
+                () => now + 9,
+                mediaManifest,
+            )).rejects.toMatchObject({ status: 404 });
+            expect(academy.db.rows('SELECT * FROM purchases')).toHaveLength(1);
+            expect(academy.db.rows('SELECT * FROM class_memberships')).toHaveLength(0);
+        } finally {
+            academy.close();
+        }
+    });
+
     it('does not recover a bare account row left by an interrupted account link', async () => {
         const academy = createSqliteAcademy();
         const subject = 'orphaned-google-subject';

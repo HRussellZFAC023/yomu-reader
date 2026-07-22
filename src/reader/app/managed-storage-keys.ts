@@ -15,3 +15,12 @@ export const MANAGED_STORAGE_KEY_PREFIXES = [
 export function isManagedStorageKey(key: string): boolean {
     return MANAGED_STORAGE_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
 }
+
+/** Secrets stay managed for reset, but never cross page-world or backup bridges. */
+export function isPrivateManagedStorageKey(key: string): boolean {
+    return key.startsWith('yomu:private:');
+}
+
+export function isBridgeManagedStorageKey(key: string): boolean {
+    return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key);
+}

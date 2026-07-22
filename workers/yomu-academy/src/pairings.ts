@@ -1,4 +1,5 @@
 import { fromBase64Url, hmacSha256Hex, randomBytes } from './crypto';
+import { deviceCredentialHash, deviceCredentialValue, requireDeviceProfile } from './device-auth';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
 import { PAIR_CLAIM_RATE, PAIR_CREATE_RATE, clientSubject, enforceRateLimit } from './rate-limit';
@@ -25,11 +26,14 @@ interface PairingRow {
     readonly key_salt: string;
     readonly key_nonce: string;
     readonly wrapped_key: string;
+    readonly consumed_at: number | null;
+    readonly consumed_by_device_id: string | null;
 }
 
 interface DisposableProfileRow {
     readonly account_id: string | null;
     readonly event_count: number;
+    readonly reader_event_count: number;
     readonly device_count: number;
 }
 
@@ -39,6 +43,18 @@ export async function handleCreatePairing(request: Request, env: Env, clock: Clo
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), PAIR_CREATE_RATE, now);
     const context = await requireProfile(request, env, now);
+    return jsonResponse(await createPairingTicket(env, context.profile.id, context.device.id, now), 201);
+}
+
+/** Let a surviving Reader device restore a website that lost its local profile key. */
+export async function handleCreateReaderDevicePairing(request: Request, env: Env, clock: Clock): Promise<Response> {
+    const now = clock();
+    const context = await requireDeviceProfile(request, env, now);
+    await enforceRateLimit(env, `reader-device:${context.device.public_id}`, PAIR_CREATE_RATE, now);
+    return jsonResponse(await createPairingTicket(env, context.profile.id, context.device.id, now), 201);
+}
+
+async function createPairingTicket(env: Env, profileId: string, deviceId: string, now: number): Promise<Record<string, unknown>> {
     const code = createPairingCode();
     const pairingId = crypto.randomUUID();
     const expiresAt = now + PAIRING_TTL_MS;
@@ -48,13 +64,13 @@ export async function handleCreatePairing(request: Request, env: Env, clock: Clo
         + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6)',
     ).bind(
         pairingId,
-        context.profile.id,
-        context.device.id,
+        profileId,
+        deviceId,
         await pairingCodeHash(env, code),
         now,
         expiresAt,
     ).run();
-    return jsonResponse({ pairingId, code, expiresAt }, 201);
+    return { pairingId, code, expiresAt };
 }
 
 /** Attach the client-encrypted profile key to a ticket before it can be claimed. */
@@ -69,7 +85,34 @@ export async function handleCompletePairing(
     const now = clock();
     const context = await requireProfile(request, env, now);
     const envelope = parseKeyEnvelope(await readJsonBody(request, 2048));
-    if (envelope.keyVersion !== context.profile.sync_key_version) {
+    return completePairing(env, pairingId, context.profile.id, context.device.id,
+        context.profile.sync_key_version, envelope, now);
+}
+
+export async function handleCompleteReaderDevicePairing(
+    request: Request,
+    env: Env,
+    clock: Clock,
+    rawPairingId: string,
+): Promise<Response> {
+    const pairingId = parsePairingId(rawPairingId);
+    const now = clock();
+    const context = await requireDeviceProfile(request, env, now);
+    const envelope = parseKeyEnvelope(await readJsonBody(request, 2048));
+    return completePairing(env, pairingId, context.profile.id, context.device.id,
+        context.profile.sync_key_version, envelope, now);
+}
+
+async function completePairing(
+    env: Env,
+    pairingId: string,
+    profileId: string,
+    deviceId: string,
+    keyVersion: number,
+    envelope: PairingKeyEnvelope,
+    now: number,
+): Promise<Response> {
+    if (envelope.keyVersion !== keyVersion) {
         throw new HttpError(409, 'Pairing key version does not match this profile.');
     }
     const result = await env.ACADEMY_DB.prepare(
@@ -83,8 +126,8 @@ export async function handleCompletePairing(
         envelope.nonce,
         envelope.ciphertext,
         pairingId,
-        context.profile.id,
-        context.device.id,
+        profileId,
+        deviceId,
         now,
     ).run();
     if ((result.meta.changes ?? 0) !== 1) throw new HttpError(404, 'Pairing ticket is unavailable.');
@@ -124,10 +167,12 @@ export async function handleClaimPairing(request: Request, env: Env, clock: Cloc
     const disposable = await env.ACADEMY_DB.prepare(
         'SELECT p.account_id, '
         + '(SELECT COUNT(*) FROM srs_events e WHERE e.profile_id = p.id) AS event_count, '
+        + '(SELECT COUNT(*) FROM reader_srs_events e WHERE e.profile_id = p.id) AS reader_event_count, '
         + '(SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = p.id AND d.revoked_at IS NULL) AS device_count '
         + 'FROM profiles p WHERE p.id = ?1',
     ).bind(target.profile.id).first<DisposableProfileRow>();
-    if (!disposable || disposable.account_id || disposable.event_count !== 0 || disposable.device_count !== 1) {
+    if (!disposable || disposable.account_id || disposable.event_count !== 0
+        || disposable.reader_event_count !== 0 || disposable.device_count !== 1) {
         throw new HttpError(409, 'Pairing requires a fresh device profile.');
     }
 
@@ -138,6 +183,7 @@ export async function handleClaimPairing(request: Request, env: Env, clock: Cloc
             + 'AND wrapped_key IS NOT NULL '
             + 'AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = ?5 AND p.account_id IS NULL) '
             + 'AND NOT EXISTS (SELECT 1 FROM srs_events e WHERE e.profile_id = ?5) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events e WHERE e.profile_id = ?5) '
             + 'AND 1 = (SELECT COUNT(*) FROM profile_devices d WHERE d.profile_id = ?5 AND d.revoked_at IS NULL) '
             + 'AND EXISTS (SELECT 1 FROM profile_devices d WHERE d.id = ?2 AND d.profile_id = ?5 AND d.revoked_at IS NULL) '
             + 'AND EXISTS (SELECT 1 FROM sessions s WHERE s.public_id = ?6 AND s.profile_id = ?5 '
@@ -156,7 +202,8 @@ export async function handleClaimPairing(request: Request, env: Env, clock: Cloc
             'DELETE FROM profiles WHERE id = ?1 AND account_id IS NULL '
             + 'AND NOT EXISTS (SELECT 1 FROM sessions WHERE profile_id = ?1) '
             + 'AND NOT EXISTS (SELECT 1 FROM profile_devices WHERE profile_id = ?1) '
-            + 'AND NOT EXISTS (SELECT 1 FROM srs_events WHERE profile_id = ?1)',
+            + 'AND NOT EXISTS (SELECT 1 FROM srs_events WHERE profile_id = ?1) '
+            + 'AND NOT EXISTS (SELECT 1 FROM reader_srs_events WHERE profile_id = ?1)',
         ).bind(target.profile.id),
         env.ACADEMY_DB.prepare('UPDATE profiles SET updated_at = ?1 WHERE id = ?2').bind(now, pairing.profile_id),
     ]);
@@ -170,6 +217,90 @@ export async function handleClaimPairing(request: Request, env: Env, clock: Cloc
     }
 
     return pairingClaimResponse(pairing, target.device.public_id);
+}
+
+/**
+ * Consume a ready one-time pairing code without a website cookie and mint a
+ * profile-scoped Reader device credential. The pairing code is the 100-bit
+ * authorization; the durable secret is returned once and stored only hashed.
+ */
+export async function handleClaimReaderDevicePairing(request: Request, env: Env, clock: Clock): Promise<Response> {
+    const now = clock();
+    await enforceRateLimit(env, await clientSubject(request, env), PAIR_CLAIM_RATE, now);
+    const body = await readJsonBody(request, 1024);
+    assertOnlyKeys(body, ['code', 'claimId', 'deviceSecret']);
+    const code = normalizePairingCode(body.code);
+    if (typeof body.claimId !== 'string') throw new HttpError(400, 'Claim id is invalid.');
+    const claimId = parsePairingId(body.claimId);
+    if (typeof body.deviceSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(body.deviceSecret)) {
+        throw new HttpError(400, 'Device secret is invalid.');
+    }
+    const secret = body.deviceSecret;
+    const codeHash = await pairingCodeHash(env, code);
+    const pairing = await env.ACADEMY_DB.prepare(
+        'SELECT dp.id, dp.profile_id, p.public_id AS profile_public_id, dp.created_by_device_id, dp.key_version, '
+        + 'dp.key_salt, dp.key_nonce, dp.wrapped_key, dp.consumed_at, dp.consumed_by_device_id FROM device_pairings dp '
+        + 'JOIN profiles p ON p.id = dp.profile_id WHERE dp.code_hash = ?1 '
+        + 'AND (dp.consumed_at IS NOT NULL OR dp.expires_at > ?2) AND dp.wrapped_key IS NOT NULL',
+    ).bind(codeHash, now).first<PairingRow>();
+    if (!pairing) throw new HttpError(404, 'Pairing code is invalid or expired.');
+
+    const secretHash = await deviceCredentialHash(env, secret);
+    if (pairing.consumed_at !== null) {
+        const retry = await env.ACADEMY_DB.prepare(
+            'SELECT d.public_id FROM profile_device_credentials c '
+            + 'JOIN profile_devices d ON d.id = c.profile_device_id '
+            + 'WHERE d.id = ?1 AND d.profile_id = ?2 AND c.claim_request_id = ?3 AND c.token_hash = ?4',
+        ).bind(pairing.consumed_by_device_id, pairing.profile_id, claimId, secretHash)
+            .first<{ public_id: string }>();
+        if (!retry) throw new HttpError(409, 'Pairing code was already used.');
+        return readerDevicePairingClaimResponse(pairing, retry.public_id, secret);
+    }
+
+    const deviceId = crypto.randomUUID();
+    const devicePublicId = crypto.randomUUID();
+    const credentialId = crypto.randomUUID();
+    const results = await env.ACADEMY_DB.batch([
+        env.ACADEMY_DB.prepare(
+            'INSERT INTO profile_devices (id, public_id, profile_id, created_at, last_seen_at, revoked_at) '
+            + 'SELECT ?1, ?2, profile_id, ?3, ?3, NULL FROM device_pairings '
+            + 'WHERE id = ?4 AND code_hash = ?5 AND consumed_at IS NULL AND expires_at > ?3 AND wrapped_key IS NOT NULL',
+        ).bind(deviceId, devicePublicId, now, pairing.id, codeHash),
+        env.ACADEMY_DB.prepare(
+            'INSERT INTO profile_device_credentials '
+            + '(id, profile_device_id, claim_request_id, token_hash, created_at, last_seen_at, revoked_at) '
+            + 'SELECT ?1, ?2, ?3, ?4, ?5, ?5, NULL WHERE EXISTS '
+            + '(SELECT 1 FROM profile_devices WHERE id = ?2 AND profile_id = ?6)',
+        ).bind(credentialId, deviceId, claimId, secretHash, now, pairing.profile_id),
+        env.ACADEMY_DB.prepare(
+            'UPDATE device_pairings SET consumed_at = ?1, consumed_by_device_id = ?2 '
+            + 'WHERE id = ?3 AND code_hash = ?4 AND consumed_at IS NULL AND expires_at > ?1 '
+            + 'AND wrapped_key IS NOT NULL AND EXISTS '
+            + '(SELECT 1 FROM profile_device_credentials WHERE profile_device_id = ?2) RETURNING id',
+        ).bind(now, deviceId, pairing.id, codeHash),
+        env.ACADEMY_DB.prepare('UPDATE profiles SET updated_at = ?1 WHERE id = ?2').bind(now, pairing.profile_id),
+    ]);
+    if ((results[0]?.meta.changes ?? 0) !== 1 || (results[1]?.meta.changes ?? 0) !== 1
+        || (results[2]?.meta.changes ?? 0) !== 1 || results[2].results.length !== 1) {
+        throw new HttpError(409, 'Pairing code was already used.');
+    }
+    return readerDevicePairingClaimResponse(pairing, devicePublicId, secret);
+}
+
+function readerDevicePairingClaimResponse(pairing: PairingRow, devicePublicId: string, secret: string): Response {
+    return jsonResponse({
+        connected: true,
+        pairingId: pairing.id,
+        profileId: pairing.profile_public_id,
+        deviceId: devicePublicId,
+        credential: deviceCredentialValue(devicePublicId, secret),
+        keyEnvelope: {
+            keyVersion: pairing.key_version,
+            salt: pairing.key_salt,
+            nonce: pairing.key_nonce,
+            ciphertext: pairing.wrapped_key,
+        },
+    }, pairing.consumed_at === null ? 201 : 200);
 }
 
 async function claimExistingProfileKey(

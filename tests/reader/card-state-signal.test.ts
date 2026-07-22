@@ -101,6 +101,28 @@ describe('card state signal bus', () => {
         unsubscribe();
     });
 
+    it('carries Academy review identity and schedule for canonical cross-tab repainting', () => {
+        const { listeners } = stubGmValueChange();
+        const received: JPDBCard[] = [];
+        const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
+        const listener = [...listeners.values()][0]!;
+
+        listener('yomu:card-state-signal', undefined, signalValue('academy', {
+            reviewSource: 'yomu-local',
+            dueAt: 1_234_567,
+            lastReviewAt: 1_000_000,
+        }), true);
+
+        expect(received[0]).toMatchObject({
+            spelling: '日本語',
+            reading: 'にほんご',
+            reviewSource: 'yomu-local',
+            dueAt: 1_234_567,
+            lastReviewAt: 1_000_000,
+        });
+        unsubscribe();
+    });
+
     it('removes the GM listener on unsubscribe and survives publishing without GM storage', () => {
         const { listeners, removed } = stubGmValueChange();
         const unsubscribe = subscribeToCardStateSignals(() => undefined);

@@ -16,6 +16,7 @@ import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
+import { syncHostedAcademyAccountControls } from './academy-account';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -3157,6 +3158,7 @@ function scheduleHostedDocsShellSync(): void {
     window.requestAnimationFrame(() => {
         hostedDocsShellSyncPending = false;
         syncHostedLanguageToggle();
+        syncHostedAcademyAccountControls(effectiveInterfaceLanguage());
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
         localizeHostedDocsCopy();
@@ -3977,6 +3979,7 @@ function installHostedDocsEnhancements(): void {
     registerHostedDocsServiceWorker();
     syncLandmarks();
     installHostedLanguageToggle();
+    syncHostedAcademyAccountControls(effectiveInterfaceLanguage());
     installHostedOverflowMenu();
     installHostedSupportBanner();
     installHostedAccentSync();
@@ -3995,6 +3998,7 @@ function installHostedDocsEnhancements(): void {
     window.addEventListener(LANGUAGE_EVENT, () => {
         syncHostedContentAnnotationSurface();
         syncHostedLanguageToggle();
+        syncHostedAcademyAccountControls(effectiveInterfaceLanguage());
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
         installHostedSupportBanner();
@@ -4008,6 +4012,7 @@ function installHostedDocsEnhancements(): void {
         declareHostedAnnotationScope();
         syncLandmarks();
         syncHostedLanguageToggle();
+        syncHostedAcademyAccountControls(effectiveInterfaceLanguage());
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
         installHostedSupportBanner();
@@ -4020,6 +4025,7 @@ function installHostedDocsEnhancements(): void {
         declareHostedAnnotationScope();
         syncLandmarks();
         syncHostedLanguageToggle();
+        syncHostedAcademyAccountControls(effectiveInterfaceLanguage());
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
         installHostedSupportBanner();

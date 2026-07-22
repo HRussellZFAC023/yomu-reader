@@ -278,7 +278,7 @@ describe('new tab review — search mode', () => {
         expect(searchWordSummaryMeta(card, context)).toEqual(['#32900']);
     });
 
-    it('keeps search result readings when furigana settings suppress ruby', () => {
+    it('keeps search result readings in ruby when page furigana is disabled', () => {
         const context = {
             language: 'en' as const,
             settings: { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off' as const },
@@ -292,7 +292,9 @@ describe('new tab review — search mode', () => {
             source: 'jpdb',
         });
 
-        expect(searchWordSummaryMeta(card, context)).toEqual(['がくしゅうのうりょく', '#32900']);
+        const root = renderSearchWordResults([card], context);
+        expect(searchWordSummaryMeta(card, context)).toEqual(['#32900']);
+        expect(root.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('がくしゅうのうりょく');
     });
 
     it('hydrates pitch classes for 学習能力 search result cards after public pitch resolves', async () => {
@@ -1859,7 +1861,7 @@ describe('new tab review — search mode', () => {
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
     });
 
-    it('shows a katakana detail-header reading exactly once', () => {
+    it('does not append loose hiragana after a katakana detail headword', () => {
         const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
         const card = newTabTestCard({
             spelling: 'カメラ',
@@ -1883,7 +1885,7 @@ describe('new tab review — search mode', () => {
         }, context);
 
         expect(document.querySelector('rt.jpdb-reader-furi')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-reading')?.textContent).toBe('かめら');
+        expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
     });
 

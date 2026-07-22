@@ -6,12 +6,16 @@ import { EXPORT_RATE, LIFECYCLE_RATE, clientSubject, enforceRateLimit } from './
 import { profileView, requireProfile } from './profiles';
 import { clearSessionCookie } from './sessions';
 import { readPageRequest, readSyncPage } from './sync';
+import { readReaderSrsEventPage } from './reader-srs-sync';
 
 interface DeviceExportRow {
     readonly public_id: string;
     readonly created_at: number;
     readonly last_seen_at: number;
     readonly revoked_at: number | null;
+    readonly credential_created_at: number | null;
+    readonly credential_last_seen_at: number | null;
+    readonly credential_revoked_at: number | null;
 }
 
 interface AggregateProgressRow {
@@ -27,13 +31,16 @@ export async function handleProfileExport(request: Request, env: Env, clock: Clo
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), EXPORT_RATE, now);
     const context = await requireProfile(request, env, now);
-    const { cursor, limit } = readPageRequest(new URL(request.url));
+    const { eventPage, readerSrsEventPage } = exportPageRequests(new URL(request.url));
     return jsonResponse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: now,
         profile: profileView(context),
         devices: await exportedDevices(env, context.profile.id),
-        eventPage: await readSyncPage(env, context.profile.id, cursor, limit),
+        eventPage: await readSyncPage(env, context.profile.id, eventPage.cursor, eventPage.limit),
+        readerSrsEventPage: await readReaderSrsEventPage(
+            env, context.profile.id, readerSrsEventPage.cursor, readerSrsEventPage.limit,
+        ),
     });
 }
 
@@ -43,7 +50,7 @@ export async function handleAccountExport(request: Request, env: Env, clock: Clo
     const context = await requireProfile(request, env, now);
     const { account } = await requireAccount(request, env, now);
     if (context.profile.account_id !== account.id) throw new HttpError(409, 'Account profile is inconsistent.');
-    const { cursor, limit } = readPageRequest(new URL(request.url));
+    const { eventPage, readerSrsEventPage } = exportPageRequests(new URL(request.url));
     const [progress, studyDays, entitlement] = await Promise.all([
         env.ACADEMY_DB.prepare(
             'SELECT known_word_count, reviews_completed, reviews_due, lessons_completed, lessons_total, updated_at '
@@ -55,7 +62,7 @@ export async function handleAccountExport(request: Request, env: Env, clock: Clo
         entitlementForAccount(env, account.id, now),
     ]);
     return jsonResponse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: now,
         account: await getAccountView(env, account),
         profile: profileView(context),
@@ -75,8 +82,24 @@ export async function handleAccountExport(request: Request, env: Env, clock: Clo
             fulfilledAt: entitlement.fulfilled_at,
             redeemedAt: entitlement.redeemed_at,
         } : null,
-        eventPage: await readSyncPage(env, context.profile.id, cursor, limit),
+        eventPage: await readSyncPage(env, context.profile.id, eventPage.cursor, eventPage.limit),
+        readerSrsEventPage: await readReaderSrsEventPage(
+            env, context.profile.id, readerSrsEventPage.cursor, readerSrsEventPage.limit,
+        ),
     });
+}
+
+function exportPageRequests(url: URL): {
+    eventPage: { cursor: number; limit: number };
+    readerSrsEventPage: { cursor: number; limit: number };
+} {
+    const eventUrl = new URL(url);
+    eventUrl.searchParams.set('cursor', url.searchParams.get('eventCursor') ?? url.searchParams.get('cursor') ?? '0');
+    const readerUrl = new URL(url);
+    // Reader SRS history has its own sequence space. A legacy cursor applies
+    // only to Academy events so it can never skip encrypted Reader history.
+    readerUrl.searchParams.set('cursor', url.searchParams.get('readerSrsCursor') ?? '0');
+    return { eventPage: readPageRequest(eventUrl), readerSrsEventPage: readPageRequest(readerUrl) };
 }
 
 /** Delete learning data and paired devices while retaining optional identity. */
@@ -131,14 +154,22 @@ export async function handleDeleteAccount(request: Request, env: Env, clock: Clo
 
 async function exportedDevices(env: Env, profileId: string): Promise<Array<Record<string, unknown>>> {
     const devices = await env.ACADEMY_DB.prepare(
-        'SELECT public_id, created_at, last_seen_at, revoked_at FROM profile_devices '
-        + 'WHERE profile_id = ?1 ORDER BY created_at, public_id',
+        'SELECT d.public_id, d.created_at, d.last_seen_at, d.revoked_at, '
+        + 'c.created_at AS credential_created_at, c.last_seen_at AS credential_last_seen_at, '
+        + 'c.revoked_at AS credential_revoked_at FROM profile_devices d '
+        + 'LEFT JOIN profile_device_credentials c ON c.profile_device_id = d.id '
+        + 'WHERE d.profile_id = ?1 ORDER BY d.created_at, d.public_id',
     ).bind(profileId).all<DeviceExportRow>();
     return devices.results.map(device => ({
         deviceId: device.public_id,
         createdAt: device.created_at,
         lastSeenAt: device.last_seen_at,
         revokedAt: device.revoked_at,
+        readerCredential: device.credential_created_at === null ? null : {
+            createdAt: device.credential_created_at,
+            lastSeenAt: device.credential_last_seen_at,
+            revokedAt: device.credential_revoked_at,
+        },
     }));
 }
 

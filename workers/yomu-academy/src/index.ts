@@ -4,17 +4,27 @@ import { errorResponse, HttpError, jsonResponse } from './http';
 import { handleAdminCreateInvite } from './invites';
 import { handleMedia } from './media';
 import { pruneRateWindows } from './rate-limit';
-import { handleCreateRecoverySession, handleCreateSession, handleGetSession, handleLogout, handleResumeSession } from './sessions';
+import { handleCreateReaderAccountSession, handleCreateRecoverySession, handleCreateSession, handleGetSession, handleLogout, handleResumeSession } from './sessions';
 import { handleGetAccount, handlePatchAccount } from './accounts';
 import { handleAdminClass, handleAdminRole, handleClassRoute } from './classes';
 import { handleGoogleCallback, handleGoogleStart } from './oauth';
 import { handleProgressSync } from './progress';
 import { handleGetProfile, handleInitializeProfileKey } from './profiles';
-import { handleClaimPairing, handleCompletePairing, handleCreatePairing, pruneExpiredPairings } from './pairings';
+import {
+    handleClaimPairing,
+    handleClaimReaderDevicePairing,
+    handleCompletePairing,
+    handleCompleteReaderDevicePairing,
+    handleCreatePairing,
+    handleCreateReaderDevicePairing,
+    pruneExpiredPairings,
+} from './pairings';
 import { handleSyncPull, handleSyncPush } from './sync';
 import { handleAccountExport, handleDeleteAccount, handleDeleteProfile, handleProfileExport } from './lifecycle';
 import { handleGetEntitlement, handleRedeemEntitlement } from './entitlements';
 import { handleAnswerCheck } from './answer-check';
+import { handleAccountRevokeReaderDevice, handleGetDeviceStatus, handleListReaderDevices, handleRevokeDevice } from './device-auth';
+import { handlePullReaderSrsEvents, handlePushReaderSrsEvents } from './reader-srs-sync';
 
 const clock = (): number => Date.now();
 
@@ -26,11 +36,24 @@ const clock = (): number => Date.now();
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const { pathname } = new URL(request.url);
+        const deviceApi = pathname === '/academy/api/device'
+            || pathname.startsWith('/academy/api/device/');
         try {
+            if (deviceApi && request.method === 'OPTIONS') return deviceCorsResponse(new Response(null, { status: 204 }));
             if (pathname.startsWith('/academy/media/')) return await handleMedia(request, env, clock);
             if (pathname.startsWith('/academy/api/classes/')) return await handleClassRoute(request, env, clock);
             const pairing = /^\/academy\/api\/pairings\/([0-9a-f-]+)$/iu.exec(pathname);
             if (pairing && request.method === 'PUT') return await handleCompletePairing(request, env, clock, pairing[1]);
+            const readerPairing = /^\/academy\/api\/device\/pairings\/([0-9a-f-]+)$/iu.exec(pathname);
+            if (readerPairing && request.method === 'PUT') {
+                return deviceCorsResponse(await handleCompleteReaderDevicePairing(
+                    request, env, clock, readerPairing[1],
+                ));
+            }
+            const readerDevice = /^\/academy\/api\/account\/devices\/([0-9a-f-]+)$/iu.exec(pathname);
+            if (readerDevice && request.method === 'DELETE') {
+                return await handleAccountRevokeReaderDevice(request, env, clock(), readerDevice[1]);
+            }
             const route = `${request.method} ${pathname}`;
             switch (route) {
                 case 'POST /academy/api/session':
@@ -54,10 +77,14 @@ export default {
                     return await handleGoogleCallback(request, env, clock);
                 case 'POST /academy/api/auth/google/recovery':
                     return await handleCreateRecoverySession(request, env, clock);
+                case 'POST /academy/api/auth/google/reader':
+                    return await handleCreateReaderAccountSession(request, env, clock);
                 case 'GET /academy/api/account':
                     return await handleGetAccount(request, env, clock);
                 case 'PATCH /academy/api/account':
                     return await handlePatchAccount(request, env, clock);
+                case 'GET /academy/api/account/devices':
+                    return await handleListReaderDevices(request, env, clock());
                 case 'GET /academy/api/account/export':
                     return await handleAccountExport(request, env, clock);
                 case 'DELETE /academy/api/account':
@@ -80,6 +107,20 @@ export default {
                 case 'POST /academy/api/pairings/claim':
                     ctx.waitUntil(pruneExpiredPairings(env, clock).catch(() => undefined));
                     return await handleClaimPairing(request, env, clock);
+                case 'POST /academy/api/device/pairings/claim':
+                    ctx.waitUntil(pruneExpiredPairings(env, clock).catch(() => undefined));
+                    return deviceCorsResponse(await handleClaimReaderDevicePairing(request, env, clock));
+                case 'POST /academy/api/device/pairings':
+                    ctx.waitUntil(pruneExpiredPairings(env, clock).catch(() => undefined));
+                    return deviceCorsResponse(await handleCreateReaderDevicePairing(request, env, clock));
+                case 'GET /academy/api/device/status':
+                    return deviceCorsResponse(await handleGetDeviceStatus(request, env, clock()));
+                case 'DELETE /academy/api/device':
+                    return deviceCorsResponse(await handleRevokeDevice(request, env, clock()));
+                case 'GET /academy/api/device/srs/pull':
+                    return deviceCorsResponse(await handlePullReaderSrsEvents(request, env, clock));
+                case 'POST /academy/api/device/srs/push':
+                    return deviceCorsResponse(await handlePushReaderSrsEvents(request, env, clock));
                 case 'POST /academy/api/srs/push':
                     return await handleSyncPush(request, env, clock);
                 case 'GET /academy/api/srs/pull':
@@ -94,7 +135,18 @@ export default {
                     throw new HttpError(404, 'Not found.');
             }
         } catch (error) {
-            return errorResponse(error);
+            const response = errorResponse(error);
+            return deviceApi ? deviceCorsResponse(response) : response;
         }
     },
 };
+
+function deviceCorsResponse(response: Response): Response {
+    const headers = new Headers(response.headers);
+    headers.set('access-control-allow-origin', '*');
+    headers.set('access-control-allow-headers', 'authorization, content-type');
+    headers.set('access-control-allow-methods', 'GET, PUT, POST, DELETE, OPTIONS');
+    headers.set('access-control-max-age', '600');
+    headers.set('cross-origin-resource-policy', 'cross-origin');
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}

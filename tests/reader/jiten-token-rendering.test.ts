@@ -126,6 +126,22 @@ describe('Jiten token rendering', () => {
         // duplicate beside the headword must be suppressed.
         expect(isPlainReadingRedundantForHeadword(card, { ...JITEN_SETTINGS, furiganaMode: 'all' }, 'ならべかえ')).toBe(true);
     });
+
+    it('keeps lookup headword readings in ruby even when page furigana is disabled', () => {
+        const card = {
+            ...jitenCard('young'),
+            spelling: '説明',
+            reading: 'せつめい',
+            wordWithReading: '説明[せつめい]',
+        };
+        const settings = { ...JITEN_SETTINGS, showFurigana: false, furiganaMode: 'off' as const };
+
+        document.body.innerHTML = renderCardSpellingWithFurigana(card, settings);
+
+        expect(document.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('説明');
+        expect(document.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('せつめい');
+        expect(isPlainReadingRedundantForHeadword(card, settings, 'せつめい')).toBe(true);
+    });
 });
 
 // The scan/subtitle render path (renderTokensToHtml) must segment-pair furigana
