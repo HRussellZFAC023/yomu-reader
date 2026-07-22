@@ -14,6 +14,7 @@ import {
     LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS,
 } from './lesson-zero-follow-instructions';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
+import { LESSON_ZERO_GREETING_ACTIVITY_ID } from './lesson-zero-greeting';
 import { LESSON_ZERO_CONTENT_SHA256 } from './lesson-zero-pedagogy-definitions';
 import { parseAuthoredWeekPackage } from './authored-week-schema';
 
@@ -140,6 +141,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         kind: 'lesson',
         releaseChannel: 'trusted-source',
         trustedActivityIds: [
+            LESSON_ZERO_GREETING_ACTIVITY_ID,
             'activity:lesson-zero-reconstruct-repair',
             'activity:lesson-zero-desk-language',
             'activity:lesson-zero-first-repair:sound',

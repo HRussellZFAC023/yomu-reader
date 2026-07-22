@@ -18,6 +18,10 @@ import {
     lessonStoryPresentation,
 } from '../content/lesson-story-runtime';
 import { loadLessonZeroContent } from '../content/lesson-zero';
+import {
+    createLessonZeroGreetingDefinition,
+    LESSON_ZERO_GREETING_ACTIVITY_ID,
+} from '../content/lesson-zero-greeting';
 import { loadLessonZeroClassroomExpressions } from '../content/lesson-zero-classroom-expressions';
 import {
     classroomActivityCompletionEvaluation,
@@ -49,6 +53,10 @@ import {
     transitionClassroomInstructionSession,
 } from '../domain/classroom-instruction-session';
 import {
+    startLessonZeroGreetingSession,
+    transitionLessonZeroGreetingSession,
+} from '../domain/lesson-zero-greeting-session';
+import {
     authoredWeekProgressAfterActivity,
     authoredWeekProgressFits,
     clearAuthoredWeekProgress,
@@ -71,6 +79,7 @@ import { renderLoadingScreen } from '../ui/loading-screen';
 import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
+import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -384,6 +393,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderClassroomExpressionSession(context.checkpoint.activityId, context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_GREETING_ACTIVITY_ID) {
+            await this.renderLessonZeroGreeting(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
             await this.renderClassroomInstructionSession(context);
             return;
@@ -490,6 +503,76 @@ class LessonFlow implements AcademyRouteFlow {
             },
             onRestart: restart => context.save?.({ classroomExpressionProgress: restart }),
             onBack: () => context.back(),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroGreeting(context: AcademyRouteContext): Promise<void> {
+        const content = await loadLessonZeroContent();
+        const activity = content.lesson.activities.find(candidate => candidate.id === LESSON_ZERO_GREETING_ACTIVITY_ID);
+        if (!activity) throw new TypeError('Lesson Zero is missing its first greeting activity.');
+        const learnerName = context.projection.profile?.displayName;
+        if (!learnerName) throw new TypeError('The first greeting requires the learner profile created during arrival.');
+        const definition = createLessonZeroGreetingDefinition(activity, learnerName);
+        let state;
+        try {
+            state = startLessonZeroGreetingSession(definition, context.checkpoint.lessonZeroGreetingProgress);
+        } catch {
+            state = startLessonZeroGreetingSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroGreetingSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroGreetingProgress)) {
+            await context.save?.({ lessonZeroGreetingProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroGreetingScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (_before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        {
+                            id: 'lesson-zero-first-greeting',
+                            sceneId: 'scene:lesson-zero-first-greeting',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:first-greeting',
+                                characterId: 'rie',
+                                text: {
+                                    ja: 'りえ先生に、初めて日本語で名前を伝えた。',
+                                    en: 'I gave Rie-sensei my name in Japanese for the first time.',
+                                },
+                            },
+                        },
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                await context.save?.({ lessonZeroGreetingProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroGreetingProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
         });
         screen.element.dataset.academyRoute = 'source-activity';
         screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
@@ -700,6 +783,7 @@ function overviewState(
     }
     return {
         boundActivityIds: new Set([
+            LESSON_ZERO_GREETING_ACTIVITY_ID,
             LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
             ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
         ]),

@@ -79,6 +79,8 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector<HTMLElement>('.academy-world-action-dock')?.dataset.primaryPerson).toBe('rie');
         expect(screen.querySelector<HTMLElement>('.academy-world-action-dock')?.dataset.hasPractice).toBe('true');
         expect(screen.querySelector('.academy-world-action-speaker')?.textContent).toBe('Rie-sensei');
+        expect(screen.querySelector('.academy-world-curriculum')?.textContent).toBe('Class journal');
+        expect(screen.textContent).not.toContain('Moodle');
         const personAction = screen.querySelector<HTMLButtonElement>('[data-world-person-action="rie"]')!;
         expect(personAction.getAttribute('aria-controls')).toBe('academy-world-purpose-courtyard');
         expect(personAction.getAttribute('aria-label')).toBe('Talk to Rie-sensei');

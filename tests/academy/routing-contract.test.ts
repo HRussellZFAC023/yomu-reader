@@ -158,6 +158,16 @@ describe('Academy resume route contract', () => {
                         at: 100,
                     }],
                 },
+                lessonZeroGreetingProgress: {
+                    schemaVersion: 1,
+                    sessionId: 'session:lesson-zero-greet-rie',
+                    status: 'paused',
+                    stage: 'rehearse',
+                    selectedChunkIds: ['evening', 'first-meeting', 'name', 'closing'],
+                    arrangementAttempts: 1,
+                    mode: 'typed',
+                    attempts: [],
+                },
             },
             projectLearnerRecord([]),
             4_000,
@@ -174,6 +184,7 @@ describe('Academy resume route contract', () => {
             },
         });
         expect(expired.classroomInstructionProgress).toMatchObject({ status: 'paused', cursor: 1 });
+        expect(expired.lessonZeroGreetingProgress).toMatchObject({ status: 'paused', stage: 'rehearse' });
     });
 
     it('resumes the day-end pause without inventing lesson completion evidence', () => {

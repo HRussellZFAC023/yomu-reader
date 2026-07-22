@@ -11,6 +11,10 @@ import {
     classroomInstructionSessionSnapshotShapeIsValid,
     type ClassroomInstructionSessionState,
 } from '../domain/classroom-instruction-session';
+import {
+    lessonZeroGreetingSessionSnapshotShapeIsValid,
+    type LessonZeroGreetingSessionState,
+} from '../domain/lesson-zero-greeting-session';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
 import {
     isAcademyPresentationMode,
@@ -35,6 +39,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly classroomExpressionProgress?: ClassroomExpressionSessionState;
     /** Resume cursor for Rie's seven embodied classroom instructions. */
     readonly classroomInstructionProgress?: ClassroomInstructionSessionState;
+    /** Resume state for the learner's private first-introduction rehearsal. */
+    readonly lessonZeroGreetingProgress?: LessonZeroGreetingSessionState;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -258,6 +264,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.classroomInstructionProgress !== undefined
         && !classroomInstructionSessionSnapshotShapeIsValid(value.classroomInstructionProgress)) {
         throw new TypeError('Academy checkpoint has invalid classroom-instruction progress.');
+    }
+    if (value.lessonZeroGreetingProgress !== undefined
+        && !lessonZeroGreetingSessionSnapshotShapeIsValid(value.lessonZeroGreetingProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero greeting progress.');
     }
     validateRouteContext(value);
 }

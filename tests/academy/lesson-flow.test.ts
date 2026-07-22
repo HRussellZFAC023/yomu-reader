@@ -217,6 +217,69 @@ describe('Academy lesson flow', () => {
         }));
     });
 
+    it('routes the first greeting through named, resumable learning evidence', async () => {
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:profile',
+            at: 1,
+            kind: 'profile-changed',
+            profile: { displayName: 'Henry', learningReason: 'Speak with people', portraitId: 'quality-2' },
+        }]);
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-greet-rie',
+        }, projection);
+        const recordActivity = vi.fn(async () => undefined);
+        const recordSupportUse = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-greeting');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroGreetingProgress: expect.objectContaining({ status: 'ready' }),
+        }));
+        [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+            .find(button => button.textContent === 'Build my greeting')!.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('.academy-greeting-phrase-bank')).not.toBeNull());
+        for (const phrase of ['こんばんは', 'はじめまして', 'Henryです', 'よろしくお願いします']) {
+            const button = [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-greeting-phrase-bank .academy-greeting-phrase')]
+                .find(candidate => candidate.textContent?.includes(phrase))!;
+            button.click();
+            await vi.waitFor(() => expect(
+                [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-greeting-phrase-bank .academy-greeting-phrase')]
+                    .some(candidate => candidate.textContent?.includes(phrase)),
+            ).toBe(false));
+        }
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-greeting-action-primary')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('[data-mode="typed"]')).not.toBeNull());
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-mode="typed"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('.academy-greeting-type-input')).not.toBeNull());
+        const input = route.shell.current?.querySelector<HTMLTextAreaElement>('.academy-greeting-type-input')!;
+        input.value = 'こんばんは。はじめまして。Henryです。よろしくお願いします。';
+        input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-greet-rie',
+                    outcome: 'pass',
+                    responseKind: 'typed-accessible-speaking-alternative',
+                }),
+                reviewSeeds: expect.arrayContaining([
+                    expect.objectContaining({ id: 'review:lesson-zero:greeting:evening' }),
+                ]),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({ id: 'lesson-zero-first-greeting' }),
+            expect.objectContaining({ skill: 'writing', action: 'produce', independent: true }),
+        ));
+        expect(recordSupportUse).not.toHaveBeenCalled();
+    });
+
     it('clears pending lesson state when first completion continues to Aakash', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',

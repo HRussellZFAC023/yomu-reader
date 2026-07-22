@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "1359cd728a4585ab89b02d490695d07e9523a706804bc0aafad80e689a5e1eef",
+    "appSha256": "d117aff094e9e281c45ad409925af580a91862314c6a024088df387731932d1c",
     "byteParityRequired": true
   },
   "runtimeSources": {
@@ -18,7 +18,7 @@
     "src/academy/routing/world-flow.ts": "2957efc0fadc2a9e07df5a7155f7f6aecad4daae103d0e9d84f828fbc93fbb47",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/lesson-screen.ts": "1c4733899c27a6c162e24daf9ffaff60cc9813f134ea45304330dbf93169f9c8",
-    "src/academy/ui/world-screen.ts": "fb20f202ddf024728be4ce6fbdcf181fc2faad9faf127bf7c6e43c73a1bd2083"
+    "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
   },
   "assets": {
     "/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus": {

@@ -202,9 +202,7 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
         const curriculum = element('p', 'academy-world-curriculum');
         curriculum.dataset.curriculumSurface = place.activity.curriculum.surface;
         curriculum.dataset.curriculumState = place.activity.curriculum.state;
-        curriculum.textContent = options.language === 'ja'
-            ? `教材: ${place.activity.curriculum.label.ja}`
-            : `${place.activity.curriculum.surface === 'moodle' ? 'Moodle' : place.activity.curriculum.surface === 'story' ? 'Story' : 'Textbook'}: ${place.activity.curriculum.label.en}`;
+        curriculum.textContent = place.activity.curriculum.label[options.language];
         activity.append(activitySpeaker, activityLabel, activityDetail, curriculum);
     }
     if (place.id === 'ramen' && place.practice) activity.append(renderRamenOrderTicket(options.language, place.practice));

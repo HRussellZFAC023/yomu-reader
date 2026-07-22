@@ -246,6 +246,46 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists the first greeting and rejects impossible session stages', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroGreetingProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-greet-rie' as const,
+            status: 'paused' as const,
+            stage: 'rehearse' as const,
+            selectedChunkIds: ['evening', 'first-meeting', 'name', 'closing'] as const,
+            arrangementAttempts: 1,
+            mode: 'typed' as const,
+            attempts: [],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-greet-rie',
+            lessonZeroGreetingProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroGreetingProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-greet-rie',
+            lessonZeroGreetingProgress: {
+                ...lessonZeroGreetingProgress,
+                status: 'complete',
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero greeting progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

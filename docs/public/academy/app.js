@@ -4193,7 +4193,7 @@
     return typeof value === "number" && Number.isFinite(value) ? value : void 0;
   }
   function parseTeachingSupport(component, path) {
-    const title2 = isLocalized(component.title) ? localized$i(component.title, `${path}.title`) : { ja: "この問題の前に", en: "Before this question" };
+    const title2 = isLocalized(component.title) ? localized$j(component.title, `${path}.title`) : { ja: "この問題の前に", en: "Before this question" };
     const reading = optionalRecord(component.reading);
     const passage = optionalRecord(component.passage);
     const lineSource = reading ?? passage;
@@ -4314,8 +4314,8 @@
     if (!items.length) fail$3(`${path}.items`, "must contain at least one source row");
     return {
       componentId: text$k(component.id, `${path}.id`),
-      title: localized$i(component.title, `${path}.title`),
-      sourceInstructions: localized$i(component.sourceInstructions ?? component.title, `${path}.sourceInstructions`),
+      title: localized$j(component.title, `${path}.title`),
+      sourceInstructions: localized$j(component.sourceInstructions ?? component.title, `${path}.sourceInstructions`),
       provenance: {
         sourceId: text$k(provenance2.sourceId, `${path}.provenance.sourceId`),
         payloadSha256,
@@ -4336,14 +4336,14 @@
       if (typeof option2.correct !== "boolean") fail$3(`${path}.options[${index}].correct`, "must be boolean");
       return {
         id: text$k(option2.id, `${path}.options[${index}].id`),
-        label: localized$i(option2.label, `${path}.options[${index}].label`),
+        label: localized$j(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
     return {
       id: text$k(exercise.id, `${path}.id`),
       kind: "choice",
-      prompt: localized$i(exercise.prompt, `${path}.prompt`),
+      prompt: localized$j(exercise.prompt, `${path}.prompt`),
       explanation: text$k(exercise.explanation, `${path}.explanation`),
       ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
@@ -4363,7 +4363,7 @@
       if (typeof option2.correct !== "boolean") fail$3(`${path}.options[${index}].correct`, "must be boolean");
       return {
         id: text$k(option2.id, `${path}.options[${index}].id`),
-        label: localized$i(option2.label, `${path}.options[${index}].label`),
+        label: localized$j(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
@@ -4371,7 +4371,7 @@
     return {
       id: text$k(exercise.id, `${path}.id`),
       kind: "multi-choice",
-      prompt: localized$i(exercise.prompt, `${path}.prompt`),
+      prompt: localized$j(exercise.prompt, `${path}.prompt`),
       explanation: text$k(exercise.explanation, `${path}.explanation`),
       ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
@@ -4389,7 +4389,7 @@
     return {
       id: text$k(exercise.id, `${path}.id`),
       kind: "exact",
-      prompt: localized$i(exercise.prompt, `${path}.prompt`),
+      prompt: localized$j(exercise.prompt, `${path}.prompt`),
       explanation: text$k(exercise.explanation, `${path}.explanation`),
       ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
@@ -4508,7 +4508,7 @@
   function exerciseIdentity(exercise, path) {
     return {
       id: text$k(exercise.id, `${path}.id`),
-      prompt: localized$i(exercise.prompt, `${path}.prompt`),
+      prompt: localized$j(exercise.prompt, `${path}.prompt`),
       explanation: text$k(exercise.explanation, `${path}.explanation`),
       ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }
@@ -4559,7 +4559,7 @@
       script: text$k(audio2.script, `${path}.script`)
     };
   }
-  function localized$i(value, path) {
+  function localized$j(value, path) {
     const item2 = record$16(value, path);
     const en = nonEmptyText$1(item2.en) ?? text$k(item2.ja, `${path}.ja`);
     const ja = nonEmptyText$1(item2.ja) ?? text$k(item2.en, `${path}.en`);
@@ -8233,8 +8233,8 @@
     const heading = document.createElement("h2");
     heading.tabIndex = -1;
     const instruction = direction === "japanese-to-english" ? { ja: "英語の意味を入力しましょう。", en: "Type the English meaning." } : { ja: "日本語の単語か読み方を入力しましょう。", en: "Type the Japanese word or reading." };
-    heading.append(localized$h(instruction.ja, "ja", "academy-japanese"));
-    heading.append(localized$h(instruction.en, "en", "academy-support"));
+    heading.append(localized$i(instruction.ja, "ja", "academy-japanese"));
+    heading.append(localized$i(instruction.en, "en", "academy-support"));
     const source2 = document.createElement("p");
     source2.className = "academy-source-record";
     source2.textContent = host2.language === "ja" ? `先生のワークシート · ${model2.provenance.locus.page}ページ · ${model2.provenance.locus.row}行目` : `Teacher worksheet · page ${model2.provenance.locus.page} · row ${model2.provenance.locus.row}`;
@@ -8284,8 +8284,8 @@
         feedback2.replaceChildren(revealedAnswer(model2));
         const summary = document.createElement("p");
         summary.className = "academy-authored-week-feedback-summary";
-        summary.append(localized$h(evaluation.result.feedback.explanation.ja, "ja", "academy-japanese"));
-        summary.append(localized$h(evaluation.result.feedback.explanation.en, "en", "academy-support"));
+        summary.append(localized$i(evaluation.result.feedback.explanation.ja, "ja", "academy-japanese"));
+        summary.append(localized$i(evaluation.result.feedback.explanation.en, "en", "academy-support"));
         feedback2.prepend(summary);
         pending2 = evaluation.result.outcome === "pass";
         if (!pending2) {
@@ -8379,7 +8379,7 @@
     button2.textContent = label;
     return button2;
   }
-  function localized$h(value, lang, className) {
+  function localized$i(value, lang, className) {
     const span = document.createElement("span");
     span.className = className;
     span.lang = lang;
@@ -9922,7 +9922,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     exactList$1([...phaseById.keys()], PHASE_IDS, "phases");
     phases2.forEach((phase, index) => {
       if (phase.order !== index + 1) fail$2(`Phase ${phase.id} has the wrong order.`);
-      localized$g(phase.title, `phase ${phase.id} title`);
+      localized$h(phase.title, `phase ${phase.id} title`);
       nonEmpty$5(phase.expressionIds, `phase ${phase.id} expressionIds`);
     });
     const expressions2 = array$14(definition2.expressions, "expressions");
@@ -9970,12 +9970,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateTeachingBlock(block) {
     text$h(block.conceptId, `teaching block ${block.id} conceptId`);
     nonEmpty$5(block.expressionIds, `teaching block ${block.id} expressionIds`);
-    localized$g(block.explanation, `teaching block ${block.id} explanation`);
+    localized$h(block.explanation, `teaching block ${block.id} explanation`);
     const example = record$15(block.workedExample, `teaching block ${block.id} workedExample`);
-    localized$g(example.context, `teaching block ${block.id} workedExample.context`);
+    localized$h(example.context, `teaching block ${block.id} workedExample.context`);
     const japanese2 = text$h(example.japanese, `teaching block ${block.id} workedExample.japanese`);
     text$h(example.reading, `teaching block ${block.id} workedExample.reading`);
-    localized$g(example.meaning, `teaching block ${block.id} workedExample.meaning`);
+    localized$h(example.meaning, `teaching block ${block.id} workedExample.meaning`);
     if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(japanese2)) {
       fail$2(`Teaching block ${block.id} needs a Japanese worked example.`);
     }
@@ -9996,7 +9996,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       text$h(probe.id, `expression ${expression.id} probe id`);
       if (probeIds.has(probe.id)) fail$2(`Duplicate probe id: ${probe.id}`);
       probeIds.add(probe.id);
-      localized$g(probe.prompt, `probe ${probe.id} prompt`);
+      localized$h(probe.prompt, `probe ${probe.id} prompt`);
       nonEmpty$5(probe.acceptedAnswers, `probe ${probe.id} acceptedAnswers`);
       const accepted = probe.acceptedAnswers.map((answer2, answerIndex) => {
         const candidate2 = text$h(answer2, `probe ${probe.id} acceptedAnswers.${answerIndex}`);
@@ -10011,9 +10011,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         fail$2(`Probe ${probe.id} exposes an accepted answer before commitment.`);
       }
       text$h(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
-      localized$g(probe.repair.contrast, `probe ${probe.id} repair.contrast`);
-      localized$g(probe.repair.retryPrompt, `probe ${probe.id} repair.retryPrompt`);
-      localized$g(probe.repair.nearbyExample, `probe ${probe.id} repair.nearbyExample`);
+      localized$h(probe.repair.contrast, `probe ${probe.id} repair.contrast`);
+      localized$h(probe.repair.retryPrompt, `probe ${probe.id} repair.retryPrompt`);
+      localized$h(probe.repair.nearbyExample, `probe ${probe.id} repair.nearbyExample`);
     }
   }
   function requireVariantCoverage(expressions2) {
@@ -10063,7 +10063,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       fail$2(`${label} does not match the authored contract.`);
     }
   }
-  function localized$g(value, label) {
+  function localized$h(value, label) {
     const candidate2 = record$15(value, label);
     text$h(candidate2.en, `${label}.en`);
     text$h(candidate2.ja, `${label}.ja`);
@@ -10332,7 +10332,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (activity2.id !== LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID || activity2.responseMode !== "act" || activity2.expectedEvidence.kind !== "scene-actions") {
       throw new TypeError("Lesson Zero follow-instructions activity has the wrong contract.");
     }
-    if (!sameList(activity2.expectedEvidence.values ?? [], SOURCE_ACTION_ORDER)) {
+    if (!sameList$2(activity2.expectedEvidence.values ?? [], SOURCE_ACTION_ORDER)) {
       throw new TypeError("Lesson Zero follow-instructions action evidence has drifted.");
     }
     const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
@@ -10395,7 +10395,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       roomReaction: { en: reactionEn, ja: reactionJa }
     };
   }
-  function sameList(actual, expected) {
+  function sameList$2(actual, expected) {
     return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
   }
   const GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION = "academy-pre-commit-dom.v1";
@@ -12238,11 +12238,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validateOverviewMaterials(overview, activities, questionIds);
   }
   function validateOverviewCopy(overview) {
-    localized$f(overview.title, "lesson.overview.title");
-    localized$f(overview.summary, "lesson.overview.summary");
+    localized$g(overview.title, "lesson.overview.title");
+    localized$g(overview.summary, "lesson.overview.summary");
     const goals = array$13(overview.goals, "lesson.overview.goals");
     if (goals.length < 3) fail$1("Lesson 0 overview needs concrete learning goals.");
-    goals.forEach((goal, index) => localized$f(goal, `lesson.overview.goals.${index}`));
+    goals.forEach((goal, index) => localized$g(goal, `lesson.overview.goals.${index}`));
   }
   function validateOverviewPeopleAndLocations(overview) {
     nonEmpty$4(overview.peopleIds, "lesson.overview.peopleIds");
@@ -12269,7 +12269,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     text$g(material.id, "lesson.overview.material.id");
     if (materialIds.has(material.id)) fail$1(`Lesson 0 overview repeats material ${material.id}.`);
     materialIds.add(material.id);
-    localized$f(material.title, `lesson.overview material ${material.id}`);
+    localized$g(material.title, `lesson.overview material ${material.id}`);
     if (!["source-handout", "writing-surface", "kana-surface", "dialogue-audio"].includes(material.kind)) {
       fail$1(`Lesson 0 overview material ${material.id} has an invalid kind.`);
     }
@@ -12596,7 +12596,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "string" || !value.trim()) fail$1(`${label} must be non-empty.`);
     return value.trim();
   }
-  function localized$f(value, label) {
+  function localized$g(value, label) {
     const copy2 = record$13(value, label);
     text$g(copy2.en, `${label}.en`);
     text$g(copy2.ja, `${label}.ja`);
@@ -12780,6 +12780,67 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function unique$a(values) {
     return [...new Set(values)].sort();
   }
+  const LESSON_ZERO_GREETING_ACTIVITY_ID = "activity:lesson-zero-greet-rie";
+  const EXPECTED_VALUES = ["こんばんは", "はじめまして", "です", "よろしくお願いします"];
+  const EXPECTED_RUBRICS = ["greeting-order", "name-intelligibility"];
+  const EXPECTED_CONCEPTS = ["concept:first-meeting-greeting", "concept:self-introduction-name"];
+  function createLessonZeroGreetingDefinition(activity2, learnerDisplayName2) {
+    validateGreetingActivity(activity2);
+    const learnerName = normalizedLearnerName(learnerDisplayName2);
+    const chunks2 = Object.freeze([
+      chunk("evening", "こんばんは。", "こんばんは", {
+        en: "Good evening.",
+        ja: "夜のあいさつです。"
+      }),
+      chunk("first-meeting", "はじめまして。", "はじめまして", {
+        en: "Nice to meet you.",
+        ja: "初めて会う人へのあいさつです。"
+      }),
+      chunk("name", `${learnerName}です。`, `${learnerName}です`, {
+        en: `I'm ${learnerName}.`,
+        ja: `「${learnerName}です」で名前を伝えます。`
+      }),
+      chunk("closing", "よろしくお願いします。", "よろしくおねがいします", {
+        en: "A warm, polite close to your introduction.",
+        ja: "初対面のあいさつを丁寧に結びます。"
+      })
+    ]);
+    return Object.freeze({
+      schemaVersion: 1,
+      id: "session:lesson-zero-greet-rie",
+      activityId: LESSON_ZERO_GREETING_ACTIVITY_ID,
+      learnerName,
+      conceptIds: Object.freeze([...activity2.conceptIds]),
+      model: Object.freeze({
+        speakerId: "rie",
+        japanese: "こんばんは。はじめまして。りえです。よろしくお願いします。",
+        reading: "こんばんは。はじめまして。りえです。よろしくおねがいします。",
+        meaning: Object.freeze({
+          en: "Good evening. Nice to meet you. I'm Rie. It's lovely to meet you.",
+          ja: "こんばんは。はじめまして。りえです。よろしくお願いします。"
+        })
+      }),
+      chunks: chunks2
+    });
+  }
+  function validateGreetingActivity(activity2) {
+    if (activity2.id !== LESSON_ZERO_GREETING_ACTIVITY_ID || activity2.responseMode !== "voice" || activity2.assessed !== true || activity2.production !== true || activity2.expectedEvidence.kind !== "spoken-chunks" || !sameList$1(activity2.expectedEvidence.values, EXPECTED_VALUES) || !sameList$1(activity2.expectedEvidence.rubricIds, EXPECTED_RUBRICS) || !sameList$1(activity2.conceptIds, EXPECTED_CONCEPTS)) {
+      throw new TypeError("Lesson Zero greeting no longer matches its authored learning contract.");
+    }
+  }
+  function normalizedLearnerName(value) {
+    const name = value.normalize("NFKC").replace(/\s+/gu, " ").trim();
+    if (!name || name.length > 48 || /[\p{Cc}\p{Cs}]/u.test(name)) {
+      throw new TypeError("The Lesson Zero greeting needs a valid learner name.");
+    }
+    return name;
+  }
+  function chunk(id2, japanese2, reading, meaning) {
+    return Object.freeze({ id: id2, japanese: japanese2, reading, meaning: Object.freeze(meaning) });
+  }
+  function sameList$1(actual, expected) {
+    return Boolean(actual) && actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+  }
   const AUTHORED_WEEK_FILES = [
     ["002-l1-l01.json", "l1-l01", "l1-l01"],
     ["003-l1-l02.json", "l1-l02", "l1-l02"],
@@ -12862,6 +12923,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       kind: "lesson",
       releaseChannel: "trusted-source",
       trustedActivityIds: [
+        LESSON_ZERO_GREETING_ACTIVITY_ID,
         "activity:lesson-zero-reconstruct-repair",
         "activity:lesson-zero-desk-language",
         "activity:lesson-zero-first-repair:sound",
@@ -16288,7 +16350,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
   }
-  function localized$e(value, host2) {
+  function localized$f(value, host2) {
     return host2.language === "ja" ? value.ja : value.en;
   }
   function localizedNodes$1(value) {
@@ -16335,7 +16397,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         host: host2
       });
     }
-    host2.announce(localized$e(evaluation.result.feedback.explanation, host2));
+    host2.announce(localized$f(evaluation.result.feedback.explanation, host2));
   }
   function localizedParagraph$4(value) {
     const paragraph = document.createElement("p");
@@ -16350,7 +16412,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       control2.disabled = pending2;
     });
   }
-  function normalizeJapanese(value) {
+  function normalizeJapanese$1(value) {
     return value.normalize("NFKC").replace(/[\s\u3000。、,.!?！？「」『』（）()]/gu, "").toLocaleLowerCase("ja");
   }
   function text$f(value) {
@@ -16470,12 +16532,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${index + 1}`;
       registerSurface$9(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -16955,12 +17017,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${index + 1}`;
       registerSurface$8(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -17390,11 +17452,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const section = document.createElement("section");
     section.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
-    heading.textContent = localized$e(model2.payload.instruction.title, host2);
+    heading.textContent = localized$f(model2.payload.instruction.title, host2);
     const list2 = document.createElement("ul");
     model2.payload.instruction.entries.forEach((entry2) => {
       const row = document.createElement("li");
-      row.append(japanese$3(entry2.japanese), document.createTextNode(` ${localized$e(entry2.explanation, host2)}`));
+      row.append(japanese$3(entry2.japanese), document.createTextNode(` ${localized$f(entry2.explanation, host2)}`));
       list2.append(row);
     });
     section.append(heading, list2);
@@ -17404,7 +17466,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const section = document.createElement("section");
     section.dataset.lessonPhase = "context";
     const heading = document.createElement("h3");
-    heading.textContent = localized$e(model2.payload.content.title, host2);
+    heading.textContent = localized$f(model2.payload.content.title, host2);
     section.append(heading);
     model2.payload.content.paragraphs.forEach((paragraph, index) => {
       const row = document.createElement("p");
@@ -17424,7 +17486,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     heading.textContent = host2.language === "ja" ? "引っ越しの会話" : "Moving-house conversation";
     const image = document.createElement("img");
     image.src = media.imageUrl;
-    image.alt = localized$e(media.imageAlt, host2);
+    image.alt = localized$f(media.imageAlt, host2);
     image.loading = "lazy";
     const audio2 = document.createElement("audio");
     audio2.controls = true;
@@ -17500,7 +17562,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     prompt2.append(...localizedNodes$1(question2.prompt));
     const label = document.createElement("label");
     label.htmlFor = `${question2.id}-answer`;
-    label.textContent = localized$e(question2.fieldLabel, host2);
+    label.textContent = localized$f(question2.fieldLabel, host2);
     const input2 = document.createElement("input");
     input2.id = `${question2.id}-answer`;
     input2.name = question2.id;
@@ -17608,8 +17670,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isCorrect$4(question2, answer2) {
     if (question2.kind === "choice" && answer2.kind === "choice") return answer2.optionId === question2.correctOptionId;
     if (question2.kind === "typed" && answer2.kind === "typed") {
-      const value = normalizeJapanese(answer2.value);
-      return question2.acceptedAnswers.some((accepted) => normalizeJapanese(accepted) === value);
+      const value = normalizeJapanese$1(answer2.value);
+      return question2.acceptedAnswers.some((accepted) => normalizeJapanese$1(accepted) === value);
     }
     if (question2.kind === "ordering" && answer2.kind === "ordering") return sameObject$7(answer2.order, question2.correctOrder);
     return false;
@@ -18585,9 +18647,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.strategy.forEach((item2) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const instruction = document.createElement("p");
-      instruction.textContent = localized$e(item2.instruction, host2);
+      instruction.textContent = localized$f(item2.instruction, host2);
       row.append(title2, instruction);
       list2.append(row);
     });
@@ -18642,9 +18704,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     section.dataset.graded = "false";
     const label = document.createElement("label");
     label.htmlFor = `${model2.id}-reflection`;
-    label.textContent = localized$e(model2.payload.reflection.label, host2);
+    label.textContent = localized$f(model2.payload.reflection.label, host2);
     const guidance = document.createElement("p");
-    guidance.textContent = localized$e(model2.payload.reflection.guidance, host2);
+    guidance.textContent = localized$f(model2.payload.reflection.guidance, host2);
     const textarea = document.createElement("textarea");
     textarea.id = `${model2.id}-reflection`;
     textarea.name = "reflection";
@@ -18997,12 +19059,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${index + 1}`;
       registerSurface$7(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -20085,7 +20147,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.dataset.prerequisiteConcept = item2.conceptId;
       row.dataset.exampleSource = item2.exampleSource;
       const bridge = document.createElement("p");
-      bridge.textContent = localized$e(item2.bridge, host2);
+      bridge.textContent = localized$f(item2.bridge, host2);
       row.append(bridge, japanese$3(item2.example));
       list2.append(row);
     });
@@ -20148,7 +20210,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const notes = document.createElement("ul");
       [item2.registerNote, item2.agentNote, item2.eventNote].forEach((note) => {
         const noteRow = document.createElement("li");
-        noteRow.textContent = localized$e(note, host2);
+        noteRow.textContent = localized$f(note, host2);
         notes.append(noteRow);
       });
       row.append(title2, example, notes);
@@ -20186,7 +20248,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     transferHeading.append(...localizedNodes$1(transfer.title));
     const scenario = document.createElement("p");
     scenario.className = "academy-support";
-    scenario.textContent = localized$e(transfer.scenario, host2);
+    scenario.textContent = localized$f(transfer.scenario, host2);
     const play = document.createElement("button");
     play.type = "button";
     play.className = "academy-button academy-button-secondary";
@@ -20207,9 +20269,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const guidance = document.createElement("p");
     guidance.className = "academy-support";
     guidance.dataset.productionGuidance = "constrained-deterministic-check";
-    guidance.textContent = localized$e(model2.payload.production.guidance, host2);
+    guidance.textContent = localized$f(model2.payload.production.guidance, host2);
     const label = document.createElement("label");
-    label.textContent = localized$e(model2.payload.production.fieldLabel, host2);
+    label.textContent = localized$f(model2.payload.production.fieldLabel, host2);
     const input2 = document.createElement("textarea");
     input2.name = "production";
     input2.dataset.production = "deterministically-checked";
@@ -20253,7 +20315,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       body2.append(span);
       const rationale = document.createElement("p");
       rationale.dataset.sourceRationale = "";
-      rationale.textContent = localized$e(sourceAudio2.rationale, host2);
+      rationale.textContent = localized$f(sourceAudio2.rationale, host2);
       reveal.append(heading, body2, rationale);
       root.append(reveal);
     }
@@ -20300,13 +20362,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.dataset.keyQuestionId = question2.id;
       row.dataset.correctOptionId = question2.correctOptionId;
       const prompt2 = document.createElement("span");
-      prompt2.textContent = `${localized$e(question2.prompt, host2)} — `;
+      prompt2.textContent = `${localized$f(question2.prompt, host2)} — `;
       row.append(prompt2);
       if (correct2) row.append(japanese$3(correct2.label.ja), document.createTextNode(` ${correct2.label.en}`));
       if (question2.rationale) {
         const rationale = document.createElement("p");
         rationale.dataset.keyRationale = "";
-        rationale.textContent = localized$e(question2.rationale, host2);
+        rationale.textContent = localized$f(question2.rationale, host2);
         row.append(rationale);
       }
       list2.append(row);
@@ -20321,7 +20383,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.dataset.productionCheck = result2.id;
       row.dataset.met = String(result2.met);
       const metLabel = result2.met ? host2.language === "ja" ? "達成" : "met" : host2.language === "ja" ? "未達成" : "not met";
-      row.textContent = `${localized$e(result2.label, host2)} — ${metLabel}`;
+      row.textContent = `${localized$f(result2.label, host2)} — ${metLabel}`;
       list2.append(row);
     });
     return list2;
@@ -20643,11 +20705,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const cue = japanese$3(item2.cue);
       cue.dataset.teachingCue = "";
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, cue, explanation2);
       list2.append(row);
     });
@@ -20663,7 +20725,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.soundMap.forEach((pair) => {
       const row = document.createElement("li");
       row.dataset.soundPair = pair.id;
-      row.append(japanese$3(`${pair.left} / ${pair.right}`), document.createTextNode(`: ${localized$e(pair.focus, host2)}`));
+      row.append(japanese$3(`${pair.left} / ${pair.right}`), document.createTextNode(`: ${localized$f(pair.focus, host2)}`));
       list2.append(row);
     });
     section.append(heading, list2);
@@ -20735,12 +20797,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const section = document.createElement("section");
     section.dataset.lessonPhase = "assessed-production";
     const heading = document.createElement("h3");
-    heading.textContent = localized$e(model2.payload.production.prompt, host2);
+    heading.textContent = localized$f(model2.payload.production.prompt, host2);
     const guidance = document.createElement("p");
     guidance.className = "academy-support";
-    guidance.textContent = localized$e(model2.payload.production.guidance, host2);
+    guidance.textContent = localized$f(model2.payload.production.guidance, host2);
     const label = document.createElement("label");
-    label.textContent = localized$e(model2.payload.production.fieldLabel, host2);
+    label.textContent = localized$f(model2.payload.production.fieldLabel, host2);
     const input2 = document.createElement("textarea");
     input2.name = "production";
     input2.dataset.production = "ungraded";
@@ -21339,12 +21401,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${index + 1}`;
       registerSurface$4(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -21869,12 +21931,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     model2.payload.teaching.forEach((item2) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${item2.function}`;
       registerSurface$3(host2, example, readingDisposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -22280,13 +22342,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function metadata(title2, summary, location2, hostId, hostName) {
     return Object.freeze({
-      title: localized$d(title2),
-      summary: localized$d(summary),
-      location: localized$d(location2),
-      host: Object.freeze({ id: hostId, name: hostName[1], localizedName: localized$d(hostName) })
+      title: localized$e(title2),
+      summary: localized$e(summary),
+      location: localized$e(location2),
+      host: Object.freeze({ id: hostId, name: hostName[1], localizedName: localized$e(hostName) })
     });
   }
-  function localized$d([ja, en]) {
+  function localized$e([ja, en]) {
     return Object.freeze({ ja, en });
   }
   function createLearnerRecord(options = {}) {
@@ -27800,8 +27862,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let binary = "";
     const chunkSize = 32768;
     for (let index = 0; index < bytes.length; index += chunkSize) {
-      const chunk = bytes.subarray(index, index + chunkSize);
-      binary += String.fromCharCode(...chunk);
+      const chunk2 = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode(...chunk2);
     }
     return btoa(binary);
   }
@@ -28660,7 +28722,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
-  const COPY$3 = {
+  const COPY$4 = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
@@ -31094,7 +31156,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
   function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$3.en[key2];
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$4.en[key2];
   }
   function cardStateLabel(state, language, fallback = state) {
     const key2 = CARD_STATE_LABEL_KEYS[state];
@@ -38389,7 +38451,7 @@ ${spelling}`);
     if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Session timestamp must be a non-negative integer.");
   }
   function startClassroomInstructionSession(definition2, snapshot) {
-    validateDefinition$1(definition2);
+    validateDefinition$2(definition2);
     if (snapshot !== void 0) {
       if (!classroomInstructionSessionSnapshotShapeIsValid(snapshot)) {
         throw new TypeError("Invalid classroom-instruction session snapshot.");
@@ -38416,20 +38478,20 @@ ${spelling}`);
     startClassroomInstructionSession(definition2, state);
     if (!Number.isFinite(at)) throw new TypeError("Classroom-instruction transitions need a finite timestamp.");
     if (action2.kind === "start") {
-      if (state.status !== "ready") return unchanged(state);
-      return unchanged({ ...state, status: "active" });
+      if (state.status !== "ready") return unchanged$1(state);
+      return unchanged$1({ ...state, status: "active" });
     }
     if (action2.kind === "pause") {
-      if (state.status !== "active") return unchanged(state);
-      return unchanged({ ...state, status: "paused" });
+      if (state.status !== "active") return unchanged$1(state);
+      return unchanged$1({ ...state, status: "paused" });
     }
     if (action2.kind === "resume") {
-      if (state.status !== "paused") return unchanged(state);
-      return unchanged({ ...state, status: "active" });
+      if (state.status !== "paused") return unchanged$1(state);
+      return unchanged$1({ ...state, status: "active" });
     }
-    if (state.status !== "active") return unchanged(state);
+    if (state.status !== "active") return unchanged$1(state);
     const cue = definition2.cues[state.cursor];
-    if (!cue) return unchanged({ ...state, status: "complete", cursor: definition2.cues.length });
+    if (!cue) return unchanged$1({ ...state, status: "complete", cursor: definition2.cues.length });
     const outcome = action2.actionId === cue.actionId ? "pass" : "lapse";
     const cueAttempt = state.attempts.filter((attempt2) => attempt2.cueId === cue.id).length + 1;
     const eventStem = `${definition2.id}:${cue.id}:attempt:${cueAttempt}`;
@@ -38449,8 +38511,8 @@ ${spelling}`);
       attempts: [...state.attempts, attempt]
     };
     const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.cueId === cue.id && candidate2.outcome === "lapse");
-    const evaluation = evaluationFor(cue, outcome, repairing, eventStem, at);
-    const supportEvents2 = outcome === "lapse" ? [supportEvent(cue, "transcript", eventStem, at), supportEvent(cue, "translation", eventStem, at)] : [];
+    const evaluation = evaluationFor$1(cue, outcome, repairing, eventStem, at);
+    const supportEvents2 = outcome === "lapse" ? [supportEvent$1(cue, "transcript", eventStem, at), supportEvent$1(cue, "translation", eventStem, at)] : [];
     return {
       state: nextState,
       cue,
@@ -38471,9 +38533,9 @@ ${spelling}`);
   function classroomInstructionSessionSnapshotShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-follow-instructions" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && Number.isInteger(candidate2.cursor) && (candidate2.cursor ?? -1) >= 0 && Array.isArray(candidate2.passedCueIds) && candidate2.passedCueIds.every((id2) => typeof id2 === "string") && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid);
+    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-follow-instructions" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && Number.isInteger(candidate2.cursor) && (candidate2.cursor ?? -1) >= 0 && Array.isArray(candidate2.passedCueIds) && candidate2.passedCueIds.every((id2) => typeof id2 === "string") && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid$1);
   }
-  function evaluationFor(cue, outcome, repairing, eventId, at) {
+  function evaluationFor$1(cue, outcome, repairing, eventId, at) {
     const reviewSeeds2 = outcome === "pass" ? [{
       id: `review:lesson-zero:instruction:${cue.actionId}`,
       conceptId: cue.conceptIds[0],
@@ -38510,7 +38572,7 @@ ${spelling}`);
       reviewSeeds: reviewSeeds2
     };
   }
-  function supportEvent(cue, supportKind, eventStem, at) {
+  function supportEvent$1(cue, supportKind, eventStem, at) {
     return {
       kind: "support-used",
       eventId: `${eventStem}:support:${supportKind}`,
@@ -38519,7 +38581,7 @@ ${spelling}`);
       supportKind
     };
   }
-  function attemptShapeIsValid(value) {
+  function attemptShapeIsValid$1(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
     return typeof candidate2.cueId === "string" && isClassroomInstructionActionId(candidate2.chosenActionId) && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
@@ -38527,13 +38589,250 @@ ${spelling}`);
   function isClassroomInstructionActionId(value) {
     return ["begin", "finish", "break", "look", "say-together", "listen", "write"].includes(String(value));
   }
-  function validateDefinition$1(definition2) {
+  function validateDefinition$2(definition2) {
     if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-follow-instructions" || definition2.activityId !== "activity:lesson-zero-follow-instructions") {
       throw new TypeError("Invalid classroom-instruction session definition.");
     }
     if (definition2.cues.length !== 7 || new Set(definition2.cues.map((cue) => cue.id)).size !== 7 || new Set(definition2.cues.map((cue) => cue.actionId)).size !== 7) {
       throw new TypeError("Classroom-instruction session needs seven unique cues and actions.");
     }
+  }
+  function unchanged$1(state) {
+    return { state, supportEvents: [] };
+  }
+  const TARGET_ORDER = Object.freeze([
+    "evening",
+    "first-meeting",
+    "name",
+    "closing"
+  ]);
+  function startLessonZeroGreetingSession(definition2, snapshot) {
+    validateDefinition$1(definition2);
+    if (snapshot !== void 0) {
+      if (!lessonZeroGreetingSessionSnapshotShapeIsValid(snapshot)) {
+        throw new TypeError("Invalid Lesson Zero greeting snapshot.");
+      }
+      const chunkIds = new Set(definition2.chunks.map((chunk2) => chunk2.id));
+      if (snapshot.sessionId !== definition2.id || snapshot.selectedChunkIds.some((id2) => !chunkIds.has(id2))) {
+        throw new TypeError("Lesson Zero greeting snapshot does not fit this definition.");
+      }
+      return structuredClone(snapshot);
+    }
+    return {
+      schemaVersion: 1,
+      sessionId: definition2.id,
+      status: "ready",
+      stage: "arrange",
+      selectedChunkIds: [],
+      arrangementAttempts: 0,
+      attempts: []
+    };
+  }
+  function transitionLessonZeroGreetingSession(definition2, state, action2, at) {
+    startLessonZeroGreetingSession(definition2, state);
+    if (!Number.isFinite(at)) throw new TypeError("Lesson Zero greeting transitions need a finite timestamp.");
+    if (action2.kind === "start") {
+      if (state.status !== "ready") return unchanged(state);
+      return unchanged({ ...state, status: "active" });
+    }
+    if (action2.kind === "pause") {
+      if (state.status !== "active") return unchanged(state);
+      return unchanged({ ...state, status: "paused" });
+    }
+    if (action2.kind === "resume") {
+      if (state.status !== "paused") return unchanged(state);
+      return unchanged({ ...state, status: "active" });
+    }
+    if (state.status !== "active" || state.stage === "complete") return unchanged(state);
+    if (action2.kind === "select-chunk") {
+      if (state.stage !== "arrange" || state.selectedChunkIds.includes(action2.chunkId)) return unchanged(state);
+      if (!definition2.chunks.some((chunk2) => chunk2.id === action2.chunkId)) return unchanged(state);
+      return unchanged({ ...state, selectedChunkIds: [...state.selectedChunkIds, action2.chunkId] });
+    }
+    if (action2.kind === "remove-chunk") {
+      if (state.stage !== "arrange") return unchanged(state);
+      return unchanged({
+        ...state,
+        selectedChunkIds: state.selectedChunkIds.filter((id2) => id2 !== action2.chunkId)
+      });
+    }
+    if (action2.kind === "check-arrangement") {
+      if (state.stage !== "arrange" || state.selectedChunkIds.length !== TARGET_ORDER.length) {
+        return { ...unchanged(state), arrangementCorrect: false };
+      }
+      const arrangementCorrect = sameList(state.selectedChunkIds, TARGET_ORDER);
+      return {
+        ...unchanged({
+          ...state,
+          stage: arrangementCorrect ? "rehearse" : "arrange",
+          arrangementAttempts: state.arrangementAttempts + 1
+        }),
+        arrangementCorrect
+      };
+    }
+    if (action2.kind === "choose-mode") {
+      if (state.stage !== "rehearse") return unchanged(state);
+      return unchanged({ ...state, mode: action2.mode });
+    }
+    if (action2.kind === "clear-mode") {
+      if (state.stage !== "rehearse") return unchanged(state);
+      return unchanged({ ...state, mode: void 0 });
+    }
+    if (state.stage !== "rehearse") return unchanged(state);
+    if (action2.kind === "submit-typed") {
+      if (state.mode !== "typed") return unchanged(state);
+      const checks = typedGreetingChecks(definition2, action2.response);
+      return assessedTransition(definition2, state, "typed", checks, at);
+    }
+    if (action2.kind === "submit-self-check") {
+      if (state.mode !== "recorded" && state.mode !== "unrecorded") return unchanged(state);
+      const mode = state.mode;
+      return assessedTransition(definition2, state, mode, {
+        greetingOrder: action2.greetingOrder,
+        nameIntelligible: action2.nameIntelligible
+      }, at);
+    }
+    return unchanged(state);
+  }
+  function lessonZeroGreetingSessionSnapshotShapeIsValid(value) {
+    if (!value || typeof value !== "object") return false;
+    const candidate2 = value;
+    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-greet-rie" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && ["arrange", "rehearse", "complete"].includes(candidate2.stage ?? "") && Array.isArray(candidate2.selectedChunkIds) && candidate2.selectedChunkIds.every(isGreetingChunkId) && new Set(candidate2.selectedChunkIds).size === candidate2.selectedChunkIds.length && Number.isInteger(candidate2.arrangementAttempts) && (candidate2.arrangementAttempts ?? -1) >= 0 && (candidate2.mode === void 0 || isGreetingMode(candidate2.mode)) && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid) && sessionStatusFitsStage(candidate2);
+  }
+  function assessedTransition(definition2, state, mode, checks, at) {
+    const outcome = checks.greetingOrder && checks.nameIntelligible ? "pass" : "lapse";
+    const attemptNumber = state.attempts.length + 1;
+    const eventStem = `${definition2.id}:attempt:${attemptNumber}`;
+    const attempt = { mode, outcome, ...checks, at };
+    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    return {
+      state: {
+        ...state,
+        status: outcome === "pass" ? "complete" : "active",
+        stage: outcome === "pass" ? "complete" : "rehearse",
+        mode,
+        attempts: [...state.attempts, attempt]
+      },
+      evaluation: evaluationFor(definition2, attempt, repairing, eventStem),
+      adaptive: {
+        eventId: `${eventStem}:learning`,
+        at,
+        modeId: `lesson-zero-greeting:${mode}`,
+        skill: mode === "typed" ? "writing" : "speaking",
+        action: repairing ? "repair" : mode === "typed" ? "produce" : "speak",
+        sourceId: definition2.activityId,
+        independent: !repairing
+      },
+      supportEvents: outcome === "lapse" ? [
+        supportEvent(definition2.activityId, "transcript", `${eventStem}:transcript`, at),
+        supportEvent(definition2.activityId, "translation", `${eventStem}:translation`, at),
+        supportEvent(definition2.activityId, "model-answer", `${eventStem}:model`, at)
+      ] : []
+    };
+  }
+  function typedGreetingChecks(definition2, response) {
+    const normalized2 = normalizeJapanese(response);
+    const pieces = definition2.chunks.map((chunk2) => normalizeJapanese(chunk2.japanese));
+    let cursor = 0;
+    const ordered = pieces.every((piece) => {
+      const index = normalized2.indexOf(piece, cursor);
+      if (index < 0) return false;
+      cursor = index + piece.length;
+      return true;
+    });
+    const name = normalizeJapanese(definition2.learnerName);
+    return {
+      greetingOrder: ordered,
+      nameIntelligible: Boolean(name) && normalized2.includes(`${name}です`)
+    };
+  }
+  function evaluationFor(definition2, attempt, repairing, eventId) {
+    const errorTags = [
+      ...attempt.greetingOrder ? [] : ["greeting-order"],
+      ...attempt.nameIntelligible ? [] : ["name-intelligibility"]
+    ];
+    const reviewSeeds2 = attempt.outcome === "pass" ? greetingReviewSeeds(definition2, repairing) : [];
+    return {
+      attempt: {
+        kind: "attempt-recorded",
+        eventId,
+        at: attempt.at,
+        activityId: definition2.activityId,
+        conceptIds: definition2.conceptIds,
+        responseKind: attempt.mode === "typed" ? "typed-accessible-speaking-alternative" : "spoken-self-check",
+        outcome: attempt.outcome,
+        score: (Number(attempt.greetingOrder) + Number(attempt.nameIntelligible)) / 2,
+        ...errorTags.length ? { errorTags } : {}
+      },
+      result: {
+        outcome: attempt.outcome,
+        score: (Number(attempt.greetingOrder) + Number(attempt.nameIntelligible)) / 2,
+        errorTags,
+        feedback: attempt.outcome === "pass" ? {
+          explanation: {
+            en: "Your greeting reached Rie in the right order, with your name attached.",
+            ja: "あいさつを順番どおりに、名前と一緒にりえ先生へ伝えられました。"
+          }
+        } : {
+          explanation: {
+            en: "One part of the greeting needs another pass.",
+            ja: "あいさつの一部を、もう一度確かめましょう。"
+          },
+          repairPrompt: {
+            en: "Use the four-part paper strip, then try the whole turn again.",
+            ja: "四つのことばの紙を見てから、もう一度通して言いましょう。"
+          }
+        }
+      },
+      reviewSeeds: reviewSeeds2
+    };
+  }
+  function greetingReviewSeeds(definition2, repairing) {
+    const reason = repairing ? "repair" : "new-learning";
+    return definition2.chunks.map((chunk2, index) => ({
+      id: `review:lesson-zero:greeting:${chunk2.id}`,
+      conceptId: definition2.conceptIds[index === 2 ? 1 : 0],
+      reason,
+      content: {
+        expression: chunk2.japanese,
+        reading: chunk2.reading,
+        meanings: [chunk2.meaning.en],
+        sentence: definition2.chunks.map((item2) => item2.japanese).join("")
+      }
+    }));
+  }
+  function supportEvent(activityId, supportKind, eventId, at) {
+    return { kind: "support-used", eventId, at, activityId, supportKind };
+  }
+  function attemptShapeIsValid(value) {
+    if (!value || typeof value !== "object") return false;
+    const candidate2 = value;
+    return isGreetingMode(candidate2.mode) && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.greetingOrder === "boolean" && typeof candidate2.nameIntelligible === "boolean" && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
+  }
+  function sessionStatusFitsStage(candidate2) {
+    if (candidate2.status === "complete") return candidate2.stage === "complete";
+    if (candidate2.stage === "complete") return false;
+    if (candidate2.status === "ready") {
+      return candidate2.stage === "arrange" && candidate2.selectedChunkIds?.length === 0 && candidate2.attempts?.length === 0;
+    }
+    return true;
+  }
+  function validateDefinition$1(definition2) {
+    if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-greet-rie" || definition2.activityId !== "activity:lesson-zero-greet-rie" || !definition2.learnerName.trim() || definition2.conceptIds.length !== 2 || !definition2.model.japanese.trim() || definition2.chunks.length !== TARGET_ORDER.length || !sameList(definition2.chunks.map((chunk2) => chunk2.id), TARGET_ORDER)) {
+      throw new TypeError("Invalid Lesson Zero greeting definition.");
+    }
+  }
+  function normalizeJapanese(value) {
+    return value.normalize("NFKC").toLocaleLowerCase("en").replace(/[\s。、，,.!?！？・]/gu, "");
+  }
+  function isGreetingMode(value) {
+    return value === "recorded" || value === "unrecorded" || value === "typed";
+  }
+  function isGreetingChunkId(value) {
+    return typeof value === "string" && TARGET_ORDER.includes(value);
+  }
+  function sameList(actual, expected) {
+    return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
   }
   function unchanged(state) {
     return { state, supportEvents: [] };
@@ -41220,6 +41519,9 @@ ${spelling}`);
     if (value.classroomInstructionProgress !== void 0 && !classroomInstructionSessionSnapshotShapeIsValid(value.classroomInstructionProgress)) {
       throw new TypeError("Academy checkpoint has invalid classroom-instruction progress.");
     }
+    if (value.lessonZeroGreetingProgress !== void 0 && !lessonZeroGreetingSessionSnapshotShapeIsValid(value.lessonZeroGreetingProgress)) {
+      throw new TypeError("Academy checkpoint has invalid Lesson Zero greeting progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -41869,6 +42171,7 @@ ${spelling}`);
         ...checkpoint.authoredWeekProgress ? { authoredWeekProgress: checkpoint.authoredWeekProgress } : {},
         ...checkpoint.classroomExpressionProgress ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress } : {},
         ...checkpoint.classroomInstructionProgress ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress } : {},
+        ...checkpoint.lessonZeroGreetingProgress ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress } : {},
         updatedAt: now
       };
     }
@@ -45452,7 +45755,7 @@ ${spelling}`);
           input2.focus();
           input2.select();
         }
-        const explanation2 = localized$c(evaluation.result.feedback.explanation, host2.language ?? "en");
+        const explanation2 = localized$d(evaluation.result.feedback.explanation, host2.language ?? "en");
         const hintAvailability = evaluation.result.outcome === "lapse" ? host2.language === "ja" ? " ヒントが使えます。" : " Hint support is now available." : "";
         host2.announce(`${explanation2}${hintAvailability}`);
       } catch (error) {
@@ -45601,7 +45904,7 @@ ${spelling}`);
   function appendHintText(line2, hint2, language) {
     if (!hint2.bilingual) {
       line2.lang = language;
-      line2.textContent = localized$c(hint2.text, language);
+      line2.textContent = localized$d(hint2.text, language);
       return;
     }
     const japanese2 = document.createElement("span");
@@ -45637,7 +45940,7 @@ ${spelling}`);
     const line2 = document.createElement("p");
     line2.className = "academy-progressive-hint-scaffold";
     line2.lang = language;
-    line2.textContent = localized$c(scaffold, language);
+    line2.textContent = localized$d(scaffold, language);
     return line2;
   }
   function prompt$2(model2, host2) {
@@ -45734,10 +46037,10 @@ ${spelling}`);
     const line2 = document.createElement("p");
     line2.className = className;
     line2.lang = language;
-    line2.textContent = localized$c(value, language);
+    line2.textContent = localized$d(value, language);
     return line2;
   }
-  function localized$c(value, language) {
+  function localized$d(value, language) {
     return language === "ja" ? value.ja : value.en;
   }
   function setPending(form2, pending2) {
@@ -46792,9 +47095,9 @@ ${spelling}`);
       setToolLabel(readingToggle, visible ? currentLine.reading.hideLabel : currentLine.reading.showLabel);
       const lineReadingVisible = visible && currentLine.reading.available !== false;
       setAcademyReadingSurface(japanese2, lineReadingVisible, currentLine.japanese, "academy-dialogue");
-      const speakerName = currentLine.speakerName ?? "";
-      const speakerReadingVisible = visible && HAS_JAPANESE.test(speakerName);
-      setAcademyReadingSurface(speakerTab, speakerReadingVisible, speakerName, "academy-dialogue");
+      const speakerName2 = currentLine.speakerName ?? "";
+      const speakerReadingVisible = visible && HAS_JAPANESE.test(speakerName2);
+      setAcademyReadingSurface(speakerTab, speakerReadingVisible, speakerName2, "academy-dialogue");
       root.dataset.readingSupport = visible ? "shown" : "hidden";
       for (const [surface, source2] of readingSurfaces) {
         applyReadingSurface(surface, source2, visible);
@@ -47654,7 +47957,7 @@ ${spelling}`);
       button2.append(japanese2, reading);
       button2.addEventListener("click", () => {
         const message = document.createElement("p");
-        message.textContent = localized$b(option2.correct ? feedback2.correct : feedback2.lapse, language);
+        message.textContent = localized$c(option2.correct ? feedback2.correct : feedback2.lapse, language);
         if (!option2.correct) {
           root.dataset.outcome = "lapse";
           outcome.replaceChildren(message);
@@ -47667,7 +47970,7 @@ ${spelling}`);
         const next = document.createElement("button");
         next.type = "button";
         next.className = "academy-vn-primary-action";
-        next.textContent = localized$b(feedback2.next, language);
+        next.textContent = localized$c(feedback2.next, language);
         next.addEventListener("click", onContinue, { once: true, signal });
         outcome.replaceChildren(message, next);
         next.focus();
@@ -47690,7 +47993,7 @@ ${spelling}`);
   function translation(english, language) {
     return language === "en" ? { translation: english, translationEarned: true } : {};
   }
-  function localized$b(value, language) {
+  function localized$c(value, language) {
     return value[language];
   }
   function buttonAction$1(label, onClick, signal) {
@@ -123757,7 +124060,7 @@ ${spelling}`);
     render: renderWorkshop$4,
     grade(model2, response) {
       const answers = parseResponse$M(model2, response);
-      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
+      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese$1(answers.get(round2.id) ?? "") !== normalizeJapanese$1(round2.answer));
       const score = (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length;
       return {
         outcome: missed.length ? "lapse" : "pass",
@@ -125961,7 +126264,7 @@ ${spelling}`);
     render: renderWorkshop$3,
     grade(model2, response) {
       const answers = parseResponse$L(model2, response);
-      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
+      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese$1(answers.get(round2.id) ?? "") !== normalizeJapanese$1(round2.answer));
       return {
         outcome: missed.length ? "lapse" : "pass",
         score: (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
@@ -195102,7 +195405,7 @@ ${spelling}`);
     return answers;
   }
   function normalizeSourceResponse(value) {
-    return normalizeJapanese(value.normalize("NFKC").replace(/\([^)]*\)/gu, ""));
+    return normalizeJapanese$1(value.normalize("NFKC").replace(/\([^)]*\)/gu, ""));
   }
   function reviewSeed$f(round2, result2) {
     return {
@@ -195281,7 +195584,7 @@ ${spelling}`);
     render: renderWorkshop$1,
     grade(model2, response) {
       const answers = parseResponse$J(model2, response);
-      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
+      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese$1(answers.get(round2.id) ?? "") !== normalizeJapanese$1(round2.answer));
       return {
         outcome: missed.length ? "lapse" : "pass",
         score: (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
@@ -195748,7 +196051,7 @@ ${spelling}`);
     render: renderWorkshop,
     grade(model2, response) {
       const answers = parseResponse$I(model2, response);
-      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
+      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese$1(answers.get(round2.id) ?? "") !== normalizeJapanese$1(round2.answer));
       return {
         outcome: missed.length ? "lapse" : "pass",
         score: (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
@@ -231900,10 +232203,10 @@ ${spelling}`);
     }
   }
   function validatePresentation(overview) {
-    localized$a(overview.title, "title");
-    localized$a(overview.summary, "summary");
+    localized$b(overview.title, "title");
+    localized$b(overview.summary, "summary");
     if (!overview.goals.length) throw new TypeError("Lesson overview needs learning goals.");
-    overview.goals.forEach((goal, index) => localized$a(goal, `goal ${index + 1}`));
+    overview.goals.forEach((goal, index) => localized$b(goal, `goal ${index + 1}`));
     uniqueNonEmpty(overview.peopleIds, "people");
     uniqueNonEmpty(overview.locationIds, "locations");
     if (!overview.materials.length) throw new TypeError("Lesson overview needs materials.");
@@ -231912,7 +232215,7 @@ ${spelling}`);
       if (!material.id.trim() || materialIds.has(material.id)) throw new TypeError("Lesson overview has invalid material ids.");
       materialIds.add(material.id);
       if (!material.kind.trim()) throw new TypeError(`Lesson overview material ${material.id} needs a kind.`);
-      localized$a(material.title, `material ${material.id}`);
+      localized$b(material.title, `material ${material.id}`);
       if (!material.activityIds.length) throw new TypeError(`Lesson overview material ${material.id} needs activities.`);
       if (material.state === "release-blocked" && !material.blockerId?.trim()) {
         throw new TypeError(`Blocked lesson overview material ${material.id} needs a blocker.`);
@@ -231922,7 +232225,7 @@ ${spelling}`);
       }
     }
   }
-  function localized$a(value, label) {
+  function localized$b(value, label) {
     if (!value?.en?.trim() || !value.ja?.trim()) throw new TypeError(`Lesson overview ${label} needs English and Japanese.`);
   }
   function uniqueNonEmpty(values, label) {
@@ -232378,12 +232681,12 @@ ${spelling}`);
     model2.payload.teaching.forEach((point, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(point.title, host2);
+      title2.textContent = localized$f(point.title, host2);
       const cue = japanese$3(point.cue);
       cue.dataset.readerSurfaceId = `reader:${model2.provenance.packageId}:teaching:${index + 1}`;
       registerSurface$2(host2, cue, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(point.explanation, host2);
+      explanation2.textContent = localized$f(point.explanation, host2);
       row.append(title2, cue, explanation2);
       list2.append(row);
     });
@@ -232395,7 +232698,7 @@ ${spelling}`);
     section.dataset.questionId = question2.id;
     section.dataset.practicePhase = question2.phase;
     const heading = document.createElement("h3");
-    heading.textContent = `${index + 1}. ${localized$e(question2.prompt, host2)}`;
+    heading.textContent = `${index + 1}. ${localized$f(question2.prompt, host2)}`;
     const play = document.createElement("button");
     play.type = "button";
     play.className = "academy-button academy-button-secondary";
@@ -232511,8 +232814,8 @@ ${spelling}`);
     return answers;
   }
   function productionMeetsContract(response, production) {
-    const normalized2 = normalizeJapanese(response ?? "");
-    return normalized2.length >= production.minimumCharacters && production.acceptedFragments.every((group2) => group2.some((fragment2) => normalized2.includes(normalizeJapanese(fragment2))));
+    const normalized2 = normalizeJapanese$1(response ?? "");
+    return normalized2.length >= production.minimumCharacters && production.acceptedFragments.every((group2) => group2.some((fragment2) => normalized2.includes(normalizeJapanese$1(fragment2))));
   }
   function validateProvenance$f(model2, issues2) {
     const provenance2 = model2.provenance;
@@ -232767,12 +233070,12 @@ ${spelling}`);
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `teaching:${model2.provenance.packageId}:${index + 1}`;
       registerSurface$1(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -233187,7 +233490,7 @@ ${spelling}`);
       const missed = [];
       for (const round2 of model2.payload.rounds) {
         const answer2 = answers.get(round2.id);
-        const textMatches = round2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === normalizeJapanese(answer2.value));
+        const textMatches = round2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === normalizeJapanese$1(answer2.value));
         const structureMatches = round2.mode === "modifier" ? answer2.mode === round2.mode && answer2.attachment === round2.correctAttachment : round2.mode === "connector" ? answer2.mode === round2.mode && answer2.connector === round2.correctConnector : answer2.mode === round2.mode;
         if (!textMatches || !structureMatches) missed.push(round2.errorTag);
       }
@@ -233470,7 +233773,7 @@ ${spelling}`);
       const hint2 = round2.hints[index];
       if (!hint2) return;
       index += 1;
-      output.textContent = localized$e(hint2, host2);
+      output.textContent = localized$f(hint2, host2);
       output.dataset.hintIndex = String(index);
       void host2.recordSupportUse?.({ activityId: model2.id, supportKind: "hint", choiceId: round2.id });
       if (index === round2.hints.length) button2.disabled = true;
@@ -233555,7 +233858,7 @@ ${spelling}`);
     render: render$p,
     grade(model2, response) {
       const parsed = parseResponse$E(model2, response);
-      const errors = model2.payload.fields.flatMap((field2) => field2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === parsed.values.get(field2.id)) ? [] : [field2.errorTag]);
+      const errors = model2.payload.fields.flatMap((field2) => field2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === parsed.values.get(field2.id)) ? [] : [field2.errorTag]);
       if (parsed.choice !== model2.payload.choice.answer) errors.push(model2.payload.choice.errorTag);
       return gradeFromScore(
         (model2.payload.fields.length + 1 - errors.length) / (model2.payload.fields.length + 1),
@@ -233595,7 +233898,7 @@ ${spelling}`);
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       fields.forEach((field2, index) => {
-        if (!text$f(field2.id) || ids2.has(field2.id) || !text$f(field2.sourceQuestionId) || !text$f(field2.before) && !text$f(field2.after) || !text$f(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === normalizeJapanese(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$f(field2.errorTag)) {
+        if (!text$f(field2.id) || ids2.has(field2.id) || !text$f(field2.sourceQuestionId) || !text$f(field2.before) && !text$f(field2.after) || !text$f(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$f(field2.errorTag)) {
           issues2.push({ path: `payload.fields.${index}`, message: "Every Track 78 blank needs exact source identity, context, and a deterministic answer." });
         }
         ids2.add(field2.id);
@@ -233798,7 +234101,7 @@ ${spelling}`);
       if (!model2.payload.fields.some((field2) => field2.id === value.fieldId) || values.has(value.fieldId) || typeof value.value !== "string") {
         throw new TypeError("Track 78 responses must address each exact source item once.");
       }
-      values.set(value.fieldId, normalizeJapanese(value.value));
+      values.set(value.fieldId, normalizeJapanese$1(value.value));
     });
     return { values, choice: response.choice.trim() };
   }
@@ -233880,7 +234183,7 @@ ${spelling}`);
     const destination = document.createElement("select");
     destination.setAttribute("aria-label", host2.language === "ja" ? "移動先" : "Move selected item to");
     destination.append(option$1("", host2.language === "ja" ? "元の場所" : "Source tray"));
-    model2.payload.zones.forEach((zone2) => destination.append(option$1(zone2.id, localized$e(zone2.label, host2))));
+    model2.payload.zones.forEach((zone2) => destination.append(option$1(zone2.id, localized$f(zone2.label, host2))));
     const move = document.createElement("button");
     move.type = "button";
     move.className = "academy-button academy-button-quiet";
@@ -233908,7 +234211,7 @@ ${spelling}`);
       placements.set(itemId, zoneId);
       selectedId = itemId;
       renderWorkspace(itemId);
-      const label = zoneId ? localized$e(model2.payload.zones.find((zone2) => zone2.id === zoneId).label, host2) : localized$e(model2.payload.sourceLabel, host2);
+      const label = zoneId ? localized$f(model2.payload.zones.find((zone2) => zone2.id === zoneId).label, host2) : localized$f(model2.payload.sourceLabel, host2);
       host2.announce(host2.language === "ja" ? `${label}へ移動しました。` : `Moved to ${label}.`);
     };
     const renderWorkspace = (focusId) => {
@@ -234538,11 +234841,11 @@ ${spelling}`);
     validate: validate$j,
     render: render$k,
     grade(model2, response) {
-      if (typeof response !== "string" || !normalizeJapanese(response)) throw new TypeError("A Japanese response is required.");
-      const normalized2 = normalizeJapanese(response);
-      const exact2 = model2.payload.acceptedAnswers?.some((answer2) => normalizeJapanese(answer2) === normalized2) ?? false;
+      if (typeof response !== "string" || !normalizeJapanese$1(response)) throw new TypeError("A Japanese response is required.");
+      const normalized2 = normalizeJapanese$1(response);
+      const exact2 = model2.payload.acceptedAnswers?.some((answer2) => normalizeJapanese$1(answer2) === normalized2) ?? false;
       const groups = model2.payload.requiredGroups ?? [];
-      const containsGroups = groups.length > 0 && groups.every((group2) => group2.some((term) => normalized2.includes(normalizeJapanese(term))));
+      const containsGroups = groups.length > 0 && groups.every((group2) => group2.some((term) => normalized2.includes(normalizeJapanese$1(term))));
       return gradeFromScore(exact2 || containsGroups ? 1 : 0, 1, [model2.payload.errorTag], model2.payload.feedback);
     },
     toReviewSeeds(model2, result2) {
@@ -234561,8 +234864,8 @@ ${spelling}`);
     const accepted = model2.payload?.acceptedAnswers ?? [];
     const groups = model2.payload?.requiredGroups ?? [];
     if (!accepted.length && !groups.length) issues2.push({ path: "payload", message: "Exact answers or required term groups are required." });
-    if (accepted.some((answer2) => !normalizeJapanese(answer2))) issues2.push({ path: "payload.acceptedAnswers", message: "Accepted answers cannot be blank." });
-    if (groups.some((group2) => !group2.length || group2.some((term) => !normalizeJapanese(term)))) {
+    if (accepted.some((answer2) => !normalizeJapanese$1(answer2))) issues2.push({ path: "payload.acceptedAnswers", message: "Accepted answers cannot be blank." });
+    if (groups.some((group2) => !group2.length || group2.some((term) => !normalizeJapanese$1(term)))) {
       issues2.push({ path: "payload.requiredGroups", message: "Required groups need non-empty alternatives." });
     }
     if (!text$f(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
@@ -234627,7 +234930,7 @@ ${spelling}`);
     host2.replace(root);
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (!normalizeJapanese(input2.value)) {
+      if (!normalizeJapanese$1(input2.value)) {
         status.replaceChildren(assessedJapanese$2(host2.language === "ja" ? "日本語を入力してください。" : "Enter a Japanese answer."));
         input2.focus();
         return;
@@ -234713,10 +235016,10 @@ ${spelling}`);
       if (turn2.kind === "learner-choice") {
         passes = turn2.acceptedOptionIds.includes(answer2);
       } else {
-        const normalized2 = normalizeJapanese(answer2);
-        const exact2 = turn2.acceptedAnswers?.some((candidate2) => normalizeJapanese(candidate2) === normalized2) ?? false;
+        const normalized2 = normalizeJapanese$1(answer2);
+        const exact2 = turn2.acceptedAnswers?.some((candidate2) => normalizeJapanese$1(candidate2) === normalized2) ?? false;
         const groups = turn2.requiredGroups ?? [];
-        const containsGroups = groups.length > 0 && groups.every((group2) => group2.some((term) => normalized2.includes(normalizeJapanese(term))));
+        const containsGroups = groups.length > 0 && groups.every((group2) => group2.some((term) => normalized2.includes(normalizeJapanese$1(term))));
         passes = exact2 || containsGroups;
       }
       if (passes) correct2 += 1;
@@ -236385,7 +236688,7 @@ ${spelling}`);
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !text$f(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$f(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === normalizeJapanese(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression)) {
+        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !text$f(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$f(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every conversation question needs a canonical answer and reviewed accepted forms." });
         }
         ids2.add(task2.id);
@@ -236399,7 +236702,7 @@ ${spelling}`);
   }
   function gradeConversationListeningCheck(model2, response) {
     const answers = parseResponse$w(model2, response);
-    const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
+    const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
     return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
   }
   function conversationListeningCheckReviewSeeds(model2, result2) {
@@ -236424,7 +236727,7 @@ ${spelling}`);
       if (!task2 || answers.has(task2.id) || typeof answer2.value !== "string" || !answer2.value.trim()) {
         throw new TypeError("Minna conversation responses must address each source question once.");
       }
-      answers.set(task2.id, normalizeJapanese(answer2.value));
+      answers.set(task2.id, normalizeJapanese$1(answer2.value));
     });
     return answers;
   }
@@ -236878,7 +237181,7 @@ ${spelling}`);
     if (round2.mode === "tense-choice" || round2.mode === "routine-time") {
       return (answer2.mode === "tense-choice" || answer2.mode === "routine-time") && answer2.optionId === round2.correctOptionId;
     }
-    return (answer2.mode === "short-answer" || answer2.mode === "sentence") && round2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === normalizeJapanese(answer2.value));
+    return (answer2.mode === "short-answer" || answer2.mode === "sentence") && round2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === normalizeJapanese$1(answer2.value));
   }
   function updateRepairHints(model2, form2, evaluation, host2) {
     form2.querySelectorAll(".academy-routine-round").forEach((node2) => {
@@ -236903,7 +237206,7 @@ ${spelling}`);
         panel.hidden = false;
         button2.remove();
         void host2.recordSupportUse?.({ activityId: model2.id, supportKind: "hint", choiceId: round2.id });
-        host2.announce(localized$e(round2.hint, host2));
+        host2.announce(localized$f(round2.hint, host2));
       }, { once: true });
       const hint2 = document.createElement("p");
       hint2.append(...localizedNodes$1(round2.hint));
@@ -236935,7 +237238,7 @@ ${spelling}`);
     grade(model2, response) {
       const values = parseResponse$u(model2, response);
       const errors = model2.payload.tasks.flatMap((task2) => task2.fields.every(
-        (field2) => values.get(key(task2.id, field2.id)) === normalizeJapanese(field2.answer)
+        (field2) => values.get(key(task2.id, field2.id)) === normalizeJapanese$1(field2.answer)
       ) ? [] : [task2.errorTag]);
       return gradeFromScore(errors.length === 0 ? 1 : (model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
     },
@@ -237106,7 +237409,7 @@ ${spelling}`);
       const field2 = task2?.fields.find((candidate2) => candidate2.id === value.fieldId);
       const responseKey = task2 && field2 ? key(task2.id, field2.id) : void 0;
       if (!responseKey || values.has(responseKey) || typeof value.value !== "string") throw new TypeError("B-25 responses must address each exact source blank once.");
-      values.set(responseKey, normalizeJapanese(value.value));
+      values.set(responseKey, normalizeJapanese$1(value.value));
     });
     return values;
   }
@@ -237370,7 +237673,7 @@ ${spelling}`);
       return answer2.nounClass === round2.nounClass && answer2.verb === round2.verb;
     }
     if (round2.mode === "typed" && answer2.mode === "typed") {
-      return round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value));
+      return round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value));
     }
     return false;
   }
@@ -237465,7 +237768,7 @@ ${spelling}`);
       const answers = new Map((response?.answers ?? []).map((answer2) => [answer2.roundId, answer2]));
       const missed = model2.payload.rounds.filter((round2) => {
         const answer2 = answers.get(round2.id);
-        return !answer2 || answer2.mode !== round2.mode || !round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value));
+        return !answer2 || answer2.mode !== round2.mode || !round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value));
       });
       return gradeFromScore(
         (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
@@ -237849,7 +238152,7 @@ ${spelling}`);
       const answers = parseResponse$t(model2, response);
       const errors = model2.payload.tasks.flatMap((task2) => {
         const answer2 = answers.get(task2.id);
-        const phraseMatches = task2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === answer2.phrase);
+        const phraseMatches = task2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === answer2.phrase);
         return answer2.direction === task2.beneficiaryDirection && phraseMatches ? [] : [task2.errorTag];
       });
       return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
@@ -237887,7 +238190,7 @@ ${spelling}`);
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const expectedArrow = task2.beneficiaryDirection === "left" ? "←" : "→";
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === normalizeJapanese(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
+        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every Track 79 item needs exact source identity, beneficiary direction, and a deterministic phrase." });
         }
         ids2.add(task2.id);
@@ -238073,7 +238376,7 @@ ${spelling}`);
       if (!model2.payload.tasks.some((task2) => task2.id === answer2.taskId) || answers.has(answer2.taskId) || answer2.direction !== "left" && answer2.direction !== "right" || typeof answer2.phrase !== "string") {
         throw new TypeError("Track 79 responses must address each exact source item once.");
       }
-      answers.set(answer2.taskId, { direction: answer2.direction, phrase: normalizeJapanese(answer2.phrase) });
+      answers.set(answer2.taskId, { direction: answer2.direction, phrase: normalizeJapanese$1(answer2.phrase) });
     });
     return answers;
   }
@@ -238089,7 +238392,7 @@ ${spelling}`);
     render: render$e,
     grade(model2, response) {
       const answers = parseResponse$s(model2, response);
-      const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
+      const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
       return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
     },
     toReviewSeeds(model2, result2) {
@@ -238125,7 +238428,7 @@ ${spelling}`);
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const optionsValid = task2.kind === "choice" ? Array.isArray(task2.options) && task2.options.includes(task2.answer) : task2.options === void 0;
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !optionsValid || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === normalizeJapanese(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
+        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !optionsValid || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every A-11 item needs exact identity, source order, response mode, and deterministic answer." });
         }
         ids2.add(task2.id);
@@ -238296,10 +238599,10 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.tasks.some((task2) => task2.id === answer2.taskId) || answers.has(answer2.taskId) || typeof answer2.value !== "string" || !normalizeJapanese(answer2.value)) {
+      if (!model2.payload.tasks.some((task2) => task2.id === answer2.taskId) || answers.has(answer2.taskId) || typeof answer2.value !== "string" || !normalizeJapanese$1(answer2.value)) {
         throw new TypeError(`A-11 responses must address each exact source item once (${answer2.taskId || "missing task"}).`);
       }
-      answers.set(answer2.taskId, normalizeJapanese(answer2.value));
+      answers.set(answer2.taskId, normalizeJapanese$1(answer2.value));
     });
     return answers;
   }
@@ -238596,12 +238899,12 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$9(model2.payload.choiceLabel)) issues2.push({ path: "payload.choiceLabel", message: "A bilingual choice label is required." });
-    if (!localized$9(model2.payload.feedback?.pass?.explanation)) {
+    if (!localized$a(model2.payload.choiceLabel)) issues2.push({ path: "payload.choiceLabel", message: "A bilingual choice label is required." });
+    if (!localized$a(model2.payload.feedback?.pass?.explanation)) {
       issues2.push({ path: "payload.feedback.pass.explanation", message: "Bilingual pass feedback is required." });
     }
     const lapse = model2.payload.feedback?.lapse;
-    if (!localized$9(lapse?.explanation) || !localized$9(lapse?.repairPrompt) || !localized$9(lapse?.nearbyExample)) {
+    if (!localized$a(lapse?.explanation) || !localized$a(lapse?.repairPrompt) || !localized$a(lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback.lapse", message: "A bilingual lapse repair ladder is required." });
     }
     return issues2;
@@ -238643,7 +238946,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$9(value) {
+  function localized$a(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
     return Boolean(text$8(candidate2.en) && text$8(candidate2.ja));
@@ -238703,7 +239006,7 @@ ${spelling}`);
         value.textContent = selection ? model2.payload.items.find((candidate2) => candidate2.id === selection.kanaId)?.kana ?? "" : "·";
         value.lang = selection ? "ja" : "";
         position.dataset.state = selection ? "committed" : index === state.index ? "active" : "waiting";
-        position.setAttribute("aria-label", selection ? localized$8(host2, `Sound ${index + 1}: committed ${value.textContent}`, `${index + 1}番の音：${value.textContent}を記録`) : localized$8(host2, `Sound ${index + 1}: ${index === state.index ? "current" : "waiting"}`, `${index + 1}番の音：${index === state.index ? "今" : "待機"}`));
+        position.setAttribute("aria-label", selection ? localized$9(host2, `Sound ${index + 1}: committed ${value.textContent}`, `${index + 1}番の音：${value.textContent}を記録`) : localized$9(host2, `Sound ${index + 1}: ${index === state.index ? "current" : "waiting"}`, `${index + 1}番の音：${index === state.index ? "今" : "待機"}`));
         position.append(number, value);
         return position;
       }));
@@ -238719,7 +239022,7 @@ ${spelling}`);
       submitting = true;
       setDisabled2(true);
       feedback2.replaceChildren();
-      status.textContent = localized$8(host2, "Checking all five choices…", "五つの答えを確認しています…");
+      status.textContent = localized$9(host2, "Checking all five choices…", "五つの答えを確認しています…");
       void submit2(session.response()).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
@@ -238732,7 +239035,7 @@ ${spelling}`);
         const retry = document.createElement("button");
         retry.type = "button";
         retry.className = "academy-button academy-button-primary academy-kana-sound-map-retry";
-        retry.textContent = localized$8(host2, "Try submitting again", "もう一度送信する");
+        retry.textContent = localized$9(host2, "Try submitting again", "もう一度送信する");
         retry.addEventListener("click", submitCompleted, { signal: lifecycle.signal });
         feedback2.replaceChildren(message, retry);
         host2.announce(message.textContent);
@@ -238748,13 +239051,13 @@ ${spelling}`);
       play.disabled = false;
       playbackStatus.textContent = "";
       renderMap2();
-      host2.announce(localized$8(
+      host2.announce(localized$9(
         host2,
         `Recorded sound ${state.index} of ${state.total}.`,
         `${state.total}問中${state.index}問を記録しました。`
       ));
       if (!state.complete) {
-        status.textContent = localized$8(host2, "Choice recorded. Listen to the next sound.", "記録しました。次の音を聞いてください。");
+        status.textContent = localized$9(host2, "Choice recorded. Listen to the next sound.", "記録しました。次の音を聞いてください。");
         play.focus();
         return;
       }
@@ -238765,7 +239068,7 @@ ${spelling}`);
       button2.type = "button";
       button2.className = "academy-kana-sound-map-choice";
       button2.dataset.kanaId = item2.id;
-      button2.setAttribute("aria-label", localized$8(host2, `Choose ${item2.kana}`, `${item2.kana}を選ぶ`));
+      button2.setAttribute("aria-label", localized$9(host2, `Choose ${item2.kana}`, `${item2.kana}を選ぶ`));
       button2.append(assessedJapanese$2(item2.kana));
       button2.addEventListener("click", () => choose(item2.id), { signal: lifecycle.signal });
       choices2.append(button2);
@@ -238778,7 +239081,7 @@ ${spelling}`);
       const request2 = ++playbackRequest;
       playback?.dispose();
       play.disabled = true;
-      playbackStatus.textContent = localized$8(host2, `Playing sound ${state.index + 1}…`, `${state.index + 1}番の音を再生しています…`);
+      playbackStatus.textContent = localized$9(host2, `Playing sound ${state.index + 1}…`, `${state.index + 1}番の音を再生しています…`);
       const start = host2.playPronunciation ? host2.playPronunciation(item2.kana, item2.kana) : browserPronunciation$5(item2.kana);
       void start.then((disposable) => {
         if (lifecycle.signal.aborted || request2 !== playbackRequest) {
@@ -238787,11 +239090,11 @@ ${spelling}`);
         }
         playback = disposable;
         play.disabled = false;
-        playbackStatus.textContent = localized$8(host2, "Ready to replay.", "もう一度聞けます。");
+        playbackStatus.textContent = localized$9(host2, "Ready to replay.", "もう一度聞けます。");
       }).catch(() => {
         if (request2 !== playbackRequest) return;
         play.disabled = false;
-        playbackStatus.textContent = localized$8(host2, "Audio is unavailable.", "音声を再生できません。");
+        playbackStatus.textContent = localized$9(host2, "Audio is unavailable.", "音声を再生できません。");
       });
     }, { signal: lifecycle.signal });
     renderMap2();
@@ -238824,7 +239127,7 @@ ${spelling}`);
     speechSynthesis.speak(utterance);
     return { dispose: () => speechSynthesis.cancel() };
   }
-  function localized$8(host2, en, ja) {
+  function localized$9(host2, en, ja) {
     return host2.language === "ja" ? ja : en;
   }
   const kanaSoundMapPlugin = {
@@ -239276,7 +239579,7 @@ ${spelling}`);
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$7(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$7(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$7(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$8(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Two SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -239286,10 +239589,10 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload?.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$7(model2.payload?.signalLabel) || !localized$7(model2.payload?.tileLabel)) {
+    if (!localized$8(model2.payload?.signalLabel) || !localized$8(model2.payload?.tileLabel)) {
       issues2.push({ path: "payload", message: "Bilingual sort labels are required." });
     }
-    if (!localized$7(model2.payload?.feedback?.pass?.explanation) || !localized$7(model2.payload?.feedback?.lapse?.explanation) || !localized$7(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$7(model2.payload?.feedback?.lapse?.nearbyExample)) {
+    if (!localized$8(model2.payload?.feedback?.pass?.explanation) || !localized$8(model2.payload?.feedback?.lapse?.explanation) || !localized$8(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$8(model2.payload?.feedback?.lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback", message: "The sort needs bilingual feedback and a repair ladder." });
     }
     return issues2;
@@ -239318,7 +239621,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$7(value) {
+  function localized$8(value) {
     return Boolean(value && typeof value === "object" && text$7(value.en) && text$7(value.ja));
   }
   function text$7(value) {
@@ -239543,7 +239846,7 @@ ${spelling}`);
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "The assessed shelf map needs answer support." });
     const shelves = model2.payload?.shelves;
     const slots = shelves?.flatMap((shelf) => shelf.slots) ?? [];
-    if (!shelves || shelves.length !== 4 || new Set(shelves.map((shelf) => shelf.id)).size !== 4 || shelves.some((shelf) => !ROWS.has(shelf.id) || !localized$6(shelf.label) || shelf.slots.some((slot) => !text$6(slot.id) || !text$6(slot.label)))) {
+    if (!shelves || shelves.length !== 4 || new Set(shelves.map((shelf) => shelf.id)).size !== 4 || shelves.some((shelf) => !ROWS.has(shelf.id) || !localized$7(shelf.label) || shelf.slots.some((slot) => !text$6(slot.id) || !text$6(slot.label)))) {
       issues2.push({ path: "payload.shelves", message: "Four named source-chart shelves with labelled slots are required." });
     }
     if (slots.length !== 16 || new Set(slots.map((slot) => slot.id)).size !== 16) {
@@ -239578,7 +239881,7 @@ ${spelling}`);
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$6(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$6(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$6(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$7(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -239592,8 +239895,8 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload?.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$6(model2.payload?.shelfMapLabel)) issues2.push({ path: "payload.shelfMapLabel", message: "A bilingual shelf-map label is required." });
-    if (!localized$6(model2.payload?.feedback?.pass?.explanation) || !localized$6(model2.payload?.feedback?.lapse?.explanation) || !localized$6(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$6(model2.payload?.feedback?.lapse?.nearbyExample)) {
+    if (!localized$7(model2.payload?.shelfMapLabel)) issues2.push({ path: "payload.shelfMapLabel", message: "A bilingual shelf-map label is required." });
+    if (!localized$7(model2.payload?.feedback?.pass?.explanation) || !localized$7(model2.payload?.feedback?.lapse?.explanation) || !localized$7(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$7(model2.payload?.feedback?.lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback", message: "The shelf map needs bilingual feedback and a repair ladder." });
     }
     return issues2;
@@ -239621,7 +239924,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$6(value) {
+  function localized$7(value) {
     return Boolean(value && typeof value === "object" && text$6(value.en) && text$6(value.ja));
   }
   function text$6(value) {
@@ -239833,7 +240136,7 @@ ${spelling}`);
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "The assessed switchboard needs answer support." });
     const rows = model2.payload?.rows;
     const columns = model2.payload?.columns;
-    if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row) => row.id)).size !== 2 || rows.some((row) => !localized$5(row.label))) {
+    if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row) => row.id)).size !== 2 || rows.some((row) => !localized$6(row.label))) {
       issues2.push({ path: "payload.rows", message: "Two named katakana rows are required." });
     }
     if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$5(column.label))) {
@@ -239868,7 +240171,7 @@ ${spelling}`);
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$5(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$5(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$5(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$6(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -239882,8 +240185,8 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload?.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$5(model2.payload?.switchboardLabel)) issues2.push({ path: "payload.switchboardLabel", message: "A bilingual switchboard label is required." });
-    if (!localized$5(model2.payload?.feedback?.pass?.explanation) || !localized$5(model2.payload?.feedback?.lapse?.explanation) || !localized$5(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$5(model2.payload?.feedback?.lapse?.nearbyExample)) {
+    if (!localized$6(model2.payload?.switchboardLabel)) issues2.push({ path: "payload.switchboardLabel", message: "A bilingual switchboard label is required." });
+    if (!localized$6(model2.payload?.feedback?.pass?.explanation) || !localized$6(model2.payload?.feedback?.lapse?.explanation) || !localized$6(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$6(model2.payload?.feedback?.lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback", message: "The switchboard needs bilingual feedback and a repair ladder." });
     }
     return issues2;
@@ -239913,7 +240216,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$5(value) {
+  function localized$6(value) {
     return Boolean(value && typeof value === "object" && text$5(value.en) && text$5(value.ja));
   }
   function text$5(value) {
@@ -244468,7 +244771,7 @@ ${spelling}`);
       issues2.push({ path: "conceptIds", message: "Relay concepts must exactly match its five stations." });
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$4(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$4(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$4(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$5(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Two SHA-pinned bilingual Moodle chart visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -244482,10 +244785,10 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload?.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$4(model2.payload?.stationLabel) || !localized$4(model2.payload?.tileLabel)) {
+    if (!localized$5(model2.payload?.stationLabel) || !localized$5(model2.payload?.tileLabel)) {
       issues2.push({ path: "payload", message: "Bilingual relay labels are required." });
     }
-    if (!localized$4(model2.payload?.feedback?.pass?.explanation) || !localized$4(model2.payload?.feedback?.lapse?.explanation) || !localized$4(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$4(model2.payload?.feedback?.lapse?.nearbyExample)) {
+    if (!localized$5(model2.payload?.feedback?.pass?.explanation) || !localized$5(model2.payload?.feedback?.lapse?.explanation) || !localized$5(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$5(model2.payload?.feedback?.lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback", message: "The relay needs a bilingual feedback and repair ladder." });
     }
     return issues2;
@@ -244517,7 +244820,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$4(value) {
+  function localized$5(value) {
     return Boolean(value && typeof value === "object" && text$4(value.en) && text$4(value.ja));
   }
   function text$4(value) {
@@ -244728,7 +245031,7 @@ ${spelling}`);
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "The assessed audio route needs answer support." });
     const rows = model2.payload?.rows;
     const columns = model2.payload?.columns;
-    if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row) => row.id)).size !== 2 || rows.some((row) => !localized$3(row.label))) {
+    if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row) => row.id)).size !== 2 || rows.some((row) => !localized$4(row.label))) {
       issues2.push({ path: "payload.rows", message: "Two named katakana rows are required." });
     }
     if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$3(column.label))) {
@@ -244764,7 +245067,7 @@ ${spelling}`);
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$3(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$3(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$3(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$4(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -244778,8 +245081,8 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload?.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$3(model2.payload?.routeLabel)) issues2.push({ path: "payload.routeLabel", message: "A bilingual route label is required." });
-    if (!localized$3(model2.payload?.feedback?.pass?.explanation) || !localized$3(model2.payload?.feedback?.lapse?.explanation) || !localized$3(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$3(model2.payload?.feedback?.lapse?.nearbyExample)) {
+    if (!localized$4(model2.payload?.routeLabel)) issues2.push({ path: "payload.routeLabel", message: "A bilingual route label is required." });
+    if (!localized$4(model2.payload?.feedback?.pass?.explanation) || !localized$4(model2.payload?.feedback?.lapse?.explanation) || !localized$4(model2.payload?.feedback?.lapse?.repairPrompt) || !localized$4(model2.payload?.feedback?.lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback", message: "The audio route needs bilingual feedback and a repair ladder." });
     }
     return issues2;
@@ -244808,7 +245111,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
-  function localized$3(value) {
+  function localized$4(value) {
     return Boolean(value && typeof value === "object" && text$3(value.en) && text$3(value.ja));
   }
   function text$3(value) {
@@ -245277,8 +245580,8 @@ ${spelling}`);
   function correct(round2, answer2) {
     if (!answer2 || answer2.mode !== round2.mode) return false;
     if (round2.mode === "frame-choice" && answer2.mode === "frame-choice") return answer2.position === round2.position && answer2.verb === round2.verb;
-    if (round2.mode === "reply-choice" && answer2.mode === "reply-choice") return normalizeJapanese(answer2.value) === normalizeJapanese(round2.answerExpression);
-    return round2.mode === "typed" && answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value));
+    if (round2.mode === "reply-choice" && answer2.mode === "reply-choice") return normalizeJapanese$1(answer2.value) === normalizeJapanese$1(round2.answerExpression);
+    return round2.mode === "typed" && answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value));
   }
   function updateRepair$3(model2, form2, errorTags, host2) {
     model2.payload.rounds.forEach((round2) => {
@@ -245679,12 +245982,12 @@ ${spelling}`);
     model2.payload.teaching.forEach((item2, index) => {
       const row = document.createElement("li");
       const title2 = document.createElement("strong");
-      title2.textContent = localized$e(item2.title, host2);
+      title2.textContent = localized$f(item2.title, host2);
       const example = japanese$3(item2.example);
       example.dataset.readerSurfaceId = `reader:${model2.provenance.packageId}:teaching:${index + 1}`;
       registerSurface(host2, example, disposers);
       const explanation2 = document.createElement("p");
-      explanation2.textContent = localized$e(item2.explanation, host2);
+      explanation2.textContent = localized$f(item2.explanation, host2);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
@@ -245709,7 +246012,7 @@ ${spelling}`);
       const row = document.createElement("tr");
       const label = document.createElement("th");
       label.scope = "row";
-      label.textContent = localized$e(item2.label, host2);
+      label.textContent = localized$f(item2.label, host2);
       const value = document.createElement("td");
       const surface = japanese$3(item2.value);
       surface.dataset.readerSurfaceId = `reader:${model2.provenance.packageId}:grid:${index + 1}`;
@@ -245778,7 +246081,7 @@ ${spelling}`);
       model2.payload.actionSequence.actions.forEach((item2) => {
         const option2 = document.createElement("option");
         option2.value = item2.id;
-        option2.textContent = localized$e(item2.label, host2);
+        option2.textContent = localized$f(item2.label, host2);
         select2.append(option2);
       });
       row.append(select2);
@@ -246216,7 +246519,7 @@ ${spelling}`);
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
       requireUniqueText(round2.id, `${path}.id`, roundIds, "Round ids", issues2);
-      if (!localized$2(round2.cue)) issues2.push({ path: `${path}.cue`, message: "A bilingual context cue is required." });
+      if (!localized$3(round2.cue)) issues2.push({ path: `${path}.cue`, message: "A bilingual context cue is required." });
       if (!cardIds.has(round2.correctCardId)) {
         issues2.push({ path: `${path}.correctCardId`, message: "The correct card must exist in the injected deck." });
       }
@@ -246225,11 +246528,11 @@ ${spelling}`);
     if (!Number.isFinite(model2.payload.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
     }
-    if (!localized$2(model2.payload.feedback?.pass?.explanation)) {
+    if (!localized$3(model2.payload.feedback?.pass?.explanation)) {
       issues2.push({ path: "payload.feedback.pass.explanation", message: "Bilingual pass feedback is required." });
     }
     const lapse = model2.payload.feedback?.lapse;
-    if (!localized$2(lapse?.explanation) || !localized$2(lapse?.repairPrompt) || !localized$2(lapse?.nearbyExample)) {
+    if (!localized$3(lapse?.explanation) || !localized$3(lapse?.repairPrompt) || !localized$3(lapse?.nearbyExample)) {
       issues2.push({ path: "payload.feedback.lapse", message: "A bilingual lapse repair ladder is required." });
     }
     return issues2;
@@ -246255,7 +246558,7 @@ ${spelling}`);
     else if (seen.has(normalized2)) issues2.push({ path, message: `${label} must be unique.` });
     else seen.add(normalized2);
   }
-  function localized$2(value) {
+  function localized$3(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
     return Boolean(text$2(candidate2.en) && text$2(candidate2.ja));
@@ -246304,7 +246607,7 @@ ${spelling}`);
         if (lifecycle.signal.aborted) return;
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation(status, evaluation, host2);
-        host2.announce(localized$1(evaluation.result.feedback.explanation, host2));
+        host2.announce(localized$2(evaluation.result.feedback.explanation, host2));
       } catch (error) {
         if (lifecycle.signal.aborted) return;
         submitting = false;
@@ -246432,7 +246735,7 @@ ${spelling}`);
       button2.disabled = disabled;
     });
   }
-  function localized$1(value, host2) {
+  function localized$2(value, host2) {
     return host2.language === "ja" ? value.ja : value.en;
   }
   function copy(host2, en, ja) {
@@ -247651,7 +247954,7 @@ ${spelling}`);
   }
   function isCorrect$2(round2, answer2) {
     if (round2.mode === "typed") {
-      return answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value));
+      return answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value));
     }
     return answer2.mode === round2.mode && answer2.optionId === round2.correctOptionId;
   }
@@ -248510,7 +248813,7 @@ ${spelling}`);
     return answers;
   }
   function isCorrect$1(round2, answer2) {
-    return round2.mode === "typed" ? answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value)) : answer2.mode === round2.mode && answer2.optionId === round2.correctOptionId;
+    return round2.mode === "typed" ? answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value)) : answer2.mode === round2.mode && answer2.optionId === round2.correctOptionId;
   }
   function updateRepair$1(model2, form2, errorTags, host2) {
     const missed = new Set(errorTags);
@@ -248648,8 +248951,8 @@ ${spelling}`);
     bank.setAttribute("aria-label", host2.language === "ja" ? "ことば" : "Word bank");
     const actions = document.createElement("div");
     actions.className = "academy-sentence-builder-actions";
-    const reset = actionButton$4(host2.language === "ja" ? "やり直す" : "Reset");
-    const check2 = actionButton$4(host2.language === "ja" ? "文を確認" : "Check sentence", true);
+    const reset = actionButton$5(host2.language === "ja" ? "やり直す" : "Reset");
+    const check2 = actionButton$5(host2.language === "ja" ? "文を確認" : "Check sentence", true);
     check2.className = "academy-button academy-button-primary";
     actions.append(reset, check2);
     const status = statusRegion("academy-kit-feedback");
@@ -248757,7 +249060,7 @@ ${spelling}`);
     button2.addEventListener("click", action2, { signal });
     return button2;
   }
-  function actionButton$4(label, disabled = false) {
+  function actionButton$5(label, disabled = false) {
     const button2 = document.createElement("button");
     button2.type = "button";
     button2.className = "academy-button";
@@ -249332,7 +249635,7 @@ ${spelling}`);
   }
   function isCorrect(round2, answer2) {
     if (round2.mode === "typed") {
-      return answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese(value) === normalizeJapanese(answer2.value));
+      return answer2.mode === "typed" && round2.acceptedAnswers.some((value) => normalizeJapanese$1(value) === normalizeJapanese$1(answer2.value));
     }
     return answer2.mode === round2.mode && answer2.optionId === round2.correctOptionId;
   }
@@ -249456,7 +249759,7 @@ ${spelling}`);
       const errorTags = [];
       for (const round2 of model2.payload.rounds) {
         const answer2 = answers.get(round2.id);
-        const passed = round2.mode === "range-build" ? answer2?.mode === round2.mode && answer2.startId === round2.correctStartId && answer2.endId === round2.correctEndId : round2.mode === "typed-clock" ? answer2?.mode === round2.mode && round2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === normalizeJapanese(answer2.value)) : answer2?.mode === round2.mode && answer2.optionId === round2.correctOptionId;
+        const passed = round2.mode === "range-build" ? answer2?.mode === round2.mode && answer2.startId === round2.correctStartId && answer2.endId === round2.correctEndId : round2.mode === "typed-clock" ? answer2?.mode === round2.mode && round2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === normalizeJapanese$1(answer2.value)) : answer2?.mode === round2.mode && answer2.optionId === round2.correctOptionId;
         if (passed) correct2 += 1;
         else errorTags.push(round2.errorTag);
       }
@@ -249940,7 +250243,7 @@ ${spelling}`);
       const errorTags = [];
       for (const round2 of model2.payload.rounds) {
         const answer2 = answers.get(round2.id);
-        const passed = round2.mode === "weekday-pair" ? answer2?.mode === round2.mode && answer2.tomorrowId === round2.correctTomorrowId && answer2.yesterdayId === round2.correctYesterdayId : round2.mode === "day-answer" ? answer2?.mode === round2.mode && answer2.polarity === round2.correctPolarity && answer2.dayId === round2.correctDayId : answer2?.mode === round2.mode && round2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === normalizeJapanese(answer2.value));
+        const passed = round2.mode === "weekday-pair" ? answer2?.mode === round2.mode && answer2.tomorrowId === round2.correctTomorrowId && answer2.yesterdayId === round2.correctYesterdayId : round2.mode === "day-answer" ? answer2?.mode === round2.mode && answer2.polarity === round2.correctPolarity && answer2.dayId === round2.correctDayId : answer2?.mode === round2.mode && round2.acceptedAnswers.some((candidate2) => normalizeJapanese$1(candidate2) === normalizeJapanese$1(answer2.value));
         if (passed) correct2 += 1;
         else errorTags.push(round2.errorTag);
       }
@@ -250257,7 +250560,7 @@ ${spelling}`);
       const hint2 = round2.hints[index];
       if (!hint2) return;
       index += 1;
-      output.textContent = localized$e(hint2, host2);
+      output.textContent = localized$f(hint2, host2);
       output.dataset.hintIndex = String(index);
       if (index >= round2.hints.length) button2.disabled = true;
       else button2.textContent = host2.language === "ja" ? "次のヒント" : "Next hint";
@@ -251392,7 +251695,7 @@ ${spelling}`);
     if (!value) throw new Error(`Missing Lesson 0 proof value: ${String(key2)}`);
     return value;
   }
-  const COPY$2 = {
+  const COPY$3 = {
     progress: { en: "Progress", ja: "進み具合" },
     question: { en: "Question", ja: "問題" },
     audioUnavailable: {
@@ -251435,7 +251738,7 @@ ${spelling}`);
     if (options.onBack) {
       const back = backButton(options.language);
       back.classList.add("academy-authored-week-back");
-      back.addEventListener("click", () => notify$2(options.onBack, screen), { signal: lifecycle.signal });
+      back.addEventListener("click", () => notify$3(options.onBack, screen), { signal: lifecycle.signal });
       content.append(back);
     }
     const progress2 = progressBlock(options.week.activities.length + (options.extension?.activityCount ?? 0));
@@ -251518,7 +251821,7 @@ ${spelling}`);
       return write;
     };
     const reportPosition = (position) => {
-      if (options.onPositionChange) notify$2(() => savePosition(position), screen);
+      if (options.onPositionChange) notify$3(() => savePosition(position), screen);
     };
     const focusInPanel = (target2) => {
       target2?.focus({ preventScroll: true });
@@ -251710,8 +252013,8 @@ ${spelling}`);
           passed = true;
           const action2 = element("button", "academy-button academy-authored-week-next");
           action2.type = "button";
-          action2.textContent = localized(
-            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$2.finish : COPY$2.next,
+          action2.textContent = localized$1(
+            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$3.finish : COPY$3.next,
             options.language
           );
           action2.addEventListener("click", advance, { signal: lifecycle.signal, once: true });
@@ -251809,7 +252112,7 @@ ${spelling}`);
       complete.dataset.weekComplete = "true";
       complete.dataset.repairedCount = String(repairedActivityIds.size);
       complete.tabIndex = -1;
-      complete.append(bilingualParagraph(COPY$2.complete, "academy-success-note"));
+      complete.append(bilingualParagraph(COPY$3.complete, "academy-success-note"));
       if (repairedActivityIds.size) {
         complete.append(bilingualParagraph(
           repairSummary(repairedActivityIds.size),
@@ -251822,7 +252125,7 @@ ${spelling}`);
       const finish = () => {
         if (completionNotified) return;
         completionNotified = true;
-        notify$2(async () => {
+        notify$3(async () => {
           await positionWriteTail;
           await options.onComplete?.();
         }, screen);
@@ -251938,8 +252241,8 @@ ${spelling}`);
     root.dataset.activityId = activity2.id;
     const count2 = element("p", "academy-eyebrow");
     count2.append(
-      japanese(`${COPY$2.question.ja} ${index + 1} / ${total}`),
-      support(`${COPY$2.question.en} ${index + 1} of ${total}`)
+      japanese(`${COPY$3.question.ja} ${index + 1} / ${total}`),
+      support(`${COPY$3.question.en} ${index + 1} of ${total}`)
     );
     const heading = element("h1", "academy-authored-week-prompt");
     heading.id = `academy-authored-prompt-${index}`;
@@ -252010,7 +252313,7 @@ ${spelling}`);
       } catch {
         committed = false;
         setActivityControlsDisabled(choices2, false);
-        feedback2.replaceChildren(bilingualParagraph(COPY$2.evaluationError, "academy-field-error"));
+        feedback2.replaceChildren(bilingualParagraph(COPY$3.evaluationError, "academy-field-error"));
         feedback2.setAttribute("role", "alert");
         control2.focus();
         return;
@@ -252045,8 +252348,8 @@ ${spelling}`);
         const action2 = element("button", "academy-button academy-authored-week-next");
         action2.type = "button";
         const isPass = evaluation.result.outcome === "pass";
-        action2.textContent = localized(
-          isPass ? index === total - 1 && !actions.hasExtension ? COPY$2.finish : COPY$2.next : COPY$2.retry,
+        action2.textContent = localized$1(
+          isPass ? index === total - 1 && !actions.hasExtension ? COPY$3.finish : COPY$3.next : COPY$3.retry,
           actions.language
         );
         action2.addEventListener("click", isPass ? actions.onAdvance : actions.onRetry, { signal: actions.signal });
@@ -252126,7 +252429,7 @@ ${spelling}`);
       input2.dataset.authoredModalityControl = "";
       input2.dataset.clozeBlankId = blank.id;
       input2.dataset.jpdbReaderSurfaceIgnore = "";
-      input2.setAttribute("aria-label", localized(blank.label, actions.language));
+      input2.setAttribute("aria-label", localized$1(blank.label, actions.language));
       input2.setAttribute("aria-describedby", headingId);
       inputs.set(blank.id, input2);
       sentence.append(input2);
@@ -252313,9 +252616,9 @@ ${spelling}`);
   function showFeedback(root, evaluation, language, activityId, repaired) {
     const { result: result2 } = evaluation;
     root.setAttribute("role", "status");
-    const summary = result2.outcome === "pass" ? COPY$2.pass : COPY$2.lapse;
+    const summary = result2.outcome === "pass" ? COPY$3.pass : COPY$3.lapse;
     root.replaceChildren(bilingualParagraph(summary, "academy-authored-week-feedback-summary"));
-    if (repaired) root.append(bilingualParagraph(COPY$2.repaired, "academy-authored-week-repair-win"));
+    if (repaired) root.append(bilingualParagraph(COPY$3.repaired, "academy-authored-week-repair-win"));
     root.append(bilingualParagraph(result2.feedback.explanation, "academy-feedback-explanation"));
     if (result2.outcome === "lapse") appendProgressiveFeedback(root, result2.feedback, { language, activityId });
   }
@@ -252346,12 +252649,12 @@ ${spelling}`);
   }
   function progressBlock(total) {
     const root = element("section", "academy-authored-week-progress");
-    const label = bilingualParagraph(COPY$2.progress, "academy-authored-week-progress-label");
+    const label = bilingualParagraph(COPY$3.progress, "academy-authored-week-progress-label");
     const value = element("strong", "academy-authored-week-progress-value");
     const meter = document.createElement("progress");
     meter.className = "academy-authored-week-meter";
     meter.max = total;
-    meter.setAttribute("aria-label", `${COPY$2.progress.ja} / ${COPY$2.progress.en}`);
+    meter.setAttribute("aria-label", `${COPY$3.progress.ja} / ${COPY$3.progress.en}`);
     const update = (completed) => {
       value.textContent = `${completed} / ${total}`;
       meter.value = completed;
@@ -252365,7 +252668,7 @@ ${spelling}`);
     const state = element("section", "academy-source-record academy-authored-week-audio");
     state.dataset.audioStatus = "unavailable";
     state.setAttribute("role", "status");
-    state.append(bilingualParagraph(COPY$2.audioUnavailable, "academy-authored-week-audio-copy"));
+    state.append(bilingualParagraph(COPY$3.audioUnavailable, "academy-authored-week-audio-copy"));
     return state;
   }
   function moveChoiceFocus(event, root) {
@@ -252408,7 +252711,7 @@ ${spelling}`);
     span.textContent = value;
     return span;
   }
-  function localized(value, language) {
+  function localized$1(value, language) {
     return value[language];
   }
   function normalizeInitialProgress(progress2, week, hasExtension) {
@@ -252422,7 +252725,7 @@ ${spelling}`);
     if (progress2.phase === "extension") return hasExtension ? progress2 : void 0;
     return progress2;
   }
-  function notify$2(callback2, target2) {
+  function notify$3(callback2, target2) {
     try {
       const pending2 = callback2();
       if (pending2) void pending2.catch((error) => announceCallbackError(target2, error));
@@ -253000,7 +253303,7 @@ ${spelling}`);
     en.textContent = value.en;
     return [ja, en];
   }
-  function actionButton$3(label, action2, signal) {
+  function actionButton$4(label, action2, signal) {
     const button2 = element("button", "academy-button academy-button-primary academy-activity-chapter-next");
     button2.type = "button";
     button2.textContent = label;
@@ -253017,7 +253320,7 @@ ${spelling}`);
       back.addEventListener("click", actions.back, { signal });
       root.append(back);
     }
-    if (actions.next) root.append(actionButton$3(actions.nextLabel ?? (language === "ja" ? "次へ" : "Continue"), actions.next, signal));
+    if (actions.next) root.append(actionButton$4(actions.nextLabel ?? (language === "ja" ? "次へ" : "Continue"), actions.next, signal));
     return root;
   }
   function renderLoadingScreen(language, _online) {
@@ -253103,7 +253406,7 @@ ${spelling}`);
       }]
     };
   }
-  const COPY$1 = {
+  const COPY$2 = {
     session: { en: "Classroom language", ja: "教室のことば" },
     guide: {
       en: "Read the moment, then answer Rie in Japanese. You can leave and resume at any time.",
@@ -253152,7 +253455,7 @@ ${spelling}`);
     const guideCopy = element("div", "academy-classroom-expression-guide-copy");
     const guideName = element("strong", "academy-classroom-expression-guide-name");
     guideName.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    const guideLine = localizedParagraph$1(COPY$1.guide, options.language, "academy-classroom-expression-guide-line");
+    const guideLine = localizedParagraph$1(COPY$2.guide, options.language, "academy-classroom-expression-guide-line");
     guideCopy.append(guideName, guideLine);
     guide.append(guidePortrait, guideCopy);
     const workspace = element("main", "academy-classroom-expression-workspace");
@@ -253165,7 +253468,7 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const headingGroup = element("div", "academy-classroom-expression-heading-group");
     const eyebrow = element("p", "academy-classroom-expression-eyebrow");
-    eyebrow.textContent = COPY$1.session[options.language];
+    eyebrow.textContent = COPY$2.session[options.language];
     const title2 = element("h1", "academy-classroom-expression-title");
     title2.tabIndex = -1;
     headingGroup.append(eyebrow, title2);
@@ -253235,11 +253538,11 @@ ${spelling}`);
     const renderPrompt2 = (view, signal) => {
       const teaching2 = element("section", "academy-classroom-expression-teaching");
       const teachingLabel = element("h2", "academy-classroom-expression-section-label");
-      teachingLabel.textContent = COPY$1.before[options.language];
+      teachingLabel.textContent = COPY$2.before[options.language];
       const explanation2 = bilingual(view.preAssessmentTeaching.explanation, "academy-classroom-expression-explanation");
       const example = element("div", "academy-classroom-expression-example");
       const exampleLabel = element("strong", "academy-classroom-expression-example-label");
-      exampleLabel.textContent = COPY$1.example[options.language];
+      exampleLabel.textContent = COPY$2.example[options.language];
       const context2 = bilingual(view.preAssessmentTeaching.workedExample.context, "academy-classroom-expression-example-context");
       const japanese2 = element("p", "academy-classroom-expression-example-japanese");
       japanese2.lang = "ja";
@@ -253249,14 +253552,14 @@ ${spelling}`);
       const meaning = bilingual(view.preAssessmentTeaching.workedExample.meaning, "academy-classroom-expression-example-meaning");
       const hear = element("button", "academy-button academy-classroom-expression-hear");
       hear.type = "button";
-      hear.textContent = `▶ ${COPY$1.hear[options.language]}`;
+      hear.textContent = `▶ ${COPY$2.hear[options.language]}`;
       const audioError = element("p", "academy-classroom-expression-audio-error");
       audioError.setAttribute("role", "alert");
       hear.addEventListener("click", () => {
         playback?.dispose();
         playback = null;
         hear.disabled = true;
-        hear.textContent = COPY$1.hearing[options.language];
+        hear.textContent = COPY$2.hearing[options.language];
         audioError.textContent = "";
         void options.pronunciation.play(
           view.preAssessmentTeaching.workedExample.japanese,
@@ -253265,11 +253568,11 @@ ${spelling}`);
           if (disposed) active.dispose();
           else playback = active;
         }).catch(() => {
-          if (!disposed) audioError.textContent = COPY$1.audioError[options.language];
+          if (!disposed) audioError.textContent = COPY$2.audioError[options.language];
         }).finally(() => {
           if (!disposed) {
             hear.disabled = false;
-            hear.textContent = `▶ ${COPY$1.hear[options.language]}`;
+            hear.textContent = `▶ ${COPY$2.hear[options.language]}`;
           }
         });
       }, { signal });
@@ -253277,7 +253580,7 @@ ${spelling}`);
       teaching2.append(teachingLabel, explanation2, example);
       const turn2 = element("section", "academy-classroom-expression-turn");
       const turnLabel = element("h2", "academy-classroom-expression-section-label");
-      turnLabel.textContent = COPY$1.yourTurn[options.language];
+      turnLabel.textContent = COPY$2.yourTurn[options.language];
       const prompt2 = bilingual(view.prompt, "academy-classroom-expression-prompt");
       const form2 = element("form", "academy-classroom-expression-form");
       const label = element("label", "academy-classroom-expression-input-label");
@@ -253289,12 +253592,12 @@ ${spelling}`);
       input2.lang = "ja";
       input2.autocomplete = "off";
       input2.spellcheck = false;
-      input2.placeholder = COPY$1.placeholder[options.language];
+      input2.placeholder = COPY$2.placeholder[options.language];
       input2.required = true;
       input2.dataset.jpdbReaderSurfaceIgnore = "";
       const submit2 = element("button", "academy-button academy-button-primary academy-classroom-expression-submit");
       submit2.type = "submit";
-      submit2.textContent = COPY$1.submit[options.language];
+      submit2.textContent = COPY$2.submit[options.language];
       const error = element("p", "academy-classroom-expression-error");
       error.setAttribute("role", "alert");
       form2.append(label, input2, submit2, error);
@@ -253322,7 +253625,7 @@ ${spelling}`);
       if (repair.modelAnswer) {
         const model2 = element("p", "academy-classroom-expression-model");
         const label = element("span", "academy-classroom-expression-model-label");
-        label.textContent = COPY$1.model[options.language];
+        label.textContent = COPY$2.model[options.language];
         const answer2 = element("strong", "academy-classroom-expression-model-answer");
         answer2.lang = "ja";
         answer2.textContent = repair.modelAnswer;
@@ -253331,7 +253634,7 @@ ${spelling}`);
       } else {
         const reveal = element("button", "academy-button academy-button-secondary academy-classroom-expression-reveal");
         reveal.type = "button";
-        reveal.textContent = COPY$1.reveal[options.language];
+        reveal.textContent = COPY$2.reveal[options.language];
         reveal.addEventListener("click", () => void dispatch({ kind: "reveal-model" }), { signal });
         panel.append(reveal);
       }
@@ -253345,7 +253648,7 @@ ${spelling}`);
       mark.textContent = "✓";
       mark.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-result-title");
-      heading.textContent = COPY$1.pass[options.language];
+      heading.textContent = COPY$2.pass[options.language];
       const answer2 = element("p", "academy-classroom-expression-result-answer");
       answer2.lang = "ja";
       answer2.dataset.yomuRuntimeSurface = "academy-classroom-expression-result";
@@ -253355,13 +253658,13 @@ ${spelling}`);
       if (notice.activityCompleted) {
         const done = element("button", "academy-button academy-button-primary");
         done.type = "button";
-        done.textContent = COPY$1.return[options.language];
-        done.addEventListener("click", () => void notify$1(options.onBack), { signal });
+        done.textContent = COPY$2.return[options.language];
+        done.addEventListener("click", () => void notify$2(options.onBack), { signal });
         actions.append(done);
       } else {
         const next = element("button", "academy-button academy-button-primary");
         next.type = "button";
-        next.textContent = COPY$1.next[options.language];
+        next.textContent = COPY$2.next[options.language];
         next.addEventListener("click", () => {
           passNotice = null;
           render2();
@@ -253379,16 +253682,16 @@ ${spelling}`);
       seal.lang = "ja";
       seal.setAttribute("aria-hidden", "true");
       const heading = element("h2", "academy-classroom-expression-complete-title");
-      heading.textContent = COPY$1.complete[options.language];
-      const copy2 = localizedParagraph$1(COPY$1.completeBody, options.language, "academy-classroom-expression-complete-copy");
+      heading.textContent = COPY$2.complete[options.language];
+      const copy2 = localizedParagraph$1(COPY$2.completeBody, options.language, "academy-classroom-expression-complete-copy");
       const actions = element("div", "academy-classroom-expression-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
-      done.textContent = COPY$1.return[options.language];
-      done.addEventListener("click", () => void notify$1(options.onBack), { signal });
+      done.textContent = COPY$2.return[options.language];
+      done.addEventListener("click", () => void notify$2(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY$1.practiceAgain[options.language];
+      again.textContent = COPY$2.practiceAgain[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       root.append(seal, heading, copy2, actions);
@@ -253399,7 +253702,7 @@ ${spelling}`);
       const footer = element("footer", "academy-classroom-expression-footer");
       const pause = element("button", "academy-button academy-classroom-expression-pause");
       pause.type = "button";
-      pause.textContent = COPY$1.pause[options.language];
+      pause.textContent = COPY$2.pause[options.language];
       pause.addEventListener("click", () => void pauseAndLeave(), { signal });
       footer.append(pause);
       return footer;
@@ -253423,7 +253726,7 @@ ${spelling}`);
         }
         render2();
       } catch {
-        error.textContent = COPY$1.saveError[options.language];
+        error.textContent = COPY$2.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -253441,7 +253744,7 @@ ${spelling}`);
         passNotice = null;
         render2();
       } catch {
-        live.textContent = COPY$1.saveError[options.language];
+        live.textContent = COPY$2.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -253455,7 +253758,7 @@ ${spelling}`);
         await options.onTransition(before, paused);
         state = paused.state;
       }
-      await notify$1(options.onBack);
+      await notify$2(options.onBack);
     };
     const restart = async () => {
       if (busy) return;
@@ -253516,10 +253819,10 @@ ${spelling}`);
   function safeId(value) {
     return value.replace(/[^a-z0-9_-]+/giu, "-");
   }
-  async function notify$1(callback2) {
+  async function notify$2(callback2) {
     await callback2();
   }
-  const COPY = {
+  const COPY$1 = {
     eyebrow: { en: "Listening rehearsal", ja: "聞いて動く練習" },
     title: { en: "Make the classroom respond", ja: "教室を動かそう" },
     ready: {
@@ -253571,9 +253874,9 @@ ${spelling}`);
     back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
     const heading = element("div", "academy-classroom-instruction-heading");
     const eyebrow = element("p", "academy-classroom-instruction-eyebrow");
-    eyebrow.textContent = COPY.eyebrow[options.language];
+    eyebrow.textContent = COPY$1.eyebrow[options.language];
     const title2 = element("h1", "academy-classroom-instruction-title");
-    title2.textContent = COPY.title[options.language];
+    title2.textContent = COPY$1.title[options.language];
     heading.append(eyebrow, title2);
     const progress2 = element("p", "academy-classroom-instruction-progress");
     progress2.setAttribute("role", "status");
@@ -253609,17 +253912,17 @@ ${spelling}`);
     };
     const renderReady = (signal) => {
       const intro = element("section", "academy-classroom-instruction-intro");
-      const portrait = riePortrait("academy-classroom-instruction-intro-portrait");
+      const portrait = riePortrait$1("academy-classroom-instruction-intro-portrait");
       const copy2 = element("div", "academy-classroom-instruction-intro-copy");
-      const line2 = localizedParagraph(COPY.ready, options.language, "academy-classroom-instruction-intro-line");
+      const line2 = localizedParagraph(COPY$1.ready, options.language, "academy-classroom-instruction-intro-line");
       const patterns = element("div", "academy-classroom-instruction-patterns");
       patterns.append(
-        patternStrip("皆", COPY.sharedPattern, options.language),
-        patternStrip("手", COPY.requestPattern, options.language)
+        patternStrip("皆", COPY$1.sharedPattern, options.language),
+        patternStrip("手", COPY$1.requestPattern, options.language)
       );
       const start = element("button", "academy-button academy-button-primary academy-classroom-instruction-start");
       start.type = "button";
-      start.textContent = COPY.start[options.language];
+      start.textContent = COPY$1.start[options.language];
       start.addEventListener("click", () => void begin(), { signal });
       copy2.append(line2, patterns, start);
       intro.append(portrait, copy2);
@@ -253636,14 +253939,14 @@ ${spelling}`);
     };
     const riePrompt = (signal) => {
       const prompt2 = element("section", "academy-classroom-instruction-prompt");
-      const portrait = riePortrait("academy-classroom-instruction-prompt-portrait");
+      const portrait = riePortrait$1("academy-classroom-instruction-prompt-portrait");
       const dialogue2 = element("div", "academy-classroom-instruction-dialogue");
       const name = element("strong", "academy-classroom-instruction-name");
       name.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-      const line2 = localizedParagraph(COPY.listen, options.language, "academy-classroom-instruction-line");
+      const line2 = localizedParagraph(COPY$1.listen, options.language, "academy-classroom-instruction-line");
       const replay2 = element("button", "academy-button academy-classroom-instruction-replay");
       replay2.type = "button";
-      replay2.textContent = `▶ ${COPY.replay[options.language]}`;
+      replay2.textContent = `▶ ${COPY$1.replay[options.language]}`;
       replay2.addEventListener("click", () => void playCurrent(replay2), { signal });
       dialogue2.append(name, line2, replay2);
       prompt2.append(portrait, dialogue2);
@@ -253671,7 +253974,7 @@ ${spelling}`);
     const actionRail = (cue, signal) => {
       const rail = element("div", "academy-classroom-instruction-actions");
       rail.setAttribute("role", "group");
-      rail.setAttribute("aria-label", COPY.actions[options.language]);
+      rail.setAttribute("aria-label", COPY$1.actions[options.language]);
       for (const action2 of CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS) {
         const button2 = element("button", "academy-classroom-instruction-action");
         button2.type = "button";
@@ -253694,14 +253997,14 @@ ${spelling}`);
       root.append(roomStage(result2.chosen.actionId));
       const paper = element("div", "academy-classroom-instruction-feedback-paper");
       const heading2 = element("h2", "academy-classroom-instruction-feedback-title");
-      heading2.textContent = (result2.outcome === "pass" ? COPY.correct : COPY.incorrect)[options.language];
+      heading2.textContent = (result2.outcome === "pass" ? COPY$1.correct : COPY$1.incorrect)[options.language];
       const reaction = localizedParagraph(
         result2.chosen.roomReaction,
         options.language,
         "academy-classroom-instruction-reaction"
       );
       const heardLabel = element("span", "academy-classroom-instruction-heard-label");
-      heardLabel.textContent = COPY.heard[options.language];
+      heardLabel.textContent = COPY$1.heard[options.language];
       const japanese2 = element("p", "academy-classroom-instruction-heard-japanese");
       japanese2.lang = "ja";
       japanese2.dataset.yomuRuntimeSurface = "academy-classroom-instruction-feedback";
@@ -253715,10 +254018,10 @@ ${spelling}`);
       const action2 = element("button", "academy-button academy-button-primary academy-classroom-instruction-continue");
       action2.type = "button";
       if (result2.outcome === "lapse") {
-        action2.textContent = COPY.retry[options.language];
+        action2.textContent = COPY$1.retry[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndPlay(), { signal });
       } else {
-        action2.textContent = (state.status === "complete" ? COPY.finish : COPY.next)[options.language];
+        action2.textContent = (state.status === "complete" ? COPY$1.finish : COPY$1.next)[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndContinue(), { signal });
       }
       paper.append(heading2, reaction, heardLabel, japanese2, meaning, action2);
@@ -253728,23 +254031,23 @@ ${spelling}`);
     };
     const renderComplete = (signal) => {
       const root = element("section", "academy-classroom-instruction-complete");
-      const portrait = riePortrait("academy-classroom-instruction-complete-portrait");
+      const portrait = riePortrait$1("academy-classroom-instruction-complete-portrait");
       const copy2 = element("div", "academy-classroom-instruction-complete-copy");
       const seal = element("span", "academy-classroom-instruction-complete-seal");
       seal.lang = "ja";
       seal.textContent = "聴";
       seal.setAttribute("aria-hidden", "true");
       const heading2 = element("h2", "academy-classroom-instruction-complete-title");
-      heading2.textContent = COPY.complete[options.language];
-      const line2 = localizedParagraph(COPY.completeBody, options.language, "academy-classroom-instruction-complete-line");
+      heading2.textContent = COPY$1.complete[options.language];
+      const line2 = localizedParagraph(COPY$1.completeBody, options.language, "academy-classroom-instruction-complete-line");
       const actions = element("div", "academy-classroom-instruction-complete-actions");
       const done = element("button", "academy-button academy-button-primary");
       done.type = "button";
-      done.textContent = COPY.return[options.language];
-      done.addEventListener("click", () => void notify(options.onBack), { signal });
+      done.textContent = COPY$1.return[options.language];
+      done.addEventListener("click", () => void notify$1(options.onBack), { signal });
       const again = element("button", "academy-button academy-button-secondary");
       again.type = "button";
-      again.textContent = COPY.again[options.language];
+      again.textContent = COPY$1.again[options.language];
       again.addEventListener("click", () => void restart(), { signal });
       actions.append(done, again);
       copy2.append(seal, heading2, line2, actions);
@@ -253756,7 +254059,7 @@ ${spelling}`);
       const footer = element("footer", "academy-classroom-instruction-footer");
       const pause = element("button", "academy-button academy-classroom-instruction-pause");
       pause.type = "button";
-      pause.textContent = COPY.pause[options.language];
+      pause.textContent = COPY$1.pause[options.language];
       pause.addEventListener("click", () => void pauseAndLeave(), { signal });
       footer.append(pause);
       return footer;
@@ -253777,7 +254080,7 @@ ${spelling}`);
         render2();
         await playCurrent();
       } catch {
-        live.textContent = COPY.saveError[options.language];
+        live.textContent = COPY$1.saveError[options.language];
       } finally {
         busy = false;
       }
@@ -253800,7 +254103,7 @@ ${spelling}`);
         feedback2 = { cue, chosen: action2, outcome: transition.evaluation.result.outcome };
         render2();
       } catch {
-        live.textContent = COPY.saveError[options.language];
+        live.textContent = COPY$1.saveError[options.language];
       } finally {
         busy = false;
         screen.removeAttribute("aria-busy");
@@ -253813,18 +254116,18 @@ ${spelling}`);
       playback = null;
       if (control2) {
         control2.disabled = true;
-        control2.textContent = COPY.playing[options.language];
+        control2.textContent = COPY$1.playing[options.language];
       }
       try {
         const active = await options.pronunciation.play(cue.japanese, cue.reading);
         if (disposed) active.dispose();
         else playback = active;
       } catch {
-        if (!disposed) live.textContent = COPY.audioError[options.language];
+        if (!disposed) live.textContent = COPY$1.audioError[options.language];
       } finally {
         if (control2 && !disposed) {
           control2.disabled = false;
-          control2.textContent = `▶ ${COPY.replay[options.language]}`;
+          control2.textContent = `▶ ${COPY$1.replay[options.language]}`;
         }
       }
     };
@@ -253851,7 +254154,7 @@ ${spelling}`);
         await options.onTransition(before, transition);
         state = transition.state;
       }
-      await notify(options.onBack);
+      await notify$1(options.onBack);
     };
     const restart = async () => {
       if (busy) return;
@@ -253879,7 +254182,7 @@ ${spelling}`);
       }
     };
   }
-  function riePortrait(className) {
+  function riePortrait$1(className) {
     const portrait = element("img", className);
     portrait.src = ACADEMY_ASSETS.rie;
     portrait.alt = "";
@@ -253906,6 +254209,723 @@ ${spelling}`);
       paragraph.dataset.jpdbReaderSurfaceIgnore = "";
     }
     return paragraph;
+  }
+  async function notify$1(callback2) {
+    await callback2();
+  }
+  const DEFAULT_MAX_DURATION_MS = 12e3;
+  function createPrivatePracticeRecorder(options = {}) {
+    const mediaDevices = options.mediaDevices ?? globalThis.navigator?.mediaDevices;
+    const Recorder = options.MediaRecorder ?? globalThis.MediaRecorder;
+    const now = options.now ?? Date.now;
+    const createObjectURL = options.createObjectURL ?? ((blob) => URL.createObjectURL(blob));
+    const revokeObjectURL = options.revokeObjectURL ?? ((url) => URL.revokeObjectURL(url));
+    const maxDurationMs = options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS;
+    const recordings = /* @__PURE__ */ new Set();
+    let active = null;
+    let disposed = false;
+    const supported = Boolean(mediaDevices) && typeof mediaDevices?.getUserMedia === "function" && typeof Recorder === "function" && maxDurationMs > 0;
+    return {
+      supported,
+      async start() {
+        if (!supported || !mediaDevices || !Recorder) {
+          throw new DOMException("Private recording is not available in this browser.", "NotSupportedError");
+        }
+        if (disposed) throw new DOMException("Recorder has been disposed.", "InvalidStateError");
+        active?.cancel();
+        const stream = await mediaDevices.getUserMedia({ audio: true });
+        if (disposed) {
+          stopTracks(stream);
+          throw new DOMException("Recorder has been disposed.", "AbortError");
+        }
+        const chunks2 = [];
+        const startedAt = now();
+        const recorder = createMediaRecorder(Recorder, stream);
+        let cancelled = false;
+        let settled = false;
+        let timeout;
+        let resolveCompletion = () => void 0;
+        const completion = new Promise((resolve) => {
+          resolveCompletion = resolve;
+        });
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (timeout !== void 0) globalThis.clearTimeout(timeout);
+          stopTracks(stream);
+          if (active === capture) active = null;
+          if (cancelled || chunks2.length === 0) {
+            resolveCompletion(null);
+            return;
+          }
+          const blob = new Blob(chunks2, { type: recorder.mimeType || chunks2[0]?.type || "audio/webm" });
+          const url = createObjectURL(blob);
+          let released = false;
+          const recording = {
+            url,
+            mimeType: blob.type,
+            durationMs: Math.max(0, now() - startedAt),
+            dispose() {
+              if (released) return;
+              released = true;
+              recordings.delete(recording);
+              revokeObjectURL(url);
+            }
+          };
+          recordings.add(recording);
+          resolveCompletion(recording);
+        };
+        const capture = {
+          completion,
+          stop() {
+            if (recorder.state !== "inactive") recorder.stop();
+          },
+          cancel() {
+            cancelled = true;
+            if (recorder.state !== "inactive") recorder.stop();
+            else finish();
+          }
+        };
+        recorder.addEventListener("dataavailable", (event) => {
+          const data = event.data;
+          if (!cancelled && data.size > 0) chunks2.push(data);
+        });
+        recorder.addEventListener("stop", finish, { once: true });
+        recorder.addEventListener("error", () => {
+          cancelled = true;
+          finish();
+        }, { once: true });
+        active = capture;
+        recorder.start();
+        timeout = globalThis.setTimeout(() => capture.stop(), maxDurationMs);
+        return capture;
+      },
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        active?.cancel();
+        active = null;
+        for (const recording of [...recordings]) recording.dispose();
+      }
+    };
+  }
+  function createMediaRecorder(Recorder, stream) {
+    try {
+      return new Recorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    } catch {
+      return new Recorder(stream);
+    }
+  }
+  function stopTracks(stream) {
+    for (const track2 of stream.getTracks()) track2.stop();
+  }
+  const COPY = {
+    eyebrow: { en: "Your first hello", ja: "最初のあいさつ" },
+    title: { en: "Step into the room", ja: "教室に入ろう" },
+    progressReady: { en: "Meet Rie", ja: "りえ先生に会う" },
+    progressArrange: { en: "Build the greeting", ja: "あいさつを作る" },
+    progressRehearse: { en: "Say it your way", ja: "自分の方法で言う" },
+    progressComplete: { en: "You are in", ja: "教室に入れました" },
+    welcome: {
+      en: "You're here. Good. Before we open anything, let's give the room one small hello.",
+      ja: "来ましたね。では、何かを開く前に、教室へ短いあいさつをしましょう。"
+    },
+    reason: {
+      en: "Four pieces are enough to enter a classroom, meet someone, and give your name.",
+      ja: "四つのことばで、教室に入り、初めて会う人へ名前を伝えられます。"
+    },
+    hearRie: { en: "Hear Rie", ja: "りえ先生を聞く" },
+    playing: { en: "Rie is speaking…", ja: "りえ先生が話しています…" },
+    begin: { en: "Build my greeting", ja: "あいさつを作る" },
+    arrangeTitle: { en: "Put Rie’s four pieces in order", ja: "りえ先生の四つのことばを順番に並べよう" },
+    arrangeBody: {
+      en: "Tap each paper strip in the order you would say it. Tap a chosen strip to put it back.",
+      ja: "言う順番に紙を選んでください。選んだ紙を押すと、元に戻せます。"
+    },
+    yourGreeting: { en: "Your greeting", ja: "あなたのあいさつ" },
+    phraseDesk: { en: "Phrase desk", ja: "ことばの机" },
+    emptySequence: { en: "Choose the first phrase.", ja: "最初のことばを選んでください。" },
+    checkOrder: { en: "Check the order", ja: "順番を確かめる" },
+    orderWrong: {
+      en: "Almost. Evening first, then the first-meeting hello, your name, and the polite close.",
+      ja: "もう少しです。夜のあいさつ、初対面のあいさつ、名前、丁寧な結びの順です。"
+    },
+    orderRight: { en: "That is the shape of it.", ja: "その順番です。" },
+    rehearseLine: {
+      en: "Now let the paper go. Say the whole greeting to me.",
+      ja: "では、紙を見ないで、あいさつを全部言ってみてください。"
+    },
+    chooseWay: { en: "Choose how you want to rehearse", ja: "練習の方法を選ぶ" },
+    record: { en: "Record privately", ja: "端末だけで録音する" },
+    recordDetail: { en: "Record, listen back, then check your own turn.", ja: "録音して聞き、自分のあいさつを確かめます。" },
+    speak: { en: "Speak without recording", ja: "録音せずに話す" },
+    speakDetail: { en: "Say it aloud, then check the two parts that matter.", ja: "声に出してから、大事な二点を確かめます。" },
+    type: { en: "Use the keyboard", ja: "キーボードを使う" },
+    typeDetail: { en: "Build the same greeting in text.", ja: "同じあいさつを文字で作ります。" },
+    privacy: {
+      en: "This take stays on this device and disappears when you leave.",
+      ja: "録音はこの端末だけに残り、画面を離れると消えます。"
+    },
+    startRecording: { en: "Start recording", ja: "録音を始める" },
+    stopRecording: { en: "Stop recording", ja: "録音を止める" },
+    recording: { en: "Recording… Say all four pieces.", ja: "録音中です。四つ全部を言ってください。" },
+    recorded: { en: "Listen to your take", ja: "自分の録音を聞く" },
+    anotherTake: { en: "Make another take", ja: "もう一度録音する" },
+    recorderUnavailable: {
+      en: "Private recording is unavailable here. You can still speak aloud or use the keyboard.",
+      ja: "この環境では録音できません。声に出すか、キーボードを使えます。"
+    },
+    saidIt: { en: "I said the whole greeting", ja: "あいさつを全部言いました" },
+    selfCheckTitle: { en: "Check what reached Rie", ja: "りえ先生に伝わったことを確かめる" },
+    checkOrderLabel: { en: "I used all four pieces in order.", ja: "四つのことばを順番どおりに言いました。" },
+    checkNameLabel: { en: "My name was clear before です.", ja: "「です」の前に名前をはっきり言いました。" },
+    commitCheck: { en: "Commit my greeting", ja: "あいさつを決める" },
+    typeLabel: { en: "Write the greeting you would say", ja: "言うあいさつを書いてください" },
+    typePlaceholder: { en: "こんばんは。…", ja: "こんばんは。…" },
+    submitTyped: { en: "Send it to Rie", ja: "りえ先生に送る" },
+    switchMode: { en: "Choose another way", ja: "別の方法を選ぶ" },
+    repairTitle: { en: "Keep the turn. Fix one piece.", ja: "もう一度、一か所だけ直そう" },
+    repairBody: {
+      en: "Rie leaves the full line beside you. Read it once, then try the whole greeting again.",
+      ja: "りえ先生が全文を置いてくれました。一度読んでから、もう一度全部言いましょう。"
+    },
+    modelLabel: { en: "Rie’s model", ja: "りえ先生の見本" },
+    saveError: { en: "That turn did not save. Please try once more.", ja: "保存できませんでした。もう一度お試しください。" },
+    audioError: { en: "Rie’s line did not play. Try once more.", ja: "音声を再生できませんでした。もう一度お試しください。" },
+    completeLine: {
+      en: "Good evening. You gave the room your name. Now you belong in the lesson.",
+      ja: "こんばんは。教室に名前が届きました。これで授業を始められます。"
+    },
+    reviewTitle: { en: "Four small memories are waiting for review", ja: "四つのことばが復習に入りました" },
+    return: { en: "Enter the lesson", ja: "授業に入る" },
+    again: { en: "Greet Rie again", ja: "もう一度りえ先生にあいさつする" }
+  };
+  const SCRAMBLED_CHUNK_ORDER = [
+    "closing",
+    "name",
+    "evening",
+    "first-meeting"
+  ];
+  function createLessonZeroGreetingScreen(options) {
+    const lifecycle = new AbortController();
+    let renderLifecycle = new AbortController();
+    const recorder = options.recorder ?? createPrivatePracticeRecorder();
+    let state = options.initialState;
+    let playback = null;
+    let capture = null;
+    let recording = null;
+    let arrangementMessage = null;
+    let selfCheckOpen = false;
+    let recorderMessage = "";
+    let busy = false;
+    let disposed = false;
+    const screen = element("section", "academy-screen academy-greeting-screen");
+    screen.dataset.academyScreen = "lesson-zero-greeting";
+    screen.dataset.activityId = options.definition.activityId;
+    screen.append(academyBackgroundPicture("classroom"));
+    const shell = element("div", "academy-greeting-shell");
+    const header = element("header", "academy-greeting-header");
+    const back = backButton(options.language);
+    back.classList.add("academy-greeting-back");
+    back.textContent = "←";
+    back.title = back.getAttribute("aria-label") ?? "";
+    back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
+    const heading = element("div", "academy-greeting-heading");
+    heading.append(
+      localized("p", "academy-greeting-eyebrow", COPY.eyebrow, options.language),
+      localized("h1", "academy-greeting-title", COPY.title, options.language)
+    );
+    const progress2 = element("p", "academy-greeting-progress");
+    progress2.setAttribute("role", "status");
+    progress2.setAttribute("aria-live", "polite");
+    header.append(back, heading, progress2);
+    const body = element("main", "academy-greeting-body");
+    const live = element("p", "academy-greeting-live");
+    live.setAttribute("role", "status");
+    live.setAttribute("aria-live", "polite");
+    shell.append(header, body, live);
+    screen.append(shell);
+    const render2 = () => {
+      renderLifecycle.abort();
+      renderLifecycle = new AbortController();
+      const signal = renderLifecycle.signal;
+      body.replaceChildren();
+      live.textContent = recorderMessage;
+      screen.dataset.sessionStatus = state.status;
+      screen.dataset.sessionStage = state.stage;
+      progress2.textContent = progressCopy(state)[options.language];
+      if (state.status === "ready") {
+        renderWelcome(signal);
+      } else if (state.status === "complete") {
+        renderComplete(signal);
+      } else if (state.stage === "arrange") {
+        renderArrange(signal);
+      } else {
+        renderRehearse(signal);
+      }
+    };
+    const renderWelcome = (signal) => {
+      const scene2 = element("section", "academy-greeting-welcome");
+      const portrait = riePortrait("academy-greeting-welcome-portrait");
+      const paper = livingPaper("academy-greeting-welcome-paper");
+      paper.append(
+        speakerName(options.language),
+        localized("p", "academy-greeting-dialogue", COPY.welcome, options.language),
+        localized("p", "academy-greeting-reason", COPY.reason, options.language)
+      );
+      const actions = element("div", "academy-greeting-actions");
+      actions.append(modelAudioButton(signal), actionButton$3(COPY.begin, "primary", signal, () => apply({ kind: "start" }), options.language));
+      paper.append(actions);
+      scene2.append(portrait, paper);
+      body.append(scene2);
+    };
+    const renderArrange = (signal) => {
+      const root = element("section", "academy-greeting-arrange");
+      const paper = livingPaper("academy-greeting-arrange-paper");
+      paper.append(
+        localized("h2", "academy-greeting-section-title", COPY.arrangeTitle, options.language),
+        localized("p", "academy-greeting-section-copy", COPY.arrangeBody, options.language)
+      );
+      const selected2 = element("section", "academy-greeting-sequence");
+      selected2.setAttribute("aria-label", COPY.yourGreeting[options.language]);
+      selected2.append(localized("h3", "academy-greeting-small-title", COPY.yourGreeting, options.language));
+      const selectedRail = element("div", "academy-greeting-selected-rail");
+      if (state.selectedChunkIds.length === 0) {
+        selectedRail.append(localized("p", "academy-greeting-empty", COPY.emptySequence, options.language));
+      } else {
+        state.selectedChunkIds.forEach((id2, index) => {
+          const chunk2 = findChunk(id2);
+          const button2 = phraseStrip(chunk2, options.language, true);
+          button2.dataset.selectedPosition = String(index + 1);
+          button2.addEventListener("click", () => void chooseChunk("remove-chunk", chunk2.id), { signal });
+          selectedRail.append(button2);
+        });
+      }
+      selected2.append(selectedRail);
+      const desk = element("section", "academy-greeting-phrase-desk");
+      desk.setAttribute("aria-label", COPY.phraseDesk[options.language]);
+      desk.append(localized("h3", "academy-greeting-small-title", COPY.phraseDesk, options.language));
+      const bank = element("div", "academy-greeting-phrase-bank");
+      SCRAMBLED_CHUNK_ORDER.forEach((id2) => {
+        if (state.selectedChunkIds.includes(id2)) return;
+        const chunk2 = findChunk(id2);
+        const button2 = phraseStrip(chunk2, options.language, false);
+        button2.addEventListener("click", () => void chooseChunk("select-chunk", chunk2.id), { signal });
+        bank.append(button2);
+      });
+      desk.append(bank);
+      if (arrangementMessage) {
+        const feedback2 = localized(
+          "p",
+          "academy-greeting-arrangement-feedback",
+          arrangementMessage === "right" ? COPY.orderRight : COPY.orderWrong,
+          options.language
+        );
+        feedback2.dataset.outcome = arrangementMessage === "right" ? "pass" : "lapse";
+        feedback2.setAttribute("role", "status");
+        paper.append(selected2, desk, feedback2);
+      } else {
+        paper.append(selected2, desk);
+      }
+      const check2 = actionButton$3(COPY.checkOrder, "primary", signal, checkArrangement, options.language);
+      check2.disabled = state.selectedChunkIds.length !== options.definition.chunks.length;
+      paper.append(check2);
+      root.append(paper, riePortrait("academy-greeting-arrange-portrait"));
+      body.append(root);
+    };
+    const renderRehearse = (signal) => {
+      const root = element("section", "academy-greeting-rehearse");
+      const portrait = riePortrait("academy-greeting-rehearse-portrait");
+      const paper = livingPaper("academy-greeting-rehearse-paper");
+      paper.append(
+        speakerName(options.language),
+        localized("h2", "academy-greeting-section-title", COPY.rehearseLine, options.language)
+      );
+      const lastAttempt = state.attempts.at(-1);
+      if (lastAttempt?.outcome === "lapse") paper.append(repairSheet(signal));
+      if (!state.mode) paper.append(modeChooser(signal));
+      else if (state.mode === "typed") paper.append(typedRehearsal(signal));
+      else if (state.mode === "recorded") paper.append(recordedRehearsal(signal));
+      else paper.append(unrecordedRehearsal(signal));
+      root.append(portrait, paper);
+      body.append(root);
+    };
+    const modeChooser = (signal) => {
+      const chooser = element("fieldset", "academy-greeting-mode-chooser");
+      const legend2 = localized("legend", "academy-greeting-small-title", COPY.chooseWay, options.language);
+      chooser.append(legend2);
+      const modes = [
+        ["recorded", COPY.record, COPY.recordDetail],
+        ["unrecorded", COPY.speak, COPY.speakDetail],
+        ["typed", COPY.type, COPY.typeDetail]
+      ];
+      modes.forEach(([mode, labelCopy, detailCopy]) => {
+        if (mode === "recorded" && !recorder.supported) return;
+        const button2 = element("button", "academy-greeting-mode");
+        button2.type = "button";
+        button2.dataset.mode = mode;
+        const label = localized("strong", "academy-greeting-mode-label", labelCopy, options.language);
+        const detail = localized("span", "academy-greeting-mode-detail", detailCopy, options.language);
+        button2.append(label, detail);
+        button2.addEventListener("click", () => void chooseMode(mode), { signal });
+        chooser.append(button2);
+      });
+      if (!recorder.supported) {
+        chooser.append(localized("p", "academy-greeting-recorder-note", COPY.recorderUnavailable, options.language));
+      }
+      return chooser;
+    };
+    const recordedRehearsal = (signal) => {
+      const root = element("section", "academy-greeting-recording");
+      root.append(localized("p", "academy-greeting-privacy", COPY.privacy, options.language));
+      if (capture) {
+        root.append(
+          localized("p", "academy-greeting-recording-status", COPY.recording, options.language),
+          actionButton$3(COPY.stopRecording, "record", signal, stopRecording, options.language)
+        );
+        return root;
+      }
+      if (!recording) {
+        root.append(actionButton$3(COPY.startRecording, "record", signal, startRecording, options.language));
+        root.append(modeSwitch(signal));
+        return root;
+      }
+      const label = localized("p", "academy-greeting-audio-label", COPY.recorded, options.language);
+      const audio2 = element("audio", "academy-greeting-take");
+      audio2.controls = true;
+      audio2.preload = "metadata";
+      audio2.src = recording.url;
+      const another = actionButton$3(COPY.anotherTake, "secondary", signal, startRecording, options.language);
+      root.append(label, audio2, another, selfCheck(signal), modeSwitch(signal));
+      return root;
+    };
+    const unrecordedRehearsal = (signal) => {
+      const root = element("section", "academy-greeting-unrecorded");
+      root.append(modelAudioButton(signal));
+      if (!selfCheckOpen) root.append(actionButton$3(COPY.saidIt, "primary", signal, () => {
+        selfCheckOpen = true;
+        render2();
+      }, options.language));
+      else root.append(selfCheck(signal));
+      root.append(modeSwitch(signal));
+      return root;
+    };
+    const typedRehearsal = (signal) => {
+      const root = element("form", "academy-greeting-typed");
+      const label = localized("label", "academy-greeting-type-label", COPY.typeLabel, options.language);
+      label.htmlFor = "academy-greeting-response";
+      const input2 = element("textarea", "academy-greeting-type-input");
+      input2.id = "academy-greeting-response";
+      input2.name = "greeting";
+      input2.rows = 4;
+      input2.autocomplete = "off";
+      input2.spellcheck = false;
+      input2.placeholder = COPY.typePlaceholder[options.language];
+      const submit2 = actionButton$3(COPY.submitTyped, "primary", signal, () => void 0, options.language);
+      submit2.type = "submit";
+      root.addEventListener("submit", (event) => {
+        event.preventDefault();
+        void apply({ kind: "submit-typed", response: input2.value });
+      }, { signal });
+      root.append(label, input2, submit2, modeSwitch(signal));
+      queueMicrotask(() => input2.focus({ preventScroll: true }));
+      return root;
+    };
+    const selfCheck = (signal) => {
+      const fieldset = element("fieldset", "academy-greeting-self-check");
+      fieldset.append(localized("legend", "academy-greeting-small-title", COPY.selfCheckTitle, options.language));
+      const order2 = checkRow("greeting-order", COPY.checkOrderLabel, options.language);
+      const name = checkRow("name-intelligible", COPY.checkNameLabel, options.language);
+      const submit2 = actionButton$3(COPY.commitCheck, "primary", signal, () => void apply({
+        kind: "submit-self-check",
+        greetingOrder: order2.input.checked,
+        nameIntelligible: name.input.checked
+      }), options.language);
+      fieldset.append(order2.label, name.label, submit2);
+      return fieldset;
+    };
+    const repairSheet = (signal) => {
+      const repair = element("aside", "academy-greeting-repair");
+      repair.append(
+        localized("h3", "academy-greeting-repair-title", COPY.repairTitle, options.language),
+        localized("p", "academy-greeting-repair-copy", COPY.repairBody, options.language),
+        localized("span", "academy-greeting-model-label", COPY.modelLabel, options.language)
+      );
+      const model2 = element("p", "academy-greeting-model-japanese");
+      model2.lang = "ja";
+      model2.dataset.yomuRuntimeSurface = "lesson-zero-greeting-model";
+      model2.dataset.yomuFuriganaMode = "all";
+      model2.textContent = options.definition.chunks.map((chunk2) => chunk2.japanese).join("");
+      const meaning = element("ol", "academy-greeting-model-meanings");
+      options.definition.chunks.forEach((chunk2) => {
+        const item2 = element("li");
+        item2.textContent = chunk2.meaning[options.language];
+        meaning.append(item2);
+      });
+      repair.append(model2, meaning, modelAudioButton(signal));
+      return repair;
+    };
+    const renderComplete = (signal) => {
+      const root = element("section", "academy-greeting-complete");
+      const portrait = riePortrait("academy-greeting-complete-portrait");
+      const paper = livingPaper("academy-greeting-complete-paper");
+      const seal = element("span", "academy-greeting-seal");
+      seal.lang = "ja";
+      seal.textContent = "縁";
+      seal.setAttribute("aria-hidden", "true");
+      const title2 = element("h2", "academy-greeting-complete-title");
+      title2.textContent = options.language === "ja" ? `${options.definition.learnerName}さん、こんばんは。` : `Good evening, ${options.definition.learnerName}.`;
+      const memories = element("div", "academy-greeting-review-strip");
+      memories.setAttribute("aria-label", COPY.reviewTitle[options.language]);
+      memories.append(localized("h3", "academy-greeting-small-title", COPY.reviewTitle, options.language));
+      options.definition.chunks.forEach((chunk2) => {
+        const phrase = element("span", "academy-greeting-review-phrase");
+        phrase.lang = "ja";
+        phrase.dataset.yomuRuntimeSurface = "lesson-zero-greeting-review";
+        phrase.dataset.yomuFuriganaMode = "all";
+        phrase.textContent = chunk2.japanese;
+        memories.append(phrase);
+      });
+      const actions = element("div", "academy-greeting-actions");
+      actions.append(
+        actionButton$3(COPY.return, "primary", signal, () => notify(options.onComplete), options.language),
+        actionButton$3(COPY.again, "secondary", signal, restart, options.language)
+      );
+      paper.append(seal, title2, localized("p", "academy-greeting-complete-line", COPY.completeLine, options.language), memories, actions);
+      root.append(portrait, paper);
+      body.append(root);
+    };
+    const modelAudioButton = (signal) => {
+      const button2 = actionButton$3(COPY.hearRie, "listen", signal, () => playModel(button2), options.language);
+      button2.dataset.audioTarget = "rie-model";
+      return button2;
+    };
+    const modeSwitch = (signal) => actionButton$3(
+      COPY.switchMode,
+      "quiet",
+      signal,
+      async () => {
+        capture?.cancel();
+        capture = null;
+        recording?.dispose();
+        recording = null;
+        selfCheckOpen = false;
+        await apply({ kind: "clear-mode" });
+      },
+      options.language
+    );
+    const findChunk = (id2) => {
+      const chunk2 = options.definition.chunks.find((candidate2) => candidate2.id === id2);
+      if (!chunk2) throw new TypeError(`Greeting definition is missing ${id2}.`);
+      return chunk2;
+    };
+    const chooseChunk = async (kind, chunkId) => {
+      arrangementMessage = null;
+      await apply({ kind, chunkId });
+    };
+    const checkArrangement = async () => {
+      const before = state;
+      const transition = transitionLessonZeroGreetingSession(
+        options.definition,
+        state,
+        { kind: "check-arrangement" },
+        Date.now()
+      );
+      arrangementMessage = transition.arrangementCorrect ? "right" : "wrong";
+      await persist(before, transition);
+      if (transition.arrangementCorrect) {
+        live.textContent = COPY.orderRight[options.language];
+      } else render2();
+    };
+    const chooseMode = async (mode) => {
+      selfCheckOpen = false;
+      recorderMessage = "";
+      await apply({ kind: "choose-mode", mode });
+    };
+    const startRecording = async () => {
+      if (busy || capture) return;
+      recording?.dispose();
+      recording = null;
+      recorderMessage = "";
+      try {
+        capture = await recorder.start();
+        const active = capture;
+        render2();
+        void active.completion.then((take) => {
+          if (disposed || active !== capture) {
+            take?.dispose();
+            return;
+          }
+          capture = null;
+          recording = take;
+          selfCheckOpen = Boolean(take);
+          render2();
+        });
+      } catch {
+        capture = null;
+        recorderMessage = COPY.recorderUnavailable[options.language];
+        render2();
+      }
+    };
+    const stopRecording = () => capture?.stop();
+    const playModel = async (button2) => {
+      if (busy || disposed) return;
+      playback?.dispose();
+      playback = null;
+      button2.disabled = true;
+      button2.textContent = COPY.playing[options.language];
+      try {
+        const active = await options.pronunciation.play(
+          options.definition.model.japanese,
+          options.definition.model.reading
+        );
+        if (disposed) active.dispose();
+        else playback = active;
+      } catch {
+        live.textContent = COPY.audioError[options.language];
+      } finally {
+        if (!disposed) {
+          button2.disabled = false;
+          button2.textContent = COPY.hearRie[options.language];
+        }
+      }
+    };
+    const apply = async (action2) => {
+      if (busy) return;
+      const before = state;
+      const transition = transitionLessonZeroGreetingSession(options.definition, state, action2, Date.now());
+      await persist(before, transition);
+    };
+    const persist = async (before, transition) => {
+      try {
+        busy = true;
+        screen.setAttribute("aria-busy", "true");
+        await options.onTransition(before, transition);
+        state = transition.state;
+        if (transition.evaluation) {
+          recording?.dispose();
+          recording = null;
+          selfCheckOpen = false;
+        }
+        render2();
+      } catch {
+        live.textContent = COPY.saveError[options.language];
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const pauseAndLeave = async () => {
+      if (busy) return;
+      capture?.cancel();
+      capture = null;
+      if (state.status === "active") {
+        const before = state;
+        const transition = transitionLessonZeroGreetingSession(
+          options.definition,
+          state,
+          { kind: "pause" },
+          Date.now()
+        );
+        await options.onTransition(before, transition);
+        state = transition.state;
+      }
+      await notify(options.onBack);
+    };
+    const restart = async () => {
+      if (busy) return;
+      capture?.cancel();
+      capture = null;
+      recording?.dispose();
+      recording = null;
+      arrangementMessage = null;
+      selfCheckOpen = false;
+      const fresh = startLessonZeroGreetingSession(options.definition);
+      await options.onRestart(fresh);
+      state = fresh;
+      render2();
+    };
+    render2();
+    return {
+      element: screen,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        renderLifecycle.abort();
+        playback?.dispose();
+        playback = null;
+        recorder.dispose();
+        recording = null;
+        capture = null;
+      }
+    };
+  }
+  function progressCopy(state) {
+    if (state.status === "ready") return COPY.progressReady;
+    if (state.status === "complete") return COPY.progressComplete;
+    return state.stage === "arrange" ? COPY.progressArrange : COPY.progressRehearse;
+  }
+  function livingPaper(className) {
+    const paper = element("div", `academy-greeting-paper ${className}`);
+    paper.append(element("span", "academy-greeting-paperclip"));
+    return paper;
+  }
+  function speakerName(language) {
+    const name = element("strong", "academy-greeting-speaker");
+    name.textContent = language === "ja" ? "りえ先生" : "Rie-sensei";
+    return name;
+  }
+  function phraseStrip(chunk2, language, selected2) {
+    const button2 = element("button", "academy-greeting-phrase");
+    button2.type = "button";
+    button2.dataset.selected = String(selected2);
+    const japanese2 = element("span", "academy-greeting-phrase-japanese");
+    japanese2.lang = "ja";
+    japanese2.dataset.yomuRuntimeSurface = "lesson-zero-greeting-instruction";
+    japanese2.dataset.yomuFuriganaMode = "all";
+    japanese2.textContent = chunk2.japanese;
+    const meaning = element("span", "academy-greeting-phrase-meaning");
+    meaning.textContent = chunk2.meaning[language];
+    button2.append(japanese2, meaning);
+    return button2;
+  }
+  function checkRow(id2, copy2, language) {
+    const label = element("label", "academy-greeting-check-row");
+    const input2 = element("input");
+    input2.type = "checkbox";
+    input2.name = id2;
+    const box = element("span", "academy-greeting-check-box");
+    box.setAttribute("aria-hidden", "true");
+    label.append(input2, box, localized("span", "academy-greeting-check-copy", copy2, language));
+    return { label, input: input2 };
+  }
+  function actionButton$3(copy2, variant, signal, action2, language) {
+    const button2 = element("button", `academy-button academy-greeting-action academy-greeting-action-${variant}`);
+    button2.type = "button";
+    button2.textContent = copy2[language];
+    button2.setAttribute("aria-label", copy2[language]);
+    button2.addEventListener("click", () => void action2(), { signal });
+    return button2;
+  }
+  function riePortrait(className) {
+    const portrait = element("img", className);
+    portrait.src = ACADEMY_ASSETS.rie;
+    portrait.alt = "";
+    portrait.setAttribute("aria-hidden", "true");
+    return portrait;
+  }
+  function localized(tag, className, copy2, language) {
+    const node2 = element(tag, className);
+    node2.lang = language;
+    node2.textContent = copy2[language];
+    if (language === "ja") {
+      node2.dataset.yomuRuntimeSurface = "lesson-zero-greeting-copy";
+      node2.dataset.yomuFuriganaMode = "all";
+    } else {
+      node2.dataset.jpdbReaderSurfaceIgnore = "";
+    }
+    return node2;
   }
   async function notify(callback2) {
     await callback2();
@@ -254450,6 +255470,10 @@ ${spelling}`);
         await this.renderClassroomExpressionSession(context2.checkpoint.activityId, context2);
         return;
       }
+      if (context2.checkpoint.activityId === LESSON_ZERO_GREETING_ACTIVITY_ID) {
+        await this.renderLessonZeroGreeting(context2);
+        return;
+      }
       if (context2.checkpoint.activityId === LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID) {
         await this.renderClassroomInstructionSession(context2);
         return;
@@ -254551,6 +255575,75 @@ ${spelling}`);
         },
         onRestart: (restart) => context2.save?.({ classroomExpressionProgress: restart }),
         onBack: () => context2.back()
+      });
+      screen.element.dataset.academyRoute = "source-activity";
+      screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
+      context2.shell.replace(screen.element);
+    }
+    async renderLessonZeroGreeting(context2) {
+      const content = await loadLessonZeroContent();
+      const activity2 = content.lesson.activities.find((candidate2) => candidate2.id === LESSON_ZERO_GREETING_ACTIVITY_ID);
+      if (!activity2) throw new TypeError("Lesson Zero is missing its first greeting activity.");
+      const learnerName = context2.projection.profile?.displayName;
+      if (!learnerName) throw new TypeError("The first greeting requires the learner profile created during arrival.");
+      const definition2 = createLessonZeroGreetingDefinition(activity2, learnerName);
+      let state;
+      try {
+        state = startLessonZeroGreetingSession(definition2, context2.checkpoint.lessonZeroGreetingProgress);
+      } catch {
+        state = startLessonZeroGreetingSession(definition2);
+      }
+      if (state.status === "paused") {
+        state = transitionLessonZeroGreetingSession(
+          definition2,
+          state,
+          { kind: "resume" },
+          Date.now()
+        ).state;
+      }
+      if (JSON.stringify(state) !== JSON.stringify(context2.checkpoint.lessonZeroGreetingProgress)) {
+        await context2.save?.({ lessonZeroGreetingProgress: state });
+      }
+      const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+      const screen = createLessonZeroGreetingScreen({
+        language: context2.language,
+        definition: definition2,
+        initialState: state,
+        pronunciation: this.options.pronunciation,
+        onTransition: async (_before, transition) => {
+          if (transition.evaluation) {
+            this.playFeedbackSfx(transition.evaluation.result.outcome);
+            await this.options.evidence.recordActivity(
+              transition.evaluation,
+              LESSON_ZERO_ID,
+              {
+                id: "lesson-zero-first-greeting",
+                sceneId: "scene:lesson-zero-first-greeting",
+                journalLine: {
+                  lineId: "journal:lesson-zero:first-greeting",
+                  characterId: "rie",
+                  text: {
+                    ja: "りえ先生に、初めて日本語で名前を伝えた。",
+                    en: "I gave Rie-sensei my name in Japanese for the first time."
+                  }
+                }
+              },
+              transition.adaptive
+            );
+          }
+          for (const support2 of transition.supportEvents) {
+            await this.options.evidence.recordSupportUse(
+              support2.activityId,
+              support2.supportKind,
+              support2.choiceId,
+              { eventId: support2.eventId, at: support2.at }
+            );
+          }
+          await context2.save?.({ lessonZeroGreetingProgress: transition.state });
+        },
+        onRestart: (restart) => context2.save?.({ lessonZeroGreetingProgress: restart }),
+        onBack: () => context2.back(),
+        onComplete: () => this.completeSourceActivity(context2, returning)
       });
       screen.element.dataset.academyRoute = "source-activity";
       screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
@@ -254746,6 +255839,7 @@ ${spelling}`);
     }
     return {
       boundActivityIds: /* @__PURE__ */ new Set([
+        LESSON_ZERO_GREETING_ACTIVITY_ID,
         LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
         ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS
       ]),
@@ -260217,7 +261311,7 @@ ${spelling}`);
       const curriculum = element("p", "academy-world-curriculum");
       curriculum.dataset.curriculumSurface = place2.activity.curriculum.surface;
       curriculum.dataset.curriculumState = place2.activity.curriculum.state;
-      curriculum.textContent = options.language === "ja" ? `教材: ${place2.activity.curriculum.label.ja}` : `${place2.activity.curriculum.surface === "moodle" ? "Moodle" : place2.activity.curriculum.surface === "story" ? "Story" : "Textbook"}: ${place2.activity.curriculum.label.en}`;
+      curriculum.textContent = place2.activity.curriculum.label[options.language];
       activity2.append(activitySpeaker, activityLabel, activityDetail, curriculum);
     }
     if (place2.id === "ramen" && place2.practice) activity2.append(renderRamenOrderTicket(options.language, place2.practice));
@@ -265716,8 +266810,8 @@ ${spelling}`);
     if (!reviewCards.length) return [];
     const noteIds = unique$1(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
-    for (const chunk of chunks(noteIds, ANKI_NOTE_INFO_CHUNK_SIZE)) {
-      const notes = await client.invoke("notesInfo", { notes: chunk }).catch(() => []);
+    for (const chunk2 of chunks(noteIds, ANKI_NOTE_INFO_CHUNK_SIZE)) {
+      const notes = await client.invoke("notesInfo", { notes: chunk2 }).catch(() => []);
       notes.forEach((note) => notesById.set(Number(note.noteId), note));
     }
     const cards = [];
@@ -265798,8 +266892,8 @@ ${spelling}`);
   async function loadCardInfoChunksUntil(client, cardChunks, reviewable, target2) {
     const results = [];
     let reviewableCount = 0;
-    for (const chunk of cardChunks) {
-      const infos = await client.invoke("cardsInfo", { cards: chunk }).catch(() => []);
+    for (const chunk2 of cardChunks) {
+      const infos = await client.invoke("cardsInfo", { cards: chunk2 }).catch(() => []);
       for (const info of infos) applyComputedAnkiNextReviews(info);
       results.push(...infos);
       reviewableCount += infos.filter(reviewable).length;
@@ -265844,9 +266938,9 @@ ${spelling}`);
   }
   async function ankiDueFlags(client, candidateCardIds) {
     const flags = /* @__PURE__ */ new Map();
-    for (const chunk of chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE)) {
-      const dueFlags = await client.invoke("areDue", { cards: chunk }).catch(() => []);
-      chunk.forEach((cardId, index) => flags.set(Number(cardId), dueFlags[index] === true));
+    for (const chunk2 of chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE)) {
+      const dueFlags = await client.invoke("areDue", { cards: chunk2 }).catch(() => []);
+      chunk2.forEach((cardId, index) => flags.set(Number(cardId), dueFlags[index] === true));
     }
     return flags;
   }
@@ -269156,9 +270250,9 @@ ${item2.sequence ?? ""}`;
     }
     const bytes = await blobBytes(input2.file);
     const chunkCount = Math.ceil(bytes.length / ARCHIVE_CHUNK_BYTES) || 1;
-    for (let chunk = 0; chunk < chunkCount; chunk++) {
-      const slice = bytes.subarray(chunk * ARCHIVE_CHUNK_BYTES, (chunk + 1) * ARCHIVE_CHUNK_BYTES);
-      await gmStorageSet(archiveChunkKey(identity2, chunk), bytesToBase64(slice));
+    for (let chunk2 = 0; chunk2 < chunkCount; chunk2++) {
+      const slice = bytes.subarray(chunk2 * ARCHIVE_CHUNK_BYTES, (chunk2 + 1) * ARCHIVE_CHUNK_BYTES);
+      await gmStorageSet(archiveChunkKey(identity2, chunk2), bytesToBase64(slice));
     }
     return { title: input2.title, filename: input2.filename, size: bytes.length, chunkCount };
   }
@@ -269167,12 +270261,12 @@ ${item2.sequence ?? ""}`;
     await gmStorageSet(ARCHIVE_INDEX_KEY, update(index));
   }
   async function deleteArchiveChunks(identity2, fromCount, keep) {
-    for (let chunk = keep; chunk < fromCount; chunk++) {
-      await gmStorageDelete(archiveChunkKey(identity2, chunk));
+    for (let chunk2 = keep; chunk2 < fromCount; chunk2++) {
+      await gmStorageDelete(archiveChunkKey(identity2, chunk2));
     }
   }
-  function archiveChunkKey(identity2, chunk) {
-    return `${ARCHIVE_CHUNK_PREFIX}${identity2}:${chunk}`;
+  function archiveChunkKey(identity2, chunk2) {
+    return `${ARCHIVE_CHUNK_PREFIX}${identity2}:${chunk2}`;
   }
   async function blobBytes(blob) {
     if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
@@ -269629,9 +270723,9 @@ ${item2.sequence ?? ""}`;
     }
     const bytes = new Uint8Array(loaded);
     let offset = 0;
-    for (const chunk of chunks2) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
+    for (const chunk2 of chunks2) {
+      bytes.set(chunk2, offset);
+      offset += chunk2.byteLength;
     }
     return new Blob([bytes.buffer.slice(0)], { type });
   }
@@ -270716,9 +271810,9 @@ ${scopedInner}
     }
     const bytes = new Uint8Array(loaded);
     let offset = 0;
-    for (const chunk of chunks2) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
+    for (const chunk2 of chunks2) {
+      bytes.set(chunk2, offset);
+      offset += chunk2.byteLength;
     }
     return bytes;
   }
@@ -272235,9 +273329,9 @@ ${entry2.reading}`;
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
       for (let start = 0; start < entries2.length; start += STORE_WRITE_BATCH_SIZE) {
-        const chunk = entries2.slice(start, start + STORE_WRITE_BATCH_SIZE);
-        await this.addStoreChunk(db, storeName, chunk, put);
-        written += chunk.length;
+        const chunk2 = entries2.slice(start, start + STORE_WRITE_BATCH_SIZE);
+        await this.addStoreChunk(db, storeName, chunk2, put);
+        written += chunk2.length;
         onChunk?.(written, entries2.length);
         await nextTask();
       }
@@ -272585,14 +273679,14 @@ ${entry2.reading}`;
         let lastKey;
         for (; ; ) {
           if (generation2 !== this.termIndexGeneration) return;
-          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
-          if (!chunk.terms.length) break;
+          const chunk2 = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
+          if (!chunk2.terms.length) break;
           if (generation2 !== this.termIndexGeneration) return;
-          await this.addTermSearchIndexChunk(db, chunk.terms);
-          indexedTerms += chunk.terms.length;
+          await this.addTermSearchIndexChunk(db, chunk2.terms);
+          indexedTerms += chunk2.terms.length;
           await nextTask();
-          if (chunk.done) break;
-          lastKey = chunk.lastKey;
+          if (chunk2.done) break;
+          lastKey = chunk2.lastKey;
         }
         log$n.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
@@ -272608,14 +273702,14 @@ ${entry2.reading}`;
         let lastKey;
         for (; ; ) {
           if (generation2 !== this.termIndexGeneration) return;
-          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
-          if (!chunk.terms.length) break;
+          const chunk2 = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
+          if (!chunk2.terms.length) break;
           if (generation2 !== this.termIndexGeneration) return;
-          await this.addTermKanjiIndexChunk(db, chunk.terms);
-          indexedTerms += chunk.terms.length;
+          await this.addTermKanjiIndexChunk(db, chunk2.terms);
+          indexedTerms += chunk2.terms.length;
           await nextTask();
-          if (chunk.done) break;
-          lastKey = chunk.lastKey;
+          if (chunk2.done) break;
+          lastKey = chunk2.lastKey;
         }
         log$n.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
@@ -284765,13 +285859,13 @@ ${key2}`] = { t: now, v: value };
       const result2 = paragraphs.map(() => []);
       if (!paragraphs.length || this.isBackoffActive()) return result2;
       const chunks2 = publicParseChunks(paragraphs);
-      await mapLimited(chunks2, DETAIL_CONCURRENCY, async (chunk) => {
-        const parsed = await this.requestParseText(chunk.text).catch((error) => {
+      await mapLimited(chunks2, DETAIL_CONCURRENCY, async (chunk2) => {
+        const parsed = await this.requestParseText(chunk2.text).catch((error) => {
           this.noteFailure(error);
-          logPublicJitenFailure("Jiten public parse", { length: chunk.text.length }, error);
+          logPublicJitenFailure("Jiten public parse", { length: chunk2.text.length }, error);
           return [];
         });
-        applyPublicParseChunk(result2, chunk, parsed, paragraphs);
+        applyPublicParseChunk(result2, chunk2, parsed, paragraphs);
       });
       await this.hydrateParsedTokens(result2, options.detailLimit ?? PARSE_DETAIL_LIMIT);
       return result2;
@@ -284857,8 +285951,8 @@ ${key2}`] = { t: now, v: value };
     }
     async parseTerms(terms) {
       const chunks2 = chunkTermsForParse(terms);
-      const groups = await mapLimited(chunks2, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        logPublicJitenFailure("Jiten parse", { terms: chunk.length }, error);
+      const groups = await mapLimited(chunks2, DETAIL_CONCURRENCY, (chunk2) => this.requestParse(chunk2).catch((error) => {
+        logPublicJitenFailure("Jiten parse", { terms: chunk2.length }, error);
         return [];
       }));
       return groups.flat();
@@ -285123,16 +286217,16 @@ ${key2}`] = { t: now, v: value };
     flush();
     return chunks2;
   }
-  function applyPublicParseChunk(result2, chunk, parsed, paragraphs) {
+  function applyPublicParseChunk(result2, chunk2, parsed, paragraphs) {
     let cursor = 0;
     for (const word of parsed) {
       const surface = word.originalText;
       if (!surface) continue;
-      const start = chunk.text.indexOf(surface, cursor);
+      const start = chunk2.text.indexOf(surface, cursor);
       if (start < 0) continue;
       const end = start + surface.length;
       cursor = end;
-      const range2 = chunk.ranges.find((item2) => start >= item2.chunkStart && end <= item2.chunkEnd);
+      const range2 = chunk2.ranges.find((item2) => start >= item2.chunkStart && end <= item2.chunkEnd);
       if (!range2) continue;
       const paragraphStart = range2.paragraphStart + start - range2.chunkStart;
       const paragraph = paragraphs[range2.paragraphIndex] ?? "";
