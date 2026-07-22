@@ -5,8 +5,41 @@ import AxeBuilder from '@axe-core/playwright';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.ACADEMY_BASE_URL ?? 'http://127.0.0.1:5278';
+const scenarios = {
+    repair: {
+        id: 'repair',
+        activityId: 'activity:lesson-zero-reconstruct-repair',
+        learningReason: 'To keep a conversation going when I miss something',
+        firstModelAnswer: 'わかりますか',
+        wrongAnswer: 'わかりました',
+        remainingAnswers: [
+            'はい、わかります',
+            'いいえ、わかりません',
+            'もう一度お願いします',
+            'いいです',
+            'そうです',
+            'あってます',
+            'ちがいます',
+        ],
+        total: 8,
+        replayLabel: 'Run these moments again',
+    },
+    desk: {
+        id: 'desk',
+        activityId: 'activity:lesson-zero-desk-language',
+        learningReason: 'To understand the words Rie writes on class handouts',
+        firstModelAnswer: 'しゅくだい',
+        wrongAnswer: 'れい',
+        remainingAnswers: ['れい'],
+        total: 2,
+        replayLabel: 'Label the desk again',
+    },
+};
+const scenarioId = process.argv[2] ?? 'repair';
+const scenario = scenarios[scenarioId];
+if (!scenario) throw new TypeError(`Unknown classroom scenario: ${scenarioId}.`);
 const artifactDir = path.resolve(
-    process.env.CLASSROOM_REPAIR_SCREENSHOTS ?? 'qa-artifacts/lesson-zero-classroom-repair',
+    process.env.CLASSROOM_SCREENSHOTS ?? `qa-artifacts/lesson-zero-classroom-${scenario.id}`,
 );
 await rm(artifactDir, { recursive: true, force: true });
 await mkdir(artifactDir, { recursive: true });
@@ -44,21 +77,23 @@ async function verifyRoute(viewport, name, complete = false) {
         if (message.type() === 'error') consoleErrors.push(message.text());
     });
 
-    await reachRepair(page, `classroom-repair-${name}-${Date.now()}`);
+    await reachActivity(page, `classroom-${scenario.id}-${name}-${Date.now()}`);
     await page.waitForTimeout(350);
     await assertLayout(page, viewport.width, name);
     await assertAccessible(page);
+    await assertScenarioState(page, 'intro');
     assert.equal(
-        await page.getByText('わかりますか', { exact: true }).count(),
+        await page.getByText(scenario.firstModelAnswer, { exact: true }).count(),
         0,
         'the assessed answer must stay hidden before commitment',
     );
     await page.screenshot({ path: path.join(artifactDir, `${name}-intro.png`), fullPage: true });
 
-    await answer(page, 'わかりました');
+    await answer(page, scenario.wrongAnswer);
     await page.locator('[data-repair-earned="true"]').waitFor();
+    await assertScenarioState(page, 'repair');
     assert.equal(
-        await page.getByText('わかりますか', { exact: true }).count(),
+        await page.getByText(scenario.firstModelAnswer, { exact: true }).count(),
         0,
         'a lapse must earn repair without revealing the model automatically',
     );
@@ -66,22 +101,26 @@ async function verifyRoute(viewport, name, complete = false) {
     await page.screenshot({ path: path.join(artifactDir, `${name}-repair.png`), fullPage: true });
 
     await page.getByRole('button', { name: 'Show Rie’s answer' }).click();
-    await page.getByText('わかりますか', { exact: true }).waitFor();
+    await page.getByText(scenario.firstModelAnswer, { exact: true }).waitFor();
+    await assertScenarioState(page, 'model');
     await page.screenshot({ path: path.join(artifactDir, `${name}-model.png`), fullPage: true });
-    await answer(page, 'わかりますか');
+    await answer(page, scenario.firstModelAnswer);
     await page.locator('.academy-classroom-expression-result[data-outcome="pass"]').waitFor();
+    await assertScenarioState(page, 'first-pass');
     await page.getByRole('button', { name: 'Try the next moment' }).click();
-    await expectProgress(page, '1 of 8 moments answered');
+    await expectProgress(page, `1 of ${scenario.total} moments answered`);
 
     await page.getByRole('button', { name: 'Save and leave' }).click();
     await page.locator('.academy-classroom-expression-screen').waitFor({ state: 'detached' });
     await expectRoute(page, 'campus');
-    await openRepair(page);
+    await openActivity(page);
     await page.locator('.academy-classroom-expression-screen').waitFor();
-    await expectProgress(page, '1 of 8 moments answered');
+    await expectProgress(page, `1 of ${scenario.total} moments answered`);
+    await assertScenarioState(page, 'resume');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.academy-classroom-expression-screen').waitFor();
-    await expectProgress(page, '1 of 8 moments answered');
+    await expectProgress(page, `1 of ${scenario.total} moments answered`);
+    await assertScenarioState(page, 'resume');
 
     if (!complete) {
         await assertAccessible(page);
@@ -92,24 +131,16 @@ async function verifyRoute(viewport, name, complete = false) {
         return;
     }
 
-    const remainingAnswers = [
-        'はい、わかります',
-        'いいえ、わかりません',
-        'もう一度お願いします',
-        'いいです',
-        'そうです',
-        'あってます',
-        'ちがいます',
-    ];
-    for (const [index, response] of remainingAnswers.entries()) {
+    for (const [index, response] of scenario.remainingAnswers.entries()) {
         await answer(page, response);
-        if (index === remainingAnswers.length - 1) break;
+        if (index === scenario.remainingAnswers.length - 1) break;
         await page.locator('.academy-classroom-expression-result[data-outcome="pass"]').waitFor();
         await page.getByRole('button', { name: 'Try the next moment' }).click();
     }
 
     await page.locator('.academy-classroom-expression-complete').waitFor();
-    await expectProgress(page, '8 of 8 moments answered');
+    await expectProgress(page, `${scenario.total} of ${scenario.total} moments answered`);
+    await assertScenarioState(page, 'complete');
     await assertLayout(page, viewport.width, `${name} complete`);
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-complete.png`), fullPage: true });
@@ -117,13 +148,16 @@ async function verifyRoute(viewport, name, complete = false) {
     await page.getByRole('button', { name: 'Continue your day' }).click();
     await page.locator('.academy-classroom-expression-screen').waitFor({ state: 'detached' });
     await expectRoute(page, 'campus');
-    await openRepair(page);
+    await openActivity(page);
     await page.locator('.academy-classroom-expression-complete').waitFor();
+    await assertScenarioState(page, 'complete');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.academy-classroom-expression-complete').waitFor();
-    await page.getByRole('button', { name: 'Run these moments again' }).click();
+    await assertScenarioState(page, 'complete');
+    await page.getByRole('button', { name: scenario.replayLabel }).click();
     await page.locator('.academy-classroom-expression-form').waitFor();
-    await expectProgress(page, '0 of 8 moments answered');
+    await expectProgress(page, `0 of ${scenario.total} moments answered`);
+    await assertScenarioState(page, 'replay');
     await page.getByRole('button', { name: 'Save and leave' }).click();
     await expectRoute(page, 'campus');
     assert.deepEqual(pageErrors, []);
@@ -146,32 +180,47 @@ async function expectRoute(page, route) {
     await page.waitForFunction(expected => window.__yomuAcademy?.checkpoint?.route === expected, route);
 }
 
-async function reachRepair(page, runId) {
+async function reachActivity(page, runId) {
     await page.goto(`${baseUrl}/academy/?qa-auth=bypass&qa-run=${runId}`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('textbox').fill('YOMU-LOCAL');
     await page.getByRole('button', { name: 'Open the doors' }).click();
     await page.locator('input[name="displayName"]').fill('Henry');
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.locator('textarea[name="learningReason"]').fill('To keep a conversation going when I miss something');
+    await page.locator('textarea[name="learningReason"]').fill(scenario.learningReason);
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.locator('input[name="portrait"]').first().check();
     await page.getByRole('button', { name: 'Tell Rie' }).click();
     await page.getByRole('button', { name: 'Choose where to begin' }).click();
     await page.getByRole('button', { name: /Begin with Lesson 0/ }).click();
     await page.getByRole('button', { name: /Read the board and enter class/ }).waitFor();
-    await openRepair(page);
+    await openActivity(page);
     await page.locator('.academy-classroom-expression-screen').waitFor();
 }
 
-async function openRepair(page) {
-    await page.evaluate(async () => {
+async function openActivity(page) {
+    await page.evaluate(async activityId => {
         const app = window.__yomuAcademy;
         if (!app || typeof app.go !== 'function') throw new Error('Academy QA route seam is unavailable.');
         await app.go('source-activity', {
             lessonId: 'lesson:foundation-00',
-            activityId: 'activity:lesson-zero-reconstruct-repair',
+            activityId,
         });
-    });
+    }, scenario.activityId);
+}
+
+async function assertScenarioState(page, state) {
+    if (scenario.id !== 'desk') return;
+    const labels = await page.locator('.academy-classroom-expression-desk-label').evaluateAll(nodes =>
+        Object.fromEntries(nodes.map(node => [node.dataset.deskSlot, {
+            earned: node.dataset.earned,
+            text: node.textContent,
+        }])));
+    const homeworkEarned = ['first-pass', 'resume', 'complete'].includes(state);
+    const exampleEarned = state === 'complete';
+    assert.equal(labels.homework?.earned, String(homeworkEarned), `${state}: homework label state`);
+    assert.equal(labels.example?.earned, String(exampleEarned), `${state}: example label state`);
+    assert.equal(labels.homework?.text.includes('しゅくだい'), homeworkEarned, `${state}: homework answer visibility`);
+    assert.equal(labels.example?.text.includes('れい'), exampleEarned, `${state}: example answer visibility`);
 }
 
 async function assertLayout(page, expectedWidth, label) {
@@ -200,6 +249,10 @@ async function assertLayout(page, expectedWidth, label) {
             utilityVisible: Boolean(menuBox && menuBox.width > 0 && menuBox.height > 0),
             menuBackOverlap: overlaps(menuBox, rect('.academy-classroom-expression-back')),
             menuTitleOverlap: overlaps(menuBox, rect('.academy-classroom-expression-title')),
+            propBodyOverlap: overlaps(
+                rect('.academy-classroom-expression-activity-prop'),
+                rect('.academy-classroom-expression-body'),
+            ),
             controls,
         };
     });
@@ -207,6 +260,7 @@ async function assertLayout(page, expectedWidth, label) {
     assert.equal(geometry.utilityVisible, false, `${label} must keep global utility chrome out of the focused rehearsal`);
     assert.equal(geometry.menuBackOverlap, false, `${label} menu and Back must not overlap`);
     assert.equal(geometry.menuTitleOverlap, false, `${label} menu and title must not overlap`);
+    assert.equal(geometry.propBodyOverlap, false, `${label} activity prop and learning body must not overlap`);
     const undersized = geometry.controls.filter(control => control.width < 44 || control.height < 44);
     assert.deepEqual(undersized, [], `${label} controls must remain 44px touch targets`);
 }

@@ -10090,7 +10090,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     throw new TypeError(message);
   }
   const LESSON_ZERO_CONTENT_SHA256 = "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c";
-  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "e54d5d7be82a0c6243e806f9b22374658db90ffb4f14af3e7179cdf8cb36e769";
+  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
   const LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS = Object.freeze([
@@ -10934,19 +10934,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "expression:classroom-14"
       ],
       explanation: {
-        en: "Short nouns often label what a worksheet item is for.",
-        ja: "プリントでは、短い名詞が項目の役割を示す見出しになります。"
+        en: "Rie uses short headings so you can tell what each part of a handout is for at a glance.",
+        ja: "りえ先生は、プリントのどこに何があるかすぐ分かるように、短い見出しを使います。"
       },
       workedExample: {
         context: {
-          en: "A worksheet separates a question from its answer.",
-          ja: "プリントで問題と答えを分けます。"
+          en: "Rie writes one heading above a question and another above its answer.",
+          ja: "りえ先生が、質問と答えの上にそれぞれ見出しを書きます。"
         },
         japanese: "問題／答え",
         reading: "もんだい／こたえ",
         meaning: {
           en: "question / answer",
-          ja: "二つの見出しです。"
+          ja: "質問と答えを見分ける見出しです。"
         }
       }
     }
@@ -11610,8 +11610,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "probe:classroom-13-homework",
           prompt: {
-            en: "Rie points to the work due next class. Write the Japanese heading.",
-            ja: "りえ先生が次回までの課題を指しました。日本語の見出しを入力してください。"
+            en: "Rie taps the page due before your next class. What heading belongs on it?",
+            ja: "りえ先生が次の授業までにするページを指しました。どの見出しを書きますか。"
           },
           acceptedAnswers: [
             "しゅくだい",
@@ -11621,16 +11621,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           repair: {
             errorTag: "classroom-homework-label",
             contrast: {
-              en: "Label the assigned work, not the sample beside it.",
-              ja: "横の見本ではなく、出された課題に見出しを付けます。"
+              en: "This page is work for later, not the sample beside it.",
+              ja: "これは横の見本ではなく、あとでする課題です。"
             },
             retryPrompt: {
-              en: "Recall the classroom noun for work assigned for later.",
-              ja: "あとでするよう出された課題を表す教室名詞を思い出してください。"
+              en: "What classroom word means work to do later?",
+              ja: "あとでする課題を、教室では何と言いますか。"
             },
             nearbyExample: {
-              en: "This label often appears beside a due date or page range.",
-              ja: "この見出しは締切やページ範囲のそばによくあります。"
+              en: "You will often see the same heading beside a date or page range.",
+              ja: "同じ見出しが、日付やページのそばにもよく出てきます。"
             }
           }
         }
@@ -11651,8 +11651,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "probe:classroom-14-example",
           prompt: {
-            en: "Label the sample sentence printed beside the rule.",
-            ja: "規則の横に印刷された見本の文へ、日本語の見出しを付けてください。"
+            en: "Rie circles a sample sentence beside the rule. What heading belongs above it?",
+            ja: "りえ先生がルールの横にある見本の文を丸で囲みました。上にどの見出しを書きますか。"
           },
           acceptedAnswers: [
             "れい",
@@ -11662,16 +11662,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           repair: {
             errorTag: "classroom-example-label",
             contrast: {
-              en: "This is the sample to follow, not work assigned for later.",
-              ja: "あとでする課題ではなく、参考にする見本です。"
+              en: "This is something to follow, not work saved for later.",
+              ja: "これはあとでする課題ではなく、まねをする見本です。"
             },
             retryPrompt: {
-              en: "Recall the short classroom noun used before a model sentence.",
-              ja: "モデル文の前に置く短い教室名詞を思い出してください。"
+              en: "What short word does Rie put above a model sentence?",
+              ja: "りえ先生は、見本の文の上にどんな短いことばを書きますか。"
             },
             nearbyExample: {
-              en: "It can head a sentence, diagram, or worked solution.",
-              ja: "文・図・解き方の見本にも同じ見出しを使えます。"
+              en: "The same heading can sit above a sentence, diagram, or worked answer.",
+              ja: "同じ見出しを、文・図・答え方の見本にも使えます。"
             }
           }
         }
@@ -254276,10 +254276,6 @@ ${spelling}`);
   }
   const COPY$4 = {
     session: { en: "Classroom rehearsal", ja: "教室のことばを練習" },
-    guide: {
-      en: "I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.",
-      ja: "教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。"
-    },
     before: { en: "Notice the pattern", ja: "パターンを見つける" },
     example: { en: "Rie shows you", ja: "りえ先生の例" },
     yourTurn: { en: "Answer Rie", ja: "りえ先生に答える" },
@@ -254299,6 +254295,10 @@ ${spelling}`);
   const ACTIVITY_COPY = {
     "activity:lesson-zero-reconstruct-repair": {
       title: { en: "Understanding and repair", ja: "理解と聞き返し" },
+      guide: {
+        en: "I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.",
+        ja: "教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。"
+      },
       complete: { en: "You can keep the class moving.", ja: "教室で困ったときに言えるようになりました。" },
       completeBody: {
         en: "You checked understanding, asked for another try, and responded to feedback. I saved every line you used for today’s review.",
@@ -254308,6 +254308,10 @@ ${spelling}`);
     },
     "activity:lesson-zero-desk-language": {
       title: { en: "On the desk", ja: "机の上のことば" },
+      guide: {
+        en: "These two headings keep turning up in class. Write each one, and I will leave it where it belongs.",
+        ja: "この二つの見出しは、授業で何度も出てきます。一つずつ書いたら、机の上に残しておきますね。"
+      },
       complete: { en: "You can read the desk.", ja: "机の上のことばが読めるようになりました。" },
       completeBody: {
         en: "You found the labels for homework and examples. I saved both so they can return when you next meet them.",
@@ -254315,6 +254319,19 @@ ${spelling}`);
       },
       practiceAgain: { en: "Label the desk again", ja: "もう一度見出しを付ける" }
     }
+  };
+  const DESK_COPY = {
+    alt: {
+      en: "A notebook and two blank labels wait on Rie’s desk.",
+      ja: "りえ先生の机に、ノートと二つの空白の見出しがあります。"
+    },
+    caption: {
+      en: "The headings you earn stay on Rie’s desk.",
+      ja: "答えられた見出しは、りえ先生の机に残ります。"
+    },
+    homework: { en: "Due next class", ja: "次回まで" },
+    example: { en: "Beside the model sentence", ja: "見本の文の横" },
+    pending: { en: "Not labelled yet", ja: "まだ見出しがありません" }
   };
   function createClassroomExpressionSessionScreen(options) {
     const lifecycle = new AbortController();
@@ -254324,6 +254341,9 @@ ${spelling}`);
     let busy = false;
     let disposed = false;
     let passNotice = null;
+    const binding = classroomBindingForActivity(options.activityId);
+    const activityCopy = ACTIVITY_COPY[options.activityId];
+    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
     const screen = element("section", "academy-screen academy-classroom-expression-screen");
     screen.dataset.academyScreen = "classroom-expression-session";
     screen.dataset.activityId = options.activityId;
@@ -254337,7 +254357,7 @@ ${spelling}`);
     const guideCopy = element("div", "academy-classroom-expression-guide-copy");
     const guideName = element("strong", "academy-classroom-expression-guide-name");
     guideName.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    const guideLine = localizedParagraph$1(COPY$4.guide, options.language, "academy-classroom-expression-guide-line");
+    const guideLine = localizedParagraph$1(activityCopy.guide, options.language, "academy-classroom-expression-guide-line");
     guideCopy.append(guideName, guideLine);
     guide.append(guidePortrait, guideCopy);
     const workspace = element("main", "academy-classroom-expression-workspace");
@@ -254360,17 +254380,15 @@ ${spelling}`);
     paperHeader.append(back, headingGroup, overall);
     const phaseNav = element("nav", "academy-classroom-expression-phases");
     phaseNav.setAttribute("aria-label", options.language === "ja" ? "教室表現のまとまり" : "Classroom expression phases");
+    const activityProp = element("div", "academy-classroom-expression-activity-prop");
     const body = element("div", "academy-classroom-expression-body");
     const live = element("div", "academy-classroom-expression-live");
     live.setAttribute("role", "status");
     live.setAttribute("aria-live", "polite");
-    paper.append(paperHeader, phaseNav, body, live);
+    paper.append(paperHeader, phaseNav, activityProp, body, live);
     workspace.append(paper);
     scene2.append(guide, workspace);
     screen.append(scene2);
-    const binding = classroomBindingForActivity(options.activityId);
-    const activityCopy = ACTIVITY_COPY[options.activityId];
-    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
     const bindingProbeIds = options.definition.expressions.filter((expression) => binding.expressionIds.includes(expression.id)).flatMap((expression) => expression.probes.map((probe) => probe.id));
     const visiblePhases = options.definition.phases.filter((phase) => phase.expressionIds.some((id2) => binding.expressionIds.includes(id2)));
     const render2 = () => {
@@ -254386,6 +254404,7 @@ ${spelling}`);
       const completedBindingProbes = bindingProbeIds.filter((id2) => state.passedProbeIds.includes(id2)).length;
       overall.textContent = options.language === "ja" ? `${bindingProbeIds.length}場面中 ${completedBindingProbes}場面に回答` : `${completedBindingProbes} of ${bindingProbeIds.length} moments answered`;
       renderPhaseNavigation(signal);
+      renderActivityProp();
       if (completedClassroomActivityIds(options.definition, state).includes(options.activityId)) {
         renderCompletion(signal);
         return;
@@ -254395,6 +254414,48 @@ ${spelling}`);
         return;
       }
       renderPrompt2(view, signal);
+    };
+    const renderActivityProp = () => {
+      activityProp.replaceChildren();
+      if (options.activityId !== "activity:lesson-zero-desk-language") {
+        activityProp.hidden = true;
+        return;
+      }
+      activityProp.hidden = false;
+      const figure = element("figure", "academy-classroom-expression-desk");
+      const imageShell = element("div", "academy-classroom-expression-desk-image-shell");
+      const image = element("img", "academy-classroom-expression-desk-image");
+      image.src = ACADEMY_ASSETS.items.classroomBelongings;
+      image.alt = DESK_COPY.alt[options.language];
+      imageShell.append(image);
+      const labels = element("div", "academy-classroom-expression-desk-labels");
+      labels.append(
+        deskLabel("homework", "probe:classroom-13-homework", DESK_COPY.homework),
+        deskLabel("example", "probe:classroom-14-example", DESK_COPY.example)
+      );
+      const caption2 = element("figcaption", "academy-sr-only");
+      caption2.textContent = DESK_COPY.caption[options.language];
+      figure.append(imageShell, labels, caption2);
+      activityProp.append(figure);
+    };
+    const deskLabel = (slot, probeId, cue) => {
+      const root = element("div", "academy-classroom-expression-desk-label");
+      const earned = state.passedProbeIds.includes(probeId);
+      const modelAnswer = options.definition.expressions.flatMap((expression) => expression.probes).find((probe) => probe.id === probeId)?.modelAnswer;
+      if (!modelAnswer) throw new TypeError(`Missing desk label probe ${probeId}.`);
+      root.dataset.deskSlot = slot;
+      root.dataset.earned = String(earned);
+      const cueText = element("span", "academy-classroom-expression-desk-cue");
+      cueText.textContent = cue[options.language];
+      const ink = element("span", "academy-classroom-expression-desk-ink");
+      ink.lang = "ja";
+      ink.dataset.yomuRuntimeSurface = "academy-classroom-expression-desk-label";
+      ink.dataset.yomuFuriganaMode = "all";
+      ink.textContent = earned ? modelAnswer : "";
+      const status = element("span", "academy-sr-only");
+      status.textContent = earned ? modelAnswer : DESK_COPY.pending[options.language];
+      root.append(cueText, ink, status);
+      return root;
     };
     const renderPhaseNavigation = (signal) => {
       const passed = new Set(state.passedProbeIds);

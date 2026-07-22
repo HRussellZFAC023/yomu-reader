@@ -46529,6 +46529,115 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     font-variant-numeric: tabular-nums;
 }
 
+.academy-classroom-expression-activity-prop[hidden] {
+    display: none;
+}
+
+.academy-classroom-expression-desk {
+    position: relative;
+    margin: -5px 0 30px;
+}
+
+.academy-classroom-expression-desk-image-shell {
+    position: relative;
+    min-height: 190px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--academy-paper-ink) 28%, transparent);
+    border-bottom: 4px solid color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    background: var(--academy-night);
+    box-shadow: 7px 9px 0 rgba(77, 70, 51, 0.13);
+    clip-path: polygon(0 0, 99% 0.8%, 100% 92%, 97% 100%, 1% 98%);
+}
+
+.academy-classroom-expression-desk-image-shell::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(10, 15, 13, 0.24), transparent 58%);
+    content: "";
+    pointer-events: none;
+}
+
+.academy-classroom-expression-desk-image {
+    display: block;
+    width: 100%;
+    height: clamp(190px, 24vw, 280px);
+    object-fit: cover;
+    object-position: center 61%;
+}
+
+.academy-classroom-expression-desk-labels {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(8px, 1.8vw, 18px);
+    margin: -34px clamp(12px, 4vw, 46px) 0;
+}
+
+.academy-classroom-expression-desk-label {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: 74px;
+    align-content: center;
+    gap: 5px;
+    padding: 12px 16px 11px;
+    border-left: 4px solid color-mix(in srgb, var(--academy-paper-ink) 32%, transparent);
+    color: var(--academy-paper-ink);
+    background:
+        repeating-linear-gradient(0deg, transparent 0 27px, rgba(84, 100, 85, 0.1) 28px 29px),
+        color-mix(in srgb, var(--academy-paper) 94%, white);
+    box-shadow: 5px 7px 0 rgba(5, 8, 6, 0.32);
+    clip-path: polygon(0 0, 97% 1%, 100% 17%, 98% 100%, 2% 98%);
+}
+
+.academy-classroom-expression-desk-label:nth-child(1) {
+    transform: rotate(-0.8deg);
+}
+
+.academy-classroom-expression-desk-label:nth-child(2) {
+    transform: rotate(0.7deg);
+}
+
+.academy-classroom-expression-desk-label::before {
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 42px;
+    height: 13px;
+    background: color-mix(in srgb, var(--academy-accent) 26%, rgba(255, 255, 255, 0.72));
+    content: "";
+    opacity: 0.84;
+    transform: translateX(-50%) rotate(-1deg);
+}
+
+.academy-classroom-expression-desk-label[data-earned="true"] {
+    border-left-color: var(--academy-accent);
+}
+
+.academy-classroom-expression-desk-cue {
+    overflow-wrap: anywhere;
+    color: var(--academy-paper-muted);
+    font-size: 0.7rem;
+    font-weight: 760;
+}
+
+.academy-classroom-expression-desk-ink {
+    min-height: 1.5em;
+    font-family: var(--academy-japanese-font);
+    font-size: clamp(1.05rem, 2vw, 1.32rem);
+    font-weight: 850;
+    line-height: 1.35;
+}
+
+.academy-classroom-expression-desk-label[data-earned="false"] .academy-classroom-expression-desk-ink::after {
+    display: block;
+    width: min(88%, 150px);
+    margin-top: 0.65em;
+    border-bottom: 2px dashed color-mix(in srgb, var(--academy-paper-ink) 33%, transparent);
+    content: "";
+}
+
 .academy-classroom-expression-body {
     display: grid;
     grid-template-columns: minmax(210px, 0.72fr) minmax(280px, 1.28fr);
@@ -46933,6 +47042,33 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
         gap: 18px;
     }
 
+    .academy-classroom-expression-desk {
+        margin-bottom: 24px;
+    }
+
+    .academy-classroom-expression-desk-image-shell {
+        min-height: 170px;
+    }
+
+    .academy-classroom-expression-desk-image {
+        height: clamp(170px, 58vw, 230px);
+        object-position: center 58%;
+    }
+
+    .academy-classroom-expression-desk-labels {
+        gap: 7px;
+        margin: -24px 7px 0;
+    }
+
+    .academy-classroom-expression-desk-label {
+        min-height: 72px;
+        padding: 10px 11px 9px;
+    }
+
+    .academy-classroom-expression-desk-cue {
+        font-size: 0.64rem;
+    }
+
     .academy-classroom-expression-form {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -46967,6 +47103,10 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     .academy-classroom-expression-complete-seal {
         animation: classroom-seal 260ms ease-out both;
     }
+
+    .academy-classroom-expression-desk-label[data-earned="true"] .academy-classroom-expression-desk-ink {
+        animation: classroom-desk-ink 240ms ease-out both;
+    }
 }
 
 @keyframes classroom-paper-arrival {
@@ -46977,6 +47117,11 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 @keyframes classroom-seal {
     from { opacity: 0; transform: scale(1.35) rotate(-12deg); }
     to { opacity: 1; transform: scale(1) rotate(-5deg); }
+}
+
+@keyframes classroom-desk-ink {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .academy-classroom-instruction-screen {
     position: relative;

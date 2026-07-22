@@ -87,8 +87,13 @@ describe('unbounded Academy day availability', () => {
 
     it('cannot call the day complete while any available activity lacks proof', () => {
         const gaps = dayDeliveryGaps(DAY_ONE_AVAILABILITY_MANIFEST);
+        const deliveryStates = DAY_ONE_AVAILABILITY_MANIFEST.entries
+            .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(18);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(17);
+        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(225);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-greet-rie'))?.delivery).toEqual({
             implementation: 'verified',
@@ -115,6 +120,14 @@ describe('unbounded Academy day availability', () => {
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-reconstruct-repair'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'partial',
+            media: 'partial',
+            persistence: 'verified',
+            journeyProof: 'partial',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-desk-language'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'partial',
             media: 'partial',

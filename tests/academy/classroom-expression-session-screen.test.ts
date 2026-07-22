@@ -89,11 +89,54 @@ describe('Classroom expression session screen', () => {
         expect(screen.element.textContent).toContain('You can read the desk.');
         expect(screen.element.querySelector('.academy-classroom-expression-overall')?.textContent)
             .toBe('2 of 2 moments answered');
+        expect(screen.element.querySelector<HTMLImageElement>('.academy-classroom-expression-desk-image')?.src)
+            .toContain('/academy/art/items/classroom-belongings__v001.jpg');
+        expect(screen.element.querySelector('[data-desk-slot="homework"]')?.textContent).toContain('しゅくだい');
+        expect(screen.element.querySelector('[data-desk-slot="example"]')?.textContent).toContain('れい');
         const replay = [...screen.element.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.includes('Label the desk again'))!;
         replay.click();
         await vi.waitFor(() => expect(onRestart).toHaveBeenCalledOnce());
         await vi.waitFor(() => expect(screen.element.querySelector('.academy-classroom-expression-form')).not.toBeNull());
+        screen.dispose();
+    });
+
+    it('keeps both desk labels blank until the learner earns each one', async () => {
+        const content = definition();
+        const initial = classroomStateForActivity(
+            content,
+            startClassroomExpressionSession(content),
+            'activity:lesson-zero-desk-language',
+        );
+        const screen = createClassroomExpressionSessionScreen({
+            language: 'en',
+            activityId: 'activity:lesson-zero-desk-language',
+            definition: content,
+            initialState: initial,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            onTransition: vi.fn(async () => undefined),
+            onRestart: vi.fn(),
+            onBack: vi.fn(),
+        });
+
+        const homework = screen.element.querySelector<HTMLElement>('[data-desk-slot="homework"]')!;
+        const example = screen.element.querySelector<HTMLElement>('[data-desk-slot="example"]')!;
+        expect(homework.dataset.earned).toBe('false');
+        expect(example.dataset.earned).toBe('false');
+        expect(homework.textContent).not.toContain('しゅくだい');
+        expect(example.textContent).not.toContain('れい');
+
+        const input = screen.element.querySelector<HTMLInputElement>('.academy-classroom-expression-input')!;
+        input.value = 'しゅくだい';
+        screen.element.querySelector<HTMLFormElement>('.academy-classroom-expression-form')!
+            .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+        await vi.waitFor(() => expect(
+            screen.element.querySelector<HTMLElement>('[data-desk-slot="homework"]')?.dataset.earned,
+        ).toBe('true'));
+        expect(screen.element.querySelector('[data-desk-slot="homework"]')?.textContent).toContain('しゅくだい');
+        expect(screen.element.querySelector<HTMLElement>('[data-desk-slot="example"]')?.dataset.earned).toBe('false');
+        expect(screen.element.querySelector('[data-desk-slot="example"]')?.textContent).not.toContain('れい');
         screen.dispose();
     });
 });

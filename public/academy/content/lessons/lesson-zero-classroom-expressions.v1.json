@@ -102,14 +102,14 @@
       "conceptId": "concept:classroom-desk-nouns",
       "expressionIds": ["expression:classroom-13", "expression:classroom-14"],
       "explanation": {
-        "en": "Short nouns often label what a worksheet item is for.",
-        "ja": "プリントでは、短い名詞が項目の役割を示す見出しになります。"
+        "en": "Rie uses short headings so you can tell what each part of a handout is for at a glance.",
+        "ja": "りえ先生は、プリントのどこに何があるかすぐ分かるように、短い見出しを使います。"
       },
       "workedExample": {
-        "context": { "en": "A worksheet separates a question from its answer.", "ja": "プリントで問題と答えを分けます。" },
+        "context": { "en": "Rie writes one heading above a question and another above its answer.", "ja": "りえ先生が、質問と答えの上にそれぞれ見出しを書きます。" },
         "japanese": "問題／答え",
         "reading": "もんだい／こたえ",
-        "meaning": { "en": "question / answer", "ja": "二つの見出しです。" }
+        "meaning": { "en": "question / answer", "ja": "質問と答えを見分ける見出しです。" }
       }
     }
   ],
@@ -481,14 +481,14 @@
       "inputMode": "ime",
       "probes": [{
         "id": "probe:classroom-13-homework",
-        "prompt": { "en": "Rie points to the work due next class. Write the Japanese heading.", "ja": "りえ先生が次回までの課題を指しました。日本語の見出しを入力してください。" },
+        "prompt": { "en": "Rie taps the page due before your next class. What heading belongs on it?", "ja": "りえ先生が次の授業までにするページを指しました。どの見出しを書きますか。" },
         "acceptedAnswers": ["しゅくだい", "宿題"],
         "modelAnswer": "しゅくだい",
         "repair": {
           "errorTag": "classroom-homework-label",
-          "contrast": { "en": "Label the assigned work, not the sample beside it.", "ja": "横の見本ではなく、出された課題に見出しを付けます。" },
-          "retryPrompt": { "en": "Recall the classroom noun for work assigned for later.", "ja": "あとでするよう出された課題を表す教室名詞を思い出してください。" },
-          "nearbyExample": { "en": "This label often appears beside a due date or page range.", "ja": "この見出しは締切やページ範囲のそばによくあります。" }
+          "contrast": { "en": "This page is work for later, not the sample beside it.", "ja": "これは横の見本ではなく、あとでする課題です。" },
+          "retryPrompt": { "en": "What classroom word means work to do later?", "ja": "あとでする課題を、教室では何と言いますか。" },
+          "nearbyExample": { "en": "You will often see the same heading beside a date or page range.", "ja": "同じ見出しが、日付やページのそばにもよく出てきます。" }
         }
       }]
     },
@@ -503,14 +503,14 @@
       "inputMode": "ime",
       "probes": [{
         "id": "probe:classroom-14-example",
-        "prompt": { "en": "Label the sample sentence printed beside the rule.", "ja": "規則の横に印刷された見本の文へ、日本語の見出しを付けてください。" },
+        "prompt": { "en": "Rie circles a sample sentence beside the rule. What heading belongs above it?", "ja": "りえ先生がルールの横にある見本の文を丸で囲みました。上にどの見出しを書きますか。" },
         "acceptedAnswers": ["れい", "例"],
         "modelAnswer": "れい",
         "repair": {
           "errorTag": "classroom-example-label",
-          "contrast": { "en": "This is the sample to follow, not work assigned for later.", "ja": "あとでする課題ではなく、参考にする見本です。" },
-          "retryPrompt": { "en": "Recall the short classroom noun used before a model sentence.", "ja": "モデル文の前に置く短い教室名詞を思い出してください。" },
-          "nearbyExample": { "en": "It can head a sentence, diagram, or worked solution.", "ja": "文・図・解き方の見本にも同じ見出しを使えます。" }
+          "contrast": { "en": "This is something to follow, not work saved for later.", "ja": "これはあとでする課題ではなく、まねをする見本です。" },
+          "retryPrompt": { "en": "What short word does Rie put above a model sentence?", "ja": "りえ先生は、見本の文の上にどんな短いことばを書きますか。" },
+          "nearbyExample": { "en": "The same heading can sit above a sentence, diagram, or worked answer.", "ja": "同じ見出しを、文・図・答え方の見本にも使えます。" }
         }
       }]
     }

@@ -12,7 +12,7 @@ import type { LessonZeroPackageData } from './lesson-zero-schema';
 export const LESSON_ZERO_CONTENT_SHA256 =
     '87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c';
 export const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 =
-    'e54d5d7be82a0c6243e806f9b22374658db90ffb4f14af3e7179cdf8cb36e769';
+    'a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff';
 
 const LESSON_CONTENT_ID = 'content:lesson-zero-v1';
 const CLASSROOM_CONTENT_ID = 'content:lesson-zero-classroom-expressions-v1';

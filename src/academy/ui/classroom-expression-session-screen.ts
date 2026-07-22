@@ -37,10 +37,6 @@ export interface ClassroomExpressionSessionScreen {
 
 const COPY = {
     session: { en: 'Classroom rehearsal', ja: '教室のことばを練習' },
-    guide: {
-        en: 'I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.',
-        ja: '教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。',
-    },
     before: { en: 'Notice the pattern', ja: 'パターンを見つける' },
     example: { en: 'Rie shows you', ja: 'りえ先生の例' },
     yourTurn: { en: 'Answer Rie', ja: 'りえ先生に答える' },
@@ -62,6 +58,10 @@ const COPY = {
 const ACTIVITY_COPY = {
     'activity:lesson-zero-reconstruct-repair': {
         title: { en: 'Understanding and repair', ja: '理解と聞き返し' },
+        guide: {
+            en: 'I will give you a classroom moment. Answer me in Japanese. Your place is saved whenever you leave.',
+            ja: '教室の場面を出します。日本語で答えてください。途中で戻っても、続きは保存されます。',
+        },
         complete: { en: 'You can keep the class moving.', ja: '教室で困ったときに言えるようになりました。' },
         completeBody: {
             en: 'You checked understanding, asked for another try, and responded to feedback. I saved every line you used for today’s review.',
@@ -71,6 +71,10 @@ const ACTIVITY_COPY = {
     },
     'activity:lesson-zero-desk-language': {
         title: { en: 'On the desk', ja: '机の上のことば' },
+        guide: {
+            en: 'These two headings keep turning up in class. Write each one, and I will leave it where it belongs.',
+            ja: 'この二つの見出しは、授業で何度も出てきます。一つずつ書いたら、机の上に残しておきますね。',
+        },
         complete: { en: 'You can read the desk.', ja: '机の上のことばが読めるようになりました。' },
         completeBody: {
             en: 'You found the labels for homework and examples. I saved both so they can return when you next meet them.',
@@ -78,6 +82,20 @@ const ACTIVITY_COPY = {
         },
         practiceAgain: { en: 'Label the desk again', ja: 'もう一度見出しを付ける' },
     },
+} as const;
+
+const DESK_COPY = {
+    alt: {
+        en: 'A notebook and two blank labels wait on Rie’s desk.',
+        ja: 'りえ先生の机に、ノートと二つの空白の見出しがあります。',
+    },
+    caption: {
+        en: 'The headings you earn stay on Rie’s desk.',
+        ja: '答えられた見出しは、りえ先生の机に残ります。',
+    },
+    homework: { en: 'Due next class', ja: '次回まで' },
+    example: { en: 'Beside the model sentence', ja: '見本の文の横' },
+    pending: { en: 'Not labelled yet', ja: 'まだ見出しがありません' },
 } as const;
 
 export function createClassroomExpressionSessionScreen(
@@ -90,6 +108,9 @@ export function createClassroomExpressionSessionScreen(
     let busy = false;
     let disposed = false;
     let passNotice: Readonly<{ response: string; activityCompleted: boolean }> | null = null;
+    const binding = classroomBindingForActivity(options.activityId);
+    const activityCopy = ACTIVITY_COPY[options.activityId as keyof typeof ACTIVITY_COPY];
+    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
 
     const screen = element('section', 'academy-screen academy-classroom-expression-screen');
     screen.dataset.academyScreen = 'classroom-expression-session';
@@ -105,7 +126,7 @@ export function createClassroomExpressionSessionScreen(
     const guideCopy = element('div', 'academy-classroom-expression-guide-copy');
     const guideName = element('strong', 'academy-classroom-expression-guide-name');
     guideName.textContent = options.language === 'ja' ? 'りえ先生' : 'Rie-sensei';
-    const guideLine = localizedParagraph(COPY.guide, options.language, 'academy-classroom-expression-guide-line');
+    const guideLine = localizedParagraph(activityCopy.guide, options.language, 'academy-classroom-expression-guide-line');
     guideCopy.append(guideName, guideLine);
     guide.append(guidePortrait, guideCopy);
 
@@ -129,18 +150,16 @@ export function createClassroomExpressionSessionScreen(
     paperHeader.append(back, headingGroup, overall);
     const phaseNav = element('nav', 'academy-classroom-expression-phases');
     phaseNav.setAttribute('aria-label', options.language === 'ja' ? '教室表現のまとまり' : 'Classroom expression phases');
+    const activityProp = element('div', 'academy-classroom-expression-activity-prop');
     const body = element('div', 'academy-classroom-expression-body');
     const live = element('div', 'academy-classroom-expression-live');
     live.setAttribute('role', 'status');
     live.setAttribute('aria-live', 'polite');
-    paper.append(paperHeader, phaseNav, body, live);
+    paper.append(paperHeader, phaseNav, activityProp, body, live);
     workspace.append(paper);
     scene.append(guide, workspace);
     screen.append(scene);
 
-    const binding = classroomBindingForActivity(options.activityId);
-    const activityCopy = ACTIVITY_COPY[options.activityId as keyof typeof ACTIVITY_COPY];
-    if (!activityCopy) throw new TypeError(`Missing classroom presentation for ${options.activityId}.`);
     const bindingProbeIds = options.definition.expressions
         .filter(expression => binding.expressionIds.includes(expression.id))
         .flatMap(expression => expression.probes.map(probe => probe.id));
@@ -163,6 +182,7 @@ export function createClassroomExpressionSessionScreen(
             ? `${bindingProbeIds.length}場面中 ${completedBindingProbes}場面に回答`
             : `${completedBindingProbes} of ${bindingProbeIds.length} moments answered`;
         renderPhaseNavigation(signal);
+        renderActivityProp();
 
         if (completedClassroomActivityIds(options.definition, state).includes(options.activityId)) {
             renderCompletion(signal);
@@ -173,6 +193,57 @@ export function createClassroomExpressionSessionScreen(
             return;
         }
         renderPrompt(view, signal);
+    };
+
+    const renderActivityProp = (): void => {
+        activityProp.replaceChildren();
+        if (options.activityId !== 'activity:lesson-zero-desk-language') {
+            activityProp.hidden = true;
+            return;
+        }
+        activityProp.hidden = false;
+        const figure = element('figure', 'academy-classroom-expression-desk');
+        const imageShell = element('div', 'academy-classroom-expression-desk-image-shell');
+        const image = element('img', 'academy-classroom-expression-desk-image');
+        image.src = ACADEMY_ASSETS.items.classroomBelongings;
+        image.alt = DESK_COPY.alt[options.language];
+        imageShell.append(image);
+
+        const labels = element('div', 'academy-classroom-expression-desk-labels');
+        labels.append(
+            deskLabel('homework', 'probe:classroom-13-homework', DESK_COPY.homework),
+            deskLabel('example', 'probe:classroom-14-example', DESK_COPY.example),
+        );
+        const caption = element('figcaption', 'academy-sr-only');
+        caption.textContent = DESK_COPY.caption[options.language];
+        figure.append(imageShell, labels, caption);
+        activityProp.append(figure);
+    };
+
+    const deskLabel = (
+        slot: 'homework' | 'example',
+        probeId: string,
+        cue: Readonly<{ en: string; ja: string }>,
+    ): HTMLElement => {
+        const root = element('div', 'academy-classroom-expression-desk-label');
+        const earned = state.passedProbeIds.includes(probeId);
+        const modelAnswer = options.definition.expressions
+            .flatMap(expression => expression.probes)
+            .find(probe => probe.id === probeId)?.modelAnswer;
+        if (!modelAnswer) throw new TypeError(`Missing desk label probe ${probeId}.`);
+        root.dataset.deskSlot = slot;
+        root.dataset.earned = String(earned);
+        const cueText = element('span', 'academy-classroom-expression-desk-cue');
+        cueText.textContent = cue[options.language];
+        const ink = element('span', 'academy-classroom-expression-desk-ink');
+        ink.lang = 'ja';
+        ink.dataset.yomuRuntimeSurface = 'academy-classroom-expression-desk-label';
+        ink.dataset.yomuFuriganaMode = 'all';
+        ink.textContent = earned ? modelAnswer : '';
+        const status = element('span', 'academy-sr-only');
+        status.textContent = earned ? modelAnswer : DESK_COPY.pending[options.language];
+        root.append(cueText, ink, status);
+        return root;
     };
 
     const renderPhaseNavigation = (signal: AbortSignal): void => {
