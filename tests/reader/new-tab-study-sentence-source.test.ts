@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { JPDBCard } from '../../src/reader/app/types';
 import type { YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
-import { firstStudySentenceTier, studySentenceTiers } from '../../src/reader/newtab/study-sentence-source';
+import { firstStudySentenceTier, isCompleteStudySentence, studySentenceTiers } from '../../src/reader/newtab/study-sentence-source';
 
 const card = {
     spelling: '飲み物',
@@ -24,6 +24,19 @@ const immersion = {
 } as ImmersionKitExample;
 
 describe('Study sentence source precedence', () => {
+    it('rejects truncated subtitle fragments before they become cloze prompts', () => {
+        expect(isCompleteStudySentence('E組の全員に同じ説明をし')).toBe(false);
+        expect(isCompleteStudySentence('(ロッテ ) アッコって ばっかり')).toBe(false);
+        expect(isCompleteStudySentence('♪～ 古い 小さな窓')).toBe(false);
+        expect(isCompleteStudySentence('古い小さな窓')).toBe(false);
+        expect(isCompleteStudySentence('E組の全員に同じ説明をしました。')).toBe(true);
+        expect(isCompleteStudySentence('どうして食べないの')).toBe(true);
+
+        const fragment = { ...immersion, sentence: 'E組の全員に同じ説明をし' };
+        const tier = firstStudySentenceTier(studySentenceTiers(card, [], [fragment]), sentence => sentence.includes('説明'));
+        expect(tier).toBeNull();
+    });
+
     it('prefers an installed dictionary example over Immersion Kit and local context', () => {
         const tier = firstStudySentenceTier(studySentenceTiers(card, [dictionaryEntry], [immersion]), sentence => sentence.includes('飲み物'));
         expect(tier).toMatchObject({ source: 'dictionary' });

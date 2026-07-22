@@ -82,7 +82,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
-| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, live due-only WaniKani reviews, supported-provider offline review queues, and the hosted study page |
+| Yomu app | An installable, offline-first Study, Library, Stats, and Connections client with kanji, word, typing, listening, and speaking practice; local cards; AnkiConnect; Jiten/Bunpro/JPDB sync; and live due-only WaniKani reviews |
 | Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
 
 ## Hosted Tools
@@ -90,7 +90,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
-- [Study page](https://yomureader.com/study/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut. Cards without classifiable pitch skip Listen/Speak; exact pitch resolved from local, Jiten, or public JPDB sources adds those steps automatically. The old `/newtab/` URL remains a compatibility route.
+- [Yomu app](https://yomureader.com/study/) for an installable offline-first review queue, local dictionary and card Library, combined Stats, and Connections for Anki, Bunpro, Jiten, JPDB, and WaniKani. On iPhone/iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 

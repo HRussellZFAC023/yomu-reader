@@ -79,6 +79,21 @@ afterEach(() => {
 });
 
 describe('new-tab session progress', () => {
+    it('renders a mobile-app navigation shell around the shared Study controller', () => {
+        const controller = progressController();
+        const root = renderProgressRoot(controller);
+
+        const navigation = root.querySelector<HTMLElement>('[data-newtab-app-navigation]');
+        expect(navigation?.getAttribute('aria-label')).toBe('App navigation');
+        expect([...navigation!.querySelectorAll<HTMLButtonElement>('[data-newtab-action]')]
+            .map(button => button.textContent)).toEqual(['学Study', '辞Library', '統Stats', '連Connect']);
+        expect(root.querySelector('[data-newtab-connectivity]')?.textContent).toBe('Offline ready');
+        expect([...root.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
+            .map(button => button.textContent)).toEqual(['Study', 'Library', 'Stats']);
+
+        controller.destroy();
+    });
+
     it('formats remaining time as a countdown', () => {
         expect(formatStudySessionRemaining(-500)).toBe('00:00');
         expect(formatStudySessionRemaining(5_000)).toBe('00:05');
@@ -233,6 +248,7 @@ describe('new-tab session progress', () => {
         expect(root?.querySelector('[data-newtab-session-clock-host]')).toBeNull();
         expect(root?.querySelector('.jpdb-reader-newtab-theme-controls')).toBeNull();
         expect(root?.querySelector('.jpdb-reader-newtab-overflow')).toBeNull();
+        expect(root?.querySelector('[data-newtab-app-navigation]')).toBeNull();
         expect(document.body.firstElementChild).toBe(outside);
 
         controller.destroy();

@@ -2535,7 +2535,9 @@ function assertNewTabDictionarySnapshot(snapshot) {
     assertAudit(/[一-龯ぁ-んァ-ン]/u.test(snapshot.expression), `new-tab did not render a Japanese dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.meaning.trim().length > 0, `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
-    assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
+    // Do not treat the app's positive "Offline ready" status as the old
+    // dictionary-disabled warning. Match the retired setup copy precisely.
+    assertAudit(!/warning|No dictionary enabled|Add dictionary|dictionar(?:y|ies) (?:is |are )?off/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
 }
 
 function isDocsHomeHref(href) {

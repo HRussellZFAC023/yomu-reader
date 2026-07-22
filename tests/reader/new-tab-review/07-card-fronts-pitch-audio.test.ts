@@ -924,13 +924,13 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
     });
 
     it('opens lookups from parsed front sentence words', async () => {
-        const sentence = 'お連れ様との会話が 日本語でしたので';
+        const sentence = 'お連れ様との会話は日本語でした。';
         const current = newTabTestCard({ spelling: '日本語', reading: 'にほんご', sentence });
         const related = newTabTestCard({ vid: 1198880, sid: 0, spelling: '会話', reading: 'かいわ', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
         const parseContent = vi.fn((sentenceNode: HTMLElement) => {
-            sentenceNode.innerHTML = 'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話が 日本語でしたので" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>が 日本語でしたので';
+            sentenceNode.innerHTML = 'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話は日本語でした。" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>は日本語でした。';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
@@ -963,13 +963,13 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
     });
 
     it('uses parsed front sentence word geometry before the prompt fallback', async () => {
-        const sentence = '(メイ)の!? (メイ) 座って食べなさい。';
+        const sentence = 'メイは座って食べなさいと言った。';
         const current = newTabTestCard({ spelling: '食べる', reading: 'たべる', sentence });
         const related = newTabTestCard({ vid: 1291770, sid: 0, spelling: '座', reading: 'ざ', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
         const parseContent = vi.fn((sentenceNode: HTMLElement) => {
-            sentenceNode.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!? (メイ) <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさい。';
+            sentenceNode.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさいと言った。';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
@@ -1009,12 +1009,12 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
     });
 
     it('uses parsed front sentence word data when a card is not cached yet', async () => {
-        const sentence = '(メイ)の!? (メイ) 座って食べなさい。';
+        const sentence = 'メイは座って食べなさいと言った。';
         const current = newTabTestCard({ spelling: '食べる', reading: 'たべる', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
         const parseContent = vi.fn((sentenceNode: HTMLElement) => {
-            sentenceNode.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!?';
+            sentenceNode.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="メイは座って食べなさいと言った。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>は座って食べなさいと言った。';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,

@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.401] - 2026-07-21
+
+### Added
+
+- The hosted Study page is now an installable offline-first Yomu app on iPhone, iPad, and Android, with native-style bottom navigation for Study, Library, Stats, and Connections, an explicit offline state, a stable app identity, and direct launch shortcuts. It keeps the same local cache and supported-provider grade outbox, so warmed reviews keep moving on the train and sync after reconnecting.
+
+### Changed
+
+- Every fresh card now starts at its first enabled learning step—Kanji 1 by default—instead of jumping to Word. The numbered step rail stays on one line on desktop and scrolls horizontally on phones, while the prompt, answer, and actions now read as one focused learning surface.
+- Type practice now keeps the input and its action together, supports audio, accepts typed kana or the reading, gives retry feedback without revealing a missed answer, preserves the first-attempt grade, and turns Check into Continue after a correct response. The navigation label is now the clearer Previous.
+
+### Fixed
+
+- Incomplete subtitle and API sentence fragments, including continuative endings such as 「E組の全員に同じ説明をし」, are rejected before they can become Study clozes.
+
 ## [1.6.400] - 2026-07-21
 
 ### Fixed

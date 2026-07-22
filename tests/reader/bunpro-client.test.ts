@@ -111,6 +111,21 @@ describe('BunproClient', () => {
         await expect(client.search('もっと', { includeReviews: true })).rejects.toBeInstanceOf(BunproApiError);
     });
 
+    it('does not fire a doomed hosted-app request when Bunpro transport is unavailable', async () => {
+        const request = vi.fn();
+        const client = new BunproClient({
+            getFrontendToken: () => 'token-123',
+            requestImpl: request,
+            isTransportAvailable: () => false,
+        });
+
+        await expect(client.search('読む')).rejects.toMatchObject({
+            name: 'BunproApiError',
+            message: expect.stringContaining('browser companion'),
+        });
+        expect(request).not.toHaveBeenCalled();
+    });
+
     it('retries public reviewable endpoints anonymously when the stored token is stale', async () => {
         const request = vi.fn(async (_url: string, options?: ReaderHttpOptions) => {
             if ((options?.headers as Record<string, string> | undefined)?.Authorization) {

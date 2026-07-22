@@ -31,7 +31,7 @@ describe('packaged Study welcome integration', () => {
         expect(document.body.textContent).not.toContain('Set Study as the new tab');
     });
 
-    it('starts only the standalone Study surface at Word', () => {
+    it('starts standalone and embedded Study at the first configured learning step', () => {
         const standalone = new NewTabRuntime() as unknown as {
             createNewTabController(): { initialStudyStepIdPending: string | null };
         };
@@ -39,7 +39,7 @@ describe('packaged Study welcome integration', () => {
             createNewTabController(): { initialStudyStepIdPending: string | null };
         };
 
-        expect(standalone.createNewTabController().initialStudyStepIdPending).toBe('word');
+        expect(standalone.createNewTabController().initialStudyStepIdPending).toBeNull();
         expect(academy.createNewTabController().initialStudyStepIdPending).toBeNull();
     });
 

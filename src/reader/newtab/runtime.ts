@@ -117,6 +117,7 @@ import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
 import { SettingsDialogController } from '../settings/dialog-controller';
+import { getUserscriptHttpRequest } from '../userscript';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import {
@@ -306,6 +307,7 @@ export class NewTabRuntime {
         getFrontendToken: () => this.activeBunproFrontendApiToken(),
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
         getProxyUrl: () => this.settings.corsProxyUrl,
+        isTransportAvailable: () => Boolean(this.settings.corsProxyUrl.trim() || getUserscriptHttpRequest()),
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
@@ -808,9 +810,6 @@ export class NewTabRuntime {
             surface: this.options.mountHost ? 'academy' : 'standalone',
             sessionClock: this.options.sessionClock,
             showSessionClockControl: !this.options.mountHost,
-            // Opening the standalone Study page should feel recognition-first:
-            // land on Word, then use the configured order for later cards.
-            initialStudyStepId: this.options.mountHost ? undefined : 'word',
         });
     }
 

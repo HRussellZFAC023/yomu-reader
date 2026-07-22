@@ -1266,6 +1266,7 @@
     requestImpl;
     timeoutMs;
     getProxyUrl;
+    isTransportAvailable;
     transportRetryAfter = 0;
     constructor(options = {}) {
       this.getFrontendToken = options.getFrontendToken ?? (() => "");
@@ -1274,6 +1275,7 @@
       this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
       this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
+      this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
       this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
     }
     hasFrontendCredential() {
@@ -1444,6 +1446,9 @@
       });
     }
     async requestJson(url, options) {
+      if (!this.isTransportAvailable()) {
+        throw new BunproApiError("Bunpro needs the Yomu browser companion or a configured personal proxy in the hosted app.");
+      }
       if (this.transportRetryAfter > Date.now()) {
         throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
       }

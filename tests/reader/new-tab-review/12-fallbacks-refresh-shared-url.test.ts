@@ -197,8 +197,8 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
         expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
-        expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toBe('Settings');
-        expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Search');
+        expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toContain('Connections & settings');
+        expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Library');
         document.body.replaceChildren();
     });
 

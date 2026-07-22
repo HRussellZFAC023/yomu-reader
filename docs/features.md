@@ -151,7 +151,9 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## Study Page
 
-Open the [Study page](/study/) whenever you want a focused Japanese review session. The browser extension leaves your new tabs alone and puts **Open Study** in its toolbar menu; the hosted page can also be bookmarked, added to a Home Screen, or deliberately chosen as a home page. Study pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, WaniKani, or the local dictionary words already in your browser — so it works even with no account. A fresh standalone session begins at **Word**, then follows the rest of your configured steps. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. WaniKani cards come only from assignments currently due on the account: Okay, Good, and Easy submit a clean answer, while anything below Okay records one incorrect meaning attempt and, except for radicals, one incorrect reading attempt. WaniKani writes are live-only and are never replayed later from the offline queue. The old `/newtab/` URL remains a compatibility route.
+Open the [Yomu app](/study/) for one offline-first place to study, search your Library, inspect combined Stats, and manage Connections. Install it from **Share → Add to Home Screen** on iPhone or iPad, or your browser's **Install app** action on Android. The browser extension still leaves new tabs alone and offers **Open Study** from its toolbar.
+
+Study pulls words from Anki, Jiten, Bunpro, JPDB, WaniKani, or local dictionaries, and caches the review queue on the device for the train. A fresh card starts at its first configured learning step — Kanji 1 by default — and the compact step rail, attached answer action, retry feedback, audio, and final grade stay in one focused flow. Grades for supported providers wait in a local outbox and sync after reconnecting; WaniKani writes remain live-only and are never replayed later. The old `/newtab/` URL remains a compatibility route.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 
@@ -166,7 +168,7 @@ Steps only show up when they fit the card, so a kana-only word skips the kanji d
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, the study page works well for quick daily review. Full Anki status on mobile still needs desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
+On iPhone, iPad, and Android, the installed app opens as a standalone client and its cached shell, local cards, and warmed review queue remain available without a connection. Full Anki status and review sync on mobile still need desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">
