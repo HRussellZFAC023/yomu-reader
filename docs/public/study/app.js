@@ -24779,6 +24779,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     requestImpl;
     timeoutMs;
     getProxyUrl;
+    isTransportAvailable;
     transportRetryAfter = 0;
     constructor(options = {}) {
       this.getFrontendToken = options.getFrontendToken ?? (() => "");
@@ -24787,6 +24788,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.frontendBaseUrl = trimBaseUrl$1(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
       this.legacyBaseUrl = trimBaseUrl$1(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
+      this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
       this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$5;
     }
     hasFrontendCredential() {
@@ -24957,6 +24959,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
     }
     async requestJson(url, options) {
+      if (!this.isTransportAvailable()) {
+        throw new BunproApiError("Bunpro needs the Yomu browser companion or a configured personal proxy in the hosted app.");
+      }
       if (this.transportRetryAfter > Date.now()) {
         throw new BunproApiError("Bunpro is unreachable from this page (cross-origin blocked); backing off.");
       }
@@ -45548,7 +45553,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.400".trim() ? "1.6.400".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.401".trim() ? "1.6.401".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73035,8 +73040,14 @@ ${component.reading}`;
     en: {
       switchReviewSource: "Switch review source",
       dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.",
-      newTabMode: "New tab mode",
+      newTabMode: "App sections",
       study: "Study",
+      library: "Library",
+      appNavigation: "App navigation",
+      connections: "Connect",
+      connectionsAndSettings: "Connections & settings",
+      connectionsDescription: "Link Anki, Bunpro, Jiten, JPDB, or WaniKani.",
+      offlineReady: "Offline ready",
       recall: "Recall",
       recallAnswer: "Answer",
       recallCheck: "Check",
@@ -73198,7 +73209,7 @@ ${component.reading}`;
       clearSearch: "Clear search",
       searchSuggestions: "Search suggestions",
       studyNavigation: "Study navigation",
-      previousWord: "Previous word",
+      previousWord: "Previous",
       nextWord: "Next word",
       getYomu: `Get ${APP_NAME}`,
       installStudyApp: "Install app",
@@ -73285,6 +73296,7 @@ ${component.reading}`;
       typeWordModeKeyboard: "Type",
       typeWordModeHandwriting: "Write",
       typeWordPlaceholder: "Write the word",
+      typeWordTryAgain: "Not quite — try again",
       typeWordSkip: "Skip",
       typeWordSkipped: "Skipped",
       typeWordWriteChar: "Write the next character",
@@ -73308,8 +73320,14 @@ ${component.reading}`;
   const JA_NEW_TAB_COPY = {
     switchReviewSource: "復習ソースを切り替え",
     dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
-    newTabMode: "新しいタブのモード",
+    newTabMode: "アプリのセクション",
     study: "学習",
+    library: "単語帳",
+    appNavigation: "アプリナビゲーション",
+    connections: "連携",
+    connectionsAndSettings: "連携と設定",
+    connectionsDescription: "Anki・Bunpro・Jiten・JPDB・WaniKaniと連携します。",
+    offlineReady: "オフラインで使用可能",
     recall: "思い出す",
     recallAnswer: "答え",
     recallCheck: "確認",
@@ -73471,7 +73489,7 @@ ${component.reading}`;
     clearSearch: "検索をクリア",
     searchSuggestions: "検索候補",
     studyNavigation: "学習ナビゲーション",
-    previousWord: "前の単語",
+    previousWord: "前へ",
     nextWord: "次の単語",
     getYomu: `${APP_NAME}を入手`,
     installStudyApp: "アプリをインストール",
@@ -73558,6 +73576,7 @@ ${component.reading}`;
     typeWordModeKeyboard: "入力",
     typeWordModeHandwriting: "手書き",
     typeWordPlaceholder: "単語を書く",
+    typeWordTryAgain: "もう一度入力してください",
     typeWordSkip: "スキップ",
     typeWordSkipped: "スキップ",
     typeWordWriteChar: "次の文字を書いてください",
@@ -84531,6 +84550,17 @@ ${entry.url}`),
   function clamp(value, min, max2) {
     return Math.max(min, Math.min(value, max2));
   }
+  function isCompleteStudySentence(value) {
+    const sentence = value.replace(/\s+/gu, " ").trim();
+    if (sentence.length < 4) return false;
+    if (!balancedStudySentenceMarks(sentence)) return false;
+    if (/[、,，:：;；…]$/u.test(sentence)) return false;
+    if (/[♪♫♬♩]/u.test(sentence)) return false;
+    if (/^[（(][^）)]{1,32}[）)]\s*/u.test(sentence)) return false;
+    if (!/[。！？!?」』]$/u.test(sentence) && /[\p{Script=Han}\p{Script=Katakana}]$/u.test(sentence)) return false;
+    if (/(?:をし|にし|として|について|によって|による|ながら|つつ|ので|のに|けど|けれど|たり|って|ばかり|ばっかり|[をにへでとがはも])$/u.test(sentence)) return false;
+    return true;
+  }
   function studySentenceTiers(card, dictionaryEntries, immersionExamples) {
     return [
       { source: "dictionary", sentences: dictionaryExampleSentences(card, dictionaryEntries) },
@@ -84581,11 +84611,25 @@ ${entry.url}`),
     const sentences = [];
     for (const value of values) {
       const sentence = value.replace(/\s+/gu, " ").trim();
-      if (!sentence || seen.has(sentence)) continue;
+      if (!isCompleteStudySentence(sentence) || seen.has(sentence)) continue;
       seen.add(sentence);
       sentences.push(sentence);
     }
     return sentences;
+  }
+  function balancedStudySentenceMarks(value) {
+    const pairs = [
+      ["「", "」"],
+      ["『", "』"],
+      ["（", "）"],
+      ["(", ")"],
+      ["［", "］"],
+      ["[", "]"]
+    ];
+    return pairs.every(([open, close]) => countMark(value, open) === countMark(value, close));
+  }
+  function countMark(value, mark) {
+    return Array.from(value).filter((character) => character === mark).length;
   }
   const LIVE_REVIEW_CARD_ID = /^v[a-z]?,(\d+),(\d+)$/;
   function liveJpdbCardIdentity(card) {
@@ -86146,12 +86190,19 @@ ${entry.url}`),
               "div",
               { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language, "newTabMode") },
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "word" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "study")),
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "search")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "library")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "stats"))
             ),
             this.options.surface === "academy" ? null : el(
               "div",
               { class: "jpdb-reader-newtab-theme-controls" },
+              el("span", {
+                class: "jpdb-reader-newtab-connectivity",
+                dataset: { newtabConnectivity: true },
+                role: "status",
+                "aria-live": "polite",
+                hidden: true
+              }, newTabText(language, "offlineReady")),
               this.options.showSessionClockControl === false ? null : el("div", {
                 class: "jpdb-reader-newtab-session-clock-host",
                 dataset: { newtabSessionClockHost: true }
@@ -86249,6 +86300,7 @@ ${entry.url}`),
             el("button", { type: "button", dataset: { newtabAction: "reveal" } }, uiText(language, "reveal")),
             el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": newTabText(language, "nextWord") }, newTabText(language, "nextWord"))
           ),
+          this.options.surface === "academy" ? null : this.renderAppNavigation(language),
           el("aside", { class: "jpdb-reader-newtab-support-banner", dataset: { newtabSupportBanner: true }, hidden: true, "aria-label": newTabText(language, "supportBannerLabel") })
         )
       );
@@ -86258,7 +86310,9 @@ ${entry.url}`),
       return el(
         "div",
         { class: "jpdb-reader-newtab-more-menu", role: "menu" },
-        this.renderOverflowMenuButton(uiText(language, "settings"), "settings", language),
+        this.renderOverflowMenuButton(newTabText(language, "connectionsAndSettings"), "settings", language, {
+          description: newTabText(language, "connectionsDescription")
+        }),
         this.renderOverflowMenuLink(uiText(language, "academy"), `${DOCS_BASE_URL}academy/`, language),
         this.renderOverflowMenuLink(uiText(language, "videoPlayer"), VIDEO_PLAYER_PAGE_URL, language),
         this.renderOverflowMenuLink(uiText(language, "pdfReader"), PDF_READER_PAGE_URL, language),
@@ -86284,6 +86338,31 @@ ${entry.url}`),
         this.renderOverflowMenuLink(uiText(language, "github"), GITHUB_REPOSITORY_URL, language),
         this.renderOverflowMenuLink(uiText(language, "discord"), DISCORD_INVITE_URL, language),
         this.renderOverflowMenuLink(uiText(language, "support"), `${DOCS_BASE_URL}support`, language)
+      );
+    }
+    renderAppNavigation(language) {
+      const item = (label, mark, action, mode) => el(
+        "button",
+        {
+          class: "jpdb-reader-newtab-app-nav-item jpdb-reader-parseable",
+          type: "button",
+          dataset: { newtabAction: action, ...mode ? { mode } : {} },
+          lang: resolveUiLanguage(language) === "ja" ? "ja" : "en"
+        },
+        el("span", { class: "jpdb-reader-newtab-app-nav-mark", "aria-hidden": "true" }, mark),
+        el("span", { class: "jpdb-reader-newtab-app-nav-label" }, label)
+      );
+      return el(
+        "nav",
+        {
+          class: "jpdb-reader-newtab-app-nav",
+          dataset: { newtabAppNavigation: true },
+          "aria-label": newTabText(language, "appNavigation")
+        },
+        item(newTabText(language, "study"), "学", "mode", "word"),
+        item(newTabText(language, "library"), "辞", "mode", "search"),
+        item(newTabText(language, "stats"), "統", "mode", "stats"),
+        item(newTabText(language, "connections"), "連", "settings")
       );
     }
     renderOverflowMenuButton(label, action, language, options = {}) {
@@ -86340,7 +86419,10 @@ ${entry.url}`),
           const card = this.visibleWords[this.index];
           if (card) {
             const state2 = this.ensureStepState(cardKey(card));
-            state2.type = { ...state2.type, answer: typeInput.value };
+            state2.type = { ...state2.type, answer: typeInput.value, feedback: void 0 };
+            const answer = typeInput.closest("[data-newtab-answer]");
+            if (answer) answer.dataset.typeWordOutcome = "pending";
+            answer?.querySelector("[data-newtab-type-result]")?.remove();
           }
           return;
         }
@@ -86480,8 +86562,10 @@ ${entry.url}`),
       };
       window.addEventListener("online", () => {
         this.offlineReviewingAccepted = false;
+        this.syncConnectivityIndicator(root);
         syncQueuedGrades();
       }, { signal: controller.signal });
+      window.addEventListener("offline", () => this.syncConnectivityIndicator(root), { signal: controller.signal });
       window.addEventListener("focus", syncQueuedGrades, { signal: controller.signal });
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) syncQueuedGrades();
@@ -86496,7 +86580,16 @@ ${entry.url}`),
         this.syncInstallAppButton(root);
         this.dependencies.toast?.(this.text("installStudyAppInstalled"));
       }, { signal: controller.signal });
+      this.syncConnectivityIndicator(root);
       this.rootEventController = controller;
+    }
+    syncConnectivityIndicator(root) {
+      const indicator = root.querySelector("[data-newtab-connectivity]");
+      if (!indicator) return;
+      const offline = navigator.onLine === false;
+      indicator.hidden = !offline;
+      indicator.dataset.connectivity = offline ? "offline" : "online";
+      indicator.textContent = this.text("offlineReady");
     }
     statsDropzoneTarget(root, event) {
       const dropzone = eventTargetElement(event.target)?.closest("[data-stats-dropzone]");
@@ -88952,6 +89045,7 @@ ${entry.url}`),
           },
           role: "listitem",
           "aria-current": active ? "step" : void 0,
+          "aria-label": `${index + 1}. ${this.studyStepLabel(step, session)}`,
           title: step.label
         },
         el("span", { class: "jpdb-reader-newtab-study-step-index" }, String(index + 1)),
@@ -90258,7 +90352,7 @@ ${entry.url}`),
           "span",
           { class: "jpdb-reader-newtab-recall-cloze-sentence" },
           cloze.before,
-          el("span", { class: "jpdb-reader-newtab-recall-gap", "aria-label": this.text("recallAnswer") }),
+          el("span", { class: "jpdb-reader-newtab-recall-gap", role: "img", "aria-label": this.text("recallAnswer") }),
           cloze.after
         ),
         el("span", { class: "jpdb-reader-newtab-recall-hint", lang: resolveUiLanguage(this.language()) === "ja" ? "ja" : "en" }, meaning)
@@ -90452,7 +90546,7 @@ ${entry.url}`),
     // the target word becomes a gap. If highlighting failed to mark it (parse
     // fallback), rebuild the line from the cloze's before/after halves.
     blankTypeWordSentenceTargets(root, cloze) {
-      const gapNode = () => el("span", { class: "jpdb-reader-newtab-recall-gap", "aria-label": this.text("recallAnswer") });
+      const gapNode = () => el("span", { class: "jpdb-reader-newtab-recall-gap", role: "img", "aria-label": this.text("recallAnswer") });
       const targets = [...root.querySelectorAll(".jpdb-reader-example-target")];
       if (targets.length) {
         targets.forEach((word) => word.replaceWith(gapNode()));
@@ -90472,20 +90566,22 @@ ${entry.url}`),
       if (!answer) return;
       delete answer.dataset.newtabAnswerDetailsRequest;
       const mode = this.typeWordInputMode();
-      const outcome = this.stepState(cardKey(card))?.type?.outcome;
+      const feedback = this.stepState(cardKey(card))?.type?.feedback;
       answer.dataset.typeWordMode = mode;
-      answer.dataset.typeWordOutcome = outcome ?? "pending";
+      answer.dataset.typeWordOutcome = feedback ?? "pending";
       replaceChildrenWith(
         answer,
-        this.renderTypeWordModeToggle(mode),
-        mode === "handwriting" ? this.renderTypeWordHandwriting(card) : this.renderTypeWordKeyboard(card),
-        outcome && outcome !== "skipped" ? el("div", {
+        mode === "handwriting" ? this.renderTypeWordHandwriting(card) : this.renderTypeWordKeyboard(card, feedback),
+        feedback ? el("div", {
           class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result",
-          dataset: { newtabTypeResult: outcome }
-        }, this.typeWordOutcomeLabel(outcome, card)) : null,
+          dataset: { newtabTypeResult: feedback },
+          role: "status",
+          "aria-live": "polite"
+        }, this.typeWordOutcomeLabel(feedback, card)) : null,
         el(
           "div",
-          { class: "jpdb-reader-newtab-type-skip-row" },
+          { class: "jpdb-reader-newtab-type-secondary" },
+          this.renderTypeWordModeToggle(mode),
           el("button", {
             class: "jpdb-reader-btn jpdb-reader-newtab-type-skip",
             type: "button",
@@ -90510,10 +90606,12 @@ ${entry.url}`),
         button2("handwriting", this.text("typeWordModeHandwriting"))
       );
     }
-    renderTypeWordKeyboard(card) {
+    renderTypeWordKeyboard(card, feedback) {
+      const readyToContinue = feedback === "correct" || feedback === "accepted";
       return el(
         "form",
         { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
+        this.renderStudyWordAudioButton(card),
         el("input", {
           class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
           dataset: { newtabTypeInput: true },
@@ -90527,13 +90625,15 @@ ${entry.url}`),
           enterkeyhint: "done",
           lang: "ja",
           "aria-label": this.text("typeWordPlaceholder"),
-          disabled: this.state.revealAnswer
+          disabled: this.state.revealAnswer,
+          readOnly: readyToContinue
         }),
         el("button", {
           class: "jpdb-reader-newtab-recall-check",
           type: "button",
-          dataset: { newtabAction: "type-word-submit" }
-        }, this.text("recallCheck"))
+          dataset: { newtabAction: "type-word-submit" },
+          "aria-label": this.text(readyToContinue ? "continueStudying" : "recallCheck")
+        }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
       );
     }
     // Handwriting produces the word one character at a time. Only kanji are
@@ -90629,12 +90729,14 @@ ${entry.url}`),
       const card = this.visibleWords[this.index];
       const input2 = root.querySelector("[data-newtab-type-input]");
       if (!card || !input2) return;
+      const state2 = this.ensureStepState(cardKey(card));
+      if (state2.type?.feedback === "correct" || state2.type?.feedback === "accepted") {
+        if (!this.navigateStudyStep("next")) this.renderWord(root, card);
+        return;
+      }
       input2.value = convertRomajiToKana(input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
-      {
-        const state2 = this.ensureStepState(cardKey(card));
-        state2.type = { ...state2.type, answer: input2.value };
-      }
+      state2.type = { ...state2.type, answer: input2.value, feedback: evaluation.outcome };
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
         return;
@@ -90658,7 +90760,8 @@ ${entry.url}`),
     typeWordOutcomeLabel(outcome, card) {
       if (outcome === "correct") return `${this.text("recallCorrect")} · ${this.typeWordTarget(card)}`;
       if (outcome === "accepted") return `${this.text("recallAccepted")} · ${this.typeWordTarget(card)}`;
-      if (outcome === "incorrect") return `${this.text("recallIncorrect")} · ${this.typeWordTarget(card)}`;
+      if (outcome === "incorrect") return this.text("typeWordTryAgain");
+      if (outcome === "empty") return this.text("recallEmpty");
       return this.text("typeWordSkipped");
     }
     renderWordAnswer(answer, _card) {
@@ -93952,7 +94055,7 @@ ${entry.url}`),
   }
   function normalizePromptContextSentence(value, card) {
     const sentence = value?.replace(/\s+/g, " ").trim() ?? "";
-    return isPromptContextSentence(sentence, card) ? sentence : "";
+    return isPromptContextSentence(sentence, card) && isCompleteStudySentence(sentence) ? sentence : "";
   }
   function isPromptContextSentence(sentence, card) {
     if (!queryHasJapanese(sentence)) return false;
@@ -96154,7 +96257,8 @@ ${rank.detail}` : baseTitle;
     bunpro = new BunproClient({
       getFrontendToken: () => this.activeBunproFrontendApiToken(),
       getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
-      getProxyUrl: () => this.settings.corsProxyUrl
+      getProxyUrl: () => this.settings.corsProxyUrl,
+      isTransportAvailable: () => Boolean(this.settings.corsProxyUrl.trim() || getUserscriptHttpRequest())
     });
     bunproSrs = createBunproSrsAdapter(this.bunpro);
     wanikani = new WanikaniClient({ getToken: () => this.settings.wanikaniApiToken });
@@ -96637,10 +96741,7 @@ ${rank.detail}` : baseTitle;
         host: this.options.mountHost,
         surface: this.options.mountHost ? "academy" : "standalone",
         sessionClock: this.options.sessionClock,
-        showSessionClockControl: !this.options.mountHost,
-        // Opening the standalone Study page should feel recognition-first:
-        // land on Word, then use the configured order for later cards.
-        initialStudyStepId: this.options.mountHost ? void 0 : "word"
+        showSessionClockControl: !this.options.mountHost
       });
     }
     setImmersionTranslationBlurred(blurred) {
