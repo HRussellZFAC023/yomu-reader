@@ -23,6 +23,10 @@ import {
     LESSON_ZERO_GREETING_ACTIVITY_ID,
 } from '../content/lesson-zero-greeting';
 import {
+    createLessonZeroNameCardDefinition,
+    LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
+} from '../content/lesson-zero-name-card';
+import {
     createLessonZeroSentenceFrameDefinition,
     LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
 } from '../content/lesson-zero-sentence-frames';
@@ -71,6 +75,10 @@ import {
     transitionLessonZeroGreetingSession,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    startLessonZeroNameCardSession,
+    transitionLessonZeroNameCardSession,
+} from '../domain/lesson-zero-name-card-session';
+import {
     startLessonZeroSentenceFrameSession,
     transitionLessonZeroSentenceFrameSession,
 } from '../domain/lesson-zero-sentence-frame-session';
@@ -107,6 +115,7 @@ import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
+import { createLessonZeroNameCardScreen } from '../ui/lesson-zero-name-card-screen';
 import { createLessonZeroSentenceFrameScreen } from '../ui/lesson-zero-sentence-frame-screen';
 import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
 import { createLessonZeroVowelWritingScreen } from '../ui/lesson-zero-vowel-writing-screen';
@@ -427,6 +436,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderLessonZeroGreeting(context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_NAME_CARD_ACTIVITY_ID) {
+            await this.renderLessonZeroNameCard(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID) {
             await this.renderLessonZeroSentenceFrames(context);
             return;
@@ -694,6 +707,79 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ lessonZeroSentenceFrameProgress: transition.state });
             },
             onRestart: restart => context.save?.({ lessonZeroSentenceFrameProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroNameCard(context: AcademyRouteContext): Promise<void> {
+        const content = await loadLessonZeroContent();
+        const activity = content.lesson.activities.find(candidate =>
+            candidate.id === LESSON_ZERO_NAME_CARD_ACTIVITY_ID);
+        if (!activity) throw new TypeError('Lesson Zero is missing its name-card activity.');
+        const learnerName = context.projection.profile?.displayName;
+        if (!learnerName) throw new TypeError('The name card requires the learner profile created during arrival.');
+        const definition = createLessonZeroNameCardDefinition(activity, learnerName);
+        let state;
+        try {
+            state = startLessonZeroNameCardSession(definition, context.checkpoint.lessonZeroNameCardProgress);
+        } catch {
+            state = startLessonZeroNameCardSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroNameCardSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroNameCardProgress)) {
+            await context.save?.({ lessonZeroNameCardProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroNameCardScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (_before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        transition.evaluation.result.outcome === 'pass'
+                            ? {
+                                id: 'lesson-zero-first-name-card',
+                                sceneId: 'scene:lesson-zero-first-name-card',
+                                journalLine: {
+                                    lineId: 'journal:lesson-zero:first-name-card',
+                                    characterId: 'rie',
+                                    text: {
+                                        ja: 'りえ先生と、名前の後ろに「です」を置いて名札を作った。',
+                                        en: 'I put です after my name and made a desk card with Rie-sensei.',
+                                    },
+                                },
+                            }
+                            : undefined,
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                await context.save?.({ lessonZeroNameCardProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroNameCardProgress: restart }),
             onBack: () => context.back(),
             onComplete: () => this.completeSourceActivity(context, returning),
         });

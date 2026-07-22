@@ -318,8 +318,8 @@
       {
         "id": "useful-vocabulary",
         "order": 5,
-        "title": { "en": "People and language", "ja": "人とことば" },
-        "outcomeIds": ["outcome:use-first-class-vocabulary", "outcome:write-personal-facts"],
+        "title": { "en": "Your name card", "ja": "自分の名札" },
+        "outcomeIds": ["outcome:reuse-own-name", "outcome:place-copula-after-name"],
         "activityIds": ["activity:lesson-zero-name-card-draft"],
         "resumableAfter": true
       },
@@ -463,13 +463,13 @@
       {
         "id": "activity:lesson-zero-name-card-draft",
         "sectionId": "useful-vocabulary",
-        "responseMode": "ime",
+        "responseMode": "reconstruct",
         "assessed": true,
         "production": true,
-        "prompt": { "en": "Complete your name card with two facts you choose to share.", "ja": "名札に、名前と、自分で選んだ二つのことを書いてください。" },
-        "conceptIds": ["concept:people-language-place-role-vocabulary", "concept:personal-information-choice"],
+        "prompt": { "en": "Listen to Rie's example. Put your saved name before です.", "ja": "りえ先生の例を聞いて、選んだ名前を「です」の前に置いてください。" },
+        "conceptIds": ["concept:self-introduction-name", "concept:copula-affirmative"],
         "sourceQuestionIds": ["source-question:classroom-phrase-07"],
-        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["name-present", "two-true-facts", "sentence-frame"] },
+        "expectedEvidence": { "kind": "ordered-chunks", "values": ["learner-name", "です"], "rubricIds": ["name-first", "copula-after-name"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {

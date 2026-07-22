@@ -333,6 +333,45 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists name-card token progress without copying the player name', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroNameCardProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-name-card-draft' as const,
+            status: 'paused' as const,
+            stage: 'build' as const,
+            selectedTokenIds: ['learner-name'] as const,
+            attempts: [],
+            modelRevealed: false,
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-name-card-draft',
+            lessonZeroNameCardProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroNameCardProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-name-card-draft',
+            lessonZeroNameCardProgress: {
+                ...lessonZeroNameCardProgress,
+                selectedTokenIds: ['learner-name', 'learner-name'] as const,
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero name-card progress');
+        persistence.close();
+    });
+
     it('persists the five-vowel lesson and rejects impossible round snapshots', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const lessonZeroVowelProgress = {

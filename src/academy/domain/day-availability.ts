@@ -186,7 +186,7 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
     'activity:lesson-zero-reconstruct-repair': 'Rebuild a request for repetition',
     'activity:lesson-zero-desk-language': 'Use the first desk-language worksheet',
     'activity:lesson-zero-build-sentence-frames': 'Build the first sentence frames',
-    'activity:lesson-zero-name-card-draft': 'Draft your Japanese name card',
+    'activity:lesson-zero-name-card-draft': 'Put your name on the class card',
     'activity:lesson-zero-sound-input': 'Repair a phrase by sound',
     'activity:lesson-zero-text-input': 'Repair a phrase by text',
     'activity:lesson-zero-speaking-input': 'Repair a phrase by speaking',
@@ -290,6 +290,7 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
                 || activityId === 'activity:lesson-zero-reconstruct-repair'
                 || activityId === 'activity:lesson-zero-desk-language'
                 || activityId === 'activity:lesson-zero-build-sentence-frames'
+                || activityId === 'activity:lesson-zero-name-card-draft'
             ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
             : UNVERIFIED_DELIVERY,
     ));

@@ -512,19 +512,20 @@ describe('opening story arc packages', () => {
         expect(sophie.variants?.n5.japanese).not.toBe(ruparna.variants?.n5.japanese);
     });
 
-    it('makes disclosure and recording choices non-coercive and safely resumable', () => {
-        const sensitiveChoices = [
-            'choice:blank-atlas:disclosure-scope',
+    it('keeps optional recording non-coercive and safely resumable without a disclosure form', () => {
+        const recordingChoices = [
             'choice:blank-atlas:speaking-recording',
             'choice:blank-atlas:transfer-recording',
         ].map(id => choiceNodes(chapter).find(node => node.id === id)!);
-        for (const choice of sensitiveChoices) {
+        for (const choice of recordingChoices) {
             expect(choice).toBeDefined();
             expect(choice.options?.every(option => option.records.includes('boundary-heard'))).toBe(true);
         }
 
-        const speaking = sensitiveChoices[1]!;
-        const transfer = sensitiveChoices[2]!;
+        expect(choiceNodes(chapter).find(node => node.id === 'choice:blank-atlas:disclosure-scope'))
+            .toBeUndefined();
+        const speaking = recordingChoices[0]!;
+        const transfer = recordingChoices[1]!;
         expect(speaking.options?.some(option => /pause|return/i.test(option.action))).toBe(true);
         expect(transfer.options?.some(option => /pause|return/i.test(option.action))).toBe(true);
         expect(speaking.options?.find(option => /pause/i.test(option.action))?.next)

@@ -380,6 +380,62 @@ describe('Academy lesson flow', () => {
         }));
     });
 
+    it('routes the saved name through one durable です transfer without asking for it again', async () => {
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:profile:name-card',
+            at: 1,
+            kind: 'profile-changed',
+            profile: { displayName: 'Henry', learningReason: 'Speak with people', portraitId: 'quality-2' },
+        }]);
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-name-card-draft',
+        }, projection);
+        const recordActivity = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn(async () => undefined) } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-name-card');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroNameCardProgress: expect.objectContaining({ status: 'active', selectedTokenIds: [] }),
+        }));
+        expect(route.shell.current?.querySelector('input[name="displayName"]')).toBeNull();
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-token-id="learner-name"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(1));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-token-id="desu"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(2));
+        clickButton(route.shell.current!, 'Check');
+
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-name-card-draft',
+                    outcome: 'pass',
+                    responseKind: 'tapped-name-card-frame',
+                }),
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:name-card:desu' }),
+                ],
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-first-name-card',
+                journalLine: expect.objectContaining({ lineId: 'journal:lesson-zero:first-name-card' }),
+            }),
+            expect.objectContaining({ skill: 'grammar', action: 'produce', independent: true }),
+        ));
+        expect(JSON.stringify(route.save.mock.calls)).not.toContain('Henry');
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroNameCardProgress: expect.objectContaining({ status: 'complete' }),
+        })));
+        expect(route.shell.current?.dataset.sessionStatus).toBe('complete');
+    });
+
     it('routes Xingyu\'s five sounds through durable SRS evidence and the optional bingo surface', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',

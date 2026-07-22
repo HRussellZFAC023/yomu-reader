@@ -140,7 +140,7 @@
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
     "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
-    "contentSha256": "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c",
+    "contentSha256": "0d1103cdbc0750ab2e281d7e887c417630e4f83c8f8ac3cdf2d1c2528130234a",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [
@@ -817,9 +817,9 @@
       "id": "scene:blank-atlas:useful-vocabulary",
       "locationId": "location:classroom",
       "timeState": "evening",
-      "goal": "Draft a useful, bounded name card and choose the first route mission.",
-      "dramaticQuestion": "Can an introduction be true and useful without demanding private information?",
-      "learnerNeed": "People, language, place or role vocabulary with control over personal disclosure.",
+      "goal": "Move the learner's spoken name sentence onto a desk card, then choose the first route mission.",
+      "dramaticQuestion": "Can the learner recognise on paper the same name sentence they have already said aloud?",
+      "learnerNeed": "Transfer the familiar name + です chunk from speech to a two-piece written frame, with audio and meaning support.",
       "curriculum": {
         "sectionId": "useful-vocabulary",
         "order": 5
@@ -831,25 +831,25 @@
           "id": "node:blank-atlas:name-line",
           "beatId": "beat:blank-atlas:vocabulary-image",
           "cueId": "cue:blank-name-card-and-atlas-line",
-          "description": "The learner's blank name card and the atlas's blank route label sit side by side. Neither fills itself."
+          "description": "Rie writes the learner's saved name on a desk card and leaves one short space after it."
         },
         {
           "kind": "line",
           "id": "line:blank-atlas:rie-share-boundary",
           "beatId": "beat:blank-atlas:vocabulary-boundary",
           "speakerId": "rie",
-          "intent": "Keep personal facts optional while requiring a truthful introduction.",
-          "attentionTarget": "the blank name card",
+          "intent": "Connect the spoken introduction to the same sentence on paper without testing untaught kana.",
+          "attentionTarget": "the learner's saved name and the open space after it",
           "variants": {
             "foundation": {
-              "japanese": "本当のことを一つ。言いたくないことは、書きません。",
-              "reading": "ほんとうのことをひとつ。いいたくないことは、かきません。",
-              "english": "One true thing. You do not write what you do not want to share."
+              "japanese": "名前の後ろに「です」を置きましょう。",
+              "reading": "なまえのうしろに「です」をおきましょう。",
+              "english": "Put です after your name."
             },
             "n5": {
-              "japanese": "本当のことを一つ選びましょう。でも、話したくないことは選ばなくていいです。",
-              "reading": "ほんとうのことをひとつえらびましょう。でも、はなしたくないことはえらばなくていいです。",
-              "english": "Choose one true thing. But you do not need to choose anything you do not want to share."
+              "japanese": "さっき言った名前の後ろに「です」を置いて、名札を完成させましょう。",
+              "reading": "さっきいったなまえのうしろに「です」をおいて、なふだをかんせいさせましょう。",
+              "english": "Put です after the name you said earlier and finish the card."
             }
           },
           "support": {
@@ -859,45 +859,10 @@
           }
         },
         {
-          "kind": "choice",
-          "id": "choice:blank-atlas:disclosure-scope",
-          "beatId": "beat:blank-atlas:vocabulary-stance",
-          "question": "What scope should the first card use?",
-          "options": [
-            {
-              "id": "option:blank-atlas:chosen-fact",
-              "action": "Use your chosen name and one personal fact you want to share.",
-              "japaneseByBand": {
-                "foundation": "名前と、本当のことを一つ。",
-                "n5": "使う名前と、話したいことを一つ書きます。"
-              },
-              "records": [
-                "information",
-                "boundary-heard"
-              ],
-              "next": "checkpoint:blank-atlas:before-name-card-draft"
-            },
-            {
-              "id": "option:blank-atlas:classroom-only",
-              "action": "Keep it classroom-only: your chosen name and that you study Japanese.",
-              "japaneseByBand": {
-                "foundation": "名前と、日本語です。",
-                "n5": "名前と、日本語を勉強していることだけ書きます。"
-              },
-              "records": [
-                "boundary-heard",
-                "support-style"
-              ],
-              "next": "checkpoint:blank-atlas:before-name-card-draft"
-            }
-          ],
-          "convergence": "checkpoint:blank-atlas:before-name-card-draft"
-        },
-        {
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:before-name-card-draft",
           "beatId": "beat:blank-atlas:vocabulary-attempt",
-          "resume": "The disclosure scope is chosen and the name-card draft is ready."
+          "resume": "Rie has written the saved player name. The learner is ready to place です after it."
         },
         {
           "kind": "activity",
@@ -905,14 +870,14 @@
           "beatId": "beat:blank-atlas:vocabulary-attempt",
           "hook": {
             "lessonId": "lesson:foundation-00",
-            "componentType": "vocabulary",
+            "componentType": "grammar",
             "exerciseId": "activity:lesson-zero-name-card-draft"
           },
           "requiredEvidence": {
             "kind": "activity-passed",
             "activityId": "activity:lesson-zero-name-card-draft"
           },
-          "resumeContext": "The learner has chosen a personal or classroom-only disclosure scope for a truthful card.",
+          "resumeContext": "The learner is moving the name + です sentence from the spoken greeting onto the desk card.",
           "onReady": "checkpoint:blank-atlas:after-name-card-draft",
           "onRepair": "node:blank-atlas:name-card-repair",
           "onDefer": "checkpoint:blank-atlas:before-name-card-draft"
@@ -922,13 +887,13 @@
           "id": "node:blank-atlas:name-card-repair",
           "beatId": "beat:blank-atlas:vocabulary-repair",
           "cueId": "cue:name-card-one-rubric",
-          "description": "The learner's chosen facts stay private to the card; only the missing sentence function returns for revision."
+          "description": "Rie taps the saved name once, then the です piece, without adding another explanation."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:after-name-card-draft",
           "beatId": "beat:blank-atlas:vocabulary-response",
-          "resume": "A bounded draft now labels the learner's place without adding unchosen details."
+          "resume": "The learner's name + です card is on the desk."
         },
         {
           "kind": "line",
