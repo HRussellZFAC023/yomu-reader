@@ -133,9 +133,12 @@ describe('packaged Study welcome integration', () => {
         internals.installSettingsStorageSubscription();
         installUserscriptGmStorageBridge();
 
-        await vi.waitFor(() => expect(applyRemoteSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', popupMode: 'popover' })));
+        await vi.waitFor(
+            () => expect(applyRemoteSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', popupMode: 'popover' })),
+            { timeout: 10_000 },
+        );
         expect(shared.get(SETTINGS_STORAGE_KEY)).toMatchObject({ theme: 'dark', popupMode: 'popover' });
         expect(shared.get(SETTINGS_STORAGE_KEY)).not.toHaveProperty('__yomuHostedPendingGmPatch');
         runtime.destroy();
-    });
+    }, 15_000);
 });

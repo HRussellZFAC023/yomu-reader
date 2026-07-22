@@ -2442,7 +2442,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-recall-result[data-newtab-recall-result="incorrect"],
 .jpdb-reader-newtab-recall-result[data-newtab-recall-result="empty"] {
-  color: var(--jpdb-reader-state-failed);
+  color: color-mix(in srgb, var(--jpdb-reader-state-failed) 58%, var(--jpdb-reader-text));
 }
 
 /* ----- Type-word: mode toggle, skip, handwriting track (reuses recall input/result) ----- */
@@ -2476,7 +2476,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-type-result[data-newtab-type-result="incorrect"] {
-  color: var(--jpdb-reader-state-failed);
+  color: color-mix(in srgb, var(--jpdb-reader-state-failed) 58%, var(--jpdb-reader-text));
 }
 
 .jpdb-reader-newtab-type-secondary {

@@ -6183,7 +6183,7 @@ export class NewTabController {
             ? el('span', { class: 'jpdb-reader-newtab-recall-question jpdb-reader-newtab-recall-cloze' },
                 el('span', { class: 'jpdb-reader-newtab-recall-cloze-sentence' },
                     cloze.before,
-                    el('span', { class: 'jpdb-reader-newtab-recall-gap', 'aria-label': this.text('recallAnswer') }),
+                    el('span', { class: 'jpdb-reader-newtab-recall-gap', role: 'img', 'aria-label': this.text('recallAnswer') }),
                     cloze.after,
                 ),
                 el('span', { class: 'jpdb-reader-newtab-recall-hint', lang: resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en' }, meaning),
@@ -6392,7 +6392,7 @@ export class NewTabController {
     // the target word becomes a gap. If highlighting failed to mark it (parse
     // fallback), rebuild the line from the cloze's before/after halves.
     private blankTypeWordSentenceTargets(root: ParentNode, cloze: NewTabRecallCloze): void {
-        const gapNode = () => el('span', { class: 'jpdb-reader-newtab-recall-gap', 'aria-label': this.text('recallAnswer') });
+        const gapNode = () => el('span', { class: 'jpdb-reader-newtab-recall-gap', role: 'img', 'aria-label': this.text('recallAnswer') });
         const targets = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-example-target')];
         if (targets.length) {
             targets.forEach(word => word.replaceWith(gapNode()));
