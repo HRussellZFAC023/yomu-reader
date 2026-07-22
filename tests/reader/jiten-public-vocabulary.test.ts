@@ -71,17 +71,18 @@ describe('JitenPublicVocabularyClient', () => {
     it('preserves Jiten compound decomposition for honest component pitch rendering', async () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
-                return [{ wordId: 2858295, readingIndex: 0, originalText: '王子様' }];
+                return [{ wordId: 2856524, readingIndex: 0, originalText: '登録者数' }];
             }
-            if (url.includes('/vocabulary/2858295/0/info')) {
+            if (url.includes('/vocabulary/2856524/0/info')) {
                 return {
-                    wordId: 2858295,
-                    mainReading: { text: '王[おう]子[じ]様[さま]' },
-                    definitions: [{ meanings: ['prince'], partsOfSpeech: ['noun'] }],
+                    wordId: 2856524,
+                    mainReading: { text: '登[とう]録[ろく]者[しゃ]数[すう]' },
+                    definitions: [{ meanings: ['subscriber count'], partsOfSpeech: ['noun'] }],
                     pitchAccents: [],
                     composedOf: [
-                        { wordId: 1181500, readingIndex: 0, reading: 'おうじ', readingFurigana: '王[おう]子[じ]', matchSurface: '王子' },
-                        { wordId: 1545790, readingIndex: 0, reading: 'さま', readingFurigana: '様[さま]', matchSurface: '様' },
+                        { wordId: 1355900, readingIndex: 0, reading: 'とうろく', readingFurigana: '登[とう]録[ろく]', matchSurface: '登録' },
+                        { wordId: 1580930, readingIndex: 0, reading: 'しゃ', readingFurigana: '者[しゃ]', matchSurface: '者' },
+                        { wordId: 1348900, readingIndex: 0, reading: 'すう', readingFurigana: '数[すう]', matchSurface: '数' },
                     ],
                 };
             }
@@ -89,15 +90,16 @@ describe('JitenPublicVocabularyClient', () => {
         });
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
 
-        const card = await client.lookup('王子様');
+        const card = await client.lookup('登録者数');
 
         expect(card).toMatchObject({
-            spelling: '王子様',
-            reading: 'おうじさま',
+            spelling: '登録者数',
+            reading: 'とうろくしゃすう',
             pitchAccent: [],
             pitchComponents: [
-                { spelling: '王子', reading: 'おうじ', pitchAccent: [], wordWithReading: '王[おう]子[じ]' },
-                { spelling: '様', reading: 'さま', pitchAccent: [], wordWithReading: '様[さま]' },
+                { spelling: '登録', reading: 'とうろく', pitchAccent: [], wordWithReading: '登[とう]録[ろく]' },
+                { spelling: '者', reading: 'しゃ', pitchAccent: [], wordWithReading: '者[しゃ]' },
+                { spelling: '数', reading: 'すう', pitchAccent: [], wordWithReading: '数[すう]' },
             ],
         });
     });

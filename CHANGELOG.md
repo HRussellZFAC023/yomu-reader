@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.6.410] - 2026-07-23
 
 ### Added
 
@@ -16,6 +16,9 @@
 
 - Academy Google linking now rolls back paid-code redemption and every account/profile write on conflicts or later failures and logs only a fixed failure category. Signed session-bound export traversals terminate beyond 24,000 records without shared-NAT budget coupling, and account holders can delete encrypted profile data without deleting their identity.
 - Academy lifecycle proof deletion now requires an expiring, single-use server grant bound to the authenticated production test account and run nonce. The supervised proof compares the active immutable Worker version and script digest with a locally reproduced reviewed bundle, exports large encrypted histories through a bounded stream, protects export creation as a same-origin POST, and prunes 90-day receipts on an observable scheduled retry path.
+
+- Multiline framework-owned prose now reserves measured room for detached furigana, while clipped previews, titles, and compact controls retain the page's dimensions. The shared source-projection path also removes the duplicate pale underline and keeps late compound pitch such as `登録者数` continuous across wrapped fragments.
+- Detached readings now clear rounded chip and tab edges instead of sitting flush with the clipping boundary. The geometry is shared across sites and verified in Chromium and WebKit.
 
 ## [1.6.409] - 2026-07-22
 

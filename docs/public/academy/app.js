@@ -27576,6 +27576,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
   let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
   let constrainedRowStyleGeneration = 0;
+  function noteConstrainedRowLayoutSettled() {
+    constrainedRowStyleGeneration += 1;
+  }
   function constrainedRowStyleFacts(element2) {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element2);
@@ -36486,6 +36489,9 @@ ${spelling}`);
     const mirror = createNonDestructiveTextMirror(context2);
     const controlMirror = target2.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+    if (context2.detachedReadings && !controlMirror) {
+      mirror.dataset.yomuReadingLaneCandidate = "true";
+    }
     const state = styleTextMirrorHost(host2);
     try {
       styleTextMirror(mirror, host2, false);
@@ -36518,7 +36524,7 @@ ${spelling}`);
         openSafeDetachedReadingClips(host2);
         stabilizeDetachedReadings(mirror, context2.clipRow, true);
       }
-      scheduleAdditiveMirrorProjection();
+      scheduleAdditiveMirrorProjection(host2.getRootNode());
       syncTextMirrorVisibilityToPage(host2, mirror);
       observeTextMirrorHost(host2);
       rememberNonDestructiveRenderForReplay(host2, target2, context2.text, context2.safeTokens, context2.hostText, settings);
@@ -36573,7 +36579,15 @@ ${spelling}`);
       word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
       const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
       const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-      const rects = sourceClientRects(host2, source2.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+      const sourceRects = sourceClientRects(host2, source2.nodeOffsets, start, end);
+      const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
+      let gradientOffset = 0;
+      const rects = sourceRects.map((rect) => {
+        const projectedWidth = rect.width / scaleX;
+        const projection = { rect, gradientOffset };
+        gradientOffset += projectedWidth;
+        return projection;
+      }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
       if (!rects.length) continue;
       word.dataset.yomuSourceProjected = "true";
       word.style.setProperty("position", "absolute", "important");
@@ -36581,10 +36595,12 @@ ${spelling}`);
       word.style.setProperty("width", "auto", "important");
       word.style.setProperty("height", "auto", "important");
       word.style.setProperty("margin", "0", "important");
-      for (const rect of rects) {
+      for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
         const fragment2 = document.createElement("span");
         fragment2.className = SOURCE_FRAGMENT_CLASS;
         fragment2.setAttribute("aria-hidden", "true");
+        fragment2.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
+        fragment2.style.setProperty("--jpdb-reader-source-gradient-offset", `${-fragmentGradientOffset}px`);
         positionProjectedElement(fragment2, rect, mirrorRect, scaleX, scaleY);
         word.append(fragment2);
       }
@@ -36649,23 +36665,84 @@ ${spelling}`);
     return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
   }
   function projectAdditiveTextMirrors(root = document) {
-    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-    for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
+    const entries2 = [];
+    for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
       const host2 = registeredTextMirrorHostFor(mirror);
       if (!host2?.isConnected) continue;
-      projectAdditiveTextMirror(mirror, host2);
+      entries2.push({ mirror, host: host2 });
     }
+    if (settleTextMirrorReadingLanes(entries2)) {
+      scheduleAdditiveMirrorProjection(root);
+      return;
+    }
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+    for (const { mirror, host: host2 } of entries2) projectAdditiveTextMirror(mirror, host2);
+  }
+  function settleTextMirrorReadingLanes(entries2) {
+    const updates = [];
+    for (const { mirror, host: host2 } of entries2) {
+      if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
+      const state = textMirrorHosts.get(host2);
+      if (!state) continue;
+      const inlineLineHeight = host2.style.getPropertyValue("line-height");
+      const inlineLineHeightPriority = host2.style.getPropertyPriority("line-height");
+      let baselineChanged = false;
+      const ownsReservation = Boolean(state.reservedLineHeight) && inlineLineHeight === state.reservedLineHeight && inlineLineHeightPriority === "important";
+      if (!ownsReservation && (state.reservedLineHeight || inlineLineHeight !== state.lineHeight || inlineLineHeightPriority !== state.lineHeightPriority)) {
+        state.lineHeight = inlineLineHeight;
+        state.lineHeightPriority = inlineLineHeightPriority;
+        state.reservedLineHeight = "";
+        baselineChanged = true;
+      }
+      const multiline = !closestRubyFragileConstrainedRow(host2) && sourceTextSpansMultipleLines(host2);
+      const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host2), Boolean(state.reservedLineHeight)) : "";
+      if (baselineChanged || lineHeight !== state.reservedLineHeight) {
+        updates.push({ mirror, host: host2, state, lineHeight });
+      }
+    }
+    for (const { mirror, host: host2, state, lineHeight } of updates) {
+      if (!host2.isConnected || textMirrorHosts.get(host2) !== state || currentTextMirror(host2) !== mirror) continue;
+      if (lineHeight) {
+        state.reservedLineHeight = lineHeight;
+        host2.style.setProperty("line-height", lineHeight, "important");
+        mirror.style.setProperty("line-height", lineHeight);
+      } else {
+        releaseTextMirrorReadingLane(host2, state, mirror);
+      }
+    }
+    return updates.length > 0;
+  }
+  function releaseTextMirrorReadingLane(host2, state, mirror) {
+    const injected = state.reservedLineHeight;
+    if (injected) {
+      const current = host2.style.getPropertyValue("line-height");
+      const priority = host2.style.getPropertyPriority("line-height");
+      if (current === injected && priority === "important") {
+        restoreStyleProperty$1(host2, "line-height", injected, state.lineHeight, state.lineHeightPriority);
+      } else {
+        state.lineHeight = current;
+        state.lineHeightPriority = priority;
+      }
+      state.reservedLineHeight = "";
+    }
+    mirror.style.removeProperty("line-height");
   }
   let pendingAdditiveMirrorProjectionFrame = 0;
-  function scheduleAdditiveMirrorProjection() {
+  const pendingAdditiveMirrorProjectionRoots = /* @__PURE__ */ new Set();
+  function scheduleAdditiveMirrorProjection(root = document) {
+    pendingAdditiveMirrorProjectionRoots.add(root);
     if (typeof requestAnimationFrame !== "function") {
-      projectAdditiveTextMirrors(document);
+      const roots = [...pendingAdditiveMirrorProjectionRoots];
+      pendingAdditiveMirrorProjectionRoots.clear();
+      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
       return;
     }
     if (pendingAdditiveMirrorProjectionFrame) return;
     pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
       pendingAdditiveMirrorProjectionFrame = 0;
-      projectAdditiveTextMirrors(document);
+      const roots = [...pendingAdditiveMirrorProjectionRoots];
+      pendingAdditiveMirrorProjectionRoots.clear();
+      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
     });
   }
   function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
@@ -36697,7 +36774,7 @@ ${spelling}`);
       setInlineStyleIfChanged(reading, "position", "absolute", "important");
       setInlineStyleIfChanged(reading, "z-index", "2");
       setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-      setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+      setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 5px)");
       setInlineStyleIfChanged(reading, "display", "block", "important");
       setInlineStyleIfChanged(reading, "width", "max-content");
       setInlineStyleIfChanged(reading, "max-width", "none");
@@ -37314,6 +37391,16 @@ ${spelling}`);
   function targetHasNativeRuby(target2) {
     return isFragmentTextTarget(target2) ? target2.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target2.hasNativeRuby);
   }
+  function sourceTextSpansMultipleLines(host2) {
+    const source2 = hostOriginalTextWithNodeOffsets(host2);
+    const style = safeComputedStyle(host2);
+    if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source2.hostText)) return true;
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
+    const rects = sourceClientRects(host2, source2.nodeOffsets, 0, source2.hostText.length);
+    const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
+    const intervals = rects.map((rect) => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom]).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
+    return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
+  }
   function styleTextMirrorHost(host2) {
     const computed = safeComputedStyle(host2);
     const state = {
@@ -37321,7 +37408,10 @@ ${spelling}`);
       sourceText: "",
       position: host2.style.getPropertyValue("position"),
       positionPriority: host2.style.getPropertyPriority("position"),
-      positioned: computed.position === "static"
+      positioned: computed.position === "static",
+      lineHeight: host2.style.getPropertyValue("line-height"),
+      lineHeightPriority: host2.style.getPropertyPriority("line-height"),
+      reservedLineHeight: ""
     };
     textMirrorHosts.set(host2, state);
     if (state.positioned) host2.style.setProperty("position", "relative", "important");
@@ -37363,6 +37453,13 @@ ${spelling}`);
     const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
     return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
   }
+  function detachedReadingLaneLineHeight(style, alreadyReserved) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const minimum = Math.ceil(fontSize * 2);
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? "" : `${minimum}px`;
+  }
   function observeTextMirrorHost(host2) {
     const state = textMirrorHosts.get(host2);
     if (!state) return;
@@ -37392,8 +37489,17 @@ ${spelling}`);
         removeTextMirror(liveHost);
         return;
       }
-      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+      const hostAttributeMutations = mutations.filter(
+        (mutation) => mutation.type === "attributes" && mutation.target === liveHost
+      );
+      if (hostAttributeMutations.length) {
+        noteConstrainedRowLayoutSettled();
+        if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
+          const mirror = currentTextMirror(liveHost);
+          if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
+        }
         reassertTextMirrorHostStyles(liveHost, liveState);
+        scheduleAdditiveMirrorProjection(liveHost.getRootNode());
       }
       if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -37617,10 +37723,13 @@ ${spelling}`);
   }
   function restoreTextMirrorHost(host2, state) {
     if (state.positioned) restoreStyleProperty$1(host2, "position", "relative", state.position, state.positionPriority);
+    if (state.reservedLineHeight) {
+      restoreStyleProperty$1(host2, "line-height", state.reservedLineHeight, state.lineHeight, state.lineHeightPriority);
+    }
   }
   function restoreStyleProperty$1(host2, property, injectedValue, value, priority) {
     const current = host2.style.getPropertyValue(property);
-    if (current && current !== injectedValue) return;
+    if (current !== injectedValue || host2.style.getPropertyPriority(property) !== "important") return;
     if (value) host2.style.setProperty(property, value, priority);
     else host2.style.removeProperty(property);
   }

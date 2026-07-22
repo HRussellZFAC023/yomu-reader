@@ -7,7 +7,7 @@
     },
     "locks": {
       "path": "docs/academy/audio/learning-voice-locks.json",
-      "sha256": "a03fdf0b76cd7fac858859ba649c092032287fa0da8394b835e1b98413a0d677"
+      "sha256": "237c9e2c27ab61b02b0371c2bc6c97fbe6e7c77ad3101b35bdc7dbfa83fb5131"
     },
     "acceptance": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
@@ -613,12 +613,12 @@
       "sceneId": "scene:blank-atlas:useful-vocabulary",
       "lineId": "line:blank-atlas:rie-share-boundary",
       "speakerId": "rie",
-      "intent": "Keep personal facts optional while requiring a truthful introduction.",
+      "intent": "Connect the spoken introduction to the same sentence on paper without testing untaught kana.",
       "band": "foundation",
-      "japanese": "本当のことを一つ。言いたくないことは、書きません。",
-      "reading": "ほんとうのことをひとつ。いいたくないことは、かきません。",
-      "english": "One true thing. You do not write what you do not want to share.",
-      "sourceSha256": "993cd6d65f3041ec99f979836dfcad7192fa1f9d68d351379e6646a3ca1dd94a",
+      "japanese": "名前の後ろに「です」を置きましょう。",
+      "reading": "なまえのうしろに「です」をおきましょう。",
+      "english": "Put です after your name.",
+      "sourceSha256": "4112dd96c6e8b974ac13e223cfda2f964d759d5e94f2375e3854680e8901b76a",
       "status": "draft",
       "voiceModel": {
         "speaker": "rie",
@@ -639,12 +639,12 @@
       "sceneId": "scene:blank-atlas:useful-vocabulary",
       "lineId": "line:blank-atlas:rie-share-boundary",
       "speakerId": "rie",
-      "intent": "Keep personal facts optional while requiring a truthful introduction.",
+      "intent": "Connect the spoken introduction to the same sentence on paper without testing untaught kana.",
       "band": "n5",
-      "japanese": "本当のことを一つ選びましょう。でも、話したくないことは選ばなくていいです。",
-      "reading": "ほんとうのことをひとつえらびましょう。でも、はなしたくないことはえらばなくていいです。",
-      "english": "Choose one true thing. But you do not need to choose anything you do not want to share.",
-      "sourceSha256": "503959d46ec4ae2f2b9ca480ec7dd02449f7c7e924054774dc69b87e3a92d859",
+      "japanese": "さっき言った名前の後ろに「です」を置いて、名札を完成させましょう。",
+      "reading": "さっきいったなまえのうしろに「です」をおいて、なふだをかんせいさせましょう。",
+      "english": "Put です after the name you said earlier and finish the card.",
+      "sourceSha256": "65897dcb461447e3ee047c6aed360a54df7515e2159176a9261956397c2bb620",
       "status": "draft",
       "voiceModel": {
         "speaker": "rie",

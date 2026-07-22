@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.409
+// @version 1.6.410
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,14 +11,14 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.cb627313461d.user.js#sha256=y2JzE0YdIOG9+4YhmBQPIMvhXNKcC0mQxwUyrXswIWY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fc7fad73db37.user.js#sha256=/H+tc9s3D9G7zF/XxNNhaun7OY2MKpvnswlF2uOkXdo=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
-// @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
-// @resource yomuCss  https://yomureader.com/yomu.87515109e685.css#sha256=h1FRCeaFlK7NCv8IiUDMrX5/iBPsS082B/V4DxZY5zs=
+// @require https://yomureader.com/greasyfork/yomu-anki.83c0d5fcbc7e.user.js#sha256=g8DV/Lx+zNCHWqtE6ni5YIcPbiIgw2B3E6VxMW820UQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.6b5329a0dcc9.user.js#sha256=a1MpoNzJ9np3uOgYVt/I+AAYGycUKMLt4RssQlZ6P9E=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.09ef73f0f378.user.js#sha256=Ce9z8PN46Gul+NFTtczlBYngfw+SB496xy/ZI8A9vg0=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.f2011781310b.user.js#sha256=8gEXgTELEmXyvWo/+69Va9A5Huy/h3I7/+DbQXdnUOI=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.9f8a6689e670.user.js#sha256=n4pmieZwV56EHnevzO2dGdopeGTXccXJIkLE8JCtLv4=
+// @require https://yomureader.com/greasyfork/yomu-video.6d6511305740.user.js#sha256=bWURMFdA8FsxzJ5kmqR6JskIfoSMqLdKYWXhhR2M+Ic=
+// @resource yomuCss  https://yomureader.com/yomu.779f3dd2fe7c.css#sha256=d5890v58+Ve39HtM7tFXGb5Le0/hk8pexlIjpHs1AOo=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -8859,6 +8859,9 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+  if (context.detachedReadings && !controlMirror) {
+  mirror.dataset.yomuReadingLaneCandidate = "true";
+  }
   const state = styleTextMirrorHost(host);
   try {
   styleTextMirror(mirror, host, false);
@@ -8888,7 +8891,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
   }
-  scheduleAdditiveMirrorProjection();
+  scheduleAdditiveMirrorProjection(host.getRootNode());
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -8943,7 +8946,15 @@ function projectAdditiveTextMirror(mirror, host) {
   word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
   const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
   const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+  const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
+  const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
+  let gradientOffset = 0;
+  const rects = sourceRects.map((rect) => {
+    const projectedWidth = rect.width / scaleX;
+    const projection = { rect, gradientOffset };
+    gradientOffset += projectedWidth;
+    return projection;
+  }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
   if (!rects.length) continue;
   word.dataset.yomuSourceProjected = "true";
   word.style.setProperty("position", "absolute", "important");
@@ -8951,10 +8962,12 @@ function projectAdditiveTextMirror(mirror, host) {
   word.style.setProperty("width", "auto", "important");
   word.style.setProperty("height", "auto", "important");
   word.style.setProperty("margin", "0", "important");
-  for (const rect of rects) {
+  for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
     const fragment = document.createElement("span");
     fragment.className = SOURCE_FRAGMENT_CLASS;
     fragment.setAttribute("aria-hidden", "true");
+    fragment.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
+    fragment.style.setProperty("--jpdb-reader-source-gradient-offset", `${-fragmentGradientOffset}px`);
     positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
     word.append(fragment);
   }
@@ -9019,23 +9032,84 @@ function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
 }
 function projectAdditiveTextMirrors(root = document) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-  for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
+  const entries2 = [];
+  for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
-  projectAdditiveTextMirror(mirror, host);
+  entries2.push({ mirror, host });
   }
+  if (settleTextMirrorReadingLanes(entries2)) {
+  scheduleAdditiveMirrorProjection(root);
+  return;
+  }
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+  for (const { mirror, host } of entries2) projectAdditiveTextMirror(mirror, host);
+}
+function settleTextMirrorReadingLanes(entries2) {
+  const updates = [];
+  for (const { mirror, host } of entries2) {
+  if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
+  const state = textMirrorHosts.get(host);
+  if (!state) continue;
+  const inlineLineHeight = host.style.getPropertyValue("line-height");
+  const inlineLineHeightPriority = host.style.getPropertyPriority("line-height");
+  let baselineChanged = false;
+  const ownsReservation = Boolean(state.reservedLineHeight) && inlineLineHeight === state.reservedLineHeight && inlineLineHeightPriority === "important";
+  if (!ownsReservation && (state.reservedLineHeight || inlineLineHeight !== state.lineHeight || inlineLineHeightPriority !== state.lineHeightPriority)) {
+    state.lineHeight = inlineLineHeight;
+    state.lineHeightPriority = inlineLineHeightPriority;
+    state.reservedLineHeight = "";
+    baselineChanged = true;
+  }
+  const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
+  const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state.reservedLineHeight)) : "";
+  if (baselineChanged || lineHeight !== state.reservedLineHeight) {
+    updates.push({ mirror, host, state, lineHeight });
+  }
+  }
+  for (const { mirror, host, state, lineHeight } of updates) {
+  if (!host.isConnected || textMirrorHosts.get(host) !== state || currentTextMirror(host) !== mirror) continue;
+  if (lineHeight) {
+    state.reservedLineHeight = lineHeight;
+    host.style.setProperty("line-height", lineHeight, "important");
+    mirror.style.setProperty("line-height", lineHeight);
+  } else {
+    releaseTextMirrorReadingLane(host, state, mirror);
+  }
+  }
+  return updates.length > 0;
+}
+function releaseTextMirrorReadingLane(host, state, mirror) {
+  const injected = state.reservedLineHeight;
+  if (injected) {
+  const current = host.style.getPropertyValue("line-height");
+  const priority2 = host.style.getPropertyPriority("line-height");
+  if (current === injected && priority2 === "important") {
+    restoreStyleProperty(host, "line-height", injected, state.lineHeight, state.lineHeightPriority);
+  } else {
+    state.lineHeight = current;
+    state.lineHeightPriority = priority2;
+  }
+  state.reservedLineHeight = "";
+  }
+  mirror.style.removeProperty("line-height");
 }
 let pendingAdditiveMirrorProjectionFrame = 0;
-function scheduleAdditiveMirrorProjection() {
+const pendingAdditiveMirrorProjectionRoots = new Set();
+function scheduleAdditiveMirrorProjection(root = document) {
+  pendingAdditiveMirrorProjectionRoots.add(root);
   if (typeof requestAnimationFrame !== "function") {
-  projectAdditiveTextMirrors(document);
+  const roots = [...pendingAdditiveMirrorProjectionRoots];
+  pendingAdditiveMirrorProjectionRoots.clear();
+  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
   return;
   }
   if (pendingAdditiveMirrorProjectionFrame) return;
   pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
   pendingAdditiveMirrorProjectionFrame = 0;
-  projectAdditiveTextMirrors(document);
+  const roots = [...pendingAdditiveMirrorProjectionRoots];
+  pendingAdditiveMirrorProjectionRoots.clear();
+  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
   });
 }
 function readerWordSourcePointScore(word, x, y) {
@@ -9108,7 +9182,7 @@ function styleDetachedReadingElements(root, host) {
   setInlineStyleIfChanged(reading, "position", "absolute", "important");
   setInlineStyleIfChanged(reading, "z-index", "2");
   setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 5px)");
   setInlineStyleIfChanged(reading, "display", "block", "important");
   setInlineStyleIfChanged(reading, "width", "max-content");
   setInlineStyleIfChanged(reading, "max-width", "none");
@@ -9735,6 +9809,16 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
+function sourceTextSpansMultipleLines(host) {
+  const source = hostOriginalTextWithNodeOffsets(host);
+  const style = safeComputedStyle(host);
+  if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
+  const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
+  const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
+  const intervals = rects.map((rect) => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom]).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
+  return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
+}
 function styleTextMirrorHost(host) {
   const computed = safeComputedStyle(host);
   const state = {
@@ -9742,7 +9826,10 @@ function styleTextMirrorHost(host) {
   sourceText: "",
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
-  positioned: computed.position === "static"
+  positioned: computed.position === "static",
+  lineHeight: host.style.getPropertyValue("line-height"),
+  lineHeightPriority: host.style.getPropertyPriority("line-height"),
+  reservedLineHeight: ""
   };
   textMirrorHosts.set(host, state);
   if (state.positioned) host.style.setProperty("position", "relative", "important");
@@ -9784,6 +9871,13 @@ function rubyFriendlyMirrorLineHeight(style) {
   const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
   return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
+function detachedReadingLaneLineHeight(style, alreadyReserved) {
+  const fontSize = cssPixels(style.fontSize) || 16;
+  const minimum = Math.ceil(fontSize * 2);
+  const current = cssPixels(style.lineHeight);
+  if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+  return current >= minimum ? "" : `${minimum}px`;
+}
 function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
@@ -9813,8 +9907,17 @@ function observeTextMirrorHost(host) {
     removeTextMirror(liveHost);
     return;
   }
-  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+  const hostAttributeMutations = mutations.filter(
+    (mutation) => mutation.type === "attributes" && mutation.target === liveHost
+  );
+  if (hostAttributeMutations.length) {
+    noteConstrainedRowLayoutSettled();
+    if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
+      const mirror = currentTextMirror(liveHost);
+      if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
+    }
     reassertTextMirrorHostStyles(liveHost, liveState);
+    scheduleAdditiveMirrorProjection(liveHost.getRootNode());
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -10051,10 +10154,13 @@ function reassertTextMirrorHostStyles(host, state) {
 }
 function restoreTextMirrorHost(host, state) {
   if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
+  if (state.reservedLineHeight) {
+  restoreStyleProperty(host, "line-height", state.reservedLineHeight, state.lineHeight, state.lineHeightPriority);
+  }
 }
 function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   const current = host.style.getPropertyValue(property);
-  if (current && current !== injectedValue) return;
+  if (current !== injectedValue || host.style.getPropertyPriority(property) !== "important") return;
   if (value) host.style.setProperty(property, value, priority2);
   else host.style.removeProperty(property);
 }
@@ -34477,7 +34583,7 @@ function upsertAcademyVocabulary(deck, input, now) {
   meanings,
   sentence: cleanOptional(input.sentence),
   tags: ["academy"],
-  dueAt: now,
+  dueAt: finiteDueAt(input.dueAt, now),
   lastReviewAt: null,
   createdAt: now,
   updatedAt: now,
@@ -34488,7 +34594,11 @@ function upsertAcademyVocabulary(deck, input, now) {
   retainWithoutAcademyProvenance: false,
   academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
   };
-  const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
+  const card = existing ? preserveExistingSchedule(
+  mergeStoredYomuSrsCards(existing, incoming),
+  existing,
+  input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
+  ) : incoming;
   deck.cards[identity.key] = card;
   return {
   card,
@@ -34497,10 +34607,13 @@ function upsertAcademyVocabulary(deck, input, now) {
   provenanceCount: Object.keys(card.academyProvenance ?? {}).length
   };
 }
-function preserveExistingSchedule(merged, existing) {
+function finiteDueAt(value, fallback) {
+  return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+}
+function preserveExistingSchedule(merged, existing, notBefore) {
   return {
   ...merged,
-  dueAt: existing.dueAt,
+  dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
   lastReviewAt: existing.lastReviewAt,
   reviews: existing.reviews,
   lapses: existing.lapses,
@@ -34600,7 +34713,7 @@ function normalizeProvenanceRecord(value, fallbackAt) {
       ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
       ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
       ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-      ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+      ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
     }, finiteNumber(candidate.addedAt, fallbackAt));
     result[normalized.id] = normalized;
   } catch {
@@ -34984,7 +35097,13 @@ function normalizedQueueLimit(limit) {
 async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
   if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
   const plaintext = new TextEncoder().encode(JSON.stringify(value));
-  const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const hmacKey = await crypto.subtle.importKey(
+  "raw",
+  cryptoBuffer(fromBase64Url(key)),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"]
+  );
   const digest = new Uint8Array(await crypto.subtle.sign(
   "HMAC",
   hmacKey,
@@ -36306,8 +36425,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.409"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.409"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.410"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.410"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36439,7 +36558,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.409"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.410"}`;
   } catch {
   return null;
   }

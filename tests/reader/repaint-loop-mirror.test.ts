@@ -4,6 +4,7 @@ import {
     applyTokensToScanTarget,
     collectTextTargetsIn,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
+    projectAdditiveTextMirrors,
     removeNonDestructiveScanMirrors,
     STALE_MIRROR_REMOVAL_GRACE_MS,
     withMirrorTokenApply,
@@ -34,6 +35,7 @@ function paintForcedInline(host: HTMLElement): void {
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
+    document.getElementById('roomy-style')?.remove();
     document.body.innerHTML = '';
 });
 
@@ -129,6 +131,160 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.style.overflow).toBe('hidden');
         expect(host.style.visibility).toBe('');
         expect(host.style.position).toBe('');
+    });
+
+    it('reserves and restores a detached-reading lane for multiline prose', () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+
+        const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+        expect(reading).toBeTruthy();
+        expect(reading?.style.insetBlockEnd).toBe('calc(100% + 5px)');
+        expect(host.style.getPropertyValue('line-height')).toBe('28px');
+        expect(host.style.getPropertyPriority('line-height')).toBe('important');
+
+        expect(removeNonDestructiveScanMirrors(document)).toBe(1);
+        expect(host.style.getPropertyValue('line-height')).toBe('16px');
+        expect(host.style.getPropertyPriority('line-height')).toBe('');
+    });
+
+    it('keeps single-line prose at its authored line-height', () => {
+        document.body.innerHTML = `<span id="prose" style="display:block;font-size:14px;line-height:16px">${TEXT}</span>`;
+        const host = document.getElementById('prose')!;
+
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: TEXT,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+
+        expect(host.style.getPropertyValue('line-height')).toBe('16px');
+    });
+
+    it('reserves the same lane for multiline passive content', () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            passiveInteraction: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+
+        expect(host.style.lineHeight).toBe('28px');
+    });
+
+    it('re-reserves from and restores a newer page line-height', () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('28px');
+
+        host.style.setProperty('line-height', '18px');
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('28px');
+
+        removeNonDestructiveScanMirrors(document);
+        expect(host.style.lineHeight).toBe('18px');
+    });
+
+    it('refreshes an unreserved page baseline before later reserving', () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:14px;line-height:40px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('40px');
+
+        host.style.lineHeight = '18px';
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('28px');
+        removeNonDestructiveScanMirrors(document);
+
+        expect(host.style.lineHeight).toBe('18px');
+    });
+
+    it('never shrinks an active lane on a responsive font-size change', () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:16px;line-height:30px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('32px');
+
+        host.style.fontSize = '14px';
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('32px');
+        removeNonDestructiveScanMirrors(document);
+
+        expect(host.style.lineHeight).toBe('30px');
+    });
+
+    it('does not resurrect an old inline baseline after a class rewrite', async () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.head.insertAdjacentHTML('beforeend', '<style id="roomy-style">.roomy-prose{line-height:24px}</style>');
+        document.body.innerHTML = `<span id="prose" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('prose')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('28px');
+
+        host.style.removeProperty('line-height');
+        host.classList.add('roomy-prose');
+        await new Promise(resolve => setTimeout(resolve, 0));
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('28px');
+        removeNonDestructiveScanMirrors(document);
+
+        expect(host.style.lineHeight).toBe('');
+        expect(getComputedStyle(host).lineHeight).toBe('24px');
+        document.getElementById('roomy-style')?.remove();
     });
 
     it('keeps ruby-suppressed passive mirrors clipped by native host overflow', () => {

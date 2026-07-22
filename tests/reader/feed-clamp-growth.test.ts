@@ -161,7 +161,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
                     <div id="collapsed-string-container">
                         <div id="collapsed-string"
                              style="height:112px;max-height:112px;overflow:hidden;white-space:pre-wrap;line-height:16px">
-                            <span class="ytAttributedStringHost"></span>
+                            <span class="ytAttributedStringHost" style="line-height:16px"></span>
                         </div>
                     </div>
                 </ytm-expandable-video-description-body-renderer>
@@ -197,6 +197,8 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror.style.maxHeight).toBe('112px');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(host.style.getPropertyValue('display')).toBe('');
+        expect(host.style.lineHeight).toBe('16px');
+        expect(mirror.style.lineHeight).toBe('16px');
         expect(preview.style.height).toBe('112px');
         expect(preview.style.maxHeight).toBe('112px');
         expect(preview.style.overflow).toBe('hidden');

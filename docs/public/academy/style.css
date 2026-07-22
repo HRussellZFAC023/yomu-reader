@@ -7819,7 +7819,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   /* Range-projected wrappers use the source line box, whose CJK ink can
      overhang its top edge by about 2px in both WebKit and Chromium. Keep a
      small physical gap so the detached reading never collides with that ink. */
-  inset-block-end: calc(100% + 3px);
+  inset-block-end: calc(100% + 5px);
   display: block !important;
   width: max-content;
   max-width: none;
@@ -7940,6 +7940,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   content: none !important;
 }
 
+.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word[data-yomu-source-projected="true"]
+  .jpdb-reader-detached-ruby {
+  /* The source fragment below owns the projected underline. Keeping the
+     pre-projection wrapper decoration would paint a second pale line. */
+  text-decoration: none !important;
+}
+
 .jpdb-reader-source-fragment {
   position: absolute;
   z-index: 1;
@@ -7964,6 +7972,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   border-block-end: var(--jpdb-reader-word-underline-thickness)
     var(--jpdb-reader-word-underline-style)
     var(--jpdb-reader-word-underline, transparent);
+}
+
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-additive-text-mirror
+  .jpdb-reader-word[data-pitch-components="true"]
+  .jpdb-reader-source-fragment::after {
+  height: var(--jpdb-reader-word-underline-thickness);
+  border-block-end: 0;
+  background-image: var(--jpdb-reader-inline-pitch-gradient);
+  background-repeat: no-repeat;
+  background-size: var(--jpdb-reader-source-gradient-width) 100%;
+  background-position: var(--jpdb-reader-source-gradient-offset) 0;
 }
 
 /* Mirrors and in-place words use the same synthetic border underline channel:

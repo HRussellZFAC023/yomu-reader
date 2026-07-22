@@ -544,29 +544,31 @@ describe('reader helpers', () => {
     it('renders aligned compound component accents without inventing a whole-word pitch', async () => {
         const app = new ReaderApp();
         const compound = testPublicCard({
-            vid: 2858295,
+            vid: 2856524,
             sid: 0,
-            spelling: '王子様',
-            reading: 'おうじさま',
+            spelling: '登録者数',
+            reading: 'とうろくしゃすう',
             source: 'jiten',
             pitchAccent: [],
-            wordWithReading: '王[おう]子[じ]様[さま]',
+            wordWithReading: '登[とう]録[ろく]者[しゃ]数[すう]',
             pitchComponents: [
-                { spelling: '王子', reading: 'おうじ', pitchAccent: [], wordWithReading: '王[おう]子[じ]' },
-                { spelling: '様', reading: 'さま', pitchAccent: [], wordWithReading: '様[さま]' },
+                { spelling: '登録', reading: 'とうろく', pitchAccent: [], wordWithReading: '登[とう]録[ろく]' },
+                { spelling: '者', reading: 'しゃ', pitchAccent: [], wordWithReading: '者[しゃ]' },
+                { spelling: '数', reading: 'すう', pitchAccent: [], wordWithReading: '数[すう]' },
             ],
         });
-        const token = testTokenForCard(compound, '彼女は「王子様」と呼んだ。');
+        const token = testTokenForCard(compound, 'チャンネル登録者数は五万人です。');
         const word = appendRenderedReaderWord(compound);
         const host = document.createElement('pitch-shadow-host');
         document.body.append(host);
         const root = host.attachShadow({ mode: 'open' });
         noteScannedShadowRoot(root);
         root.append(word);
-        const hydrateCards = vi.fn(async () => new Map([['2858295:0', compound]]));
+        const hydrateCards = vi.fn(async () => new Map([['2856524:0', compound]]));
         const publicPitch = vi.fn(async (spelling: string) => {
-            if (spelling === '王子') return ['HLLL'];
-            if (spelling === '様') return ['LHH'];
+            if (spelling === '登録') return ['HLLLL'];
+            if (spelling === '者') return ['LH'];
+            if (spelling === '数') return ['LHL'];
             return [];
         });
         const internals = app as unknown as {
@@ -591,9 +593,10 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
 
-            expect(publicPitch).toHaveBeenCalledWith('王子様', 'おうじさま');
-            expect(publicPitch).toHaveBeenCalledWith('王子', 'おうじ');
-            expect(publicPitch).toHaveBeenCalledWith('様', 'さま');
+            expect(publicPitch).toHaveBeenCalledWith('登録者数', 'とうろくしゃすう');
+            expect(publicPitch).toHaveBeenCalledWith('登録', 'とうろく');
+            expect(publicPitch).toHaveBeenCalledWith('者', 'しゃ');
+            expect(publicPitch).toHaveBeenCalledWith('数', 'すう');
             expect(compound.pitchAccent).toEqual([]);
             expect(word.dataset.pitchComponents).toBe('true');
             expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-atamadaka');

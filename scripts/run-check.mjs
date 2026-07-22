@@ -3,12 +3,13 @@
 // the stage graph actually has three independent lanes that only join at verify:
 //
 //   lane typecheck: tsc --noEmit
-//   lane tests:     test:ci  ->  test:academy       (serialized: both fork-heavy)
-//   lane build:     build -> sync-docs-userscript -> build:academy* -> docs:build
+//   lane tests:     test:ci
+//   lane build:     build -> sync-docs-userscript
+//   serial tail:    build:academy* -> test:academy -> docs:build
 //   join:           verify
 //
-// *build:academy here skips academy:lessons:validate because the tests lane runs
-// the full academy suite (a strict superset) in the same check. Standalone
+// *build:academy here skips academy:lessons:validate because the full Academy
+// suite (a strict superset) runs against that deterministic build. Standalone
 // `npm run build:academy` keeps its gate.
 //
 // Wall clock becomes max(lanes) instead of sum(stages). The tests lane keeps
@@ -104,10 +105,7 @@ const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
 
 const lanes = [
     lane(stage('typecheck', 'npm run -s typecheck')),
-    lane(
-        testStage('test:ci', 'npm run -s test:ci'),
-        ...(releaseCheck ? [] : [testStage('test:academy', 'npm run -s test:academy')]),
-    ),
+    lane(testStage('test:ci', 'npm run -s test:ci')),
     lane(
         stage('build', 'npm run -s build'),
         stage('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs'),
@@ -122,11 +120,12 @@ if (failures.length) {
     process.exit(1);
 }
 
-// The tail stays serial and AFTER both test suites: sync-academy destructively
-// rm+cp's docs/public/academy, which ~70 academy test files read — running it in
-// a lane concurrent with test:academy is a guaranteed race on the release path.
+// The tail stays serial after the parallel lanes. Academy provenance tests read
+// dist/academy/app.js and the synced hosted bytes, so build those exact artifacts
+// before the suite; sync-academy must never race the tests that inspect them.
 try {
     await runStage(stage('build:academy (prevalidated)', 'npm run -s build:academy:prevalidated'));
+    if (!releaseCheck) await runStage(testStage('test:academy', 'npm run -s test:academy'));
     await runStage(stage('docs:build', 'npm run -s docs:build'));
     await runStage(stage('verify', 'npm run -s verify'));
 } catch {
