@@ -8,6 +8,7 @@ import { waitForExpect } from './test-utils';
 
 interface ReaderAppInternals {
     settings: ReaderSettings;
+    disposeJpdbReviewBridge?: () => void;
     setupAutoScan(): void;
     installFab(): void;
     observeAutoScanMutations(): void;
@@ -86,8 +87,18 @@ describe('review page body replacement recovery', () => {
         };
         const installFab = vi.fn();
         const scheduleEnhancements = vi.fn();
+        const disposeDetachedBodyBridge = vi.fn();
+        const closeReplacementBodyBridge = vi.fn();
+        const publishReplacementBodyStatus = vi.fn();
+        class TestBroadcastChannel {
+            onmessage: ((event: MessageEvent) => void) | null = null;
+            postMessage = publishReplacementBodyStatus;
+            close = closeReplacementBodyBridge;
+        }
+        vi.stubGlobal('BroadcastChannel', TestBroadcastChannel);
         internals.installFab = installFab;
         internals.scheduleJpdbPageEnhancements = scheduleEnhancements;
+        internals.disposeJpdbReviewBridge = disposeDetachedBodyBridge;
         const observeBody = vi.spyOn(internals, 'observeAutoScanMutations');
 
         try {
@@ -112,10 +123,18 @@ describe('review page body replacement recovery', () => {
             await waitForExpect(() => {
                 expect(observeBody).toHaveBeenCalled();
                 expect(installFab).toHaveBeenCalledTimes(1);
+                expect(disposeDetachedBodyBridge).toHaveBeenCalledTimes(1);
                 expect(scheduleEnhancements).toHaveBeenCalledWith(0, { preserveEarlier: true });
             });
+            expect(internals.disposeJpdbReviewBridge).not.toBe(disposeDetachedBodyBridge);
             expect(currentLocalDictionaryTargets()).toHaveLength(1);
             expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
+
+            const publishesAfterRebind = publishReplacementBodyStatus.mock.calls.length;
+            document.querySelector('.answer-box')!.append(document.createElement('span'));
+            await waitForExpect(() => {
+                expect(publishReplacementBodyStatus.mock.calls.length).toBeGreaterThan(publishesAfterRebind);
+            });
         } finally {
             app.destroy();
         }

@@ -750,12 +750,12 @@
             "format": "uuid"
       "x-yomu-same-origin": true
   "/academy/api/account/export":
-    "get":
+    "post":
       "operationId": "exportAccountData"
       "tags":
         - "Account"
       "summary": "Export account data"
-      "description": "Returns a bounded page of account-owned data. Follow nextCursor until hasMore is false."
+      "description": "Starts or continues a snapshot-bounded account export. Send the preceding eventPage.exportCursor to continue until it is null."
       "security":
         -
           "sessionCookie": []
@@ -802,26 +802,133 @@
             "application/json":
               "schema":
                 "$ref": "#/components/schemas/Error"
-      "parameters":
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ExportRequest"
+      "x-yomu-same-origin": true
+  "/academy/api/account/lifecycle-proof/verify":
+    "post":
+      "operationId": "verifyAccountLifecycleProof"
+      "tags":
+        - "Account"
+      "summary": "Verify a production account-lifecycle proof grant"
+      "description": "Verifies that the one-hour production-test grant is valid for the exact signed-in account and run nonce without consuming it."
+      "security":
         -
-          "name": "cursor"
-          "in": "query"
-          "required": false
-          "description": "Return events after this cursor."
-          "schema":
-            "type": "integer"
-            "minimum": 0
-            "default": 0
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/LifecycleProofVerification"
+        "400":
+          "description": "The request was malformed."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Authentication is required or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "403":
+          "description": "The authenticated caller is not permitted to perform this operation."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "409":
+          "description": "The request conflicts with current server state."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "429":
+          "description": "The caller exceeded a rate limit."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "500":
+          "description": "The service could not complete the request."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/LifecycleProofAuthorizationRequest"
+      "x-yomu-same-origin": true
+  "/academy/api/account/lifecycle-proof":
+    "delete":
+      "operationId": "deleteLifecycleProofAccount"
+      "tags":
+        - "Account"
+      "summary": "Delete the lifecycle-proof account"
+      "description": "Consumes the account-bound production-test grant and atomically deletes that signed-in disposable account. The grant cannot be replayed."
+      "security":
         -
-          "name": "limit"
-          "in": "query"
-          "required": false
-          "description": "Maximum events to return."
-          "schema":
-            "type": "integer"
-            "minimum": 1
-            "maximum": 200
-            "default": 200
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/DeletedResource"
+        "400":
+          "description": "The request was malformed."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Authentication is required or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "403":
+          "description": "The authenticated caller is not permitted to perform this operation."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "409":
+          "description": "The request conflicts with current server state."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "429":
+          "description": "The caller exceeded a rate limit."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "500":
+          "description": "The service could not complete the request."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/LifecycleProofDeletionRequest"
+      "x-yomu-same-origin": true
   "/academy/api/entitlement":
     "get":
       "operationId": "getAcademyEntitlement"
@@ -1102,12 +1209,12 @@
               "$ref": "#/components/schemas/KeyCommitmentRequest"
       "x-yomu-same-origin": true
   "/academy/api/profile/export":
-    "get":
+    "post":
       "operationId": "exportProfileData"
       "tags":
         - "Profiles"
       "summary": "Export profile data"
-      "description": "Returns a bounded page of encrypted profile data."
+      "description": "Starts or continues a snapshot-bounded export of encrypted profile and Reader SRS events."
       "security":
         -
           "sessionCookie": []
@@ -1154,26 +1261,13 @@
             "application/json":
               "schema":
                 "$ref": "#/components/schemas/Error"
-      "parameters":
-        -
-          "name": "cursor"
-          "in": "query"
-          "required": false
-          "description": "Return events after this cursor."
-          "schema":
-            "type": "integer"
-            "minimum": 0
-            "default": 0
-        -
-          "name": "limit"
-          "in": "query"
-          "required": false
-          "description": "Maximum events to return."
-          "schema":
-            "type": "integer"
-            "minimum": 1
-            "maximum": 200
-            "default": 200
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ExportRequest"
+      "x-yomu-same-origin": true
   "/academy/api/pairings":
     "post":
       "operationId": "createBrowserPairing"
@@ -2539,6 +2633,65 @@
           "application/json":
             "schema":
               "$ref": "#/components/schemas/AdminRoleRequest"
+  "/academy/api/admin/lifecycle-proof-grants":
+    "post":
+      "operationId": "createAccountLifecycleProofGrant"
+      "tags":
+        - "Administration"
+      "summary": "Create a production account-lifecycle proof grant"
+      "description": "Supervisor-only production-test endpoint. Mints a one-hour, account-bound, run-bound grant for a disposable account."
+      "security":
+        -
+          "adminBearer": []
+      "responses":
+        "201":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/LifecycleProofGrant"
+        "400":
+          "description": "The request was malformed."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Authentication is required or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "403":
+          "description": "The authenticated caller is not permitted to perform this operation."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "409":
+          "description": "The request conflicts with current server state."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "429":
+          "description": "The caller exceeded a rate limit."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "500":
+          "description": "The service could not complete the request."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/LifecycleProofGrantRequest"
   "/academy/api/admin/payment-code":
     "post":
       "operationId": "getAcademyPaymentCode"
@@ -3588,6 +3741,129 @@
             - "learner"
             - "sensei"
       "additionalProperties": false
+    "LifecycleProofGrantRequest":
+      "type": "object"
+      "required":
+        - "accountId"
+        - "runNonce"
+      "properties":
+        "accountId":
+          "type": "string"
+          "format": "uuid"
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        "runNonce":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+      "additionalProperties": false
+    "LifecycleProofGrant":
+      "type": "object"
+      "required":
+        - "proofToken"
+        - "runNonce"
+        - "accountId"
+        - "environment"
+        - "scope"
+        - "expiresAt"
+      "properties":
+        "proofToken":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+        "runNonce":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+        "accountId":
+          "type": "string"
+          "format": "uuid"
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        "environment":
+          "type": "string"
+          "const": "production"
+        "scope":
+          "type": "string"
+          "const": "account-lifecycle-production-test"
+        "expiresAt":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+      "additionalProperties": false
+    "LifecycleProofAuthorizationRequest":
+      "type": "object"
+      "required":
+        - "proofToken"
+        - "runNonce"
+      "properties":
+        "proofToken":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+        "runNonce":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+      "additionalProperties": false
+    "LifecycleProofVerification":
+      "type": "object"
+      "required":
+        - "verified"
+        - "accountId"
+        - "environment"
+        - "scope"
+        - "expiresAt"
+      "properties":
+        "verified":
+          "type": "boolean"
+          "const": true
+        "accountId":
+          "type": "string"
+          "format": "uuid"
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        "environment":
+          "type": "string"
+          "const": "production"
+        "scope":
+          "type": "string"
+          "const": "account-lifecycle-production-test"
+        "expiresAt":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+      "additionalProperties": false
+    "LifecycleProofDeletionRequest":
+      "type": "object"
+      "required":
+        - "confirmation"
+        - "proofToken"
+        - "runNonce"
+      "properties":
+        "confirmation":
+          "type": "string"
+          "const": "delete-account"
+        "proofToken":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+        "runNonce":
+          "type": "string"
+          "pattern": "^[A-Za-z0-9_-]+$"
+          "description": "Unpadded base64url."
+          "minLength": 43
+          "maxLength": 43
+      "additionalProperties": false
     "AdminPaymentCodeRequest":
       "type": "object"
       "required":
@@ -3637,25 +3913,116 @@
             - "learner"
             - "sensei"
       "additionalProperties": false
+    "ExportRequest":
+      "type": "object"
+      "properties":
+        "cursor":
+          "type": "string"
+          "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$"
+          "description": "Single-use continuation cursor returned by the preceding export page."
+      "additionalProperties": false
+    "ExportEventPage":
+      "type": "object"
+      "required":
+        - "events"
+        - "nextCursor"
+        - "hasMore"
+        - "exportCursor"
+      "properties":
+        "events":
+          "type": "array"
+          "maxItems": 200
+          "items":
+            "$ref": "#/components/schemas/EncryptedEvent"
+        "nextCursor":
+          "type": "integer"
+          "minimum": 0
+        "hasMore":
+          "type": "boolean"
+        "exportCursor":
+          "oneOf":
+            -
+              "type": "string"
+              "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$"
+            -
+              "type": "null"
+      "additionalProperties": false
+    "ExportReaderEventPage":
+      "type": "object"
+      "required":
+        - "events"
+        - "nextCursor"
+        - "hasMore"
+      "properties":
+        "events":
+          "type": "array"
+          "maxItems": 200
+          "items":
+            "$ref": "#/components/schemas/EncryptedEvent"
+        "nextCursor":
+          "type": "integer"
+          "minimum": 0
+        "hasMore":
+          "type": "boolean"
+      "additionalProperties": false
     "ExportPage":
       "type": "object"
       "required":
         - "schemaVersion"
+        - "eventPage"
+        - "readerSrsEventPage"
       "properties":
         "schemaVersion":
           "type": "integer"
-        "nextCursor":
-          "type":
-            - "string"
-            - "null"
-        "hasMore":
-          "type": "boolean"
+          "const": 2
+        "eventPage":
+          "$ref": "#/components/schemas/ExportEventPage"
+        "readerSrsEventPage":
+          "$ref": "#/components/schemas/ExportReaderEventPage"
       "additionalProperties": true
+    "DeletionReceipt":
+      "type": "object"
+      "required":
+        - "deletionId"
+        - "scope"
+        - "deletedAt"
+        - "profileCount"
+        - "deviceCount"
+        - "syncedRecordCount"
+        - "retainedUntil"
+      "properties":
+        "deletionId":
+          "type": "string"
+          "format": "uuid"
+        "scope":
+          "type": "string"
+          "enum":
+            - "profile"
+            - "account"
+        "deletedAt":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+        "profileCount":
+          "type": "integer"
+          "minimum": 0
+        "deviceCount":
+          "type": "integer"
+          "minimum": 0
+        "syncedRecordCount":
+          "type": "integer"
+          "minimum": 0
+        "retainedUntil":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+      "additionalProperties": false
     "DeletedResource":
       "type": "object"
       "required":
         - "deleted"
         - "scope"
+        - "deletionReceipt"
       "properties":
         "deleted":
           "type": "boolean"
@@ -3665,7 +4032,9 @@
           "enum":
             - "profile"
             - "account"
-      "additionalProperties": true
+        "deletionReceipt":
+          "$ref": "#/components/schemas/DeletionReceipt"
+      "additionalProperties": false
   "securitySchemes":
     "sessionCookie":
       "type": "apiKey"

@@ -2962,6 +2962,11 @@ export class ReaderApp {
         // of waiting for a later descendant mutation that might never arrive.
         this.autoScanObserver?.disconnect();
         this.observeAutoScanMutations();
+        // JPDB's live Study bridge owns its own body-scoped observer. Recreate
+        // it alongside the scanner so review status keeps publishing
+        // immediately after JPDB swaps the document body on answer reveal.
+        this.disposeJpdbReviewBridge?.();
+        this.disposeJpdbReviewBridge = installReaderStartupBridge();
         if (!this.embeddedFrame) this.installFab();
         if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
             this.noteVisibleAutoScanWorkObserved();

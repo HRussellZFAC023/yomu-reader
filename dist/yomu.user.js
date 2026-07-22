@@ -39454,6 +39454,8 @@ class ReaderApp {
   this.documentBodyRecoveryPending = false;
   this.autoScanObserver?.disconnect();
   this.observeAutoScanMutations();
+  this.disposeJpdbReviewBridge?.();
+  this.disposeJpdbReviewBridge = installReaderStartupBridge();
   if (!this.embeddedFrame) this.installFab();
   if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
     this.noteVisibleAutoScanWorkObserved();
