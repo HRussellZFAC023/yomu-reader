@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.399] - 2026-07-21
+
+### Fixed
+
+- Removed an unused cache reset hook from the Jiten lookup performance work so the published source passes the repository dead-code gate.
+
 ## [1.6.301] - 2026-07-21
 
 ### Added

@@ -45527,7 +45527,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.301".trim() ? "1.6.301".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.399".trim() ? "1.6.399".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74381,9 +74381,6 @@ ${component.reading}`;
         if (this.entries.get(key) === promise) this.entries.delete(key);
       });
       return promise;
-    }
-    clear() {
-      this.entries.clear();
     }
     prune() {
       while (this.entries.size > Math.max(1, this.maxSize)) {
