@@ -145,14 +145,14 @@
   }
   function parseAcademySyncPushResult(value) {
     const record2 = object$1(value, "Academy sync result");
-    const result = {
+    const result2 = {
       accepted: count(record2.accepted, "accepted"),
       inserted: count(record2.inserted, "inserted"),
       duplicates: count(record2.duplicates, "duplicates"),
       conflicts: array$16(record2.conflicts, "conflicts").map((item2, index) => uuidV4(item2, `conflicts[${index}]`))
     };
-    if (result.accepted !== result.inserted + result.duplicates) throw new TypeError("Academy sync counts are inconsistent.");
-    return result;
+    if (result2.accepted !== result2.inserted + result2.duplicates) throw new TypeError("Academy sync counts are inconsistent.");
+    return result2;
   }
   function parseKeyEnvelope(value) {
     const record2 = object$1(value, "Academy key envelope");
@@ -844,15 +844,15 @@
           body: JSON.stringify({ events: entries2.map(([, event]) => event) })
         });
         if (response.status !== 200 && response.status !== 409) throw await responseError$1(response);
-        const result = parseAcademySyncPushResult(await response.json());
-        const conflicts = new Set(result.conflicts);
+        const result2 = parseAcademySyncPushResult(await response.json());
+        const conflicts = new Set(result2.conflicts);
         const envelopes = { ...state.envelopes };
         entries2.forEach(([eventId]) => {
           if (!conflicts.has(eventId)) delete envelopes[eventId];
         });
         this.state = { ...state, envelopes };
         this.persist();
-        if (result.conflicts.length) {
+        if (result2.conflicts.length) {
           throw new AcademySyncConflict(
             "This device holds a different key for some events. Pair with a device that already has your Academy history."
           );
@@ -1117,9 +1117,9 @@
       return !["local", "sign-in", "recovery", "signed-out", "pending", "pair", "conflict", "error"].includes(this.phase);
     }
     enqueue(operation) {
-      const result = this.pending.then(operation);
-      this.pending = result.then(() => void 0, () => void 0);
-      return result;
+      const result2 = this.pending.then(operation);
+      this.pending = result2.then(() => void 0, () => void 0);
+      return result2;
     }
   }
   function createSyncingLearnerEventRepository(repository, client) {
@@ -2966,9 +2966,9 @@
     const identity2 = LEARNING_VOICE_BINDING_IDENTITIES[bindingId];
     if (identity2 && identity2.japanese === japanese2) {
       const capable = pronunciation;
-      const result = await capable.playLine?.(identity2, signal);
-      if (result?.status === "playing") return result.playback;
-      if (result?.status === "superseded") return null;
+      const result2 = await capable.playLine?.(identity2, signal);
+      if (result2?.status === "playing") return result2.playback;
+      if (result2?.status === "superseded") return null;
     }
     return pronunciation.play(japanese2, void 0, signal);
   }
@@ -3481,8 +3481,8 @@
       }
       return playback;
     }
-    disposeExactResult(result) {
-      if (result.status === "playing") result.playback.dispose();
+    disposeExactResult(result2) {
+      if (result2.status === "playing") result2.playback.dispose();
     }
     async fetchObjectUrl(term, reading, signal) {
       const params = new URLSearchParams({ term, reading: reading ?? term });
@@ -3866,14 +3866,14 @@
     return value;
   }
   function id$1B(value, label) {
-    const result = text$m(value, label);
-    if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(result)) fail$4(`${label} must be a stable namespaced id.`);
-    return result;
+    const result2 = text$m(value, label);
+    if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(result2)) fail$4(`${label} must be a stable namespaced id.`);
+    return result2;
   }
   function sha$1(value, label) {
-    const result = text$m(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) fail$4(`${label} must be a SHA-256.`);
-    return result;
+    const result2 = text$m(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) fail$4(`${label} must be a SHA-256.`);
+    return result2;
   }
   function text$m(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$4(`${label} must be non-empty.`);
@@ -3915,19 +3915,19 @@
       const plugin = pluginFor(model2);
       const issues2 = plugin.validate(model2);
       if (issues2.length) throw new ActivityValidationError(model2.id, issues2);
-      const result = normalizeGrade$1(plugin.grade(model2, response));
-      const reviewSeeds2 = plugin.toReviewSeeds(model2, result).map((seed) => normalizeReviewSeed(seed, model2));
+      const result2 = normalizeGrade$1(plugin.grade(model2, response));
+      const reviewSeeds2 = plugin.toReviewSeeds(model2, result2).map((seed) => normalizeReviewSeed(seed, model2));
       return {
-        result,
+        result: result2,
         attempt: {
           kind: "attempt-recorded",
           activityId: model2.id,
           ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
-          conceptIds: unique$b(model2.conceptIds),
+          conceptIds: unique$c(model2.conceptIds),
           responseKind: model2.responseKind,
-          outcome: result.outcome,
-          score: result.score,
-          errorTags: result.errorTags
+          outcome: result2.outcome,
+          score: result2.score,
+          errorTags: result2.errorTags
         },
         reviewSeeds: reviewSeeds2
       };
@@ -3993,21 +3993,21 @@
     if (contract2.animatedReactions !== "presentation-only") issues2.push({ path: "animatedReactions", message: "Animated reactions are presentation only." });
     return issues2;
   }
-  function normalizeGrade$1(result) {
-    if (result.outcome !== "pass" && result.outcome !== "lapse") throw new TypeError("Invalid grade outcome.");
-    if (!Number.isFinite(result.score) || result.score < 0 || result.score > 1) {
+  function normalizeGrade$1(result2) {
+    if (result2.outcome !== "pass" && result2.outcome !== "lapse") throw new TypeError("Invalid grade outcome.");
+    if (!Number.isFinite(result2.score) || result2.score < 0 || result2.score > 1) {
       throw new TypeError("Grade score must be between 0 and 1.");
     }
-    const feedback2 = result.feedback;
+    const feedback2 = result2.feedback;
     if (!text$l(feedback2?.explanation?.en) || !text$l(feedback2?.explanation?.ja)) {
       throw new TypeError("Grade feedback needs an English and Japanese explanation.");
     }
-    if (result.outcome === "lapse" && (!text$l(feedback2.repairPrompt?.en) || !text$l(feedback2.repairPrompt?.ja) || !text$l(feedback2.nearbyExample?.en) || !text$l(feedback2.nearbyExample?.ja))) {
+    if (result2.outcome === "lapse" && (!text$l(feedback2.repairPrompt?.en) || !text$l(feedback2.repairPrompt?.ja) || !text$l(feedback2.nearbyExample?.en) || !text$l(feedback2.nearbyExample?.ja))) {
       throw new TypeError("A lapse must include a bilingual repair prompt and nearby example.");
     }
     return {
-      ...result,
-      errorTags: unique$b(result.errorTags),
+      ...result2,
+      errorTags: unique$c(result2.errorTags),
       feedback: structuredClone(feedback2)
     };
   }
@@ -4030,7 +4030,7 @@
       content: {
         expression: requireText$3(seed.content.expression, "reviewSeed.content.expression"),
         ...seed.content.reading ? { reading: requireText$3(seed.content.reading, "reviewSeed.content.reading") } : {},
-        meanings: unique$b(seed.content.meanings),
+        meanings: unique$c(seed.content.meanings),
         ...seed.content.sentence ? { sentence: requireText$3(seed.content.sentence, "reviewSeed.content.sentence") } : {}
       }
     };
@@ -4043,7 +4043,7 @@
   function text$l(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function unique$b(values) {
+  function unique$c(values) {
     return [...new Set(values.map((value) => requireText$3(value, "id")))].sort();
   }
   function parseAuthoredWeekPackage(value) {
@@ -7746,14 +7746,14 @@
     return { mode: "packaged-static", url };
   }
   function safeRelativePath(value, owner) {
-    const result = requiredText$4(value, `${owner}.source.repositoryRelativePath`);
-    if (result.startsWith("/") || result.split("/").includes("..")) throw new TypeError(`Listening entry ${owner} has an unsafe source path.`);
-    return result;
+    const result2 = requiredText$4(value, `${owner}.source.repositoryRelativePath`);
+    if (result2.startsWith("/") || result2.split("/").includes("..")) throw new TypeError(`Listening entry ${owner} has an unsafe source path.`);
+    return result2;
   }
   function hash$1(value, label) {
-    const result = requiredText$4(value, label);
-    if (!SHA256$2.test(result)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
-    return result;
+    const result2 = requiredText$4(value, label);
+    if (!SHA256$2.test(result2)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
+    return result2;
   }
   function stringArray$3(value, label) {
     if (!Array.isArray(value) || value.length === 0) throw new TypeError(`${label} must be a non-empty string array.`);
@@ -7768,9 +7768,9 @@
     return value;
   }
   function positiveInteger$8(value, label) {
-    const result = positiveNumber$1(value, label);
-    if (!Number.isInteger(result)) throw new TypeError(`${label} must be an integer.`);
-    return result;
+    const result2 = positiveNumber$1(value, label);
+    if (!Number.isInteger(result2)) throw new TypeError(`${label} must be an integer.`);
+    return result2;
   }
   function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -8110,11 +8110,11 @@
       const passed = sourceVocabularyDirection(model2) === "japanese-to-english" ? acceptedEnglishAnswers(model2).has(normalizeEnglishAnswer(answer2)) : acceptedJapaneseAnswers(model2).has(normalizeJapaneseStudyAnswer(answer2));
       return passed ? passResult() : lapseResult(model2, false);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return [{
         id: `review:${model2.provenance.packageId}:${model2.provenance.componentId}:p${model2.provenance.locus.page}:r${model2.provenance.locus.row}`,
         conceptId: model2.conceptIds[0],
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: model2.sourceQuestionId,
         content: {
           expression: model2.payload.support.words,
@@ -8220,7 +8220,7 @@
     }
     return issues2;
   }
-  function render$r(model2, host2, submit) {
+  function render$r(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const direction = sourceVocabularyDirection(model2);
     const root = document.createElement("section");
@@ -8279,7 +8279,7 @@
       setDisabled$1(form2, true);
       feedback2.setAttribute("role", "status");
       feedback2.textContent = host2.language === "ja" ? "確認しています…" : "Checking…";
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         feedback2.replaceChildren(revealedAnswer(model2));
         const summary = document.createElement("p");
@@ -9249,9 +9249,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const localized2 = recordField$1(value, path);
     const japanese2 = typeof localized2.ja === "string" ? localized2.ja.trim() : "";
     const english = typeof localized2.en === "string" ? localized2.en.trim() : "";
-    const result = japanese2 || english;
-    if (!result) throw new TypeError(`${path} must contain ja or en text.`);
-    return result;
+    const result2 = japanese2 || english;
+    if (!result2) throw new TypeError(`${path} must contain ja or en text.`);
+    return result2;
   }
   function adaptStructuredSourceExercise(packageId, value, path, teachingSupport) {
     const cloze = parseClozeExercise(value, path);
@@ -9813,9 +9813,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!conceptId) throw new TypeError(`Missing Academy grammar Concept home for ${sourceQuestionId2}.`);
     return overlay(conceptId, expression, meaning);
   }
+  const LESSON_ZERO_CLASSROOM_EXPRESSIONS_URL = "/academy/content/lessons/lesson-zero-classroom-expressions.v1.json";
   const LESSON_ZERO_CLASSROOM_EXPRESSION_SOURCE_IDS = Object.freeze(
     Array.from({ length: 14 }, (_, index) => `source-question:classroom-phrase-${String(index + 1).padStart(2, "0")}`)
   );
+  const LESSON_ZERO_CLASSROOM_PROBE_IDS = Object.freeze([
+    "probe:classroom-01-start",
+    "probe:classroom-02-finish",
+    "probe:classroom-03-break",
+    "probe:classroom-04-look",
+    "probe:classroom-05-say",
+    "probe:classroom-06-listen",
+    "probe:classroom-07-write",
+    "probe:classroom-08-check",
+    "probe:classroom-08-yes",
+    "probe:classroom-08-no",
+    "probe:classroom-09-repeat",
+    "probe:classroom-10-good",
+    "probe:classroom-11-so",
+    "probe:classroom-11-match",
+    "probe:classroom-12-wrong",
+    "probe:classroom-13-homework",
+    "probe:classroom-14-example"
+  ]);
   const PHASE_IDS = [
     "room-rhythm",
     "understanding-and-repair",
@@ -9855,6 +9875,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "options",
     "distractors"
   ]);
+  let defaultLoad$3 = null;
+  function loadLessonZeroClassroomExpressions(fetcher = fetch) {
+    if (fetcher !== fetch) return load$3(fetcher);
+    defaultLoad$3 ??= load$3(fetcher).catch((error) => {
+      defaultLoad$3 = null;
+      throw error;
+    });
+    return defaultLoad$3;
+  }
+  async function load$3(fetcher) {
+    const response = await fetcher(LESSON_ZERO_CLASSROOM_EXPRESSIONS_URL);
+    if (!response.ok) {
+      throw new Error(`Could not load Lesson 0 classroom expressions (${response.status}).`);
+    }
+    return validateLessonZeroClassroomExpressions(await response.json());
+  }
   function validateLessonZeroClassroomExpressions(value) {
     rejectForbiddenInteractionKeys(value);
     const definition2 = record$15(value, "classroom-expression session");
@@ -9891,7 +9927,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
     const expressions2 = array$14(definition2.expressions, "expressions");
     if (expressions2.length !== 14) fail$2("Classroom-expression session must preserve all fourteen expressions.");
-    const expressionById = uniqueIndex$1(expressions2, "expression");
+    const expressionById2 = uniqueIndex$1(expressions2, "expression");
     const sourceIds = expressions2.map((expression) => text$h(expression.sourceQuestionId, `${expression.id} sourceQuestionId`));
     exactList$1([...sourceIds].sort(), [...LESSON_ZERO_CLASSROOM_EXPRESSION_SOURCE_IDS].sort(), "sourceQuestionIds");
     const assigned = phases2.flatMap((phase) => phase.expressionIds);
@@ -9912,19 +9948,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
     validateNoCrossAnswerLeak(expressions2, teachingBlocks2);
     if (probeCount !== 17) fail$2("Classroom-expression session must contain seventeen constructed-response probes.");
-    requireVariantCoverage(expressionById);
+    exactList$1([...probeIds], LESSON_ZERO_CLASSROOM_PROBE_IDS, "probe ids");
+    requireVariantCoverage(expressionById2);
     return structuredClone(definition2);
   }
   function validateNoCrossAnswerLeak(expressions2, teachingBlocks2) {
-    const answers = expressions2.flatMap((expression) => expression.probes.flatMap((probe) => probe.acceptedAnswers.map((answer2) => ({ answer: normalized(answer2), owner: probe.id }))));
+    const answers = expressions2.flatMap((expression) => expression.probes.flatMap((probe) => probe.acceptedAnswers.map((answer2) => ({ answer: normalized$1(answer2), owner: probe.id }))));
     for (const block of teachingBlocks2) {
-      const teachingText = normalized(JSON.stringify(block));
+      const teachingText = normalized$1(JSON.stringify(block));
       const leaked = answers.find((candidate2) => teachingText.includes(candidate2.answer));
       if (leaked) fail$2(`Teaching block ${block.id} exposes the answer to ${leaked.owner} before commitment.`);
     }
     for (const expression of expressions2) {
       for (const probe of expression.probes) {
-        const prompt2 = normalized(JSON.stringify(probe.prompt));
+        const prompt2 = normalized$1(JSON.stringify(probe.prompt));
         const leaked = answers.find((candidate2) => prompt2.includes(candidate2.answer));
         if (leaked) fail$2(`Probe ${probe.id} exposes the answer to ${leaked.owner} before commitment.`);
       }
@@ -9966,11 +10003,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(candidate2)) {
           fail$2(`Probe ${probe.id} has a non-Japanese answer.`);
         }
-        return normalized(candidate2);
+        return normalized$1(candidate2);
       });
       if (new Set(accepted).size !== accepted.length) fail$2(`Probe ${probe.id} repeats an accepted answer.`);
-      if (!accepted.includes(normalized(probe.modelAnswer))) fail$2(`Probe ${probe.id} model answer is not accepted.`);
-      if (accepted.some((answer2) => normalized(probe.prompt.en).includes(answer2) || normalized(probe.prompt.ja).includes(answer2))) {
+      if (!accepted.includes(normalized$1(probe.modelAnswer))) fail$2(`Probe ${probe.id} model answer is not accepted.`);
+      if (accepted.some((answer2) => normalized$1(probe.prompt.en).includes(answer2) || normalized$1(probe.prompt.ja).includes(answer2))) {
         fail$2(`Probe ${probe.id} exposes an accepted answer before commitment.`);
       }
       text$h(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
@@ -10013,13 +10050,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function uniqueIndex$1(values, label) {
-    const result = /* @__PURE__ */ new Map();
+    const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
       text$h(value.id, `${label}.id`);
-      if (result.has(value.id)) fail$2(`Duplicate ${label} id: ${value.id}`);
-      result.set(value.id, value);
+      if (result2.has(value.id)) fail$2(`Duplicate ${label} id: ${value.id}`);
+      result2.set(value.id, value);
     }
-    return result;
+    return result2;
   }
   function exactList$1(actual, expected, label) {
     if (!Array.isArray(actual) || actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {
@@ -10046,7 +10083,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "string" || !value.trim()) fail$2(`${label} must be non-empty.`);
     return value.trim();
   }
-  function normalized(value) {
+  function normalized$1(value) {
     return value.normalize("NFKC").replace(/[\s。！？!?.,、]/gu, "").toLocaleLowerCase("ja-JP");
   }
   function fail$2(message) {
@@ -11463,9 +11500,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       classroom.contentVersion,
       LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
     )];
-    const expressionById = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
+    const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
     for (const binding of LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((candidate2) => candidate2.deterministicAssessment)) {
-      const probes = lessonZeroProbesForBinding(binding, expressionById);
+      const probes = lessonZeroProbesForBinding(binding, expressionById2);
       records2.push(record$14(
         `answer-set:lesson-zero:${suffixOf$1(binding.activityId)}`,
         "answer-set",
@@ -11544,7 +11581,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       binding.activityId,
       binding
     ]));
-    const expressionById = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
+    const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
     const teachingByExpression = new Map(classroom.teachingBlocks.flatMap((block) => block.expressionIds.map((expressionId) => [expressionId, block])));
     return Object.freeze({
       classroom,
@@ -11552,7 +11589,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       classroomBindings,
       refsForInstruction(activity2) {
         const binding = requireBinding(classroomBindings, activity2.id);
-        const blocks = unique$a(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
+        const blocks = unique$b(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
         const byConcept = new Map(blocks.map((block) => [block.conceptId, block]));
         return activity2.conceptIds.map((conceptId) => {
           const block = requireValue(byConcept, conceptId, "teaching concept");
@@ -11575,7 +11612,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         };
       },
       repairIds(activityId) {
-        const probes = lessonZeroProbesForBinding(requireBinding(classroomBindings, activityId), expressionById);
+        const probes = lessonZeroProbesForBinding(requireBinding(classroomBindings, activityId), expressionById2);
         return {
           errorTagIds: probes.map((probe) => lessonZeroErrorId(probe)),
           feedbackIds: probes.map((probe) => lessonZeroFeedbackId(probe)),
@@ -11585,7 +11622,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       reviewItems(activityId) {
         const binding = requireBinding(classroomBindings, activityId);
         return binding.expressionIds.flatMap((expressionId) => {
-          const expression = requireValue(expressionById, expressionId, "classroom expression");
+          const expression = requireValue(expressionById2, expressionId, "classroom expression");
           const block = requireValue(teachingByExpression, expressionId, "teaching block");
           return expression.probes.map((probe) => ({
             seedId: lessonZeroReviewSeedId(probe),
@@ -11608,7 +11645,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function suffixOf(id2) {
     return id2.split(":").at(-1);
   }
-  function unique$a(values) {
+  function unique$b(values) {
     return [...new Set(values)];
   }
   function createSourceLibrary(data) {
@@ -12411,13 +12448,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (signatures.size !== 3 || locations.size !== 3 || mementos.size !== 3) fail$1("Sound, Text, and Speaking missions must have distinct places, structures, and results.");
   }
   function uniqueIndex(values, label) {
-    const result = /* @__PURE__ */ new Map();
+    const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
       text$g(value.id, `${label}.id`);
-      if (result.has(value.id)) fail$1(`Duplicate ${label} id: ${value.id}`);
-      result.set(value.id, value);
+      if (result2.has(value.id)) fail$1(`Duplicate ${label} id: ${value.id}`);
+      result2.set(value.id, value);
     }
-    return result;
+    return result2;
   }
   function exactList(actual, expected, label) {
     if (!Array.isArray(actual) || actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) fail$1(`${label} does not match the authored contract.`);
@@ -12477,9 +12514,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const { lesson } = data;
     const documents = data.sourceLibrary.documents;
     const sourceQuestionIds = data.sourceLibrary.questions.map((question2) => question2.id);
-    const allConceptIds = unique$9(lesson.activities.flatMap((activity2) => activity2.conceptIds));
-    const allOutcomeIds = unique$9(lesson.sections.flatMap((section) => section.outcomeIds));
-    const audioBlockerIds = unique$9(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
+    const allConceptIds = unique$a(lesson.activities.flatMap((activity2) => activity2.conceptIds));
+    const allOutcomeIds = unique$a(lesson.sections.flatMap((section) => section.outcomeIds));
+    const audioBlockerIds = unique$a(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
     const sectionOutcomes = new Map(lesson.sections.map((section) => [section.id, section.outcomeIds]));
     const activities = lesson.activities.map((activity2, index) => activityContract(
       activity2,
@@ -12513,7 +12550,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       accessibility: blocked(BLOCKERS.accessibility)
     };
     const productionSequence2 = blocked(BLOCKERS.transferContext);
-    const blockerIds = unique$9([
+    const blockerIds = unique$a([
       ...proofBlockers(overviewProofs),
       ...productionSequence2.blockerIds,
       ...activities.flatMap((activity2) => activity2.blockerIds)
@@ -12616,12 +12653,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { state: "ready", evidence: evidence2 };
   }
   function blocked(...blockerIds) {
-    return { state: "review-blocked", blockerIds: unique$9(blockerIds) };
+    return { state: "review-blocked", blockerIds: unique$a(blockerIds) };
   }
   function proofBlockers(proofs) {
-    return unique$9(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
+    return unique$a(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
   }
-  function unique$9(values) {
+  function unique$a(values) {
     return [...new Set(values)].sort();
   }
   const AUTHORED_WEEK_FILES = [
@@ -12707,12 +12744,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       releaseChannel: "trusted-source",
       trustedActivityIds: [
         "activity:lesson-zero-reconstruct-repair",
+        "activity:lesson-zero-desk-language",
         "activity:lesson-zero-first-repair:sound",
         "activity:lesson-zero-first-repair:text",
         "activity:lesson-zero-first-repair:speaking",
         "activity:aakash-rainy-directions",
         "activity:lesson-zero-kanji-one",
-        "activity:lesson-zero-kana-mastery"
+        "activity:lesson-zero-kana-mastery",
+        ...LESSON_ZERO_CLASSROOM_PROBE_IDS
       ],
       filename: "lesson-zero.v1.json",
       lessonId: "lesson:foundation-00",
@@ -16087,11 +16126,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       feedback: structuredClone(passed ? feedback2.pass : feedback2.lapse)
     };
   }
-  function reviewSeeds(targets, result, sourceQuestionId2) {
+  function reviewSeeds(targets, result2, sourceQuestionId2) {
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       ...sourceQuestionId2 ? { sourceQuestionId: sourceQuestionId2 } : {},
       content: {
         expression: target2.expression,
@@ -16167,7 +16206,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return status;
   }
   function showEvaluation$1(root, evaluation, host2) {
-    root.replaceChildren(localizedParagraph$2(evaluation.result.feedback.explanation));
+    root.replaceChildren(localizedParagraph$3(evaluation.result.feedback.explanation));
     if (evaluation.result.outcome === "lapse") {
       appendProgressiveFeedback(root, evaluation.result.feedback, {
         language: host2.language ?? "en",
@@ -16177,7 +16216,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     host2.announce(localized$e(evaluation.result.feedback.explanation, host2));
   }
-  function localizedParagraph$2(value) {
+  function localizedParagraph$3(value) {
     const paragraph = document.createElement("p");
     paragraph.append(...localizedNodes$1(value));
     return paragraph;
@@ -16235,17 +16274,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const missed = model2.payload.questions.filter((question2) => answers.get(question2.id) !== question2.correctOptionId);
     return gradeFromScore((model2.payload.questions.length - missed.length) / model2.payload.questions.length, model2.payload.passScore, missed.map((question2) => question2.errorTag), model2.payload.feedback);
   }
-  function n3N4SleepBridgeReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n3N4SleepBridgeReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: { expression: target2.expression, ...target2.reading ? { reading: target2.reading } : {}, meanings: [...target2.meanings], sentence: target2.sentence }
     }));
   }
-  function renderN3N4SleepBridge(model2, host2, submit) {
+  function renderN3N4SleepBridge(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit";
@@ -16282,7 +16321,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealSourceTranscript$2(root, model2, host2, readingDisposers);
         showEvaluation$1(status, evaluation, host2);
@@ -16712,12 +16751,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n3PetHousingReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n3PetHousingReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -16727,7 +16766,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderN3PetHousing(model2, host2, submit) {
+  function renderN3PetHousing(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit";
@@ -16764,7 +16803,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealSourceTranscript$1(root, model2, host2, readingDisposers);
         showEvaluation$1(status, evaluation, host2);
@@ -17151,12 +17190,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n2OpeningReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n2OpeningReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -17166,7 +17205,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderN2Opening(model2, host2, submit) {
+  function renderN2Opening(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const readingDisposers = [];
     const root = document.createElement("section");
@@ -17205,7 +17244,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         root.append(renderAnswerReveal(model2, host2));
@@ -18343,12 +18382,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n2ExtensiveReadingReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n2ExtensiveReadingReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -18358,7 +18397,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderN2ExtensiveReading(model2, host2, submit) {
+  function renderN2ExtensiveReading(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const readingDisposers = [];
     const root = document.createElement("section");
@@ -18395,7 +18434,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -18756,12 +18795,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n2PolicyScopeReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n2PolicyScopeReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -18771,7 +18810,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderN2PolicyScope(model2, host2, submit) {
+  function renderN2PolicyScope(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit";
@@ -18807,7 +18846,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -19768,7 +19807,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       issues2.push({ path: "payload.production.checks", message: "Exactly the four labelled deterministic production checks are required." });
       return;
     }
-    if (evaluateN1OpeningSequenceProduction(model2, production.modelAnswer).some((result) => !result.met)) {
+    if (evaluateN1OpeningSequenceProduction(model2, production.modelAnswer).some((result2) => !result2.met)) {
       issues2.push({ path: "payload.production.modelAnswer", message: "The authored model answer must satisfy its own four deterministic checks." });
     }
   }
@@ -19821,7 +19860,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const answers = parseResponse$R(model2, response);
     const missed = model2.payload.questions.filter((question2) => answers.get(question2.id) !== question2.correctOptionId);
     const production = evaluateN1OpeningSequenceProduction(model2, response.production);
-    const failedChecks = production.filter((result) => !result.met);
+    const failedChecks = production.filter((result2) => !result2.met);
     const score = (TOTAL_CHECKS - missed.length - failedChecks.length) / TOTAL_CHECKS;
     const floors = model2.payload.modalityFloors;
     const correctFor = (modality) => MODALITY_QUESTION_COUNTS[modality] - missed.filter((question2) => question2.modality === modality).length;
@@ -19834,21 +19873,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return {
       outcome: passed ? "pass" : "lapse",
       score,
-      errorTags: passed ? [] : [...missed.map((question2) => question2.errorTag), ...failedChecks.map((result) => result.errorTag), ...floorFailures],
+      errorTags: passed ? [] : [...missed.map((question2) => question2.errorTag), ...failedChecks.map((result2) => result2.errorTag), ...floorFailures],
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function n1OpeningSequenceReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n1OpeningSequenceReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: { expression: target2.expression, meanings: [...target2.meanings], sentence: target2.sentence }
     }));
   }
-  function renderN1OpeningSequence(model2, host2, submit) {
+  function renderN1OpeningSequence(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const readers = [];
     const playback = [];
@@ -19890,7 +19929,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.attemptCount = String(Number(root.dataset.attemptCount ?? "0") + 1);
         root.dataset.outcome = evaluation.result.outcome;
         revealEarnedMaterial(root, model2, host2, readers, response, evaluation);
@@ -20156,12 +20195,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderProductionKey(model2, host2, response) {
     const list2 = document.createElement("ul");
     list2.dataset.answerKeyProduction = "";
-    evaluateN1OpeningSequenceProduction(model2, response.production).forEach((result) => {
+    evaluateN1OpeningSequenceProduction(model2, response.production).forEach((result2) => {
       const row = document.createElement("li");
-      row.dataset.productionCheck = result.id;
-      row.dataset.met = String(result.met);
-      const metLabel = result.met ? host2.language === "ja" ? "達成" : "met" : host2.language === "ja" ? "未達成" : "not met";
-      row.textContent = `${localized$e(result.label, host2)} — ${metLabel}`;
+      row.dataset.productionCheck = result2.id;
+      row.dataset.met = String(result2.met);
+      const metLabel = result2.met ? host2.language === "ja" ? "達成" : "met" : host2.language === "ja" ? "未達成" : "not met";
+      row.textContent = `${localized$e(result2.label, host2)} — ${metLabel}`;
       list2.append(row);
     });
     return list2;
@@ -20421,17 +20460,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n1SoundDiscriminationReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n1SoundDiscriminationReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: { expression: target2.expression, meanings: [...target2.meanings], sentence: target2.sentence }
     }));
   }
-  function renderN1SoundDiscrimination(model2, host2, submit) {
+  function renderN1SoundDiscrimination(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const playback = [];
     const readers = [];
@@ -20457,7 +20496,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (root.dataset.retrievalState === "active") return;
       root.dataset.retrievalState = "active";
       gate.remove();
-      retrievalHost.append(renderAssessment$6(model2, host2, submit, root, readers, playback, lifecycle.signal));
+      retrievalHost.append(renderAssessment$6(model2, host2, submit2, root, readers, playback, lifecycle.signal));
       retrievalHost.querySelector("[data-play-question]")?.focus();
     }, { signal: lifecycle.signal });
     root.append(heading, mediaNote, renderTeaching$t(model2, host2), renderSoundMap(model2, host2), gate, retrievalHost);
@@ -20509,7 +20548,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     section.append(heading, list2);
     return section;
   }
-  function renderAssessment$6(model2, host2, submit, root, readers, playback, signal) {
+  function renderAssessment$6(model2, host2, submit2, root, readers, playback, signal) {
     const form2 = document.createElement("form");
     form2.setAttribute("aria-labelledby", `${model2.id}-prompt`);
     form2.dataset.lessonPhase = "assessed-recognition";
@@ -20534,7 +20573,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealTranscripts(root, model2, host2, readers);
         showEvaluation$1(status, evaluation, host2);
@@ -21089,14 +21128,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function n1ContrastInferenceReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
-      (target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag))
+  function n1ContrastInferenceReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
+      (target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag))
     );
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -21105,7 +21144,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderN1ContrastInference(model2, host2, submit) {
+  function renderN1ContrastInference(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit";
@@ -21147,7 +21186,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           return;
         }
         setPending$1(form2, true);
-        void submit(response).then((evaluation) => {
+        void submit2(response).then((evaluation) => {
           root.dataset.outcome = evaluation.result.outcome;
           showEvaluation$1(status, evaluation, host2);
           if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -21624,12 +21663,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       model2.payload.feedback
     );
   }
-  function advancedImmersionReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function advancedImmersionReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -21639,7 +21678,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }));
   }
-  function renderAdvancedImmersion(model2, host2, submit) {
+  function renderAdvancedImmersion(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-advanced-immersion";
@@ -21677,7 +21716,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealSourceTranscript(root, model2, host2, readingDisposers);
         showEvaluation$1(status, evaluation, host2);
@@ -22292,7 +22331,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       lastOutcome: event.outcome,
       lastAttemptAt: event.at,
       ...sourceQuestionProjection(event.sourceQuestionId),
-      conceptIds: unique$8(event.conceptIds)
+      conceptIds: unique$9(event.conceptIds)
     };
   }
   function sourceQuestionProjection(sourceQuestionId2) {
@@ -22373,7 +22412,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireText$1(event.encounterId, "encounterId");
       requireText$1(event.sceneId, "sceneId");
       if (!event.attendeeIds.length) throw new TypeError("Character encounter needs attendees.");
-      unique$8(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
+      unique$9(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
     },
     "bond-changed": validateBondChanged,
     "asset-unlocked": (event) => {
@@ -22416,7 +22455,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAcademyDayClosed(event) {
     requireText$1(event.dayId, "dayId");
     if (typeof event.mainLessonCompleted !== "boolean") throw new TypeError("Day mainLessonCompleted must be boolean.");
-    unique$8(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
+    unique$9(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
     if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError("Day elapsedMs must be a non-negative integer.");
   }
   function validateAchievementCeremonySeen(event) {
@@ -22444,7 +22483,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAttemptRecorded(event) {
     requireText$1(event.activityId, "activityId");
     requireText$1(event.responseKind, "responseKind");
-    unique$8(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$9(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
     if (event.outcome !== "pass" && event.outcome !== "lapse") throw new TypeError("Invalid attempt outcome.");
     if (event.score !== void 0 && (!Number.isFinite(event.score) || event.score < 0 || event.score > 1)) {
       throw new TypeError("Attempt score must be between 0 and 1.");
@@ -22471,7 +22510,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireJlptBand(event.recommendedStart, "recommendedStart");
     }
     if (!event.itemIds.length) throw new TypeError("Placement assessment needs item ids.");
-    unique$8(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
+    unique$9(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
     for (const skill of ["language-knowledge", "reading", "listening", "speaking-confidence", "writing-confidence"]) {
       const score = event.scores[skill];
       if (!Number.isFinite(score) || score < 0 || score > 1) throw new TypeError(`Invalid placement score for ${skill}.`);
@@ -22519,7 +22558,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLearningConcepts(conceptIds) {
     if (!conceptIds.length) throw new TypeError("Learning evidence needs at least one conceptId.");
-    unique$8(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$9(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
   }
   function validateLearningIndependence(independent) {
     if (typeof independent !== "boolean") throw new TypeError("Learning independent must be boolean.");
@@ -22538,7 +22577,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requireText$1(event.collectionItemId, "collectionItemId");
     requireText$1(event.expression, "expression");
     if (!event.meanings.length) throw new TypeError("Vocabulary collection needs at least one meaning.");
-    unique$8(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
+    unique$9(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
     if (event.reading !== void 0) requireText$1(event.reading, "reading");
     if (event.provenance.origin !== "academy") throw new TypeError("Vocabulary provenance origin must be academy.");
     requireText$1(event.provenance.encounterId, "provenance.encounterId");
@@ -22557,7 +22596,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be a non-empty string.`);
     return value;
   }
-  function unique$8(values) {
+  function unique$9(values) {
     return [...new Set(values)].sort();
   }
   function clone(value) {
@@ -22892,24 +22931,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function dispatchWithPrototypeMethod(target2, directDispatch, event) {
     for (const prototypeDispatch of eventTargetPrototypeMethods(target2, "dispatchEvent")) {
       if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target2, event);
-      if (result.called) return result;
+      const result2 = callEventTargetMethod(prototypeDispatch, target2, event);
+      if (result2.called) return result2;
     }
     return { called: false };
   }
   function addListenerWithPrototypeMethod(target2, directAdd, type, listener, options) {
     for (const prototypeAdd of eventTargetPrototypeMethods(target2, "addEventListener")) {
       if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$2(prototypeAdd, target2, type, listener, options);
-      if (result.called) return result;
+      const result2 = callAddEventListener$2(prototypeAdd, target2, type, listener, options);
+      if (result2.called) return result2;
     }
     return { called: false };
   }
   function removeListenerWithPrototypeMethod(target2, directRemove, type, listener, options) {
     for (const prototypeRemove of eventTargetPrototypeMethods(target2, "removeEventListener")) {
       if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$2(prototypeRemove, target2, type, listener, options);
-      if (result.called) return result;
+      const result2 = callRemoveEventListener$2(prototypeRemove, target2, type, listener, options);
+      if (result2.called) return result2;
     }
     return { called: false };
   }
@@ -23549,12 +23588,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function gmStorageSetSync(key2, value) {
     if (typeof GM_setValue === "function") {
       try {
-        const result = GM_setValue(key2, value);
-        if (!isPromiseLike(result)) {
+        const result2 = GM_setValue(key2, value);
+        if (!isPromiseLike(result2)) {
           mirrorManagedValueToHostedStorage(key2, value);
           return;
         }
-        result.catch((error) => debugStorageError("GM storage async write failed", key2, error));
+        result2.catch((error) => debugStorageError("GM storage async write failed", key2, error));
       } catch (error) {
         debugStorageError("GM storage sync write failed", key2, error);
       }
@@ -23593,8 +23632,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function gmStorageDeleteSync(key2) {
     if (typeof GM_deleteValue === "function") {
       try {
-        const result = GM_deleteValue(key2);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        const result2 = GM_deleteValue(key2);
+        if (isPromiseLike(result2)) result2.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key2, error);
       }
@@ -24392,9 +24431,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         await this.refreshNow();
       });
     }
-    savePlacement(result) {
+    savePlacement(result2) {
       return this.enqueue(async () => {
-        await this.record.record({ kind: "placement-assessed", ...result });
+        await this.record.record({ kind: "placement-assessed", ...result2 });
         await this.refreshNow();
       });
     }
@@ -24443,6 +24482,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           evaluation.attempt,
           ...adaptive ? [{
             kind: "learning-evidence-recorded",
+            ...adaptive.eventId ? { eventId: adaptive.eventId } : {},
+            ...adaptive.at !== void 0 ? { at: adaptive.at } : {},
             activityId: evaluation.attempt.activityId,
             modeId: adaptive.modeId,
             skill: adaptive.skill,
@@ -24525,10 +24566,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         await this.refreshNow();
       });
     }
-    recordSupportUse(activityId, supportKind, choiceId) {
+    recordSupportUse(activityId, supportKind, choiceId, identity2 = {}) {
       return this.enqueue(async () => {
         await this.record.record({
           kind: "support-used",
+          ...identity2.eventId ? { eventId: identity2.eventId } : {},
+          ...identity2.at !== void 0 ? { at: identity2.at } : {},
           activityId,
           supportKind,
           ...choiceId ? { choiceId } : {}
@@ -24619,9 +24662,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       await this.refreshNow();
     }
     enqueue(operation) {
-      const result = this.pending.then(operation);
-      this.pending = result.then(() => void 0, () => void 0);
-      return result;
+      const result2 = this.pending.then(operation);
+      this.pending = result2.then(() => void 0, () => void 0);
+      return result2;
     }
   }
   function authoredWeekOwnsActivity(packageId, activityId) {
@@ -24693,16 +24736,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
-    const result = [];
+    const result2 = [];
     for (const value of values) {
       const normalized2 = options.trim ? value?.trim() : value;
       if (normalized2 === void 0 || normalized2 === null) continue;
       if (options.dropEmpty && !normalized2) continue;
       if (seen.has(normalized2)) continue;
       seen.add(normalized2);
-      result.push(normalized2);
+      result2.push(normalized2);
     }
-    return result;
+    return result2;
   }
   function uniqueNonEmptyStrings$1(values) {
     return uniqueStrings(values, { dropEmpty: true });
@@ -24913,7 +24956,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
     if (!isRecord$6(value)) return {};
-    const result = {};
+    const result2 = {};
     for (const candidate2 of Object.values(value)) {
       if (!isRecord$6(candidate2)) continue;
       try {
@@ -24925,11 +24968,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           ...typeof candidate2.sourceId === "string" ? { sourceId: candidate2.sourceId } : {},
           ...candidate2.reason === "new-learning" || candidate2.reason === "repair" || candidate2.reason === "delayed-review" ? { reason: candidate2.reason } : {}
         }, finiteNumber$2(candidate2.addedAt, fallbackAt));
-        result[normalized2.id] = normalized2;
+        result2[normalized2.id] = normalized2;
       } catch {
       }
     }
-    return result;
+    return result2;
   }
   function sameProvenance(left, right) {
     return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
@@ -24993,13 +25036,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async collectAcademyVocabulary(input2) {
       return this.mutateDeck((deck) => {
         const now = this.now();
-        const result = upsertAcademyVocabulary(deck, input2, now);
+        const result2 = upsertAcademyVocabulary(deck, input2, now);
         return {
-          cardId: result.card.id,
-          cardCreated: result.cardCreated,
-          provenanceAdded: result.provenanceAdded,
-          provenanceCount: result.provenanceCount,
-          card: this.toReviewable(result.card, now)
+          cardId: result2.card.id,
+          cardCreated: result2.cardCreated,
+          provenanceAdded: result2.provenanceAdded,
+          provenanceCount: result2.provenanceCount,
+          card: this.toReviewable(result2.card, now)
         };
       });
     }
@@ -25017,12 +25060,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async removeAcademyVocabularyProvenance(cardId, provenanceId) {
       return this.mutateDeck((deck) => {
         const now = this.now();
-        const result = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
+        const result2 = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
         return {
-          provenanceRemoved: result.provenanceRemoved,
-          cardDeleted: result.cardDeleted,
-          reason: result.reason,
-          ...result.card ? { card: this.toReviewable(result.card, now) } : {}
+          provenanceRemoved: result2.provenanceRemoved,
+          cardDeleted: result2.cardDeleted,
+          reason: result2.reason,
+          ...result2.card ? { card: this.toReviewable(result2.card, now) } : {}
         };
       });
     }
@@ -25126,9 +25169,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
     readDeck() {
-      const result = localDeckMutation.then(() => this.readDeckUncoordinated());
-      localDeckMutation = result.then(() => void 0, () => void 0);
-      return result;
+      const result2 = localDeckMutation.then(() => this.readDeckUncoordinated());
+      localDeckMutation = result2.then(() => void 0, () => void 0);
+      return result2;
     }
     async readDeckUncoordinated() {
       const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
@@ -25138,7 +25181,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
     }
     mutateDeck(operation, notifyMutations = true) {
-      const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
+      const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
         const deck = await this.readDeckUncoordinated();
         const previousCards = new Map(Object.entries(deck.cards));
         const previousTombstones = { ...deck.tombstones ?? {} };
@@ -25161,8 +25204,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
         return value;
       }));
-      localDeckMutation = result.then(() => void 0, () => void 0);
-      return result;
+      localDeckMutation = result2.then(() => void 0, () => void 0);
+      return result2;
     }
     cardFromImportItem(item2, now) {
       let identity2;
@@ -25690,8 +25733,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const tail = text2.slice(state.start).trim();
     if (tail) sentences.push(tail);
     const nonEmptySentences = sentences.filter(Boolean);
-    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    return result;
+    const result2 = nonEmptySentences.length ? nonEmptySentences : [text2];
+    return result2;
   }
   function advanceSentenceSplitter(sentences, text2, state, index) {
     state.quote = closingQuoteFor(text2[index]) ?? state.quote;
@@ -27745,9 +27788,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const tailBytes = 4 - head.length;
     const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
     if (tail > tailMax) return null;
-    let result = 0;
-    for (const value of head) result = result * 256 + value;
-    return result * 256 ** tailBytes + tail;
+    let result2 = 0;
+    for (const value of head) result2 = result2 * 256 + value;
+    return result2 * 256 ** tailBytes + tail;
   }
   function parseIpv4Field(field2) {
     if (!field2) return null;
@@ -28365,7 +28408,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         reject(abortError());
       };
       if (signal) signal.addEventListener("abort", onAbort, { once: true });
-      const result = userscriptRequest({
+      const result2 = userscriptRequest({
         method: options.method ?? "GET",
         url,
         headers: recordHeaders(options.headers),
@@ -28382,10 +28425,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
         }
       });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
-      } else if (result && typeof result.abort === "function") {
-        handle = result;
+      if (result2 && typeof result2.then === "function") {
+        result2.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+      } else if (result2 && typeof result2.abort === "function") {
+        handle = result2;
       }
     });
   }
@@ -28496,7 +28539,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
-  const COPY$1 = {
+  const COPY$2 = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
@@ -30930,7 +30973,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
   function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$1.en[key2];
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$2.en[key2];
   }
   function cardStateLabel(state, language, fallback = state) {
     const key2 = CARD_STATE_LABEL_KEYS[state];
@@ -33025,9 +33068,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source2.type) && !source2.url.trim() && !source2.voice.trim();
   }
   function withBunproAudioSource(sources) {
-    const result = sources.map((source2) => ({ ...source2 }));
-    ensureBuiltInAudioSource(result, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
-    return result;
+    const result2 = sources.map((source2) => ({ ...source2 }));
+    ensureBuiltInAudioSource(result2, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
+    return result2;
   }
   function ensureBuiltInAudioSource(sources, source2, beforeType) {
     if (sources.some((candidate2) => candidate2.type === source2.type)) return;
@@ -33947,9 +33990,9 @@ ${spelling}`);
     parts.push(normalized2);
   }
   function uniqueControlTexts(texts) {
-    const result = [];
-    texts.forEach((text2) => pushUniqueControlText(result, text2));
-    return result;
+    const result2 = [];
+    texts.forEach((text2) => pushUniqueControlText(result2, text2));
+    return result2;
   }
   function normalizedControlText(text2) {
     return text2.replace(/\s+/g, " ").trim();
@@ -34901,13 +34944,13 @@ ${spelling}`);
       const cached = this.flattenedCache.get(container);
       if (cached) return cached;
       const flattened = [];
-      const visit = (element2) => {
+      const visit2 = (element2) => {
         for (const child of Array.from(element2.childNodes)) {
-          if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit(child);
+          if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit2(child);
           else flattened.push(child);
         }
       };
-      visit(container);
+      visit2(container);
       this.flattenedCache.set(container, flattened);
       return flattened;
     }
@@ -37855,13 +37898,13 @@ ${spelling}`);
     let cardsDeleted = 0;
     let cardsRetained = 0;
     for (const seedId of LEGACY_UNGROUNDED_REVIEW_SEED_IDS) {
-      const result = await repository.removeAcademyVocabularyProvenance(
+      const result2 = await repository.removeAcademyVocabularyProvenance(
         "",
         `academy:review-seed:${seedId}`
       );
-      if (!result.provenanceRemoved) continue;
+      if (!result2.provenanceRemoved) continue;
       provenanceRemoved += 1;
-      if (result.cardDeleted) cardsDeleted += 1;
+      if (result2.cardDeleted) cardsDeleted += 1;
       else cardsRetained += 1;
     }
     const schedulesNeutralized = options.learnerEvents ? await neutralizeLegacyReviewSchedules(options.learnerEvents) : 0;
@@ -37931,6 +37974,298 @@ ${spelling}`);
       return Object.keys(progress2).every((key2) => key2 === "phase" || key2 === "activityId") && typeof progress2.activityId === "string" && Boolean(progress2.activityId);
     }
     return (progress2.phase === "extension" || progress2.phase === "complete") && Object.keys(progress2).length === 1;
+  }
+  function buildClassroomExpressionSessionReport(definition2, state) {
+    const passed = new Set(state.passedProbeIds);
+    const attemptedProbes = new Set(state.attempts.map((attempt) => attempt.probeId));
+    const completedIds = definition2.expressions.filter((expression) => expression.probes.every((probe) => passed.has(probe.id))).map((expression) => expression.sourceQuestionId);
+    const attemptedIds = new Set(definition2.expressions.filter((expression) => expression.probes.some((probe) => attemptedProbes.has(probe.id))).map((expression) => expression.sourceQuestionId));
+    const lapsed = new Set(state.attempts.filter((attempt) => attempt.outcome === "lapse").map((attempt) => attempt.probeId));
+    const allProbeIds = definition2.expressions.flatMap((expression) => expression.probes.map((probe) => probe.id));
+    return {
+      sourceQuestions: {
+        total: 14,
+        attempted: attemptedIds.size,
+        completed: completedIds.length,
+        completedIds,
+        unresolvedIds: definition2.expressions.map((expression) => expression.sourceQuestionId).filter((id2) => !completedIds.includes(id2))
+      },
+      probes: {
+        total: allProbeIds.length,
+        completed: allProbeIds.filter((id2) => passed.has(id2)).length,
+        repaired: allProbeIds.filter((id2) => passed.has(id2) && lapsed.has(id2)).length
+      },
+      phases: definition2.phases.map((phase) => {
+        const expressions2 = phase.expressionIds.map((id2) => expressionById(definition2, id2));
+        return {
+          id: phase.id,
+          completedExpressions: expressions2.filter((expression) => expression.probes.every((probe) => passed.has(probe.id))).length,
+          totalExpressions: expressions2.length
+        };
+      })
+    };
+  }
+  function orderedProbes(definition2) {
+    return definition2.phases.flatMap((phase) => phase.expressionIds.flatMap((expressionId) => {
+      const expression = expressionById(definition2, expressionId);
+      return expression.probes.map((probe) => ({ expression, probe }));
+    }));
+  }
+  function locate(definition2, cursor) {
+    const expression = expressionById(definition2, cursor.expressionId);
+    const probe = expression.probes.find((candidate2) => candidate2.id === cursor.probeId);
+    if (!probe || expression.phaseId !== cursor.phaseId) throw new TypeError("Invalid classroom-expression cursor.");
+    return { expression, probe };
+  }
+  function expressionById(definition2, id2) {
+    const expression = definition2.expressions.find((candidate2) => candidate2.id === id2);
+    if (!expression) throw new Error(`Unknown classroom expression: ${id2}`);
+    return expression;
+  }
+  function cursorFor(expression, probe) {
+    return { phaseId: expression.phaseId, expressionId: expression.id, probeId: probe.id };
+  }
+  function visit(state, expression, probe) {
+    return {
+      ...state,
+      cursor: cursorFor(expression, probe),
+      visitedExpressionIds: unique$8([...state.visitedExpressionIds, expression.id])
+    };
+  }
+  function validateClassroomExpressionSessionState(definition2, snapshot) {
+    const state = structuredClone(snapshot);
+    if (!state || state.schemaVersion !== 1 || state.sessionId !== definition2.id) throw new TypeError("Incompatible classroom-expression snapshot.");
+    if (!["active", "paused", "complete"].includes(state.status)) throw new TypeError("Invalid classroom-expression status.");
+    const current = locate(definition2, state.cursor);
+    const ordered = orderedProbes(definition2);
+    const probeById = new Map(ordered.map((item2) => [item2.probe.id, item2]));
+    const expressionIds = new Set(definition2.expressions.map((expression) => expression.id));
+    for (const values of [state.passedProbeIds, state.revealedModelProbeIds]) {
+      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$8(values).length !== values.length) {
+        throw new TypeError("Classroom-expression snapshot references unknown probes.");
+      }
+    }
+    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$8(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
+      throw new TypeError("Classroom-expression snapshot references unknown expressions.");
+    }
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => {
+      const item2 = probeById.get(attempt.probeId);
+      return !item2 || attempt.sourceQuestionId !== item2.expression.sourceQuestionId || !["pass", "lapse"].includes(attempt.outcome) || typeof attempt.independent !== "boolean" || !Number.isSafeInteger(attempt.at) || attempt.at < 0;
+    })) {
+      throw new TypeError("Classroom-expression snapshot has invalid attempts.");
+    }
+    const passedFromAttempts = new Set(state.attempts.filter((attempt) => attempt.outcome === "pass").map((attempt) => attempt.probeId));
+    if (state.passedProbeIds.some((id2) => !passedFromAttempts.has(id2))) {
+      throw new TypeError("Classroom-expression snapshot claims progress without pass evidence.");
+    }
+    const lapsedFromAttempts = new Set(state.attempts.filter((attempt) => attempt.outcome === "lapse").map((attempt) => attempt.probeId));
+    if (state.revealedModelProbeIds.some((id2) => !lapsedFromAttempts.has(id2))) {
+      throw new TypeError("Classroom-expression snapshot reveals support without a lapse.");
+    }
+    const allPassed = state.passedProbeIds.length === probeById.size;
+    if (state.status === "complete" !== allPassed) {
+      throw new TypeError("Classroom-expression completion must match full pass evidence.");
+    }
+    return state;
+  }
+  function classroomExpressionSessionSnapshotShapeIsValid(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return false;
+    const state = snapshot;
+    if (state.schemaVersion !== 1 || state.sessionId !== "session:lesson-zero-classroom-expressions" || !state.status || !["active", "paused", "complete"].includes(state.status)) return false;
+    if (!state.cursor || typeof state.cursor.phaseId !== "string" || typeof state.cursor.expressionId !== "string" || typeof state.cursor.probeId !== "string") return false;
+    if (!Array.isArray(state.attempts) || !Array.isArray(state.passedProbeIds) || !Array.isArray(state.revealedModelProbeIds) || !Array.isArray(state.visitedExpressionIds)) return false;
+    if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds].some((values) => values.some((value) => typeof value !== "string" || !value))) return false;
+    return state.attempts.every((attempt) => Boolean(attempt) && typeof attempt.probeId === "string" && typeof attempt.sourceQuestionId === "string" && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.independent === "boolean" && Number.isSafeInteger(attempt.at) && attempt.at >= 0);
+  }
+  function unique$8(values) {
+    return [...new Set(values)];
+  }
+  function startClassroomExpressionSession(definition2, snapshot) {
+    const ordered = orderedProbes(definition2);
+    if (!ordered.length) throw new TypeError("Classroom-expression session has no probes.");
+    if (snapshot !== void 0) return validateClassroomExpressionSessionState(definition2, snapshot);
+    const first2 = ordered[0];
+    return {
+      schemaVersion: 1,
+      sessionId: definition2.id,
+      status: "active",
+      cursor: cursorFor(first2.expression, first2.probe),
+      attempts: [],
+      passedProbeIds: [],
+      revealedModelProbeIds: [],
+      visitedExpressionIds: [first2.expression.id]
+    };
+  }
+  function readClassroomExpressionSession(definition2, state) {
+    validateClassroomExpressionSessionState(definition2, state);
+    const { expression, probe } = locate(definition2, state.cursor);
+    const lapsed = state.attempts.some((attempt) => attempt.probeId === probe.id && attempt.outcome === "lapse");
+    const passed = state.passedProbeIds.includes(probe.id);
+    const modelRevealed = state.revealedModelProbeIds.includes(probe.id);
+    const phase = definition2.phases.find((candidate2) => candidate2.id === expression.phaseId);
+    const teaching2 = definition2.teachingBlocks.find((candidate2) => candidate2.expressionIds.includes(expression.id));
+    if (!teaching2) throw new TypeError(`Missing teaching for ${expression.id}.`);
+    return {
+      sessionId: definition2.id,
+      status: state.status,
+      cursor: { ...state.cursor },
+      phaseTitle: { ...phase.title },
+      prompt: { ...probe.prompt },
+      responseKind: expression.responseKind,
+      inputMode: expression.inputMode,
+      sourceQuestionId: expression.sourceQuestionId,
+      preAssessmentTeaching: {
+        explanation: { ...teaching2.explanation },
+        workedExample: {
+          ...teaching2.workedExample,
+          context: { ...teaching2.workedExample.context },
+          meaning: { ...teaching2.workedExample.meaning }
+        }
+      },
+      ...!passed && lapsed ? {
+        earnedRepair: {
+          contrast: { ...probe.repair.contrast },
+          retryPrompt: { ...probe.repair.retryPrompt },
+          nearbyExample: { ...probe.repair.nearbyExample },
+          modelAnswerAvailable: true,
+          ...modelRevealed ? { modelAnswer: probe.modelAnswer } : {}
+        }
+      } : {},
+      progress: buildClassroomExpressionSessionReport(definition2, state)
+    };
+  }
+  function transitionClassroomExpressionSession(definition2, state, action2, at) {
+    requireTimestamp$2(at);
+    validateClassroomExpressionSessionState(definition2, state);
+    if (action2.kind === "resume") {
+      if (state.status !== "paused") throw new Error(`Classroom-expression session is ${state.status}.`);
+      return result(definition2, { ...state, status: "active" }, []);
+    }
+    if (state.status !== "active") throw new Error(`Classroom-expression session is ${state.status}.`);
+    if (action2.kind === "pause") return result(definition2, { ...state, status: "paused" }, []);
+    if (action2.kind === "navigate") return result(definition2, navigate(definition2, state, action2.target), []);
+    if (action2.kind === "reveal-model") return revealModel(definition2, state, at);
+    return submit(definition2, state, action2.response, at);
+  }
+  function submit(definition2, state, response, at) {
+    if (!response.trim()) throw new TypeError("Classroom-expression evidence requires a learner commitment.");
+    const { expression, probe } = locate(definition2, state.cursor);
+    const outcome = probe.acceptedAnswers.some((answer2) => normalized(answer2) === normalized(response)) ? "pass" : "lapse";
+    const independent = !state.revealedModelProbeIds.includes(probe.id);
+    const hadLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
+    const passedProbeIds = outcome === "pass" ? unique$8([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
+    const attempt = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
+    let nextState = {
+      ...state,
+      attempts: [...state.attempts, attempt],
+      passedProbeIds
+    };
+    if (outcome === "pass") {
+      const allPassed = orderedProbes(definition2).every((item2) => passedProbeIds.includes(item2.probe.id));
+      nextState = allPassed ? { ...nextState, status: "complete" } : moveToNextUnpassed(definition2, nextState);
+    }
+    return result(definition2, nextState, evidenceFor(
+      definition2,
+      expression,
+      probe,
+      outcome,
+      independent,
+      hadLapse,
+      state.attempts.length + 1,
+      at
+    ));
+  }
+  function revealModel(definition2, state, at) {
+    const { probe } = locate(definition2, state.cursor);
+    const hasLapse = state.attempts.some((attempt) => attempt.probeId === probe.id && attempt.outcome === "lapse");
+    if (!hasLapse || state.passedProbeIds.includes(probe.id)) {
+      throw new Error("A model answer is earned only after a committed lapse.");
+    }
+    const alreadyRevealed = state.revealedModelProbeIds.includes(probe.id);
+    const nextState = {
+      ...state,
+      revealedModelProbeIds: unique$8([...state.revealedModelProbeIds, probe.id])
+    };
+    const evidence2 = alreadyRevealed ? [] : [{
+      kind: "support-used",
+      eventId: `${definition2.id}:${probe.id}:support:model-answer`,
+      at,
+      activityId: probe.id,
+      supportKind: "model-answer",
+      choiceId: `reveal:${probe.id}`
+    }];
+    return result(definition2, nextState, evidence2);
+  }
+  function evidenceFor(definition2, expression, probe, outcome, independent, hadLapse, attemptNumber, at) {
+    const repairing = hadLapse || outcome === "lapse";
+    const eventStem = `${definition2.id}:${probe.id}:attempt:${attemptNumber}`;
+    return [{
+      kind: "attempt-recorded",
+      eventId: eventStem,
+      at,
+      activityId: probe.id,
+      sourceQuestionId: expression.sourceQuestionId,
+      conceptIds: expression.conceptIds,
+      responseKind: expression.responseKind,
+      outcome,
+      score: outcome === "pass" ? 1 : 0,
+      ...outcome === "lapse" ? { errorTags: [probe.repair.errorTag] } : {}
+    }, {
+      kind: "learning-evidence-recorded",
+      eventId: `${eventStem}:learning`,
+      at,
+      activityId: probe.id,
+      modeId: "lesson-zero-classroom-expressions",
+      skill: repairing ? "repair" : expression.skill,
+      action: repairing ? "repair" : "produce",
+      outcome,
+      conceptIds: expression.conceptIds,
+      sourceId: expression.sourceQuestionId,
+      independent
+    }];
+  }
+  function navigate(definition2, state, target2) {
+    const ordered = orderedProbes(definition2);
+    const current = ordered.findIndex((item2) => item2.probe.id === state.cursor.probeId);
+    let destination;
+    switch (target2.kind) {
+      case "next":
+      case "previous": {
+        const offset = target2.kind === "next" ? 1 : -1;
+        destination = ordered[(current + offset + ordered.length) % ordered.length];
+        break;
+      }
+      case "phase": {
+        const phase = definition2.phases.find((candidate2) => candidate2.id === target2.id);
+        destination = phase ? firstUnpassedIn(definition2, state, phase.expressionIds) : void 0;
+        break;
+      }
+      case "expression":
+        destination = firstUnpassedIn(definition2, state, [target2.id]);
+        break;
+    }
+    if (!destination) throw new Error(`Unknown classroom-expression navigation target.`);
+    return visit(state, destination.expression, destination.probe);
+  }
+  function moveToNextUnpassed(definition2, state) {
+    const ordered = orderedProbes(definition2);
+    const current = ordered.findIndex((item2) => item2.probe.id === state.cursor.probeId);
+    const rotated = [...ordered.slice(current + 1), ...ordered.slice(0, current + 1)];
+    const destination = rotated.find((item2) => !state.passedProbeIds.includes(item2.probe.id));
+    return destination ? visit(state, destination.expression, destination.probe) : state;
+  }
+  function firstUnpassedIn(definition2, state, expressionIds) {
+    const candidates = orderedProbes(definition2).filter((item2) => expressionIds.includes(item2.expression.id));
+    return candidates.find((item2) => !state.passedProbeIds.includes(item2.probe.id)) ?? candidates[0];
+  }
+  function result(definition2, state, evidence2) {
+    return { state, view: readClassroomExpressionSession(definition2, state), evidence: evidence2 };
+  }
+  function normalized(value) {
+    return value.normalize("NFKC").replace(/[\s。！？!?.,、]/gu, "").toLocaleLowerCase("ja-JP");
+  }
+  function requireTimestamp$2(at) {
+    if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Session timestamp must be a non-negative integer.");
   }
   const ACADEMY_ROUTE_DEFINITIONS = {
     access: "enrollment",
@@ -40608,6 +40943,9 @@ ${spelling}`);
     if (value.authoredWeekProgress !== void 0 && !authoredWeekProgressRecordIsValid(value.authoredWeekProgress)) {
       throw new TypeError("Academy checkpoint has invalid authored week progress.");
     }
+    if (value.classroomExpressionProgress !== void 0 && !classroomExpressionSessionSnapshotShapeIsValid(value.classroomExpressionProgress)) {
+      throw new TypeError("Academy checkpoint has invalid classroom-expression progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -40933,8 +41271,8 @@ ${spelling}`);
         options.onGap?.(sound);
         return { status: "gap", played: false };
       }
-      const result = playOneShot(sound.sfx, sound.durationMs);
-      if (!result.played) return result;
+      const result2 = playOneShot(sound.sfx, sound.durationMs);
+      if (!result2.played) return result2;
       beginTemporaryDuck(
         sound.duckMusicTo,
         sound.durationMs,
@@ -40949,7 +41287,7 @@ ${spelling}`);
         durationMs: sound.durationMs,
         reducedMotion: options.reducedMotion ?? false
       });
-      return result;
+      return result2;
     };
     const onMusic = (event) => {
       if (disposed || options.director.state === "disposed") return;
@@ -40976,8 +41314,8 @@ ${spelling}`);
       const transientMix = pendingTransientMix;
       pendingTransientMix = void 0;
       const durationMs = SHINDAY_DURATION_BY_DIRECTOR_CUE.get(cue) ?? FALLBACK_SFX_DURATION_MS;
-      const result = playOneShot(cue, durationMs);
-      if (result.played && transientMix?.releaseAfterMs !== void 0) {
+      const result2 = playOneShot(cue, durationMs);
+      if (result2.played && transientMix?.releaseAfterMs !== void 0) {
         beginTemporaryDuck(
           transientMix.mix.musicGain,
           transientMix.releaseAfterMs,
@@ -41255,6 +41593,7 @@ ${spelling}`);
         routeHistory: [],
         presentationMode: checkpoint.presentationMode,
         ...checkpoint.authoredWeekProgress ? { authoredWeekProgress: checkpoint.authoredWeekProgress } : {},
+        ...checkpoint.classroomExpressionProgress ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress } : {},
         updatedAt: now
       };
     }
@@ -44331,13 +44670,13 @@ ${spelling}`);
     input2.setAttribute("aria-label", academyText(options.language, "accessCodeLabel"));
     input2.placeholder = academyText(options.language, "accessCodePlaceholder");
     label.append(input2);
-    const submit = copyButton(options.language, "accessSubmit", "academy-button academy-button-primary");
-    submit.type = "submit";
+    const submit2 = copyButton(options.language, "accessSubmit", "academy-button academy-button-primary");
+    submit2.type = "submit";
     const getCode = copyButton(options.language, "accessGetCode", "academy-button academy-button-secondary academy-get-code");
     getCode.type = "button";
     const feedback2 = element("div", "academy-form-feedback");
     const actions = element("div", "academy-access-actions");
-    actions.append(submit, getCode);
+    actions.append(submit2, getCode);
     form2.append(label, actions, feedback2);
     input2.addEventListener("input", () => {
       if (!input2.value.trim()) return;
@@ -44354,13 +44693,13 @@ ${spelling}`);
         return;
       }
       input2.removeAttribute("aria-invalid");
-      setBusy$1(submit, true, academyText(options.language, "accessChecking"));
+      setBusy$1(submit2, true, academyText(options.language, "accessChecking"));
       void options.onSubmit(input2.value).catch((error) => {
         const unavailable = error instanceof Error && "code" in error && error.code === "unavailable";
         feedback2.replaceChildren(fieldError(academyText(options.language, unavailable ? "accessUnavailable" : "accessInvalid")));
-        submit.disabled = false;
-        submit.removeAttribute("aria-busy");
-        setCopy(submit, options.language, "accessSubmit");
+        submit2.disabled = false;
+        submit2.removeAttribute("aria-busy");
+        setCopy(submit2, options.language, "accessSubmit");
         input2.focus();
       });
     });
@@ -44459,14 +44798,14 @@ ${spelling}`);
     const errors = model2.payload.tasks.flatMap((task2) => answers.get(task2.id) === task2.correctMark ? [] : [task2.errorTag]);
     return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, model2.payload.passScore, errors, model2.payload.feedback);
   }
-  function minnaTrueFalseListeningReviewSeeds(model2, result) {
+  function minnaTrueFalseListeningReviewSeeds(model2, result2) {
     const contract2 = EXACT_SOURCE_CONTRACTS$1[model2.responseKind];
     return model2.payload.tasks.flatMap((task2) => {
-      if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+      if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
       return [{
         id: `review:${contract2.packageId}:${model2.responseKind}:${task2.id}`,
         conceptId: task2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: task2.sourceQuestionId,
         content: {
           expression: task2.reviewExpression,
@@ -44500,7 +44839,7 @@ ${spelling}`);
     return EXACT_SOURCE_CONTRACTS$1[model2.responseKind]?.shortLabel ?? "Minna";
   }
   const MINNA_TRUE_FALSE_LISTENING_KIND = "academy-minna-true-false-listening";
-  function renderMinnaTrueFalseListening(model2, host2, submit) {
+  function renderMinnaTrueFalseListening(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-minna-true-false-listening";
@@ -44539,7 +44878,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$7(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -44786,7 +45125,7 @@ ${spelling}`);
     const used = new Set(learnerHintTiersForActivity(activityId, supportUses));
     return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.filter((tier) => !used.has(tier));
   }
-  function renderConstructedResponse(model2, host2, submit, normalizeResponse) {
+  function renderConstructedResponse(model2, host2, submit2, normalizeResponse) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-constructed-response";
@@ -44824,7 +45163,7 @@ ${spelling}`);
       feedback2.replaceChildren();
       host2.react?.({ speakerId: "rie", expression: "encouraging" });
       try {
-        const evaluation = await submit(response);
+        const evaluation = await submit2(response);
         root.dataset.outcome = evaluation.result.outcome;
         showFeedback$2(feedback2, evaluation.result, host2.language ?? "en");
         if (evaluation.result.outcome === "pass") {
@@ -45113,8 +45452,8 @@ ${spelling}`);
     root.append(reveal);
     return { element: root, dispose: () => void 0 };
   }
-  function showFeedback$2(root, result, language) {
-    root.replaceChildren(feedbackLine(result.feedback.explanation, language, "academy-constructed-feedback-contrast"));
+  function showFeedback$2(root, result2, language) {
+    root.replaceChildren(feedbackLine(result2.feedback.explanation, language, "academy-constructed-feedback-contrast"));
   }
   function feedbackLine(value, language, className) {
     const line2 = document.createElement("p");
@@ -45135,8 +45474,8 @@ ${spelling}`);
   const constructedResponseActivityPlugin = {
     kind: "constructed-japanese",
     validate: validateConstructedResponse,
-    render(model2, host2, submit) {
-      return renderConstructedResponse(model2, host2, submit, normalizeJapaneseResponse);
+    render(model2, host2, submit2) {
+      return renderConstructedResponse(model2, host2, submit2, normalizeJapaneseResponse);
     },
     grade(model2, response) {
       if (typeof response !== "string") throw new TypeError("Constructed Japanese responses must be text.");
@@ -45163,13 +45502,13 @@ ${spelling}`);
         }
       };
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       const conceptId = model2.conceptIds[0];
       if (!conceptId) return [];
       return [{
         id: model2.payload.reviewSeedId,
         conceptId,
-        reason: result.outcome === "lapse" ? "repair" : "new-learning",
+        reason: result2.outcome === "lapse" ? "repair" : "new-learning",
         ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
         content: model2.payload.reviewContent
       }];
@@ -45553,11 +45892,11 @@ ${spelling}`);
     };
   }
   function resolvePlacePresentation(cue, preset, visits, selectVariation) {
-    const visit = (visits.get(cue.id) ?? 0) + 1;
+    const visit2 = (visits.get(cue.id) ?? 0) + 1;
     const availableVariations = Object.keys(preset?.variations ?? {}).sort();
     const variationId = cue.variation ?? selectVariation?.({
       placeId: cue.id,
-      visit,
+      visit: visit2,
       availableVariations
     });
     if (variationId !== void 0 && !variationId.trim()) {
@@ -45571,7 +45910,7 @@ ${spelling}`);
     return {
       treatment: { ...base, ...variation },
       ...variationId ? { variationId } : {},
-      visit
+      visit: visit2
     };
   }
   function nextSceneFrame(cue, place2, previous, options) {
@@ -47170,11 +47509,11 @@ ${spelling}`);
         }
       };
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.conceptIds.map((conceptId) => ({
         id: `${model2.payload.reviewSeedId}:${conceptId}`,
         conceptId,
-        reason: result.outcome === "lapse" ? "repair" : "new-learning",
+        reason: result2.outcome === "lapse" ? "repair" : "new-learning",
         ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
         content: model2.payload.reviewContent
       }));
@@ -47213,7 +47552,7 @@ ${spelling}`);
     }
     return issues2;
   }
-  function renderChoice$1(model2, host2, submit) {
+  function renderChoice$1(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-choice-activity";
@@ -47244,7 +47583,7 @@ ${spelling}`);
         setDisabled(choices2, true);
         host2.react?.({ speakerId: "rie", expression: "encouraging" });
         try {
-          const evaluation = await submit(option2.id);
+          const evaluation = await submit2(option2.id);
           root.dataset.outcome = evaluation.result.outcome;
           host2.react?.({
             speakerId: "rie",
@@ -47282,7 +47621,7 @@ ${spelling}`);
   }
   function showFeedback$1(root, evaluation, model2, host2) {
     const { feedback: feedback2 } = evaluation.result;
-    root.replaceChildren(localizedParagraph$1(feedback2.explanation, "academy-feedback-explanation"));
+    root.replaceChildren(localizedParagraph$2(feedback2.explanation, "academy-feedback-explanation"));
     if (evaluation.result.outcome === "lapse") {
       appendProgressiveFeedback(root, feedback2, {
         language: host2.language ?? "en",
@@ -47291,7 +47630,7 @@ ${spelling}`);
       });
     }
   }
-  function localizedParagraph$1(value, className) {
+  function localizedParagraph$2(value, className) {
     const paragraph = document.createElement("p");
     paragraph.className = className;
     paragraph.append(japanese$2(value.ja), support$2(value.en));
@@ -48208,20 +48547,20 @@ ${spelling}`);
       }
       return issues2;
     },
-    render(model2, host2, submit) {
-      return renderKanjiWritingActivity(model2, host2, submit);
+    render(model2, host2, submit2) {
+      return renderKanjiWritingActivity(model2, host2, submit2);
     },
     grade(model2, response) {
       const parsed = parseKanjiWritingResponse(response);
       if (parsed.phase === "writing") return gradeWriting(model2, parsed.assessment);
       return gradeReading(model2, parsed.reading);
     },
-    toReviewSeeds(model2, result) {
-      if (result.outcome !== "pass" || !result.errorTags.includes("kanji-writing-complete")) return [];
+    toReviewSeeds(model2, result2) {
+      if (result2.outcome !== "pass" || !result2.errorTags.includes("kanji-writing-complete")) return [];
       return [kanjiReviewSeed(model2)];
     }
   };
-  function renderKanjiWritingActivity(model2, host2, submit) {
+  function renderKanjiWritingActivity(model2, host2, submit2) {
     const language = model2.payload.language;
     const root = element("section", "academy-kanji-activity");
     root.dataset.yomuRuntimeSurface = "kanji-writing";
@@ -48268,7 +48607,7 @@ ${spelling}`);
     const submitWriting = (assessment) => {
       if (disposed || writingComplete || submittingWriting) return;
       submittingWriting = true;
-      void submit({ phase: "writing", assessment, inputMode: "doodle" }).then((evaluation) => {
+      void submit2({ phase: "writing", assessment, inputMode: "doodle" }).then((evaluation) => {
         if (disposed) return;
         writingStatus.textContent = `${localizedFeedback(evaluation, language)} ${Math.round(evaluation.result.score * 100)}% · ${assessment.actualStrokes}/${assessment.expectedStrokes} ${language === "ja" ? "画" : "strokes"}`;
         practice2.classList.toggle("academy-doodle-pass", evaluation.result.outcome === "pass");
@@ -48306,7 +48645,7 @@ ${spelling}`);
     recall.addEventListener("submit", (event) => {
       event.preventDefault();
       readingSubmit.disabled = true;
-      void submit({ phase: "reading", reading: readingInput.value }).then((evaluation) => {
+      void submit2({ phase: "reading", reading: readingInput.value }).then((evaluation) => {
         if (disposed) return;
         readingStatus.textContent = localizedFeedback(evaluation, language);
         if (evaluation.result.outcome === "pass") {
@@ -48359,10 +48698,10 @@ ${spelling}`);
     clear.dataset.jpdbReaderSurfaceIgnore = "";
     clear.textContent = language === "ja" ? "消す" : "Clear";
     tools.append(help, trace, clear);
-    const result = element("div", "academy-doodle-result");
-    result.dataset.newtabDoodleResult = "";
-    result.setAttribute("role", "status");
-    root.append(stage2, tools, result);
+    const result2 = element("div", "academy-doodle-result");
+    result2.dataset.newtabDoodleResult = "";
+    result2.setAttribute("role", "status");
+    root.append(stage2, tools, result2);
     return root;
   }
   function assessWriting(trace, strokes) {
@@ -49502,13 +49841,13 @@ ${spelling}`);
       steps = [target2.fieldset, ...assessment.questions, confidence];
     };
     const feedback2 = element("div", "academy-form-feedback");
-    const submit = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
-    submit.type = "submit";
-    submit.hidden = true;
+    const submit2 = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
+    submit2.type = "submit";
+    submit2.hidden = true;
     const next = copyButton(options.language, "continue", "academy-button academy-button-primary");
     const back = backButton(options.language);
     const actions = element("div", "academy-placement-actions");
-    actions.append(back, next, submit);
+    actions.append(back, next, submit2);
     form2.append(target2.fieldset, progress2, assessmentHost, confidence, feedback2, actions);
     const showStep = (nextStep) => {
       stopPlayback();
@@ -49519,7 +49858,7 @@ ${spelling}`);
       const choosingLevel = step2 === 0;
       const assessmentSteps = Math.max(0, steps.length - 1);
       const finalStep = !choosingLevel && step2 === steps.length - 1;
-      submit.hidden = !finalStep;
+      submit2.hidden = !finalStep;
       next.hidden = finalStep;
       progressLabel.textContent = choosingLevel ? options.language === "ja" ? "受ける模試を選ぶ" : "Choose a JLPT mock" : options.language === "ja" ? `${step2} / ${assessmentSteps}` : `Step ${step2} of ${assessmentSteps}`;
       progressDots.replaceChildren(...steps.slice(1).map((_, index) => {
@@ -49934,7 +50273,7 @@ ${spelling}`);
             onListeningStart: () => this.beginExternalListening(),
             onListeningStop: () => this.endExternalListening(),
             draft: this.placementDraft ?? void 0,
-            onResult: (result, draft) => void this.savePlacement(result, draft, context2),
+            onResult: (result2, draft) => void this.savePlacement(result2, draft, context2),
             onBack: () => {
               this.placementDraft = null;
               void context2.back();
@@ -50041,10 +50380,10 @@ ${spelling}`);
         activityId: void 0
       });
     }
-    async savePlacement(result, draft, context2) {
+    async savePlacement(result2, draft, context2) {
       this.placementDraft = draft;
-      await this.options.evidence.savePlacement(result);
-      await context2.go("placement-result", { selectedBand: result.recommendedBand });
+      await this.options.evidence.savePlacement(result2);
+      await context2.go("placement-result", { selectedBand: result2.recommendedBand });
     }
     renderPlacementResult(context2) {
       const placement = context2.projection.latestPlacement;
@@ -50052,7 +50391,7 @@ ${spelling}`);
         void context2.go("placement-mock");
         return;
       }
-      const result = {
+      const result2 = {
         assessmentId: placement.assessmentId === "academy-orientation-mock:v2" ? "academy-orientation-mock:v2" : "academy-orientation-mock:v1",
         targetBand: placement.targetBand,
         itemIds: placement.itemIds,
@@ -50063,17 +50402,17 @@ ${spelling}`);
       };
       context2.shell.replace(renderPlacementResultScreen({
         language: context2.language,
-        result,
-        onAccept: () => void this.acceptPlacement(result, context2),
+        result: result2,
+        onAccept: () => void this.acceptPlacement(result2, context2),
         onChoose: () => void context2.go("manual-band", { placementOverride: true }),
         onReview: () => void context2.back()
       }));
     }
-    async acceptPlacement(result, context2) {
+    async acceptPlacement(result2, context2) {
       this.options.audio?.playSfx?.("menu.confirm");
       this.placementDraft = null;
       const storySection = placementStorySection(context2);
-      if (result.recommendedStart === "lesson-zero") {
+      if (result2.recommendedStart === "lesson-zero") {
         await this.options.evidence.chooseCurriculumEntry({
           route: "lesson-zero"
         });
@@ -50088,11 +50427,11 @@ ${spelling}`);
       }
       await this.options.evidence.chooseCurriculumEntry({
         route: "placement-mock",
-        band: result.recommendedStart,
+        band: result2.recommendedStart,
         recommendationAccepted: true
       });
       await context2.go("arrival-bridge", {
-        selectedBand: result.recommendedStart,
+        selectedBand: result2.recommendedStart,
         placementOverride: false,
         lessonId: void 0,
         sectionId: storySection,
@@ -57495,9 +57834,9 @@ ${spelling}`);
     return Number(value);
   }
   function digest$8(value, label) {
-    const result = exact$1(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exact$1(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1y = "yomu-academy.week.v1";
   const id$1x = "l1-l02";
@@ -61056,9 +61395,9 @@ ${spelling}`);
     return value;
   }
   function digest$7(value, label) {
-    const result = exactText$7(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exactText$7(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1x = "yomu-academy.week.v1";
   const id$1w = "l1-l03";
@@ -64575,9 +64914,9 @@ ${spelling}`);
     return value;
   }
   function digest$6(value, label) {
-    const result = exactText$6(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exactText$6(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1w = "yomu-academy.week.v1";
   const id$1v = "l1-l04";
@@ -68634,9 +68973,9 @@ ${spelling}`);
     return value;
   }
   function digest$5(value, label) {
-    const result = exactText$5(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exactText$5(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1v = "yomu-academy.week.v1";
   const id$1u = "l1-l05";
@@ -72325,9 +72664,9 @@ ${spelling}`);
     return value;
   }
   function digest$4(value, label) {
-    const result = exactText$4(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exactText$4(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1u = "yomu-academy.week.v1";
   const id$1t = "l1-l06";
@@ -76716,9 +77055,9 @@ ${spelling}`);
     return value;
   }
   function digest$3(value, label) {
-    const result = exactText$3(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exactText$3(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const DEFINITIONS$1 = Object.freeze({
     "l2-l02": sheet(
@@ -78153,9 +78492,9 @@ ${spelling}`);
     return value;
   }
   function digest$2(value, label) {
-    const result = text$b(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = text$b(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   Object.freeze([
     "lesson:foundation-00",
@@ -90389,9 +90728,9 @@ ${spelling}`);
     return value;
   }
   function digest$1(value, label) {
-    const result = exact(value, label);
-    if (!/^[a-f0-9]{64}$/u.test(result)) throw new TypeError(`${label} must be a SHA-256 digest.`);
-    return result;
+    const result2 = exact(value, label);
+    if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
+    return result2;
   }
   const schema$1q = "yomu-academy.week.v1";
   const id$1p = "l1-l11";
@@ -123152,8 +123491,8 @@ ${spelling}`);
         feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
       };
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$h(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$h(round2, result2)]);
     }
   };
   function createRounds$4() {
@@ -123315,7 +123654,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function renderWorkshop$4(model2, host2, submit) {
+  function renderWorkshop$4(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-reported-message-workshop";
@@ -123363,7 +123702,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(feedback2, evaluation, host2);
@@ -123488,11 +123827,11 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$h(round2, result) {
+  function reviewSeed$h(round2, result2) {
     return {
       id: `review:l2-l27:reported-message:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: { expression: round2.answer, meanings: [`Sensei Chapter 33-2 ${round2.sourceTask} example`] }
     };
@@ -125355,8 +125694,8 @@ ${spelling}`);
         feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
       };
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$g(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$g(round2, result2)]);
     }
   };
   function createRounds$3() {
@@ -125504,7 +125843,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function renderWorkshop$3(model2, host2, submit) {
+  function renderWorkshop$3(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-follow-the-model-workshop";
@@ -125552,7 +125891,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(feedback2, evaluation, host2);
@@ -125678,11 +126017,11 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$g(round2, result) {
+  function reviewSeed$g(round2, result2) {
     return {
       id: `review:l2-l28:follow-model:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: { expression: round2.answer, meanings: [`Sensei Chapter 34-1 ${round2.sourceTask} example`] }
     };
@@ -194154,8 +194493,8 @@ ${spelling}`);
         feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
       };
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$f(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$f(round2, result2)]);
     }
   };
   function createRounds$2() {
@@ -194308,7 +194647,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function renderWorkshop$2(model2, host2, submit) {
+  function renderWorkshop$2(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-considerate-recommendation";
@@ -194356,7 +194695,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealAnswerKey$1(key2, model2);
         key2.hidden = false;
@@ -194490,11 +194829,11 @@ ${spelling}`);
   function normalizeSourceResponse(value) {
     return normalizeJapanese(value.normalize("NFKC").replace(/\([^)]*\)/gu, ""));
   }
-  function reviewSeed$f(round2, result) {
+  function reviewSeed$f(round2, result2) {
     return {
       id: `review:l2-l35:considerate-recommendation:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: { expression: round2.answer, meanings: [`Sensei Chapter 35 conversation-script ${round2.sourceTask} segment`] }
     };
@@ -194675,8 +195014,8 @@ ${spelling}`);
         feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
       };
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$e(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$e(round2, result2)]);
     }
   };
   function createRounds$1() {
@@ -194782,7 +195121,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function renderWorkshop$1(model2, host2, submit) {
+  function renderWorkshop$1(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-youni-goal-workshop";
@@ -194830,7 +195169,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(feedback2, evaluation, host2);
@@ -194956,11 +195295,11 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$e(round2, result) {
+  function reviewSeed$e(round2, result2) {
     return {
       id: `review:l2-l36:youni-goal:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: { expression: round2.answer, meanings: [round2.sourceTask === "homework-match" ? "Sensei Chapter 36 homework match" : "Sensei Chapter 36-1 printed example"] }
     };
@@ -195142,8 +195481,8 @@ ${spelling}`);
         feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
       };
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$d(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$d(round2, result2)]);
     }
   };
   function createVocabulary() {
@@ -195210,7 +195549,7 @@ ${spelling}`);
     validateFeedback(model2.payload.feedback, issues2);
     return issues2;
   }
-  function renderWorkshop(model2, host2, submit) {
+  function renderWorkshop(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-younarimasu-change-workshop";
@@ -195264,7 +195603,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(feedback2, evaluation, host2);
@@ -195370,11 +195709,11 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$d(round2, result) {
+  function reviewSeed$d(round2, result2) {
     return {
       id: `review:l2-l36:younarimasu-change:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: { expression: round2.answer, meanings: ["Sensei Lesson 10 potential form + ようになります transformation"] }
     };
@@ -195666,7 +196005,7 @@ ${spelling}`);
     return Object.freeze(model2);
   }
   function track(id2, sourceTitle, payloadSha256, url, durationSeconds, prompts2) {
-    const result = {
+    const result2 = {
       id: id2,
       title: { ja: `${sourceTitle} を聞く`, en: `Listen: ${sourceTitle}` },
       audio: {
@@ -195678,7 +196017,7 @@ ${spelling}`);
       },
       prompts: prompts2
     };
-    return Object.freeze(result);
+    return Object.freeze(result2);
   }
   function prompt(id2, question2, optionA, optionB, correctOptionId) {
     const trackId = ["sano", "suzuki", "kudo"].includes(id2) ? "1-a-1" : "2-a-2";
@@ -195686,7 +196025,7 @@ ${spelling}`);
       { id: "a", label: optionA },
       { id: "b", label: optionB }
     ]);
-    const result = {
+    const result2 = {
       id: id2,
       sourceQuestionId: `moodle:5804931:chapter-1-listening:p1:${trackId}:${id2}`,
       prompt: question2,
@@ -195695,7 +196034,7 @@ ${spelling}`);
       conceptId: `concept:l1-l03:moodle-listening:${id2}`,
       errorTag: `l1-l03-moodle-listening-${id2}`
     };
-    return Object.freeze(result);
+    return Object.freeze(result2);
   }
   function assertExactSources() {
     const root = record$1(lessonPackage$I, "l1-l03 package");
@@ -231042,6 +231381,170 @@ ${spelling}`);
       grounding: validateLessonZeroGrounding(data)
     };
   }
+  const LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS = Object.freeze([
+    "activity:lesson-zero-reconstruct-repair",
+    "activity:lesson-zero-desk-language"
+  ]);
+  const REVIEW_MEANINGS = Object.freeze({
+    "probe:classroom-01-start": { en: "Let's begin.", ja: "始めるときの表現です。" },
+    "probe:classroom-02-finish": { en: "Let's finish.", ja: "終わるときの表現です。" },
+    "probe:classroom-03-break": { en: "Let's take a break.", ja: "休憩するときの表現です。" },
+    "probe:classroom-04-look": { en: "Please look.", ja: "見るように頼む表現です。" },
+    "probe:classroom-05-say": { en: "Everyone, please say it together.", ja: "みんなで言うように頼む表現です。" },
+    "probe:classroom-06-listen": { en: "Please listen.", ja: "聞くように頼む表現です。" },
+    "probe:classroom-07-write": { en: "Please write it.", ja: "書くように頼む表現です。" },
+    "probe:classroom-08-check": { en: "Do you understand?", ja: "理解できたか確認する表現です。" },
+    "probe:classroom-08-yes": { en: "Yes, I understand.", ja: "理解できたと答える表現です。" },
+    "probe:classroom-08-no": { en: "No, I don't understand.", ja: "理解できなかったと答える表現です。" },
+    "probe:classroom-09-repeat": { en: "One more time, please.", ja: "もう一度頼む表現です。" },
+    "probe:classroom-10-good": { en: "Good.", ja: "よくできたと伝える表現です。" },
+    "probe:classroom-11-so": { en: "That's right.", ja: "正しいと確認する表現です。" },
+    "probe:classroom-11-match": { en: "That's correct.", ja: "答えが合っていると確認する表現です。" },
+    "probe:classroom-12-wrong": { en: "That's not right.", ja: "違っていると伝える表現です。" },
+    "probe:classroom-13-homework": { en: "homework", ja: "あとでする課題です。" },
+    "probe:classroom-14-example": { en: "example", ja: "参考にする見本です。" }
+  });
+  function isLessonZeroConstructedClassroomActivity(activityId) {
+    return LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS.includes(activityId);
+  }
+  function classroomBindingForActivity(activityId) {
+    const binding = LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.find((candidate2) => candidate2.activityId === activityId);
+    if (!binding) throw new TypeError(`Unknown Lesson Zero classroom activity ${activityId}.`);
+    return binding;
+  }
+  function classroomStateForActivity(definition2, state, activityId) {
+    if (state.status === "complete") return state;
+    const binding = classroomBindingForActivity(activityId);
+    const currentBelongs = binding.expressionIds.includes(state.cursor.expressionId);
+    const currentPassed = state.passedProbeIds.includes(state.cursor.probeId);
+    if (currentBelongs && !currentPassed) return state;
+    const expressionId = binding.expressionIds.find((id2) => {
+      const expression2 = expressionFor(definition2, id2);
+      return expression2.probes.some((probe2) => !state.passedProbeIds.includes(probe2.id));
+    }) ?? binding.expressionIds[0];
+    if (!expressionId) return state;
+    const expression = expressionFor(definition2, expressionId);
+    const probe = expression.probes.find((candidate2) => !state.passedProbeIds.includes(candidate2.id)) ?? expression.probes[0];
+    if (!probe) return state;
+    return {
+      ...state,
+      status: "active",
+      cursor: { phaseId: expression.phaseId, expressionId: expression.id, probeId: probe.id },
+      visitedExpressionIds: [.../* @__PURE__ */ new Set([...state.visitedExpressionIds, expression.id])]
+    };
+  }
+  function completedClassroomActivityIds(definition2, state) {
+    const passed = new Set(state.passedProbeIds);
+    return LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((binding) => binding.deterministicAssessment).filter((binding) => binding.expressionIds.every((expressionId) => expressionFor(definition2, expressionId).probes.every((probe) => passed.has(probe.id)))).map((binding) => binding.activityId);
+  }
+  function newlyCompletedClassroomActivityIds(definition2, before, after) {
+    const prior = new Set(completedClassroomActivityIds(definition2, before));
+    return completedClassroomActivityIds(definition2, after).filter((activityId) => !prior.has(activityId));
+  }
+  function classroomProbeRecording(definition2, transition) {
+    const attempt = transition.evidence.find(isAttempt);
+    if (!attempt) return void 0;
+    const learning = transition.evidence.find(isLearning);
+    if (!learning) throw new TypeError(`Classroom probe ${attempt.activityId} emitted no learning evidence.`);
+    const { expression, probe } = probeFor(definition2, attempt.activityId);
+    const binding = bindingForExpression(expression.id);
+    const teaching2 = definition2.teachingBlocks.find((block) => block.expressionIds.includes(expression.id));
+    if (!teaching2) throw new TypeError(`Classroom expression ${expression.id} has no teaching block.`);
+    const meaning = REVIEW_MEANINGS[probe.id];
+    if (!meaning) throw new TypeError(`Classroom probe ${probe.id} has no review meaning.`);
+    const reviewSeeds2 = attempt.outcome === "pass" ? [{
+      id: lessonZeroReviewSeedId(probe),
+      conceptId: teaching2.conceptId,
+      reason: learning.action === "repair" ? "repair" : "new-learning",
+      sourceQuestionId: expression.sourceQuestionId,
+      content: {
+        expression: probe.modelAnswer,
+        reading: lessonZeroCanonicalReading(probe),
+        meanings: [meaning.en]
+      }
+    }] : [];
+    return {
+      bindingActivityId: binding.activityId,
+      evaluation: {
+        attempt,
+        result: {
+          outcome: attempt.outcome,
+          score: attempt.outcome === "pass" ? 1 : 0,
+          errorTags: attempt.errorTags ?? [],
+          feedback: attempt.outcome === "pass" ? { explanation: { en: "That fits the moment.", ja: "その場面に合っています。" } } : {
+            explanation: probe.repair.contrast,
+            repairPrompt: probe.repair.retryPrompt,
+            nearbyExample: probe.repair.nearbyExample
+          }
+        },
+        reviewSeeds: reviewSeeds2
+      },
+      adaptive: {
+        ...learning.eventId ? { eventId: learning.eventId } : {},
+        ...learning.at !== void 0 ? { at: learning.at } : {},
+        modeId: learning.modeId,
+        skill: learning.skill,
+        action: learning.action,
+        sourceId: learning.sourceId,
+        independent: learning.independent
+      }
+    };
+  }
+  function classroomActivityCompletionEvaluation(activity2, at) {
+    if (!LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS.includes(activity2.id)) {
+      throw new TypeError(`${activity2.id} is not a constructed classroom activity.`);
+    }
+    return {
+      attempt: {
+        kind: "attempt-recorded",
+        eventId: `session:lesson-zero-classroom-expressions:${activity2.id}:complete`,
+        at,
+        activityId: activity2.id,
+        conceptIds: activity2.conceptIds,
+        responseKind: activity2.expectedEvidence.kind,
+        outcome: "pass",
+        score: 1
+      },
+      result: {
+        outcome: "pass",
+        score: 1,
+        errorTags: [],
+        feedback: {
+          explanation: {
+            en: "You can now use every expression in this classroom set.",
+            ja: "この教室表現をすべて使えるようになりました。"
+          }
+        }
+      },
+      reviewSeeds: []
+    };
+  }
+  function supportEvents(transition) {
+    return transition.evidence.filter((event) => event.kind === "support-used");
+  }
+  function bindingForExpression(expressionId) {
+    const binding = LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.find((candidate2) => candidate2.expressionIds.includes(expressionId));
+    if (!binding) throw new TypeError(`Classroom expression ${expressionId} has no activity binding.`);
+    return binding;
+  }
+  function expressionFor(definition2, expressionId) {
+    const expression = definition2.expressions.find((candidate2) => candidate2.id === expressionId);
+    if (!expression) throw new TypeError(`Unknown classroom expression ${expressionId}.`);
+    return expression;
+  }
+  function probeFor(definition2, probeId) {
+    for (const expression of definition2.expressions) {
+      const probe = expression.probes.find((candidate2) => candidate2.id === probeId);
+      if (probe) return { expression, probe };
+    }
+    throw new TypeError(`Unknown classroom probe ${probeId}.`);
+  }
+  function isAttempt(event) {
+    return event.kind === "attempt-recorded";
+  }
+  function isLearning(event) {
+    return event.kind === "learning-evidence-recorded";
+  }
   function createLessonOverviewModel(definition2, grounding, state, delivery = { releaseChannel: "grounded-verified" }) {
     validateDefinition(definition2);
     if (grounding.lessonId !== definition2.id) throw new TypeError("Lesson overview grounding belongs to another lesson.");
@@ -231486,14 +231989,14 @@ ${spelling}`);
       model2.payload.feedback
     );
   }
-  function n3MockListeningReviewSeeds(model2, result) {
-    const currentTargets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n3MockListeningReviewSeeds(model2, result2) {
+    const currentTargets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     const targets = [
       ...currentTargets.map((target2) => ({
         target: target2,
-        reason: result.outcome === "pass" ? "new-learning" : "repair"
+        reason: result2.outcome === "pass" ? "new-learning" : "repair"
       })),
-      ...result.outcome === "pass" ? model2.payload.delayedReviewTargets.map((target2) => ({ target: target2, reason: "delayed-review" })) : []
+      ...result2.outcome === "pass" ? model2.payload.delayedReviewTargets.map((target2) => ({ target: target2, reason: "delayed-review" })) : []
     ];
     return targets.map(({ target: target2, reason }) => ({
       id: reason === "delayed-review" ? `${target2.id}:via:${model2.provenance.packageId}` : target2.id,
@@ -231509,7 +232012,7 @@ ${spelling}`);
       }
     }));
   }
-  function renderN3MockListening(model2, host2, submit) {
+  function renderN3MockListening(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const playbackDisposers = [];
     const readingDisposers = [];
@@ -231562,7 +232065,7 @@ ${spelling}`);
       }
       attemptSettled = true;
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         revealAnswers(model2, questionCards, production, host2, readingDisposers);
         showEvaluation$1(status, evaluation, host2);
@@ -231897,14 +232400,14 @@ ${spelling}`);
       model2.payload.feedback
     );
   }
-  function n3SourceOpeningReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
-      (target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag))
+  function n3SourceOpeningReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
+      (target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag))
     );
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -231914,7 +232417,7 @@ ${spelling}`);
       }
     }));
   }
-  function renderN3SourceOpening(model2, host2, submit) {
+  function renderN3SourceOpening(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const readingDisposers = [];
     const root = document.createElement("section");
@@ -231957,7 +232460,7 @@ ${spelling}`);
           return;
         }
         setPending$1(form2, true);
-        void submit(response).then((evaluation) => {
+        void submit2(response).then((evaluation) => {
           root.dataset.outcome = evaluation.result.outcome;
           revealAnswerKey(root, model2, host2, readingDisposers);
           showEvaluation$1(status, evaluation, host2);
@@ -232416,8 +232919,8 @@ ${spelling}`);
       const score = (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length;
       return gradeFromScore(score, model2.payload.passScore, missed, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$c(round2, result)]);
+    toReviewSeeds(model2, result2) {
+      return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$c(round2, result2)]);
     }
   };
   function validate$p(model2) {
@@ -232510,7 +233013,7 @@ ${spelling}`);
     }
     return (hash2 >>> 0).toString(16).padStart(8, "0");
   }
-  function render$q(model2, host2, submit) {
+  function render$q(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-adjective-workbook";
@@ -232530,7 +233033,7 @@ ${spelling}`);
     let form2 = null;
     start.addEventListener("click", () => {
       if (form2) return;
-      form2 = renderAssessment$5(model2, host2, submit);
+      form2 = renderAssessment$5(model2, host2, submit2);
       assessment.append(form2);
       start.remove();
       form2.querySelector("input, select")?.focus();
@@ -232572,7 +233075,7 @@ ${spelling}`);
     }
     return section;
   }
-  function renderAssessment$5(model2, host2, submit) {
+  function renderAssessment$5(model2, host2, submit2) {
     const form2 = document.createElement("form");
     form2.className = "academy-adjective-form";
     form2.dataset.lessonPhase = "assessment";
@@ -232593,7 +233096,7 @@ ${spelling}`);
       const response = responseFromForm$z(model2, form2);
       if (!response) return;
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         form2.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(feedback2, evaluation, host2);
         setPending$1(form2, false);
@@ -232758,11 +233261,11 @@ ${spelling}`);
     check2.textContent = host2.language === "ja" ? `${missed.size}問を直して確認` : `Check ${missed.size} repaired ${missed.size === 1 ? "answer" : "answers"}`;
     rounds.find((round2) => !round2.hidden)?.querySelector("input, select, button")?.focus();
   }
-  function reviewSeed$c(round2, result) {
+  function reviewSeed$c(round2, result2) {
     return {
       id: `review:l1-l11:adjective-description:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -232786,13 +233289,13 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const fields = model2.payload.fields.flatMap((field2) => result.outcome === "lapse" && !result.errorTags.includes(field2.errorTag) ? [] : [reviewSeed$b(field2, result.outcome === "pass" ? "new-learning" : "repair")]);
-      if (result.outcome === "lapse" && !result.errorTags.includes(model2.payload.choice.errorTag)) return fields;
+    toReviewSeeds(model2, result2) {
+      const fields = model2.payload.fields.flatMap((field2) => result2.outcome === "lapse" && !result2.errorTags.includes(field2.errorTag) ? [] : [reviewSeed$b(field2, result2.outcome === "pass" ? "new-learning" : "repair")]);
+      if (result2.outcome === "lapse" && !result2.errorTags.includes(model2.payload.choice.errorTag)) return fields;
       return [...fields, {
         id: "review:l2-l12:track78:choice",
         conceptId: model2.payload.choice.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: model2.payload.choice.sourceQuestionId,
         content: { expression: "後で キャッシュカードを 送ってもらいます。", meanings: [model2.payload.choice.prompt] }
       }];
@@ -232833,7 +233336,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function render$p(model2, host2, submit) {
+  function render$p(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-bank-listening-cloze";
@@ -232883,7 +233386,7 @@ ${spelling}`);
       event.preventDefault();
       const response = responseFromForm$y(model2, form2);
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$6(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -233053,8 +233556,8 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$n(model2) {
@@ -233085,7 +233588,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$o(model2, host2, submit) {
+  function render$o(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-drag-sort";
@@ -233183,7 +233686,7 @@ ${spelling}`);
     }, { signal: lifecycle.signal });
     check2.addEventListener("click", () => {
       setPending$1(root, true);
-      void submit({
+      void submit2({
         placements: model2.payload.items.map((item2) => ({ itemId: item2.id, zoneId: placements.get(item2.id) ?? null }))
       }).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
@@ -233239,8 +233742,8 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$m(model2) {
@@ -233263,7 +233766,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$n(model2, host2, submit) {
+  function render$n(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-sequence";
@@ -233327,7 +233830,7 @@ ${spelling}`);
     };
     check2.addEventListener("click", () => {
       setPending$1(root, true);
-      void submit({ order: order2 }).then((evaluation) => {
+      void submit2({ order: order2 }).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") {
@@ -233383,8 +233886,8 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$l(model2) {
@@ -233419,7 +233922,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$m(model2, host2, submit) {
+  function render$m(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-sound-check";
@@ -233488,7 +233991,7 @@ ${spelling}`);
       roundHost.querySelectorAll("button").forEach((button2) => {
         button2.disabled = true;
       });
-      void submit({ answers }).then((evaluation) => {
+      void submit2({ answers }).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(feedback2, evaluation, host2);
       }).catch((error) => {
@@ -233614,8 +234117,8 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$k(model2) {
@@ -233642,7 +234145,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$l(model2, host2, submit) {
+  function render$l(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-story-reader";
@@ -233702,7 +234205,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit({ answers }).then((evaluation) => {
+      void submit2({ answers }).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -233767,8 +234270,8 @@ ${spelling}`);
       const containsGroups = groups.length > 0 && groups.every((group2) => group2.some((term) => normalized2.includes(normalizeJapanese(term))));
       return gradeFromScore(exact2 || containsGroups ? 1 : 0, 1, [model2.payload.errorTag], model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$j(model2) {
@@ -233792,7 +234295,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$k(model2, host2, submit) {
+  function render$k(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-typed-response";
@@ -233855,7 +234358,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(input2.value).then((evaluation) => {
+      void submit2(input2.value).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") {
@@ -233954,8 +234457,8 @@ ${spelling}`);
       const scored = scoreClassActivity(model2, response);
       return gradeFromScore(scored.score, 1, scored.errorTags, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validateClassActivitySimulator(model2) {
@@ -234040,7 +234543,7 @@ ${spelling}`);
     validateReviewTargets$8(payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$j(model2, host2, submit) {
+  function render$j(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-class-simulator";
@@ -234093,7 +234596,7 @@ ${spelling}`);
         commit.classList.add("academy-button-primary");
         commit.addEventListener("click", () => {
           setPending$1(root, true);
-          void submit(session.response).then((evaluation) => {
+          void submit2(session.response).then((evaluation) => {
             root.dataset.outcome = evaluation.result.outcome;
             showEvaluation$1(status, evaluation, host2);
             if (evaluation.result.outcome === "lapse") {
@@ -234268,11 +234771,11 @@ ${spelling}`);
     }
   }
   function button$2(label) {
-    const result = document.createElement("button");
-    result.type = "button";
-    result.className = "academy-button";
-    result.textContent = label;
-    return result;
+    const result2 = document.createElement("button");
+    result2.type = "button";
+    result2.className = "academy-button";
+    result2.textContent = label;
+    return result2;
   }
   const SOURCE_PAYLOAD_SHA256$7 = "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685";
   const SOURCE_IMAGE_SHA256$1 = "36a073904a47724326460931351b7a5e9c66c60a502e085fd26fb2f64e29c642";
@@ -234322,11 +234825,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function clauseRailReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function clauseRailReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l08:clause-rail:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -234361,7 +234864,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && text$f(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$7 && value.url === SOURCE_IMAGE_URL$1 && value.sha256 === SOURCE_IMAGE_SHA256$1 && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const CLAUSE_RAIL_KIND = "academy-clause-rail";
-  function renderClauseRail(model2, host2, submit) {
+  function renderClauseRail(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-clause-rail";
@@ -234408,7 +234911,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToSource.hidden = false;
@@ -234642,10 +235145,10 @@ ${spelling}`);
       }
       return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errorTags, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2, index) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return reviewSeeds([model2.payload.reviewTargets[index]], result, round2.sourceQuestionId);
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return reviewSeeds([model2.payload.reviewTargets[index]], result2, round2.sourceQuestionId);
       });
     }
   };
@@ -234681,7 +235184,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$i(model2, host2, submit) {
+  function render$i(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-commute-comparison-log";
@@ -234725,7 +235228,7 @@ ${spelling}`);
       event.preventDefault();
       setPending$1(root, true);
       try {
-        const evaluation = await submit(responseFrom$4(form2, model2));
+        const evaluation = await submit2(responseFrom$4(form2, model2));
         appendPostAttemptSupport$5(root, model2, host2.language);
         showEvaluation$1(feedback2, evaluation, host2);
       } finally {
@@ -234889,11 +235392,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function confirmationSignalReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function confirmationSignalReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l07:deshou:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -234928,7 +235431,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && text$f(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$6 && value.url === SOURCE_IMAGE_URL && value.sha256 === SOURCE_IMAGE_SHA256 && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const CONFIRMATION_SIGNAL_KIND = "academy-confirmation-signal";
-  function renderConfirmationSignal(model2, host2, submit) {
+  function renderConfirmationSignal(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-confirmation-signal";
@@ -234975,7 +235478,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToSource.hidden = false;
@@ -235204,11 +235707,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function completionRepairReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function completionRepairReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l15:completion-repair:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -235247,7 +235750,7 @@ ${spelling}`);
     return value.normalize("NFKC").replace(/[\s、。・…!！?？「」『』]/gu, "").trim();
   }
   const COMPLETION_REPAIR_KIND = "academy-completion-repair";
-  function renderCompletionRepair(model2, host2, submit) {
+  function renderCompletionRepair(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-completion-repair";
@@ -235309,7 +235812,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -235624,13 +236127,13 @@ ${spelling}`);
     const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((answer2) => normalizeJapanese(answer2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
     return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
   }
-  function conversationListeningCheckReviewSeeds(model2, result) {
+  function conversationListeningCheckReviewSeeds(model2, result2) {
     return model2.payload.tasks.flatMap((task2) => {
-      if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+      if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
       return [{
         id: `review:${model2.provenance.packageId}:${model2.responseKind}:${task2.id}`,
         conceptId: task2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: task2.sourceQuestionId,
         content: { expression: task2.reviewExpression, meanings: [task2.answer], sentence: task2.prompt }
       }];
@@ -235651,7 +236154,7 @@ ${spelling}`);
     return answers;
   }
   const CONVERSATION_LISTENING_CHECK_KIND = "academy-conversation-listening-check";
-  function renderConversationListeningCheck(model2, host2, submit) {
+  function renderConversationListeningCheck(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-conversation-listening-check";
@@ -235701,7 +236204,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$4(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -235824,7 +236327,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showTeaching = () => {
@@ -235849,7 +236352,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepairHints(model2, assessment.form, evaluation, host2);
           } finally {
@@ -235880,9 +236383,9 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
-      return rounds.map((round2) => reviewSeed$a(round2, result));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
+      return rounds.map((round2) => reviewSeed$a(round2, result2));
     }
   };
   function validateProvenance$d(model2, issues2) {
@@ -235960,7 +236463,7 @@ ${spelling}`);
     article.append(source2, pattern, explanation2, example);
     return article;
   }
-  function assessmentView$6(model2, host2, submit) {
+  function assessmentView$6(model2, host2, submit2) {
     const root = document.createElement("section");
     root.className = "academy-routine-workbook academy-routine-assessment";
     root.dataset.lessonPhase = "assessment";
@@ -235984,7 +236487,7 @@ ${spelling}`);
         host2.announce(host2.language === "ja" ? "すべての問題に答えてください。" : "Answer every source item first.");
         return;
       }
-      void submit(response);
+      void submit2(response);
     });
     root.append(title2, form2);
     return { root, form: form2, feedback: feedback2 };
@@ -236137,11 +236640,11 @@ ${spelling}`);
       fieldset.append(wrapper);
     }
   }
-  function reviewSeed$a(round2, result) {
+  function reviewSeed$a(round2, result2) {
     return {
       id: `review:l1-l10:daily-routine:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -236161,13 +236664,13 @@ ${spelling}`);
       ) ? [] : [task2.errorTag]);
       return gradeFromScore(errors.length === 0 ? 1 : (model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.tasks.flatMap((task2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
         return [{
           id: `review:l2-l05:b25:${task2.id}`,
           conceptId: task2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: task2.sourceQuestionId,
           content: { expression: task2.reviewExpression, meanings: [task2.prompt] }
         }];
@@ -236203,7 +236706,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function render$h(model2, host2, submit) {
+  function render$h(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-diary-listening-cloze";
@@ -236246,7 +236749,7 @@ ${spelling}`);
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
       setPending$1(root, true);
-      void submit(responseFromForm$s(model2, form2)).then((evaluation) => {
+      void submit2(responseFromForm$s(model2, form2)).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$3(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -236386,7 +236889,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showAssessment = () => {
@@ -236394,7 +236897,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair$5(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -236433,12 +236936,12 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
       return rounds.map((round2) => ({
         id: `review:l1-l16:existence:${round2.id}`,
         conceptId: round2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: round2.sourceQuestionId,
         content: { expression: round2.answerExpression, meanings: [round2.sourcePrompt], sentence: round2.answerExpression }
       }));
@@ -236467,16 +236970,16 @@ ${spelling}`);
     const rounds = document.createElement("div");
     rounds.className = "academy-existence-rounds";
     model2.payload.rounds.forEach((round2) => rounds.append(roundView$2(round2, host2)));
-    const submit = document.createElement("button");
-    submit.type = "submit";
-    submit.className = "academy-button academy-button-primary";
-    submit.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
+    const submit2 = document.createElement("button");
+    submit2.type = "submit";
+    submit2.className = "academy-button academy-button-primary";
+    submit2.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
     const feedback2 = statusRegion("academy-existence-feedback");
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
       void onSubmit(responseFrom$3(form2, model2.payload.rounds));
     });
-    form2.append(rounds, submit, feedback2);
+    form2.append(rounds, submit2, feedback2);
     root.append(form2);
     return { root, form: form2, feedback: feedback2 };
   }
@@ -236646,7 +237149,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showAssessment = () => {
@@ -236654,7 +237157,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair$4(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -236696,12 +237199,12 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
       return rounds.map((round2) => ({
         id: `review:l1-l18:fridge:${round2.id}`,
         conceptId: round2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: round2.sourceQuestionId,
         content: { expression: round2.answerExpression, meanings: [round2.sourcePrompt], sentence: round2.answerExpression }
       }));
@@ -236731,16 +237234,16 @@ ${spelling}`);
     const rounds = document.createElement("div");
     rounds.className = "academy-fridge-inventory-rounds";
     model2.payload.rounds.forEach((round2) => rounds.append(roundView$1(round2, host2)));
-    const submit = document.createElement("button");
-    submit.type = "submit";
-    submit.className = "academy-button academy-button-primary";
-    submit.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
+    const submit2 = document.createElement("button");
+    submit2.type = "submit";
+    submit2.className = "academy-button academy-button-primary";
+    submit2.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
     const feedback2 = statusRegion("academy-fridge-inventory-feedback");
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
       void onSubmit(responseFrom$2(form2, model2.payload.rounds));
     });
-    form2.append(rounds, submit, feedback2);
+    form2.append(rounds, submit2, feedback2);
     root.append(form2);
     return { root, form: form2, feedback: feedback2 };
   }
@@ -236864,10 +237367,10 @@ ${spelling}`);
       }
       return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errorTags, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2, index) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return reviewSeeds([model2.payload.reviewTargets[index]], result, round2.sourceQuestionId);
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return reviewSeeds([model2.payload.reviewTargets[index]], result2, round2.sourceQuestionId);
       });
     }
   };
@@ -236903,7 +237406,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
-  function render$g(model2, host2, submit) {
+  function render$g(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-frequency-lens";
@@ -236929,7 +237432,7 @@ ${spelling}`);
       event.preventDefault();
       if (!form2.reportValidity()) return;
       setPending$1(form2, true);
-      void submit(responseFrom$1(form2, model2)).then((evaluation) => {
+      void submit2(responseFrom$1(form2, model2)).then((evaluation) => {
         form2.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(feedback2, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -237076,13 +237579,13 @@ ${spelling}`);
       });
       return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.tasks.flatMap((task2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
         return [{
           id: `review:l2-l12:track79:${task2.id}`,
           conceptId: task2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: task2.sourceQuestionId,
           content: { expression: `${task2.arrow} ${task2.answer}`, meanings: [`Track 79 item ${task2.sourceOrder}`] }
         }];
@@ -237121,7 +237624,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function render$f(model2, host2, submit) {
+  function render$f(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-favor-direction-listening";
@@ -237170,7 +237673,7 @@ ${spelling}`);
       event.preventDefault();
       const response = responseFromForm$r(model2, form2);
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$2(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -237314,13 +237817,13 @@ ${spelling}`);
       const errors = model2.payload.tasks.flatMap((task2) => task2.acceptedAnswers.some((candidate2) => normalizeJapanese(candidate2) === answers.get(task2.id)) ? [] : [task2.errorTag]);
       return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, 1, errors, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.tasks.flatMap((task2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
         return [{
           id: `review:l2-l13:a11:${task2.id}`,
           conceptId: task2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: task2.sourceQuestionId,
           content: { expression: task2.answer, meanings: [task2.prompt] }
         }];
@@ -237359,7 +237862,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function render$e(model2, host2, submit) {
+  function render$e(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-meal-survey-listening";
@@ -237405,7 +237908,7 @@ ${spelling}`);
       event.preventDefault();
       const response = responseFromForm$q(model2, form2);
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport$1(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -237542,13 +238045,13 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.prompts.flatMap((prompt2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(prompt2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(prompt2.errorTag)) return [];
         return [{
           id: prompt2.reviewTarget.id,
           conceptId: prompt2.reviewTarget.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: prompt2.sourceQuestionId,
           content: {
             expression: prompt2.reviewTarget.expression,
@@ -237614,7 +238117,7 @@ ${spelling}`);
     }
     return answers;
   }
-  function render$d(model2, host2, submit) {
+  function render$d(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-greeting-worksheet";
@@ -237691,7 +238194,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -237773,11 +238276,11 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function kanaSoundMapReviewSeeds(model2, result) {
+  function kanaSoundMapReviewSeeds(model2, result2) {
     return model2.payload.items.map((item2) => ({
       id: item2.reviewSeedId,
       conceptId: item2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
       content: {
         expression: item2.kana,
@@ -237874,7 +238377,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KANA_SOUND_MAP_KIND = "kana-sound-map";
-  function renderKanaSoundMap(model2, host2, submit) {
+  function renderKanaSoundMap(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const session = createKanaSoundMapSession(model2);
     const root = document.createElement("section");
@@ -237942,7 +238445,7 @@ ${spelling}`);
       setDisabled2(true);
       feedback2.replaceChildren();
       status.textContent = localized$8(host2, "Checking all five choices…", "五つの答えを確認しています…");
-      void submit(session.response()).then((evaluation) => {
+      void submit2(session.response()).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -238217,13 +238720,13 @@ ${spelling}`);
         }
       };
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.items.flatMap((item2, index) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(errorTag(item2))) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(errorTag(item2))) return [];
         return [{
           id: `review:lesson-zero:kana:${item2.id}`,
           conceptId: model2.conceptIds[index],
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: model2.sourceQuestionId,
           content: {
             expression: item2.kana,
@@ -238276,16 +238779,16 @@ ${spelling}`);
       const snapshot = session.snapshot;
       if (snapshot.complete) {
         root.dataset.mastered = "true";
-        const result = document.createElement("p");
-        result.className = "academy-lesson-zero-kana-mastery-result";
-        result.setAttribute("role", "status");
-        result.textContent = options.language === "ja" ? "あ・い・う・え・おを、助けなしですべて読みました。" : "All five taught kana were read once without answer support.";
+        const result2 = document.createElement("p");
+        result2.className = "academy-lesson-zero-kana-mastery-result";
+        result2.setAttribute("role", "status");
+        result2.textContent = options.language === "ja" ? "あ・い・う・え・おを、助けなしですべて読みました。" : "All five taught kana were read once without answer support.";
         const finishButton = document.createElement("button");
         finishButton.type = "button";
         finishButton.className = "academy-vn-primary-action academy-lesson-zero-mastery-complete";
         finishButton.textContent = options.language === "ja" ? "レッスン0を完了" : "Complete Lesson 0";
-        finishButton.addEventListener("click", () => finish(result), { signal: lifecycle.signal });
-        root.append(result, finishButton);
+        finishButton.addEventListener("click", () => finish(result2), { signal: lifecycle.signal });
+        root.append(result2, finishButton);
         finishButton.focus();
         return;
       }
@@ -238362,8 +238865,8 @@ ${spelling}`);
           input2.focus();
           return;
         }
-        const result = session.submit(input2.value);
-        if (result.outcome === "retry") {
+        const result2 = session.submit(input2.value);
+        if (result2.outcome === "retry") {
           status.textContent = options.language === "ja" ? "まだ違います。この文字は、あとでもう一度出ます。" : "Not yet. This kana will return for a clean answer.";
           reveal.disabled = false;
           input2.select();
@@ -238414,11 +238917,11 @@ ${spelling}`);
     });
     return issues2;
   }
-  function render$c(model2, host2, submit) {
+  function render$c(model2, host2, submit2) {
     const gate = createKanaMasteryGate({
       language: host2.language ?? "en",
       model: model2,
-      onMastered: submit
+      onMastered: submit2
     });
     host2.replace(gate.element);
     return {
@@ -238456,12 +238959,12 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function katakanaColumnSortReviewSeeds(model2, result) {
-    const missed = new Set(result.errorTags);
-    return model2.payload.rounds.filter((round2) => result.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
+  function katakanaColumnSortReviewSeeds(model2, result2) {
+    const missed = new Set(result2.errorTags);
+    return model2.payload.rounds.filter((round2) => result2.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
       id: round2.reviewSeedId,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceCellId,
       content: { expression: round2.kana, reading: round2.kana, meanings: [`Katakana ${round2.vowelColumnId} column sign.`] }
     }));
@@ -238547,7 +239050,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_COLUMN_SORT_KIND = "academy-katakana-column-sort";
-  function renderKatakanaColumnSort(model2, host2, submit) {
+  function renderKatakanaColumnSort(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const placements = /* @__PURE__ */ new Map();
     let selectedKanaId;
@@ -238696,7 +239199,7 @@ ${spelling}`);
       submitting = true;
       render2();
       const response = { placements: [...placements.entries()].map(([kanaId, columnId]) => ({ kanaId, columnId })) };
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -238746,12 +239249,12 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function katakanaFinalRowShelfReviewSeeds(model2, result) {
-    const missed = new Set(result.errorTags);
-    return model2.payload.rounds.filter((round2) => result.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
+  function katakanaFinalRowShelfReviewSeeds(model2, result2) {
+    const missed = new Set(result2.errorTags);
+    return model2.payload.rounds.filter((round2) => result2.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
       id: round2.reviewSeedId,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceCellId,
       content: {
         expression: round2.kana,
@@ -238850,7 +239353,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_FINAL_ROW_SHELF_KIND = "academy-katakana-final-row-shelf";
-  function renderKatakanaFinalRowShelf(model2, host2, submit) {
+  function renderKatakanaFinalRowShelf(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const placements = /* @__PURE__ */ new Map();
     let activeIndex = 0;
@@ -238988,7 +239491,7 @@ ${spelling}`);
       const response = {
         answers: model2.payload.rounds.map((round2) => ({ signalId: round2.id, slotId: placements.get(round2.id) }))
       };
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -239036,12 +239539,12 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function katakanaRowSwitchboardReviewSeeds(model2, result) {
-    const missed = new Set(result.errorTags);
-    return model2.payload.rounds.filter((round2) => result.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
+  function katakanaRowSwitchboardReviewSeeds(model2, result2) {
+    const missed = new Set(result2.errorTags);
+    return model2.payload.rounds.filter((round2) => result2.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
       id: round2.reviewSeedId,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceCellId,
       content: {
         expression: round2.kana,
@@ -239142,7 +239645,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_ROW_SWITCHBOARD_KIND = "academy-katakana-row-switchboard";
-  function renderKatakanaRowSwitchboard(model2, host2, submit) {
+  function renderKatakanaRowSwitchboard(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const settings = /* @__PURE__ */ new Map();
     let activeIndex = 0;
@@ -239290,7 +239793,7 @@ ${spelling}`);
       const response = {
         answers: model2.payload.rounds.map((round2) => ({ signalId: round2.id, ...settings.get(round2.id) }))
       };
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -239346,14 +239849,14 @@ ${spelling}`);
       });
       return gradeFromScore(correct2 / prompts(model2).length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return prompts(model2).flatMap((prompt2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(prompt2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(prompt2.errorTag)) return [];
         const answer2 = prompt2.options.find((option2) => option2.id === prompt2.correctOptionId);
         return [{
           id: `review:l1-l03:moodle-listening:${prompt2.id}`,
           conceptId: prompt2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: prompt2.sourceQuestionId,
           content: { expression: answer2.label, meanings: [prompt2.prompt] }
         }];
@@ -239412,7 +239915,7 @@ ${spelling}`);
       });
     });
   }
-  function render$b(model2, host2, submit) {
+  function render$b(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-moodle-listening-choice";
@@ -239446,7 +239949,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         answerKey.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -239631,13 +240134,13 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.prompts.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function experiencePostcardListeningReviewSeeds(model2, result) {
+  function experiencePostcardListeningReviewSeeds(model2, result2) {
     return model2.payload.prompts.flatMap((prompt2) => {
-      if (result.outcome === "lapse" && !result.errorTags.includes(prompt2.errorTag)) return [];
+      if (result2.outcome === "lapse" && !result2.errorTags.includes(prompt2.errorTag)) return [];
       return [{
         id: `review:l2-l02:b21:${prompt2.id}`,
         conceptId: prompt2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: prompt2.sourceQuestionId,
         content: { expression: prompt2.reviewExpression, meanings: [`B-21 source prompt ${prompt2.sourceOrder}`] }
       }];
@@ -239660,7 +240163,7 @@ ${spelling}`);
     return Boolean(text$f(visual2.sourceId) && text$f(visual2.title) && text$f(visual2.url) && /^[a-f0-9]{64}$/u.test(String(visual2.sha256 ?? "")) && text$f(visual2.alt?.en) && text$f(visual2.alt?.ja));
   }
   const EXPERIENCE_POSTCARD_LISTENING_KIND = "academy-experience-postcard-listening";
-  function renderExperiencePostcardListening(model2, host2, submit) {
+  function renderExperiencePostcardListening(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-experience-postcard-listening";
@@ -239720,7 +240223,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -239850,10 +240353,10 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.pins.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function holidayItineraryTapeReviewSeeds(model2, result) {
+  function holidayItineraryTapeReviewSeeds(model2, result2) {
     return model2.payload.pins.flatMap((pin) => {
-      if (result.outcome === "lapse" && !result.errorTags.includes(pin.errorTag)) return [];
-      return [{ id: `review:l2-l03:b22:${pin.id}`, conceptId: pin.conceptId, reason: result.outcome === "pass" ? "new-learning" : "repair", sourceQuestionId: pin.sourceQuestionId, content: { expression: pin.reviewExpression, meanings: [`B-22 reviewed audio pin ${pin.sourceOrder}`] } }];
+      if (result2.outcome === "lapse" && !result2.errorTags.includes(pin.errorTag)) return [];
+      return [{ id: `review:l2-l03:b22:${pin.id}`, conceptId: pin.conceptId, reason: result2.outcome === "pass" ? "new-learning" : "repair", sourceQuestionId: pin.sourceQuestionId, content: { expression: pin.reviewExpression, meanings: [`B-22 reviewed audio pin ${pin.sourceOrder}`] } }];
     });
   }
   function parseResponse$o(model2, response) {
@@ -239869,7 +240372,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const HOLIDAY_ITINERARY_TAPE_KIND = "academy-holiday-itinerary-tape";
-  function renderHolidayItineraryTape(model2, host2, submit) {
+  function renderHolidayItineraryTape(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-holiday-itinerary-tape";
@@ -239929,7 +240432,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -240052,8 +240555,8 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.prompts.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function listeningHingeReviewSeeds(model2, result) {
-    return model2.payload.prompts.flatMap((prompt2) => result.outcome === "lapse" && !result.errorTags.includes(prompt2.errorTag) ? [] : [{ id: `review:l2-l05:b24:${prompt2.id}`, conceptId: prompt2.conceptId, reason: result.outcome === "pass" ? "new-learning" : "repair", sourceQuestionId: prompt2.sourceQuestionId, content: { expression: prompt2.reviewExpression, meanings: [`B-24 reviewed choice ${prompt2.sourceOrder}`] } }]);
+  function listeningHingeReviewSeeds(model2, result2) {
+    return model2.payload.prompts.flatMap((prompt2) => result2.outcome === "lapse" && !result2.errorTags.includes(prompt2.errorTag) ? [] : [{ id: `review:l2-l05:b24:${prompt2.id}`, conceptId: prompt2.conceptId, reason: result2.outcome === "pass" ? "new-learning" : "repair", sourceQuestionId: prompt2.sourceQuestionId, content: { expression: prompt2.reviewExpression, meanings: [`B-24 reviewed choice ${prompt2.sourceOrder}`] } }]);
   }
   function parseResponse$n(model2, response) {
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.prompts.length) throw new TypeError("Set each B-24 hinge to one side.");
@@ -240068,7 +240571,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const LISTENING_HINGE_KIND = "academy-listening-hinge";
-  function renderListeningHinge(model2, host2, submit) {
+  function renderListeningHinge(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-listening-hinge";
@@ -240129,7 +240632,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -240245,11 +240748,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function opinionTransformationReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function opinionTransformationReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l06:opinion:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -240285,7 +240788,7 @@ ${spelling}`);
     return value.normalize("NFKC").replace(/[\s。．.、]/gu, "").toLocaleLowerCase("ja");
   }
   const OPINION_TRANSFORMATION_KIND = "academy-opinion-transformation";
-  function renderOpinionTransformation(model2, host2, submit) {
+  function renderOpinionTransformation(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-opinion-transformation";
@@ -240343,7 +240846,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -240514,11 +241017,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function occasionRouteReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function occasionRouteReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l11:occasion-route:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -240551,7 +241054,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE$4 && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$4 && value.url === SOURCE_VISUAL.url && value.sha256 === SOURCE_VISUAL.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const OCCASION_ROUTE_KIND = "academy-occasion-route";
-  function renderOccasionRoute(model2, host2, submit) {
+  function renderOccasionRoute(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-occasion-route";
@@ -240613,7 +241116,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -240863,11 +241366,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function nagaraWorkshopReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function nagaraWorkshopReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l12:nagara-workshop:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -240905,7 +241408,7 @@ ${spelling}`);
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
   }
   const NAGARA_WORKSHOP_KIND = "academy-nagara-workshop";
-  function renderNagaraWorkshop(model2, host2, submit) {
+  function renderNagaraWorkshop(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-nagara-workshop";
@@ -240961,7 +241464,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -241254,11 +241757,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function reasonChainReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function reasonChainReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l13:reason-chain:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -241298,7 +241801,7 @@ ${spelling}`);
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
   }
   const REASON_CHAIN_KIND = "academy-reason-chain";
-  function renderReasonChain(model2, host2, submit) {
+  function renderReasonChain(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-reason-chain";
@@ -241361,7 +241864,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -242087,11 +242590,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function stateInspectionReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function stateInspectionReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:${model2.provenance.packageId}:state-inspection:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -242148,7 +242651,7 @@ ${spelling}`);
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
   }
   const STATE_INSPECTION_KIND = "academy-state-inspection";
-  function renderStateInspection(model2, host2, submit) {
+  function renderStateInspection(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection";
@@ -242214,7 +242717,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -242558,11 +243061,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function particleSignalMixerReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function particleSignalMixerReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l09:particle-signal:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -242598,7 +243101,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE$1 && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$1 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const PARTICLE_SIGNAL_MIXER_KIND = "academy-particle-signal-mixer";
-  function renderParticleSignalMixer(model2, host2, submit) {
+  function renderParticleSignalMixer(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-particle-signal-mixer";
@@ -242658,7 +243161,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -242911,11 +243414,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function tokiThresholdReviewSeeds(model2, result) {
-    return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [{
+  function tokiThresholdReviewSeeds(model2, result2) {
+    return model2.payload.rounds.flatMap((round2) => result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag) ? [] : [{
       id: `review:l2-l10:toki-threshold:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -242949,7 +243452,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const TOKI_THRESHOLD_KIND = "academy-toki-threshold";
-  function renderTokiThreshold(model2, host2, submit) {
+  function renderTokiThreshold(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-toki-threshold";
@@ -243011,7 +243514,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         returnToTeaching.hidden = false;
@@ -243247,11 +243750,11 @@ ${spelling}`);
     });
     return gradeFromScore(correct2 / model2.payload.prompts.length, model2.payload.passScore, errors.sort(), model2.payload.feedback);
   }
-  function plainStyleMatrixReviewSeeds(model2, result) {
-    return model2.payload.prompts.flatMap((prompt2) => result.outcome === "lapse" && !result.errorTags.includes(prompt2.errorTag) ? [] : [{
+  function plainStyleMatrixReviewSeeds(model2, result2) {
+    return model2.payload.prompts.flatMap((prompt2) => result2.outcome === "lapse" && !result2.errorTags.includes(prompt2.errorTag) ? [] : [{
       id: `review:l2-l04:plain-matrix:${prompt2.id}`,
       conceptId: prompt2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: prompt2.sourceQuestionId,
       content: { expression: prompt2.reviewExpression, meanings: [`Yomu derived completion for Chapter 20 matrix row ${prompt2.sourceOrder}`] }
     }]);
@@ -243269,7 +243772,7 @@ ${spelling}`);
     return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
   }
   const PLAIN_STYLE_MATRIX_KIND = "academy-plain-style-matrix";
-  function renderPlainStyleMatrix(model2, host2, submit) {
+  function renderPlainStyleMatrix(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-plain-style-matrix";
@@ -243323,7 +243826,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -243414,13 +243917,13 @@ ${spelling}`);
       ) ? [] : [task2.errorTag]);
       return gradeFromScore(errors.length === 0 ? 1 : 0, 1, errors, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return tasks(model2).flatMap((task2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(task2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(task2.errorTag)) return [];
         return [{
           id: `review:l1-l19:moodle-listening:${task2.id}`,
           conceptId: task2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: task2.sourceQuestionId,
           content: { expression: task2.reviewExpression, meanings: [task2.prompt] }
         }];
@@ -243476,7 +243979,7 @@ ${spelling}`);
     validateFeedback(model2.payload?.feedback, issues2);
     return issues2;
   }
-  function render$a(model2, host2, submit) {
+  function render$a(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-moodle-listening-grid";
@@ -243503,7 +244006,7 @@ ${spelling}`);
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
       setPending$1(root, true);
-      void submit(responseFromForm$d(model2, form2)).then((evaluation) => {
+      void submit2(responseFromForm$d(model2, form2)).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         appendPostAttemptSupport(root, model2, host2.language);
         showEvaluation$1(status, evaluation, host2);
@@ -243649,12 +244152,12 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function katakanaShapeRelayReviewSeeds(model2, result) {
-    const missed = new Set(result.errorTags);
-    return model2.payload.rounds.filter((round2) => result.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
+  function katakanaShapeRelayReviewSeeds(model2, result2) {
+    const missed = new Set(result2.errorTags);
+    return model2.payload.rounds.filter((round2) => result2.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
       id: round2.reviewSeedId,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceCellId,
       content: {
         expression: round2.kana,
@@ -243746,7 +244249,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_SHAPE_RELAY_KIND = "academy-katakana-shape-relay";
-  function renderKatakanaShapeRelay(model2, host2, submit) {
+  function renderKatakanaShapeRelay(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const placements = /* @__PURE__ */ new Map();
     let activeRoundId = model2.payload.rounds[0].id;
@@ -243881,7 +244384,7 @@ ${spelling}`);
       const response = {
         placements: model2.payload.rounds.map((round2) => ({ roundId: round2.id, kanaId: placements.get(round2.id) }))
       };
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -243931,12 +244434,12 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function katakanaTwoRowAudioRouteReviewSeeds(model2, result) {
-    const missed = new Set(result.errorTags);
-    return model2.payload.rounds.filter((round2) => result.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
+  function katakanaTwoRowAudioRouteReviewSeeds(model2, result2) {
+    const missed = new Set(result2.errorTags);
+    return model2.payload.rounds.filter((round2) => result2.outcome === "pass" || missed.has(round2.errorTag)).map((round2) => ({
       id: round2.reviewSeedId,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceCellId,
       content: {
         expression: round2.kana,
@@ -244037,7 +244540,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_TWO_ROW_AUDIO_ROUTE_KIND = "academy-katakana-two-row-audio-route";
-  function renderKatakanaTwoRowAudioRoute(model2, host2, submit) {
+  function renderKatakanaTwoRowAudioRoute(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const answers = /* @__PURE__ */ new Map();
     let activeIndex = 0;
@@ -244185,7 +244688,7 @@ ${spelling}`);
       const response = {
         answers: model2.payload.rounds.map((round2) => ({ roundId: round2.id, cellId: answers.get(round2.id) }))
       };
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         status.textContent = "";
         showEvaluation$1(feedback2, evaluation, host2);
@@ -244270,7 +244773,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showAssessment = () => {
@@ -244278,7 +244781,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair$3(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -244318,12 +244821,12 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
       return rounds.map((round2) => ({
         id: `review:l1-l17:location:${round2.id}`,
         conceptId: round2.conceptId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         sourceQuestionId: round2.sourceQuestionId,
         content: { expression: round2.answerExpression, meanings: [round2.sourcePrompt], sentence: round2.answerExpression }
       }));
@@ -244399,16 +244902,16 @@ ${spelling}`);
     const rounds = document.createElement("div");
     rounds.className = "academy-museum-location-rounds";
     model2.payload.rounds.forEach((round2) => rounds.append(roundView(round2, host2)));
-    const submit = document.createElement("button");
-    submit.type = "submit";
-    submit.className = "academy-button academy-button-primary";
-    submit.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
+    const submit2 = document.createElement("button");
+    submit2.type = "submit";
+    submit2.className = "academy-button academy-button-primary";
+    submit2.textContent = host2.language === "ja" ? "答えを確認する" : "Check answers";
     const feedback2 = statusRegion("academy-museum-location-feedback");
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
       void onSubmit(responseFrom(form2, model2.payload.rounds));
     });
-    form2.append(rounds, submit, feedback2);
+    form2.append(rounds, submit2, feedback2);
     root.append(form2);
     return { root, form: form2, feedback: feedback2 };
   }
@@ -244816,12 +245319,12 @@ ${spelling}`);
     const score = (model2.payload.questions.length - missed.length + Number(sequenceCorrect)) / (model2.payload.questions.length + 1);
     return gradeFromScore(score, model2.payload.passScore, errorTags, model2.payload.feedback);
   }
-  function n2EventInformationReviewSeeds(model2, result) {
-    const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result.errorTags.includes(tag)));
+  function n2EventInformationReviewSeeds(model2, result2) {
+    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
     return targets.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: model2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -244831,7 +245334,7 @@ ${spelling}`);
       }
     }));
   }
-  function renderN2EventInformation(model2, host2, submit) {
+  function renderN2EventInformation(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit";
@@ -244871,7 +245374,7 @@ ${spelling}`);
         return;
       }
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -245106,10 +245609,10 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return [reviewSeed$9(round2, result)];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return [reviewSeed$9(round2, result2)];
       });
     }
   };
@@ -245204,7 +245707,7 @@ ${spelling}`);
       errorTags.add(round2.errorTag);
     });
   }
-  function render$9(model2, host2, submit) {
+  function render$9(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-object-distance-board";
@@ -245223,7 +245726,7 @@ ${spelling}`);
     host2.replace(root);
     let form2;
     start.addEventListener("click", () => {
-      form2 = renderAssessment$4(model2, host2, submit, root, status);
+      form2 = renderAssessment$4(model2, host2, submit2, root, status);
       start.remove();
       root.insertBefore(form2, status);
       form2.querySelector("input")?.focus();
@@ -245260,7 +245763,7 @@ ${spelling}`);
     });
     return section;
   }
-  function renderAssessment$4(model2, host2, submit, root, status) {
+  function renderAssessment$4(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
     form2.className = "academy-object-distance-form";
     form2.dataset.lessonPhase = "assessment";
@@ -245281,7 +245784,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -245342,11 +245845,11 @@ ${spelling}`);
     });
     return placements;
   }
-  function reviewSeed$9(round2, result) {
+  function reviewSeed$9(round2, result2) {
     return {
       id: `review:l1-l04:object-distance:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.pronoun,
@@ -245394,7 +245897,7 @@ ${spelling}`);
       feedback: structuredClone(passed ? model2.payload.feedback.pass : model2.payload.feedback.lapse)
     };
   }
-  function phraseKarutaReviewSeeds(model2, result) {
+  function phraseKarutaReviewSeeds(model2, result2) {
     const cards = new Map(model2.payload.cards.map((card) => [card.id, card]));
     const targets = /* @__PURE__ */ new Map();
     for (const round2 of model2.payload.rounds) {
@@ -245404,7 +245907,7 @@ ${spelling}`);
     return [...targets.values()].map((card) => ({
       id: `${card.reviewSeedId}:${card.conceptId}`,
       conceptId: card.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
       content: structuredClone(card.reviewContent)
     }));
@@ -245489,7 +245992,7 @@ ${spelling}`);
     return typeof value === "string" ? value.trim() : "";
   }
   const PHRASE_KARUTA_KIND = "phrase-karuta";
-  function renderPhraseKaruta(model2, host2, submit) {
+  function renderPhraseKaruta(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const session = createPhraseKarutaSession(model2);
     const root = document.createElement("section");
@@ -245522,7 +246025,7 @@ ${spelling}`);
       disableCards(cardGrid, true);
       status.replaceChildren(textParagraph(copy(host2, "Checking the deck…", "採点しています…")));
       try {
-        const evaluation = await submit(session.response());
+        const evaluation = await submit2(session.response());
         if (lifecycle.signal.aborted) return;
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation(status, evaluation, host2);
@@ -245605,13 +246108,13 @@ ${spelling}`);
     const score = Math.round(evaluation.result.score * 100);
     const scoreLine = textParagraph(copy(host2, `Score: ${score}%`, `スコア：${score}%`));
     scoreLine.className = "academy-phrase-karuta-score";
-    const explanation2 = localizedParagraph(evaluation.result.feedback.explanation);
+    const explanation2 = localizedParagraph$1(evaluation.result.feedback.explanation);
     root.replaceChildren(scoreLine, explanation2);
     if (evaluation.result.feedback.repairPrompt) {
-      root.append(localizedParagraph(evaluation.result.feedback.repairPrompt));
+      root.append(localizedParagraph$1(evaluation.result.feedback.repairPrompt));
     }
     if (evaluation.result.feedback.nearbyExample) {
-      root.append(localizedParagraph(evaluation.result.feedback.nearbyExample));
+      root.append(localizedParagraph$1(evaluation.result.feedback.nearbyExample));
     }
   }
   function showSubmissionError(root, host2, error, retry, signal) {
@@ -245625,7 +246128,7 @@ ${spelling}`);
     root.replaceChildren(paragraph, button2);
     host2.announce(message);
   }
-  function localizedParagraph(value) {
+  function localizedParagraph$1(value) {
     const paragraph = document.createElement("p");
     paragraph.append(japanese$1(value.ja), support$1(value.en));
     return paragraph;
@@ -245683,14 +246186,14 @@ ${spelling}`);
       });
       return gradeFromScore(correct2 / model2.payload.items.length, model2.payload.passScore, errorTags.sort(), model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.items.flatMap((item2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(item2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(item2.errorTag)) return [];
         const answer2 = item2.options.find((option2) => option2.id === item2.correctOptionId);
         return [{
           id: `review:l1-l04:picture-vocabulary:${item2.id}`,
           conceptId: item2.conceptId,
-          reason: result.outcome === "pass" ? "new-learning" : "repair",
+          reason: result2.outcome === "pass" ? "new-learning" : "repair",
           sourceQuestionId: item2.sourceQuestionId,
           content: { expression: answer2.label, meanings: [item2.sourceRow] }
         }];
@@ -245739,7 +246242,7 @@ ${spelling}`);
       tags.add(item2.errorTag);
     });
   }
-  function render$8(model2, host2, submit) {
+  function render$8(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-picture-vocabulary-board";
@@ -245773,7 +246276,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         key2.hidden = false;
         showEvaluation$1(status, evaluation, host2);
@@ -245935,10 +246438,10 @@ ${spelling}`);
       }
       return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errorTags.sort(), model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return [reviewSeed$8(round2, result)];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return [reviewSeed$8(round2, result2)];
       });
     }
   };
@@ -246035,7 +246538,7 @@ ${spelling}`);
       errors.add(round2.errorTag);
     });
   }
-  function render$7(model2, host2, submit) {
+  function render$7(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-place-owner-workbook";
@@ -246054,7 +246557,7 @@ ${spelling}`);
     host2.replace(root);
     let form2;
     start.addEventListener("click", () => {
-      form2 = renderAssessment$3(model2, host2, submit, root, status);
+      form2 = renderAssessment$3(model2, host2, submit2, root, status);
       start.remove();
       root.insertBefore(form2, status);
       form2.querySelector("input, select")?.focus();
@@ -246088,7 +246591,7 @@ ${spelling}`);
     }
     return section;
   }
-  function renderAssessment$3(model2, host2, submit, root, status) {
+  function renderAssessment$3(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
     form2.className = "academy-place-owner-form";
     form2.dataset.lessonPhase = "assessment";
@@ -246111,7 +246614,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -246231,12 +246734,12 @@ ${spelling}`);
     }
     return answers;
   }
-  function reviewSeed$8(round2, result) {
+  function reviewSeed$8(round2, result2) {
     const expression = round2.mode === "location-choice" ? round2.answerSentence : `${round2.correctPointer}はだれの${round2.correctItem}ですか`;
     return {
       id: `review:l1-l06:place-owner:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression,
@@ -246313,10 +246816,10 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return [reviewSeed$7(round2, result)];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return [reviewSeed$7(round2, result2)];
       });
     }
   };
@@ -246419,7 +246922,7 @@ ${spelling}`);
       errorTags.add(round2.errorTag);
     });
   }
-  function render$6(model2, host2, submit) {
+  function render$6(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-possession-phrase-builder";
@@ -246438,7 +246941,7 @@ ${spelling}`);
     host2.replace(root);
     let form2;
     start.addEventListener("click", () => {
-      form2 = renderAssessment$2(model2, host2, submit, root, status);
+      form2 = renderAssessment$2(model2, host2, submit2, root, status);
       start.remove();
       root.insertBefore(form2, status);
       form2.querySelector("select")?.focus();
@@ -246473,7 +246976,7 @@ ${spelling}`);
     });
     return section;
   }
-  function renderAssessment$2(model2, host2, submit, root, status) {
+  function renderAssessment$2(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
     form2.className = "academy-possession-form";
     form2.dataset.lessonPhase = "assessment";
@@ -246494,7 +246997,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -246569,11 +247072,11 @@ ${spelling}`);
     });
     return phrases;
   }
-  function reviewSeed$7(round2, result) {
+  function reviewSeed$7(round2, result2) {
     return {
       id: `review:l1-l05:possession-phrase:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: `${round2.correctA}の${round2.correctB}`,
@@ -246627,7 +247130,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showTeaching = () => {
@@ -246652,7 +247155,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair$2(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -246683,9 +247186,9 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
-      return rounds.map((round2) => reviewSeed$6(round2, result));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
+      return rounds.map((round2) => reviewSeed$6(round2, result2));
     }
   };
   function validateProvenance$6(model2, issues2) {
@@ -246761,7 +247264,7 @@ ${spelling}`);
     card.append(source2, pattern, explanation2, example);
     return card;
   }
-  function assessmentView$2(model2, host2, submit) {
+  function assessmentView$2(model2, host2, submit2) {
     const root = document.createElement("section");
     root.className = "academy-preference-workbook academy-preference-assessment";
     root.dataset.lessonPhase = "assessment";
@@ -246785,7 +247288,7 @@ ${spelling}`);
         host2.announce(host2.language === "ja" ? "すべての問題に答えてください。" : "Answer every source item first.");
         return;
       }
-      void submit(response);
+      void submit2(response);
     });
     root.append(title2, form2);
     return { root, form: form2, feedback: feedback2 };
@@ -246908,12 +247411,12 @@ ${spelling}`);
     });
     root.append(button2, panel);
   }
-  function reviewSeed$6(round2, result) {
+  function reviewSeed$6(round2, result2) {
     return {
       id: `review:l1-l12:preference:${round2.id}`,
       conceptId: round2.conceptId,
       sourceQuestionId: round2.sourceQuestionId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       content: {
         expression: round2.answerExpression,
         meanings: [round2.sourcePrompt],
@@ -246946,10 +247449,10 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => [
-        reviewSeed$5(model2, round2, "nationality", result),
-        reviewSeed$5(model2, round2, "occupation", result)
+        reviewSeed$5(model2, round2, "nationality", result2),
+        reviewSeed$5(model2, round2, "occupation", result2)
       ].filter((seed) => seed !== null));
     }
   };
@@ -247035,7 +247538,7 @@ ${spelling}`);
     }
     errorTags.add(criterion.errorTag);
   }
-  function render$5(model2, host2, submit) {
+  function render$5(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-profile-board";
@@ -247068,7 +247571,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -247190,15 +247693,15 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$5(model2, round2, kind, result) {
+  function reviewSeed$5(model2, round2, kind, result2) {
     const criterion = round2[kind];
-    if (result.outcome === "lapse" && !result.errorTags.includes(criterion.errorTag)) return null;
+    if (result2.outcome === "lapse" && !result2.errorTags.includes(criterion.errorTag)) return null;
     const options = kind === "nationality" ? model2.payload.nationalityOptions : model2.payload.occupationOptions;
     const answer2 = options.find((option2) => option2.id === criterion.correctOptionId);
     return {
       id: `review:l1-l02:profile-board:${round2.id}:${kind}`,
       conceptId: criterion.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: criterion.sourceQuestionId,
       content: {
         expression: `${round2.name}は ${answer2.label}です。`,
@@ -247225,11 +247728,11 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
         const answer2 = model2.payload.answers.find((candidate2) => candidate2.id === round2.correctAnswerId);
-        return [reviewSeed$4(round2, answer2, result)];
+        return [reviewSeed$4(round2, answer2, result2)];
       });
     }
   };
@@ -247313,7 +247816,7 @@ ${spelling}`);
       errorTags.add(round2.errorTag);
     });
   }
-  function render$4(model2, host2, submit) {
+  function render$4(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-profile-question-match";
@@ -247347,7 +247850,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -247472,11 +247975,11 @@ ${spelling}`);
     });
     return pairs;
   }
-  function reviewSeed$4(round2, answer2, result) {
+  function reviewSeed$4(round2, answer2, result2) {
     return {
       id: `review:l1-l03:profile-question:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: `${round2.question} ${answer2.label}`,
@@ -247533,7 +248036,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showAssessment = () => {
@@ -247541,7 +248044,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair$1(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -247580,13 +248083,13 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
       return rounds.map((round2) => ({
         id: `review:l1-l14:reason:${round2.id}`,
         conceptId: round2.conceptId,
         sourceQuestionId: round2.sourceQuestionId,
-        reason: result.outcome === "pass" ? "new-learning" : "repair",
+        reason: result2.outcome === "pass" ? "new-learning" : "repair",
         content: { expression: round2.answerExpression, meanings: [round2.sourcePrompt], sentence: round2.answerExpression }
       }));
     }
@@ -247645,7 +248148,7 @@ ${spelling}`);
     card.append(source2, pattern, explanation2, example);
     return card;
   }
-  function assessmentView$1(model2, host2, submit) {
+  function assessmentView$1(model2, host2, submit2) {
     const root = document.createElement("section");
     root.className = "academy-reason-workbook academy-reason-assessment";
     root.dataset.lessonPhase = "assessment";
@@ -247669,7 +248172,7 @@ ${spelling}`);
         host2.announce(host2.language === "ja" ? "すべての問題に答えてください。" : "Answer every source item first.");
         return;
       }
-      void submit(response);
+      void submit2(response);
     });
     root.append(title2, form2);
     return { root, form: form2, feedback: feedback2 };
@@ -247781,8 +248284,8 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      return reviewSeeds(model2.payload.reviewTargets, result, model2.sourceQuestionId);
+    toReviewSeeds(model2, result2) {
+      return reviewSeeds(model2.payload.reviewTargets, result2, model2.sourceQuestionId);
     }
   };
   function validate$3(model2) {
@@ -247850,7 +248353,7 @@ ${spelling}`);
       seen.add(track2.url);
     });
   }
-  function render$3(model2, host2, submit) {
+  function render$3(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-sentence-builder";
@@ -247909,7 +248412,7 @@ ${spelling}`);
     }, { signal: lifecycle.signal });
     check2.addEventListener("click", () => {
       setPending$1(root, true);
-      void submit({ order: [...placed] }).then((evaluation) => {
+      void submit2({ order: [...placed] }).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") {
@@ -248024,9 +248527,9 @@ ${spelling}`);
       }
       return gradeFromScore(correct2 / criteria, model2.payload.passScore, errorTags, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
-      const targets = result.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.errorTags.some((tag) => result.errorTags.includes(tag)));
-      return targets.map((target2) => reviewSeed$3(target2, result));
+    toReviewSeeds(model2, result2) {
+      const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.errorTags.some((tag) => result2.errorTags.includes(tag)));
+      return targets.map((target2) => reviewSeed$3(target2, result2));
     }
   };
   function validate$2(model2) {
@@ -248102,7 +248605,7 @@ ${spelling}`);
     }
     if (!ids2.has(correctId)) issues2.push({ path: `${path}.correctOptionId`, message: "The correct choice must be authored." });
   }
-  function render$2(model2, host2, submit) {
+  function render$2(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-shop-counter";
@@ -248134,7 +248637,7 @@ ${spelling}`);
         return;
       }
       setPending$1(root, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(status, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(root, false);
@@ -248259,11 +248762,11 @@ ${spelling}`);
     });
     return answers;
   }
-  function reviewSeed$3(target2, result) {
+  function reviewSeed$3(target2, result2) {
     return {
       id: target2.id,
       conceptId: target2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: target2.sourceQuestionId,
       content: {
         expression: target2.expression,
@@ -248329,7 +248832,7 @@ ${spelling}`);
       validateFeedback(model2.payload?.feedback, issues2);
       return issues2;
     },
-    render(model2, host2, submit) {
+    render(model2, host2, submit2) {
       let disposed = false;
       let assessment;
       const showAssessment = () => {
@@ -248337,7 +248840,7 @@ ${spelling}`);
           if (disposed || !assessment) return;
           setPending$1(assessment.root, true);
           try {
-            const evaluation = await submit(response);
+            const evaluation = await submit2(response);
             showEvaluation$1(assessment.feedback, evaluation, host2);
             updateRepair(model2, assessment.form, evaluation.result.errorTags, host2);
           } finally {
@@ -248382,9 +248885,9 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
-      const rounds = result.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result.errorTags.includes(round2.errorTag));
-      return rounds.map((round2) => reviewSeed$2(round2, result));
+    toReviewSeeds(model2, result2) {
+      const rounds = result2.outcome === "pass" ? model2.payload.rounds : model2.payload.rounds.filter((round2) => result2.errorTags.includes(round2.errorTag));
+      return rounds.map((round2) => reviewSeed$2(round2, result2));
     }
   };
   function validateProvenance$2(model2, issues2) {
@@ -248452,7 +248955,7 @@ ${spelling}`);
     card.append(source2, pattern, explanation2, example);
     return card;
   }
-  function assessmentView(model2, host2, submit) {
+  function assessmentView(model2, host2, submit2) {
     const root = document.createElement("section");
     root.className = "academy-skill-understanding-workbook academy-skill-understanding-assessment";
     root.dataset.lessonPhase = "assessment";
@@ -248476,7 +248979,7 @@ ${spelling}`);
         host2.announce(host2.language === "ja" ? "すべての問題に答えてください。" : "Answer every source item first.");
         return;
       }
-      void submit(response);
+      void submit2(response);
     });
     root.append(title2, form2);
     return { root, form: form2, feedback: feedback2 };
@@ -248588,12 +249091,12 @@ ${spelling}`);
     });
     root.append(button2, panel);
   }
-  function reviewSeed$2(round2, result) {
+  function reviewSeed$2(round2, result2) {
     return {
       id: `review:l1-l13:skill-understanding:${round2.id}`,
       conceptId: round2.conceptId,
       sourceQuestionId: round2.sourceQuestionId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       content: { expression: round2.answerExpression, meanings: [round2.sourcePrompt], sentence: round2.answerExpression }
     };
   }
@@ -248689,10 +249192,10 @@ ${spelling}`);
         model2.payload.feedback
       );
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return [reviewSeed$1(round2, result)];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return [reviewSeed$1(round2, result2)];
       });
     }
   };
@@ -248824,7 +249327,7 @@ ${spelling}`);
     });
     return ids2;
   }
-  function render$1(model2, host2, submit) {
+  function render$1(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-time-workbook";
@@ -248844,7 +249347,7 @@ ${spelling}`);
     let form2 = null;
     continueButton2.addEventListener("click", () => {
       if (form2) return;
-      form2 = renderAssessment$1(model2, host2, submit);
+      form2 = renderAssessment$1(model2, host2, submit2);
       assessment.append(form2);
       continueButton2.remove();
       form2.querySelector("input, select")?.focus();
@@ -248888,7 +249391,7 @@ ${spelling}`);
     section.append(title2, grid);
     return section;
   }
-  function renderAssessment$1(model2, host2, submit) {
+  function renderAssessment$1(model2, host2, submit2) {
     const form2 = document.createElement("form");
     form2.className = "academy-time-form";
     form2.dataset.lessonPhase = "assessment";
@@ -248908,7 +249411,7 @@ ${spelling}`);
       const response = responseFromForm$1(model2, form2);
       if (!response) return;
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         form2.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(feedback2, evaluation, host2);
         if (evaluation.result.outcome === "lapse") setPending$1(form2, false);
@@ -249058,11 +249561,11 @@ ${spelling}`);
     }
     return answers;
   }
-  function reviewSeed$1(round2, result) {
+  function reviewSeed$1(round2, result2) {
     return {
       id: `review:l1-l08:source-time:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -249168,10 +249671,10 @@ ${spelling}`);
       }
       return gradeFromScore(correct2 / model2.payload.rounds.length, model2.payload.passScore, errorTags, model2.payload.feedback);
     },
-    toReviewSeeds(model2, result) {
+    toReviewSeeds(model2, result2) {
       return model2.payload.rounds.flatMap((round2) => {
-        if (result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag)) return [];
-        return [reviewSeed(round2, result)];
+        if (result2.outcome === "lapse" && !result2.errorTags.includes(round2.errorTag)) return [];
+        return [reviewSeed(round2, result2)];
       });
     }
   };
@@ -249265,7 +249768,7 @@ ${spelling}`);
   function optionSignature(options) {
     return options.map((option2) => `${option2.id}:${option2.ja}:${option2.en}`).join("|");
   }
-  function render(model2, host2, submit) {
+  function render(model2, host2, submit2) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-weekly-plan";
@@ -249286,7 +249789,7 @@ ${spelling}`);
     let form2 = null;
     start.addEventListener("click", () => {
       if (form2) return;
-      form2 = renderAssessment(model2, host2, submit);
+      form2 = renderAssessment(model2, host2, submit2);
       assessment.append(form2);
       start.remove();
       form2.querySelector("input, select")?.focus();
@@ -249328,7 +249831,7 @@ ${spelling}`);
     }
     return section;
   }
-  function renderAssessment(model2, host2, submit) {
+  function renderAssessment(model2, host2, submit2) {
     const form2 = document.createElement("form");
     form2.className = "academy-weekly-plan-form";
     form2.dataset.lessonPhase = "assessment";
@@ -249349,7 +249852,7 @@ ${spelling}`);
       const response = responseFromForm(model2, form2);
       if (!response) return;
       setPending$1(form2, true);
-      void submit(response).then((evaluation) => {
+      void submit2(response).then((evaluation) => {
         form2.dataset.outcome = evaluation.result.outcome;
         showEvaluation$1(feedback2, evaluation, host2);
         if (evaluation.result.outcome === "lapse") {
@@ -249549,11 +250052,11 @@ ${spelling}`);
     submitButton.textContent = host2.language === "ja" ? `${missed.size}問を直して確認` : `Check ${missed.size} repaired ${missed.size === 1 ? "answer" : "answers"}`;
     rounds.find((round2) => !round2.hidden)?.querySelector("input, select, button")?.focus();
   }
-  function reviewSeed(round2, result) {
+  function reviewSeed(round2, result2) {
     return {
       id: `review:l1-l09:weekly-plan:${round2.id}`,
       conceptId: round2.conceptId,
-      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      reason: result2.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
       content: {
         expression: round2.answerExpression,
@@ -249836,10 +250339,10 @@ ${spelling}`);
     input2.spellcheck = false;
     input2.className = "academy-lesson-zero-kana-input";
     input2.setAttribute("aria-label", language === "ja" ? `${item2.romaji}のひらがな` : `Hiragana for ${item2.romaji}`);
-    const submit = document.createElement("button");
-    submit.type = "submit";
-    submit.className = "academy-vn-primary-action";
-    submit.textContent = language === "ja" ? "確認" : "Check";
+    const submit2 = document.createElement("button");
+    submit2.type = "submit";
+    submit2.className = "academy-vn-primary-action";
+    submit2.textContent = language === "ja" ? "確認" : "Check";
     const status = statusLine$1();
     const preview = document.createElement("output");
     preview.className = "academy-lesson-zero-kana-input-preview";
@@ -249869,13 +250372,13 @@ ${spelling}`);
         return;
       }
       input2.disabled = true;
-      submit.disabled = true;
+      submit2.disabled = true;
       revealAndContinue(root, status, `${item2.kana} = ${item2.romaji}`, language, advance);
     });
     const help = document.createElement("p");
     help.className = "academy-lesson-zero-kana-input-help";
     help.textContent = language === "ja" ? "ローマ字でも、ひらがなでも入力できます。" : "Type romaji or hiragana; both are accepted.";
-    form2.append(cue, help, input2, preview, submit, status);
+    form2.append(cue, help, input2, preview, submit2, status);
     root.append(form2);
     input2.focus();
   }
@@ -250614,7 +251117,7 @@ ${spelling}`);
     if (!value) throw new Error(`Missing Lesson 0 proof value: ${String(key2)}`);
     return value;
   }
-  const COPY = {
+  const COPY$1 = {
     progress: { en: "Progress", ja: "進み具合" },
     question: { en: "Question", ja: "問題" },
     audioUnavailable: {
@@ -250657,7 +251160,7 @@ ${spelling}`);
     if (options.onBack) {
       const back = backButton(options.language);
       back.classList.add("academy-authored-week-back");
-      back.addEventListener("click", () => notify(options.onBack, screen), { signal: lifecycle.signal });
+      back.addEventListener("click", () => notify$1(options.onBack, screen), { signal: lifecycle.signal });
       content.append(back);
     }
     const progress2 = progressBlock(options.week.activities.length + (options.extension?.activityCount ?? 0));
@@ -250740,7 +251243,7 @@ ${spelling}`);
       return write;
     };
     const reportPosition = (position) => {
-      if (options.onPositionChange) notify(() => savePosition(position), screen);
+      if (options.onPositionChange) notify$1(() => savePosition(position), screen);
     };
     const focusInPanel = (target2) => {
       target2?.focus({ preventScroll: true });
@@ -250933,7 +251436,7 @@ ${spelling}`);
           const action2 = element("button", "academy-button academy-authored-week-next");
           action2.type = "button";
           action2.textContent = localized(
-            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY.finish : COPY.next,
+            currentIndex === options.week.activities.length - 1 && !options.extension ? COPY$1.finish : COPY$1.next,
             options.language
           );
           action2.addEventListener("click", advance, { signal: lifecycle.signal, once: true });
@@ -251031,7 +251534,7 @@ ${spelling}`);
       complete.dataset.weekComplete = "true";
       complete.dataset.repairedCount = String(repairedActivityIds.size);
       complete.tabIndex = -1;
-      complete.append(bilingualParagraph(COPY.complete, "academy-success-note"));
+      complete.append(bilingualParagraph(COPY$1.complete, "academy-success-note"));
       if (repairedActivityIds.size) {
         complete.append(bilingualParagraph(
           repairSummary(repairedActivityIds.size),
@@ -251044,7 +251547,7 @@ ${spelling}`);
       const finish = () => {
         if (completionNotified) return;
         completionNotified = true;
-        notify(async () => {
+        notify$1(async () => {
           await positionWriteTail;
           await options.onComplete?.();
         }, screen);
@@ -251160,8 +251663,8 @@ ${spelling}`);
     root.dataset.activityId = activity2.id;
     const count2 = element("p", "academy-eyebrow");
     count2.append(
-      japanese(`${COPY.question.ja} ${index + 1} / ${total}`),
-      support(`${COPY.question.en} ${index + 1} of ${total}`)
+      japanese(`${COPY$1.question.ja} ${index + 1} / ${total}`),
+      support(`${COPY$1.question.en} ${index + 1} of ${total}`)
     );
     const heading = element("h1", "academy-authored-week-prompt");
     heading.id = `academy-authored-prompt-${index}`;
@@ -251174,7 +251677,7 @@ ${spelling}`);
     feedback2.setAttribute("aria-live", "polite");
     let committed = false;
     const listening = activity2.kind === "choice" ? activity2.listening : void 0;
-    const submit = (response, control2) => {
+    const submit2 = (response, control2) => {
       if (committed) return;
       committed = true;
       setActivityControlsDisabled(choices2, true);
@@ -251192,7 +251695,7 @@ ${spelling}`);
       commit.textContent = actions.language === "ja" ? "答えを確認" : "Check answer";
       const evaluateText = () => {
         if (committed || !input2.value.trim()) return;
-        submit(input2.value, commit);
+        submit2(input2.value, commit);
       };
       commit.addEventListener("click", evaluateText, { signal: actions.signal });
       input2.addEventListener("keydown", (event) => {
@@ -251211,19 +251714,19 @@ ${spelling}`);
       button2.append(assessedJapanese(option2.label.ja));
       button2.addEventListener("click", () => {
         if (committed) return;
-        submit(option2.id, button2);
+        submit2(option2.id, button2);
       }, { signal: actions.signal });
       row.append(button2);
       choices2.append(row);
     }
     else if (activity2.kind === "academy-authored-cloze") {
-      appendClozeControls(choices2, activity2, heading.id, actions, submit);
+      appendClozeControls(choices2, activity2, heading.id, actions, submit2);
     } else if (activity2.kind === "academy-authored-matching") {
-      appendMatchingControls(choices2, activity2, heading.id, actions, submit);
+      appendMatchingControls(choices2, activity2, heading.id, actions, submit2);
     } else if (activity2.kind === "academy-authored-multi-choice") {
-      appendMultiChoiceControls(choices2, activity2, heading.id, actions, submit);
+      appendMultiChoiceControls(choices2, activity2, heading.id, actions, submit2);
     } else {
-      appendOrderingControls(choices2, activity2, heading.id, actions, submit);
+      appendOrderingControls(choices2, activity2, heading.id, actions, submit2);
     }
     async function commitResponse(response, control2) {
       let evaluation;
@@ -251232,7 +251735,7 @@ ${spelling}`);
       } catch {
         committed = false;
         setActivityControlsDisabled(choices2, false);
-        feedback2.replaceChildren(bilingualParagraph(COPY.evaluationError, "academy-field-error"));
+        feedback2.replaceChildren(bilingualParagraph(COPY$1.evaluationError, "academy-field-error"));
         feedback2.setAttribute("role", "alert");
         control2.focus();
         return;
@@ -251268,7 +251771,7 @@ ${spelling}`);
         action2.type = "button";
         const isPass = evaluation.result.outcome === "pass";
         action2.textContent = localized(
-          isPass ? index === total - 1 && !actions.hasExtension ? COPY.finish : COPY.next : COPY.retry,
+          isPass ? index === total - 1 && !actions.hasExtension ? COPY$1.finish : COPY$1.next : COPY$1.retry,
           actions.language
         );
         action2.addEventListener("click", isPass ? actions.onAdvance : actions.onRetry, { signal: actions.signal });
@@ -251297,7 +251800,7 @@ ${spelling}`);
         return "academy-authored-ordering";
     }
   }
-  function appendMultiChoiceControls(root, activity2, headingId, actions, submit) {
+  function appendMultiChoiceControls(root, activity2, headingId, actions, submit2) {
     const selected2 = /* @__PURE__ */ new Set();
     const check2 = checkButton(actions.language, "Check selections", "選んだ答えを確認");
     activity2.options.forEach((option2) => {
@@ -251320,11 +251823,11 @@ ${spelling}`);
     check2.disabled = true;
     check2.addEventListener("click", () => {
       if (check2.disabled) return;
-      submit({ kind: "multi-choice", optionIds: [...selected2] }, check2);
+      submit2({ kind: "multi-choice", optionIds: [...selected2] }, check2);
     }, { signal: actions.signal });
     root.append(check2);
   }
-  function appendClozeControls(root, activity2, headingId, actions, submit) {
+  function appendClozeControls(root, activity2, headingId, actions, submit2) {
     const sentence = element("p", "academy-authored-cloze-sentence");
     sentence.lang = "ja";
     sentence.dataset.jpdbReaderSurfaceIgnore = "";
@@ -251361,7 +251864,7 @@ ${spelling}`);
     };
     const commit = () => {
       if (!ready2()) return;
-      submit({
+      submit2({
         kind: "cloze",
         values: activity2.payload.blanks.map((blank) => ({
           blankId: blank.id,
@@ -251382,7 +251885,7 @@ ${spelling}`);
     update();
     root.append(sentence, check2);
   }
-  function appendMatchingControls(root, activity2, headingId, actions, submit) {
+  function appendMatchingControls(root, activity2, headingId, actions, submit2) {
     const rows = element("div", "academy-authored-matching-rows");
     const selects = /* @__PURE__ */ new Map();
     activity2.payload.items.forEach((item2, index) => {
@@ -251413,7 +251916,7 @@ ${spelling}`);
     selects.forEach((select2) => select2.addEventListener("change", update, { signal: actions.signal }));
     check2.addEventListener("click", () => {
       if (check2.disabled) return;
-      submit({
+      submit2({
         kind: "matching",
         placements: activity2.payload.items.map((item2) => ({
           itemId: item2.id,
@@ -251424,7 +251927,7 @@ ${spelling}`);
     update();
     root.append(rows, check2);
   }
-  function appendOrderingControls(root, activity2, headingId, actions, submit) {
+  function appendOrderingControls(root, activity2, headingId, actions, submit2) {
     const orders = new Map(activity2.payload.sequences.map((sequence) => [
       sequence.id,
       sequence.items.map((item2) => item2.id)
@@ -251472,7 +251975,7 @@ ${spelling}`);
       renderSequence(sequence);
     });
     const check2 = checkButton(actions.language, "Check order", "順番を確認");
-    check2.addEventListener("click", () => submit({
+    check2.addEventListener("click", () => submit2({
       kind: "ordering",
       sequences: activity2.payload.sequences.map((sequence) => ({
         sequenceId: sequence.id,
@@ -251533,13 +252036,13 @@ ${spelling}`);
     return root;
   }
   function showFeedback(root, evaluation, language, activityId, repaired) {
-    const { result } = evaluation;
+    const { result: result2 } = evaluation;
     root.setAttribute("role", "status");
-    const summary = result.outcome === "pass" ? COPY.pass : COPY.lapse;
+    const summary = result2.outcome === "pass" ? COPY$1.pass : COPY$1.lapse;
     root.replaceChildren(bilingualParagraph(summary, "academy-authored-week-feedback-summary"));
-    if (repaired) root.append(bilingualParagraph(COPY.repaired, "academy-authored-week-repair-win"));
-    root.append(bilingualParagraph(result.feedback.explanation, "academy-feedback-explanation"));
-    if (result.outcome === "lapse") appendProgressiveFeedback(root, result.feedback, { language, activityId });
+    if (repaired) root.append(bilingualParagraph(COPY$1.repaired, "academy-authored-week-repair-win"));
+    root.append(bilingualParagraph(result2.feedback.explanation, "academy-feedback-explanation"));
+    if (result2.outcome === "lapse") appendProgressiveFeedback(root, result2.feedback, { language, activityId });
   }
   function repairSummary(count2) {
     return {
@@ -251568,12 +252071,12 @@ ${spelling}`);
   }
   function progressBlock(total) {
     const root = element("section", "academy-authored-week-progress");
-    const label = bilingualParagraph(COPY.progress, "academy-authored-week-progress-label");
+    const label = bilingualParagraph(COPY$1.progress, "academy-authored-week-progress-label");
     const value = element("strong", "academy-authored-week-progress-value");
     const meter = document.createElement("progress");
     meter.className = "academy-authored-week-meter";
     meter.max = total;
-    meter.setAttribute("aria-label", `${COPY.progress.ja} / ${COPY.progress.en}`);
+    meter.setAttribute("aria-label", `${COPY$1.progress.ja} / ${COPY$1.progress.en}`);
     const update = (completed) => {
       value.textContent = `${completed} / ${total}`;
       meter.value = completed;
@@ -251587,7 +252090,7 @@ ${spelling}`);
     const state = element("section", "academy-source-record academy-authored-week-audio");
     state.dataset.audioStatus = "unavailable";
     state.setAttribute("role", "status");
-    state.append(bilingualParagraph(COPY.audioUnavailable, "academy-authored-week-audio-copy"));
+    state.append(bilingualParagraph(COPY$1.audioUnavailable, "academy-authored-week-audio-copy"));
     return state;
   }
   function moveChoiceFocus(event, root) {
@@ -251644,7 +252147,7 @@ ${spelling}`);
     if (progress2.phase === "extension") return hasExtension ? progress2 : void 0;
     return progress2;
   }
-  function notify(callback2, target2) {
+  function notify$1(callback2, target2) {
     try {
       const pending2 = callback2();
       if (pending2) void pending2.catch((error) => announceCallbackError(target2, error));
@@ -252067,7 +252570,7 @@ ${spelling}`);
         const renderIntroduction = () => {
           const root = chapterShell(options.chapter, "academy-activity-chapter-introduction", options.presentation?.location);
           root.append(
-            bilingual(options.chapter.introduction, "academy-activity-chapter-copy"),
+            bilingual$1(options.chapter.introduction, "academy-activity-chapter-copy"),
             chapterNavigation(options.language, {
               back: callbacks2.onBack,
               next: () => {
@@ -252091,7 +252594,7 @@ ${spelling}`);
           root.dataset.activityStage = "teaching";
           const progress2 = element("p", "academy-activity-chapter-progress");
           progress2.textContent = options.language === "ja" ? `${options.chapter.beats.length}場面中${index + 1}場面` : `Story activity ${index + 1} of ${options.chapter.beats.length}`;
-          const narrative = bilingual(beat2.narrative, "academy-activity-chapter-copy");
+          const narrative = bilingual$1(beat2.narrative, "academy-activity-chapter-copy");
           const activityHost = element("div", "academy-activity-chapter-host");
           const actionHost = element("div", "academy-activity-chapter-action");
           const live = element("div", "academy-activity-chapter-live");
@@ -252152,7 +252655,7 @@ ${spelling}`);
         const renderConclusion = () => {
           const root = chapterShell(options.chapter, "academy-activity-chapter-conclusion", options.presentation?.location);
           root.append(
-            bilingual(options.chapter.conclusion, "academy-activity-chapter-copy"),
+            bilingual$1(options.chapter.conclusion, "academy-activity-chapter-copy"),
             chapterNavigation(options.language, {
               back: () => {
                 index = options.chapter.beats.length - 1;
@@ -252194,7 +252697,7 @@ ${spelling}`);
     root.dataset.chapterId = chapter2.id;
     root.dataset.canonicalEpisodeId = chapter2.canonicalEpisodeId;
     const header = element("header", "academy-activity-chapter-header");
-    const location2 = bilingual(locationOverride ?? chapter2.location, "academy-activity-chapter-location");
+    const location2 = bilingual$1(locationOverride ?? chapter2.location, "academy-activity-chapter-location");
     const title2 = element("h2", "academy-activity-chapter-title");
     title2.tabIndex = -1;
     title2.append(...localizedNodes(chapter2.title));
@@ -252205,7 +252708,7 @@ ${spelling}`);
     root.append(header);
     return root;
   }
-  function bilingual(value, className) {
+  function bilingual$1(value, className) {
     const paragraph = element("p", className);
     paragraph.append(...localizedNodes(value));
     return paragraph;
@@ -252324,6 +252827,422 @@ ${spelling}`);
         activity: entry2.activity
       }]
     };
+  }
+  const COPY = {
+    session: { en: "Classroom language", ja: "教室のことば" },
+    guide: {
+      en: "Read the moment, then answer Rie in Japanese. You can leave and resume at any time.",
+      ja: "場面を読んで、りえ先生に日本語で答えましょう。いつでも中断して続きから戻れます。"
+    },
+    before: { en: "A pattern to use", ja: "使えるパターン" },
+    example: { en: "Rie’s example", ja: "りえ先生の例" },
+    yourTurn: { en: "Your turn", ja: "あなたの番" },
+    placeholder: { en: "Type what you would say…", ja: "言うことを入力…" },
+    submit: { en: "Answer Rie", ja: "りえ先生に答える" },
+    pause: { en: "Save and leave", ja: "保存して戻る" },
+    hear: { en: "Hear the example", ja: "例を聞く" },
+    hearing: { en: "Playing…", ja: "再生中…" },
+    pass: { en: "Yes. That works here.", ja: "はい。この場面で使えます。" },
+    next: { en: "Next moment", ja: "次の場面へ" },
+    reveal: { en: "Show Rie’s answer", ja: "りえ先生の答えを見る" },
+    model: { en: "Rie would say", ja: "りえ先生なら" },
+    complete: { en: "This classroom set is yours.", ja: "この教室表現を使えるようになりました。" },
+    completeBody: {
+      en: "Every line in this set has been answered. They are now waiting in your review queue, too.",
+      ja: "このセットの表現にすべて答えました。復習にも追加されています。"
+    },
+    return: { en: "Return to the lesson", ja: "レッスンに戻る" },
+    practiceAgain: { en: "Practice this set again", ja: "このセットをもう一度練習" },
+    saveError: { en: "That answer could not be saved. Please try once more.", ja: "答えを保存できませんでした。もう一度お試しください。" },
+    audioError: { en: "The example could not be played. The text is still here.", ja: "例の音声を再生できませんでした。文字で確認できます。" }
+  };
+  function createClassroomExpressionSessionScreen(options) {
+    const lifecycle = new AbortController();
+    let renderLifecycle = new AbortController();
+    let state = options.initialState;
+    let playback = null;
+    let busy = false;
+    let disposed = false;
+    let passNotice = null;
+    const screen = element("section", "academy-screen academy-classroom-expression-screen");
+    screen.dataset.academyScreen = "classroom-expression-session";
+    screen.dataset.activityId = options.activityId;
+    screen.append(academyBackgroundPicture("classroom"));
+    const scene2 = element("div", "academy-classroom-expression-scene");
+    const guide = element("aside", "academy-classroom-expression-guide");
+    const guidePortrait = element("img", "academy-classroom-expression-guide-portrait");
+    guidePortrait.src = ACADEMY_ASSETS.rie;
+    guidePortrait.alt = "";
+    guidePortrait.setAttribute("aria-hidden", "true");
+    const guideCopy = element("div", "academy-classroom-expression-guide-copy");
+    const guideName = element("strong", "academy-classroom-expression-guide-name");
+    guideName.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
+    const guideLine = localizedParagraph(COPY.guide, options.language, "academy-classroom-expression-guide-line");
+    guideCopy.append(guideName, guideLine);
+    guide.append(guidePortrait, guideCopy);
+    const workspace = element("main", "academy-classroom-expression-workspace");
+    const paper = element("article", "academy-classroom-expression-paper");
+    const paperHeader = element("header", "academy-classroom-expression-header");
+    const back = backButton(options.language);
+    back.classList.add("academy-classroom-expression-back");
+    back.textContent = "←";
+    back.title = back.getAttribute("aria-label") ?? "";
+    back.addEventListener("click", () => void pauseAndLeave(), { signal: lifecycle.signal });
+    const headingGroup = element("div", "academy-classroom-expression-heading-group");
+    const eyebrow = element("p", "academy-classroom-expression-eyebrow");
+    eyebrow.textContent = COPY.session[options.language];
+    const title2 = element("h1", "academy-classroom-expression-title");
+    title2.tabIndex = -1;
+    headingGroup.append(eyebrow, title2);
+    const overall = element("p", "academy-classroom-expression-overall");
+    overall.setAttribute("role", "status");
+    overall.setAttribute("aria-live", "polite");
+    paperHeader.append(back, headingGroup, overall);
+    const phaseNav = element("nav", "academy-classroom-expression-phases");
+    phaseNav.setAttribute("aria-label", options.language === "ja" ? "教室表現のまとまり" : "Classroom expression phases");
+    const body = element("div", "academy-classroom-expression-body");
+    const live = element("div", "academy-classroom-expression-live");
+    live.setAttribute("role", "status");
+    live.setAttribute("aria-live", "polite");
+    paper.append(paperHeader, phaseNav, body, live);
+    workspace.append(paper);
+    scene2.append(guide, workspace);
+    screen.append(scene2);
+    const binding = classroomBindingForActivity(options.activityId);
+    const bindingProbeIds = options.definition.expressions.filter((expression) => binding.expressionIds.includes(expression.id)).flatMap((expression) => expression.probes.map((probe) => probe.id));
+    const visiblePhases = options.definition.phases.filter((phase) => phase.expressionIds.some((id2) => binding.expressionIds.includes(id2)));
+    const render2 = () => {
+      renderLifecycle.abort();
+      renderLifecycle = new AbortController();
+      const signal = renderLifecycle.signal;
+      body.replaceChildren();
+      phaseNav.replaceChildren();
+      live.textContent = "";
+      screen.dataset.sessionStatus = state.status;
+      const view = readClassroomExpressionSession(options.definition, state);
+      title2.textContent = view.phaseTitle[options.language];
+      const completedBindingProbes = bindingProbeIds.filter((id2) => state.passedProbeIds.includes(id2)).length;
+      overall.textContent = options.language === "ja" ? `${bindingProbeIds.length}場面中 ${completedBindingProbes}場面に回答` : `${completedBindingProbes} of ${bindingProbeIds.length} moments answered`;
+      renderPhaseNavigation(signal);
+      if (completedClassroomActivityIds(options.definition, state).includes(options.activityId)) {
+        renderCompletion(signal);
+        return;
+      }
+      if (passNotice) {
+        renderPass(signal);
+        return;
+      }
+      renderPrompt2(view, signal);
+    };
+    const renderPhaseNavigation = (signal) => {
+      const passed = new Set(state.passedProbeIds);
+      for (const phase of visiblePhases) {
+        const expressions2 = phase.expressionIds.filter((id2) => binding.expressionIds.includes(id2)).map((id2) => options.definition.expressions.find((candidate2) => candidate2.id === id2)).filter(Boolean);
+        const probeIds = expressions2.flatMap((expression) => expression.probes.map((probe) => probe.id));
+        const complete = probeIds.filter((id2) => passed.has(id2)).length;
+        const button2 = element("button", "academy-classroom-expression-phase");
+        button2.type = "button";
+        button2.dataset.phaseId = phase.id;
+        button2.dataset.phaseComplete = String(complete === probeIds.length);
+        if (phase.id === state.cursor.phaseId) button2.setAttribute("aria-current", "step");
+        const label = element("span", "academy-classroom-expression-phase-label");
+        label.textContent = phase.title[options.language];
+        const count2 = element("span", "academy-classroom-expression-phase-count");
+        count2.textContent = `${complete}/${probeIds.length}`;
+        button2.append(label, count2);
+        button2.addEventListener("click", () => void dispatch({
+          kind: "navigate",
+          target: { kind: "phase", id: phase.id }
+        }), { signal });
+        phaseNav.append(button2);
+      }
+    };
+    const renderPrompt2 = (view, signal) => {
+      const teaching2 = element("section", "academy-classroom-expression-teaching");
+      const teachingLabel = element("h2", "academy-classroom-expression-section-label");
+      teachingLabel.textContent = COPY.before[options.language];
+      const explanation2 = bilingual(view.preAssessmentTeaching.explanation, "academy-classroom-expression-explanation");
+      const example = element("div", "academy-classroom-expression-example");
+      const exampleLabel = element("strong", "academy-classroom-expression-example-label");
+      exampleLabel.textContent = COPY.example[options.language];
+      const context2 = bilingual(view.preAssessmentTeaching.workedExample.context, "academy-classroom-expression-example-context");
+      const japanese2 = element("p", "academy-classroom-expression-example-japanese");
+      japanese2.lang = "ja";
+      japanese2.dataset.yomuRuntimeSurface = "academy-classroom-expression-example";
+      japanese2.dataset.yomuFuriganaMode = "all";
+      japanese2.textContent = view.preAssessmentTeaching.workedExample.japanese;
+      const meaning = bilingual(view.preAssessmentTeaching.workedExample.meaning, "academy-classroom-expression-example-meaning");
+      const hear = element("button", "academy-button academy-classroom-expression-hear");
+      hear.type = "button";
+      hear.textContent = `▶ ${COPY.hear[options.language]}`;
+      const audioError = element("p", "academy-classroom-expression-audio-error");
+      audioError.setAttribute("role", "alert");
+      hear.addEventListener("click", () => {
+        playback?.dispose();
+        playback = null;
+        hear.disabled = true;
+        hear.textContent = COPY.hearing[options.language];
+        audioError.textContent = "";
+        void options.pronunciation.play(
+          view.preAssessmentTeaching.workedExample.japanese,
+          view.preAssessmentTeaching.workedExample.reading
+        ).then((active) => {
+          if (disposed) active.dispose();
+          else playback = active;
+        }).catch(() => {
+          if (!disposed) audioError.textContent = COPY.audioError[options.language];
+        }).finally(() => {
+          if (!disposed) {
+            hear.disabled = false;
+            hear.textContent = `▶ ${COPY.hear[options.language]}`;
+          }
+        });
+      }, { signal });
+      example.append(exampleLabel, context2, japanese2, meaning, hear, audioError);
+      teaching2.append(teachingLabel, explanation2, example);
+      const turn2 = element("section", "academy-classroom-expression-turn");
+      const turnLabel = element("h2", "academy-classroom-expression-section-label");
+      turnLabel.textContent = COPY.yourTurn[options.language];
+      const prompt2 = bilingual(view.prompt, "academy-classroom-expression-prompt");
+      const form2 = element("form", "academy-classroom-expression-form");
+      const label = element("label", "academy-classroom-expression-input-label");
+      label.htmlFor = `classroom-expression-${safeId(view.cursor.probeId)}`;
+      label.textContent = options.language === "ja" ? "日本語で答える" : "Answer in Japanese";
+      const input2 = element("input", "academy-input academy-classroom-expression-input");
+      input2.id = label.htmlFor;
+      input2.type = "text";
+      input2.lang = "ja";
+      input2.autocomplete = "off";
+      input2.spellcheck = false;
+      input2.placeholder = COPY.placeholder[options.language];
+      input2.required = true;
+      input2.dataset.jpdbReaderSurfaceIgnore = "";
+      const submit2 = element("button", "academy-button academy-button-primary academy-classroom-expression-submit");
+      submit2.type = "submit";
+      submit2.textContent = COPY.submit[options.language];
+      const error = element("p", "academy-classroom-expression-error");
+      error.setAttribute("role", "alert");
+      form2.append(label, input2, submit2, error);
+      form2.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!input2.value.trim() || busy) {
+          input2.focus();
+          return;
+        }
+        void submitAnswer(input2.value, error);
+      }, { signal });
+      turn2.append(turnLabel, prompt2, form2);
+      if (view.earnedRepair) turn2.append(repairPanel(view.earnedRepair, signal));
+      body.append(teaching2, turn2, pauseAction(signal));
+      if (shouldAutofocusResponse()) queueMicrotask(() => input2.focus({ preventScroll: true }));
+    };
+    const repairPanel = (repair, signal) => {
+      const panel = element("aside", "academy-classroom-expression-repair");
+      panel.dataset.repairEarned = "true";
+      panel.append(
+        bilingual(repair.contrast, "academy-classroom-expression-repair-contrast"),
+        bilingual(repair.retryPrompt, "academy-classroom-expression-repair-prompt"),
+        bilingual(repair.nearbyExample, "academy-classroom-expression-repair-example")
+      );
+      if (repair.modelAnswer) {
+        const model2 = element("p", "academy-classroom-expression-model");
+        const label = element("span", "academy-classroom-expression-model-label");
+        label.textContent = COPY.model[options.language];
+        const answer2 = element("strong", "academy-classroom-expression-model-answer");
+        answer2.lang = "ja";
+        answer2.textContent = repair.modelAnswer;
+        model2.append(label, answer2);
+        panel.append(model2);
+      } else {
+        const reveal = element("button", "academy-button academy-button-secondary academy-classroom-expression-reveal");
+        reveal.type = "button";
+        reveal.textContent = COPY.reveal[options.language];
+        reveal.addEventListener("click", () => void dispatch({ kind: "reveal-model" }), { signal });
+        panel.append(reveal);
+      }
+      return panel;
+    };
+    const renderPass = (signal) => {
+      const notice = passNotice;
+      const root = element("section", "academy-classroom-expression-result");
+      root.dataset.outcome = "pass";
+      const mark = element("span", "academy-classroom-expression-result-mark");
+      mark.textContent = "✓";
+      mark.setAttribute("aria-hidden", "true");
+      const heading = element("h2", "academy-classroom-expression-result-title");
+      heading.textContent = COPY.pass[options.language];
+      const answer2 = element("p", "academy-classroom-expression-result-answer");
+      answer2.lang = "ja";
+      answer2.dataset.yomuRuntimeSurface = "academy-classroom-expression-result";
+      answer2.dataset.yomuFuriganaMode = "all";
+      answer2.textContent = notice.response;
+      const actions = element("div", "academy-classroom-expression-result-actions");
+      if (notice.activityCompleted) {
+        const done = element("button", "academy-button academy-button-primary");
+        done.type = "button";
+        done.textContent = COPY.return[options.language];
+        done.addEventListener("click", () => void notify(options.onBack), { signal });
+        actions.append(done);
+      } else {
+        const next = element("button", "academy-button academy-button-primary");
+        next.type = "button";
+        next.textContent = COPY.next[options.language];
+        next.addEventListener("click", () => {
+          passNotice = null;
+          render2();
+        }, { signal });
+        actions.append(next);
+      }
+      root.append(mark, heading, answer2, actions);
+      body.append(root);
+      queueMicrotask(() => actions.querySelector("button")?.focus());
+    };
+    const renderCompletion = (signal) => {
+      const root = element("section", "academy-classroom-expression-complete");
+      const seal = element("span", "academy-classroom-expression-complete-seal");
+      seal.textContent = "済";
+      seal.lang = "ja";
+      seal.setAttribute("aria-hidden", "true");
+      const heading = element("h2", "academy-classroom-expression-complete-title");
+      heading.textContent = COPY.complete[options.language];
+      const copy2 = localizedParagraph(COPY.completeBody, options.language, "academy-classroom-expression-complete-copy");
+      const actions = element("div", "academy-classroom-expression-complete-actions");
+      const done = element("button", "academy-button academy-button-primary");
+      done.type = "button";
+      done.textContent = COPY.return[options.language];
+      done.addEventListener("click", () => void notify(options.onBack), { signal });
+      const again = element("button", "academy-button academy-button-secondary");
+      again.type = "button";
+      again.textContent = COPY.practiceAgain[options.language];
+      again.addEventListener("click", () => void restart(), { signal });
+      actions.append(done, again);
+      root.append(seal, heading, copy2, actions);
+      body.append(root);
+      queueMicrotask(() => done.focus());
+    };
+    const pauseAction = (signal) => {
+      const footer = element("footer", "academy-classroom-expression-footer");
+      const pause = element("button", "academy-button academy-classroom-expression-pause");
+      pause.type = "button";
+      pause.textContent = COPY.pause[options.language];
+      pause.addEventListener("click", () => void pauseAndLeave(), { signal });
+      footer.append(pause);
+      return footer;
+    };
+    const submitAnswer = async (response, error) => {
+      const before = state;
+      const transition = transitionClassroomExpressionSession(
+        options.definition,
+        state,
+        { kind: "submit", response },
+        Date.now()
+      );
+      const completed = completedClassroomActivityIds(options.definition, transition.state).includes(options.activityId);
+      try {
+        busy = true;
+        screen.setAttribute("aria-busy", "true");
+        await options.onTransition(before, transition);
+        state = transition.state;
+        if (transition.evidence.some((event) => event.kind === "attempt-recorded" && event.outcome === "pass")) {
+          passNotice = { response, activityCompleted: completed };
+        }
+        render2();
+      } catch {
+        error.textContent = COPY.saveError[options.language];
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const dispatch = async (action2) => {
+      if (busy) return;
+      const before = state;
+      const transition = transitionClassroomExpressionSession(options.definition, state, action2, Date.now());
+      try {
+        busy = true;
+        screen.setAttribute("aria-busy", "true");
+        await options.onTransition(before, transition);
+        state = transition.state;
+        passNotice = null;
+        render2();
+      } catch {
+        live.textContent = COPY.saveError[options.language];
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const pauseAndLeave = async () => {
+      if (busy) return;
+      if (state.status === "active") {
+        const before = state;
+        const paused = transitionClassroomExpressionSession(options.definition, state, { kind: "pause" }, Date.now());
+        await options.onTransition(before, paused);
+        state = paused.state;
+      }
+      await notify(options.onBack);
+    };
+    const restart = async () => {
+      if (busy) return;
+      let fresh = startClassroomExpressionSession(options.definition);
+      fresh = classroomStateForActivity(options.definition, fresh, options.activityId);
+      try {
+        busy = true;
+        await options.onRestart(fresh);
+        state = fresh;
+        passNotice = null;
+        render2();
+      } finally {
+        busy = false;
+      }
+    };
+    render2();
+    return {
+      element: screen,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        renderLifecycle.abort();
+        playback?.dispose();
+        playback = null;
+      }
+    };
+  }
+  function bilingual(value, className) {
+    const root = element("div", className);
+    const ja = element("p", `${className}-ja`);
+    ja.lang = "ja";
+    ja.dataset.yomuRuntimeSurface = "academy-classroom-expression";
+    ja.dataset.yomuFuriganaMode = "all";
+    ja.textContent = value.ja;
+    const en = element("p", `${className}-en`);
+    en.lang = "en";
+    en.dataset.jpdbReaderSurfaceIgnore = "";
+    en.textContent = value.en;
+    root.append(ja, en);
+    return root;
+  }
+  function shouldAutofocusResponse() {
+    return typeof matchMedia === "function" && matchMedia("(min-width: 720px) and (pointer: fine)").matches;
+  }
+  function localizedParagraph(value, language, className) {
+    const paragraph = element("p", className);
+    paragraph.textContent = value[language];
+    paragraph.lang = language;
+    if (language === "ja") {
+      paragraph.dataset.yomuRuntimeSurface = "academy-classroom-expression-copy";
+      paragraph.dataset.yomuFuriganaMode = "all";
+    } else {
+      paragraph.dataset.jpdbReaderSurfaceIgnore = "";
+    }
+    return paragraph;
+  }
+  function safeId(value) {
+    return value.replace(/[^a-z0-9_-]+/giu, "-");
+  }
+  async function notify(callback2) {
+    await callback2();
   }
   const STORY_CURSOR_PREFIX = "story-run:v1:";
   function createStoryRunner(options) {
@@ -252861,6 +253780,10 @@ ${spelling}`);
         this.renderAdvancedPackage(advancedPackageId, context2);
         return;
       }
+      if (isLessonZeroConstructedClassroomActivity(context2.checkpoint.activityId)) {
+        await this.renderClassroomExpressionSession(context2.checkpoint.activityId, context2);
+        return;
+      }
       const fork = context2.checkpoint.selectedFork ?? "text";
       const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
       if (fork === "text") {
@@ -252901,6 +253824,67 @@ ${spelling}`);
         returning,
         (support2) => this.options.evidence.recordSupportUse(support2.activityId, support2.supportKind, support2.choiceId)
       ));
+    }
+    async renderClassroomExpressionSession(activityId, context2) {
+      const [definition2, content] = await Promise.all([
+        loadLessonZeroClassroomExpressions(),
+        loadLessonZeroContent()
+      ]);
+      let state;
+      try {
+        state = startClassroomExpressionSession(definition2, context2.checkpoint.classroomExpressionProgress);
+      } catch {
+        state = startClassroomExpressionSession(definition2);
+      }
+      if (state.status === "paused") {
+        state = transitionClassroomExpressionSession(definition2, state, { kind: "resume" }, Date.now()).state;
+      }
+      state = classroomStateForActivity(definition2, state, activityId);
+      if (JSON.stringify(state) !== JSON.stringify(context2.checkpoint.classroomExpressionProgress)) {
+        await context2.save?.({ classroomExpressionProgress: state });
+      }
+      const activityById = new Map(content.lesson.activities.map((activity2) => [activity2.id, activity2]));
+      const screen = createClassroomExpressionSessionScreen({
+        language: context2.language,
+        activityId,
+        definition: definition2,
+        initialState: state,
+        pronunciation: this.options.pronunciation,
+        onTransition: async (before, transition) => {
+          const recording = classroomProbeRecording(definition2, transition);
+          if (recording) {
+            this.playFeedbackSfx(recording.evaluation.result.outcome);
+            await this.options.evidence.recordActivity(
+              recording.evaluation,
+              LESSON_ZERO_ID,
+              void 0,
+              recording.adaptive
+            );
+          }
+          for (const support2 of supportEvents(transition)) {
+            await this.options.evidence.recordSupportUse(
+              support2.activityId,
+              support2.supportKind,
+              support2.choiceId,
+              { eventId: support2.eventId, at: support2.at }
+            );
+          }
+          for (const completedId of newlyCompletedClassroomActivityIds(definition2, before, transition.state)) {
+            const completed = activityById.get(completedId);
+            if (!completed) throw new TypeError(`Lesson Zero is missing ${completedId}.`);
+            await this.options.evidence.recordActivity(
+              classroomActivityCompletionEvaluation(completed, Date.now()),
+              LESSON_ZERO_ID
+            );
+          }
+          await context2.save?.({ classroomExpressionProgress: transition.state });
+        },
+        onRestart: (restart) => context2.save?.({ classroomExpressionProgress: restart }),
+        onBack: () => context2.back()
+      });
+      screen.element.dataset.academyRoute = "source-activity";
+      screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
+      context2.shell.replace(screen.element);
     }
     renderAdvancedPackage(packageId, context2) {
       const entry2 = resolveAdvancedCurriculumEntry(packageId);
@@ -253025,7 +254009,7 @@ ${spelling}`);
       else needsReviewActivityIds.add(activity2.activityId);
     }
     return {
-      boundActivityIds: /* @__PURE__ */ new Set(["activity:lesson-zero-reconstruct-repair"]),
+      boundActivityIds: new Set(LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS),
       attemptedActivityIds,
       completedActivityIds,
       needsReviewActivityIds
@@ -255182,33 +256166,33 @@ ${spelling}`);
           void loadBoard();
         }
       }));
-      const result = element("section", "academy-class-board-results");
-      result.setAttribute("aria-live", "polite");
-      result.setAttribute("aria-busy", "true");
+      const result2 = element("section", "academy-class-board-results");
+      result2.setAttribute("aria-live", "polite");
+      result2.setAttribute("aria-busy", "true");
       const loading = element("p", "academy-class-board-loading");
       loading.textContent = localize$1(options.language, "Loading class snapshot…", "クラスのスナップショットを読み込んでいます…");
-      result.append(loading);
-      body.append(result);
+      result2.append(loading);
+      body.append(result2);
     };
     const loadBoard = async () => {
       if (!selectedClassId) return;
       const version2 = ++requestVersion;
-      const result = body.querySelector(".academy-class-board-results");
-      if (!result) return;
-      result.setAttribute("aria-busy", "true");
-      result.replaceChildren(statusLine(options.language));
+      const result2 = body.querySelector(".academy-class-board-results");
+      if (!result2) return;
+      result2.setAttribute("aria-busy", "true");
+      result2.replaceChildren(statusLine(options.language));
       try {
         const view = await options.onLoad(selectedClassId, selectedMetric, selectedPage);
-        if (version2 !== requestVersion || !result.isConnected) return;
-        result.removeAttribute("aria-busy");
-        result.replaceChildren(boardResult(view, account, options.language, (page) => {
+        if (version2 !== requestVersion || !result2.isConnected) return;
+        result2.removeAttribute("aria-busy");
+        result2.replaceChildren(boardResult(view, account, options.language, (page) => {
           selectedPage = page;
           void loadBoard();
         }));
       } catch (error) {
-        if (version2 !== requestVersion || !result.isConnected) return;
-        result.removeAttribute("aria-busy");
-        result.replaceChildren(boardError(error, options.language, () => void loadBoard()));
+        if (version2 !== requestVersion || !result2.isConnected) return;
+        result2.removeAttribute("aria-busy");
+        result2.replaceChildren(boardError(error, options.language, () => void loadBoard()));
       }
     };
     render2();
@@ -255744,13 +256728,13 @@ ${spelling}`);
     input2.required = true;
     input2.placeholder = localize(language, "Enter paid code", "有料コードを入力");
     input2.setAttribute("aria-describedby", help.id);
-    const submit = actionButton$1(localize(language, "Activate", "有効にする"), (button2) => requestAcademyAccountAction(button2, { kind: "redeem", code: input2.value }), "academy-button academy-button-secondary");
+    const submit2 = actionButton$1(localize(language, "Activate", "有効にする"), (button2) => requestAcademyAccountAction(button2, { kind: "redeem", code: input2.value }), "academy-button academy-button-secondary");
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (input2.reportValidity()) submit.click();
+      if (input2.reportValidity()) submit2.click();
     });
     label.append(input2);
-    form2.append(label, submit);
+    form2.append(label, submit2);
     section.append(heading, help, form2);
     return section;
   }
@@ -256538,13 +257522,13 @@ ${spelling}`);
       control2?.setAttribute("aria-invalid", "true");
     });
   }
-  function practiceInteraction(options, practice2, submit) {
+  function practiceInteraction(options, practice2, submit2) {
     switch (practice2.interaction) {
       case "choice": {
         const choices2 = element("div", "academy-story-vn-activity-actions");
         practice2.options.forEach((option2) => {
           const button2 = actionButton(option2.label[options.language], "academy-story-practice-option", () => {
-            submit({ interaction: "choice", optionId: option2.id });
+            submit2({ interaction: "choice", optionId: option2.id });
           });
           button2.dataset.storyPracticeOption = option2.id;
           choices2.append(button2);
@@ -256552,14 +257536,14 @@ ${spelling}`);
         return choices2;
       }
       case "evidence-map":
-        return evidenceMapInteraction(options, practice2, submit);
+        return evidenceMapInteraction(options, practice2, submit2);
       case "written-response":
-        return writtenResponseInteraction(options, practice2, submit);
+        return writtenResponseInteraction(options, practice2, submit2);
       default:
         return unsupportedStoryPractice(practice2);
     }
   }
-  function evidenceMapInteraction(options, practice2, submit) {
+  function evidenceMapInteraction(options, practice2, submit2) {
     const fieldset = element("fieldset", "academy-story-evidence-map");
     fieldset.dataset.storyPracticeInteraction = "evidence-map";
     fieldset.append(textElement("legend", "academy-visually-hidden", practice2.prompt[options.language]));
@@ -256590,12 +257574,12 @@ ${spelling}`);
           entry2.querySelector(`[data-evidence-column="${column.id}"]`).value
         ]))];
       }));
-      submit({ interaction: "evidence-map", rows });
+      submit2({ interaction: "evidence-map", rows });
     });
     fieldset.append(check2);
     return fieldset;
   }
-  function writtenResponseInteraction(options, practice2, submit) {
+  function writtenResponseInteraction(options, practice2, submit2) {
     const fieldset = element("fieldset", "academy-story-written-response");
     fieldset.dataset.storyPracticeInteraction = "written-response";
     fieldset.append(textElement("legend", "academy-visually-hidden", practice2.prompt[options.language]));
@@ -256616,7 +257600,7 @@ ${spelling}`);
         field2.id,
         fieldset.querySelector(`[data-story-written-field="${field2.id}"]`).value
       ]));
-      submit({ interaction: "written-response", fields });
+      submit2({ interaction: "written-response", fields });
     });
     fieldset.append(check2);
     return fieldset;
@@ -257101,17 +258085,17 @@ ${spelling}`);
     let selected2 = false;
     const target2 = targetEntryId(options.practice);
     const entries2 = CATALOGUE.map((entry2) => {
-      const result = element("button", "academy-bookshop-catalogue-result");
-      result.type = "button";
-      result.dataset.catalogueEntry = entry2.id;
-      result.setAttribute("aria-pressed", "false");
+      const result2 = element("button", "academy-bookshop-catalogue-result");
+      result2.type = "button";
+      result2.dataset.catalogueEntry = entry2.id;
+      result2.setAttribute("aria-pressed", "false");
       const title2 = element("span", "academy-bookshop-catalogue-title");
       title2.lang = "ja";
       title2.textContent = entry2.title;
       const entrySupport = element("span", "academy-bookshop-catalogue-entry-support");
       entrySupport.textContent = entry2.support;
-      result.append(title2, entrySupport);
-      result.addEventListener("click", () => {
+      result2.append(title2, entrySupport);
+      result2.addEventListener("click", () => {
         if (selected2) return;
         if (entry2.id !== target2) {
           status.textContent = options.language === "ja" ? `メモは「${CATALOGUE.find((candidate2) => candidate2.id === target2)?.title ?? ""}」です。もう一度、目録を見てみましょう。` : `The note says ${CATALOGUE.find((candidate2) => candidate2.id === target2)?.support.toLocaleLowerCase() ?? ""}. Check the catalogue again.`;
@@ -257122,14 +258106,14 @@ ${spelling}`);
         catalogue.dataset.bookshopPhase = "ask";
         entries2.forEach((button2) => {
           button2.disabled = true;
-          button2.setAttribute("aria-pressed", String(button2 === result));
+          button2.setAttribute("aria-pressed", String(button2 === result2));
         });
         status.textContent = options.language === "ja" ? `${entry2.title}の札を見つけた。Sophie-sanにたずねよう。` : `You found the ${entry2.support.toLocaleLowerCase()} card. Ask Sophie-san.`;
         question2.hidden = false;
         question2.querySelector("[data-bookshop-listen]")?.focus();
       });
-      results.append(result);
-      return result;
+      results.append(result2);
+      return result2;
     });
     const syncResults = () => {
       const query = search.value.trim().toLocaleLowerCase();
@@ -257888,14 +258872,14 @@ ${spelling}`);
     return root;
   }
   function shuffled(values, random) {
-    const result = [...values];
-    for (let index = result.length - 1; index > 0; index -= 1) {
+    const result2 = [...values];
+    for (let index = result2.length - 1; index > 0; index -= 1) {
       const value = random();
       const unit = Number.isFinite(value) ? Math.min(0.999999, Math.max(0, value)) : 0;
       const swapIndex = Math.floor(unit * (index + 1));
-      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+      [result2[index], result2[swapIndex]] = [result2[swapIndex], result2[index]];
     }
-    return result;
+    return result2;
   }
   const WEATHER_MARKS = [
     { id: "cloud-silver", ja: "雲の銀色", en: "Cloud silver" },
@@ -259030,9 +260014,9 @@ ${spelling}`);
   }
   function worldKonbiniPresence(options, personId) {
     if (options.place !== "konbini" || personId !== "nanako") return void 0;
-    const visit = (options.progress.worldVisits?.konbini ?? 0) % 3;
-    if (visit === 1) return { id: "restocking-cd-rack", label: { ja: "Nanako-san・CD棚の値札を直している", en: "Nanako-san · Straightening the CD price tags" } };
-    if (visit === 2) return { id: "folding-shopping-bag", label: { ja: "Nanako-san・レジ袋をたたんでいる", en: "Nanako-san · Folding a bag beside the register" } };
+    const visit2 = (options.progress.worldVisits?.konbini ?? 0) % 3;
+    if (visit2 === 1) return { id: "restocking-cd-rack", label: { ja: "Nanako-san・CD棚の値札を直している", en: "Nanako-san · Straightening the CD price tags" } };
+    if (visit2 === 2) return { id: "folding-shopping-bag", label: { ja: "Nanako-san・レジ袋をたたんでいる", en: "Nanako-san · Folding a bag beside the register" } };
     return { id: "counting-register-notes", label: { ja: "Nanako-san・レジの千円札を数えている", en: "Nanako-san · Counting ¥1,000 notes at the till" } };
   }
   function worldCourtyardPresence(options, personId) {
@@ -261923,7 +262907,7 @@ ${spelling}`);
       const payload = JSON.parse(response);
       if (!payload || typeof payload !== "object") return [];
       const results = payload.results;
-      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
+      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result2) => Boolean(result2)) : [];
     } catch {
       return [];
     }
@@ -261945,9 +262929,9 @@ ${spelling}`);
     if (!results.length) return null;
     const spelling = card.spelling.trim();
     const reading = card.reading.trim();
-    const exact2 = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
-    const spellingOnly = exact2 ?? results.find((result) => result.text === spelling);
-    const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
+    const exact2 = results.find((result2) => result2.text === spelling && (!reading || result2.reading === reading));
+    const spellingOnly = exact2 ?? results.find((result2) => result2.text === spelling);
+    const readingOnly = spellingOnly ?? results.find((result2) => reading && result2.reading === reading);
     const match = readingOnly ?? results[0];
     return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
   }
@@ -262682,7 +263666,7 @@ ${spelling}`);
       this.stopCurrent(reservedAudio);
       if (!request2.sources.length) return await this.playNoAudioSources(card, request2);
       const done = log$s.time("play", { term: card.spelling, sources: request2.sources.map((source2) => source2.type), viaBlob: true });
-      const result = await this.playFromSources(
+      const result2 = await this.playFromSources(
         request2.sources,
         card,
         request2.settings,
@@ -262692,7 +263676,7 @@ ${spelling}`);
         reservedAudio,
         request2.playbackLifecycle
       );
-      if (result.state === "played" && request2.reservedGesture && this.current) {
+      if (result2.state === "played" && request2.reservedGesture && this.current) {
         this.reusableGestureAudio = this.current;
       }
       done();
@@ -262702,7 +263686,7 @@ ${spelling}`);
         request2.requestId,
         request2.isCurrent,
         request2.userGesture,
-        result,
+        result2,
         request2.playbackLifecycle
       );
     }
@@ -262779,17 +263763,17 @@ ${spelling}`);
         request2.playbackLifecycle
       );
     }
-    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result, playbackLifecycle) {
-      if (result.state === "played") return true;
-      if (result.state === "playback-error") return false;
-      if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$s.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result2, playbackLifecycle) {
+      if (result2.state === "played") return true;
+      if (result2.state === "playback-error") return false;
+      if (result2.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      log$s.warn("No playable audio found", { term: card.spelling, errors: result2.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
       const errors = [];
       const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
-      const result = await this.playFromSourcesAttempt(
+      const result2 = await this.playFromSourcesAttempt(
         sources,
         card,
         settings,
@@ -262801,7 +263785,7 @@ ${spelling}`);
         avoidIdentity,
         playbackLifecycle
       );
-      if (result.state === "miss" && result.skippedAvoidedIdentity) {
+      if (result2.state === "miss" && result2.skippedAvoidedIdentity) {
         const retry = await this.playFromSourcesAttempt(
           sources,
           card,
@@ -262816,7 +263800,7 @@ ${spelling}`);
         );
         return { state: retry.state, errors };
       }
-      return { state: result.state, errors };
+      return { state: result2.state, errors };
     }
     async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity, playbackLifecycle) {
       const triedUrls = /* @__PURE__ */ new Set();
@@ -262836,8 +263820,8 @@ ${spelling}`);
       };
       const fallbackContext = { ...context2, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
-        const result = await this.playOrderedSources(orderAudioSources(sources, card), context2);
-        return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
+        const result2 = await this.playOrderedSources(orderAudioSources(sources, card), context2);
+        return { state: result2, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       }
       const realSourceSettings = sources.filter((source2) => !isTextToSpeechFallbackSource(source2));
       const realAudioSources = orderAudioSources(realSourceSettings, card);
@@ -262853,8 +263837,8 @@ ${spelling}`);
     }
     async playOrderedSources(sources, context2) {
       for (const sourceEntry of sources) {
-        const result = await this.playSourceWithErrors(sourceEntry, context2);
-        if (result !== "miss") return result;
+        const result2 = await this.playSourceWithErrors(sourceEntry, context2);
+        if (result2 !== "miss") return result2;
       }
       return "miss";
     }
@@ -262864,10 +263848,10 @@ ${spelling}`);
       }
       try {
         const played = await this.playFromSource(sourceEntry, context2);
-        const result = this.audioSourceAttemptResult(played, context2.requestId, context2.isCurrent);
-        if (result === "played") this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
-        else if (result === "miss") this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
-        return result;
+        const result2 = this.audioSourceAttemptResult(played, context2.requestId, context2.isCurrent);
+        if (result2 === "played") this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
+        else if (result2 === "miss") this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
+        return result2;
       } catch (error) {
         context2.errors.push(error instanceof Error ? error.message : String(error));
         this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
@@ -264605,10 +265589,10 @@ ${spelling}`);
   function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, planningHeight, layout) {
     let best = null;
     for (const candidate2 of popoverSourceRectCandidates(sourceRects)) {
-      const result = getPositionForWritingMode(candidate2.rect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout);
-      if (!canUsePopoverPosition(candidate2, result, sourceRects)) continue;
-      best = tallerPopoverPosition(best, result);
-      if (result.height >= frameHeight) break;
+      const result2 = getPositionForWritingMode(candidate2.rect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout);
+      if (!canUsePopoverPosition(candidate2, result2, sourceRects)) continue;
+      best = tallerPopoverPosition(best, result2);
+      if (result2.height >= frameHeight) break;
     }
     return best;
   }
@@ -265516,12 +266500,12 @@ ${spelling}`);
         await adapter.mine(bunproMiningRequestFromCard(card, sentence, context2));
       },
       reviewCard: async (card, grade2, reviewOptions = {}) => {
-        const result = await adapter.review({
+        const result2 = await adapter.review({
           card: bunproReviewableFromCard(card),
           grade: grade2,
           sentence: reviewOptions.sentence
         });
-        if (result.card) applyBunproReviewableToCard(card, result.card);
+        if (result2.card) applyBunproReviewableToCard(card, result2.card);
         return {};
       },
       setDeckState: async () => void 0
@@ -265548,8 +266532,8 @@ ${spelling}`);
         throw new Error("WaniKani has no API to add arbitrary words; open the word on wanikani.com instead.");
       },
       reviewCard: async (card, grade2) => {
-        const result = await adapter.review({ card: wanikaniReviewableFromCard(card), grade: grade2 });
-        if (result.card) applyWanikaniReviewableToCard(card, result.card);
+        const result2 = await adapter.review({ card: wanikaniReviewableFromCard(card), grade: grade2 });
+        if (result2.card) applyWanikaniReviewableToCard(card, result2.card);
         return {};
       },
       setDeckState: async () => void 0
@@ -265613,17 +266597,17 @@ ${spelling}`);
       selectedDeckId: () => "yomu-local",
       selectedDeckLabel: () => ACADEMY_SRS_LABEL,
       addToDeck: async (_deckId, card, sentence, context2) => {
-        const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2));
-        if (result.card) applyYomuLocalReviewableToCard(card, result.card);
+        const result2 = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2));
+        if (result2.card) applyYomuLocalReviewableToCard(card, result2.card);
       },
       reviewCard: async (card, grade2, reviewOptions = {}) => {
         const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-        const result = await adapter.review({
+        const result2 = await adapter.review({
           card: yomuLocalReviewableFromCard(card),
           grade: grade2,
           sentence: reviewOptions.sentence
         });
-        if (result.card) applyYomuLocalReviewableToCard(card, result.card);
+        if (result2.card) applyYomuLocalReviewableToCard(card, result2.card);
         return { addedBeforeReview: wasNotInDeck };
       },
       setDeckState: async () => void 0
@@ -266116,7 +267100,7 @@ ${spelling}`);
       const noteId = Number(button2.dataset.noteId);
       if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
       const { dictionaryContext, context: context2, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
-      const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context2.sentence, sentence), {
+      const result2 = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context2.sentence, sentence), {
         imageDataUrl: context2.imageDataUrl,
         audioDataUrl: context2.audioDataUrl,
         wordAudioDataUrl: wordAudio?.dataUrl,
@@ -266129,7 +267113,7 @@ ${spelling}`);
         sourceUrl: ankiSourceUrl(context2.sourceUrl)
       });
       this.notifyAnkiStatusChanged(card);
-      this.options.toast(ankiMergeToast(result, settings));
+      this.options.toast(ankiMergeToast(result2, settings));
       await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -266210,8 +267194,8 @@ ${spelling}`);
       this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview"));
       const states = normalizeCardStates(card.cardState);
       assertReviewableApiCardState(states, settings);
-      const result = await provider.reviewCard(card, grade2, { sentence, deckId: this.reviewDeckId(options) });
-      if (result.addedBeforeReview) {
+      const result2 = await provider.reviewCard(card, grade2, { sentence, deckId: this.reviewDeckId(options) });
+      if (result2.addedBeforeReview) {
         if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
       } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
       this.notifyApiCardStateChanged(card);
@@ -266386,14 +267370,14 @@ ${spelling}`);
   }
   function uniqueTrimmed(values) {
     const seen = /* @__PURE__ */ new Set();
-    const result = [];
+    const result2 = [];
     for (const value of values) {
       const trimmed = value.trim();
       if (!trimmed || seen.has(trimmed)) continue;
       seen.add(trimmed);
-      result.push(trimmed);
+      result2.push(trimmed);
     }
-    return result;
+    return result2;
   }
   function miningSentenceForAnki(contextSentence, fallbackSentence) {
     return contextSentence || fallbackSentence;
@@ -266416,13 +267400,13 @@ ${spelling}`);
     if (hasAudio) return uiText(language, "sentToAnkiWithAudio");
     return uiText(language, "sentToAnki");
   }
-  function ankiMergeToast(result, settings) {
+  function ankiMergeToast(result2, settings) {
     const language = settings.interfaceLanguage;
-    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return uiText(language, "ankiMergeNoNewData");
+    if (!result2.updatedFields.length && !result2.audioAdded && !result2.imageAdded) return uiText(language, "ankiMergeNoNewData");
     const parts = [
-      result.updatedFields.length ? `${result.updatedFields.length} ${uiText(language, result.updatedFields.length === 1 ? "ankiMergeFieldSingular" : "ankiMergeFieldPlural")}` : "",
-      result.audioAdded ? uiText(language, "ankiMergeAudio") : "",
-      result.imageAdded ? uiText(language, "ankiMergeImage") : ""
+      result2.updatedFields.length ? `${result2.updatedFields.length} ${uiText(language, result2.updatedFields.length === 1 ? "ankiMergeFieldSingular" : "ankiMergeFieldPlural")}` : "",
+      result2.audioAdded ? uiText(language, "ankiMergeAudio") : "",
+      result2.imageAdded ? uiText(language, "ankiMergeImage") : ""
     ].filter(Boolean);
     return formatUiText(language, "ankiMergeComplete", { parts: uiList(language, parts) });
   }
@@ -267274,13 +268258,13 @@ ${spelling}`);
       occupied.push([match.start, match.end]);
       if (selected2.length >= limit) break;
     }
-    const result = selected2.sort((a, b) => a.start - b.start);
-    return result;
+    const result2 = selected2.sort((a, b) => a.start - b.start);
+    return result2;
   }
   function compareTermMatchesForSelection(a, b) {
     for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-      const result = compare(a, b);
-      if (result) return result;
+      const result2 = compare(a, b);
+      if (result2) return result2;
     }
     return 0;
   }
@@ -267467,11 +268451,11 @@ ${item2.sequence ?? ""}`;
     }
     return btoa(binary);
   }
-  function readBlobWithFileReader(blob, read, result) {
+  function readBlobWithFileReader(blob, read, result2) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
-      reader.onload = () => resolve(result(reader));
+      reader.onload = () => resolve(result2(reader));
       read(reader, blob);
     });
   }
@@ -267590,11 +268574,11 @@ ${item2.sequence ?? ""}`;
   async function readDexieRowStep(state, handlers, index, progress2) {
     const action2 = readDexieRowCharacter(state, index);
     if (action2 === "continue") return { done: false, progress: progress2, nextIndex: index + 1 };
-    const result = await applyDexieRowReadAction(state, handlers, action2, index, progress2);
+    const result2 = await applyDexieRowReadAction(state, handlers, action2, index, progress2);
     return {
-      done: result.done,
-      progress: result.progress,
-      nextIndex: result.restart ? 0 : index + 1
+      done: result2.done,
+      progress: result2.progress,
+      nextIndex: result2.restart ? 0 : index + 1
     };
   }
   async function applyDexieRowReadAction(state, handlers, action2, index, progress2) {
@@ -267837,7 +268821,7 @@ ${item2.sequence ?? ""}`;
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
-      const result = userscriptRequest({
+      const result2 = userscriptRequest({
         method: "GET",
         url,
         headers: { accept: "application/zip,application/octet-stream,*/*" },
@@ -267860,8 +268844,8 @@ ${item2.sequence ?? ""}`;
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, () => {
+      if (result2 && typeof result2.then === "function") {
+        result2.then(handleLoad, () => {
           log$p.warn("Dictionary download failed", { host: safeHost(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
@@ -271070,7 +272054,7 @@ ${entry2.reading}`;
       throw new Error(uiText(language, "dictionaryZipMissingIndex"));
     }));
   }
-  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage: errorMessage2 }, visit) {
+  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage: errorMessage2 }, visit2) {
     const startedAt = performance.now();
     let visited = 0;
     await new Promise((resolve, reject) => {
@@ -271084,7 +272068,7 @@ ${entry2.reading}`;
           return;
         }
         visited++;
-        visit(cursor.value);
+        visit2(cursor.value);
         cursor.continue();
       };
     });
@@ -272011,8 +272995,8 @@ ${entry2.reading || ""}`;
   }
   function resolvePageMiningContext(term, sentence, sourceKind) {
     const context2 = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
-    const result = saveMiningContext(term, context2) ?? createFallbackMiningContext(term, context2);
-    return result;
+    const result2 = saveMiningContext(term, context2) ?? createFallbackMiningContext(term, context2);
+    return result2;
   }
   function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
     const context2 = pageMiningContext(sentence, sourceKind);
@@ -272437,8 +273421,8 @@ ${entry2.reading || ""}`;
       addKanjiFact(facts, candidate2.label, candidate2.value, candidate2.source);
     }
     if (!facts.has("Character")) addKanjiFact(facts, "Character", kanji, "current lookup");
-    const result = Array.from(facts.values()).filter((fact2) => fact2.label !== "Character").slice(0, 8);
-    return result;
+    const result2 = Array.from(facts.values()).filter((fact2) => fact2.label !== "Character").slice(0, 8);
+    return result2;
   }
   function kanjiFactCandidates(_kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries2, sourceInfo) {
     const local = extractLocalKanjiFacts(entries2);
@@ -273162,14 +274146,14 @@ ${entry2.reading || ""}`;
     }
   }
   function nestedEdgesByParent(edges, nodeById) {
-    const result = /* @__PURE__ */ new Map();
+    const result2 = /* @__PURE__ */ new Map();
     edges.filter(isOriginSubcomponentEdge).forEach((edge) => {
       if (!nodeById.has(edge.from) || !nodeById.has(edge.to)) return;
-      const list2 = result.get(edge.to) ?? [];
+      const list2 = result2.get(edge.to) ?? [];
       list2.push(edge);
-      result.set(edge.to, list2);
+      result2.set(edge.to, list2);
     });
-    return result;
+    return result2;
   }
   function nestedZoneAnchor(parent, zone, index, total) {
     const xStep = 18;
@@ -275321,25 +276305,25 @@ ${component.reading}`;
         query: { query, limit }
       });
       if (!isJsonRecord$1(response) || !Array.isArray(response.results)) return [];
-      return response.results.map((result) => ({
-        vid: result.wordId,
-        sid: result.readingIndex,
+      return response.results.map((result2) => ({
+        vid: result2.wordId,
+        sid: result2.readingIndex,
         rid: 0,
-        spelling: result.text,
-        reading: cleanJitenAnnotatedReading$1(result.rubyText || result.text),
-        frequencyRank: typeof result.frequencyRank === "number" ? result.frequencyRank : null,
-        partOfSpeech: Array.isArray(result.partsOfSpeech) ? result.partsOfSpeech.map(String) : [],
-        meanings: (Array.isArray(result.meanings) ? result.meanings : []).map((meaning) => ({
+        spelling: result2.text,
+        reading: cleanJitenAnnotatedReading$1(result2.rubyText || result2.text),
+        frequencyRank: typeof result2.frequencyRank === "number" ? result2.frequencyRank : null,
+        partOfSpeech: Array.isArray(result2.partsOfSpeech) ? result2.partsOfSpeech.map(String) : [],
+        meanings: (Array.isArray(result2.meanings) ? result2.meanings : []).map((meaning) => ({
           glosses: [meaning],
           partOfSpeech: []
         })),
         cardState: ["not-in-deck"],
         pitchAccent: [],
-        wordWithReading: result.rubyText || null,
+        wordWithReading: result2.rubyText || null,
         source: "jiten",
         reviewSource: "jiten-api",
-        jitenWordId: result.wordId,
-        jitenReadingIndex: result.readingIndex
+        jitenWordId: result2.wordId,
+        jitenReadingIndex: result2.readingIndex
       }));
     }
     async lookupJitenCardForVocabularyInfo(card) {
@@ -275636,8 +276620,8 @@ ${component.reading}`;
       return headers;
     }
   }
-  function jitenParseResultToTokens(paragraphs, result) {
-    const payload = isJsonRecord$1(result) ? result : {};
+  function jitenParseResultToTokens(paragraphs, result2) {
+    const payload = isJsonRecord$1(result2) ? result2 : {};
     const vocabulary = jitenVocabularyEntries(payload.vocabulary);
     const cardByKey = new Map(vocabulary.map((entry2) => [jitenLookupKey(entry2.wordId, entry2.readingIndex), jitenCardFromVocabulary(entry2)]));
     const vocabByKey = new Map(vocabulary.map((entry2) => [jitenLookupKey(entry2.wordId, entry2.readingIndex), entry2]));
@@ -276748,8 +277732,8 @@ ${component.reading}`;
     async tryParseWithJpdb(paragraphs, options, settings) {
       if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
       try {
-        const result = await this.parseWithJpdb(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result, options);
+        const result2 = await this.parseWithJpdb(paragraphs, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result2, options);
       } catch (error) {
         this.handleRemoteParseError("JPDB", error, options);
         return null;
@@ -276763,8 +277747,8 @@ ${component.reading}`;
     async tryParseWithJiten(paragraphs, options, settings) {
       if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
       try {
-        const result = await this.parseWithJiten(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result, options);
+        const result2 = await this.parseWithJiten(paragraphs, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result2, options);
       } catch (error) {
         this.handleRemoteParseError("Jiten", error, options);
         return null;
@@ -277614,9 +278598,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         bunproDataLookup,
         { info: null, status: { state: "timeout" } }
       );
-      const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
-        if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
-        return result;
+      const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result2]) => {
+        if (settings.showPitchAccent) applyBunproPitchToCard(card, result2.info);
+        return result2;
       });
       const bunproDefinitionLookup = bunproDefinitionRequested ? bunproDataLookup : Promise.resolve({
         info: null,
@@ -277626,9 +278610,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         }
       });
       const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
-      const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
+      const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result2]) => {
         if (!settings.showPitchAccent) return publicPitch;
-        applyBunproPitchToCard(card, result.info);
+        applyBunproPitchToCard(card, result2.info);
         return [...card.pitchAccent];
       });
       const hydratedPitchAccent = hydratedBunproPitchData.then(() => [...card.pitchAccent]);
@@ -277639,8 +278623,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         bunproDefinitionLookup,
         { info: null, status: { state: "timeout" } }
       );
-      const bunproDefinitionInfo = bunproDefinitionResult.then((result) => result.info);
-      const bunproDefinitionStatus = bunproDefinitionResult.then((result) => result.status);
+      const bunproDefinitionInfo = bunproDefinitionResult.then((result2) => result2.info);
+      const bunproDefinitionStatus = bunproDefinitionResult.then((result2) => result2.status);
       const expressionComponents = this.withFallback(
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
@@ -277679,7 +278663,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         bunproDefinitionInfo,
         bunproDefinitionStatus,
         hydrateLocalEntries: () => localEntriesUncapped,
-        hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result) => result.info),
+        hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result2) => result2.info),
         hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
         all
       };
@@ -277791,7 +278775,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         log$k.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
         return null;
       }) : Promise.resolve(null);
-      const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
+      const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result2) => bunproFrequencyRank(card, result2.info)).catch(() => null) : Promise.resolve(null);
       const combine = ([jitenRank, jpdbRank, bunproRank]) => withFrequencyRank(withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank), bunproRank);
       return {
         initial: Promise.all([
@@ -277809,10 +278793,10 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
       const startedAt = performance.now();
       log$k.debug("Bunpro definition lookup started", { term: card.spelling });
-      return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
+      return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result2) => {
         const resolved = {
-          info: result.info,
-          status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
+          info: result2.info,
+          status: result2.state === "success" ? { state: "success" } : { state: "no-match", reason: result2.reason }
         };
         log$k.debug("Bunpro definition lookup completed", {
           term: card.spelling,
@@ -278453,15 +279437,15 @@ ${component.reading}`;
   }
   function dedupeText(values) {
     const seen = /* @__PURE__ */ new Set();
-    const result = [];
+    const result2 = [];
     for (const value of values) {
       const text2 = value.trim();
       const key2 = normalizedMeaningPartOfSpeech(text2);
       if (!text2 || seen.has(key2)) continue;
       seen.add(key2);
-      result.push(text2);
+      result2.push(text2);
     }
-    return result;
+    return result2;
   }
   function renderJitenVocabularyExtras(info, sourceAttributes, language, card) {
     if (!info || !info.composedOf.length && !info.usedIn.length && !info.examples.length) return "";
@@ -278801,31 +279785,31 @@ ${component.reading}`;
   const TAG_RE = /<(\/?)(radical|kanji|vocabulary|reading|meaning|ja)>/gu;
   function renderWanikaniMarkup(text2) {
     if (!text2) return "";
-    let result = "";
+    let result2 = "";
     let lastIndex = 0;
     const openTags = [];
     TAG_RE.lastIndex = 0;
     let match;
     while ((match = TAG_RE.exec(text2)) !== null) {
       const [full, closing, tag] = match;
-      result += escapeHtml(text2.slice(lastIndex, match.index));
+      result2 += escapeHtml(text2.slice(lastIndex, match.index));
       lastIndex = match.index + full.length;
       if (!KNOWN_TAGS.has(tag)) continue;
       if (closing) {
         if (openTags.at(-1) === tag) {
-          result += "</span>";
+          result2 += "</span>";
           openTags.pop();
         } else {
-          result += escapeHtml(full);
+          result2 += escapeHtml(full);
         }
       } else {
-        result += `<span class="yomu-wanikani-tag yomu-wanikani-tag-${tag}">`;
+        result2 += `<span class="yomu-wanikani-tag yomu-wanikani-tag-${tag}">`;
         openTags.push(tag);
       }
     }
-    result += escapeHtml(text2.slice(lastIndex));
-    while (openTags.pop()) result += "</span>";
-    return result;
+    result2 += escapeHtml(text2.slice(lastIndex));
+    while (openTags.pop()) result2 += "</span>";
+    return result2;
   }
   function escapeHtml(value) {
     return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
@@ -279484,12 +280468,12 @@ ${component.reading}`;
       if (inflight) return inflight;
       const done = log$i.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
-        const result = applySearchExampleLimit(examples, settings, options);
+        const result2 = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
-          this.cache.set(cacheKey, result);
+          this.cache.set(cacheKey, result2);
           pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
         }
-        return result;
+        return result2;
       }).finally(() => {
         if (cacheInflight) this.inflight.delete(cacheKey);
         done();
@@ -279877,28 +280861,28 @@ ${component.reading}`;
     return title2.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
   }
   function deterministicShuffle(values, seed) {
-    const result = [...values];
+    const result2 = [...values];
     let state = stablePositiveHashId(seed);
-    for (let index = result.length - 1; index > 0; index--) {
+    for (let index = result2.length - 1; index > 0; index--) {
       state = nextRandomState(state);
       const swapIndex = state % (index + 1);
-      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+      [result2[index], result2[swapIndex]] = [result2[swapIndex], result2[index]];
     }
-    return result;
+    return result2;
   }
   function deterministicMergedExamples(sources, resultSets, seed) {
     const groups = deterministicShuffle(sources.map((source2, index) => ({
       source: source2,
       examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source2}`)
     })), `${seed}:providers`).filter((group2) => group2.examples.length);
-    const result = [];
+    const result2 = [];
     while (groups.some((group2) => group2.examples.length)) {
       for (const group2 of groups) {
         const example = group2.examples.shift();
-        if (example) result.push(example);
+        if (example) result2.push(example);
       }
     }
-    return result;
+    return result2;
   }
   function nextRandomState(value) {
     return Math.imul(value, 1664525) + 1013904223 >>> 0;
@@ -280091,15 +281075,15 @@ ${component.reading}`;
   }
   function uniqueImmersionQueries(values) {
     const seen = /* @__PURE__ */ new Set();
-    const result = [];
+    const result2 = [];
     for (const value of values) {
       const query = normalizeImmersionSearchQuery(value);
       const key2 = queryKey(query);
       if (!query || seen.has(key2)) continue;
       seen.add(key2);
-      result.push(query);
+      result2.push(query);
     }
-    return result;
+    return result2;
   }
   function immersionFallbackFragments(value) {
     const fragments = [];
@@ -280123,16 +281107,16 @@ ${component.reading}`;
   function scriptFragments(run) {
     const groups = run.match(SCRIPT_GROUP_RE) ?? [];
     if (groups.length <= 1) return groups;
-    const result = [...groups];
+    const result2 = [...groups];
     for (let i2 = 0; i2 < groups.length; i2++) {
       let q = groups[i2];
       for (let j = i2 + 1; j < groups.length; j++) {
         q += groups[j];
-        result.push(q);
+        result2.push(q);
       }
     }
-    result.push(groups.filter(queryHasKanji).join(""));
-    return result;
+    result2.push(groups.filter(queryHasKanji).join(""));
+    return result2;
   }
   function compareFallbackFragments(a, b) {
     const order2 = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
@@ -281264,13 +282248,13 @@ ${component.reading}`;
       const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
       const settings = this.options.getSettings();
       try {
-        const result = await raceAgainstAbortOrTimeout(
+        const result2 = await raceAgainstAbortOrTimeout(
           searchPromise,
           controller.signal,
           settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
         );
         if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
-        this.renderLoadedExamples(container, card, result);
+        this.renderLoadedExamples(container, card, result2);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
         log$h.warn("Immersion Kit examples failed", { term: card.spelling }, error);
@@ -281359,16 +282343,16 @@ ${component.reading}`;
       this.lazyLoadObservers.get(container)?.disconnect();
       this.lazyLoadObservers.delete(container);
     }
-    renderLoadedExamples(container, card, result) {
-      const { examples } = result;
+    renderLoadedExamples(container, card, result2) {
+      const { examples } = result2;
       if (!examples.length) {
         this.renderEmpty(container);
         return;
       }
-      this.bindExampleCarousel(container, card, result);
+      this.bindExampleCarousel(container, card, result2);
     }
-    bindExampleCarousel(container, card, result) {
-      const { examples } = result;
+    bindExampleCarousel(container, card, result2) {
+      const { examples } = result2;
       let index = this.startIndex(card, examples);
       let renderRequest = 0;
       let hoverAudioCanPlay = true;
@@ -281376,7 +282360,7 @@ ${component.reading}`;
       const render2 = (nextIndex, playAudio, promoteMiningContext = false) => {
         const requestId = ++renderRequest;
         index = validImmersionExampleIndex(nextIndex, examples.length);
-        this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
+        this.renderExample(container, card, examples, index, playAudio, result2.query, () => requestId === renderRequest, promoteMiningContext);
         bindHoverMedia();
       };
       container.addEventListener("click", (event) => {
@@ -281473,9 +282457,9 @@ ${component.reading}`;
       const cached = this.searchResultCache.get(key2);
       if (cached && cached.expiresAt > now) return cached.promise;
       if (options.signal) {
-        return this.fetchExamples(card, options).then((result) => {
-          if (!options.signal?.aborted) this.rememberSearchResult(key2, result);
-          return result;
+        return this.fetchExamples(card, options).then((result2) => {
+          if (!options.signal?.aborted) this.rememberSearchResult(key2, result2);
+          return result2;
         });
       }
       const promise = this.fetchExamples(card, options).catch((error) => {
@@ -281486,9 +282470,9 @@ ${component.reading}`;
       pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
       return promise;
     }
-    rememberSearchResult(key2, result) {
+    rememberSearchResult(key2, result2) {
       const now = Date.now();
-      this.searchResultCache.set(key2, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
+      this.searchResultCache.set(key2, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result2) });
       pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
     }
     stopAudio() {
@@ -281520,11 +282504,11 @@ ${component.reading}`;
           cleanupAbortListener();
           reject(error);
         };
-        const finish = (result) => {
+        const finish = (result2) => {
           if (settled) return;
           settled = true;
           cleanupAbortListener();
-          resolve(result);
+          resolve(result2);
         };
         const handleAbort = () => fail2(abortErrorForRace());
         if (signal?.aborted) {
@@ -281540,10 +282524,10 @@ ${component.reading}`;
           while (!settled && active < concurrency && nextIndex < queries.length) {
             const query = queries[nextIndex++];
             active++;
-            void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result) => {
+            void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result2) => {
               active--;
-              if (result) {
-                finish(result);
+              if (result2) {
+                finish(result2);
                 return;
               }
               if (nextIndex >= queries.length && active === 0) finish(null);
@@ -282382,7 +283366,7 @@ ${component.reading}`;
         ok: response.status >= 200 && response.status < 300,
         text: String(response.responseText ?? response.response ?? "")
       });
-      const result = request2({
+      const result2 = request2({
         method: "POST",
         url,
         headers,
@@ -282393,8 +283377,8 @@ ${component.reading}`;
         onerror: reject,
         ontimeout: () => reject(new Error("JPDB request timed out."))
       });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, reject);
+      if (result2 && typeof result2.then === "function") {
+        result2.then(handleLoad, reject);
       }
     });
   }
@@ -283000,8 +283984,8 @@ ${key2}`] = { t: now, v: value };
     }
     async lookupMany(terms, options = {}) {
       const uniqueTerms = uniqueNormalizedTerms(terms);
-      const result = /* @__PURE__ */ new Map();
-      if (!uniqueTerms.length || this.isBackoffActive()) return result;
+      const result2 = /* @__PURE__ */ new Map();
+      if (!uniqueTerms.length || this.isBackoffActive()) return result2;
       const cachedTerms = [];
       const persistedCards = /* @__PURE__ */ new Map();
       const pendingTerms = [];
@@ -283021,26 +284005,26 @@ ${key2}`] = { t: now, v: value };
         }
         pendingTerms.push(term);
       });
-      persistedCards.forEach((card, term) => result.set(term, card));
+      persistedCards.forEach((card, term) => result2.set(term, card));
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms, options).catch((error) => {
           this.noteFailure(error);
           logPublicJitenFailure("Jiten batch", { terms: pendingTerms.length }, error);
           return /* @__PURE__ */ new Map();
         });
-        loaded.forEach((card, term) => result.set(term, card));
+        loaded.forEach((card, term) => result2.set(term, card));
       }
       await Promise.all(cachedTerms.map(async (term) => {
         const cached = this.cardCache.get(term);
         if (!cached) return;
         const card = await cached.promise.catch(() => null);
-        if (card) result.set(term, card);
+        if (card) result2.set(term, card);
       }));
-      return result;
+      return result2;
     }
     async parse(paragraphs, options = {}) {
-      const result = paragraphs.map(() => []);
-      if (!paragraphs.length || this.isBackoffActive()) return result;
+      const result2 = paragraphs.map(() => []);
+      if (!paragraphs.length || this.isBackoffActive()) return result2;
       const chunks2 = publicParseChunks(paragraphs);
       await mapLimited(chunks2, DETAIL_CONCURRENCY, async (chunk) => {
         const parsed = await this.requestParseText(chunk.text).catch((error) => {
@@ -283048,14 +284032,14 @@ ${key2}`] = { t: now, v: value };
           logPublicJitenFailure("Jiten public parse", { length: chunk.text.length }, error);
           return [];
         });
-        applyPublicParseChunk(result, chunk, parsed, paragraphs);
+        applyPublicParseChunk(result2, chunk, parsed, paragraphs);
       });
-      await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
-      return result;
+      await this.hydrateParsedTokens(result2, options.detailLimit ?? PARSE_DETAIL_LIMIT);
+      return result2;
     }
     async hydrateCards(cards, options = {}) {
-      const result = /* @__PURE__ */ new Map();
-      if (!cards.length || this.isBackoffActive()) return result;
+      const result2 = /* @__PURE__ */ new Map();
+      if (!cards.length || this.isBackoffActive()) return result2;
       const pending2 = [];
       const seen = /* @__PURE__ */ new Set();
       const limit = normalizedDetailLimit(options.detailLimit);
@@ -283068,7 +284052,7 @@ ${key2}`] = { t: now, v: value };
         seen.add(key2);
         const persisted = readPublicJitenCache("card", normalizeLookupText(card.spelling), now);
         if (persisted) {
-          result.set(key2, persisted);
+          result2.set(key2, persisted);
           this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
           continue;
         }
@@ -283081,10 +284065,10 @@ ${key2}`] = { t: now, v: value };
           return null;
         });
         if (!card) return;
-        result.set(item2.key, card);
+        result2.set(item2.key, card);
         writePublicJitenCache("card", normalizeLookupText(card.spelling), card);
       });
-      return result;
+      return result2;
     }
     clear() {
       this.cardCache.clear();
@@ -283119,10 +284103,10 @@ ${key2}`] = { t: now, v: value };
       }));
       return cards;
     }
-    async hydrateParsedTokens(result, limit) {
-      const tokens = result.flat();
+    async hydrateParsedTokens(result2, limit) {
+      const tokens = result2.flat();
       if (!tokens.length || limit <= 0) return;
-      const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
+      const hydrationCards = parsedCardsWithinTargetBoundary(result2, limit);
       const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
       if (!cards.size) return;
       for (const token of tokens) {
@@ -283239,12 +284223,12 @@ ${key2}`] = { t: now, v: value };
       sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
   }
-  function parsedCardsWithinTargetBoundary(result, limit) {
+  function parsedCardsWithinTargetBoundary(result2, limit) {
     const normalizedLimit = normalizedDetailLimit(limit);
     if (normalizedLimit <= 0) return [];
     const selected2 = [];
     const seen = /* @__PURE__ */ new Set();
-    for (const targetTokens of result) {
+    for (const targetTokens of result2) {
       const targetCards = [];
       const targetSeen = /* @__PURE__ */ new Set();
       for (const token of targetTokens) {
@@ -283400,7 +284384,7 @@ ${key2}`] = { t: now, v: value };
     flush();
     return chunks2;
   }
-  function applyPublicParseChunk(result, chunk, parsed, paragraphs) {
+  function applyPublicParseChunk(result2, chunk, parsed, paragraphs) {
     let cursor = 0;
     for (const word of parsed) {
       const surface = word.originalText;
@@ -283416,7 +284400,7 @@ ${key2}`] = { t: now, v: value };
       const paragraphEnd = paragraphStart + surface.length;
       const card = publicJitenParsedCard(word, paragraph.slice(paragraphStart, paragraphEnd));
       if (!card) continue;
-      result[range2.paragraphIndex]?.push({
+      result2[range2.paragraphIndex]?.push({
         card,
         start: paragraphStart,
         end: paragraphEnd,
@@ -284832,30 +285816,30 @@ ${normalizedReading}`;
     return cards;
   }
   async function publicLookupFallbackCards(cards, deps, options) {
-    const result = /* @__PURE__ */ new Map();
+    const result2 = /* @__PURE__ */ new Map();
     const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
-    if (!entries2.length) return result;
+    if (!entries2.length) return result2;
     const terms = [...new Set(entries2.flatMap((entry2) => entry2.terms))];
     const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
     for (const entry2 of entries2) {
       for (const term of entry2.terms) {
         const card = jitenCards.get(normalizedJitenLookupKey(term));
         if (!card) continue;
-        result.set(entry2.key, card);
+        result2.set(entry2.key, card);
         break;
       }
     }
-    if (options.jpdbPublicLookup === false) return result;
-    const unresolved = entries2.filter((entry2) => !result.has(entry2.key));
+    if (options.jpdbPublicLookup === false) return result2;
+    const unresolved = entries2.filter((entry2) => !result2.has(entry2.key));
     await runLimited(unresolved, options.concurrency, async (entry2) => {
       for (const term of entry2.terms) {
         const publicCard = await deps.publicSpellingCard(term);
         if (!publicCard) continue;
-        result.set(entry2.key, publicCard);
+        result2.set(entry2.key, publicCard);
         return;
       }
     });
-    return result;
+    return result2;
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
   const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
@@ -285731,17 +286715,17 @@ ${reading}`);
     if (card) promoted.unshift(card);
     return promoted;
   }
-  function appendLoadedWords(result, cards, labels) {
-    if (!result.cards.length) return;
-    cards.push(...result.cards);
-    if (result.sourceLabel && !labels.includes(result.sourceLabel)) labels.push(result.sourceLabel);
+  function appendLoadedWords(result2, cards, labels) {
+    if (!result2.cards.length) return;
+    cards.push(...result2.cards);
+    if (result2.sourceLabel && !labels.includes(result2.sourceLabel)) labels.push(result2.sourceLabel);
   }
   function emptyNewTabLoadAccumulator() {
     return { cards: [], labels: [], reviewCountMode: false };
   }
-  function newTabLoadAccumulatorFromResult(result) {
+  function newTabLoadAccumulatorFromResult(result2) {
     const accumulator = emptyNewTabLoadAccumulator();
-    appendNewTabLoadResult(accumulator, result);
+    appendNewTabLoadResult(accumulator, result2);
     return accumulator;
   }
   function emptyNewTabLoadResult(sourceLabel2 = "") {
@@ -285755,17 +286739,17 @@ ${reading}`);
       emptyMessageKey: next.emptyMessageKey ?? previous.emptyMessageKey
     };
   }
-  function appendNewTabLoadResult(accumulator, result) {
-    accumulator.reviewCountMode ||= result.reviewCountMode === true;
-    accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
-    appendLoadedWords(result, accumulator.cards, accumulator.labels);
-    if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
-      accumulator.labels.push(result.sourceLabel);
+  function appendNewTabLoadResult(accumulator, result2) {
+    accumulator.reviewCountMode ||= result2.reviewCountMode === true;
+    accumulator.emptyMessageKey = result2.emptyMessageKey ?? accumulator.emptyMessageKey;
+    appendLoadedWords(result2, accumulator.cards, accumulator.labels);
+    if (!result2.cards.length && result2.reviewCountMode === true && result2.sourceLabel && !accumulator.labels.includes(result2.sourceLabel)) {
+      accumulator.labels.push(result2.sourceLabel);
     }
   }
   function autoReviewSourceResults(...results) {
-    const jpdbIndex = results.findIndex((result) => result.sourceLabel.includes("JPDB") || result.sourceLabel.includes("Jiten"));
-    const ankiIndex = results.findIndex((result) => result.sourceLabel.startsWith("Anki"));
+    const jpdbIndex = results.findIndex((result2) => result2.sourceLabel.includes("JPDB") || result2.sourceLabel.includes("Jiten"));
+    const ankiIndex = results.findIndex((result2) => result2.sourceLabel.startsWith("Anki"));
     const jpdbResult = jpdbIndex >= 0 ? results[jpdbIndex] : void 0;
     const ankiResult = ankiIndex >= 0 ? results[ankiIndex] : void 0;
     if (!jpdbResult || !ankiResult) return results;
@@ -285792,11 +286776,11 @@ ${reading}`);
   }
   function interleavedNewTabLoadAccumulator(results) {
     const accumulator = emptyNewTabLoadAccumulator();
-    accumulator.reviewCountMode = results.some((result) => result.reviewCountMode === true);
-    accumulator.emptyMessageKey = results.find((result) => result.emptyMessageKey)?.emptyMessageKey;
-    const activeResults = results.filter((result) => result.cards.length > 0);
-    accumulator.cards.push(...interleaveNewTabCards(activeResults.map((result) => result.cards)));
-    accumulator.labels.push(...activeResults.map((result) => result.sourceLabel));
+    accumulator.reviewCountMode = results.some((result2) => result2.reviewCountMode === true);
+    accumulator.emptyMessageKey = results.find((result2) => result2.emptyMessageKey)?.emptyMessageKey;
+    const activeResults = results.filter((result2) => result2.cards.length > 0);
+    accumulator.cards.push(...interleaveNewTabCards(activeResults.map((result2) => result2.cards)));
+    accumulator.labels.push(...activeResults.map((result2) => result2.sourceLabel));
     return accumulator;
   }
   function newTabLoadResult(accumulator, language) {
@@ -286310,7 +287294,7 @@ ${newTabCardReading(card)}`;
       el(
         "div",
         { class: "jpdb-reader-newtab-search-kanji-grid" },
-        results.map((result) => renderSearchKanjiResult(result, context2))
+        results.map((result2) => renderSearchKanjiResult(result2, context2))
       )
     );
   }
@@ -286329,10 +287313,10 @@ ${newTabCardReading(card)}`;
     };
     return renderTokensToHtml(spelling, [token], headwordFuriganaSettings(settings));
   }
-  function renderSearchKanjiResult(result, context2) {
-    const preview = result.keyword.trim();
-    const wordMeta = searchKanjiInlineWordMeta(result.words);
-    const meta = wordMeta || (context2.showKanjiFallbackReadings ? searchKanjiSummaryMeta(result) : "");
+  function renderSearchKanjiResult(result2, context2) {
+    const preview = result2.keyword.trim();
+    const wordMeta = searchKanjiInlineWordMeta(result2.words);
+    const meta = wordMeta || (context2.showKanjiFallbackReadings ? searchKanjiSummaryMeta(result2) : "");
     return el(
       "div",
       { class: "jpdb-reader-newtab-search-card-shell", dataset: { newtabSearchCardShell: true } },
@@ -286341,18 +287325,18 @@ ${newTabCardReading(card)}`;
         {
           type: "button",
           class: "jpdb-reader-newtab-search-card jpdb-reader-newtab-search-kanji-card",
-          dataset: { newtabAction: "search-result-kanji", kanji: result.character },
+          dataset: { newtabAction: "search-result-kanji", kanji: result2.character },
           "aria-expanded": "false"
         },
-        el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result.character),
+        el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result2.character),
         preview ? el("span", { class: "jpdb-reader-newtab-search-meaning" }, preview) : null,
         meta ? el("span", { class: "jpdb-reader-newtab-search-meta" }, meta) : null
       ),
       el("div", { class: "jpdb-reader-newtab-search-detail", dataset: { newtabSearchDetail: true }, hidden: true })
     );
   }
-  function searchKanjiSummaryMeta(result) {
-    return searchKanjiInlineWordMeta(result.words) || result.readings.slice(0, 4).join("、");
+  function searchKanjiSummaryMeta(result2) {
+    return searchKanjiInlineWordMeta(result2.words) || result2.readings.slice(0, 4).join("、");
   }
   function searchWordDetailHtml(card, detail, context2) {
     const html = [
@@ -287214,8 +288198,8 @@ ${entry2.url}`),
   const googleHandwritingInk = (strokes) => strokes.map((stroke) => [stroke.map((point) => Math.round(point.x * 240)), stroke.map((point) => Math.round(point.y * 240)), []]).filter((stroke) => stroke[0].length > 1 && stroke[1].length > 1);
   function googleHandwritingPredictionQueries(response) {
     const results = Array.isArray(response) && response.length > 1 && Array.isArray(response[1]) && Array.isArray(response[1][0]) && Array.isArray(response[1][0][1]) ? response[1][0][1] : [];
-    return uniqueTrimmedStrings(results.flatMap((result) => {
-      const text2 = typeof result === "string" ? result.trim() : "";
+    return uniqueTrimmedStrings(results.flatMap((result2) => {
+      const text2 = typeof result2 === "string" ? result2.trim() : "";
       if (!text2) return [];
       const kanji = kanjiCharacters$1(text2);
       return kanji.length === 1 && Array.from(text2).length === 1 ? kanji : [];
@@ -288457,7 +289441,7 @@ ${entry2.url}`),
     }
   }
   function orderedNewTabStatsProviderLabel(results) {
-    return results.map((result) => result.provider.label).sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b)).join(" + ");
+    return results.map((result2) => result2.provider.label).sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b)).join(" + ");
   }
   function newTabStatsProviderLabelRank(label) {
     if (label.startsWith("Jiten")) return 0;
@@ -288651,13 +289635,13 @@ ${entry2.url}`),
       return dedupeWords(groups.flat()).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
     }
     jpdbSourceFromApiResults(results) {
-      const loaded = results.filter((result) => result.error === null);
+      const loaded = results.filter((result2) => result2.error === null);
       const label = orderedNewTabStatsProviderLabel(loaded.length ? loaded : results);
       if (!loaded.length) {
-        const error = results.find((result) => result.error)?.error;
+        const error = results.find((result2) => result2.error)?.error;
         return emptyStatsSource("jpdb", label, error instanceof Error ? error.message : this.deps.text("couldNotLoadWords"), "error");
       }
-      const cards = dedupeWords(loaded.flatMap((result) => result.cards)).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
+      const cards = dedupeWords(loaded.flatMap((result2) => result2.cards)).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
       const message = this.apiLoadedMessage(label, cards.length);
       return statsFromApiCards(cards, label, message);
     }
@@ -289420,7 +290404,7 @@ ${entry2.url}`),
         });
       });
       const results = await Promise.all(characters.map((character) => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [], wordCards)));
-      return results.filter((result) => Boolean(result));
+      return results.filter((result2) => Boolean(result2));
     }
     searchWordMatchesQueryExactly(card, query) {
       const normalizedQuery = normalizedSearchWordIdentity(query);
@@ -289505,14 +290489,14 @@ ${entry2.url}`),
           });
         }
         if (hydrateBunproDefinitionResult) {
-          void hydrateBunproDefinitionResult(card).then((result) => {
-            const unchangedInfo = renderedDetail.bunproDefinitionInfo === result.info;
-            const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result.status);
+          void hydrateBunproDefinitionResult(card).then((result2) => {
+            const unchangedInfo = renderedDetail.bunproDefinitionInfo === result2.info;
+            const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result2.status);
             if (unchangedInfo && unchangedStatus) return;
             renderedDetail = {
               ...renderedDetail,
-              bunproDefinitionInfo: result.info,
-              bunproDefinitionStatus: result.status
+              bunproDefinitionInfo: result2.info,
+              bunproDefinitionStatus: result2.status
             };
             renderCurrentDetail();
           }).catch((error) => {
@@ -290757,9 +291741,9 @@ ${entry2.url}`),
   }
   function transitions(pattern) {
     const clean = Array.from(pattern).filter((level) => level === "H" || level === "L");
-    const result = [];
-    for (let index = 1; index < clean.length; index += 1) result.push(`${clean[index - 1]}${clean[index]}`);
-    return result;
+    const result2 = [];
+    for (let index = 1; index < clean.length; index += 1) result2.push(`${clean[index - 1]}${clean[index]}`);
+    return result2;
   }
   function median(values) {
     const sorted = values.slice().sort((a, b) => a - b);
@@ -291668,11 +292652,11 @@ ${entry2.url}`),
     async reviewSrsAdapter(source2, card, grade2) {
       const adapter = this.deps.srsAdapters?.[source2];
       if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text("couldNotSubmitGrade"));
-      const result = await adapter.review({ card: this.newTabCardToSrsReviewable(card, source2), grade: grade2, sentence: sentenceForCard(card) });
-      if (result.card) {
-        card.cardState = result.card.state;
-        card.dueAt = result.card.dueAt;
-        if (source2 === "wanikani") card.wanikaniSrsStage = result.card.srsLevel;
+      const result2 = await adapter.review({ card: this.newTabCardToSrsReviewable(card, source2), grade: grade2, sentence: sentenceForCard(card) });
+      if (result2.card) {
+        card.cardState = result2.card.state;
+        card.dueAt = result2.card.dueAt;
+        if (source2 === "wanikani") card.wanikaniSrsStage = result2.card.srsLevel;
       }
       this.deps.publishGradedCardState(card);
     }
@@ -292567,7 +293551,7 @@ ${entry2.url}`),
         imagePrompt: container.querySelector('[data-uchisen-generate-field="imagePrompt"]')?.value ?? generateFields.imagePrompt
       };
     };
-    const refreshAfterGenerate = async (result) => {
+    const refreshAfterGenerate = async (result2) => {
       const fresh = await options.refreshData?.().catch(() => null);
       if (fresh) {
         currentImages = fresh.images;
@@ -292578,10 +293562,10 @@ ${entry2.url}`),
       } else {
         currentImages = orderedUchisenImages([
           ...currentImages.map((item2) => ({ ...item2, paywall: isUchisenPaywallItem(item2) })),
-          { url: result.imageUrl, story: result.story, paywall: false }
+          { url: result2.imageUrl, story: result2.story, paywall: false }
         ]);
       }
-      const generatedIndex = findUchisenImageIndex(currentImages, result.imageUrl);
+      const generatedIndex = findUchisenImageIndex(currentImages, result2.imageUrl);
       index = generatedIndex >= 0 ? generatedIndex : Math.max(0, currentImages.length - 1);
       void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
     };
@@ -292592,7 +293576,7 @@ ${entry2.url}`),
       generateStatus = uchisenGenerateStatus("neutral", uiText(language, "uchisenGeneratingImage"));
       render2();
       try {
-        const result = await generateAndPublishUchisenMnemonic(kanji, {
+        const result2 = await generateAndPublishUchisenMnemonic(kanji, {
           kanjiId: currentKanjiId,
           mnemonic: generateFields.mnemonic,
           imagePrompt: generateFields.imagePrompt
@@ -292600,7 +293584,7 @@ ${entry2.url}`),
           generateStatus = uchisenGenerateStatus("neutral", message);
           render2();
         }, language);
-        await refreshAfterGenerate(result);
+        await refreshAfterGenerate(result2);
         generateStatus = uchisenGenerateStatus("success", uiText(language, "uchisenGeneratedImage"));
         generateOpen = false;
       } catch (error) {
@@ -295134,9 +296118,9 @@ ${entry2.url}`),
       try {
         const usedCachedWords = useOfflineCache ? await this.applyOfflineCacheWhileLoading(root, preferStoredWord, loadGeneration) : false;
         this.scheduleAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration, usedCachedWords, quiet);
-        const result = await this.loadWordsWithProgress(root, loadGeneration, usedCachedWords, quiet);
+        const result2 = await this.loadWordsWithProgress(root, loadGeneration, usedCachedWords, quiet);
         if (!this.isCurrentLoad(loadGeneration)) return;
-        await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, {
+        await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result2, useOfflineCache, usedCachedWords, navigationGeneration, {
           excludeCardKeys: options.excludeCardKeys,
           preserveVisibleOrder: options.preserveVisibleOrder,
           quiet
@@ -295163,14 +296147,14 @@ ${entry2.url}`),
     }
     async applyAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration) {
       if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration)) return;
-      const result = await this.loadLocalOrBuiltInFreshStudyWords();
-      if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration) || !this.currentModeStudyCardCount(result.cards)) return;
+      const result2 = await this.loadLocalOrBuiltInFreshStudyWords();
+      if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration) || !this.currentModeStudyCardCount(result2.cards)) return;
       await this.applyLoadedWords(
         root,
         preferStoredWord,
         loadGeneration,
         {
-          ...result,
+          ...result2,
           fallbackNotice: this.hasConfiguredReviewSources()
         },
         false,
@@ -295182,12 +296166,12 @@ ${entry2.url}`),
     shouldApplyAutoStudyFallbackPreview(loadGeneration) {
       return this.isCurrentLoad(loadGeneration) && !this.allWords.length && this.state.source === "auto" && this.state.route !== "search" && this.state.route !== "stats";
     }
-    async applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, options = {}) {
+    async applyLoadedWords(root, preferStoredWord, loadGeneration, result2, useOfflineCache, usedCachedWords, navigationGeneration, options = {}) {
       const preferredCardKey = this.currentVisibleWordKey();
       const preferredCard = this.sourceCardForVisibleCard(this.visibleWords[this.index]);
       const statsStudyFilter = this.statsStudyFilter;
       const loadedWords = this.mergeLoadedWordsWithCachedStudyContext(
-        this.loadedWordsForResult(result, options.excludeCardKeys),
+        this.loadedWordsForResult(result2, options.excludeCardKeys),
         usedCachedWords
       );
       if (this.shouldKeepCurrentQuietWords(options, loadedWords)) return;
@@ -295196,11 +296180,11 @@ ${entry2.url}`),
         preferredCard,
         usedCachedWords,
         navigationGeneration,
-        result
+        result2
       ));
       if (!this.isCurrentLoad(loadGeneration)) return;
       this.allWords = nextWords;
-      this.applyLoadedWordState(result, statsStudyFilter);
+      this.applyLoadedWordState(result2, statsStudyFilter);
       this.writeOfflineCacheAfterLoad();
       await this.applyOfflineCacheAfterEmptyLoad(root, loadGeneration, useOfflineCache);
       if (!this.isCurrentLoad(loadGeneration)) return;
@@ -295208,10 +296192,10 @@ ${entry2.url}`),
       void this.flushQueuedGrades();
       await this.renderLoadedWords(root, preferStoredWord, preferredCardKey, options);
     }
-    loadedWordsForResult(result, excludeCardKeys) {
+    loadedWordsForResult(result2, excludeCardKeys) {
       const excludedCardKeys = new Set(excludeCardKeys ?? []);
       return this.filterStatsStudyCards(
-        dedupeWords(result.cards.map(normalizeNewTabCard))
+        dedupeWords(result2.cards.map(normalizeNewTabCard))
       ).filter((card) => this.shouldIncludeLoadedWord(card, excludedCardKeys));
     }
     shouldIncludeLoadedWord(card, excludedCardKeys) {
@@ -295220,11 +296204,11 @@ ${entry2.url}`),
     shouldKeepCurrentQuietWords(options, loadedWords) {
       return options.quiet === true && !loadedWords.length && Boolean(this.visibleWords.length);
     }
-    applyLoadedWordState(result, statsStudyFilter) {
-      this.reviewCountMode = result.reviewCountMode === true;
-      this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
-      this.fallbackStudyNotice = result.fallbackNotice === true;
-      this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
+    applyLoadedWordState(result2, statsStudyFilter) {
+      this.reviewCountMode = result2.reviewCountMode === true;
+      this.emptyLoadMessageKey = result2.emptyMessageKey ?? null;
+      this.fallbackStudyNotice = result2.fallbackNotice === true;
+      this.sourceLabel = this.loadedWordSourceLabel(result2.sourceLabel, statsStudyFilter);
       this.statsStudyFilter = null;
     }
     loadedWordSourceLabel(sourceLabel2, statsStudyFilter) {
@@ -295244,8 +296228,8 @@ ${entry2.url}`),
       delete root.dataset.standaloneNewtab;
       this.applyWords(root, preferStoredWord, preferredCardKey ?? "", { preserveOrder: options.preserveVisibleOrder === true });
     }
-    mergeLoadedWordsWithNavigatedCachedCard(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result) {
-      if (!this.shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result)) {
+    mergeLoadedWordsWithNavigatedCachedCard(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result2) {
+      if (!this.shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result2)) {
         return loadedWords;
       }
       return [normalizeNewTabCard(preferredCard), ...loadedWords];
@@ -295267,9 +296251,9 @@ ${entry2.url}`),
       if (sentence === card.sentence && wordWithReading === card.wordWithReading && fallbackLookupTerms === card.fallbackLookupTerms) return card;
       return { ...card, sentence, wordWithReading, fallbackLookupTerms };
     }
-    shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result) {
+    shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result2) {
       return Boolean(
-        preferredCard && usedCachedWords && this.navigationGeneration !== navigationGeneration && result.reviewCountMode !== true && !loadedWords.some((card) => cardKey(card) === cardKey(preferredCard))
+        preferredCard && usedCachedWords && this.navigationGeneration !== navigationGeneration && result2.reviewCountMode !== true && !loadedWords.some((card) => cardKey(card) === cardKey(preferredCard))
       );
     }
     async withPortableUrlCard(cards) {
@@ -295511,37 +296495,37 @@ ${entry2.url}`),
       const cached = this.cachedSourceResult(source2);
       if (cached) return cached;
       const cacheContext = this.sourceCacheContext(source2);
-      const result = source2 === "jpdb" ? await this.loadJpdbWords({ allowPublicFallback: false, timeoutMs: NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS }) : source2 === "anki" ? await this.loadAnkiWords(NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS) : await this.loadWordsFromSourceUncached(source2, onProgress);
-      return this.rememberSourceResult(source2, result, cacheContext);
+      const result2 = source2 === "jpdb" ? await this.loadJpdbWords({ allowPublicFallback: false, timeoutMs: NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS }) : source2 === "anki" ? await this.loadAnkiWords(NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS) : await this.loadWordsFromSourceUncached(source2, onProgress);
+      return this.rememberSourceResult(source2, result2, cacheContext);
     }
     accumulateAutoReviewSourceResults(results) {
       const accumulator = emptyNewTabLoadAccumulator();
       const emptyReviewLabels = [];
       let lastResult = emptyNewTabLoadResult();
-      for (const result of results) {
-        this.accumulateAutoReviewSourceResult(accumulator, emptyReviewLabels, result);
-        lastResult = mergeEmptyNewTabLoadResults(lastResult, result);
+      for (const result2 of results) {
+        this.accumulateAutoReviewSourceResult(accumulator, emptyReviewLabels, result2);
+        lastResult = mergeEmptyNewTabLoadResults(lastResult, result2);
       }
       if (accumulator.cards.length) return accumulator;
       if (!accumulator.reviewCountMode) return emptyNewTabLoadAccumulator();
       accumulator.labels.push(...emptyReviewLabels);
       return accumulator.reviewCountMode ? accumulator : newTabLoadAccumulatorFromResult(lastResult);
     }
-    accumulateAutoReviewSourceResult(accumulator, emptyReviewLabels, result) {
-      if (result.cards.length) {
-        appendNewTabLoadResult(accumulator, result);
+    accumulateAutoReviewSourceResult(accumulator, emptyReviewLabels, result2) {
+      if (result2.cards.length) {
+        appendNewTabLoadResult(accumulator, result2);
         return;
       }
-      const isActiveReviewSource = this.emptyAutoReviewResultShouldBlockFallback(result);
+      const isActiveReviewSource = this.emptyAutoReviewResultShouldBlockFallback(result2);
       accumulator.reviewCountMode ||= isActiveReviewSource;
-      if (isActiveReviewSource) this.appendUniqueReviewLabel(emptyReviewLabels, result.sourceLabel);
+      if (isActiveReviewSource) this.appendUniqueReviewLabel(emptyReviewLabels, result2.sourceLabel);
     }
     appendUniqueReviewLabel(labels, label) {
       if (label && !labels.includes(label)) labels.push(label);
     }
-    emptyAutoReviewResultShouldBlockFallback(result) {
-      if (result.reviewCountMode !== true) return false;
-      return result.sourceLabel.includes(this.text("liveReview")) || result.sourceLabel.includes("Jiten");
+    emptyAutoReviewResultShouldBlockFallback(result2) {
+      if (result2.reviewCountMode !== true) return false;
+      return result2.sourceLabel.includes(this.text("liveReview")) || result2.sourceLabel.includes("Jiten");
     }
     async appendLoadedWordsFromSource(accumulator, source2, onProgress) {
       appendNewTabLoadResult(accumulator, await this.loadWordsFromSource(source2, onProgress));
@@ -295655,7 +296639,7 @@ ${entry2.url}`),
       const cached = this.cachedSourceResult(source2);
       if (cached) return Promise.resolve(cached);
       const cacheContext = this.sourceCacheContext(source2);
-      return this.loadWordsFromSourceUncached(source2, onProgress).then((result) => this.rememberSourceResult(source2, result, cacheContext));
+      return this.loadWordsFromSourceUncached(source2, onProgress).then((result2) => this.rememberSourceResult(source2, result2, cacheContext));
     }
     loadWordsFromSourceUncached(source2, onProgress) {
       if (source2 === "anki") return this.loadAnkiWords();
@@ -295675,20 +296659,20 @@ ${entry2.url}`),
       const cached = this.cachedSourceResult(source2);
       return Boolean(cached && !cached.cards.length && cached.emptyMessageKey);
     }
-    rememberSourceResult(source2, result, context2) {
+    rememberSourceResult(source2, result2, context2) {
       if (context2 && (context2.version !== this.sourceCacheVersion(source2) || context2.signature !== this.sourceCacheSignature(source2))) {
-        return result;
+        return result2;
       }
-      if (result.cards.length || source2 === "anki" || source2 === "dictionary" || source2 === "bunpro" || source2 === "wanikani" || source2 === "yomu-local") {
+      if (result2.cards.length || source2 === "anki" || source2 === "dictionary" || source2 === "bunpro" || source2 === "wanikani" || source2 === "yomu-local") {
         this.sourceResultCache.set(source2, {
           signature: context2?.signature ?? this.sourceCacheSignature(source2),
           result: {
-            ...result,
-            cards: [...result.cards]
+            ...result2,
+            cards: [...result2.cards]
           }
         });
       }
-      return result;
+      return result2;
     }
     sourceCacheContext(source2) {
       return {
@@ -295901,8 +296885,8 @@ ${entry2.url}`),
         await publicJpdbPromise,
         dictionaryResult
       ];
-      const result = newTabLoadResult(interleavedNewTabLoadAccumulator(results), this.language());
-      return result.cards.length ? result : this.loadBuiltInFreshStudyWords();
+      const result2 = newTabLoadResult(interleavedNewTabLoadAccumulator(results), this.language());
+      return result2.cards.length ? result2 : this.loadBuiltInFreshStudyWords();
     }
     loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN) {
       const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
@@ -295994,11 +296978,11 @@ ${entry2.url}`),
     }
     mergeApiReviewSourceResults(results) {
       if (results.length === 1) return results[0];
-      if (results.some((result) => result.cards.length)) {
+      if (results.some((result2) => result2.cards.length)) {
         return newTabLoadResult(interleavedNewTabLoadAccumulator(results), this.language());
       }
       const accumulator = emptyNewTabLoadAccumulator();
-      for (const result of results) appendNewTabLoadResult(accumulator, result);
+      for (const result2 of results) appendNewTabLoadResult(accumulator, result2);
       return newTabLoadResult(accumulator, this.language());
     }
     async loadJitenStudyBatchWords(options = {}) {
@@ -296055,8 +297039,8 @@ ${entry2.url}`),
     async loadJitenDeckBrowseCards(deckId, limit = NEW_TAB_BROWSE_DECK_LIMIT, deckName) {
       const jiten = this.dependencies.jiten;
       if (typeof jiten?.listStudyDeckVocabularyCards !== "function") {
-        const result = await this.loadJitenStudyBatchWords({ limit, deckId });
-        return result?.cards ?? [];
+        const result2 = await this.loadJitenStudyBatchWords({ limit, deckId });
+        return result2?.cards ?? [];
       }
       const cards = await jiten.listStudyDeckVocabularyCards(deckId, limit);
       const resolvedDeckName = deckName ?? (await this.jitenStudyDecks().catch(() => [])).find((deck) => deck.id === deckId)?.name ?? "";
@@ -296269,17 +297253,17 @@ ${entry2.url}`),
       if (sourceSwitchOp.superseded) return;
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
-    canUseCachedResultForSourceSwitch(result, source2) {
-      if (!result.cards.length) return this.emptyCachedResultMatchesSource(result, source2);
-      return result.cards.every((card) => this.cardPrimaryNewTabSource(card) === source2);
+    canUseCachedResultForSourceSwitch(result2, source2) {
+      if (!result2.cards.length) return this.emptyCachedResultMatchesSource(result2, source2);
+      return result2.cards.every((card) => this.cardPrimaryNewTabSource(card) === source2);
     }
-    emptyCachedResultMatchesSource(result, source2) {
+    emptyCachedResultMatchesSource(result2, source2) {
       if (source2 === "anki") return false;
-      if (source2 === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
-      if (source2 === "bunpro") return result.sourceLabel.startsWith("Bunpro");
-      if (source2 === "wanikani") return result.sourceLabel.startsWith("WaniKani");
-      if (source2 === "yomu-local") return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
-      return result.sourceLabel === this.text("dictionary");
+      if (source2 === "jpdb") return result2.sourceLabel.startsWith("JPDB") || result2.sourceLabel.startsWith("Jiten");
+      if (source2 === "bunpro") return result2.sourceLabel.startsWith("Bunpro");
+      if (source2 === "wanikani") return result2.sourceLabel.startsWith("WaniKani");
+      if (source2 === "yomu-local") return result2.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
+      return result2.sourceLabel === this.text("dictionary");
     }
     // fallow-ignore-next-line complexity, code-duplication
     cardPrimaryNewTabSource(card) {
@@ -298550,8 +299534,8 @@ ${entry2.url}`),
     // popover action for drilldown; keywords hydrate from RTK/JPDB lazily.
     async composedOfKeywordLookup(client, character) {
       if (typeof client?.lookup !== "function") return "";
-      const result = await client.lookup(character).catch(() => null);
-      return result?.keyword ?? "";
+      const result2 = await client.lookup(character).catch(() => null);
+      return result2?.keyword ?? "";
     }
     appendComposedOfLine(meaning, card) {
       const kanjiCharacters2 = [...new Set(Array.from(card.spelling).filter(isKanjiCharacter))];
@@ -299927,11 +300911,11 @@ ${entry2.url}`),
       }
     }
     renderDoodleAssessment(slots, assessment) {
-      const result = slots.answer?.querySelector("[data-newtab-doodle-result]");
+      const result2 = slots.answer?.querySelector("[data-newtab-doodle-result]");
       const root = slots.answer?.closest(".jpdb-reader-newtab");
       root?.classList.toggle("jpdb-reader-newtab-doodle-pass", assessment.passed);
       root?.classList.toggle("jpdb-reader-newtab-doodle-fail", !assessment.passed);
-      if (result) result.textContent = `${assessment.passed ? "✓" : "✕"} ${this.doodleAssessmentMessage(assessment)}`;
+      if (result2) result2.textContent = `${assessment.passed ? "✓" : "✕"} ${this.doodleAssessmentMessage(assessment)}`;
     }
     doodleAssessmentMessage(assessment) {
       const count2 = `${assessment.actualStrokes}/${assessment.expectedStrokes} ${this.text("strokes")}`;
@@ -299941,10 +300925,10 @@ ${entry2.url}`),
       return `${this.text("checkStrokeCountOrder")}: ${count2}`;
     }
     clearDoodleAssessment(slots) {
-      const result = slots.answer?.querySelector("[data-newtab-doodle-result]");
+      const result2 = slots.answer?.querySelector("[data-newtab-doodle-result]");
       const root = slots.answer?.closest(".jpdb-reader-newtab");
       root?.classList.remove("jpdb-reader-newtab-doodle-pass", "jpdb-reader-newtab-doodle-fail");
-      if (result) result.textContent = "";
+      if (result2) result2.textContent = "";
     }
     renderEmpty(root, prompt2, message) {
       this.enterEmptyMode(root);
@@ -300304,15 +301288,15 @@ ${entry2.url}`),
       this.browseDueBucketsKey = "";
       const collected = [];
       const results = await Promise.all(providers.map(async (provider) => {
-        const result = await loadNewTabStatsApiProvider(provider);
-        if (this.browsePoolKey === key2 && result.error === null) {
-          collected.push(...result.cards);
+        const result2 = await loadNewTabStatsApiProvider(provider);
+        if (this.browsePoolKey === key2 && result2.error === null) {
+          collected.push(...result2.cards);
           this.browsePool = dedupeWords(collected);
           onPartial?.(this.browsePool);
         }
-        return result;
+        return result2;
       }));
-      const cards = dedupeWords(results.filter((result) => result.error === null).flatMap((result) => result.cards));
+      const cards = dedupeWords(results.filter((result2) => result2.error === null).flatMap((result2) => result2.cards));
       if (this.browsePoolKey !== key2) return this.browsePool ?? cards;
       this.browsePool = cards;
       this.browsePoolKey = key2;
@@ -300526,26 +301510,26 @@ ${entry2.url}`),
     // fallow-ignore-next-line complexity
     lookupReviewTargetsForCard(card, data) {
       const targets = this.reviewTargetsForCard(card);
-      const result = [];
+      const result2 = [];
       if (targets.includes("jiten-api")) {
-        result.push({ id: "jiten", kind: "jiten", label: this.text("gradeTargetJiten"), shortLabel: "Jiten" });
+        result2.push({ id: "jiten", kind: "jiten", label: this.text("gradeTargetJiten"), shortLabel: "Jiten" });
       }
       if (targets.some((target2) => target2 === "jpdb-api" || target2 === "jpdb-live")) {
-        result.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
+        result2.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
       }
       if (targets.includes("bunpro-api")) {
-        result.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
+        result2.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
       }
       if (targets.includes("wanikani-api")) {
-        result.push({ id: "wanikani", kind: "wanikani", label: this.text("gradeTargetWanikani"), shortLabel: "WaniKani" });
+        result2.push({ id: "wanikani", kind: "wanikani", label: this.text("gradeTargetWanikani"), shortLabel: "WaniKani" });
       }
       if (targets.includes("yomu-local")) {
-        result.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
+        result2.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
       }
       const settings = this.dependencies.getSettings();
       const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
-      if (targets.includes("anki") || ankiTargets.length) result.push(...ankiTargets);
-      return result;
+      if (targets.includes("anki") || ankiTargets.length) result2.push(...ankiTargets);
+      return result2;
     }
     lookupAnkiReviewTargets(card, data) {
       const cardLabel = card.ankiDeckNames?.join(", ") || card.ankiModelName || "Anki";
@@ -306985,9 +307969,9 @@ ${entry2.url}`),
         ontimeout: () => reject(new Error("Reader account request timed out."))
       };
       try {
-        const result = request2(details);
-        if (result && typeof result.then === "function") {
-          result.then(details.onload, details.onerror);
+        const result2 = request2(details);
+        if (result2 && typeof result2.then === "function") {
+          result2.then(details.onload, details.onerror);
         }
       } catch (error) {
         reject(error);
@@ -307353,9 +308337,9 @@ ${entry2.url}`),
   }
   function enqueue(operation) {
     const coordinated = () => withGmStorageLease("academy-reader-account-sync", operation);
-    const result = pending.then(coordinated, coordinated);
-    pending = result.then(() => void 0, () => void 0);
-    return result;
+    const result2 = pending.then(coordinated, coordinated);
+    pending = result2.then(() => void 0, () => void 0);
+    return result2;
   }
   function randomBase64Url(length) {
     const bytes = new Uint8Array(length);
@@ -309646,8 +310630,8 @@ ${entry2.url}`),
   const log$2 = Logger.scope("OfflineDictionarySetup");
   const OFFLINE_PARSING_DICTIONARY_IDS = ["jitendex", "kanjium-pitch"];
   async function installOfflineParsingDictionaries(options) {
-    const result = { installed: [], skipped: [], failed: [] };
-    for (const target2 of await missingOfflineSetupDictionaries(options.dictionaries, result)) {
+    const result2 = { installed: [], skipped: [], failed: [] };
+    for (const target2 of await missingOfflineSetupDictionaries(options.dictionaries, result2)) {
       try {
         const summary = await options.dictionaries.importFromUrl(target2.downloadUrl, void 0, options.onProgress);
         const settings = options.getSettings();
@@ -309656,21 +310640,21 @@ ${entry2.url}`),
           dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []),
           localDictionariesEnabled: true
         });
-        result.installed.push(target2.name);
+        result2.installed.push(target2.name);
       } catch (error) {
-        result.failed.push(target2.name);
+        result2.failed.push(target2.name);
         log$2.warn("Offline dictionary install failed", { dictionary: target2.name }, error);
       }
     }
-    return result;
+    return result2;
   }
-  async function missingOfflineSetupDictionaries(store, result) {
+  async function missingOfflineSetupDictionaries(store, result2) {
     const targets = OFFLINE_PARSING_DICTIONARY_IDS.map((id2) => findRecommendedDictionary(id2)).filter((dictionary) => Boolean(dictionary?.downloadUrl));
     const installedUrls = await store.summary().then((summary) => new Set(summary.dictionaries.map((info) => info.downloadUrl ?? "").filter(Boolean))).catch(() => /* @__PURE__ */ new Set());
     const hasTerms = await store.hasTermDictionaries?.().catch(() => false) ?? false;
     const missing2 = [];
     for (const target2 of targets) {
-      if (installedUrls.has(target2.downloadUrl) || target2.category === "terms" && hasTerms) result.skipped.push(target2.name);
+      if (installedUrls.has(target2.downloadUrl) || target2.category === "terms" && hasTerms) result2.skipped.push(target2.name);
       else missing2.push(target2);
     }
     return missing2;
@@ -309904,8 +310888,8 @@ ${entry2.url}`),
       const translation2 = popover.querySelector("[data-study-translation]");
       if (settings.studyTranslationEnabled && translation2) {
         preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-        void this.cachedTranslationContent(sentence).then((result) => {
-          if (!result.translated && translation2.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation2.hidden = true;
+        void this.cachedTranslationContent(sentence).then((result2) => {
+          if (!result2.translated && translation2.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation2.hidden = true;
         }).catch(() => void 0);
       }
     }
@@ -309954,8 +310938,8 @@ ${entry2.url}`),
     }
     installTranslationLoader(popover, sentence) {
       this.installLazyStudyLoader(popover, sentence, "[data-study-translation]", (container) => {
-        const result = container.querySelector("[data-study-translation-result]");
-        if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translating");
+        const result2 = container.querySelector("[data-study-translation-result]");
+        if (result2) result2.textContent = uiText(this.settings().interfaceLanguage, "translating");
         return this.loadTranslation(popover, sentence, container);
       });
     }
@@ -310028,8 +311012,8 @@ ${entry2.url}`),
       }
       const original = container.querySelector("[data-study-original-render]");
       if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation2.tokens, this.settings()));
-      const result = container.querySelector("[data-study-translation-result]");
-      if (result) result.textContent = translation2.translated;
+      const result2 = container.querySelector("[data-study-translation-result]");
+      if (result2) result2.textContent = translation2.translated;
       void this.dependencies.parsePopoverJapanese(popover);
       void this.dependencies.enrichPitchWords(translation2.tokens);
       void this.dependencies.enrichAnkiWords(translation2.tokens, [container]);
@@ -310037,8 +311021,8 @@ ${entry2.url}`),
     renderTranslationError(sentence, container, error) {
       log$1.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
-      const result = container.querySelector("[data-study-translation-result]");
-      if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
+      const result2 = container.querySelector("[data-study-translation-result]");
+      if (result2) result2.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
     }
     sourceAttributes(sourceId2) {
       return this.dependencies.dictionarySourceAttributes(definitionSourceStateKey$1(sourceId2));
@@ -311521,7 +312505,7 @@ ${rank2.detail}` : baseTitle;
       if (this.offlineDictionarySetupInFlight) return;
       this.offlineDictionarySetupInFlight = true;
       try {
-        const result = await installOfflineParsingDictionaries({
+        const result2 = await installOfflineParsingDictionaries({
           dictionaries: this.dictionaries,
           getSettings: () => this.settings,
           applySettings: async (settings) => {
@@ -311529,9 +312513,9 @@ ${rank2.detail}` : baseTitle;
             await saveSettings(settings);
           }
         });
-        if (result.installed.length) await this.refreshDictionaryStyles();
-        if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));
-        else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupComplete"));
+        if (result2.installed.length) await this.refreshDictionaryStyles();
+        if (result2.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));
+        else if (result2.installed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupComplete"));
       } finally {
         this.offlineDictionarySetupInFlight = false;
       }
@@ -312567,8 +313551,8 @@ ${rank2.detail}` : baseTitle;
       if (!this.newTab || button2.disabled) return;
       button2.disabled = true;
       try {
-        const result = await this.newTab.gradeFromLookup(grade2, target2, card);
-        if (!result.preserveLookup) this.dismissLookupPopover();
+        const result2 = await this.newTab.gradeFromLookup(grade2, target2, card);
+        if (!result2.preserveLookup) this.dismissLookupPopover();
         else if (card && this.activeLookupPopover?.isConnected) await this.showLookupCard(card, sentence, anchor ?? button2, {
           navigation: "preserve",
           reuseActivePopover: true,

@@ -37,6 +37,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.authoredWeekProgress
                 ? { authoredWeekProgress: checkpoint.authoredWeekProgress }
                 : {}),
+            ...(checkpoint.classroomExpressionProgress
+                ? { classroomExpressionProgress: checkpoint.classroomExpressionProgress }
+                : {}),
             updatedAt: now,
         };
     }

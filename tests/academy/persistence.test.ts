@@ -153,6 +153,56 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists classroom-expression progress and rejects malformed session snapshots', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const classroomExpressionProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-classroom-expressions' as const,
+            status: 'paused' as const,
+            cursor: {
+                phaseId: 'understanding-and-repair' as const,
+                expressionId: 'classroom-08',
+                probeId: 'probe:classroom-08-check',
+            },
+            attempts: [{
+                probeId: 'probe:classroom-08-check',
+                sourceQuestionId: 'question:lesson-zero-classroom-08',
+                outcome: 'lapse' as const,
+                independent: true,
+                at: 100,
+            }],
+            passedProbeIds: [],
+            revealedModelProbeIds: [],
+            visitedExpressionIds: ['classroom-08'],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-reconstruct-repair',
+            classroomExpressionProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ classroomExpressionProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-reconstruct-repair',
+            classroomExpressionProgress: {
+                ...classroomExpressionProgress,
+                attempts: [{ ...classroomExpressionProgress.attempts[0], at: -1 }],
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid classroom-expression progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

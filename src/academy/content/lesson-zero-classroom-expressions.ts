@@ -14,6 +14,26 @@ export const LESSON_ZERO_CLASSROOM_EXPRESSION_SOURCE_IDS = Object.freeze(
         `source-question:classroom-phrase-${String(index + 1).padStart(2, '0')}`),
 );
 
+export const LESSON_ZERO_CLASSROOM_PROBE_IDS = Object.freeze([
+    'probe:classroom-01-start',
+    'probe:classroom-02-finish',
+    'probe:classroom-03-break',
+    'probe:classroom-04-look',
+    'probe:classroom-05-say',
+    'probe:classroom-06-listen',
+    'probe:classroom-07-write',
+    'probe:classroom-08-check',
+    'probe:classroom-08-yes',
+    'probe:classroom-08-no',
+    'probe:classroom-09-repeat',
+    'probe:classroom-10-good',
+    'probe:classroom-11-so',
+    'probe:classroom-11-match',
+    'probe:classroom-12-wrong',
+    'probe:classroom-13-homework',
+    'probe:classroom-14-example',
+] as const);
+
 const PHASE_IDS = [
     'room-rhythm',
     'understanding-and-repair',
@@ -135,6 +155,7 @@ export function validateLessonZeroClassroomExpressions(value: unknown): Classroo
     });
     validateNoCrossAnswerLeak(expressions, teachingBlocks);
     if (probeCount !== 17) fail('Classroom-expression session must contain seventeen constructed-response probes.');
+    exactList([...probeIds], LESSON_ZERO_CLASSROOM_PROBE_IDS, 'probe ids');
     requireVariantCoverage(expressionById);
     return structuredClone(definition);
 }

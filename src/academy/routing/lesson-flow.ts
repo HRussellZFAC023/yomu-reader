@@ -18,6 +18,16 @@ import {
     lessonStoryPresentation,
 } from '../content/lesson-story-runtime';
 import { loadLessonZeroContent } from '../content/lesson-zero';
+import { loadLessonZeroClassroomExpressions } from '../content/lesson-zero-classroom-expressions';
+import {
+    classroomActivityCompletionEvaluation,
+    classroomProbeRecording,
+    classroomStateForActivity,
+    isLessonZeroConstructedClassroomActivity,
+    LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
+    newlyCompletedClassroomActivityIds,
+    supportEvents,
+} from '../content/lesson-zero-classroom-runtime';
 import {
     advancedPackageIdFromLessonId,
     resolveAdvancedCurriculumEntry,
@@ -25,6 +35,10 @@ import {
 } from '../content/advanced-curriculum';
 import { loadVerticalSliceContent, openingForkActivityId } from '../content/vertical-slice';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
+import {
+    startClassroomExpressionSession,
+    transitionClassroomExpressionSession,
+} from '../domain/classroom-expression-session';
 import {
     authoredWeekProgressAfterActivity,
     authoredWeekProgressFits,
@@ -46,6 +60,7 @@ import { renderLessonVocabularyPrerequisiteScreen } from '../ui/lesson-vocabular
 import { createReachableLessonActivityExtension } from '../ui/lesson-activity-chapter';
 import { renderLoadingScreen } from '../ui/loading-screen';
 import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
+import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -355,6 +370,10 @@ class LessonFlow implements AcademyRouteFlow {
             this.renderAdvancedPackage(advancedPackageId, context);
             return;
         }
+        if (isLessonZeroConstructedClassroomActivity(context.checkpoint.activityId)) {
+            await this.renderClassroomExpressionSession(context.checkpoint.activityId, context);
+            return;
+        }
         const fork = context.checkpoint.selectedFork ?? 'text';
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         if (fork === 'text') {
@@ -395,6 +414,72 @@ class LessonFlow implements AcademyRouteFlow {
             returning,
             support => this.options.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
         ));
+    }
+
+    private async renderClassroomExpressionSession(
+        activityId: typeof LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS[number],
+        context: AcademyRouteContext,
+    ): Promise<void> {
+        const [definition, content] = await Promise.all([
+            loadLessonZeroClassroomExpressions(),
+            loadLessonZeroContent(),
+        ]);
+        let state;
+        try {
+            state = startClassroomExpressionSession(definition, context.checkpoint.classroomExpressionProgress);
+        } catch {
+            state = startClassroomExpressionSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionClassroomExpressionSession(definition, state, { kind: 'resume' }, Date.now()).state;
+        }
+        state = classroomStateForActivity(definition, state, activityId);
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.classroomExpressionProgress)) {
+            await context.save?.({ classroomExpressionProgress: state });
+        }
+
+        const activityById = new Map(content.lesson.activities.map(activity => [activity.id, activity]));
+        const screen = createClassroomExpressionSessionScreen({
+            language: context.language,
+            activityId,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (before, transition) => {
+                const recording = classroomProbeRecording(definition, transition);
+                if (recording) {
+                    this.playFeedbackSfx(recording.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        recording.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        recording.adaptive,
+                    );
+                }
+                for (const support of supportEvents(transition)) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                for (const completedId of newlyCompletedClassroomActivityIds(definition, before, transition.state)) {
+                    const completed = activityById.get(completedId);
+                    if (!completed) throw new TypeError(`Lesson Zero is missing ${completedId}.`);
+                    await this.options.evidence.recordActivity(
+                        classroomActivityCompletionEvaluation(completed, Date.now()),
+                        LESSON_ZERO_ID,
+                    );
+                }
+                await context.save?.({ classroomExpressionProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ classroomExpressionProgress: restart }),
+            onBack: () => context.back(),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
     }
 
     private renderAdvancedPackage(packageId: string, context: AcademyRouteContext): void {
@@ -531,7 +616,7 @@ function overviewState(
         else needsReviewActivityIds.add(activity.activityId);
     }
     return {
-        boundActivityIds: new Set(['activity:lesson-zero-reconstruct-repair']),
+        boundActivityIds: new Set(LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS),
         attemptedActivityIds,
         completedActivityIds,
         needsReviewActivityIds,

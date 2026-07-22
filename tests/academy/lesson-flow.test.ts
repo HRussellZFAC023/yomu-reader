@@ -10,6 +10,7 @@ import type { AcademyShell } from '../../src/academy/ui/shell';
 import { sha256File } from './helpers/hash-memo';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
+const CLASSROOM_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
 
 function shell(): AcademyShell & { current?: HTMLElement } {
     const value = {
@@ -82,6 +83,8 @@ describe('Academy lesson flow', () => {
             const requestPath = String(value);
             const sourcePath = requestPath.includes('/vertical-slice/')
                 ? path.resolve('public/academy/content/vertical-slice', requestPath.split('/').at(-1) ?? '')
+                : requestPath.includes('lesson-zero-classroom-expressions')
+                    ? CLASSROOM_PATH
                 : LESSON_PATH;
             return new Response(fs.readFileSync(sourcePath), {
                 status: 200,
@@ -109,7 +112,7 @@ describe('Academy lesson flow', () => {
         expect(route.back).toHaveBeenCalledOnce();
     });
 
-    it('wires the Lesson 0 VN Back action to persisted route history', async () => {
+    it('saves and leaves the Lesson 0 classroom workshop through persisted route history', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             selectedFork: 'text',
@@ -122,9 +125,51 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-vn-back')?.click();
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-expression-back')?.click();
 
-        expect(route.back).toHaveBeenCalledOnce();
+        await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            classroomExpressionProgress: expect.objectContaining({ status: 'paused' }),
+        }));
+    });
+
+    it('routes the exact classroom repair activity through all source-linked session evidence', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-reconstruct-repair',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('classroom-expression-session');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            classroomExpressionProgress: expect.objectContaining({
+                cursor: expect.objectContaining({ probeId: 'probe:classroom-08-check' }),
+            }),
+        }));
+
+        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-classroom-expression-input')!;
+        input.value = 'わかりますか';
+        route.shell.current?.querySelector<HTMLFormElement>('.academy-classroom-expression-form')
+            ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({ activityId: 'probe:classroom-08-check', outcome: 'pass' }),
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ modeId: 'lesson-zero-classroom-expressions' }),
+        ));
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            classroomExpressionProgress: expect.objectContaining({
+                passedProbeIds: ['probe:classroom-08-check'],
+            }),
+        })));
     });
 
     it('clears pending lesson state when first completion continues to Aakash', async () => {

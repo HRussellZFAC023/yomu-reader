@@ -35,6 +35,7 @@ export type {
     ClassroomExpressionSessionView,
 } from './classroom-expression-session-model';
 export { buildClassroomExpressionSessionReport } from './classroom-expression-session-state';
+export { classroomExpressionSessionSnapshotShapeIsValid } from './classroom-expression-session-state';
 
 /** Start a fresh session, or defensively restore an existing serialisable snapshot. */
 export function startClassroomExpressionSession(
@@ -145,7 +146,16 @@ function submit(
             ? { ...nextState, status: 'complete' }
             : moveToNextUnpassed(definition, nextState);
     }
-    return result(definition, nextState, evidenceFor(expression, probe, outcome, independent, hadLapse, at));
+    return result(definition, nextState, evidenceFor(
+        definition,
+        expression,
+        probe,
+        outcome,
+        independent,
+        hadLapse,
+        state.attempts.length + 1,
+        at,
+    ));
 }
 
 function revealModel(
@@ -165,6 +175,7 @@ function revealModel(
     };
     const evidence: LearnerEventInput[] = alreadyRevealed ? [] : [{
         kind: 'support-used',
+        eventId: `${definition.id}:${probe.id}:support:model-answer`,
         at,
         activityId: probe.id,
         supportKind: 'model-answer',
@@ -174,16 +185,20 @@ function revealModel(
 }
 
 function evidenceFor(
+    definition: ClassroomExpressionSessionDefinition,
     expression: ClassroomExpressionItem,
     probe: ClassroomExpressionProbe,
     outcome: 'pass' | 'lapse',
     independent: boolean,
     hadLapse: boolean,
+    attemptNumber: number,
     at: number,
 ): readonly LearnerEventInput[] {
     const repairing = hadLapse || outcome === 'lapse';
+    const eventStem = `${definition.id}:${probe.id}:attempt:${attemptNumber}`;
     return [{
         kind: 'attempt-recorded',
+        eventId: eventStem,
         at,
         activityId: probe.id,
         sourceQuestionId: expression.sourceQuestionId,
@@ -194,6 +209,7 @@ function evidenceFor(
         ...(outcome === 'lapse' ? { errorTags: [probe.repair.errorTag] } : {}),
     }, {
         kind: 'learning-evidence-recorded',
+        eventId: `${eventStem}:learning`,
         at,
         activityId: probe.id,
         modeId: 'lesson-zero-classroom-expressions',

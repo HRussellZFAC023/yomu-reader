@@ -5,7 +5,10 @@ import {
     type AuthoredWeekId,
     type LearnerAuthoredWeek,
 } from './authored-week-adapter';
-import { validateLessonZeroClassroomExpressions } from './lesson-zero-classroom-expressions';
+import {
+    LESSON_ZERO_CLASSROOM_PROBE_IDS,
+    validateLessonZeroClassroomExpressions,
+} from './lesson-zero-classroom-expressions';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { LESSON_ZERO_CONTENT_SHA256 } from './lesson-zero-pedagogy-definitions';
 import { parseAuthoredWeekPackage } from './authored-week-schema';
@@ -134,12 +137,14 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         releaseChannel: 'trusted-source',
         trustedActivityIds: [
             'activity:lesson-zero-reconstruct-repair',
+            'activity:lesson-zero-desk-language',
             'activity:lesson-zero-first-repair:sound',
             'activity:lesson-zero-first-repair:text',
             'activity:lesson-zero-first-repair:speaking',
             'activity:aakash-rainy-directions',
             'activity:lesson-zero-kanji-one',
             'activity:lesson-zero-kana-mastery',
+            ...LESSON_ZERO_CLASSROOM_PROBE_IDS,
         ],
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',

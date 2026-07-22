@@ -70,6 +70,8 @@ export interface GroundedCharacterEncounter {
 }
 
 export interface AdaptiveActivityEvidence {
+    readonly eventId?: string;
+    readonly at?: number;
     readonly modeId: string;
     readonly skill: import('../domain/learner-record').LearningSkill;
     readonly action: import('../domain/learner-record').LearningAction;
@@ -95,7 +97,12 @@ export interface LearnerEvidence {
     recordWorldPractice?(evaluation: ActivityEvaluation): Promise<void>;
     /** Adds verified pre-study rows to the canonical SRS without faking an answer attempt. */
     seedVocabularyPrerequisite(lessonId: string, seeds: readonly ReviewSeed[]): Promise<void>;
-    recordSupportUse(activityId: string, supportKind: SupportKind, choiceId?: string): Promise<void>;
+    recordSupportUse(
+        activityId: string,
+        supportKind: SupportKind,
+        choiceId?: string,
+        identity?: Readonly<{ eventId?: string; at?: number }>,
+    ): Promise<void>;
     /** Read-only event history for deterministic local projections. */
     history(): Promise<readonly import('../domain/learner-record').LearnerEvent[]>;
     recordAuthoredStoryPractice(practice: AuthoredStoryPracticeEvidence, outcome: 'pass' | 'lapse'): Promise<void>;
@@ -246,6 +253,8 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 evaluation.attempt,
                 ...(adaptive ? [{
                     kind: 'learning-evidence-recorded' as const,
+                    ...(adaptive.eventId ? { eventId: adaptive.eventId } : {}),
+                    ...(adaptive.at !== undefined ? { at: adaptive.at } : {}),
                     activityId: evaluation.attempt.activityId,
                     modeId: adaptive.modeId,
                     skill: adaptive.skill,
@@ -333,10 +342,17 @@ class DefaultLearnerEvidence implements LearnerEvidence {
         });
     }
 
-    recordSupportUse(activityId: string, supportKind: SupportKind, choiceId?: string): Promise<void> {
+    recordSupportUse(
+        activityId: string,
+        supportKind: SupportKind,
+        choiceId?: string,
+        identity: Readonly<{ eventId?: string; at?: number }> = {},
+    ): Promise<void> {
         return this.enqueue(async () => {
             await this.record.record({
                 kind: 'support-used',
+                ...(identity.eventId ? { eventId: identity.eventId } : {}),
+                ...(identity.at !== undefined ? { at: identity.at } : {}),
                 activityId,
                 supportKind,
                 ...(choiceId ? { choiceId } : {}),

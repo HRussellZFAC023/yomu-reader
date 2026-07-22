@@ -154,6 +154,39 @@ export function validateClassroomExpressionSessionState(
     return state;
 }
 
+/**
+ * Cheap persistence-boundary check. The content-aware validator above remains
+ * authoritative when a session is restored; this only keeps malformed values
+ * out of the durable checkpoint before the lesson package has loaded.
+ */
+export function classroomExpressionSessionSnapshotShapeIsValid(
+    snapshot: unknown,
+): snapshot is ClassroomExpressionSessionState {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const state = snapshot as Partial<ClassroomExpressionSessionState>;
+    if (state.schemaVersion !== 1
+        || state.sessionId !== 'session:lesson-zero-classroom-expressions'
+        || !state.status
+        || !['active', 'paused', 'complete'].includes(state.status)) return false;
+    if (!state.cursor
+        || typeof state.cursor.phaseId !== 'string'
+        || typeof state.cursor.expressionId !== 'string'
+        || typeof state.cursor.probeId !== 'string') return false;
+    if (!Array.isArray(state.attempts)
+        || !Array.isArray(state.passedProbeIds)
+        || !Array.isArray(state.revealedModelProbeIds)
+        || !Array.isArray(state.visitedExpressionIds)) return false;
+    if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds]
+        .some(values => values.some(value => typeof value !== 'string' || !value))) return false;
+    return state.attempts.every(attempt => Boolean(attempt)
+        && typeof attempt.probeId === 'string'
+        && typeof attempt.sourceQuestionId === 'string'
+        && (attempt.outcome === 'pass' || attempt.outcome === 'lapse')
+        && typeof attempt.independent === 'boolean'
+        && Number.isSafeInteger(attempt.at)
+        && attempt.at >= 0);
+}
+
 export function unique<T>(values: readonly T[]): T[] {
     return [...new Set(values)];
 }

@@ -3,6 +3,10 @@ import {
     authoredWeekProgressRecordIsValid,
     type AuthoredWeekProgressRecord,
 } from '../domain/authored-week-progress';
+import {
+    classroomExpressionSessionSnapshotShapeIsValid,
+    type ClassroomExpressionSessionState,
+} from '../domain/classroom-expression-session';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
 import {
     isAcademyPresentationMode,
@@ -23,6 +27,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly worldVisits?: Readonly<Partial<Record<WorldPlaceId, number>>>;
     /** Per-package lesson cursor. It survives leaving the lesson; evidence remains canonical for answers. */
     readonly authoredWeekProgress?: AuthoredWeekProgressRecord;
+    /** Resume cursor for the complete Lesson Zero classroom-expression workshop. */
+    readonly classroomExpressionProgress?: ClassroomExpressionSessionState;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -238,6 +244,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.authoredWeekProgress !== undefined
         && !authoredWeekProgressRecordIsValid(value.authoredWeekProgress)) {
         throw new TypeError('Academy checkpoint has invalid authored week progress.');
+    }
+    if (value.classroomExpressionProgress !== undefined
+        && !classroomExpressionSessionSnapshotShapeIsValid(value.classroomExpressionProgress)) {
+        throw new TypeError('Academy checkpoint has invalid classroom-expression progress.');
     }
     validateRouteContext(value);
 }
