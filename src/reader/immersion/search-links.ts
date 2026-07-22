@@ -1,5 +1,5 @@
 import { formatUiText, uiText } from '../app/i18n';
-import { escapeHtml, htmlToFirstElement } from '../dom';
+import { escapeHtml, htmlToFirstElement } from '../dom/html';
 import { externalLinkIcon } from '../ui/icons';
 import type { InterfaceLanguage } from '../app/types';
 
@@ -26,7 +26,7 @@ export function renderImmersionSearchLinks(query: string, language: InterfaceLan
     return html ? htmlToFirstElement(html) : null;
 }
 
-export function externalExampleSearchLinks(query: string): Array<{ id: string; label: string; url: string }> {
+function externalExampleSearchLinks(query: string): Array<{ id: string; label: string; url: string }> {
     const normalizedQuery = query.trim();
     if (!normalizedQuery) return [];
     return EXTERNAL_EXAMPLE_SEARCHES.map(search => ({
