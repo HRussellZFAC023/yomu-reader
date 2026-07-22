@@ -406,10 +406,10 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
 
     await pressWordNavigationShortcut(page, 'ArrowRight');
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '猫');
+    await waitForKeyboardActiveWord(page, '猫', 'Keyboard navigation did not activate the first word');
 
     await pressWordNavigationShortcut(page, 'ArrowRight');
-    await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '犬');
+    await waitForKeyboardActiveWord(page, '犬', 'Keyboard navigation did not advance to the next word');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-popover')?.textContent?.includes('犬'));
     // The popup font stack arrives via the --jpdb-reader-popup-font custom
     // property a frame or two after the popover text renders (and detail
@@ -428,10 +428,10 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
 
     await selectKeyboardWordRange(page, 1, 2);
     await pressWordNavigationShortcut(page, 'ArrowLeft');
-    await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '犬');
+    await waitForKeyboardActiveWord(page, '犬', 'Keyboard navigation did not enter the selected word range');
     await pressWordNavigationShortcut(page, 'ArrowLeft');
     await page.waitForTimeout(150);
-    const selectedScope = await page.evaluate(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim());
+    const selectedScope = await page.evaluate(activeKeyboardWordIdentity);
     assert(selectedScope === '犬', 'Keyboard navigation escaped the selected text range at the boundary', { selectedScope });
     await pressWordNavigationShortcut(page, 'ArrowRight');
     await waitForKeyboardActiveWord(page, '鳥', 'Keyboard navigation did not advance inside the selected text range');
@@ -500,6 +500,13 @@ async function readGenericPassiveStyleState(page) {
 
 async function installKeyboardNavigationProbe(page) {
     await page.evaluate(() => {
+        const activeWordIdentity = () => {
+            const word = document.querySelector('.jpdb-reader-keyboard-active');
+            return word?.getAttribute('data-expression')
+                || word?.getAttribute('data-surface')
+                || word?.textContent?.trim()
+                || '';
+        };
         window.__yomuKeyboardSmokeEvents = [];
         document.addEventListener('keydown', event => {
             window.__yomuKeyboardSmokeEvents.push({
@@ -510,7 +517,7 @@ async function installKeyboardNavigationProbe(page) {
                 metaKey: event.metaKey,
                 defaultPrevented: event.defaultPrevented,
                 target: event.target instanceof Element ? event.target.tagName : '',
-                active: document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() ?? '',
+                active: activeWordIdentity(),
                 selection: window.getSelection()?.toString() ?? '',
             });
             window.__yomuKeyboardSmokeEvents = window.__yomuKeyboardSmokeEvents.slice(-12);
@@ -521,18 +528,31 @@ async function installKeyboardNavigationProbe(page) {
 async function waitForKeyboardActiveWord(page, expected, message) {
     try {
         await page.waitForFunction(
-            value => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === value,
+            value => {
+                const word = document.querySelector('.jpdb-reader-keyboard-active');
+                const identity = word?.getAttribute('data-expression')
+                    || word?.getAttribute('data-surface')
+                    || word?.textContent?.trim()
+                    || '';
+                return identity === value;
+            },
             expected,
             { timeout: 6000 },
         );
     } catch (error) {
-        const state = await page.evaluate(() => ({
-            active: document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() ?? '',
-            selection: window.getSelection()?.toString() ?? '',
-            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.trim() ?? '',
-            focused: document.activeElement instanceof Element ? document.activeElement.tagName : '',
-            events: window.__yomuKeyboardSmokeEvents ?? [],
-        }));
+        const state = await page.evaluate(() => {
+            const word = document.querySelector('.jpdb-reader-keyboard-active');
+            return {
+                active: word?.getAttribute('data-expression')
+                    || word?.getAttribute('data-surface')
+                    || word?.textContent?.trim()
+                    || '',
+                selection: window.getSelection()?.toString() ?? '',
+                popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.trim() ?? '',
+                focused: document.activeElement instanceof Element ? document.activeElement.tagName : '',
+                events: window.__yomuKeyboardSmokeEvents ?? [],
+            };
+        });
         assert(false, message, state);
     }
 }
@@ -548,7 +568,15 @@ async function readKeyboardPopupStyle(page) {
 }
 
 async function activeKeyboardWordText(page) {
-    return trimText(await page.locator('.jpdb-reader-keyboard-active').first().textContent());
+    return page.evaluate(activeKeyboardWordIdentity);
+}
+
+function activeKeyboardWordIdentity() {
+    const word = document.querySelector('.jpdb-reader-keyboard-active');
+    return word?.getAttribute('data-expression')
+        || word?.getAttribute('data-surface')
+        || word?.textContent?.trim()
+        || '';
 }
 
 async function popoverTextContent(page) {

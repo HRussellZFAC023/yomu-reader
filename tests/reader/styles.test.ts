@@ -251,12 +251,15 @@ describe('reader stylesheet loading', () => {
         // to this chrome selector was the one that hid the pitch underline).
         const chromeAfterRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*::after\s*\{[^}]*\}/)?.[0] ?? '';
         expect(chromeAfterRule).toBe('');
-        // Mirrored words can inherit a tall control/ruby line box. Their
-        // absolute ::after line would anchor to that box edge; pitch mode uses
-        // native decoration instead, directly under the base glyphs.
-        expect(css).toContain('.jpdb-reader-word-underline-pitch\n  .jpdb-reader-text-mirror\n  .jpdb-reader-word::after');
-        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-text-mirror[\s\S]*?\.jpdb-reader-word::after\s*\{\s*content: none !important;/);
-        expect(css).toContain('text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important');
+        // Mirrored and ordinary words deliberately share one synthetic border
+        // channel: ordinary/mirrored words use ::after and source-projected
+        // words inherit the same value onto their exact Range fragments.
+        // Mixing native decoration with that overlay put adjacent segments on
+        // different WebKit baselines and broke atomic ruby/control underlines.
+        expect(css).toContain('.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {\n  text-decoration-color: transparent !important;\n}');
+        expect(css).toContain('--jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);');
+        expect(css).not.toContain('--jpdb-reader-additive-decoration');
+        expect(css).not.toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-text-mirror[\s\S]*?\.jpdb-reader-word::after\s*\{\s*content: none !important;/);
         expect(css).not.toContain('jpdb-reader-pitch-compound');
     });
 
@@ -265,10 +268,10 @@ describe('reader stylesheet loading', () => {
         const fragmentLine = css.match(/\.jpdb-reader-source-fragment::after\s*\{[^}]*\}/)?.[0] ?? '';
         const detachedFuri = css.match(/\.jpdb-reader-detached-furi\s*\{[^}]*\}/)?.[0] ?? '';
 
-        expect(fragmentLine).toContain('inset-block-end: 0.08em');
+        expect(fragmentLine).toContain('inset-block-end: 0');
         expect(fragmentLine).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness)');
-        expect(detachedFuri).toContain('inset-block-end: 100%');
-        expect(detachedFuri).not.toContain('calc(100% +');
+        expect(fragmentLine).toContain('var(--jpdb-reader-word-underline, transparent)');
+        expect(detachedFuri).toContain('inset-block-end: calc(100% + 3px)');
     });
 
 

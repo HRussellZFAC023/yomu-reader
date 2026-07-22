@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.402] - 2026-07-21
+
+### Fixed
+
+- Late vocabulary detail now updates the exact word already on the page instead of only the popup. Jiten's confirmed reading is shared with pitch and provider-frequency enrichment, so a first lookup no longer says exact pitch is unavailable, JPDB no longer loses its frequency number in the identity race, and words such as 毎日, 使える, 漫画, 問わず, and 人気 gain their available furigana and pitch without a refresh or second click.
+- Embedded controls that begin in English and localize later are now noticed on every site. A sign-in button such as “Continue with Google” can change to Japanese after the frame loads and is then parsed normally, while non-Japanese frames retain only a small mutation wake-up check instead of running the full reader.
+- Safari and WebKit now paint mirrored controls and ordinary page words through one synthetic pitch-underline channel. Furigana stays aligned in compact controls, pitch lines remain visible under segmented ruby, and adjacent differently coloured words sit on the same vertical baseline.
+
 ## [1.6.401] - 2026-07-21
 
 ### Added

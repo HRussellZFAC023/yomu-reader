@@ -1377,7 +1377,9 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const word = mirror.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
         expect(mirror.style.getPropertyValue('-webkit-text-fill-color')).toBe('transparent');
-        expect(word.style.getPropertyValue('text-decoration-color')).toContain('--jpdb-reader-source-pitch-decoration');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source'))
+            .toContain('--jpdb-reader-source-pitch-decoration');
+        expect(word.style.getPropertyValue('text-decoration-color')).toBe('');
 
         setRenderedWordPitchClass(word, 'heiban');
 

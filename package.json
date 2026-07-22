@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.401",
+  "version": "1.6.402",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/WaniKani/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -143,6 +143,7 @@
     "smoke:youtube-title-recycler": "node scripts/youtube-title-recycler-smoke.mjs",
     "smoke:enrichment-concurrency": "node scripts/enrichment-concurrency-smoke.mjs",
     "smoke:pitch-underline": "node scripts/pitch-underline-smoke.mjs",
+    "smoke:pitch-underline:webkit": "YOMU_PITCH_UNDERLINE_ENGINE=webkit node scripts/pitch-underline-smoke.mjs",
     "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "manual:reader-sites": "node scripts/manual/reader-sites-smoke.mjs",
     "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",

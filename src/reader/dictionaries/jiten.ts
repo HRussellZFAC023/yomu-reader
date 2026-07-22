@@ -269,6 +269,85 @@ export interface JitenVocabularyInfo {
     examples: JitenVocabularyExample[];
 }
 
+export interface JitenVocabularyIdentity {
+    spelling: string;
+    reading: string;
+    wordWithReading: string | null;
+}
+
+/**
+ * Returns the exact spelling/reading identity attested by a Jiten detail
+ * response. Detail hydration is allowed to repair a provisional parse card,
+ * but callers must still fail closed when the response belongs to another
+ * spelling (homographs must never share pitch or frequency evidence).
+ */
+export function jitenVocabularyIdentity(info: JitenVocabularyInfo | null): JitenVocabularyIdentity | null {
+    const annotated = info?.mainReading?.text.trim() ?? '';
+    if (!annotated) return null;
+    const spelling = cleanJitenAnnotatedSpelling(annotated).trim();
+    const cleanedReading = cleanJitenAnnotatedReading(annotated).trim();
+    if (!spelling) return null;
+    // Some Jiten detail fixtures/responses expose only the plain kanji
+    // headword here. That attests the spelling but not a phonetic reading;
+    // preserve a populated card reading and use it for pitch instead of
+    // treating the kanji spelling itself as a conflicting homograph reading.
+    const reading = cleanedReading === spelling && /[\u3400-\u9fff々〆]/u.test(spelling)
+        ? ''
+        : cleanedReading;
+    return {
+        spelling,
+        reading,
+        wordWithReading: spelling === annotated ? null : annotated,
+    };
+}
+
+/**
+ * Promotes only missing/provisional identity fields on the displayed card and
+ * appends exact Jiten pitch evidence. This is shared by popup enrichment and
+ * provider-frequency matching so every late consumer observes one canonical
+ * spelling+reading pair.
+ */
+export function enrichCardFromJitenVocabularyInfo(card: JPDBCard, info: JitenVocabularyInfo | null): boolean {
+    const identity = jitenVocabularyIdentity(info);
+    if (!identity || normalizedJitenIdentity(identity.spelling) !== normalizedJitenIdentity(card.spelling)) return false;
+
+    let changed = false;
+    const currentReading = card.reading.trim();
+    const normalizedCurrentReading = normalizedJitenIdentity(currentReading);
+    const normalizedSpelling = normalizedJitenIdentity(card.spelling);
+    if (identity.reading
+        && currentReading
+        && normalizedCurrentReading !== normalizedSpelling
+        && normalizedCurrentReading !== normalizedJitenIdentity(identity.reading)) return false;
+    if (identity.reading
+        && (!currentReading || normalizedJitenIdentity(currentReading) === normalizedJitenIdentity(card.spelling))
+        && currentReading !== identity.reading) {
+        card.reading = identity.reading;
+        changed = true;
+    }
+    if (!card.wordWithReading && identity.wordWithReading) {
+        card.wordWithReading = identity.wordWithReading;
+        changed = true;
+    }
+    if (card.frequencyRank === null && typeof info?.mainReading?.frequencyRank === 'number' && info.mainReading.frequencyRank > 0) {
+        card.frequencyRank = info.mainReading.frequencyRank;
+        changed = true;
+    }
+
+    const pronunciationReading = card.reading.trim() || identity.reading;
+    for (const position of info?.pitchAccents ?? []) {
+        const pattern = pitchPatternFromPosition(pronunciationReading, position);
+        if (!pattern || card.pitchAccent.includes(pattern)) continue;
+        card.pitchAccent.push(pattern);
+        changed = true;
+    }
+    return changed;
+}
+
+function normalizedJitenIdentity(value: string): string {
+    return value.normalize('NFKC').replace(/\s+/gu, '').trim();
+}
+
 export interface JitenKanjiReadingWords {
     reading: string;
     totalWords: number;

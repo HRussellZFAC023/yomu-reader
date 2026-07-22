@@ -1289,8 +1289,14 @@ export class ReaderApp {
             // Player iframes need OCR too: the subtitle rail's OCR button and
             // paused-frame OCR dispatch/listen inside this frame's document.
             this.ocr.init();
-            if (this.shouldScanEmbeddedFrame()) {
-                this.setupAutoScan();
+            // Sign-in widgets and other compact embedded controls often boot
+            // with a Latin placeholder and localise to Japanese later. Every
+            // frame gets the same mutation-driven scanner, but an initial scan
+            // is still scheduled only when Japanese is already present (or for
+            // the existing YouTube chat surface). Without the observer, a
+            // Latin -> Japanese characterData mutation was invisible forever.
+            this.setupAutoScan();
+            if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
                 this.scheduleAutoScan(0, { force: true });
             }
             return;
@@ -6809,6 +6815,7 @@ export class ReaderApp {
         anchor?: HTMLElement,
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
+        this.applyCardEnrichmentToRenderedAnchor(card, anchor);
         const renderedRoots = this.renderedWordUpdateRootsForCardRender(trigger, anchor);
         this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, {
             preserveExistingEmpty: trigger === 'hover',
@@ -6825,6 +6832,18 @@ export class ReaderApp {
         this.updateCardPopoverPosition(trigger);
         this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
             relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
+        });
+    }
+
+    private applyCardEnrichmentToRenderedAnchor(card: JPDBCard, anchor?: HTMLElement): void {
+        const word = anchor?.closest<HTMLElement>('.jpdb-reader-word');
+        if (!word?.isConnected) return;
+        const surface = normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
+        if (!surface || !cardMatchesRenderedLookupValue(card, surface)) return;
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+        this.pauseAutoScanObserver(() => {
+            this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+            refreshReaderWordContrast(word.parentElement ?? word);
         });
     }
 
@@ -8232,6 +8251,12 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+        // Parsing and visual enrichment are independent channels. A parser can
+        // already know a card's reading/pitch while omitting ruby spans for the
+        // contextual surface (inflections are the common example). Reconcile
+        // that exact evidence onto the connected word before the pitch-complete
+        // fast path filters the token out of network work.
+        tokens.forEach(token => this.reconcileRenderedTokenFurigana(token));
         // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
         // pitch source: the at-rest pass stays offline. But local-FIRST, not
         // local-ONLY (class F): words the local bank misses are fed into the
@@ -8335,11 +8360,20 @@ export class ReaderApp {
         return this.settings.showPitchAccent || (this.settings.showFurigana && this.settings.furiganaMode !== 'off');
     }
 
+    private reconcileRenderedTokenFurigana(token: JPDBToken): void {
+        if (!this.settings.showFurigana || this.settings.furiganaMode === 'off' || token.rubies.length) return;
+        const reading = token.card.reading.trim();
+        if (!reading || reading === token.card.spelling.trim()) return;
+        const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
+        if (![...surface].some(isKanjiCharacter)) return;
+        const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || 'unknown';
+        this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
+    }
+
     private async resolvePublicFallbackPitchTokens(
         tokens: JPDBToken[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {},
     ): Promise<JPDBToken[]> {
-        if (this.isJitenApiActive()) return tokens;
         const queuedTokens: JPDBToken[] = [];
         const fallbackGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
         const jitenGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();

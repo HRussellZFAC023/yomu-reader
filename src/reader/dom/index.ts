@@ -3052,9 +3052,10 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         setInlineStyleIfChanged(reading, 'position', 'absolute', 'important');
         setInlineStyleIfChanged(reading, 'z-index', '2');
         setInlineStyleIfChanged(reading, 'inset-inline-start', '50%');
-        // Match native ruby placement: the reading touches the top edge of its
-        // own source glyph box. Do not invent a separate floating lane.
-        setInlineStyleIfChanged(reading, 'inset-block-end', '100%');
+        // A Range rect describes the source line box, but CJK ink can overhang
+        // its top edge by about 2px. Preserve a small gap so source-projected
+        // readings cannot collide with their base in WebKit or Chromium.
+        setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 3px)');
         setInlineStyleIfChanged(reading, 'display', 'block', 'important');
         setInlineStyleIfChanged(reading, 'width', 'max-content');
         setInlineStyleIfChanged(reading, 'max-width', 'none');
@@ -3090,34 +3091,29 @@ const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => 
 
 // A document-root mode selector cannot cross into an open shadow root. The
 // shadow stylesheet supplies the word/state variables, while this small inline
-// contract supplies the active channel and native underline paint. Source
-// order deliberately matches the stylesheet cascade (pitch is last).
+// contract supplies the active channel to the shared synthetic underline.
+// Source order deliberately matches the stylesheet cascade (pitch is last).
 function styleAdditiveMirrorPaint(root: HTMLElement): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
     root.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
     const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
-    if (!source) {
-        for (const word of words) {
-            word.style.removeProperty('text-decoration-color');
-            word.style.removeProperty('--jpdb-reader-additive-decoration');
-            word.style.removeProperty('--jpdb-reader-mirror-status-soft');
-        }
-        return;
-    }
     // The injected shadow stylesheet owns glyph suppression and word
-    // decoration geometry. Document-level mode selectors cannot cross a
-    // shadow boundary, so bridge the selected paint variables onto the word;
-    // projected fragment boxes inherit them without knowing which site owns
-    // the source text.
-    const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
+    // decoration geometry. Document-level mode selectors cannot cross a shadow
+    // boundary, so bridge the selected semantic source onto the word. Painting
+    // a native text-decoration here would create a second engine-dependent
+    // baseline beside the exact source-fragment underline.
+    const paint = source
+        ? `var(--jpdb-reader-source-${source}-decoration, transparent)`
+        : 'transparent';
     const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
     const softPaint = highlightSource
         ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
         : '';
     for (const word of words) {
-        word.style.setProperty('text-decoration-color', paint, 'important');
-        word.style.setProperty('--jpdb-reader-additive-decoration', paint);
+        word.style.removeProperty('text-decoration-color');
+        word.style.removeProperty('--jpdb-reader-additive-decoration');
+        word.style.setProperty('--jpdb-reader-word-decoration-source', paint);
         if (softPaint) word.style.setProperty('--jpdb-reader-mirror-status-soft', softPaint);
         else word.style.removeProperty('--jpdb-reader-mirror-status-soft');
     }

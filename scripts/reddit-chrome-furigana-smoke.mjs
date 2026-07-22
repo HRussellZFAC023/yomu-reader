@@ -62,6 +62,7 @@ const VOCABULARY = [
     ['国際', '国際', 'こくさい', 'international', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['カップル', 'カップル', 'カップル', 'couple', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['恋愛', '恋愛', 'れんあい', 'romance', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['続ける', '続ける', 'つづける', 'continue', ['verb'], 100, ['not-in-deck'], ['LHHH']],
     // Deliberately malformed parser outputs: valid offsets but non-Japanese
     // source slices. The renderer must discard both at its final boundary.
     ['r/singularity', '日本語', 'にほんご', 'invalid Latin token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -116,6 +117,9 @@ body { display: grid; place-items: start center; }
   box-sizing: border-box; padding: 8px 12px; border: 1px solid #748087; border-radius: 10px;
   background: #172126; color: #f2f4f5; font: 600 18px/24px system-ui, sans-serif;
 }
+#late-localizing-signin {
+  position: absolute; inset: auto 18px 18px auto; width: 260px; height: 64px; border: 0;
+}
 </style>
 </head>
 <body>
@@ -140,6 +144,8 @@ body { display: grid; place-items: start center; }
       <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
     </article>
     <span id="popup-anchor">投稿</span>
+    <iframe id="late-localizing-signin" name="late-localizing-signin"
+      srcdoc="<!doctype html><html lang='en'><head><meta charset='utf-8'><style>body{margin:0;padding:8px;background:#0b1416}button{box-sizing:border-box;width:240px;height:44px;border:1px solid #748087;border-radius:999px;background:#eef0f2;color:#182026;font:600 16px/20px system-ui}</style></head><body><button id='google-signin'>Continue with Google</button></body></html>"></iframe>
   </main>
 </shreddit-app>
 <script>
@@ -329,6 +335,16 @@ async function runEngine(engineName, browser) {
             await page.addScriptTag({ path: companionPath });
         }
         await page.addScriptTag({ path: SCRIPT_PATH });
+        const signInFrame = page.frame({ name: 'late-localizing-signin' });
+        assert(signInFrame, `${engineName}: late-localizing sign-in frame was not available`);
+        await signInFrame.addStyleTag({ path: CSS_PATH });
+        for (const companionPath of REQUIRED_COMPANION_PATHS) {
+            await signInFrame.addScriptTag({ path: companionPath });
+        }
+        await signInFrame.addScriptTag({ path: SCRIPT_PATH });
+        const latinSignInWordCount = await signInFrame.locator('#google-signin .jpdb-reader-word').count();
+        assert(latinSignInWordCount === 0,
+            `${engineName}: Latin sign-in placeholder was parsed before localization`, { latinSignInWordCount });
         // Script injection includes Playwright reading, parsing, and compiling
         // the 2 MB userscript. That host/harness cost can pause an otherwise
         // idle WebKit page for more than a second on a cold CI runner and is
@@ -358,13 +374,30 @@ async function runEngine(engineName, browser) {
             sortRoot.querySelector('#menu-new').textContent = '新しい順';
             sortRoot.querySelector('#menu-votes').textContent = '賛成票数順';
         });
+        await signInFrame.locator('#google-signin').evaluate(button => {
+            button.textContent = 'Google で続ける';
+        });
 
         await Promise.all([
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#feed .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
+            signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
+        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => ({
+            text: button.textContent?.trim() ?? '',
+            expressions: [...button.querySelectorAll('.jpdb-reader-word')]
+                .map(word => word.dataset.expression ?? ''),
+            words: button.querySelectorAll('.jpdb-reader-word').length,
+            furigana: button.querySelectorAll('.jpdb-reader-furi').length,
+            pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
+        }));
+        assert(lateLocalizedSignIn.expressions.includes('続ける')
+            && lateLocalizedSignIn.words > 0
+            && lateLocalizedSignIn.furigana > 0
+            && lateLocalizedSignIn.pitchWords > 0,
+        `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -489,6 +522,7 @@ async function runEngine(engineName, browser) {
             videoAvoidance,
             puckDrag,
             mirrorRemovalFallback,
+            lateLocalizedSignIn,
             performance: {
                 responsiveness,
                 steadyState,
@@ -1501,6 +1535,17 @@ function snapshotRedditElement(element, expected) {
             '.jpdb-mature', '.jpdb-mastered', '.jpdb-never-forget', '.jpdb-redundant', '.jpdb-due',
         ].join(','))).length,
         decoratedExpressions: decoratedWords.map(word => word.getAttribute('data-expression')),
+        projectedFragments: words.flatMap(word => [...word.querySelectorAll('.jpdb-reader-source-fragment')])
+            .map(fragment => {
+                const underline = getComputedStyle(fragment, '::after');
+                return {
+                    borderStyle: underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle,
+                    borderWidth: underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
+                    borderColor: underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor,
+                    underline: getComputedStyle(fragment).getPropertyValue('--jpdb-reader-word-underline'),
+                    rect: fragment.getBoundingClientRect().toJSON(),
+                };
+            }),
         nativePaintVisible: nativeStyle.display !== 'none'
             && nativeStyle.visibility !== 'hidden'
             && nativeStyle.opacity !== '0'

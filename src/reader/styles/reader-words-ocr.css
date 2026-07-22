@@ -895,8 +895,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   position: absolute !important;
   z-index: 2;
   inset-inline-start: 50%;
-  /* Native-ruby placement: the reading directly meets its own base box. */
-  inset-block-end: 100%;
+  /* Range-projected wrappers use the source line box, whose CJK ink can
+     overhang its top edge by about 2px in both WebKit and Chromium. Keep a
+     small physical gap so the detached reading never collides with that ink. */
+  inset-block-end: calc(100% + 3px);
   display: block !important;
   width: max-content;
   max-width: none;
@@ -936,40 +938,38 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow: none !important;
 }
 /* The source glyph stays page-owned, so highlight/text-colour modes cannot
-   safely repaint it from an overlay. Preserve their annotation signal as a
-   quiet underline, while ordinary underline mode uses the same source colour.
-   This also fixes the additive pitch line being accidentally forced
-   transparent after the absolute ::after strip was retired. */
+   safely repaint it from an overlay. Preserve their annotation signal in the
+   same ::after underline lane used by ordinary page words. */
 :is(
   .jpdb-reader-word-highlight-status,
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-text-status
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-jpdb,
   .jpdb-reader-word-underline-jpdb,
   .jpdb-reader-word-text-jpdb
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-anki,
   .jpdb-reader-word-underline-anki,
   .jpdb-reader-word-text-anki
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-anki-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
 }
 :is(
   .jpdb-reader-word-highlight-pitch,
   .jpdb-reader-word-underline-pitch,
   .jpdb-reader-word-text-pitch
 ) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-pitch-decoration, transparent);
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
-  text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 /* SRS status on additive mirrors. The opaque status highlight was stripped from
    mirrors (background-image:none above) because a page-owned source glyph cannot
@@ -1043,24 +1043,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   content: "";
   position: absolute;
   inset-inline: 0;
-  inset-block-end: 0.08em;
+  inset-block-end: 0;
   border-block-end: var(--jpdb-reader-word-underline-thickness)
     var(--jpdb-reader-word-underline-style)
-    var(--jpdb-reader-additive-decoration, transparent);
+    var(--jpdb-reader-word-underline, transparent);
 }
-/* A mirrored page word's line box can include ruby leading or a tall host
-   control. Anchor pitch lines to the glyphs with native decoration; the
-   absolute ::after lane otherwise falls at the containing line-box edge. */
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror
-  .jpdb-reader-word {
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror
-  .jpdb-reader-word::after {
-  content: none !important;
-}
+/* Mirrors and in-place words use the same synthetic border underline channel:
+   ordinary/mirrored words paint through their ::after lane, while a
+   source-projected word paints the same inherited value on each exact Range
+   fragment. Mixing native mirror decoration with the synthetic overlay put a
+   mirrored ruby word several pixels above its ordinary neighbour on WebKit.
+   The synthetic channel is also continuous across segmented ruby and survives
+   the atomic detached-ruby wrappers used by compact controls. */
 [data-yomu-detached-reading-overflow="true"] {
   overflow: visible !important;
 }
