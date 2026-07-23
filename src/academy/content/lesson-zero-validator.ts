@@ -265,6 +265,7 @@ function validateScriptLines(script: LessonZeroInputScript): ReadonlySet<string>
         text(line.japanese, `script ${script.id} Japanese line`);
         text(line.reading, `script ${script.id} reading line`);
         text(line.english, `script ${script.id} English line`);
+        if (line.audioAssetId !== undefined) text(line.audioAssetId, `script ${script.id} line audio id`);
     }
     return lineIds;
 }
@@ -276,12 +277,19 @@ function validateDialogueSpeakers(script: LessonZeroInputScript): void {
     for (const speakerId of speakers) {
         const member = getAcademyCastMember(speakerId);
         const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
+        const acceptedNames = canonicalScriptNames(member.id, member.firstName);
         if (!speakerLines.some(line =>
-            line.japanese.includes(`${member.firstName}です`)
-            && line.reading.includes(`${member.firstName}です`))) {
+            acceptedNames.some(name => line.japanese.includes(`${name}です`)
+                && line.reading.includes(`${name}です`)))) {
             fail(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
         }
     }
+}
+
+function canonicalScriptNames(memberId: string, firstName: string): readonly string[] {
+    if (memberId === 'xingyu') return [firstName, 'シンユ'];
+    if (memberId === 'mika') return [firstName, 'ミカ'];
+    return [firstName];
 }
 
 function validateScriptLearnerTurns(
@@ -460,7 +468,22 @@ function validateAudio(
     for (const asset of assetById.values()) {
         validateAudioAsset(asset, blockerById);
     }
-    for (const script of scripts) if (!assetById.has(script.audioAssetId)) fail(`Script ${script.id} references unknown audio ${script.audioAssetId}.`);
+    for (const script of scripts) {
+        if (!assetById.has(script.audioAssetId)) fail(`Script ${script.id} references unknown audio ${script.audioAssetId}.`);
+        for (const line of script.lines) {
+            if (line.audioAssetId && !assetById.has(line.audioAssetId)) {
+                fail(`Script ${script.id} line ${line.id} references unknown audio ${line.audioAssetId}.`);
+            }
+        }
+    }
+    const soundScript = scripts.find(script => script.id === 'input:lesson-zero-sound-hosts');
+    if (!soundScript || soundScript.lines.some(line => {
+        if (!line.audioAssetId) return true;
+        const asset = assetById.get(line.audioAssetId);
+        return !asset || asset.state !== 'ready' || asset.verifiedPairing !== true || !asset.runtimeUrl;
+    })) {
+        fail('Lesson Zero sound input requires ready, verified audio for every individual voice line.');
+    }
     for (const blocker of blockerById.values()) {
         validateAudioBlocker(blocker, assetById);
     }

@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 115,
-    "currentRasterFilesAccountedFor": 115,
-    "active": 106,
+    "currentRasterFiles": 116,
+    "currentRasterFilesAccountedFor": 116,
+    "active": 107,
     "orphaned": 9,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 606,
+    "missingExpressionVariants": 605,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 14,
+    "approvedExpressionVariants": 15,
     "reviewCandidateExpressionVariants": 10,
-    "deliveredMatrixExpressionVariants": 24,
+    "deliveredMatrixExpressionVariants": 25,
     "offMatrixDeliveredSprites": 9,
     "activeByKind": {
-      "character-sprite": 24,
+      "character-sprite": 25,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 4,
@@ -120,6 +120,24 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "review-candidate/runtime-preview",
         "ledgerStatus": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
+      },
+      {
+        "id": "mika-sound-listening-halfbody-v001",
+        "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png",
+        "sha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8",
+        "ledgerSha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:sound-speaker-match",
+          "story:s1e01:mission-sound"
+        ],
+        "reviewHomes": [],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "approved-2026-07-22 after transparent-perimeter, responsive-composition, interaction, accessibility, and canonical story-return verification; original sound-room listening performance"
       },
       {
         "id": "peter-encouraging-right-three-quarter-halfbody-v001",
@@ -4252,15 +4270,6 @@
         "angle": "front-near-front",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/mika/mika__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "front-near-front",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/mika/mika__encouraging-listening__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

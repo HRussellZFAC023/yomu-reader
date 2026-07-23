@@ -74,6 +74,7 @@ export interface LessonZeroInputScript {
     readonly lines: readonly Readonly<{
         id: string;
         speakerId: LessonZeroCharacterId;
+        audioAssetId?: string;
         japanese: string;
         reading: string;
         english: string;

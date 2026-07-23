@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 14,
+    "approved": 15,
     "reviewCandidates": 10,
-    "missing": 606,
-    "currentPhysicalRasters": 33,
+    "missing": 605,
+    "currentPhysicalRasters": 34,
     "currentOffMatrixRasters": 9,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 5,
-    "charactersWithAnyCurrentCoverage": 9
+    "charactersWithApprovedCoverage": 6,
+    "charactersWithAnyCurrentCoverage": 10
   },
   "migrations": [
     {
@@ -4928,13 +4928,49 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 1,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 20,
+        "deliveredPercent": 4.76,
+        "approvedPercent": 4.76
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png",
+          "sha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8",
+          "source": "generated-image://lesson-zero-sound-mika-20260722",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "lesson-zero:sound-speaker-match",
+              "story:s1e01:mission-sound"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; front-near-front",
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1086,
+            "height": 1448,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "lesson-zero:sound-speaker-match",
+            "story:s1e01:mission-sound"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -5002,9 +5038,8 @@
         {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__encouraging-listening__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -5147,13 +5182,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mika/mika__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",

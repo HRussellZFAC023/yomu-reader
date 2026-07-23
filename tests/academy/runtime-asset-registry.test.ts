@@ -76,10 +76,11 @@ describe('Academy runtime asset registry', () => {
         }
     });
 
-    it('wires only likeness-cleared Aakash, Rie, Sophie, Steve, and Xingyu performances into the approved sprite map', () => {
+    it('wires only likeness-cleared cast performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
             aakash: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
             xingyuListening: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png',
+            mikaSound: '/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png',
             rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
             rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
             rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
@@ -96,6 +97,7 @@ describe('Academy runtime asset registry', () => {
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
             aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
             xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+            mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
             rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
             sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
             steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
@@ -103,6 +105,7 @@ describe('Academy runtime asset registry', () => {
         for (const id of [
             'character.aakash.neutral',
             'character.xingyu.listening',
+            'character.mika.sound-listening',
             'character.sophie.neutral-right',
             'character.sophie.encouraging-front',
             'character.sophie.determined-left',

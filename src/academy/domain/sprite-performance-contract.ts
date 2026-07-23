@@ -166,6 +166,13 @@ const RASTER_COVERAGE: Partial<Record<
             approvedAssetId: 'character.xingyu.listening',
         },
     } },
+    mika: { 'front-near-front': {
+        'encouraging-listening': {
+            status: 'approved',
+            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.mika.sound-listening'].files.default,
+            approvedAssetId: 'character.mika.sound-listening',
+        },
+    } },
     peter: {
         'left-three-quarter': { neutral: {
             status: 'review-candidate',

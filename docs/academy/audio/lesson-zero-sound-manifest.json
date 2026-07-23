@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "engine": {
+    "name": "AivisSpeech",
+    "version": "1.2.0"
+  },
+  "qualityBoundary": "Automated model, text, accent-query, duration, and hash verification; no human-audition claim.",
+  "lines": [
+    {
+      "lineId": "line:lesson-zero-sound-xingyu",
+      "assetId": "audio:lesson-zero-sound-xingyu",
+      "text": "はじめまして。シンユです。",
+      "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "speakerUuid": "41b7785f-35cc-4089-a360-dd8a63da5e75",
+      "speakerName": "まい",
+      "styleId": 1431611904,
+      "styleName": "ノーマル",
+      "queryOverrides": {
+        "speedScale": 1.02,
+        "pitchScale": 0.01,
+        "intonationScale": 1.08,
+        "volumeScale": 0.85,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16
+      },
+      "querySha256": "8e400a75e37496b9f40cfe1a9fbbef09328a9fa8cd0407a68bae79fae86ab45b",
+      "pitchTrace": [
+        {
+          "phrase": 0,
+          "text": "ハ",
+          "consonant": "h",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ジ",
+          "consonant": "j",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "メ",
+          "consonant": "m",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "マ",
+          "consonant": "m",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "シ",
+          "consonant": "sh",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "テ",
+          "consonant": "t",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "シ",
+          "consonant": "sh",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ン",
+          "consonant": null,
+          "vowel": "N",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ユ",
+          "consonant": "y",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "デ",
+          "consonant": "d",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ス",
+          "consonant": "s",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        }
+      ],
+      "runtimeUrl": "/academy/audio/lesson-zero/sound-xingyu.opus",
+      "fileSha256": "c2fccc49e10915b24583aec9322ba8df32b17b6d53a16e7ba03461870d2b89ac",
+      "bytes": 18665,
+      "durationSeconds": 2.341
+    },
+    {
+      "lineId": "line:lesson-zero-sound-mika",
+      "assetId": "audio:lesson-zero-sound-mika",
+      "text": "ミカです。よろしくお願いします。",
+      "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+      "speakerUuid": "561e4e59-3bc9-4726-9028-44a3c12a6f1d",
+      "speakerName": "阿井田 茂",
+      "styleId": 1310138977,
+      "styleName": "Calm",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.02,
+        "intonationScale": 0.95,
+        "volumeScale": 0.82,
+        "prePhonemeLength": 0.14,
+        "postPhonemeLength": 0.2
+      },
+      "querySha256": "b9448a4ff6eefe71c94c922a1a3f6e90698492ae63989f3579eb1a5541725252",
+      "pitchTrace": [
+        {
+          "phrase": 0,
+          "text": "ミ",
+          "consonant": "m",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "カ",
+          "consonant": "k",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "デ",
+          "consonant": "d",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ス",
+          "consonant": "s",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ヨ",
+          "consonant": "y",
+          "vowel": "o",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ロ",
+          "consonant": "r",
+          "vowel": "o",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "シ",
+          "consonant": "sh",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ク",
+          "consonant": "k",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "オ",
+          "consonant": null,
+          "vowel": "o",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ネ",
+          "consonant": "n",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ガ",
+          "consonant": "g",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "イ",
+          "consonant": null,
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "シ",
+          "consonant": "sh",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "マ",
+          "consonant": "m",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ス",
+          "consonant": "s",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        }
+      ],
+      "runtimeUrl": "/academy/audio/lesson-zero/sound-mika.opus",
+      "fileSha256": "bdfd04464f90e144f240ba0cae2dad5ab07831c693ba6882dd6c9672fb49f994",
+      "bytes": 20628,
+      "durationSeconds": 2.841
+    }
+  ],
+  "combined": {
+    "assetId": "audio:lesson-zero-sound-hosts",
+    "runtimeUrl": "/academy/audio/lesson-zero/sound-hosts.opus",
+    "pauseMs": 650,
+    "fileSha256": "76036613f3e5661c628531710419895a7488afb14202d4086b0535012370495b",
+    "bytes": 45336,
+    "durationSeconds": 5.825
+  }
+}

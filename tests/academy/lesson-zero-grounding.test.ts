@@ -21,7 +21,9 @@ describe('Lesson 0 grounding audit', () => {
             .toEqual(source.lesson.activities.map(activity => activity.id));
         expect(grounding.activities).toHaveLength(18);
         expect(grounding.status).toBe('review-blocked');
-        expect(grounding.activities.every(activity => activity.status === 'review-blocked')).toBe(true);
+        expect(grounding.activities.filter(activity => activity.status === 'playable').map(activity => activity.id))
+            .toEqual(['activity:lesson-zero-sound-input']);
+        expect(grounding.activities.filter(activity => activity.status === 'review-blocked')).toHaveLength(17);
         expect(grounding.blockerIds).toEqual(expect.arrayContaining([
             'blocker:lesson-zero-grounded-prerequisites',
             'blocker:lesson-zero-grounded-authored-language-review',
@@ -82,7 +84,7 @@ describe('Lesson 0 grounding audit', () => {
         expect(() => validateLessonZeroGrounding(candidate)).toThrow(/source hash changed/i);
     });
 
-    it('does not promote rubric ids, blocked audio, or expected evidence into release proof', () => {
+    it('grounds the shipped sound mission without promoting unrelated expected evidence', () => {
         const grounding = validateLessonZeroGrounding(packageJson());
         const rubricActivity = grounding.activities.find(activity =>
             activity.id === 'activity:lesson-zero-written-transfer');
@@ -93,15 +95,43 @@ describe('Lesson 0 grounding audit', () => {
         const listening = grounding.activities.find(activity =>
             activity.id === 'activity:lesson-zero-sound-input');
         expect(listening?.proofs.media).toEqual({
-            state: 'review-blocked',
-            blockerIds: ['blocker:lesson-zero-verified-dialogue-audio'],
+            state: 'ready',
+            evidence: {
+                state: 'ready',
+                provenance: 'authored',
+                assetIds: ['audio:lesson-zero-sound-hosts'],
+                revision: '2026-07-22.lesson-zero.v2-sound-mission',
+                transcript: 'ready',
+            },
         });
-        expect(listening?.proofs.learnerEvidence.state).toBe('review-blocked');
+        expect(listening?.status).toBe('playable');
+        expect(Object.values(listening!.proofs).every(proof => proof.state === 'ready')).toBe(true);
+        expect(listening?.proofs.learnerEvidence).toMatchObject({
+            state: 'ready',
+            evidence: {
+                attemptEventKind: 'attempt-recorded',
+                reviewRepository: 'canonical-yomu',
+            },
+        });
     });
 
-    it('keeps concealment blocked until the shipped pre-commit surface is audited', () => {
+    it('keeps concealment blocked except for the audited sound surface', () => {
         const grounding = validateLessonZeroGrounding(packageJson());
-        for (const activity of grounding.activities) {
+        const sound = grounding.activities.find(activity =>
+            activity.id === 'activity:lesson-zero-sound-input')!;
+        expect(sound.proofs.answerConcealment).toMatchObject({
+            state: 'ready',
+            evidence: {
+                revealPolicy: 'after-first-attempt',
+                learnerFacingPreCommit: {
+                    translations: 'absent',
+                    transcripts: 'absent',
+                    modelAnswers: 'absent',
+                    acceptedAnswers: 'absent',
+                },
+            },
+        });
+        for (const activity of grounding.activities.filter(candidate => candidate !== sound)) {
             expect(activity.proofs.answerConcealment).toEqual({
                 state: 'review-blocked',
                 blockerIds: ['blocker:lesson-zero-answer-concealment-surface-audit'],

@@ -20,6 +20,7 @@ import {
     LESSON_ZERO_SENTENCE_FRAME_CHILD_ACTIVITY_IDS,
     LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
 } from './lesson-zero-sentence-frames';
+import { LESSON_ZERO_SOUND_ACTIVITY_ID } from './lesson-zero-sound';
 import { LESSON_ZERO_VOWEL_SOUND_MAP_ID } from './lesson-zero-vowel-sound-map';
 import {
     LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
@@ -155,6 +156,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
             LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
             LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
             ...LESSON_ZERO_SENTENCE_FRAME_CHILD_ACTIVITY_IDS,
+            LESSON_ZERO_SOUND_ACTIVITY_ID,
             LESSON_ZERO_VOWEL_SOUND_MAP_ID,
             LESSON_ZERO_VOWEL_WRITING_ID,
             ...LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
@@ -173,7 +175,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',
         classWeekId: 'orientation',
-        expectedContentRevision: '2026-07-13.lesson-zero.v1-audio-contract-2',
+        expectedContentRevision: '2026-07-22.lesson-zero.v2-sound-mission',
         expectedSha256: LESSON_ZERO_CONTENT_SHA256,
         audit: validateLessonZeroGrounding,
     },

@@ -56,9 +56,9 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 14,
+            approved: 15,
             reviewCandidates: 10,
-            missing: totalPerformanceCells - 24,
+            missing: totalPerformanceCells - 25,
         });
     });
 

@@ -114,8 +114,8 @@ describe('complete Lesson 0 content package', () => {
 
     it('uses only the canonical Lesson 0 cast and the exact route hosts', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
-        const exactFirstNames = new Map([
-            ['xingyu', 'Xingyu'], ['mika', 'Mika'], ['sophie', 'Sophie'],
+        const exactWrittenNames = new Map([
+            ['xingyu', 'シンユ'], ['mika', 'ミカ'], ['sophie', 'Sophie'],
             ['ruparna', 'Ruparna'], ['aakash', 'Aakash'], ['sam', 'Sam'],
         ]);
         const usedCharacters = new Set([
@@ -132,9 +132,9 @@ describe('complete Lesson 0 content package', () => {
         expect(lesson.missions.find(mission => mission.id === 'sound')?.locationId)
             .toBe('location:language-lab');
         for (const { script, speakerId } of dialogueSpeakerEntries(lesson)) {
-            const firstName = exactFirstNames.get(speakerId);
+            const firstName = exactWrittenNames.get(speakerId);
             const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
-            expect(firstName, `confirmed Latin name for ${speakerId}`).toBeDefined();
+            expect(firstName, `canonical written name for ${speakerId}`).toBeDefined();
             expect(speakerLines.some(line => line.japanese.includes(firstName!))).toBe(true);
             expect(speakerLines.some(line => line.reading.includes(firstName!))).toBe(true);
         }
@@ -159,10 +159,16 @@ describe('complete Lesson 0 content package', () => {
         );
         expect(authoredDialogue).not.toContain('日本語の学生です');
         expect(authoredDialogue).not.toMatch(/Samさんは先生ですか|先生じゃありません|are you the teacher|not the teacher/iu);
-        for (const { script, speakerId } of dialogueSpeakerEntries(lesson)) {
+        for (const { script, speakerId } of dialogueSpeakerEntries(lesson)
+            .filter(entry => entry.script.id !== 'input:lesson-zero-sound-hosts')) {
             expect(script.lines.some(line =>
                 line.speakerId === speakerId && line.japanese.includes('日本語を勉強しています'))).toBe(true);
         }
+        const sound = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-sound-hosts');
+        expect(sound?.lines.map(line => line.japanese)).toEqual([
+            'はじめまして。シンユです。',
+            'ミカです。よろしくお願いします。',
+        ]);
         const speaking = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts');
         expect(speaking?.lines.find(line => line.speakerId === 'aakash')?.japanese).toContain('これは教科書ですか');
         expect(speaking?.lines.find(line => line.speakerId === 'sam')?.japanese).toContain('教科書じゃありません。プリントです');
@@ -231,11 +237,34 @@ describe('complete Lesson 0 content package', () => {
             .toEqual(['あ', 'い', 'う', 'え', 'お']);
     });
 
-    it('keeps unverified dialogue audio as an internal release blocker and forbids browser TTS', async () => {
+    it('exposes only verified dialogue audio and keeps the remaining recordings internally blocked', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
-        expect(lesson.audioAssets).toHaveLength(4);
-        for (const asset of lesson.audioAssets) {
+        expect(lesson.audioAssets).toHaveLength(6);
+        const readyAssets = lesson.audioAssets.filter(asset => asset.state === 'ready');
+        expect(readyAssets).toEqual([
+            expect.objectContaining({
+                id: 'audio:lesson-zero-sound-hosts',
+                runtimeUrl: '/academy/audio/lesson-zero/sound-hosts.opus',
+                verifiedPairing: true,
+            }),
+            expect.objectContaining({
+                id: 'audio:lesson-zero-sound-xingyu',
+                runtimeUrl: '/academy/audio/lesson-zero/sound-xingyu.opus',
+                verifiedPairing: true,
+            }),
+            expect.objectContaining({
+                id: 'audio:lesson-zero-sound-mika',
+                runtimeUrl: '/academy/audio/lesson-zero/sound-mika.opus',
+                verifiedPairing: true,
+            }),
+        ]);
+        expect(readyAssets.every(asset => asset.browserTtsAllowed === false)).toBe(true);
+        expect(readyAssets.every(asset => asset.learnerVisiblePlaceholder === false)).toBe(true);
+
+        const blockedAssets = lesson.audioAssets.filter(asset => asset.state === 'release-blocked');
+        expect(blockedAssets).toHaveLength(3);
+        for (const asset of blockedAssets) {
             expect(asset).toMatchObject({
                 state: 'release-blocked',
                 browserTtsAllowed: false,
@@ -248,7 +277,7 @@ describe('complete Lesson 0 content package', () => {
             expect.objectContaining({
                 kind: 'audio',
                 learnerVisible: false,
-                assetIds: lesson.audioAssets.map(asset => asset.id),
+                assetIds: blockedAssets.map(asset => asset.id),
             }),
         ]);
     });

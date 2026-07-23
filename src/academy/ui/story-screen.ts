@@ -569,6 +569,7 @@ function playableStoryCast(
 ): readonly AcademyVnCastMember[] {
     const hasRie = storySceneAttendeeIds(moment.scene, choices).includes('rie');
     const cast: AcademyVnCastMember[] = [];
+    const speakerId = moment.kind === 'line' ? moment.node.speakerId : undefined;
     const expression = moment.kind === 'line' && moment.node.speakerId === 'rie'
         ? playableStoryExpression(moment)
         : 'neutral';
@@ -588,10 +589,33 @@ function playableStoryCast(
             },
         });
     }
+    const speakingClassmate = approvedStorySpeakerCastMember(language, speakerId, hasRie ? 'center' : 'left');
+    if (speakingClassmate) cast.push(speakingClassmate);
     if (moment.kind === 'line') {
         cast.push(learnerStoryCastMember(language, learner));
     }
     return cast;
+}
+
+function approvedStorySpeakerCastMember(
+    language: AcademyLanguage,
+    speakerId: string | undefined,
+    position: AcademyVnCastMember['position'],
+): AcademyVnCastMember | undefined {
+    if (!speakerId || speakerId === 'rie' || speakerId === 'learner') return undefined;
+    if (!canRenderAcademyCastPortrait(speakerId, 'story-runtime')) return undefined;
+    const approved = ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string | undefined>>;
+    const still = approved[speakerId];
+    if (!still) return undefined;
+    const displayName = displayAcademyCastName(speakerId, language);
+    return {
+        characterId: speakerId,
+        displayName,
+        alt: language === 'ja' ? `${displayName}が話しています` : `${displayName} speaking`,
+        position,
+        expression: 'neutral',
+        expressions: { neutral: { still } },
+    };
 }
 
 function storySpeakerName(

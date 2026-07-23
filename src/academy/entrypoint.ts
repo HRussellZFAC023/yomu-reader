@@ -31,6 +31,7 @@ import './styles/lesson-zero-vowel.css';
 import './styles/lesson-zero-vowel-writing.css';
 import './styles/lesson-zero-sentence-frames.css';
 import './styles/lesson-zero-name-card.css';
+import './styles/lesson-zero-sound.css';
 import './styles/primary-purpose.css';
 import './styles/speaker-staging.css';
 import { createLocalQaAccessGateway, localQaAuthBypassEnabled } from './access/local-qa';

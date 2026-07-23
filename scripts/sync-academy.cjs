@@ -23,6 +23,21 @@ const learningVoiceAssetSources = [...new Set(learningVoiceCatalog.entries.map(e
         }
         return [`public${url}`, url.slice('/academy/'.length)];
     });
+const storyVoiceCatalogSource = 'public/academy/audio/story-voice-playback.json';
+const storyVoiceCatalog = JSON.parse(fs.readFileSync(path.join(root, storyVoiceCatalogSource), 'utf8'));
+if (storyVoiceCatalog.schema !== 'yomu-academy.story-voice-playback.v1'
+    || !Array.isArray(storyVoiceCatalog.entries)) {
+    throw new Error('Invalid Academy story voice catalog.');
+}
+const storyVoiceAssetSources = [...new Set(storyVoiceCatalog.entries.map(entry => entry.url))]
+    .map(url => {
+        if (typeof url !== 'string'
+            || !/^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u.test(url)
+            || url.split('/').includes('..')) {
+            throw new Error(`Invalid Academy story voice asset URL: ${url}`);
+        }
+        return [`public${url}`, url.slice('/academy/'.length)];
+    });
 const runtimeSources = [
     ['public/academy/manifest.webmanifest', 'manifest.webmanifest'],
     ['public/academy/art/ACADEMY-ASSET-REGISTRY.json', 'art/ACADEMY-ASSET-REGISTRY.json'],
@@ -45,6 +60,9 @@ const runtimeSources = [
     ['public/academy/content/n2-extensive-reading', 'content/n2-extensive-reading'],
     ['public/academy/content/n2-moving-priority-listening', 'content/n2-moving-priority-listening'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
+    ['public/academy/audio/lesson-zero', 'audio/lesson-zero'],
+    [storyVoiceCatalogSource, 'audio/story-voice-playback.json'],
+    ...storyVoiceAssetSources,
     [learningVoiceCatalogSource, 'audio/learning-voice-playback.json'],
     ...learningVoiceAssetSources,
     ['public/academy/vendor', 'vendor'],

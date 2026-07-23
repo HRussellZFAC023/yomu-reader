@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-3073f80b45d3';
+const VERSION = 'yomu-academy-shell-s1-95a2fae4dab0';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -43,6 +43,7 @@ const CAST_SPRITE_PRECACHE = [
     '/academy/art/SPRITE-BATCH-MANIFEST.json',
     '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
     '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png',
+    '/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png',
     '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
@@ -71,8 +72,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-3073f80b45d3',
-    '/academy/style.css?v=s1-3073f80b45d3',
+    '/academy/app.js?v=s1-95a2fae4dab0',
+    '/academy/style.css?v=s1-95a2fae4dab0',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -175,6 +176,13 @@ const CORE = [
     '/academy/content/listening/media/academy-listening-596a4499996bd959.mp3',
     '/academy/content/audio/sfx-catalog.json',
     '/academy/content/lessons/lesson-zero.v1.json',
+    '/academy/audio/lesson-zero/sound-hosts.opus',
+    '/academy/audio/lesson-zero/sound-xingyu.opus',
+    '/academy/audio/lesson-zero/sound-mika.opus',
+    '/academy/audio/story-voice-playback.json',
+    '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
+    '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
+    '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',
     '/academy/content/lessons/002-l1-l01.json',
     '/academy/content/lessons/003-l1-l02.json',
     '/academy/content/lessons/004-l1-l03.json',

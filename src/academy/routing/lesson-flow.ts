@@ -31,6 +31,10 @@ import {
     LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
 } from '../content/lesson-zero-sentence-frames';
 import {
+    createLessonZeroSoundDefinition,
+    LESSON_ZERO_SOUND_ACTIVITY_ID,
+} from '../content/lesson-zero-sound';
+import {
     createLessonZeroVowelBingo,
     createLessonZeroVowelSoundMap,
     LESSON_ZERO_VOWEL_SOUND_MAP_ID,
@@ -83,6 +87,10 @@ import {
     transitionLessonZeroSentenceFrameSession,
 } from '../domain/lesson-zero-sentence-frame-session';
 import {
+    startLessonZeroSoundSession,
+    transitionLessonZeroSoundSession,
+} from '../domain/lesson-zero-sound-session';
+import {
     startLessonZeroVowelSession,
     transitionLessonZeroVowelSession,
 } from '../domain/lesson-zero-vowel-session';
@@ -117,6 +125,7 @@ import { createClassroomInstructionScreen } from '../ui/classroom-instruction-sc
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
 import { createLessonZeroNameCardScreen } from '../ui/lesson-zero-name-card-screen';
 import { createLessonZeroSentenceFrameScreen } from '../ui/lesson-zero-sentence-frame-screen';
+import { createLessonZeroSoundScreen } from '../ui/lesson-zero-sound-screen';
 import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
 import { createLessonZeroVowelWritingScreen } from '../ui/lesson-zero-vowel-writing-screen';
 import { createAcademyActivityRuntime } from '../minigames';
@@ -444,6 +453,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderLessonZeroSentenceFrames(context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_SOUND_ACTIVITY_ID) {
+            await this.renderLessonZeroSound(context);
+            return;
+        }
         if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_SOUND_MAP_ID) {
             await this.renderLessonZeroVowelSession(context);
             return;
@@ -626,6 +639,66 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ lessonZeroGreetingProgress: transition.state });
             },
             onRestart: restart => context.save?.({ lessonZeroGreetingProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroSound(context: AcademyRouteContext): Promise<void> {
+        const content = await loadLessonZeroContent();
+        const definition = createLessonZeroSoundDefinition(content);
+        let state;
+        try {
+            state = startLessonZeroSoundSession(definition, context.checkpoint.lessonZeroSoundProgress);
+        } catch {
+            state = startLessonZeroSoundSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroSoundSession(definition, state, { kind: 'resume' }, Date.now()).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroSoundProgress)) {
+            await context.save?.({ lessonZeroSoundProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroSoundScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            onTransition: async (_before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        transition.evaluation.result.outcome === 'pass' ? {
+                            id: 'lesson-zero-first-voices',
+                            sceneId: 'scene:lesson-zero-first-voices',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:first-voices',
+                                characterId: 'xingyu',
+                                text: {
+                                    ja: 'シンユさんとミカさんの声から、「です」の前にある名前を聞き取った。',
+                                    en: "I found Xingyu and Mika's names by listening just before です.",
+                                },
+                            },
+                        } : undefined,
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                await context.save?.({ lessonZeroSoundProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroSoundProgress: restart }),
             onBack: () => context.back(),
             onComplete: () => this.completeSourceActivity(context, returning),
         });

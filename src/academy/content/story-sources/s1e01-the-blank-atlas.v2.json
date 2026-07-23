@@ -139,8 +139,8 @@
   },
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
-    "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
-    "contentSha256": "0d1103cdbc0750ab2e281d7e887c417630e4f83c8f8ac3cdf2d1c2528130234a",
+    "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
+    "contentSha256": "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [
@@ -984,9 +984,9 @@
       "id": "scene:blank-atlas:mission-sound",
       "locationId": "location:language-lab",
       "timeState": "evening",
-      "goal": "Identify two speakers from sound before revealing their text.",
-      "dramaticQuestion": "Can incomplete listening still produce one reliable fact?",
-      "learnerNeed": "Audio-first speaker and detail evidence with transcript delayed until commitment.",
+      "goal": "Find Xingyu and Mika's names by listening for the word immediately before です.",
+      "dramaticQuestion": "Can the learner find a name without understanding the whole introduction?",
+      "learnerNeed": "Two short audio-first introductions, one voice at a time, with text delayed until the first commitment.",
       "curriculum": {
         "sectionId": "multi-speaker-input",
         "order": 6,
@@ -999,25 +999,25 @@
           "id": "node:blank-atlas:sound-nameplates",
           "beatId": "beat:blank-atlas:sound-mission-image",
           "cueId": "cue:sound-route-nameplates-only",
-          "description": "Two nameplates, Xingyu and Mika, rest below an unlit signal meter. No portraits appear."
+          "description": "Xingyu puts in one earbud. Mika rests a hand on his headphones. Two empty name slots wait between them."
         },
         {
           "kind": "line",
           "id": "line:blank-atlas:xingyu-sound-first",
           "beatId": "beat:blank-atlas:sound-mission-want",
           "speakerId": "xingyu",
-          "intent": "Invite an audio-first attempt without pretending every detail must be caught.",
-          "attentionTarget": "the unlit signal meter",
+          "intent": "Give the learner one small listening target without asking them to decode the whole sentence.",
+          "attentionTarget": "the empty name slots",
           "variants": {
             "foundation": {
-              "japanese": "まず、音だけです。一つ見つけましょう。",
-              "reading": "まず、おとだけです。ひとつみつけましょう。",
-              "english": "First, sound only. Let's find one thing."
+              "japanese": "全部はいいです。「です」の前だけ、聞いてみて。",
+              "reading": "ぜんぶはいいです。「です」のまえだけ、きいてみて。",
+              "english": "You don't need all of it. Just listen immediately before です."
             },
             "n5": {
-              "japanese": "最初は音だけです。全部ではなく、一つ確かめましょう。",
-              "reading": "さいしょはおとだけです。ぜんぶではなく、ひとつたしかめましょう。",
-              "english": "First comes sound only. Let's verify one thing, not everything."
+              "japanese": "全部を分かろうとしなくて大丈夫です。「です」の前にある名前だけ、探してみてください。",
+              "reading": "ぜんぶをわかろうとしなくてだいじょうぶです。「です」のまえにあるなまえだけ、さがしてみてください。",
+              "english": "You don't have to understand everything. Just find the name before です."
             }
           },
           "support": {
@@ -1030,7 +1030,7 @@
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:before-sound-input",
           "beatId": "beat:blank-atlas:sound-mission-attempt",
-          "resume": "Xingyu and Mika's nameplates are visible; the transcript remains hidden until the learner commits."
+          "resume": "Xingyu and Mika are ready in the sound room; each transcript remains hidden until the learner commits."
         },
         {
           "kind": "activity",
@@ -1045,7 +1045,7 @@
             "kind": "activity-passed",
             "activityId": "activity:lesson-zero-sound-input"
           },
-          "resumeContext": "The Sound mission is waiting for speaker-to-fact links before transcript reveal.",
+          "resumeContext": "The Sound room is waiting for two name matches before transcript reveal.",
           "onReady": "checkpoint:blank-atlas:after-sound-input",
           "onRepair": "node:blank-atlas:sound-input-repair",
           "onDefer": "checkpoint:blank-atlas:before-sound-input"
@@ -1055,31 +1055,31 @@
           "id": "node:blank-atlas:sound-input-repair",
           "beatId": "beat:blank-atlas:sound-mission-repair",
           "cueId": "cue:sound-route-replay-one-speaker",
-          "description": "One speaker turn replays with its nameplate highlighted; the transcript stays committed-gated."
+          "description": "Only the missed voice replays. Xingyu taps the empty name slot just before the final です."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:after-sound-input",
           "beatId": "beat:blank-atlas:sound-mission-response",
-          "resume": "The speaker facts are linked and the delayed text can confirm the evidence."
+          "resume": "Both voices are matched to names and the delayed text can now confirm what the learner heard."
         },
         {
           "kind": "line",
           "id": "line:blank-atlas:mika-sound-result",
           "beatId": "beat:blank-atlas:sound-mission-consequence",
           "speakerId": "mika",
-          "intent": "Value careful partial listening as a usable route.",
-          "attentionTarget": "one stable signal on the meter",
+          "intent": "Show that listening for one useful landmark is already real comprehension.",
+          "attentionTarget": "the two filled name slots",
           "variants": {
             "foundation": {
-              "japanese": "一つ、はっきりしました。十分です。",
-              "reading": "ひとつ、はっきりしました。じゅうぶんです。",
-              "english": "One thing is clear. That is enough."
+              "japanese": "聞こえましたね。名前は、そこです。",
+              "reading": "きこえましたね。なまえは、そこです。",
+              "english": "You heard it. That's where the name is."
             },
             "n5": {
-              "japanese": "一つ確かめたので、次の音も比べられます。",
-              "reading": "ひとつたしかめたので、つぎのおともくらべられます。",
-              "english": "Because we verified one thing, we can compare the next sound too."
+              "japanese": "全部ではなく、必要なところを聞けました。次も同じ目印が使えます。",
+              "reading": "ぜんぶではなく、ひつようなところをきけました。つぎもおなじめじるしがつかえます。",
+              "english": "You caught what you needed, not every word. The same landmark will work next time."
             }
           },
           "support": {
@@ -1101,7 +1101,7 @@
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:sound-mission-complete",
           "beatId": "beat:blank-atlas:sound-mission-exit",
-          "resume": "The Sound route has supplied one reliable speaker label to the atlas."
+          "resume": "The Sound route has placed both heard names into the class journal."
         }
       ],
       "exit": {

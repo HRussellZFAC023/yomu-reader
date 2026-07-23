@@ -59,9 +59,11 @@ describe('lesson overview screen', () => {
             .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
-        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(3);
+        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(2);
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
             .toContain('/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
+        expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
+            .toContain('/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)

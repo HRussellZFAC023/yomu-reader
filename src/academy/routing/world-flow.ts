@@ -138,7 +138,9 @@ class WorldFlow implements AcademyRouteFlow {
             ...(context.projection.profile ? { learner: context.projection.profile } : {}),
             sectionId: context.checkpoint.sectionId,
             openingArcMode: openingArcModeForEntry(context.projection),
-            arcModeForEpisode: (episodeId, cursor) => n3ArcMode(episodeId, cursor, replayEvents, context.projection),
+            arcModeForEpisode: (episodeId, cursor) => episodeId === story.openingArc.episodeId
+                ? openingArcModeForEntry(context.projection)
+                : n3ArcMode(episodeId, cursor, replayEvents, context.projection),
             onOpenEpisode: episodeId => void context.go('story', { sectionId: episodeId }),
             onCompleteEpisode: episodeId => {
                 const episode = story.episode(episodeId);

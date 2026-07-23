@@ -9,6 +9,60 @@ import { createWorldFlow } from '../../src/academy/routing/world-flow';
 import type { AcademyShell } from '../../src/academy/ui/shell';
 
 describe('World Story route', () => {
+    it('keeps a new Lesson Zero learner in the canonical opening arc', async () => {
+        let current: HTMLElement | undefined;
+        const shell = {
+            screen: document.createElement('main'),
+            replace(view: HTMLElement) { current = view; },
+            setLanguage() {}, setNavigation() {}, setLearnerActionsVisible() {}, setClassBoardAccess() {},
+            setPresentationMode() {}, setMuted() {}, announce() {}, dispose() {},
+        } satisfies AcademyShell;
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'entry:lesson-zero',
+            at: 1,
+            kind: 'curriculum-entry-chosen',
+            route: 'lesson-zero',
+        }]);
+        const sectionId = serializeStoryCursor({
+            version: 1,
+            arcId: STORY_OPENING_ARC_ID,
+            sceneId: 'scene:blank-atlas:mission-sound',
+            nodeId: 'activity-node:blank-atlas:sound-input',
+            choices: { 'choice:blank-atlas:mission': 'option:blank-atlas:mission-sound' },
+        });
+        const flow = createWorldFlow({
+            evidence: { history: async () => [] } as never,
+            pronunciation: {} as never,
+            audio: {} as never,
+        });
+
+        await flow.render('story', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2,
+                route: 'story',
+                routeHistory: [{ route: 'campus' }],
+                presentationMode: 'story',
+                sectionId,
+                updatedAt: 2,
+            },
+            projection,
+            shell,
+            go: vi.fn(async () => undefined),
+            back: vi.fn(async () => undefined),
+        });
+
+        const arc = current!.querySelector<HTMLElement>('[data-story-arc-id]')!;
+        const activity = current!.querySelector<HTMLElement>(
+            '[data-activity-id="activity:lesson-zero-sound-input"]',
+        )!;
+        expect(arc.dataset.storyMode).toBe('canonical');
+        expect(activity.dataset.activityGate).toBe('missing');
+        expect(activity.querySelector('.academy-story-open-activity')).not.toBeNull();
+        expect(activity.querySelector('.academy-story-activity-continue')).toBeNull();
+    });
+
     it('keeps episode navigation in Story and sends both Story exits through Back history', async () => {
         let current: HTMLElement | undefined;
         const shell = {

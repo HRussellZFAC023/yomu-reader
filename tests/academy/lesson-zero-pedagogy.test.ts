@@ -9,17 +9,20 @@ import {
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
 import { lessonZeroCanonicalReading } from '../../src/academy/content/lesson-zero-pedagogy-definitions';
 import type { ClassroomExpressionProbe } from '../../src/academy/domain/classroom-expression-session';
+import { LESSON_ZERO_SOUND_RENDERER_SHA256 } from '../../src/academy/domain/lesson-zero-sound-grounding';
 import { sha256File } from './helpers/hash-memo';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
 const CLASSROOM_PATH = path.resolve(
     'public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json',
 );
+const SOUND_SCREEN_PATH = path.resolve('src/academy/ui/lesson-zero-sound-screen.ts');
 
 describe('Lesson 0 pedagogy definition registry', () => {
     it('pins its references to the exact canonical content files', () => {
         expect(digest(LESSON_PATH)).toBe(LESSON_ZERO_CONTENT_SHA256);
         expect(digest(CLASSROOM_PATH)).toBe(LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256);
+        expect(digest(SOUND_SCREEN_PATH)).toBe(LESSON_ZERO_SOUND_RENDERER_SHA256);
     });
 
     it('binds all fourteen source expressions once and resolves real definitions', () => {

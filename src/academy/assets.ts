@@ -36,6 +36,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'character.rie.comedic-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png' } }),
     'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:aakash', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:cast'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png' } }),
     'character.xingyu.listening': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-zero:vowel-listening', 'game:lesson-zero-vowel-listening-bingo'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png' } }),
+    'character.mika.sound-listening': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-zero:sound-speaker-match', 'story:s1e01:mission-sound'], provenance: 'current-production', files: { default: '/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png' } }),
     'character.felix.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-after-meeting', 'journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png' } }),
     'character.felix.happy-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png' } }),
     'character.felix.surprised-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png' } }),
@@ -269,6 +270,7 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     aakash: assetFile('character.aakash.neutral', 'default'),
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
+    mikaSound: assetFile('character.mika.sound-listening', 'default'),
     rie: assetFile('character.rie.neutral-glasses', 'default'),
     rieHappy: assetFile('character.rie.happy-glasses-front', 'default'),
     rieDetermined: assetFile('character.rie.determined-glasses-left', 'default'),
@@ -291,6 +293,7 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
 const ACADEMY_APPROVED_CAST_SPRITES = {
     aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+    mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
@@ -303,6 +306,9 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     },
     xingyu: {
         encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+    },
+    mika: {
+        listening: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     },
     rie: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
@@ -360,6 +366,7 @@ export const ACADEMY_CAST_SPRITE_COVERAGE = {
     'character.rie.comedic-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.aakash.neutral': { castId: 'aakash', presentation: 'approved-runtime', primaryUse: 'class:people' },
     'character.xingyu.listening': { castId: 'xingyu', presentation: 'approved-runtime', primaryUse: 'lesson-zero:vowel-listening' },
+    'character.mika.sound-listening': { castId: 'mika', presentation: 'approved-runtime', primaryUse: 'lesson-zero:sound-speaker-match' },
     'character.felix.neutral': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-after-meeting' },
     'character.felix.happy-left': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
     'character.felix.surprised-right': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
@@ -381,6 +388,7 @@ export const ACADEMY_CAST_SPRITE_COVERAGE = {
 export const ACADEMY_ASSETS = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
+    mikaSound: assetFile('character.mika.sound-listening', 'default'),
     characters: {
         approved: ACADEMY_APPROVED_CAST_SPRITES,
         approvedPerformances: ACADEMY_APPROVED_CAST_PERFORMANCES,

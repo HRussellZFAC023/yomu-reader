@@ -1,0 +1,38 @@
+{
+  "schema": "yomu-academy.story-voice-playback.v1",
+  "entries": [
+    {
+      "lineId": "line:margin-map:henry-presents",
+      "speakerId": "henry",
+      "japanese": "見てください。ゆうべ、道の点にぜんぶ印をつけたんです。ぼくのシステムで、キーを覚えたら、全部読めます。",
+      "band": "n5",
+      "sourceSha256": "129b660a0eafb5673154bdd64268a66272ac480352219305bca5e1a4a2182438",
+      "assetSha256": "3c5c60ed9aa231f386e9e3ae6e6fdf1c6e2ca4c7000f63827a624cedcc499890",
+      "bytes": 48071,
+      "url": "/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:margin-map:aakash-cant-use",
+      "speakerId": "aakash",
+      "japanese": "すごいですね。でも、Henryさん、駅の印はどれですか。どこで降りるか、ぼくには分かりません。",
+      "band": "n5",
+      "sourceSha256": "4d55fb2e6841fb700deb25815e0cecaadd394d0729e055b8b58c010286605dd0",
+      "assetSha256": "673b1bc330bb5aced29791735b68513d9dcbe0c45ad2982289ea2d695a00f0a8",
+      "bytes": 40514,
+      "url": "/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:two-answers:sophie-frame",
+      "speakerId": "sophie",
+      "japanese": "このキャプション、助詞がまだ決まってないんです。「一時間◯三回つきます」の、「に」か「で」か。たぶん「に」でいいと思います。毎時、っていう意味になるから。",
+      "band": "n4",
+      "sourceSha256": "bdfa2bf4e184645001df8ccd9041eb6cca5d828dc64b35f727183ffe1de7ac55",
+      "assetSha256": "9e6b93ba936bf5160484cf9ee8f45cfdccc368ab776ecfe5d2d69055ebaa5757",
+      "bytes": 68871,
+      "url": "/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus",
+      "reviewStatus": "locked"
+    }
+  ]
+}

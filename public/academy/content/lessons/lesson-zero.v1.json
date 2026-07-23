@@ -181,7 +181,7 @@
   },
   "lesson": {
     "id": "lesson:foundation-00",
-    "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
+    "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
     "levelBand": "foundation",
     "estimatedMinutes": { "minimum": 60, "maximum": 90 },
     "overview": {
@@ -478,11 +478,11 @@
         "responseMode": "listen",
         "assessed": true,
         "production": false,
-        "prompt": { "en": "Listen first. Mark who speaks and one fact about each person.", "ja": "まず聞いて、話している人と、それぞれについて分かったことを一つずつメモしてください。" },
+        "prompt": { "en": "Listen to each short introduction. Match the name you hear immediately before です.", "ja": "短い自己紹介を一人ずつ聞いて、「です」のすぐ前に聞こえる名前を合わせてください。" },
         "conceptIds": ["concept:introduction-listening-gist", "concept:introduction-listening-detail"],
         "sourceQuestionIds": [],
         "inputScriptId": "input:lesson-zero-sound-hosts",
-        "expectedEvidence": { "kind": "speaker-fact-links", "values": ["xingyu", "mika"] },
+        "expectedEvidence": { "kind": "audio-speaker-match", "values": ["xingyu", "mika"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {
@@ -615,8 +615,8 @@
         "audioAssetId": "audio:lesson-zero-sound-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "id": "line:lesson-zero-sound-xingyu", "speakerId": "xingyu", "japanese": "はじめまして。Xingyuです。日本語を勉強しています。", "reading": "はじめまして。Xingyuです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Xingyu. I'm studying Japanese." },
-          { "id": "line:lesson-zero-sound-mika", "speakerId": "mika", "japanese": "Mikaです。わたしも日本語を勉強しています。よろしくお願いします。", "reading": "Mikaです。わたしもにほんごをべんきょうしています。よろしくおねがいします。", "english": "I'm Mika. I'm studying Japanese too. Nice to meet you." }
+          { "id": "line:lesson-zero-sound-xingyu", "speakerId": "xingyu", "audioAssetId": "audio:lesson-zero-sound-xingyu", "japanese": "はじめまして。シンユです。", "reading": "はじめまして。シンユです。", "english": "Nice to meet you. I'm Xingyu." },
+          { "id": "line:lesson-zero-sound-mika", "speakerId": "mika", "audioAssetId": "audio:lesson-zero-sound-mika", "japanese": "ミカです。よろしくお願いします。", "reading": "ミカです。よろしくおねがいします。", "english": "I'm Mika. It's nice to meet you." }
         ]
       },
       {
@@ -660,9 +660,28 @@
       },
       {
         "id": "audio:lesson-zero-sound-hosts",
-        "state": "release-blocked",
-        "purpose": "Paired multi-speaker introductions for the Sound mission.",
-        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "state": "ready",
+        "purpose": "Paired Sound-mission introductions rendered from the two verified line bindings.",
+        "runtimeUrl": "/academy/audio/lesson-zero/sound-hosts.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-sound-xingyu",
+        "state": "ready",
+        "purpose": "Xingyu's short first-meeting introduction for the first audio-speaker match.",
+        "runtimeUrl": "/academy/audio/lesson-zero/sound-xingyu.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-sound-mika",
+        "state": "ready",
+        "purpose": "Mika's short first-meeting introduction for the second audio-speaker match.",
+        "runtimeUrl": "/academy/audio/lesson-zero/sound-mika.opus",
+        "verifiedPairing": true,
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false
       },
@@ -719,7 +738,7 @@
       {
         "id": "blocker:lesson-zero-verified-dialogue-audio",
         "kind": "audio",
-        "assetIds": ["audio:lesson-zero-vowel-row", "audio:lesson-zero-sound-hosts", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
+        "assetIds": ["audio:lesson-zero-vowel-row", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
         "internalReason": "No source-paired or reviewed authored recording has yet passed speaker, transcript, timing, and rights verification for these original Lesson 0 scripts.",
         "learnerVisible": false
       }

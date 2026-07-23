@@ -108,6 +108,14 @@ const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY: DayActivityDelivery = Object.free
     journeyProof: 'verified',
 });
 
+const VERIFIED_DELIVERY: DayActivityDelivery = Object.freeze({
+    implementation: 'verified',
+    reachability: 'verified',
+    media: 'verified',
+    persistence: 'verified',
+    journeyProof: 'verified',
+});
+
 export function academyDayId(dayNumber: number): AcademyDayId {
     if (!Number.isSafeInteger(dayNumber) || dayNumber < 1) {
         throw new TypeError('Academy day numbers must be positive safe integers.');
@@ -187,7 +195,7 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
     'activity:lesson-zero-desk-language': 'Use the first desk-language worksheet',
     'activity:lesson-zero-build-sentence-frames': 'Build the first sentence frames',
     'activity:lesson-zero-name-card-draft': 'Put your name on the class card',
-    'activity:lesson-zero-sound-input': 'Repair a phrase by sound',
+    'activity:lesson-zero-sound-input': 'Find two names by listening',
     'activity:lesson-zero-text-input': 'Repair a phrase by text',
     'activity:lesson-zero-speaking-input': 'Repair a phrase by speaking',
     'activity:lesson-zero-read-name-cards': 'Read the class name cards',
@@ -282,7 +290,9 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
         `Attempt, support, and completion evidence persist for ${activityId}.`,
         `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
         [],
-        activityId === 'activity:lesson-zero-greet-rie'
+        activityId === 'activity:lesson-zero-sound-input'
+            ? VERIFIED_DELIVERY
+            : activityId === 'activity:lesson-zero-greet-rie'
             ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
             : activityId === 'activity:lesson-zero-vowel-listen'
                 || activityId === 'activity:lesson-zero-vowel-doodle'

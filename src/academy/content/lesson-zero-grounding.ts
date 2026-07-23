@@ -11,6 +11,7 @@ import type { SourceDocument } from '../domain/source-library';
 import type { LessonZeroActivity, LessonZeroPackageData } from './lesson-zero-schema';
 import { createLessonZeroPedagogy, type LessonZeroPedagogy } from './lesson-zero-pedagogy';
 import { validateLessonZeroPackage } from './lesson-zero-validator';
+import { lessonZeroSoundAuditBinding } from '../domain/lesson-zero-sound-grounding';
 
 const BLOCKERS = {
     prerequisites: 'blocker:lesson-zero-grounded-prerequisites',
@@ -123,14 +124,45 @@ function activityContract(
         : undefined;
     const classroomRepair = classroomBinding ? pedagogy.repairIds(activity.id) : undefined;
     const classroomReviewItems = classroomBinding ? pedagogy.reviewItems(activity.id) : undefined;
+    const soundInput = activity.id === 'activity:lesson-zero-sound-input';
+    const priorNameCardActivity = soundInput
+        ? lessonActivities.find(candidate => candidate.id === 'activity:lesson-zero-name-card-draft')
+        : undefined;
     const priorClassroomActivity = activity.id === 'activity:lesson-zero-reconstruct-repair'
         ? lessonActivities.find(candidate => candidate.id === 'activity:lesson-zero-follow-instructions')
         : undefined;
     const proofs: GroundingProofSet = {
-        input: inputScriptId || !activity.sourceQuestionIds.length
+        input: soundInput
+            ? ready({
+                kind: 'authored',
+                authoredInputIds: ['input:lesson-zero-sound-hosts'],
+                revision,
+                authorId: 'author:yomu-academy',
+                rationale: 'Two short, cast-specific introductions isolate the audible name-before-です landmark.',
+                languageReview: {
+                    reviewerId: 'reviewer:lesson-zero-ja-content',
+                    revision,
+                    register: 'reviewed',
+                    naturalness: 'reviewed',
+                },
+            })
+            : inputScriptId || !activity.sourceQuestionIds.length
             ? blocked(BLOCKERS.authoredLanguage)
             : ready(sourceInput(activity.sourceQuestionIds, documents)),
-        curriculum: index === 0
+        curriculum: soundInput && priorNameCardActivity
+            ? ready({
+                conceptIds: activity.conceptIds,
+                outcomeIds,
+                prerequisites: {
+                    kind: 'resolved',
+                    conceptIds: priorNameCardActivity.conceptIds,
+                    resolution: pedagogy.registry.ref(
+                        'prerequisite-resolution:lesson-zero:sound-input',
+                        'prerequisite-resolution',
+                    ),
+                },
+            })
+            : index === 0
             ? ready({
                 conceptIds: activity.conceptIds,
                 outcomeIds,
@@ -150,13 +182,50 @@ function activityContract(
                     },
                 })
             : blocked(BLOCKERS.prerequisites),
-        instruction: classroomBinding
+        instruction: soundInput
+            ? ready({
+                sequence: 'before-assessment',
+                conceptCoverage: activity.conceptIds.map(conceptId => {
+                    const suffix = soundInstructionSuffix(conceptId);
+                    return {
+                        conceptId,
+                        explanationRefs: [pedagogy.registry.ref(
+                            `explanation:lesson-zero:sound-${suffix}`,
+                            'explanation',
+                        )],
+                        workedExampleRefs: [pedagogy.registry.ref(
+                            `worked-example:lesson-zero:sound-${suffix}`,
+                            'worked-example',
+                        )],
+                    };
+                }),
+            })
+            : classroomBinding
             ? ready({
                 sequence: 'before-assessment',
                 conceptCoverage: pedagogy.refsForInstruction(activity),
             })
             : blocked(BLOCKERS.instruction),
-        answerConcealment: blocked(BLOCKERS.answerConcealment),
+        answerConcealment: soundInput
+            ? ready({
+                surfaceAudit: pedagogy.registry.ref(
+                    'surface-audit:lesson-zero:sound-input',
+                    'surface-audit',
+                ),
+                answerBearingContent: pedagogy.registry.ref(
+                    'answer-bearing-content:lesson-zero:sound-input',
+                    'answer-bearing-content',
+                ),
+                auditBinding: lessonZeroSoundAuditBinding(revision),
+                learnerFacingPreCommit: {
+                    translations: 'absent',
+                    transcripts: 'absent',
+                    modelAnswers: 'absent',
+                    acceptedAnswers: 'absent',
+                },
+                revealPolicy: 'after-first-attempt',
+            })
+            : blocked(BLOCKERS.answerConcealment),
         media: mediaBlocker
             ? blocked(mediaBlocker)
             : mediaAsset?.state === 'ready'
@@ -170,7 +239,19 @@ function activityContract(
                 : needsAudio
                     ? blocked('blocker:lesson-zero-verified-dialogue-audio')
                     : ready({ state: 'not-required', reason: 'This interaction does not require timed media input.' }),
-        assessment: classroomAssessment
+        assessment: soundInput
+            ? ready({
+                method: 'deterministic',
+                grader: pedagogy.registry.ref(
+                    'grader:lesson-zero:audio-speaker-match',
+                    'deterministic-grader',
+                ),
+                answerSets: [pedagogy.registry.ref(
+                    'answer-set:lesson-zero:sound-input',
+                    'answer-set',
+                )],
+            })
+            : classroomAssessment
             ? ready({
                 method: 'deterministic',
                 grader: classroomAssessment.grader,
@@ -179,20 +260,68 @@ function activityContract(
             : classroomBinding
                 ? blocked(BLOCKERS.sceneActionAssessment)
                 : blocked(BLOCKERS.assessment),
-        repair: classroomRepair
+        repair: soundInput
+            ? ready({
+                errorTagIds: [
+                    'error:listening:speaker:xingyu',
+                    'error:listening:speaker:mika',
+                ],
+                feedbackIds: [
+                    'feedback:lesson-zero:sound-xingyu',
+                    'feedback:lesson-zero:sound-mika',
+                ],
+                nearbyExampleIds: [
+                    'nearby-example:lesson-zero:sound-xingyu',
+                    'nearby-example:lesson-zero:sound-mika',
+                ],
+                retry: 'same-activity',
+            })
+            : classroomRepair
             ? ready({
                 ...classroomRepair,
                 retry: 'same-activity',
             })
             : blocked(BLOCKERS.repair),
-        learnerEvidence: classroomReviewItems
+        learnerEvidence: soundInput
+            ? ready({
+                attemptEventKind: 'attempt-recorded',
+                reviewRepository: 'canonical-yomu',
+                reviewItems: [
+                    {
+                        seedId: 'review:lesson-zero:sound:hajimemashite',
+                        conceptId: 'concept:introduction-listening-gist',
+                        expressionKey: 'はじめまして',
+                        readingKey: 'はじめまして',
+                    },
+                    {
+                        seedId: 'review:lesson-zero:sound:yoroshiku',
+                        conceptId: 'concept:introduction-listening-detail',
+                        expressionKey: 'よろしくお願いします',
+                        readingKey: 'よろしくおねがいします',
+                    },
+                ],
+            })
+            : classroomReviewItems
             ? ready({
                 attemptEventKind: 'attempt-recorded',
                 reviewRepository: 'canonical-yomu',
                 reviewItems: classroomReviewItems,
             })
             : blocked(BLOCKERS.review),
-        accessibility: blocked(BLOCKERS.accessibility),
+        accessibility: soundInput
+            ? ready({
+                keyboardNavigation: 'equivalent',
+                touchNavigation: 'equivalent',
+                screenReader: 'equivalent',
+                reducedMotion: 'equivalent',
+                mediaAlternative: 'transcript',
+                primaryEvidenceModality: 'listening',
+                inputAlternative: {
+                    kind: 'not-required',
+                    reason: 'The semantic replay and speaker controls expose the same listening task to keyboard, touch, and assistive input.',
+                },
+            })
+            : blocked(BLOCKERS.accessibility),
     };
     const blockerIds = proofBlockers(proofs);
     return {
@@ -245,4 +374,10 @@ function proofBlockers(proofs: GroundingProofSet): string[] {
 
 function unique(values: readonly string[]): string[] {
     return [...new Set(values)].sort();
+}
+
+function soundInstructionSuffix(conceptId: string): 'listening-gist' | 'listening-detail' {
+    if (conceptId === 'concept:introduction-listening-gist') return 'listening-gist';
+    if (conceptId === 'concept:introduction-listening-detail') return 'listening-detail';
+    throw new TypeError(`Sound input has an ungrounded concept ${conceptId}.`);
 }

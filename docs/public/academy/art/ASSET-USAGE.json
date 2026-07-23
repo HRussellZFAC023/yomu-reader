@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 74,
-    "runtimeFiles": 106,
+    "runtimeAssetHomes": 75,
+    "runtimeFiles": 107,
     "nonRuntimeReviewFiles": 1743,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1782,6 +1782,20 @@
         }
       ],
       "status": "approved-2026-07-22 after transparent-perimeter, responsive-composition, interaction, and accessibility verification; front-near-front encouraging-listening performance bound to the five-vowel session"
+    },
+    {
+      "id": "mika-sound-listening-halfbody-v001",
+      "source": "generated-image://lesson-zero-sound-mika-20260722",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["lesson-zero:sound-speaker-match", "story:s1e01:mission-sound"],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png",
+          "sha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8"
+        }
+      ],
+      "status": "approved-2026-07-22 after transparent-perimeter, responsive-composition, interaction, accessibility, and canonical story-return verification; original sound-room listening performance"
     },
     {
       "id": "recovered-art-review-collection-v1",

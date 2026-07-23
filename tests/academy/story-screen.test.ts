@@ -140,6 +140,26 @@ describe('Academy Story screen', () => {
         expect(rie.dataset.performanceColor).toBe('full');
     });
 
+    it('shows an approved classmate when their authored line is speaking', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-sound',
+            'line:blank-atlas:mika-sound-result',
+        ), {
+            learner: { displayName: 'Mina', portraitId: 'quality-5' },
+        });
+
+        const mika = screen.querySelector<HTMLElement>('[data-character="mika"]')!;
+        const learner = screen.querySelector<HTMLElement>('[data-character="learner"]')!;
+        expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Mika-san');
+        expect(screen.querySelector('.academy-vn-stage')?.getAttribute('data-cast-size')).toBe('2');
+        expect(mika.dataset.position).toBe('left');
+        expect(mika.dataset.performancePresence).toBe('active');
+        expect(mika.dataset.performanceColor).toBe('full');
+        expect(mika.querySelector('img')?.getAttribute('src')).toContain('mika__sound-listening__halfbody__v001.png');
+        expect(learner.dataset.position).toBe('right');
+        expect(learner.dataset.performancePresence).toBe('inactive');
+    });
+
     it('selects only approved Rie performance cutouts for authored VN intents', () => {
         const beats = [
             ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined-glasses__left-three-quarter'],

@@ -47,6 +47,10 @@ const playback = JSON.parse(readFileSync(resolve(root, 'public/academy/audio/sto
     schema: string;
     entries: PlaybackEntry[];
 };
+const hostedPlayback = JSON.parse(readFileSync(resolve(root, 'docs/public/academy/audio/story-voice-playback.json'), 'utf8')) as {
+    schema: string;
+    entries: PlaybackEntry[];
+};
 
 describe('Academy voice production manifest', () => {
     it('keeps every production key unique and reports reviewed source-lock drift honestly', () => {
@@ -86,6 +90,7 @@ describe('Academy voice production manifest', () => {
         expect(pilots).toHaveLength(3);
         expect(playback.schema).toBe('yomu-academy.story-voice-playback.v1');
         expect(playback.entries).toHaveLength(3);
+        expect(hostedPlayback).toEqual(playback);
         for (const entry of pilots) {
             expect(entry.pilotOutput, entry.key).toMatch(/^\/academy\/audio\//);
             const relative = entry.pilotOutput?.replace(/^\/academy\/audio\//, '') ?? '';
@@ -102,6 +107,8 @@ describe('Academy voice production manifest', () => {
             expect(playable?.assetSha256).toBe(createHash('sha256').update(asset).digest('hex'));
             expect(playable?.bytes).toBe(asset.byteLength);
             expect(playable?.reviewStatus).toBe('locked');
+            const hostedAsset = readFileSync(resolve(root, 'docs/public', playable!.url.replace(/^\//, '')));
+            expect(createHash('sha256').update(hostedAsset).digest('hex')).toBe(playable?.assetSha256);
         }
         expect(playback.entries.some(entry => entry.lineId === 'line:lanterns-return:mira-arrives')).toBe(false);
         expect(playback.entries.every(entry => entry.url.startsWith('/academy/audio/story-pilot/'))).toBe(true);
