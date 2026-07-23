@@ -37,6 +37,8 @@ describe('Academy resume route contract', () => {
     it('does not request protected soundtrack media before invite authentication', () => {
         expect(themeForRoute('access')).toBe('silence');
         expect(themeForRoute('profile')).toBe('opening.invitation');
+        expect(themeForRoute('start')).toBe('opening.invitation');
+        expect(themeForRoute('manual-band')).toBe('opening.invitation');
     });
 
     it('resumes the one-time Rie meeting until it is complete, then keeps it out of the live route', () => {

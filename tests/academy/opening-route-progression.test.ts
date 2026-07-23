@@ -146,6 +146,40 @@ describe('Academy opening route progression', () => {
         expect(campus.go).toHaveBeenCalledWith('classroom', { worldVisits: {} });
     });
 
+    it('offers three plain-language starts and opens each branch once', async () => {
+        const enrollment = enrollmentHarness();
+        const start = routeContext('start');
+
+        await enrollment.flow.render('start', start.value);
+        const screen = start.shell.current!;
+        const lessonZero = screen.querySelector<HTMLButtonElement>('[data-start-route="lesson-zero"]')!;
+        const manual = screen.querySelector<HTMLButtonElement>('[data-start-route="manual-band"]')!;
+        const placement = screen.querySelector<HTMLButtonElement>('[data-start-route="placement-mock"]')!;
+
+        expect(screen.dataset.academyRoute).toBe('start');
+        expect(screen.textContent).toContain('Where should we start?');
+        expect(lessonZero.textContent).toContain("I'm brand new");
+        expect(lessonZero.textContent).toContain('No Japanese needed');
+        expect(manual.textContent).toContain('I know my level');
+        expect(placement.textContent).toContain('Help me choose');
+        expect(lessonZero.getAttribute('aria-label')).toContain('No Japanese needed');
+        expect(screen.textContent).not.toMatch(/placement mock|curriculum entry|starting point/i);
+
+        manual.dispatchEvent(new FocusEvent('focus'));
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.move');
+        manual.click();
+        manual.click();
+        await vi.waitFor(() => expect(start.go).toHaveBeenCalledWith('manual-band', { placementOverride: false }));
+        expect(start.go).toHaveBeenCalledTimes(1);
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.confirm');
+
+        const placementStart = routeContext('start');
+        await enrollment.flow.render('start', placementStart.value);
+        placementStart.shell.current?.querySelector<HTMLButtonElement>('[data-start-route="placement-mock"]')?.click();
+        await vi.waitFor(() => expect(placementStart.go)
+            .toHaveBeenCalledWith('placement-mock', { placementOverride: false }));
+    });
+
     it('opens the pending Lesson 0 from the classroom instead of skipping to the class path', async () => {
         const classroom = routeContext('classroom', [PROFILE_EVENT, curriculumEntry('lesson-zero')], {
             lessonId: 'lesson:foundation-00',
@@ -432,9 +466,11 @@ describe('Academy opening route progression', () => {
 function enrollmentHarness() {
     const chooseCurriculumEntry = vi.fn(async (_choice: CurriculumEntryChoice) => undefined);
     const recordActivity = vi.fn(async () => undefined);
+    const playSfx = vi.fn();
     return {
         chooseCurriculumEntry,
         recordActivity,
+        playSfx,
         flow: createEnrollmentFlow({
             access: {} as never,
             evidence: {
@@ -443,6 +479,7 @@ function enrollmentHarness() {
                 history: vi.fn(async () => []),
             } as unknown as LearnerEvidence,
             pronunciation: {} as never,
+            audio: { playSfx } as never,
         }),
     };
 }

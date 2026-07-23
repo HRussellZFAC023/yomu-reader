@@ -1,4 +1,4 @@
-import type { AcademyCopyKey, AcademyLanguage } from '../../reader/app/academy-copy';
+import { academyText, type AcademyCopyKey, type AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import type { JlptBand, StartingRoute } from '../domain/learner-record';
 import { backButton, copyButton, copyElement, element, screenFrame } from './dom';
@@ -20,7 +20,8 @@ const BANDS: readonly [JlptBand, AcademyCopyKey][] = [
 
 export function renderStartScreen(
     language: AcademyLanguage,
-    onChoose: (route: StartingRoute) => void,
+    onChoose: (route: StartingRoute) => void | Promise<void>,
+    onPreview?: (route: StartingRoute) => void,
 ): HTMLElement {
     const { screen, panel, content } = screenFrame({
         language,
@@ -30,17 +31,49 @@ export function renderStartScreen(
         title: 'startTitle',
         body: 'startBody',
     });
+    screen.dataset.academyRoute = 'start';
     panel.classList.add('academy-guide-panel');
     panel.prepend(rieGuide(language));
     const choices = element('div', 'academy-route-choices');
-    STARTS.forEach(([route, title, body]) => {
-        const button = copyButton(language, title, 'academy-route-choice');
+    const error = copyElement('p', 'academy-start-choice-error', language, 'startChoiceError');
+    error.hidden = true;
+    error.setAttribute('role', 'alert');
+    const buttons: HTMLButtonElement[] = [];
+    let choosing = false;
+    STARTS.forEach(([route, title, body], index) => {
+        const button = element('button', 'academy-route-choice');
+        button.type = 'button';
         button.dataset.startRoute = route;
-        button.append(copyElement('span', 'academy-route-description', language, body));
-        button.addEventListener('click', () => onChoose(route));
+        button.setAttribute('aria-label', `${academyText(language, title)}. ${academyText(language, body)}`);
+        const number = element('span', 'academy-route-number');
+        number.textContent = String(index + 1).padStart(2, '0');
+        number.setAttribute('aria-hidden', 'true');
+        button.append(
+            number,
+            copyElement('span', 'academy-route-title', language, title),
+            copyElement('span', 'academy-route-description', language, body),
+        );
+        button.addEventListener('focus', () => onPreview?.(route));
+        button.addEventListener('click', async () => {
+            if (choosing) return;
+            choosing = true;
+            screen.dataset.choicePending = route;
+            error.hidden = true;
+            buttons.forEach(choice => { choice.disabled = true; });
+            try {
+                await onChoose(route);
+            } catch {
+                choosing = false;
+                delete screen.dataset.choicePending;
+                buttons.forEach(choice => { choice.disabled = false; });
+                error.hidden = false;
+                button.focus();
+            }
+        });
+        buttons.push(button);
         choices.append(button);
     });
-    content.append(choices);
+    content.append(choices, error);
     return screen;
 }
 

@@ -212,7 +212,12 @@ async function enroll(page) {
     await page.locator('.academy-profile-advance').click();
     await page.locator('input[name="portrait"][value="quality-2"]').check();
     await page.locator('.academy-profile-advance').click();
-    await page.locator('.academy-rie-unlock-screen button').click();
+    const introduction = page.locator('.academy-rie-introduction-screen[data-academy-route="rie-unlock"]');
+    await introduction.waitFor();
+    await introduction.getByRole('button', { name: 'Hear Rie' }).click();
+    const enterClass = introduction.getByRole('button', { name: 'Come in' });
+    await enterClass.waitFor({ state: 'visible' });
+    await enterClass.click();
     await page.locator('[data-start-route="lesson-zero"]').click();
     await page.locator('[data-academy-route="campus"]').waitFor();
 }

@@ -161,7 +161,9 @@ export function themeForRoute(route: AcademyRoute, worldPlace?: WorldPlaceId): T
     // established its HttpOnly session cookie. The first authenticated Rie
     // scene still receives the opening theme on the same user gesture.
     if (route === 'access') return 'silence';
-    if (route === 'profile' || route === 'rie-unlock' || route === 'start') return 'opening.invitation';
+    if (route === 'profile' || route === 'rie-unlock' || route === 'start' || route === 'manual-band') {
+        return 'opening.invitation';
+    }
     if (route === 'placement-mock' || route === 'placement-result') return 'silence';
     if (route === 'writing-practice') return 'challenge.kanji';
     if (route === 'campus') return 'world.courtyard';

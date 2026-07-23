@@ -16998,15 +16998,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     relationshipStage8: "Showed up",
     relationshipStage9: "Remember when",
     relationshipStage10: "Still here",
-    startEyebrow: "Your starting point",
-    startTitle: "Where should we begin?",
-    startBody: "You can change this later.",
-    startLessonZero: "Begin with Lesson 0",
-    startLessonZeroBody: "Sounds, classroom phrases, and kana.",
-    startManual: "Choose a JLPT band",
-    startManualBody: "From N5 basics to N1 advanced.",
-    startMock: "Take a short placement mock",
-    startMockBody: "A quick check of language, reading, and listening.",
+    startEyebrow: "Rie-sensei",
+    startTitle: "Where should we start?",
+    startBody: "Pick the one that feels closest. You can change it later.",
+    startLessonZero: "I'm brand new",
+    startLessonZeroBody: "Begin with sounds, classroom phrases, and the first kana. No Japanese needed.",
+    startManual: "I know my level",
+    startManualBody: "Choose N5, N4, N3, N2, or N1 yourself.",
+    startMock: "Help me choose",
+    startMockBody: "Try a short listening, reading, and language check.",
+    startChoiceError: "That path didn't open. Try again.",
     manualTitle: "Choose a JLPT band",
     manualBody: "You can change this later.",
     bandN5: "N5 · first useful Japanese",
@@ -17292,15 +17293,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     relationshipStage8: "そばにいる",
     relationshipStage9: "思い出",
     relationshipStage10: "これからも",
-    startEyebrow: "最初の一歩",
+    startEyebrow: "りえ先生",
     startTitle: "どこから始めましょうか。",
-    startBody: "あとで変更できます。",
-    startLessonZero: "レッスン0から始める",
-    startLessonZeroBody: "音、教室表現、かな。",
-    startManual: "JLPTレベルを選ぶ",
-    startManualBody: "N5（初級）からN1（最上級）まで。",
-    startMock: "短いプレイスメント模試を受ける",
-    startMockBody: "言語知識・読解・リスニングを短く確認します。",
+    startBody: "いちばん近いものを選んでください。あとで変えられます。",
+    startLessonZero: "はじめてです",
+    startLessonZeroBody: "音と教室のことば、最初のかなから始めます。日本語が初めてでも大丈夫です。",
+    startManual: "レベルが分かります",
+    startManualBody: "N5・N4・N3・N2・N1から自分で選びます。",
+    startMock: "いっしょに決めたいです",
+    startMockBody: "聞く・読む・ことばの短いチェックで、始める場所を探します。",
+    startChoiceError: "うまく開けませんでした。もう一度試してください。",
     manualTitle: "JLPTレベルを選ぶ",
     manualBody: "あとで変更できます。",
     bandN5: "N5・最初の役立つ日本語",
@@ -44914,7 +44916,9 @@ ${spelling}`);
   }
   function themeForRoute(route, worldPlace2) {
     if (route === "access") return "silence";
-    if (route === "profile" || route === "rie-unlock" || route === "start") return "opening.invitation";
+    if (route === "profile" || route === "rie-unlock" || route === "start" || route === "manual-band") {
+      return "opening.invitation";
+    }
     if (route === "placement-mock" || route === "placement-result") return "silence";
     if (route === "writing-practice") return "challenge.kanji";
     if (route === "campus") return "world.courtyard";
@@ -55187,7 +55191,7 @@ ${spelling}`);
     ["n2", "bandN2"],
     ["n1", "bandN1"]
   ];
-  function renderStartScreen(language, onChoose) {
+  function renderStartScreen(language, onChoose, onPreview) {
     const { screen, panel, content } = screenFrame({
       language,
       className: "academy-start-screen",
@@ -55196,17 +55200,53 @@ ${spelling}`);
       title: "startTitle",
       body: "startBody"
     });
+    screen.dataset.academyRoute = "start";
     panel.classList.add("academy-guide-panel");
     panel.prepend(rieGuide(language));
     const choices2 = element("div", "academy-route-choices");
-    STARTS.forEach(([route, title2, body]) => {
-      const button2 = copyButton(language, title2, "academy-route-choice");
+    const error = copyElement("p", "academy-start-choice-error", language, "startChoiceError");
+    error.hidden = true;
+    error.setAttribute("role", "alert");
+    const buttons = [];
+    let choosing = false;
+    STARTS.forEach(([route, title2, body], index) => {
+      const button2 = element("button", "academy-route-choice");
+      button2.type = "button";
       button2.dataset.startRoute = route;
-      button2.append(copyElement("span", "academy-route-description", language, body));
-      button2.addEventListener("click", () => onChoose(route));
+      button2.setAttribute("aria-label", `${academyText(language, title2)}. ${academyText(language, body)}`);
+      const number = element("span", "academy-route-number");
+      number.textContent = String(index + 1).padStart(2, "0");
+      number.setAttribute("aria-hidden", "true");
+      button2.append(
+        number,
+        copyElement("span", "academy-route-title", language, title2),
+        copyElement("span", "academy-route-description", language, body)
+      );
+      button2.addEventListener("focus", () => onPreview?.(route));
+      button2.addEventListener("click", async () => {
+        if (choosing) return;
+        choosing = true;
+        screen.dataset.choicePending = route;
+        error.hidden = true;
+        buttons.forEach((choice2) => {
+          choice2.disabled = true;
+        });
+        try {
+          await onChoose(route);
+        } catch {
+          choosing = false;
+          delete screen.dataset.choicePending;
+          buttons.forEach((choice2) => {
+            choice2.disabled = false;
+          });
+          error.hidden = false;
+          button2.focus();
+        }
+      });
+      buttons.push(button2);
       choices2.append(button2);
     });
-    content.append(choices2);
+    content.append(choices2, error);
     return screen;
   }
   function renderManualBandScreen(language, onChoose, onBack) {
@@ -55829,7 +55869,11 @@ ${spelling}`);
           }));
           return true;
         case "start":
-          context2.shell.replace(renderStartScreen(context2.language, (choice2) => void this.chooseStart(choice2, context2)));
+          context2.shell.replace(renderStartScreen(
+            context2.language,
+            (choice2) => this.chooseStart(choice2, context2),
+            () => this.options.audio?.playSfx?.("menu.move")
+          ));
           return true;
         case "manual-band":
           context2.shell.replace(renderManualBandScreen(

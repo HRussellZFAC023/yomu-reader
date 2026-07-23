@@ -14,7 +14,7 @@
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "scripts/academy-voice/archive-learning-voice-provenance.mjs": "84f40d21d03ecc4b11cc9cfb22587a69be095af4eb9c2002471deae0c5113d52",
     "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "d16b623e9b1fa79cf59286154c1e42b29d10716af2446e1c9c03c16e94d59ff0",
-    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "05dc3c7d0fac619c4f768ec06ceca2e71937dfb27310023ae364c351785e4b29",
+    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "098b724fa3501140ffd76173a119ddbcd0f900260e05acaef5ab257f8954fceb",
     "scripts/academy-voice/learning-voice-production-proof.mjs": "7d012172c8dea5002fdd64a38bdacaac67292297f9f7580f345debc53ef3209a",
     "scripts/academy-voice/lock-learning-voice.mjs": "7c5c29f88502de6f02734e40ba694f79d379f941e1bb7f908e8f9bbedd5a7fe0",
     "scripts/academy-voice/qa-learning-voice.mjs": "76d3c502c9085c5acc9bb7b2b40e8e9a7e90c1e6b6b4d51b4d6e4e5cea02a5b8",
@@ -44,7 +44,7 @@
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "05679ed9f9f986fc338ab2819a5cfa02a51c19e50fbe45ee55ddc4fe3b9fa6b7"
+      "sha256": "87608d6eb56e32b5d4c9f406ae197b4002f5c4900608c204955288c433166a08"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",

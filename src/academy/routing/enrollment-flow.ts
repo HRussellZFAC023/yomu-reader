@@ -70,7 +70,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 }));
                 return true;
             case 'start':
-                context.shell.replace(renderStartScreen(context.language, choice => void this.chooseStart(choice, context)));
+                context.shell.replace(renderStartScreen(
+                    context.language,
+                    choice => this.chooseStart(choice, context),
+                    () => this.options.audio?.playSfx?.('menu.move'),
+                ));
                 return true;
             case 'manual-band':
                 context.shell.replace(renderManualBandScreen(

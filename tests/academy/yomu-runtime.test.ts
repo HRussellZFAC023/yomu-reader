@@ -32,7 +32,10 @@ describe('Academy hosted Yomu runtime', () => {
         expect(title?.dataset.yomuFuriganaMode).toBe('all');
         expect(body?.dataset.yomuFuriganaMode).toBe('all');
         expect(collectTextTargetsIn(screen, 40, false).map(target => target.node.textContent)).toEqual(
-            expect.arrayContaining(['どこから始めましょうか。', 'あとで変更できます。']),
+            expect.arrayContaining([
+                'どこから始めましょうか。',
+                'いちばん近いものを選んでください。あとで変えられます。',
+            ]),
         );
     });
 
@@ -48,9 +51,9 @@ describe('Academy hosted Yomu runtime', () => {
         const scanned = collectScanTargets(100, 'http://127.0.0.1:5175/academy/').map(target => target.text);
         const text = scanned.join('\n');
         expect(text).toContain('どこから始めましょうか。');
-        expect(text).toContain('あとで変更できます。');
-        expect(text).toContain('レッスン0から始める');
-        expect(text).toContain('短いプレイスメント模試を受ける');
+        expect(text).toContain('いちばん近いものを選んでください。あとで変えられます。');
+        expect(text).toContain('はじめてです');
+        expect(text).toContain('いっしょに決めたいです');
     });
 
     it('stamps Japanese inserted by a later route render without reopening explicit opt-outs', async () => {
