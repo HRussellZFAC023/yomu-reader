@@ -180,6 +180,68 @@ describe('Academy opening route progression', () => {
             .toHaveBeenCalledWith('placement-mock', { placementOverride: false }));
     });
 
+    it.each([
+        ['n5', 'I know the foundations', 'Kana, greetings, and short everyday sentences.'],
+        ['n4', 'I can handle daily routines', 'Plans, reasons, past experiences, and connected sentences.'],
+        ['n3', 'I follow everyday Japanese', 'Longer conversations and native material with some support.'],
+        ['n2', 'I follow detailed Japanese', 'News, formal writing, and implied meaning.'],
+        ['n1', 'I handle dense Japanese', 'Fast speech, nuance, ambiguity, and specialist topics.'],
+    ] as const)('explains and opens the %s manual level exactly once', async (band, title, description) => {
+        const enrollment = enrollmentHarness();
+        const manual = routeContext('manual-band');
+
+        await enrollment.flow.render('manual-band', manual.value);
+        const screen = manual.shell.current!;
+        const choice = screen.querySelector<HTMLButtonElement>(`[data-band="${band}"]`)!;
+
+        expect(screen.dataset.academyRoute).toBe('manual-band');
+        expect(screen.textContent).toContain('What have you studied?');
+        expect(choice.textContent).toContain(band.toUpperCase());
+        expect(choice.textContent).toContain(title);
+        expect(choice.textContent).toContain(description);
+        expect(choice.getAttribute('aria-label')).toContain(`${band.toUpperCase()}. ${title}. ${description}`);
+        expect(screen.textContent).not.toMatch(/Moodle|source package|adaptive route/i);
+
+        choice.dispatchEvent(new FocusEvent('focus'));
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.move');
+        choice.click();
+        choice.click();
+
+        await vi.waitFor(() => {
+            expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledWith({ route: 'manual-band', band });
+            expect(manual.go).toHaveBeenCalledWith('arrival-bridge', {
+                selectedBand: band,
+                placementOverride: false,
+                lessonId: undefined,
+                sectionId: undefined,
+                activityId: undefined,
+            });
+        });
+        expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledTimes(1);
+        expect(manual.go).toHaveBeenCalledTimes(1);
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.confirm');
+    });
+
+    it('lets the learner leave manual selection or reconsider from the arrival bridge', async () => {
+        const enrollment = enrollmentHarness();
+        const manual = routeContext('manual-band');
+        await enrollment.flow.render('manual-band', manual.value);
+
+        manual.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
+        expect(manual.back).toHaveBeenCalledOnce();
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.cancel');
+
+        const bridge = routeContext('arrival-bridge', [PROFILE_EVENT, curriculumEntry('manual-band', 'n2')], {
+            selectedBand: 'n2',
+            routeHistory: [{ route: 'manual-band' }],
+        });
+        await enrollment.flow.render('arrival-bridge', bridge.value);
+        bridge.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
+
+        expect(bridge.back).toHaveBeenCalledOnce();
+        expect(enrollment.playSfx).toHaveBeenCalledWith('menu.cancel');
+    });
+
     it('opens the pending Lesson 0 from the classroom instead of skipping to the class path', async () => {
         const classroom = routeContext('classroom', [PROFILE_EVENT, curriculumEntry('lesson-zero')], {
             lessonId: 'lesson:foundation-00',

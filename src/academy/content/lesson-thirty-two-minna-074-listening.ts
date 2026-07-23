@@ -39,8 +39,8 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         conceptIds: tasks.map(item => item.conceptId),
         prompt: {
-            ja: 'Minna 074 の五つの会話と最後の文を聞き、文が会話と同じなら○、違うなら×を付けましょう。',
-            en: 'Listen to the five dialogues and closing statements in Minna 074. Mark each statement ○ if it matches the dialogue or × if it does not.',
+            ja: '五つの短い会話と最後の文を聞き、文が会話と同じなら○、違うなら×を付けましょう。',
+            en: 'Listen to five short dialogues and their closing statements. Mark ○ when a statement matches and × when it does not.',
         },
         provenance: {
             packageId: PACKAGE_ID,
@@ -54,7 +54,7 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
                     locator: AUDIO_LOCATOR,
                     url: AUDIO_URL,
                     durationSeconds: 109.688167,
-                    label: 'Minna no Nihongo track 074',
+                    label: 'Five-dialogue listening check',
                 },
                 sourceTask: 'recording-embedded-mondai-2',
                 answerKeyBasis: 'reviewed-original-audio-statements-and-dialogues',
@@ -62,8 +62,8 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
         },
         payload: {
             sourceCaption: {
-                ja: '元資料: Moodle Lesson 6 に収録された Minna 074「問題2」。問題文自体も音声に入り、元の○・×形式で五問を確認します。',
-                en: 'Source: Minna 074 Mondai 2, included byte-for-byte in Moodle Lesson 6. The recording speaks each statement, so all five items retain the original ○/× format.',
+                ja: '会話のあとに文が流れます。内容が同じか違うかを、五問すべて判断してください。',
+                en: 'Each dialogue is followed by a statement. Decide whether it matches for all five items.',
             },
             tasks,
             transcript: reviewedTranscript(),
@@ -71,8 +71,8 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
             feedback: {
                 pass: {
                     explanation: {
-                        ja: '五つの○・×が、Minna 074 の会話と最後の文に合いました。',
-                        en: 'All five marks match the Minna 074 dialogues and closing statements.',
+                        ja: '五つの○・×が、会話と最後の文に合いました。',
+                        en: 'All five marks match the dialogues and closing statements.',
                     },
                 },
                 lapse: {
@@ -81,8 +81,8 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
                         en: 'At least one statement needs another check against the dialogue before it.',
                     },
                     repairPrompt: {
-                        ja: 'Minna 074 をもう一度聞き、まちがえた番号だけ○・×を直しましょう。',
-                        en: 'Replay Minna 074 and repair only the missed ○/× items.',
+                        ja: 'もう一度聞き、まちがえた番号だけ○・×を直しましょう。',
+                        en: 'Listen again and repair only the missed ○/× items.',
                     },
                     nearbyExample: {
                         ja: '会話で「あとで来ます」と言ったら、「これから行きます」は×です。',
@@ -95,8 +95,8 @@ export function createLessonThirtyTwoMinna074ListeningBeat(): LessonActivityBeat
     return Object.freeze({
         id: 'sensei-minna-074-true-false',
         narrative: {
-            ja: '確認信号がそろうと、ソフィーが Minna 074 を再生します。シンは、五つの会話の台本と○・×を最初の試行が終わるまで伏せます。',
-            en: 'Once the confirmation signals are set, Sophie plays Minna 074. Shin keeps the five dialogue transcripts and ○/× answers hidden until the first attempt is complete.',
+            ja: '確認信号がそろうと、ソフィーが五つの会話を再生します。シンは、台本と○・×を最初の試行が終わるまで伏せます。',
+            en: 'Once the confirmation signals are set, Sophie plays five short dialogues. Shin keeps the transcripts and ○/× answers hidden until the first attempt is complete.',
         },
         activity: Object.freeze(activity),
     });

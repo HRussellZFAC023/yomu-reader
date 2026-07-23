@@ -7,7 +7,7 @@ import { createActivityRuntime, type ActivityEvaluation } from '../domain/activi
 import type { JlptBand } from '../domain/learner-record';
 import type { Disposable, KanjiWritingModel, PronunciationService } from '../integration/yomu-bridge';
 import { playLearningVoiceBinding } from '../audio/learning-voice';
-import { copyButton, copyElement, element, screenFrame } from './dom';
+import { backButton, copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite, setAcademySpriteExpression } from './sprite';
 
 export type { LessonFork };
@@ -16,6 +16,7 @@ export function renderArrivalBridge(
     language: AcademyLanguage,
     band: JlptBand,
     onContinue: () => void,
+    onBack: () => void,
 ): HTMLElement {
     const { screen, panel, content } = screenFrame({
         language,
@@ -30,7 +31,9 @@ export function renderArrivalBridge(
     bandBadge.textContent = band.toUpperCase();
     const button = copyButton(language, 'bridgeContinue', 'academy-button academy-button-primary');
     button.addEventListener('click', onContinue);
-    content.append(bandBadge, button);
+    const back = backButton(language);
+    back.addEventListener('click', onBack);
+    content.append(bandBadge, button, back);
     panel.prepend(rieGuide(language));
     return screen;
 }

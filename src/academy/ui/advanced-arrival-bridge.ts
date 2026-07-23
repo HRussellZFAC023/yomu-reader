@@ -5,7 +5,7 @@ import { ACADEMY_ASSETS } from '../assets';
 import type { AdvancedEntryPlan, AdvancedEntryMode } from '../content/advanced-entry';
 import { createActivityRuntime, type ActivityEvaluation } from '../domain/activity-runtime';
 import { minnaTrueFalseListeningPlugin } from '../minigames/minna-true-false-listening';
-import { copyButton, copyElement, element, screenFrame } from './dom';
+import { backButton, copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite } from './sprite';
 
 export interface AdvancedArrivalBridgeOptions {
@@ -15,6 +15,7 @@ export interface AdvancedArrivalBridgeOptions {
     readonly onContinue: () => void;
     readonly onListeningStart?: () => void;
     readonly onListeningStop?: () => void;
+    readonly onBack?: () => void;
 }
 
 export function renderAdvancedArrivalBridge(options: AdvancedArrivalBridgeOptions): HTMLElement {
@@ -29,8 +30,7 @@ export function renderAdvancedArrivalBridge(options: AdvancedArrivalBridgeOption
     screen.dataset.band = options.plan.band;
     screen.dataset.entryMode = options.plan.mode;
     screen.dataset.storyProgression = 'preserve';
-    screen.dataset.sourceOwner = 'moodle-minna';
-    screen.dataset.sourcePackage = 'l2-l07';
+    screen.dataset.learningCheck = 'n3-listening';
     panel.classList.add('academy-guide-panel');
     panel.prepend(rieGuide(options.language));
 
@@ -81,7 +81,9 @@ export function renderAdvancedArrivalBridge(options: AdvancedArrivalBridgeOption
         ['pause', 'ended', 'error'].forEach(event => audio.addEventListener(event, stopListening));
     }
 
-    content.append(mode, continuity, teaching, activityHost, completion);
+    const back = options.onBack ? backButton(options.language) : null;
+    back?.addEventListener('click', options.onBack!);
+    content.append(mode, continuity, teaching, activityHost, completion, ...(back ? [back] : []));
     screen.addEventListener('academy:dispose', () => {
         if (audio && !audio.paused) audio.pause();
         stopListening();
@@ -100,12 +102,13 @@ function modeCopy(mode: AdvancedEntryMode): AcademyCopyKey {
 function rieGuide(language: AcademyLanguage): HTMLElement {
     const cutout = element('div', 'academy-guide-cutout');
     cutout.dataset.speakerStage = 'rie';
-    const fallback = { still: ACADEMY_ASSETS.rie } as const;
+    const neutral = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral } as const;
+    const encouraging = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging } as const;
     cutout.append(createAcademySprite({
         characterId: 'rie',
         alt: language === 'ja' ? 'りえ先生' : 'Rie-sensei',
         className: 'academy-guide-character academy-character-rie',
-        expressions: { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback },
+        expressions: { neutral, encouraging, happy: encouraging, repair: neutral },
     }));
     return cutout;
 }

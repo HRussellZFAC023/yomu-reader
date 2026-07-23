@@ -1,7 +1,7 @@
 import { academyText, type AcademyCopyKey, type AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import type { JlptBand, StartingRoute } from '../domain/learner-record';
-import { backButton, copyButton, copyElement, element, screenFrame } from './dom';
+import { backButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite } from './sprite';
 
 const STARTS: readonly [StartingRoute, AcademyCopyKey, AcademyCopyKey][] = [
@@ -10,12 +10,12 @@ const STARTS: readonly [StartingRoute, AcademyCopyKey, AcademyCopyKey][] = [
     ['placement-mock', 'startMock', 'startMockBody'],
 ];
 
-const BANDS: readonly [JlptBand, AcademyCopyKey][] = [
-    ['n5', 'bandN5'],
-    ['n4', 'bandN4'],
-    ['n3', 'bandN3'],
-    ['n2', 'bandN2'],
-    ['n1', 'bandN1'],
+const BANDS: readonly [JlptBand, AcademyCopyKey, AcademyCopyKey][] = [
+    ['n5', 'bandN5', 'bandN5Body'],
+    ['n4', 'bandN4', 'bandN4Body'],
+    ['n3', 'bandN3', 'bandN3Body'],
+    ['n2', 'bandN2', 'bandN2Body'],
+    ['n1', 'bandN1', 'bandN1Body'],
 ];
 
 export function renderStartScreen(
@@ -79,8 +79,9 @@ export function renderStartScreen(
 
 export function renderManualBandScreen(
     language: AcademyLanguage,
-    onChoose: (band: JlptBand) => void,
-    onBack: () => void,
+    onChoose: (band: JlptBand) => void | Promise<void>,
+    onBack: () => void | Promise<void>,
+    onPreview?: (band: JlptBand) => void,
 ): HTMLElement {
     const { screen, panel, content } = screenFrame({
         language,
@@ -89,18 +90,54 @@ export function renderManualBandScreen(
         title: 'manualTitle',
         body: 'manualBody',
     });
+    screen.dataset.academyRoute = 'manual-band';
     panel.classList.add('academy-guide-panel');
     panel.prepend(rieGuide(language));
     const choices = element('div', 'academy-band-choices');
-    BANDS.forEach(([band, label]) => {
-        const button = copyButton(language, label, 'academy-band-choice');
+    const hint = copyElement('p', 'academy-band-hint', language, 'manualHint');
+    const error = copyElement('p', 'academy-start-choice-error', language, 'manualChoiceError');
+    error.hidden = true;
+    error.setAttribute('role', 'alert');
+    const buttons: HTMLButtonElement[] = [];
+    let choosing = false;
+    BANDS.forEach(([band, title, body]) => {
+        const button = element('button', 'academy-band-choice');
+        button.type = 'button';
         button.dataset.band = band;
-        button.addEventListener('click', () => onChoose(band));
+        button.setAttribute('aria-label', `${band.toUpperCase()}. ${academyText(language, title)}. ${academyText(language, body)}`);
+        const code = element('span', 'academy-band-code');
+        code.textContent = band.toUpperCase();
+        code.setAttribute('aria-hidden', 'true');
+        button.append(
+            code,
+            copyElement('span', 'academy-band-title', language, title),
+            copyElement('span', 'academy-band-description', language, body),
+        );
+        button.addEventListener('focus', () => onPreview?.(band));
+        button.addEventListener('click', async () => {
+            if (choosing) return;
+            choosing = true;
+            screen.dataset.choicePending = band;
+            error.hidden = true;
+            buttons.forEach(choice => { choice.disabled = true; });
+            try {
+                await onChoose(band);
+            } catch {
+                choosing = false;
+                delete screen.dataset.choicePending;
+                buttons.forEach(choice => { choice.disabled = false; });
+                error.hidden = false;
+                button.focus();
+            }
+        });
+        buttons.push(button);
         choices.append(button);
     });
     const back = backButton(language);
-    back.addEventListener('click', onBack);
-    content.append(choices, back);
+    back.addEventListener('click', () => {
+        if (!choosing) void onBack();
+    });
+    content.append(choices, hint, error, back);
     return screen;
 }
 

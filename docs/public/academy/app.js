@@ -17008,13 +17008,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     startMock: "Help me choose",
     startMockBody: "Try a short listening, reading, and language check.",
     startChoiceError: "That path didn't open. Try again.",
-    manualTitle: "Choose a JLPT band",
-    manualBody: "You can change this later.",
-    bandN5: "N5 · first useful Japanese",
-    bandN4: "N4 · plans and connected sentences",
-    bandN3: "N3 · everyday native input and nuance",
-    bandN2: "N2 · follow opinions and formal articles",
-    bandN1: "N1 · handle ambiguity and dense native text",
+    manualTitle: "What have you studied?",
+    manualBody: "Choose the closest level. You can move up or down later.",
+    manualHint: "Not sure? Go back and choose 'Help me choose'.",
+    manualChoiceError: "That level didn't open. Try again.",
+    bandN5: "I know the foundations",
+    bandN5Body: "Kana, greetings, and short everyday sentences.",
+    bandN4: "I can handle daily routines",
+    bandN4Body: "Plans, reasons, past experiences, and connected sentences.",
+    bandN3: "I follow everyday Japanese",
+    bandN3Body: "Longer conversations and native material with some support.",
+    bandN2: "I follow detailed Japanese",
+    bandN2Body: "News, formal writing, and implied meaning.",
+    bandN1: "I handle dense Japanese",
+    bandN1Body: "Fast speech, nuance, ambiguity, and specialist topics.",
     mockTitle: "A short placement check",
     mockBody: "A guide to where to begin, not a JLPT score.",
     mockTargetLegend: "Target band",
@@ -17048,18 +17055,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandEntryBody: "Try a short task at your chosen level.",
     bandEntryComplete: "Done. Earlier memories are waiting in your journal.",
     bandEntryContinue: "Enter the campus",
-    advancedEntryEyebrow: "N3 arrival · source task",
-    advancedEntryTitle: "Listen before you join the next class.",
-    advancedEntryBody: "Rie uses one exact Minna 074 task from the completed Moodle source package to tune your arrival support.",
-    advancedEntryModeGuided: "Adaptive route: guided source orientation",
-    advancedEntryModeTestOut: "Adaptive route: placement-backed independent check",
-    advancedEntryModeRepair: "Adaptive route: focused listening repair",
-    advancedEntryModeIndependent: "Adaptive route: independent source practice",
-    advancedEntryTeachingTitle: "How this source task works",
+    advancedEntryEyebrow: "N3 arrival · listening check",
+    advancedEntryTitle: "Listen once before you join the class.",
+    advancedEntryBody: "Rie uses one short listening task to decide how much support to show when class begins.",
+    advancedEntryModeGuided: "Rie will guide this attempt",
+    advancedEntryModeTestOut: "Try it independently",
+    advancedEntryModeRepair: "Focus on the part that needs repair",
+    advancedEntryModeIndependent: "Start without hints",
+    advancedEntryTeachingTitle: "Listen, then decide",
     advancedEntryTeachingBody: "Each short dialogue ends with a statement. Choose ○ when the statement matches and × when it conflicts. The transcript and answers stay hidden until your first commitment.",
     advancedEntryIndependentBody: "Your existing evidence supports an independent attempt. The transcript, answers, and repair stay hidden until you commit.",
-    advancedEntryContinuity: "This entry task changes support, not the plot. Earlier scenes remain available and no encounter is marked complete here.",
-    advancedEntryComplete: "Source task complete. Your result will tune later listening support without skipping any story.",
+    advancedEntryContinuity: "This only changes how much help you see. Nothing in the story is skipped.",
+    advancedEntryComplete: "Done. Rie will use this result to adjust later listening support.",
     advancedEntryContinue: "Enter the campus",
     lessonForkEyebrow: "Lesson 0",
     lessonForkTitle: "What should we start with?",
@@ -17303,13 +17310,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     startMock: "いっしょに決めたいです",
     startMockBody: "聞く・読む・ことばの短いチェックで、始める場所を探します。",
     startChoiceError: "うまく開けませんでした。もう一度試してください。",
-    manualTitle: "JLPTレベルを選ぶ",
-    manualBody: "あとで変更できます。",
-    bandN5: "N5・最初の役立つ日本語",
-    bandN4: "N4・計画とつながった文",
-    bandN3: "N3・日常の生きた日本語とニュアンス",
-    bandN2: "N2・根拠、立場、フォーマルな表現",
-    bandN1: "N1・曖昧さ、統合、適応",
+    manualTitle: "どのくらい勉強しましたか。",
+    manualBody: "いちばん近いレベルを選んでください。あとで上げたり下げたりできます。",
+    manualHint: "迷ったら、戻って「いっしょに決めたいです」を選べます。",
+    manualChoiceError: "そのレベルを開けませんでした。もう一度試してください。",
+    bandN5: "基礎が分かります",
+    bandN5Body: "かな、あいさつ、短い日常の文。",
+    bandN4: "日常のやり取りができます",
+    bandN4Body: "予定、理由、経験、つながった文。",
+    bandN3: "日常の日本語を追えます",
+    bandN3Body: "少し助けがあれば、長い会話や生の素材を追えます。",
+    bandN2: "詳しい日本語を追えます",
+    bandN2Body: "ニュース、かたい文章、言外の意味。",
+    bandN1: "密度の高い日本語を扱えます",
+    bandN1Body: "速い会話、ニュアンス、曖昧さ、専門的な話題。",
     mockTitle: "短いレベルチェック",
     mockBody: "出発点の目安です。JLPTのスコアではありません。",
     mockTargetLegend: "目標レベル",
@@ -17343,18 +17357,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandEntryBody: "選んだレベルで、短い課題に挑戦しましょう。",
     bandEntryComplete: "できました。以前の思い出は日記で待っています。",
     bandEntryContinue: "キャンパスに入る",
-    advancedEntryEyebrow: "N3途中参加・出典課題",
-    advancedEntryTitle: "次のクラスに入る前に、音声を聞きましょう。",
-    advancedEntryBody: "りえ先生が、照合済みのMoodle出典パッケージにあるMinna 074の課題を一つ使い、途中参加の支援を調整します。",
-    advancedEntryModeGuided: "適応ルート：出典課題のガイド付き導入",
-    advancedEntryModeTestOut: "適応ルート：プレイスメント結果に基づく自力確認",
-    advancedEntryModeRepair: "適応ルート：リスニングの重点修復",
-    advancedEntryModeIndependent: "適応ルート：出典課題の自力練習",
-    advancedEntryTeachingTitle: "この出典課題の進め方",
+    advancedEntryEyebrow: "N3途中参加・聞き取り確認",
+    advancedEntryTitle: "クラスに入る前に、一度聞いてみましょう。",
+    advancedEntryBody: "りえ先生が短い聞き取り課題を使い、授業で表示する助けの量を調整します。",
+    advancedEntryModeGuided: "りえ先生と一緒に取り組みます",
+    advancedEntryModeTestOut: "自力で確認します",
+    advancedEntryModeRepair: "聞き取りにくいところを直します",
+    advancedEntryModeIndependent: "ヒントなしで始めます",
+    advancedEntryTeachingTitle: "聞いて、判断する",
     advancedEntryTeachingBody: "短い会話の最後に文が流れます。会話と同じなら○、違うなら×を選びます。最初に答えるまで、台本と正解は表示されません。",
     advancedEntryIndependentBody: "これまでの学習記録から、自力で取り組めます。答えるまで、台本・正解・修復支援は表示されません。",
-    advancedEntryContinuity: "この課題で変わるのは支援だけです。物語は飛ばされず、以前の場面も残り、ここで出会いが完了扱いになることはありません。",
-    advancedEntryComplete: "出典課題が完了しました。物語を飛ばさず、この結果を今後のリスニング支援に使います。",
+    advancedEntryContinuity: "ここで変わるのは、表示する助けの量だけです。物語は飛ばされません。",
+    advancedEntryComplete: "できました。りえ先生が、この結果を今後の聞き取り支援に使います。",
     advancedEntryContinue: "キャンパスに入る",
     lessonForkEyebrow: "レッスン0",
     lessonForkTitle: "最初に何から始めますか。",
@@ -41763,7 +41777,9 @@ ${spelling}`);
       ["route:start"],
       { audio: "music-ambience-sfx", visual: "ui" },
       "Curriculum entry choice is recorded.",
-      "Lesson Zero, manual band, and placement branches each return to a valid route."
+      "Lesson Zero, manual band, and placement branches each return to a valid route.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:manual-band",
@@ -41772,9 +41788,11 @@ ${spelling}`);
       ["optional", "revisitable"],
       { route: "manual-band" },
       ["route:manual-band"],
-      { audio: "none", visual: "ui" },
+      { audio: "music-ambience-sfx", visual: "ui" },
       "Selected band persists.",
-      "Every band opens its intended arrival bridge without exposing future Day 1 work."
+      "Every band opens its intended arrival bridge without exposing future Day 1 work.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:placement",
@@ -44916,7 +44934,7 @@ ${spelling}`);
   }
   function themeForRoute(route, worldPlace2) {
     if (route === "access") return "silence";
-    if (route === "profile" || route === "rie-unlock" || route === "start" || route === "manual-band") {
+    if (route === "profile" || route === "rie-unlock" || route === "start" || route === "manual-band" || route === "arrival-bridge") {
       return "opening.invitation";
     }
     if (route === "placement-mock" || route === "placement-result") return "silence";
@@ -47702,8 +47720,8 @@ ${spelling}`);
       answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
       conceptIds: tasks2.map((item2) => item2.conceptId),
       prompt: {
-        ja: "Minna 074 の五つの会話と最後の文を聞き、文が会話と同じなら○、違うなら×を付けましょう。",
-        en: "Listen to the five dialogues and closing statements in Minna 074. Mark each statement ○ if it matches the dialogue or × if it does not."
+        ja: "五つの短い会話と最後の文を聞き、文が会話と同じなら○、違うなら×を付けましょう。",
+        en: "Listen to five short dialogues and their closing statements. Mark ○ when a statement matches and × when it does not."
       },
       provenance: {
         packageId: PACKAGE_ID$11,
@@ -47717,7 +47735,7 @@ ${spelling}`);
             locator: AUDIO_LOCATOR$9,
             url: AUDIO_URL$2,
             durationSeconds: 109.688167,
-            label: "Minna no Nihongo track 074"
+            label: "Five-dialogue listening check"
           },
           sourceTask: "recording-embedded-mondai-2",
           answerKeyBasis: "reviewed-original-audio-statements-and-dialogues"
@@ -47725,8 +47743,8 @@ ${spelling}`);
       },
       payload: {
         sourceCaption: {
-          ja: "元資料: Moodle Lesson 6 に収録された Minna 074「問題2」。問題文自体も音声に入り、元の○・×形式で五問を確認します。",
-          en: "Source: Minna 074 Mondai 2, included byte-for-byte in Moodle Lesson 6. The recording speaks each statement, so all five items retain the original ○/× format."
+          ja: "会話のあとに文が流れます。内容が同じか違うかを、五問すべて判断してください。",
+          en: "Each dialogue is followed by a statement. Decide whether it matches for all five items."
         },
         tasks: tasks2,
         transcript: reviewedTranscript$4(),
@@ -47734,8 +47752,8 @@ ${spelling}`);
         feedback: {
           pass: {
             explanation: {
-              ja: "五つの○・×が、Minna 074 の会話と最後の文に合いました。",
-              en: "All five marks match the Minna 074 dialogues and closing statements."
+              ja: "五つの○・×が、会話と最後の文に合いました。",
+              en: "All five marks match the dialogues and closing statements."
             }
           },
           lapse: {
@@ -47744,8 +47762,8 @@ ${spelling}`);
               en: "At least one statement needs another check against the dialogue before it."
             },
             repairPrompt: {
-              ja: "Minna 074 をもう一度聞き、まちがえた番号だけ○・×を直しましょう。",
-              en: "Replay Minna 074 and repair only the missed ○/× items."
+              ja: "もう一度聞き、まちがえた番号だけ○・×を直しましょう。",
+              en: "Listen again and repair only the missed ○/× items."
             },
             nearbyExample: {
               ja: "会話で「あとで来ます」と言ったら、「これから行きます」は×です。",
@@ -47758,8 +47776,8 @@ ${spelling}`);
     return Object.freeze({
       id: "sensei-minna-074-true-false",
       narrative: {
-        ja: "確認信号がそろうと、ソフィーが Minna 074 を再生します。シンは、五つの会話の台本と○・×を最初の試行が終わるまで伏せます。",
-        en: "Once the confirmation signals are set, Sophie plays Minna 074. Shin keeps the five dialogue transcripts and ○/× answers hidden until the first attempt is complete."
+        ja: "確認信号がそろうと、ソフィーが五つの会話を再生します。シンは、台本と○・×を最初の試行が終わるまで伏せます。",
+        en: "Once the confirmation signals are set, Sophie plays five short dialogues. Shin keeps the transcripts and ○/× answers hidden until the first attempt is complete."
       },
       activity: Object.freeze(activity2)
     });
@@ -48175,7 +48193,7 @@ ${spelling}`);
       audioLocator: "academy/content/minna/audio/l2-l07-minna-074.mp3",
       audioUrl: "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3",
       durationSeconds: 109.688167,
-      audioLabel: "Minna no Nihongo track 074",
+      audioLabel: "Five-dialogue listening check",
       transcriptLineCount: 25,
       tasks: [
         ["woman-goes-now", "女の人は これから 会議室へ 行きます。", "cross"],
@@ -48485,8 +48503,7 @@ ${spelling}`);
     screen.dataset.band = options.plan.band;
     screen.dataset.entryMode = options.plan.mode;
     screen.dataset.storyProgression = "preserve";
-    screen.dataset.sourceOwner = "moodle-minna";
-    screen.dataset.sourcePackage = "l2-l07";
+    screen.dataset.learningCheck = "n3-listening";
     panel.classList.add("academy-guide-panel");
     panel.prepend(rieGuide$2(options.language));
     const mode = copyElement("p", "academy-advanced-entry-mode", options.language, modeCopy(options.plan.mode));
@@ -48534,7 +48551,9 @@ ${spelling}`);
       });
       ["pause", "ended", "error"].forEach((event) => audio2.addEventListener(event, stopListening));
     }
-    content.append(mode, continuity, teaching2, activityHost, completion);
+    const back = options.onBack ? backButton(options.language) : null;
+    back?.addEventListener("click", options.onBack);
+    content.append(mode, continuity, teaching2, activityHost, completion, ...back ? [back] : []);
     screen.addEventListener("academy:dispose", () => {
       if (audio2 && !audio2.paused) audio2.pause();
       stopListening();
@@ -48551,12 +48570,13 @@ ${spelling}`);
   function rieGuide$2(language) {
     const cutout = element("div", "academy-guide-cutout");
     cutout.dataset.speakerStage = "rie";
-    const fallback = { still: ACADEMY_ASSETS.rie };
+    const neutral = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral };
+    const encouraging = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging };
     cutout.append(createAcademySprite({
       characterId: "rie",
       alt: language === "ja" ? "りえ先生" : "Rie-sensei",
       className: "academy-guide-character academy-character-rie",
-      expressions: { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback }
+      expressions: { neutral, encouraging, happy: encouraging, repair: neutral }
     }));
     return cutout;
   }
@@ -54444,7 +54464,7 @@ ${spelling}`);
     if (!response.ok) throw new Error(`Could not load Academy content shard: ${url} (${response.status})`);
     return response.json();
   }
-  function renderArrivalBridge(language, band, onContinue) {
+  function renderArrivalBridge(language, band, onContinue, onBack) {
     const { screen, panel, content } = screenFrame({
       language,
       className: "academy-bridge-screen",
@@ -54458,7 +54478,9 @@ ${spelling}`);
     bandBadge.textContent = band.toUpperCase();
     const button2 = copyButton(language, "bridgeContinue", "academy-button academy-button-primary");
     button2.addEventListener("click", onContinue);
-    content.append(bandBadge, button2);
+    const back = backButton(language);
+    back.addEventListener("click", onBack);
+    content.append(bandBadge, button2, back);
     panel.prepend(rieGuide$1(language));
     return screen;
   }
@@ -55185,11 +55207,11 @@ ${spelling}`);
     ["placement-mock", "startMock", "startMockBody"]
   ];
   const BANDS = [
-    ["n5", "bandN5"],
-    ["n4", "bandN4"],
-    ["n3", "bandN3"],
-    ["n2", "bandN2"],
-    ["n1", "bandN1"]
+    ["n5", "bandN5", "bandN5Body"],
+    ["n4", "bandN4", "bandN4Body"],
+    ["n3", "bandN3", "bandN3Body"],
+    ["n2", "bandN2", "bandN2Body"],
+    ["n1", "bandN1", "bandN1Body"]
   ];
   function renderStartScreen(language, onChoose, onPreview) {
     const { screen, panel, content } = screenFrame({
@@ -55249,7 +55271,7 @@ ${spelling}`);
     content.append(choices2, error);
     return screen;
   }
-  function renderManualBandScreen(language, onChoose, onBack) {
+  function renderManualBandScreen(language, onChoose, onBack, onPreview) {
     const { screen, panel, content } = screenFrame({
       language,
       className: "academy-band-screen",
@@ -55257,18 +55279,58 @@ ${spelling}`);
       title: "manualTitle",
       body: "manualBody"
     });
+    screen.dataset.academyRoute = "manual-band";
     panel.classList.add("academy-guide-panel");
     panel.prepend(rieGuide(language));
     const choices2 = element("div", "academy-band-choices");
-    BANDS.forEach(([band, label]) => {
-      const button2 = copyButton(language, label, "academy-band-choice");
+    const hint2 = copyElement("p", "academy-band-hint", language, "manualHint");
+    const error = copyElement("p", "academy-start-choice-error", language, "manualChoiceError");
+    error.hidden = true;
+    error.setAttribute("role", "alert");
+    const buttons = [];
+    let choosing = false;
+    BANDS.forEach(([band, title2, body]) => {
+      const button2 = element("button", "academy-band-choice");
+      button2.type = "button";
       button2.dataset.band = band;
-      button2.addEventListener("click", () => onChoose(band));
+      button2.setAttribute("aria-label", `${band.toUpperCase()}. ${academyText(language, title2)}. ${academyText(language, body)}`);
+      const code = element("span", "academy-band-code");
+      code.textContent = band.toUpperCase();
+      code.setAttribute("aria-hidden", "true");
+      button2.append(
+        code,
+        copyElement("span", "academy-band-title", language, title2),
+        copyElement("span", "academy-band-description", language, body)
+      );
+      button2.addEventListener("focus", () => onPreview?.(band));
+      button2.addEventListener("click", async () => {
+        if (choosing) return;
+        choosing = true;
+        screen.dataset.choicePending = band;
+        error.hidden = true;
+        buttons.forEach((choice2) => {
+          choice2.disabled = true;
+        });
+        try {
+          await onChoose(band);
+        } catch {
+          choosing = false;
+          delete screen.dataset.choicePending;
+          buttons.forEach((choice2) => {
+            choice2.disabled = false;
+          });
+          error.hidden = false;
+          button2.focus();
+        }
+      });
+      buttons.push(button2);
       choices2.append(button2);
     });
     const back = backButton(language);
-    back.addEventListener("click", onBack);
-    content.append(choices2, back);
+    back.addEventListener("click", () => {
+      if (!choosing) void onBack();
+    });
+    content.append(choices2, hint2, error, back);
     return screen;
   }
   function rieGuide(language) {
@@ -55878,8 +55940,12 @@ ${spelling}`);
         case "manual-band":
           context2.shell.replace(renderManualBandScreen(
             context2.language,
-            (band) => void this.chooseBand(band, context2),
-            () => void context2.back()
+            (band) => this.chooseBand(band, context2),
+            () => {
+              this.options.audio?.playSfx?.("menu.cancel");
+              return context2.back();
+            },
+            () => this.options.audio?.playSfx?.("menu.move")
           ));
           return true;
         case "placement-mock":
@@ -55928,14 +55994,22 @@ ${spelling}`);
               },
               onListeningStart: () => this.beginExternalListening(),
               onListeningStop: () => this.endExternalListening(),
-              onContinue: () => void context2.go("campus")
+              onContinue: () => void context2.go("campus"),
+              onBack: () => {
+                this.options.audio?.playSfx?.("menu.cancel");
+                void context2.back();
+              }
             }));
             return true;
           }
           context2.shell.replace(renderArrivalBridge(
             context2.language,
             requiredBand(context2),
-            () => void context2.go("campus")
+            () => void context2.go("campus"),
+            () => {
+              this.options.audio?.playSfx?.("menu.cancel");
+              void context2.back();
+            }
           ));
           return true;
         default:

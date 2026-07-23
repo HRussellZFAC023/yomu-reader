@@ -30,7 +30,7 @@ const EXACT_SOURCE_CONTRACTS: Readonly<Record<ResponseKind, ExactSourceContract>
         audioSha256: '2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0',
         audioLocator: 'academy/content/minna/audio/l2-l07-minna-074.mp3',
         audioUrl: '/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3',
-        durationSeconds: 109.688167, audioLabel: 'Minna no Nihongo track 074', transcriptLineCount: 25,
+        durationSeconds: 109.688167, audioLabel: 'Five-dialogue listening check', transcriptLineCount: 25,
         tasks: [
             ['woman-goes-now', '女の人は これから 会議室へ 行きます。', 'cross'],
             ['man-predicts-japan', '男の人は 日本が 勝つと 言いました。', 'cross'],

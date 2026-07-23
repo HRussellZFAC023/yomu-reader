@@ -57,16 +57,18 @@ describe('source-owned N3 advanced entry', () => {
         const plan = createN3AdvancedEntryPlan({ events: [], placementAccepted: false, now: NOW });
         const onEvaluation = vi.fn(async () => undefined);
         const onContinue = vi.fn();
+        const onBack = vi.fn();
         const onListeningStart = vi.fn();
         const onListeningStop = vi.fn();
         const screen = renderAdvancedArrivalBridge({
-            language: 'en', plan, onEvaluation, onContinue, onListeningStart, onListeningStop,
+            language: 'en', plan, onEvaluation, onContinue, onBack, onListeningStart, onListeningStop,
         });
         document.body.append(screen);
 
         expect(screen).toMatchObject({ dataset: expect.objectContaining({
-            band: 'n3', entryMode: 'guided', storyProgression: 'preserve', sourceOwner: 'moodle-minna',
+            band: 'n3', entryMode: 'guided', storyProgression: 'preserve', learningCheck: 'n3-listening',
         }) });
+        expect(screen.textContent).not.toMatch(/Moodle|source package|adaptive route/i);
         expect(screen.querySelector('.academy-advanced-entry-teaching')?.textContent)
             .toContain('Choose ○ when the statement matches');
         expect(screen.querySelector('[data-listening-support]')).toBeNull();
@@ -96,6 +98,8 @@ describe('source-owned N3 advanced entry', () => {
         expect(screen.querySelector('[data-listening-support]')).not.toBeNull();
         screen.querySelector<HTMLButtonElement>('.academy-source-completion button')?.click();
         expect(onContinue).toHaveBeenCalledOnce();
+        screen.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
+        expect(onBack).toHaveBeenCalledOnce();
     });
 });
 

@@ -4,14 +4,25 @@
 
 .academy-advanced-entry-mode,
 .academy-advanced-entry-teaching {
-    border: 1px solid color-mix(in srgb, var(--academy-accent) 35%, transparent);
-    border-radius: var(--academy-radius-small);
-    background: color-mix(in srgb, var(--academy-panel) 92%, var(--academy-accent));
-    padding: 0.85rem 1rem;
+    color: var(--academy-paper-ink);
+    border: 0;
+    border-left: 4px solid var(--academy-accent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--academy-paper-deep) 58%, transparent);
 }
 
 .academy-advanced-entry-mode {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.45rem 0.8rem;
     font-weight: 700;
+    line-height: 1.25;
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--academy-paper-ink) 10%, transparent);
+}
+
+.academy-advanced-entry-teaching {
+    padding: 0.9rem 1rem;
 }
 
 .academy-advanced-entry-teaching h2 {
@@ -21,10 +32,20 @@
 
 .academy-advanced-entry-teaching p {
     margin: 0;
+    color: var(--academy-paper-muted);
 }
 
 .academy-advanced-entry-activity audio {
     width: min(100%, 32rem);
+}
+
+@media (min-width: 760.01px) {
+    .academy-advanced-arrival-screen .academy-guide-cutout {
+        position: sticky;
+        top: 12px;
+        align-self: start;
+        height: min(680px, calc(100dvh - 48px));
+    }
 }
 
 @media (max-width: 44rem) {

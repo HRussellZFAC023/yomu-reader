@@ -79,8 +79,12 @@ class EnrollmentFlow implements AcademyRouteFlow {
             case 'manual-band':
                 context.shell.replace(renderManualBandScreen(
                     context.language,
-                    band => void this.chooseBand(band, context),
-                    () => void context.back(),
+                    band => this.chooseBand(band, context),
+                    () => {
+                        this.options.audio?.playSfx?.('menu.cancel');
+                        return context.back();
+                    },
+                    () => this.options.audio?.playSfx?.('menu.move'),
                 ));
                 return true;
             case 'placement-mock':
@@ -131,6 +135,10 @@ class EnrollmentFlow implements AcademyRouteFlow {
                         onListeningStart: () => this.beginExternalListening(),
                         onListeningStop: () => this.endExternalListening(),
                         onContinue: () => void context.go('campus'),
+                        onBack: () => {
+                            this.options.audio?.playSfx?.('menu.cancel');
+                            void context.back();
+                        },
                     }));
                     return true;
                 }
@@ -138,6 +146,10 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     context.language,
                     requiredBand(context),
                     () => void context.go('campus'),
+                    () => {
+                        this.options.audio?.playSfx?.('menu.cancel');
+                        void context.back();
+                    },
                 ));
                 return true;
             default:
