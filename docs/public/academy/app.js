@@ -53,7 +53,7 @@
   }
   function parseAcademyAccountView(value) {
     const record2 = object$1(value, "Academy account");
-    const identity2 = classIdentity(text$n(record2.displayName, "displayName"), discriminatorFromTag(text$n(record2.displayTag, "displayTag")));
+    const identity2 = classIdentity(text$o(record2.displayName, "displayName"), discriminatorFromTag(text$o(record2.displayTag, "displayTag")));
     if (identity2.label !== record2.displayTag) throw new TypeError("Academy displayTag is invalid.");
     return {
       accountId: uuid(record2.accountId, "accountId"),
@@ -116,7 +116,7 @@
   }
   function parseAcademyPairingTicket(value) {
     const record2 = object$1(value, "Academy pairing ticket");
-    const code = text$n(record2.code, "code");
+    const code = text$o(record2.code, "code");
     if (!/^[023456789A-HJ-KM-NP-Z]{4}(?:-[023456789A-HJ-KM-NP-Z]{4}){4}$/u.test(code)) {
       throw new TypeError("Academy pairing code is invalid.");
     }
@@ -180,7 +180,7 @@
     const record2 = object$1(value, "Academy class");
     return {
       classId: classId(record2.classId),
-      name: text$n(record2.name, "name"),
+      name: text$o(record2.name, "name"),
       role: role$1(record2.role),
       boardHidden: boolean(record2.boardHidden, "boardHidden")
     };
@@ -207,7 +207,7 @@
     }
     return {
       id: id2,
-      meaning: text$n(record2.meaning, "metric.meaning"),
+      meaning: text$o(record2.meaning, "metric.meaning"),
       unit,
       window: window2,
       ...startsOn === void 0 ? {} : { startsOn },
@@ -231,7 +231,7 @@
     return value === null ? null : integer$1(value, field2, 0, Number.MAX_SAFE_INTEGER);
   }
   function isoDay(value, field2) {
-    const day = text$n(value, field2);
+    const day = text$o(value, field2);
     const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
     const at = match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : Number.NaN;
     if (!match || Number.isNaN(at) || new Date(at).toISOString().slice(0, 10) !== day) {
@@ -244,7 +244,7 @@
     return value;
   }
   function validDisplayTag(value) {
-    const tag = text$n(value, "displayTag");
+    const tag = text$o(value, "displayTag");
     const split = /^(.*)#(\d{6})$/u.exec(tag);
     if (!split) throw new TypeError("displayTag is invalid.");
     const identity2 = classIdentity(split[1] ?? "", split[2] ?? "");
@@ -264,7 +264,7 @@
     if (!Array.isArray(value)) throw new TypeError(`${field2} must be an array.`);
     return value;
   }
-  function text$n(value, field2) {
+  function text$o(value, field2) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field2} must be text.`);
     return value;
   }
@@ -3595,7 +3595,7 @@
     const lesson = object(value, "grounded lesson");
     if (lesson.schemaVersion !== 1) fail$4("Grounded lesson must use schemaVersion 1.");
     id$1B(lesson.lessonId, "lessonId");
-    text$m(lesson.contentRevision, "contentRevision");
+    text$n(lesson.contentRevision, "contentRevision");
     const overview = object(lesson.overview, "overview");
     const allBlockers = validateProofSet(overview.proofs, "overview", true);
     const activities = list(lesson.activities, "activities");
@@ -3675,12 +3675,12 @@
     }
     if (value.kind !== "authored") fail$4(`${label} must use source or authored input.`);
     ids(value.authoredInputIds, `${label}.authoredInputIds`);
-    text$m(value.revision, `${label}.revision`);
+    text$n(value.revision, `${label}.revision`);
     id$1B(value.authorId, `${label}.authorId`);
-    text$m(value.rationale, `${label}.rationale`);
+    text$n(value.rationale, `${label}.rationale`);
     const review2 = object(value.languageReview, `${label}.languageReview`);
     id$1B(review2.reviewerId, `${label}.languageReview.reviewerId`);
-    text$m(review2.revision, `${label}.languageReview.revision`);
+    text$n(review2.revision, `${label}.languageReview.revision`);
     if (review2.register !== "reviewed" || review2.naturalness !== "reviewed") {
       fail$4(`${label} needs reviewed register and naturalness.`);
     }
@@ -3692,14 +3692,14 @@
       const item2 = object(document2, `${label}.document`);
       id$1B(item2.id, `${label}.document.id`);
       sha$1(item2.sha256, `${label}.document.sha256`);
-      text$m(item2.extractionRevision, `${label}.document.extractionRevision`);
+      text$n(item2.extractionRevision, `${label}.document.extractionRevision`);
     }
   }
   function validateCurriculum(value, label) {
     ids(value.conceptIds, `${label}.conceptIds`);
     ids(value.outcomeIds, `${label}.outcomeIds`);
     const prerequisites2 = object(value.prerequisites, `${label}.prerequisites`);
-    if (prerequisites2.kind === "entry") text$m(prerequisites2.reason, `${label}.prerequisites.reason`);
+    if (prerequisites2.kind === "entry") text$n(prerequisites2.reason, `${label}.prerequisites.reason`);
     else if (prerequisites2.kind === "resolved") {
       ids(prerequisites2.conceptIds, `${label}.prerequisites.conceptIds`);
       validateDefinitionRef(prerequisites2.resolution, `${label}.prerequisites.resolution`);
@@ -3733,7 +3733,7 @@
     const binding = object(value.auditBinding, `${label}.auditBinding`);
     id$1B(binding.surfaceId, `${label}.auditBinding.surfaceId`);
     validateDefinitionRef(binding.renderer, `${label}.auditBinding.renderer`);
-    text$m(binding.contentRevision, `${label}.auditBinding.contentRevision`);
+    text$n(binding.contentRevision, `${label}.auditBinding.contentRevision`);
     const preCommit = object(value.learnerFacingPreCommit, `${label}.learnerFacingPreCommit`);
     for (const key2 of ["translations", "transcripts", "modelAnswers", "acceptedAnswers"]) {
       if (preCommit[key2] !== "absent") fail$4(`${label}.${key2} must be absent before commitment.`);
@@ -3741,11 +3741,11 @@
     if (!["after-commit", "after-first-attempt"].includes(value.revealPolicy)) fail$4(`${label} has an unsafe reveal policy.`);
   }
   function validateMedia$1(value, label) {
-    if (value.state === "not-required") text$m(value.reason, `${label}.reason`);
+    if (value.state === "not-required") text$n(value.reason, `${label}.reason`);
     else if (value.state === "ready") {
       if (!["source", "authored"].includes(value.provenance)) fail$4(`${label} has invalid media provenance.`);
       ids(value.assetIds, `${label}.assetIds`);
-      text$m(value.revision, `${label}.revision`);
+      text$n(value.revision, `${label}.revision`);
       if (!["ready", "not-applicable"].includes(value.transcript)) fail$4(`${label} needs a transcript status.`);
     } else fail$4(`${label} needs an explicit media status.`);
   }
@@ -3770,8 +3770,8 @@
     for (const item2 of items) {
       id$1B(item2.seedId, `${label}.reviewItem.seedId`);
       id$1B(item2.conceptId, `${label}.reviewItem.conceptId`);
-      const expression = text$m(item2.expressionKey, `${label}.expressionKey`);
-      const reading = text$m(item2.readingKey, `${label}.readingKey`);
+      const expression = text$n(item2.expressionKey, `${label}.expressionKey`);
+      const reading = text$n(item2.readingKey, `${label}.readingKey`);
       if (/^[a-z][a-z0-9-]*:/u.test(expression) || /^[a-z][a-z0-9-]*:/u.test(reading)) {
         fail$4(`${label} needs canonical expression and reading keys, not opaque ids.`);
       }
@@ -3808,7 +3808,7 @@
     if (!MODALITIES.includes(value.primaryEvidenceModality)) fail$4(`${label} needs a primary evidence modality.`);
     const alternative = object(value.inputAlternative, `${label}.inputAlternative`);
     if (alternative.kind === "not-required") {
-      text$m(alternative.reason, `${label}.inputAlternative.reason`);
+      text$n(alternative.reason, `${label}.inputAlternative.reason`);
       if (["handwriting", "speech"].includes(value.primaryEvidenceModality)) {
         fail$4(`${label} needs a construct-preserving ${value.primaryEvidenceModality} alternative.`);
       }
@@ -3817,7 +3817,7 @@
       if (alternative.modality !== value.primaryEvidenceModality || alternative.preservesLearningConstruct !== true) {
         fail$4(`${label} input alternative must preserve the same learning construct.`);
       }
-      text$m(alternative.rationale, `${label}.inputAlternative.rationale`);
+      text$n(alternative.rationale, `${label}.inputAlternative.rationale`);
     } else fail$4(`${label} needs an input alternative status.`);
   }
   function validateProductionSequence(sequence, activities, label) {
@@ -3859,7 +3859,7 @@
     const ref = object(value, label);
     id$1B(ref.id, `${label}.id`);
     if (!["academy-content", "activity-plugin"].includes(ref.registry)) fail$4(`${label} needs a resolvable registry.`);
-    text$m(ref.revision, `${label}.revision`);
+    text$n(ref.revision, `${label}.revision`);
     sha$1(ref.sha256, `${label}.sha256`);
   }
   function validateNodeStatus(status, declared, found, label) {
@@ -3883,16 +3883,16 @@
     return value;
   }
   function id$1B(value, label) {
-    const result2 = text$m(value, label);
+    const result2 = text$n(value, label);
     if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(result2)) fail$4(`${label} must be a stable namespaced id.`);
     return result2;
   }
   function sha$1(value, label) {
-    const result2 = text$m(value, label);
+    const result2 = text$n(value, label);
     if (!/^[a-f0-9]{64}$/u.test(result2)) fail$4(`${label} must be a SHA-256.`);
     return result2;
   }
-  function text$m(value, label) {
+  function text$n(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$4(`${label} must be non-empty.`);
     return value.trim();
   }
@@ -3980,13 +3980,13 @@
   function validateBaseModel(model2) {
     const issues2 = [];
     if (!model2 || typeof model2 !== "object") return [{ path: "", message: "Activity model is required." }];
-    if (!text$l(model2.id)) issues2.push({ path: "id", message: "A stable id is required." });
-    if (!text$l(model2.kind)) issues2.push({ path: "kind", message: "A plugin kind is required." });
-    if (!text$l(model2.responseKind)) issues2.push({ path: "responseKind", message: "A response kind is required." });
+    if (!text$m(model2.id)) issues2.push({ path: "id", message: "A stable id is required." });
+    if (!text$m(model2.kind)) issues2.push({ path: "kind", message: "A plugin kind is required." });
+    if (!text$m(model2.responseKind)) issues2.push({ path: "responseKind", message: "A response kind is required." });
     if (!Array.isArray(model2.conceptIds) || !model2.conceptIds.length) {
       issues2.push({ path: "conceptIds", message: "At least one Concept is required." });
     }
-    if (!text$l(model2.prompt?.en) || !text$l(model2.prompt?.ja)) {
+    if (!text$m(model2.prompt?.en) || !text$m(model2.prompt?.ja)) {
       issues2.push({ path: "prompt", message: "English and Japanese prompt text are required." });
     }
     if (model2.answerSupport) issues2.push(...validateAnswerSupportContract(model2.answerSupport).map((issue) => ({
@@ -4016,10 +4016,10 @@
       throw new TypeError("Grade score must be between 0 and 1.");
     }
     const feedback2 = result2.feedback;
-    if (!text$l(feedback2?.explanation?.en) || !text$l(feedback2?.explanation?.ja)) {
+    if (!text$m(feedback2?.explanation?.en) || !text$m(feedback2?.explanation?.ja)) {
       throw new TypeError("Grade feedback needs an English and Japanese explanation.");
     }
-    if (result2.outcome === "lapse" && (!text$l(feedback2.repairPrompt?.en) || !text$l(feedback2.repairPrompt?.ja) || !text$l(feedback2.nearbyExample?.en) || !text$l(feedback2.nearbyExample?.ja))) {
+    if (result2.outcome === "lapse" && (!text$m(feedback2.repairPrompt?.en) || !text$m(feedback2.repairPrompt?.ja) || !text$m(feedback2.nearbyExample?.en) || !text$m(feedback2.nearbyExample?.ja))) {
       throw new TypeError("A lapse must include a bilingual repair prompt and nearby example.");
     }
     return {
@@ -4053,11 +4053,11 @@
     };
   }
   function requireText$3(value, label) {
-    const normalized2 = text$l(value);
+    const normalized2 = text$m(value);
     if (!normalized2) throw new TypeError(`${label} must be non-empty.`);
     return normalized2;
   }
-  function text$l(value) {
+  function text$m(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function unique$h(values) {
@@ -4066,7 +4066,7 @@
   function parseAuthoredWeekPackage(value) {
     const root = record$16(value, "package");
     if (root.schema !== "yomu-academy.week.v1") fail$3("package.schema", "must be yomu-academy.week.v1");
-    const id2 = text$k(root.id, "package.id");
+    const id2 = text$l(root.id, "package.id");
     const sourceItemIds = /* @__PURE__ */ new Set();
     const rawComponents = array$15(root.components, "package.components");
     const components2 = rawComponents.map((candidate2, index) => {
@@ -4074,7 +4074,7 @@
       const path = `package.components[${index}]`;
       const exercises = component.exercises === void 0 ? void 0 : array$15(component.exercises, `${path}.exercises`);
       return {
-        type: text$k(component.type, `${path}.type`),
+        type: text$l(component.type, `${path}.type`),
         order: finiteNumber$3(component.order, `${path}.order`),
         teachingSupport: parseTeachingSupport(component, path),
         ...exercises ? { exercises } : {},
@@ -4276,20 +4276,20 @@
   function parseSourceVocabularySheet(component, path, sourceItemIds) {
     const provenance2 = record$16(component.provenance, `${path}.provenance`);
     const payloadSha256 = sha256$1(provenance2.payloadSha256, `${path}.provenance.payloadSha256`);
-    const sourceTitle = text$k(provenance2.title, `${path}.provenance.title`);
+    const sourceTitle = text$l(provenance2.title, `${path}.provenance.title`);
     let previousPage = 0;
     let previousRow = 0;
     const items = array$15(component.items, `${path}.items`).map((candidate2, index) => {
       const itemPath = `${path}.items[${index}]`;
       const item2 = record$16(candidate2, itemPath);
       const source2 = record$16(item2.source, `${itemPath}.source`);
-      const itemId = text$k(source2.itemId, `${itemPath}.source.itemId`);
+      const itemId = text$l(source2.itemId, `${itemPath}.source.itemId`);
       if (sourceItemIds.has(itemId)) fail$3(`${itemPath}.source.itemId`, "must be unique in the package");
       sourceItemIds.add(itemId);
       if (sha256$1(source2.payloadSha256, `${itemPath}.source.payloadSha256`) !== payloadSha256) {
         fail$3(`${itemPath}.source.payloadSha256`, "must match the component payload SHA-256");
       }
-      if (text$k(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
+      if (text$l(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
         fail$3(`${itemPath}.source.title`, "must match the component source title");
       }
       const locus = record$16(source2.locus, `${itemPath}.source.locus`);
@@ -4306,23 +4306,23 @@
         fail$3(`${itemPath}.source.answerVisibility`, "must be after-attempt");
       }
       return {
-        ja: text$k(item2.ja, `${itemPath}.ja`),
-        reading: text$k(item2.reading, `${itemPath}.reading`),
-        en: text$k(item2.en, `${itemPath}.en`),
+        ja: text$l(item2.ja, `${itemPath}.ja`),
+        reading: text$l(item2.reading, `${itemPath}.reading`),
+        en: text$l(item2.en, `${itemPath}.en`),
         source: {
           itemId,
           payloadSha256,
           title: sourceTitle,
           locus: { page, row },
           exact: {
-            words: text$k(exact2.words, `${itemPath}.source.exact.words`),
+            words: text$l(exact2.words, `${itemPath}.source.exact.words`),
             pronunciation: nullableText$6(exact2.pronunciation, `${itemPath}.source.exact.pronunciation`),
             meaning: nullableText$6(exact2.meaning, `${itemPath}.source.exact.meaning`)
           },
           fieldProvenance: {
-            words: text$k(fieldProvenance.words, `${itemPath}.source.fieldProvenance.words`),
-            reading: text$k(fieldProvenance.reading, `${itemPath}.source.fieldProvenance.reading`),
-            meaning: text$k(fieldProvenance.meaning, `${itemPath}.source.fieldProvenance.meaning`)
+            words: text$l(fieldProvenance.words, `${itemPath}.source.fieldProvenance.words`),
+            reading: text$l(fieldProvenance.reading, `${itemPath}.source.fieldProvenance.reading`),
+            meaning: text$l(fieldProvenance.meaning, `${itemPath}.source.fieldProvenance.meaning`)
           },
           answerVisibility: "after-attempt"
         }
@@ -4330,11 +4330,11 @@
     });
     if (!items.length) fail$3(`${path}.items`, "must contain at least one source row");
     return {
-      componentId: text$k(component.id, `${path}.id`),
+      componentId: text$l(component.id, `${path}.id`),
       title: localized$n(component.title, `${path}.title`),
       sourceInstructions: localized$n(component.sourceInstructions ?? component.title, `${path}.sourceInstructions`),
       provenance: {
-        sourceId: text$k(provenance2.sourceId, `${path}.provenance.sourceId`),
+        sourceId: text$l(provenance2.sourceId, `${path}.provenance.sourceId`),
         payloadSha256,
         title: sourceTitle
       },
@@ -4352,17 +4352,17 @@
       const option2 = record$16(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$3(`${path}.options[${index}].correct`, "must be boolean");
       return {
-        id: text$k(option2.id, `${path}.options[${index}].id`),
+        id: text$l(option2.id, `${path}.options[${index}].id`),
         label: localized$n(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
     return {
-      id: text$k(exercise.id, `${path}.id`),
+      id: text$l(exercise.id, `${path}.id`),
       kind: "choice",
       prompt: localized$n(exercise.prompt, `${path}.prompt`),
-      explanation: text$k(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$l(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$l(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       options
@@ -4379,18 +4379,18 @@
       const option2 = record$16(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$3(`${path}.options[${index}].correct`, "must be boolean");
       return {
-        id: text$k(option2.id, `${path}.options[${index}].id`),
+        id: text$l(option2.id, `${path}.options[${index}].id`),
         label: localized$n(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
     if (!options.some((option2) => option2.correct)) fail$3(`${path}.options`, "must contain at least one correct option");
     return {
-      id: text$k(exercise.id, `${path}.id`),
+      id: text$l(exercise.id, `${path}.id`),
       kind: "multi-choice",
       prompt: localized$n(exercise.prompt, `${path}.prompt`),
-      explanation: text$k(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$l(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$l(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       options
@@ -4402,17 +4402,17 @@
     if (!isLocalized(exercise.prompt)) return void 0;
     if (exercise.autoGraded !== true) fail$3(`${path}.autoGraded`, "must be true");
     const answer2 = record$16(exercise.answer, `${path}.answer`);
-    const alternatives = answer2.alternatives === void 0 ? [] : array$15(answer2.alternatives, `${path}.answer.alternatives`).map((candidate2, index) => text$k(candidate2, `${path}.answer.alternatives[${index}]`));
+    const alternatives = answer2.alternatives === void 0 ? [] : array$15(answer2.alternatives, `${path}.answer.alternatives`).map((candidate2, index) => text$l(candidate2, `${path}.answer.alternatives[${index}]`));
     return {
-      id: text$k(exercise.id, `${path}.id`),
+      id: text$l(exercise.id, `${path}.id`),
       kind: "exact",
       prompt: localized$n(exercise.prompt, `${path}.prompt`),
-      explanation: text$k(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$l(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$l(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       answer: {
-        primary: text$k(answer2.primary, `${path}.answer.primary`),
+        primary: text$l(answer2.primary, `${path}.answer.primary`),
         alternatives
       }
     };
@@ -4430,7 +4430,7 @@
     const blanks = array$15(exercise.blanks, `${path}.blanks`).map((candidate2, index) => {
       const blankPath = `${path}.blanks[${index}]`;
       const blank = record$16(candidate2, blankPath);
-      const id2 = text$k(blank.id, `${blankPath}.id`);
+      const id2 = text$l(blank.id, `${blankPath}.id`);
       if (ids2.has(id2)) fail$3(`${blankPath}.id`, "is a duplicate cloze blank id");
       ids2.add(id2);
       return { id: id2, answer: parseExactAnswer(blank.answer, `${blankPath}.answer`, wrongAnswers) };
@@ -4439,7 +4439,7 @@
     return {
       ...exerciseIdentity(exercise, path),
       kind: "cloze",
-      japanese: text$k(exercise.japanese, `${path}.japanese`),
+      japanese: text$l(exercise.japanese, `${path}.japanese`),
       autoGraded: true,
       blanks
     };
@@ -4519,21 +4519,21 @@
       pluginTarget: "academy-sequence",
       sourceItemsExact,
       values,
-      ...exercise.workedExampleExact === void 0 ? {} : { workedExampleExact: text$k(exercise.workedExampleExact, `${path}.workedExampleExact`) }
+      ...exercise.workedExampleExact === void 0 ? {} : { workedExampleExact: text$l(exercise.workedExampleExact, `${path}.workedExampleExact`) }
     };
   }
   function exerciseIdentity(exercise, path) {
     return {
-      id: text$k(exercise.id, `${path}.id`),
+      id: text$l(exercise.id, `${path}.id`),
       prompt: localized$n(exercise.prompt, `${path}.prompt`),
-      explanation: text$k(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$l(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$l(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }
     };
   }
   function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
     const answer2 = record$16(value, path);
-    const primary = text$k(answer2.primary, `${path}.primary`);
+    const primary = text$l(answer2.primary, `${path}.primary`);
     const alternatives = answer2.alternatives === void 0 ? [] : stringArray$6(answer2.alternatives, `${path}.alternatives`);
     return {
       primary,
@@ -4544,14 +4544,14 @@
     if (value === void 0) return /* @__PURE__ */ new Set();
     return new Set(array$15(value, path).map((candidate2, index) => {
       const item2 = record$16(candidate2, `${path}[${index}]`);
-      return normalizeAnswer(text$k(item2.trigger, `${path}[${index}].trigger`));
+      return normalizeAnswer(text$l(item2.trigger, `${path}[${index}].trigger`));
     }));
   }
   function normalizeAnswer(value) {
     return value.normalize("NFKC").replace(/[\s。、！？!?]/gu, "").toLocaleLowerCase("ja");
   }
   function stringArray$6(value, path) {
-    return array$15(value, path).map((candidate2, index) => text$k(candidate2, `${path}[${index}]`));
+    return array$15(value, path).map((candidate2, index) => text$l(candidate2, `${path}[${index}]`));
   }
   function assertAfterAttemptVisibility(value, path) {
     if (value !== void 0 && value !== "after-attempt") fail$3(path, "must be after-attempt");
@@ -4570,16 +4570,16 @@
   function parseAudio$1(value, path) {
     const audio2 = record$16(value, path);
     return {
-      assetId: text$k(audio2.assetId, `${path}.assetId`),
-      locator: text$k(audio2.locator, `${path}.locator`),
+      assetId: text$l(audio2.assetId, `${path}.assetId`),
+      locator: text$l(audio2.locator, `${path}.locator`),
       durationSeconds: finiteNumber$3(audio2.durationSeconds, `${path}.durationSeconds`),
-      script: text$k(audio2.script, `${path}.script`)
+      script: text$l(audio2.script, `${path}.script`)
     };
   }
   function localized$n(value, path) {
     const item2 = record$16(value, path);
-    const en = nonEmptyText$1(item2.en) ?? text$k(item2.ja, `${path}.ja`);
-    const ja = nonEmptyText$1(item2.ja) ?? text$k(item2.en, `${path}.en`);
+    const en = nonEmptyText$1(item2.en) ?? text$l(item2.ja, `${path}.ja`);
+    const ja = nonEmptyText$1(item2.ja) ?? text$l(item2.en, `${path}.en`);
     return { en, ja };
   }
   function nonEmptyText$1(value) {
@@ -4593,7 +4593,7 @@
     if (!Array.isArray(value)) fail$3(path, "must be an array");
     return value;
   }
-  function text$k(value, path) {
+  function text$l(value, path) {
     if (typeof value !== "string" || !value.trim()) fail$3(path, "must be non-empty text");
     return value;
   }
@@ -4602,7 +4602,7 @@
     return value;
   }
   function exercisePhase(value, path) {
-    const phase = text$k(value, path);
+    const phase = text$l(value, path);
     if ([
       "context",
       "instruction",
@@ -4621,10 +4621,10 @@
   }
   function nullableText$6(value, path) {
     if (value === null) return null;
-    return text$k(value, path);
+    return text$l(value, path);
   }
   function sha256$1(value, path) {
-    const digest2 = text$k(value, path);
+    const digest2 = text$l(value, path);
     if (!/^[a-f0-9]{64}$/u.test(digest2)) fail$3(path, "must be a SHA-256 digest");
     return digest2;
   }
@@ -7815,12 +7815,12 @@
     if (!isRecord$8(value) || !isRecord$8(value.source) || !isRecord$8(value.verification) || !isRecord$8(value.learnerContract) || !isRecord$8(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
-    const packageId = text$j(value.packageId, `${owner}.packageId`);
-    const sourceQuestionId2 = text$j(value.sourceQuestionId, `${owner}.sourceQuestionId`);
-    const locator = text$j(value.locator, `${owner}.locator`);
-    const audioSha256 = text$j(value.source.audioSha256, `${owner}.source.audioSha256`);
-    const taskEvidenceSha256 = text$j(value.verification.taskEvidenceSha256, `${owner}.verification.taskEvidenceSha256`);
-    const supportEvidenceSha256 = text$j(value.verification.supportEvidenceSha256, `${owner}.verification.supportEvidenceSha256`);
+    const packageId = text$k(value.packageId, `${owner}.packageId`);
+    const sourceQuestionId2 = text$k(value.sourceQuestionId, `${owner}.sourceQuestionId`);
+    const locator = text$k(value.locator, `${owner}.locator`);
+    const audioSha256 = text$k(value.source.audioSha256, `${owner}.source.audioSha256`);
+    const taskEvidenceSha256 = text$k(value.verification.taskEvidenceSha256, `${owner}.verification.taskEvidenceSha256`);
+    const supportEvidenceSha256 = text$k(value.verification.supportEvidenceSha256, `${owner}.verification.supportEvidenceSha256`);
     if (value.source.corpus !== "soya" && value.source.corpus !== "moodle" && value.source.corpus !== "minna" || !SHA256$1.test(audioSha256)) {
       throw new TypeError(`Listening task binding ${owner} has invalid source evidence.`);
     }
@@ -7838,22 +7838,22 @@
       grading: "deterministic"
     };
     if (value.delivery.status === "packaged-static") {
-      const url = text$j(value.delivery.url, `${owner}.delivery.url`);
+      const url = text$k(value.delivery.url, `${owner}.delivery.url`);
       return {
         packageId,
         sourceQuestionId: sourceQuestionId2,
         locator,
         source: {
           corpus: value.source.corpus,
-          questionId: text$j(value.source.questionId, `${owner}.source.questionId`),
-          questionMapRef: text$j(value.source.questionMapRef, `${owner}.source.questionMapRef`),
+          questionId: text$k(value.source.questionId, `${owner}.source.questionId`),
+          questionMapRef: text$k(value.source.questionMapRef, `${owner}.source.questionMapRef`),
           audioSha256
         },
         verification: {
           taskEvidenceSha256,
           supportEvidenceSha256,
           answerGate: "after-attempt",
-          method: text$j(value.verification.method, `${owner}.verification.method`)
+          method: text$k(value.verification.method, `${owner}.verification.method`)
         },
         learnerContract,
         delivery: { status: "packaged-static", url }
@@ -7868,21 +7868,21 @@
       locator,
       source: {
         corpus: value.source.corpus,
-        questionId: text$j(value.source.questionId, `${owner}.source.questionId`),
-        questionMapRef: text$j(value.source.questionMapRef, `${owner}.source.questionMapRef`),
+        questionId: text$k(value.source.questionId, `${owner}.source.questionId`),
+        questionMapRef: text$k(value.source.questionMapRef, `${owner}.source.questionMapRef`),
         audioSha256
       },
       verification: {
         taskEvidenceSha256,
         supportEvidenceSha256,
         answerGate: "after-attempt",
-        method: text$j(value.verification.method, `${owner}.verification.method`)
+        method: text$k(value.verification.method, `${owner}.verification.method`)
       },
       learnerContract,
       delivery: { status: "source-verified-awaiting-packaging" }
     };
   }
-  function text$j(value, label) {
+  function text$k(value, label) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
@@ -8203,35 +8203,35 @@
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
       issues2.push({ path: "answerSupport", message: "Source vocabulary recall requires the assessed answer-support contract." });
     }
-    if (!text$i(model2.sourceQuestionId) || model2.sourceQuestionId !== model2.provenance?.sourceQuestionId) {
+    if (!text$j(model2.sourceQuestionId) || model2.sourceQuestionId !== model2.provenance?.sourceQuestionId) {
       issues2.push({ path: "sourceQuestionId", message: "The exact source item id must be preserved." });
     }
-    if (!text$i(model2.provenance?.componentId) || !text$i(model2.provenance?.sourceId)) {
+    if (!text$j(model2.provenance?.componentId) || !text$j(model2.provenance?.sourceId)) {
       issues2.push({ path: "provenance", message: "Source component and document ids are required." });
     }
     if (!/^[a-f0-9]{64}$/u.test(model2.provenance?.payloadSha256 ?? "")) {
       issues2.push({ path: "provenance.payloadSha256", message: "A source payload SHA-256 is required." });
     }
-    if (!text$i(model2.provenance?.sourceTitle)) {
+    if (!text$j(model2.provenance?.sourceTitle)) {
       issues2.push({ path: "provenance.sourceTitle", message: "The source title is required." });
     }
     if (!positiveInteger$7(model2.provenance?.locus?.page) || !positiveInteger$7(model2.provenance?.locus?.row)) {
       issues2.push({ path: "provenance.locus", message: "Positive source page and row numbers are required." });
     }
-    if (!text$i(model2.payload?.exact?.words)) {
+    if (!text$j(model2.payload?.exact?.words)) {
       issues2.push({ path: "payload.exact.words", message: "Exact source words are required." });
     }
     for (const field2 of ["pronunciation", "meaning"]) {
       const value = model2.payload?.exact?.[field2];
-      if (value !== null && !text$i(value)) {
+      if (value !== null && !text$j(value)) {
         issues2.push({ path: `payload.exact.${field2}`, message: "An exact source cell must be text or null." });
       }
     }
     for (const field2 of ["words", "reading", "meaning"]) {
-      if (!text$i(model2.payload?.support?.[field2])) {
+      if (!text$j(model2.payload?.support?.[field2])) {
         issues2.push({ path: `payload.support.${field2}`, message: "A non-empty learner support field is required." });
       }
-      if (!text$i(model2.payload?.fieldProvenance?.[field2])) {
+      if (!text$j(model2.payload?.fieldProvenance?.[field2])) {
         issues2.push({ path: `payload.fieldProvenance.${field2}`, message: "Field provenance is required." });
       }
     }
@@ -8412,7 +8412,7 @@
   function positiveInteger$7(value) {
     return Number.isInteger(value) && Number(value) > 0;
   }
-  function text$i(value) {
+  function text$j(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const GRAMMAR_PATTERN_DATA = String.raw`
@@ -9913,7 +9913,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const definition2 = record$15(value, "classroom-expression session");
     if (definition2.schemaVersion !== 1) fail$2("Classroom-expression session must use schemaVersion 1.");
     if (definition2.id !== "session:lesson-zero-classroom-expressions") fail$2("Classroom-expression session has the wrong id.");
-    text$h(definition2.contentVersion, "contentVersion");
+    text$i(definition2.contentVersion, "contentVersion");
     if (definition2.responseKind !== "constructed-japanese" || definition2.inputMode !== "ime") {
       fail$2("Classroom expressions require constructed Japanese entered with an IME.");
     }
@@ -9945,7 +9945,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const expressions2 = array$14(definition2.expressions, "expressions");
     if (expressions2.length !== 14) fail$2("Classroom-expression session must preserve all fourteen expressions.");
     const expressionById2 = uniqueIndex$1(expressions2, "expression");
-    const sourceIds = expressions2.map((expression) => text$h(expression.sourceQuestionId, `${expression.id} sourceQuestionId`));
+    const sourceIds = expressions2.map((expression) => text$i(expression.sourceQuestionId, `${expression.id} sourceQuestionId`));
     exactList$1([...sourceIds].sort(), [...LESSON_ZERO_CLASSROOM_EXPRESSION_SOURCE_IDS].sort(), "sourceQuestionIds");
     const assigned = phases2.flatMap((phase) => phase.expressionIds);
     exactList$1(assigned, expressions2.map((expression) => expression.id), "phase expression order");
@@ -9985,13 +9985,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateTeachingBlock(block) {
-    text$h(block.conceptId, `teaching block ${block.id} conceptId`);
+    text$i(block.conceptId, `teaching block ${block.id} conceptId`);
     nonEmpty$5(block.expressionIds, `teaching block ${block.id} expressionIds`);
     localized$l(block.explanation, `teaching block ${block.id} explanation`);
     const example = record$15(block.workedExample, `teaching block ${block.id} workedExample`);
     localized$l(example.context, `teaching block ${block.id} workedExample.context`);
-    const japanese2 = text$h(example.japanese, `teaching block ${block.id} workedExample.japanese`);
-    text$h(example.reading, `teaching block ${block.id} workedExample.reading`);
+    const japanese2 = text$i(example.japanese, `teaching block ${block.id} workedExample.japanese`);
+    text$i(example.reading, `teaching block ${block.id} workedExample.reading`);
     localized$l(example.meaning, `teaching block ${block.id} workedExample.meaning`);
     if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(japanese2)) {
       fail$2(`Teaching block ${block.id} needs a Japanese worked example.`);
@@ -10010,13 +10010,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     nonEmpty$5(expression.conceptIds, `expression ${expression.id} conceptIds`);
     nonEmpty$5(expression.probes, `expression ${expression.id} probes`);
     for (const probe of expression.probes) {
-      text$h(probe.id, `expression ${expression.id} probe id`);
+      text$i(probe.id, `expression ${expression.id} probe id`);
       if (probeIds.has(probe.id)) fail$2(`Duplicate probe id: ${probe.id}`);
       probeIds.add(probe.id);
       localized$l(probe.prompt, `probe ${probe.id} prompt`);
       nonEmpty$5(probe.acceptedAnswers, `probe ${probe.id} acceptedAnswers`);
       const accepted = probe.acceptedAnswers.map((answer2, answerIndex) => {
-        const candidate2 = text$h(answer2, `probe ${probe.id} acceptedAnswers.${answerIndex}`);
+        const candidate2 = text$i(answer2, `probe ${probe.id} acceptedAnswers.${answerIndex}`);
         if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(candidate2)) {
           fail$2(`Probe ${probe.id} has a non-Japanese answer.`);
         }
@@ -10027,7 +10027,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (accepted.some((answer2) => normalized$1(probe.prompt.en).includes(answer2) || normalized$1(probe.prompt.ja).includes(answer2))) {
         fail$2(`Probe ${probe.id} exposes an accepted answer before commitment.`);
       }
-      text$h(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
+      text$i(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
       localized$l(probe.repair.contrast, `probe ${probe.id} repair.contrast`);
       localized$l(probe.repair.retryPrompt, `probe ${probe.id} repair.retryPrompt`);
       localized$l(probe.repair.nearbyExample, `probe ${probe.id} repair.nearbyExample`);
@@ -10069,7 +10069,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueIndex$1(values, label) {
     const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
-      text$h(value.id, `${label}.id`);
+      text$i(value.id, `${label}.id`);
       if (result2.has(value.id)) fail$2(`Duplicate ${label} id: ${value.id}`);
       result2.set(value.id, value);
     }
@@ -10082,8 +10082,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function localized$l(value, label) {
     const candidate2 = record$15(value, label);
-    text$h(candidate2.en, `${label}.en`);
-    text$h(candidate2.ja, `${label}.ja`);
+    text$i(candidate2.en, `${label}.en`);
+    text$i(candidate2.ja, `${label}.ja`);
   }
   function nonEmpty$5(values, label) {
     if (!Array.isArray(values) || !values.length) fail$2(`${label} must not be empty.`);
@@ -10096,7 +10096,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$2(`${label} must be an object.`);
     return value;
   }
-  function text$h(value, label) {
+  function text$i(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$2(`${label} must be non-empty.`);
     return value.trim();
   }
@@ -10192,12 +10192,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       data.lesson.contentVersion,
       LESSON_ZERO_CONTENT_SHA256
     ));
-    const outcomes2 = data.lesson.sections.flatMap((section) => section.outcomeIds.map((id2) => record$14(
+    const outcomes2 = data.lesson.sections.flatMap((section2) => section2.outcomeIds.map((id2) => record$14(
       id2,
       "outcome",
       LESSON_CONTENT_ID,
-      `lesson.sections[id=${section.id}].outcomeIds[id=${id2}]`,
-      { lessonId: data.lesson.id, sectionId: section.id },
+      `lesson.sections[id=${section2.id}].outcomeIds[id=${id2}]`,
+      { lessonId: data.lesson.id, sectionId: section2.id },
       data.lesson.contentVersion,
       LESSON_ZERO_CONTENT_SHA256
     )));
@@ -12542,7 +12542,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validateOverviewMaterialBlocker(material);
   }
   function validateOverviewMaterialIdentity(material, materialIds) {
-    text$g(material.id, "lesson.overview.material.id");
+    text$h(material.id, "lesson.overview.material.id");
     if (materialIds.has(material.id)) fail$1(`Lesson 0 overview repeats material ${material.id}.`);
     materialIds.add(material.id);
     localized$k(material.title, `lesson.overview material ${material.id}`);
@@ -12575,7 +12575,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLessonIdentity(lesson) {
     if (lesson.id !== "lesson:foundation-00") fail$1("Lesson 0 has the wrong lesson id.");
-    text$g(lesson.contentVersion, "lesson.contentVersion");
+    text$h(lesson.contentVersion, "lesson.contentVersion");
     if (lesson.levelBand !== "foundation") fail$1("Lesson 0 must use the foundation band.");
     if (lesson.estimatedMinutes.minimum !== 60 || lesson.estimatedMinutes.maximum !== 90) {
       fail$1("Lesson 0 must retain the authored 60–90 minute scope.");
@@ -12588,11 +12588,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const sections = array$13(lesson.sections, "lesson.sections");
     const sectionById = uniqueIndex(sections, "section");
     exactList([...sectionById.keys()], REQUIRED_SECTION_IDS, "lesson.sections");
-    for (const [index, section] of sections.entries()) {
-      if (section.order !== index + 1) fail$1(`Section ${section.id} has the wrong order.`);
-      if (!section.resumableAfter) fail$1(`Section ${section.id} must be a resumable boundary.`);
-      nonEmpty$4(section.activityIds, `section ${section.id} activityIds`);
-      nonEmpty$4(section.outcomeIds, `section ${section.id} outcomeIds`);
+    for (const [index, section2] of sections.entries()) {
+      if (section2.order !== index + 1) fail$1(`Section ${section2.id} has the wrong order.`);
+      if (!section2.resumableAfter) fail$1(`Section ${section2.id} must be a resumable boundary.`);
+      nonEmpty$4(section2.activityIds, `section ${section2.id} activityIds`);
+      nonEmpty$4(section2.outcomeIds, `section ${section2.id} outcomeIds`);
     }
     return sectionById;
   }
@@ -12622,11 +12622,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateSectionActivityReferences(sections, activityById) {
-    for (const section of sections.values()) {
-      for (const activityId of section.activityIds) {
+    for (const section2 of sections.values()) {
+      for (const activityId of section2.activityIds) {
         const activity2 = activityById.get(activityId);
-        if (!activity2) fail$1(`Section ${section.id} references unknown activity ${activityId}.`);
-        if (activity2.sectionId !== section.id) fail$1(`Activity ${activityId} is assigned to two sections.`);
+        if (!activity2) fail$1(`Section ${section2.id} references unknown activity ${activityId}.`);
+        if (activity2.sectionId !== section2.id) fail$1(`Activity ${activityId} is assigned to two sections.`);
       }
     }
   }
@@ -12653,14 +12653,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateScriptLines(script) {
     const lineIds = /* @__PURE__ */ new Set();
     for (const line2 of script.lines) {
-      text$g(line2.id, `script ${script.id} line id`);
+      text$h(line2.id, `script ${script.id} line id`);
       if (lineIds.has(line2.id)) fail$1(`Script ${script.id} repeats line id ${line2.id}.`);
       lineIds.add(line2.id);
       if (!isAcademyCastMemberId(line2.speakerId)) fail$1(`Script ${script.id} invents cast id ${line2.speakerId}.`);
-      text$g(line2.japanese, `script ${script.id} Japanese line`);
-      text$g(line2.reading, `script ${script.id} reading line`);
-      text$g(line2.english, `script ${script.id} English line`);
-      if (line2.audioAssetId !== void 0) text$g(line2.audioAssetId, `script ${script.id} line audio id`);
+      text$h(line2.japanese, `script ${script.id} Japanese line`);
+      text$h(line2.reading, `script ${script.id} reading line`);
+      text$h(line2.english, `script ${script.id} English line`);
+      if (line2.audioAssetId !== void 0) text$h(line2.audioAssetId, `script ${script.id} line audio id`);
     }
     return lineIds;
   }
@@ -12696,7 +12696,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateScriptLearnerTurn(script, turn2, learnerTurnIds, lineIds) {
-    text$g(turn2.id, `script ${script.id} learner turn id`);
+    text$h(turn2.id, `script ${script.id} learner turn id`);
     if (learnerTurnIds.has(turn2.id)) fail$1(`Script ${script.id} repeats learner turn id ${turn2.id}.`);
     learnerTurnIds.add(turn2.id);
     if (!lineIds.has(turn2.afterLineId)) {
@@ -12858,7 +12858,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (mission2.locationId !== expected.locationId) fail$1(`${missionId} mission uses the wrong location.`);
       for (const hostId of mission2.hostIds) if (!isAcademyCastMemberId(hostId)) fail$1(`${missionId} mission invents cast id ${hostId}.`);
       if (!activities.has(mission2.openingActivityId) || !activities.has(mission2.transferActivityId)) fail$1(`${missionId} mission references an unknown activity.`);
-      signatures.add(text$g(mission2.signature, `${missionId} mission signature`));
+      signatures.add(text$h(mission2.signature, `${missionId} mission signature`));
       locations.add(mission2.locationId);
       mementos.add(mission2.mementoId);
     }
@@ -12867,7 +12867,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueIndex(values, label) {
     const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
-      text$g(value.id, `${label}.id`);
+      text$h(value.id, `${label}.id`);
       if (result2.has(value.id)) fail$1(`Duplicate ${label} id: ${value.id}`);
       result2.set(value.id, value);
     }
@@ -12890,14 +12890,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$1(`${label} must be an object.`);
     return value;
   }
-  function text$g(value, label) {
+  function text$h(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$1(`${label} must be non-empty.`);
     return value.trim();
   }
   function localized$k(value, label) {
     const copy2 = record$13(value, label);
-    text$g(copy2.en, `${label}.en`);
-    text$g(copy2.ja, `${label}.ja`);
+    text$h(copy2.en, `${label}.en`);
+    text$h(copy2.ja, `${label}.ja`);
   }
   function hasAssessedSupport(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -12932,9 +12932,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const documents = data.sourceLibrary.documents;
     const sourceQuestionIds = data.sourceLibrary.questions.map((question2) => question2.id);
     const allConceptIds = unique$e(lesson.activities.flatMap((activity2) => activity2.conceptIds));
-    const allOutcomeIds = unique$e(lesson.sections.flatMap((section) => section.outcomeIds));
+    const allOutcomeIds = unique$e(lesson.sections.flatMap((section2) => section2.outcomeIds));
     const audioBlockerIds = unique$e(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
-    const sectionOutcomes = new Map(lesson.sections.map((section) => [section.id, section.outcomeIds]));
+    const sectionOutcomes = new Map(lesson.sections.map((section2) => [section2.id, section2.outcomeIds]));
     const activities = lesson.activities.map((activity2, index) => activityContract(
       activity2,
       index,
@@ -18055,10 +18055,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     targets.forEach((target2, index) => {
       const path = `payload.reviewTargets.${index}`;
-      if (!text$f(target2.id) || ids2.has(target2.id)) issues2.push({ path: `${path}.id`, message: "Review ids must be stable and unique." });
+      if (!text$g(target2.id) || ids2.has(target2.id)) issues2.push({ path: `${path}.id`, message: "Review ids must be stable and unique." });
       ids2.add(target2.id);
       if (!conceptIds.includes(target2.conceptId)) issues2.push({ path: `${path}.conceptId`, message: "Review targets must use an activity Concept." });
-      if (!text$f(target2.expression) || !target2.meanings?.every(text$f) || !target2.meanings.length) {
+      if (!text$g(target2.expression) || !target2.meanings?.every(text$g) || !target2.meanings.length) {
         issues2.push({ path, message: "A reviewable expression and meanings are required." });
       }
     });
@@ -18133,11 +18133,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function normalizeJapanese$1(value) {
     return value.normalize("NFKC").replace(/[\s\u3000。、,.!?！？「」『』（）()]/gu, "").toLocaleLowerCase("ja");
   }
-  function text$f(value) {
+  function text$g(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function requireLocalized$1(value, path, issues2) {
-    if (!text$f(value?.en) || !text$f(value?.ja)) issues2.push({ path, message: "Bilingual authored copy is required." });
+    if (!text$g(value?.en) || !text$g(value?.ja)) issues2.push({ path, message: "Bilingual authored copy is required." });
   }
   const N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND = "academy-n3-n4-sleep-bridge";
   const n3N4SleepBridgePlugin = {
@@ -18158,10 +18158,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$9(model2.payload?.sourceSegments, N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The exact reviewed local JLPT source segment is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual bridge teaching points are required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-n4-bridge-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-n4-bridge-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N3/N4 transfer is required." });
     }
     validateQuestions$b(model2, issues2);
@@ -18242,8 +18242,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     } };
   }
   function renderTeaching$w(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "N4からN3への三つの手がかり" : "Three cues from N4 into N3";
     const list2 = document.createElement("ol");
@@ -18259,12 +18259,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderSourceRound$2(model2, host2, disposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "活動 1-2: 資料文を聞く・根拠を選ぶ" : "Activities 1-2: listen to the source and choose evidence";
     const play = document.createElement("button");
@@ -18273,13 +18273,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     play.dataset.sourceSegmentId = N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS[0].id;
     play.textContent = host2.language === "ja" ? "資料文を聞く" : "Play source text";
     play.addEventListener("click", () => void playRehearsal$7(N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS[0].text, host2, disposers), { signal });
-    section.append(heading, play);
-    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section.append(renderQuestion$b(question2)));
-    return section;
+    section2.append(heading, play);
+    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section2.append(renderQuestion$b(question2)));
+    return section2;
   }
   function renderTransfer$3(model2, host2, readingDisposers, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.transfer.title));
     const play = document.createElement("button");
@@ -18297,9 +18297,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       article.append(row);
     });
-    section.append(heading, play, article);
-    model2.payload.questions.filter((question2) => question2.stage === "original-transfer").forEach((question2) => section.append(renderQuestion$b(question2)));
-    return section;
+    section2.append(heading, play, article);
+    model2.payload.questions.filter((question2) => question2.stage === "original-transfer").forEach((question2) => section2.append(renderQuestion$b(question2)));
+    return section2;
   }
   function renderQuestion$b(question2) {
     const fieldset = document.createElement("fieldset");
@@ -18340,8 +18340,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function revealSourceTranscript$2(root, model2, host2, disposers) {
     if (root.querySelector("[data-source-transcript]")) return;
-    const section = document.createElement("section");
-    section.dataset.sourceTranscript = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.sourceTranscript = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "試行後のハッシュ確認済み資料文" : "Hash-verified source text after your attempt";
     const span = japanese$4(model2.payload.sourceSegments[0].text);
@@ -18350,8 +18350,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const translation2 = document.createElement("p");
     translation2.lang = "en";
     translation2.textContent = model2.payload.sourceSegments[0].translation;
-    section.append(heading, span, translation2);
-    root.append(section);
+    section2.append(heading, span, translation2);
+    root.append(section2);
   }
   function responseFromForm$Q(model2, form2) {
     const data = new FormData(form2);
@@ -18382,7 +18382,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each activity needs a unique id, three options, and one answer." });
       }
       ids2.add(question2.id);
@@ -18396,7 +18396,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a concept and one assessment error." });
       }
     });
@@ -18630,10 +18630,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$8(model2.payload?.sourceSegments, N3_PET_HOUSING_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The exact reviewed Soya source segment is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual reason, contrast, and frequency teaching points are required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N3 transfer is required." });
     }
     validateQuestions$a(model2, issues2);
@@ -18727,8 +18727,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderTeaching$v(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "聞く前の三つの手がかり" : "Three cues before rehearsal";
     const list2 = document.createElement("ol");
@@ -18744,12 +18744,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderSourceRound$1(model2, host2, disposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "N3 資料文を聞く" : "Rehearse the N3 source text";
     const play = document.createElement("button");
@@ -18758,13 +18758,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     play.dataset.sourceSegmentId = N3_PET_HOUSING_SOURCE_SEGMENTS[0].id;
     play.textContent = host2.language === "ja" ? "資料文を聞く" : "Play source text";
     play.addEventListener("click", () => void playRehearsal$6(N3_PET_HOUSING_SOURCE_SEGMENTS[0].text, host2, disposers), { signal });
-    section.append(heading, play);
-    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section.append(renderQuestion$a(question2)));
-    return section;
+    section2.append(heading, play);
+    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section2.append(renderQuestion$a(question2)));
+    return section2;
   }
   function renderTransfer$2(model2, host2, readingDisposers, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.transfer.title));
     const play = document.createElement("button");
@@ -18782,9 +18782,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       article.append(row);
     });
-    section.append(heading, play, article);
-    model2.payload.questions.filter((question2) => question2.stage === "original-transfer").forEach((question2) => section.append(renderQuestion$a(question2)));
-    return section;
+    section2.append(heading, play, article);
+    model2.payload.questions.filter((question2) => question2.stage === "original-transfer").forEach((question2) => section2.append(renderQuestion$a(question2)));
+    return section2;
   }
   function renderQuestion$a(question2) {
     const fieldset = document.createElement("fieldset");
@@ -18807,8 +18807,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function revealSourceTranscript$1(root, model2, host2, disposers) {
     if (root.querySelector("[data-source-transcript]")) return;
-    const section = document.createElement("section");
-    section.dataset.sourceTranscript = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.sourceTranscript = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "試行後のハッシュ確認済み資料文" : "Hash-verified source text after your attempt";
     const span = japanese$4(model2.payload.sourceSegments[0].text);
@@ -18817,8 +18817,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const translation2 = document.createElement("p");
     translation2.lang = "en";
     translation2.textContent = model2.payload.sourceSegments[0].translation;
-    section.append(heading, span, translation2);
-    root.append(section);
+    section2.append(heading, span, translation2);
+    root.append(section2);
   }
   function responseFromForm$P(model2, form2) {
     const data = new FormData(form2);
@@ -18850,7 +18850,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, three neutral options, and one answer." });
       }
       ids2.add(question2.id);
@@ -18864,7 +18864,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
     });
@@ -19017,15 +19017,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       issues2.push({ path: "payload.sequence", message: "The package must retain its stable N2 opening-sequence position." });
     }
     const sequence = model2.payload?.sequence;
-    if (!text$f(sequence?.introduces) || !Array.isArray(sequence?.recycles) || sequence.recycles.includes(sequence.introduces) || new Set(sequence.recycles).size !== sequence.recycles.length || !model2.conceptIds.includes(sequence.introduces) || sequence.recycles.some((conceptId) => !model2.conceptIds.includes(conceptId))) {
+    if (!text$g(sequence?.introduces) || !Array.isArray(sequence?.recycles) || sequence.recycles.includes(sequence.introduces) || new Set(sequence.recycles).size !== sequence.recycles.length || !model2.conceptIds.includes(sequence.introduces) || sequence.recycles.some((conceptId) => !model2.conceptIds.includes(conceptId))) {
       issues2.push({ path: "payload.sequence", message: "Exactly one new Concept and distinct recycled Concepts are required." });
     }
     const instruction = model2.payload?.instruction;
-    if (instruction?.authorship !== "original-yomu-authored" || !text$f(instruction.title?.ja) || !text$f(instruction.title?.en) || !instruction.entries?.length || instruction.entries.some((entry2) => !text$f(entry2.japanese) || !text$f(entry2.explanation?.ja) || !text$f(entry2.explanation?.en))) {
+    if (instruction?.authorship !== "original-yomu-authored" || !text$g(instruction.title?.ja) || !text$g(instruction.title?.en) || !instruction.entries?.length || instruction.entries.some((entry2) => !text$g(entry2.japanese) || !text$g(entry2.explanation?.ja) || !text$g(entry2.explanation?.en))) {
       issues2.push({ path: "payload.instruction", message: "Complete original bilingual instruction must precede assessment." });
     }
     const content = model2.payload?.content;
-    if (content?.authorship !== "original-yomu-authored" || !text$f(content.title?.ja) || !text$f(content.title?.en) || !content.paragraphs?.length || content.paragraphs.some((paragraph) => !text$f(paragraph))) {
+    if (content?.authorship !== "original-yomu-authored" || !text$g(content.title?.ja) || !text$g(content.title?.en) || !content.paragraphs?.length || content.paragraphs.some((paragraph) => !text$g(paragraph))) {
       issues2.push({ path: "payload.content", message: "Complete original Yomu practice text is required." });
     }
     if (contract2.sourceDelivery === "reference-only" && model2.payload?.media) {
@@ -19040,7 +19040,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     const errorTags = new Set(model2.payload?.questions?.map((question2) => question2.errorTag) ?? []);
-    if (model2.payload?.reviewTargets?.some((target2) => !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag)))) {
+    if (model2.payload?.reviewTargets?.some((target2) => !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag)))) {
       issues2.push({ path: "payload.reviewTargets", message: "Each review target needs a sentence and declared repair tags." });
     }
     return issues2;
@@ -19055,7 +19055,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     questions.forEach((question2, index) => {
       const path = `payload.questions.${index}`;
-      if (!text$f(question2.id) || !text$f(question2.prompt?.ja) || !text$f(question2.prompt?.en) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || !text$g(question2.prompt?.ja) || !text$g(question2.prompt?.en) || !text$g(question2.errorTag)) {
         issues2.push({ path, message: "Every question needs an id, bilingual prompt, and error tag." });
         return;
       }
@@ -19066,18 +19066,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function validateChoice$1(question2, path, issues2) {
-    if (question2.options.length < 3 || new Set(question2.options.map((option2) => option2.id)).size !== question2.options.length || question2.options.some((option2) => !text$f(option2.id) || !text$f(option2.label?.ja) || !text$f(option2.label?.en)) || !question2.options.some((option2) => option2.id === question2.correctOptionId)) {
+    if (question2.options.length < 3 || new Set(question2.options.map((option2) => option2.id)).size !== question2.options.length || question2.options.some((option2) => !text$g(option2.id) || !text$g(option2.label?.ja) || !text$g(option2.label?.en)) || !question2.options.some((option2) => option2.id === question2.correctOptionId)) {
       issues2.push({ path, message: "Choice questions need distinct bilingual options and one declared answer." });
     }
   }
   function validateOrdering(question2, path, issues2) {
     const actionIds = question2.actions.map((action2) => action2.id);
-    if (actionIds.length < 3 || new Set(actionIds).size !== actionIds.length || question2.actions.some((action2) => !text$f(action2.id) || !text$f(action2.label?.ja) || !text$f(action2.label?.en)) || !isPermutation(question2.presentationOrder, actionIds) || !isPermutation(question2.correctOrder, actionIds) || sameObject$7(question2.presentationOrder, question2.correctOrder)) {
+    if (actionIds.length < 3 || new Set(actionIds).size !== actionIds.length || question2.actions.some((action2) => !text$g(action2.id) || !text$g(action2.label?.ja) || !text$g(action2.label?.en)) || !isPermutation(question2.presentationOrder, actionIds) || !isPermutation(question2.correctOrder, actionIds) || sameObject$7(question2.presentationOrder, question2.correctOrder)) {
       issues2.push({ path, message: "Ordering requires distinct actions and a deterministic presentation order different from the answer." });
     }
   }
   function validateTyped(question2, path, issues2) {
-    if (!text$f(question2.fieldLabel?.ja) || !text$f(question2.fieldLabel?.en) || !question2.acceptedAnswers.length || question2.acceptedAnswers.some((answer2) => !text$f(answer2))) {
+    if (!text$g(question2.fieldLabel?.ja) || !text$g(question2.fieldLabel?.en) || !question2.acceptedAnswers.length || question2.acceptedAnswers.some((answer2) => !text$g(answer2))) {
       issues2.push({ path, message: "Typed questions need a bilingual field label and explicit accepted answers." });
     }
   }
@@ -19167,8 +19167,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderInstruction(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = localized$j(model2.payload.instruction.title, host2);
     const list2 = document.createElement("ul");
@@ -19177,29 +19177,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(japanese$4(entry2.japanese), document.createTextNode(` ${localized$j(entry2.explanation, host2)}`));
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderContent(model2, readingDisposers, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "context";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "context";
     const heading = document.createElement("h3");
     heading.textContent = localized$j(model2.payload.content.title, host2);
-    section.append(heading);
+    section2.append(heading);
     model2.payload.content.paragraphs.forEach((paragraph, index) => {
       const row = document.createElement("p");
       const surface = japanese$4(paragraph);
       surface.dataset.readerSurfaceId = `reader:${model2.provenance.packageId}:content:${index + 1}`;
       if (host2.registerReadingSurface) readingDisposers.push(host2.registerReadingSurface(surface));
       row.append(surface);
-      section.append(row);
+      section2.append(row);
     });
-    return section;
+    return section2;
   }
   function renderMedia(model2, status, host2, signal) {
     const media = model2.payload.media;
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-listening";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-listening";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "引っ越しの会話" : "Moving-house conversation";
     const image = document.createElement("img");
@@ -19216,8 +19216,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       status.textContent = message;
       host2.announce(message);
     }, { signal });
-    section.append(heading, image, audio2);
-    return section;
+    section2.append(heading, image, audio2);
+    return section2;
   }
   function renderQuestion$9(question2, host2) {
     if (question2.kind === "choice") return renderChoice$2(question2);
@@ -19291,8 +19291,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return row;
   }
   function renderAnswerReveal(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.answerReveal = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.answerReveal = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "答えと選択肢の意味" : "Answers and option support";
     const list2 = document.createElement("ol");
@@ -19315,16 +19315,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderTranscriptReveal(model2, readingDisposers, host2) {
     const media = model2.payload.media;
-    const section = document.createElement("section");
-    section.dataset.transcriptReveal = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.transcriptReveal = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "回答後の文字起こし" : "Post-attempt transcript";
-    section.append(heading);
+    section2.append(heading);
     media.transcript.forEach((line2, index) => {
       const row = document.createElement("p");
       const speaker = document.createElement("strong");
@@ -19333,13 +19333,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       surface.dataset.readerSurfaceId = `reader:${model2.provenance.packageId}:transcript:${index + 1}`;
       if (host2.registerReadingSurface) readingDisposers.push(host2.registerReadingSurface(surface));
       row.append(speaker, surface);
-      section.append(row);
+      section2.append(row);
     });
     const answer2 = document.createElement("p");
     answer2.dataset.sourceAnswer = "after-attempt";
     answer2.append(document.createTextNode(host2.language === "ja" ? "正解：" : "Correct action: "), japanese$4(media.correctAnswer));
-    section.append(answer2);
-    return section;
+    section2.append(answer2);
+    return section2;
   }
   function responseFromForm$O(model2, form2) {
     const data = new FormData(form2);
@@ -19367,7 +19367,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$f(answer2?.questionId) || answers.has(answer2.questionId)) {
+      if (!text$g(answer2?.questionId) || answers.has(answer2.questionId)) {
         throw new TypeError("Every N2 opening question needs exactly one answer.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -19377,7 +19377,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           throw new TypeError("Choice answers must use a declared option.");
         }
       } else if (question2.kind === "typed") {
-        if (!("value" in answer2) || !text$f(answer2.value)) throw new TypeError("Typed answers cannot be empty.");
+        if (!("value" in answer2) || !text$g(answer2.value)) throw new TypeError("Typed answers cannot be empty.");
       } else if (!("order" in answer2) || !isPermutation(answer2.order, question2.actions.map((action2) => action2.id))) {
         throw new TypeError("Ordering answers must be one complete action permutation.");
       }
@@ -20253,22 +20253,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$6(model2.provenance, N2_EXTENSIVE_READING_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Soya file and item locus are required." });
     }
-    if (model2.payload?.strategy?.map((item2) => item2.id).join(",") !== "preview,pivots,flow" || model2.payload.strategy.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.instruction.ja) || !text$f(item2.instruction.en))) {
+    if (model2.payload?.strategy?.map((item2) => item2.id).join(",") !== "preview,pivots,flow" || model2.payload.strategy.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.instruction.ja) || !text$g(item2.instruction.en))) {
       issues2.push({ path: "payload.strategy", message: "Preview, pivot tracking, and flow-before-lookup must be taught in order." });
     }
     if (model2.payload?.source?.authorship !== "exact-soya-source-item" || model2.payload.source.timing !== "untimed" || !sameObject$6(model2.payload.source.paragraphs, N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS)) {
       issues2.push({ path: "payload.source", message: "The exact untimed three-paragraph Soya source reading is required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$f(paragraph))) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$g(paragraph))) {
       issues2.push({ path: "payload.transfer", message: "A complete original two-paragraph N1 transfer is required." });
     }
-    if (model2.payload?.reflection?.authorship !== "learner-authored-ungraded" || !text$f(model2.payload.reflection.label.ja) || !text$f(model2.payload.reflection.label.en) || !text$f(model2.payload.reflection.guidance.ja) || !text$f(model2.payload.reflection.guidance.en)) {
+    if (model2.payload?.reflection?.authorship !== "learner-authored-ungraded" || !text$g(model2.payload.reflection.label.ja) || !text$g(model2.payload.reflection.label.en) || !text$g(model2.payload.reflection.guidance.ja) || !text$g(model2.payload.reflection.guidance.en)) {
       issues2.push({ path: "payload.reflection", message: "The optional ungraded reflection contract is required." });
     }
     validateQuestions$8(model2, issues2);
     validatePassScore(model2.payload?.passScore, issues2);
     validateFeedback(model2.payload?.feedback, issues2);
-    if (model2.payload?.reviewTargets?.length !== 5 || model2.payload.reviewTargets.some((target2) => !text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || !text$f(target2.sentence) || !target2.repairFor.length)) {
+    if (model2.payload?.reviewTargets?.length !== 5 || model2.payload.reviewTargets.some((target2) => !text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || !text$g(target2.sentence) || !target2.repairFor.length)) {
       issues2.push({ path: "payload.reviewTargets", message: "Five complete and related Reader/SRS repair targets are required." });
     }
     return issues2;
@@ -20356,9 +20356,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderStrategy(model2, host2) {
-    const section = document.createElement("section");
-    section.className = "academy-n2-extensive-reading-strategy";
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.className = "academy-n2-extensive-reading-strategy";
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "読む前の三パス" : "Three passes before reading";
     const list2 = document.createElement("ol");
@@ -20371,14 +20371,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, instruction);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderReadingStage(model2, host2, stage2, readingDisposers) {
     const content = model2.payload[stage2];
-    const section = document.createElement("section");
-    section.className = `academy-n2-extensive-reading-${stage2}`;
-    section.dataset.lessonPhase = stage2 === "source" ? "assessed-recognition" : "assessed-production";
+    const section2 = document.createElement("section");
+    section2.className = `academy-n2-extensive-reading-${stage2}`;
+    section2.dataset.lessonPhase = stage2 === "source" ? "assessed-recognition" : "assessed-production";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(content.title));
     const article = document.createElement("article");
@@ -20391,10 +20391,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(surface);
       article.append(row);
     });
-    section.append(heading, article);
+    section2.append(heading, article);
     const questionStage = stage2 === "source" ? "source-comprehension" : "n1-transfer";
-    model2.payload.questions.filter((question2) => question2.stage === questionStage).forEach((question2) => section.append(renderQuestion$8(question2)));
-    return section;
+    model2.payload.questions.filter((question2) => question2.stage === questionStage).forEach((question2) => section2.append(renderQuestion$8(question2)));
+    return section2;
   }
   function renderQuestion$8(question2) {
     const fieldset = document.createElement("fieldset");
@@ -20417,9 +20417,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return fieldset;
   }
   function renderReflection(model2, host2) {
-    const section = document.createElement("section");
-    section.className = "academy-n2-extensive-reading-reflection";
-    section.dataset.graded = "false";
+    const section2 = document.createElement("section");
+    section2.className = "academy-n2-extensive-reading-reflection";
+    section2.dataset.graded = "false";
     const label = document.createElement("label");
     label.htmlFor = `${model2.id}-reflection`;
     label.textContent = localized$j(model2.payload.reflection.label, host2);
@@ -20429,8 +20429,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     textarea.id = `${model2.id}-reflection`;
     textarea.name = "reflection";
     textarea.rows = 3;
-    section.append(label, guidance, textarea);
-    return section;
+    section2.append(label, guidance, textarea);
+    return section2;
   }
   function responseFromForm$N(model2, form2) {
     const data = new FormData(form2);
@@ -20443,7 +20443,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!response || !Array.isArray(response.answers)) throw new TypeError("Every extensive-reading question needs one answer.");
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$f(answer2?.questionId) || !text$f(answer2?.optionId) || answers.has(answer2.questionId)) {
+      if (!text$g(answer2?.questionId) || !text$g(answer2?.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("Every extensive-reading question needs one unique answer.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -20462,7 +20462,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     const typedQuestions = questions;
-    if (typedQuestions.length !== 5 || typedQuestions.filter((question2) => question2.stage === "source-comprehension").length !== 3 || typedQuestions.filter((question2) => question2.stage === "n1-transfer").length !== 2 || new Set(typedQuestions.map((question2) => question2.id)).size !== 5 || typedQuestions.some((question2) => !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || new Set(question2.options.map((option2) => option2.id)).size !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$f(question2.errorTag))) {
+    if (typedQuestions.length !== 5 || typedQuestions.filter((question2) => question2.stage === "source-comprehension").length !== 3 || typedQuestions.filter((question2) => question2.stage === "n1-transfer").length !== 2 || new Set(typedQuestions.map((question2) => question2.id)).size !== 5 || typedQuestions.some((question2) => !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || new Set(question2.options.map((option2) => option2.id)).size !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$g(question2.errorTag))) {
       issues2.push({ path: "payload.questions", message: "Three source and two transfer questions with unique valid options are required." });
     }
   }
@@ -20674,10 +20674,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$5(model2.provenance, N2_POLICY_SCOPE_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted-library source locus and rights contract are required." });
     }
-    if (model2.payload?.rehearsal?.authorship !== "original-yomu-n2-rehearsal" || model2.payload.rehearsal.paragraphs.length !== 2 || model2.payload.rehearsal.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.rehearsal.playbackText !== model2.payload.rehearsal.paragraphs.join(" ")) {
+    if (model2.payload?.rehearsal?.authorship !== "original-yomu-n2-rehearsal" || model2.payload.rehearsal.paragraphs.length !== 2 || model2.payload.rehearsal.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.rehearsal.playbackText !== model2.payload.rehearsal.paragraphs.join(" ")) {
       issues2.push({ path: "payload.rehearsal", message: "The complete original two-paragraph N2 rehearsal is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual scope teaching points are required." });
     }
     validateQuestions$7(model2, issues2);
@@ -20769,8 +20769,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderTeaching$u(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "聞く前の三つの手がかり" : "Three cues before rehearsal";
     const list2 = document.createElement("ol");
@@ -20786,12 +20786,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderRehearsal(model2, host2, readingDisposers, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.rehearsal.title));
     const play = document.createElement("button");
@@ -20809,9 +20809,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       article.append(row);
     });
-    section.append(heading, play, article);
-    model2.payload.questions.forEach((question2) => section.append(renderQuestion$7(question2)));
-    return section;
+    section2.append(heading, play, article);
+    model2.payload.questions.forEach((question2) => section2.append(renderQuestion$7(question2)));
+    return section2;
   }
   function renderQuestion$7(question2) {
     const fieldset = document.createElement("fieldset");
@@ -20845,7 +20845,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!answer2 || !text$f(answer2.questionId) || !text$f(answer2.optionId) || answers.has(answer2.questionId)) {
+      if (!answer2 || !text$g(answer2.questionId) || !text$g(answer2.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("N2 policy-scope answers must have unique question and option ids.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -20864,7 +20864,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const ids2 = /* @__PURE__ */ new Set();
     for (const [index, question2] of questions.entries()) {
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || !Array.isArray(question2.options) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || !Array.isArray(question2.options) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Questions need unique ids, bilingual prompts, three options, and a valid answer." });
       }
       ids2.add(question2.id);
@@ -20872,7 +20872,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateReviewTargets$5(model2, issues2) {
     const targets = model2.payload.reviewTargets;
-    if (targets.length !== 4 || targets.some((target2) => !text$f(target2.id) || !text$f(target2.conceptId) || !text$f(target2.expression) || !text$f(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
+    if (targets.length !== 4 || targets.some((target2) => !text$g(target2.id) || !text$g(target2.conceptId) || !text$g(target2.expression) || !text$g(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
       issues2.push({ path: "payload.reviewTargets", message: "Four complete N2 review targets are required." });
     }
   }
@@ -21666,28 +21666,28 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$4(model2.provenance, N1_OPENING_SEQUENCE_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact pinned mixed source set, rights, and package-local audio state are required." });
     }
-    if (model2.payload.prerequisiteRefresh.length !== 3 || model2.payload.prerequisiteRefresh.some((item2) => !text$f(item2.conceptId) || !text$f(item2.bridge.ja) || !text$f(item2.bridge.en) || !text$f(item2.example) || item2.exampleSource !== "authored" && item2.exampleSource !== "exact-source-tobira")) {
+    if (model2.payload.prerequisiteRefresh.length !== 3 || model2.payload.prerequisiteRefresh.some((item2) => !text$g(item2.conceptId) || !text$g(item2.bridge.ja) || !text$g(item2.bridge.en) || !text$g(item2.example) || item2.exampleSource !== "authored" && item2.exampleSource !== "exact-source-tobira")) {
       issues2.push({ path: "payload.prerequisiteRefresh", message: "Three complete unassessed N2-to-N1 bridges with honest example attribution are required." });
     }
     const sourceBridge = model2.payload.prerequisiteRefresh.find((item2) => item2.exampleSource === "exact-source-tobira");
     if (sourceBridge?.example !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.tobiraBridgeSentence) {
       issues2.push({ path: "payload.prerequisiteRefresh", message: "The exact pinned Tobira bridge sentence is required." });
     }
-    if (model2.payload.reading.sourceAnchor.authorship !== "exact-source-shin-kanzen-reading" || !text$f(model2.payload.reading.sourceAnchor.title.ja) || !text$f(model2.payload.reading.sourceAnchor.title.en) || model2.payload.reading.sourceAnchor.paragraphs.length !== 3 || model2.payload.reading.sourceAnchor.paragraphs.some((paragraph) => !text$f(paragraph)) || !sameObject$4(model2.payload.reading.sourceAnchor.paragraphs, N1_OPENING_SEQUENCE_DELIVERED_SOURCE.readingAnchorParagraphs)) {
+    if (model2.payload.reading.sourceAnchor.authorship !== "exact-source-shin-kanzen-reading" || !text$g(model2.payload.reading.sourceAnchor.title.ja) || !text$g(model2.payload.reading.sourceAnchor.title.en) || model2.payload.reading.sourceAnchor.paragraphs.length !== 3 || model2.payload.reading.sourceAnchor.paragraphs.some((paragraph) => !text$g(paragraph)) || !sameObject$4(model2.payload.reading.sourceAnchor.paragraphs, N1_OPENING_SEQUENCE_DELIVERED_SOURCE.readingAnchorParagraphs)) {
       issues2.push({ path: "payload.reading.sourceAnchor", message: "The exact three-line Shin Kanzen reading source anchor is required." });
     }
-    if (model2.payload.reading.transfer.authorship !== "original-yomu-n1-reading" || !text$f(model2.payload.reading.transfer.title.ja) || !text$f(model2.payload.reading.transfer.title.en) || model2.payload.reading.transfer.paragraphs.length !== 3 || model2.payload.reading.transfer.paragraphs.some((paragraph) => !text$f(paragraph)) || !sameObject$4(model2.payload.reading.transfer.paragraphs, N1_OPENING_SEQUENCE_AUTHORED.readingParagraphs)) {
+    if (model2.payload.reading.transfer.authorship !== "original-yomu-n1-reading" || !text$g(model2.payload.reading.transfer.title.ja) || !text$g(model2.payload.reading.transfer.title.en) || model2.payload.reading.transfer.paragraphs.length !== 3 || model2.payload.reading.transfer.paragraphs.some((paragraph) => !text$g(paragraph)) || !sameObject$4(model2.payload.reading.transfer.paragraphs, N1_OPENING_SEQUENCE_AUTHORED.readingParagraphs)) {
       issues2.push({ path: "payload.reading.transfer", message: "The complete original three-paragraph N1 reading transfer is required." });
     }
-    if (model2.payload.grammar.forms.length !== 3 || model2.payload.grammar.forms.some((item2) => !text$f(item2.id) || !text$f(item2.form) || !text$f(item2.example) || item2.exampleAuthorship !== "exact-source-shin-kanzen-grammar" || !text$f(item2.registerNote.ja) || !text$f(item2.registerNote.en) || !text$f(item2.agentNote.ja) || !text$f(item2.agentNote.en) || !text$f(item2.eventNote.ja) || !text$f(item2.eventNote.en)) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.form), ["〜が早いか", "〜や／〜や否や", "〜なり"]) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.example), N1_OPENING_SEQUENCE_DELIVERED_SOURCE.grammarExamples)) {
+    if (model2.payload.grammar.forms.length !== 3 || model2.payload.grammar.forms.some((item2) => !text$g(item2.id) || !text$g(item2.form) || !text$g(item2.example) || item2.exampleAuthorship !== "exact-source-shin-kanzen-grammar" || !text$g(item2.registerNote.ja) || !text$g(item2.registerNote.en) || !text$g(item2.agentNote.ja) || !text$g(item2.agentNote.en) || !text$g(item2.eventNote.ja) || !text$g(item2.eventNote.en)) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.form), ["〜が早いか", "〜や／〜や否や", "〜なり"]) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.example), N1_OPENING_SEQUENCE_DELIVERED_SOURCE.grammarExamples)) {
       issues2.push({ path: "payload.grammar", message: "Three exact Shin Kanzen N1 time-relation forms with register, agent, and event notes are required." });
     }
     const sourceAudio2 = model2.payload.listening.sourceAudio;
     const deliveredAudio = N1_OPENING_SEQUENCE_PROVENANCE.deliveredAudio;
-    if (sourceAudio2.authorship !== "exact-source-somatome-listening" || !text$f(sourceAudio2.title.ja) || !text$f(sourceAudio2.title.en) || sourceAudio2.packageUrl !== deliveredAudio.packageUrl || sourceAudio2.sha256 !== deliveredAudio.sha256 || sourceAudio2.byteLength !== deliveredAudio.byteLength || sourceAudio2.durationSeconds !== deliveredAudio.durationSeconds || sourceAudio2.track !== deliveredAudio.track || sourceAudio2.transcript !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.listeningSourceTranscript || !sameObject$4(sourceAudio2.rationale, N1_OPENING_SEQUENCE_AUTHORED.sourceListeningRationale)) {
+    if (sourceAudio2.authorship !== "exact-source-somatome-listening" || !text$g(sourceAudio2.title.ja) || !text$g(sourceAudio2.title.en) || sourceAudio2.packageUrl !== deliveredAudio.packageUrl || sourceAudio2.sha256 !== deliveredAudio.sha256 || sourceAudio2.byteLength !== deliveredAudio.byteLength || sourceAudio2.durationSeconds !== deliveredAudio.durationSeconds || sourceAudio2.track !== deliveredAudio.track || sourceAudio2.transcript !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.listeningSourceTranscript || !sameObject$4(sourceAudio2.rationale, N1_OPENING_SEQUENCE_AUTHORED.sourceListeningRationale)) {
       issues2.push({ path: "payload.listening.sourceAudio", message: "Complete exact source-audio metadata, transcript, and rationale are required." });
     }
-    if (model2.payload.listening.transfer.authorship !== "original-yomu-n1-listening" || model2.payload.listening.transfer.script !== N1_OPENING_SEQUENCE_AUTHORED.listeningScript || !text$f(model2.payload.listening.transfer.scenario.ja) || !text$f(model2.payload.listening.transfer.scenario.en)) {
+    if (model2.payload.listening.transfer.authorship !== "original-yomu-n1-listening" || model2.payload.listening.transfer.script !== N1_OPENING_SEQUENCE_AUTHORED.listeningScript || !text$g(model2.payload.listening.transfer.scenario.ja) || !text$g(model2.payload.listening.transfer.scenario.en)) {
       issues2.push({ path: "payload.listening.transfer", message: "A complete original N1 workplace listening transfer update is required." });
     }
     validateProduction$2(model2, issues2);
@@ -21700,11 +21700,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateProduction$2(model2, issues2) {
     const production = model2.payload.production;
-    if (production.authorship !== "learner-authored-deterministically-checked" || !text$f(production.prompt.ja) || !text$f(production.prompt.en) || !text$f(production.guidance.ja) || !text$f(production.guidance.en) || !Number.isInteger(production.minLengthChars) || !Number.isInteger(production.maxLengthChars) || production.minLengthChars <= 0 || production.maxLengthChars <= production.minLengthChars || !production.demandAnchors.length || !production.accessAnchors.length || !production.contrastMarkers.length || !production.provisionalMarkers.length || !production.overclaimTerms.length || !text$f(production.modelAnswer)) {
+    if (production.authorship !== "learner-authored-deterministically-checked" || !text$g(production.prompt.ja) || !text$g(production.prompt.en) || !text$g(production.guidance.ja) || !text$g(production.guidance.en) || !Number.isInteger(production.minLengthChars) || !Number.isInteger(production.maxLengthChars) || production.minLengthChars <= 0 || production.maxLengthChars <= production.minLengthChars || !production.demandAnchors.length || !production.accessAnchors.length || !production.contrastMarkers.length || !production.provisionalMarkers.length || !production.overclaimTerms.length || !text$g(production.modelAnswer)) {
       issues2.push({ path: "payload.production", message: "A complete deterministic production rubric with anchors, markers, and a model answer is required." });
       return;
     }
-    if (production.checks.length !== 4 || PRODUCTION_CHECK_IDS.some((id2) => !production.checks.some((checkDef) => checkDef.id === id2)) || production.checks.some((checkDef) => !text$f(checkDef.errorTag) || !text$f(checkDef.label.ja) || !text$f(checkDef.label.en))) {
+    if (production.checks.length !== 4 || PRODUCTION_CHECK_IDS.some((id2) => !production.checks.some((checkDef) => checkDef.id === id2)) || production.checks.some((checkDef) => !text$g(checkDef.errorTag) || !text$g(checkDef.label.ja) || !text$g(checkDef.label.en))) {
       issues2.push({ path: "payload.production.checks", message: "Exactly the four labelled deterministic production checks are required." });
       return;
     }
@@ -21724,7 +21724,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
       const expectedOptionCount = question2.stimulusRole === "source-listening" ? 4 : 3;
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== expectedOptionCount || optionIds.size !== expectedOptionCount || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag) || question2.options.some((option2) => !text$f(option2.label.ja) || !text$f(option2.label.en)) || question2.stimulusRole === "source-listening" && (!question2.rationale || !text$f(question2.rationale.ja) || !text$f(question2.rationale.en))) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== expectedOptionCount || optionIds.size !== expectedOptionCount || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag) || question2.options.some((option2) => !text$g(option2.label.ja) || !text$g(option2.label.en)) || question2.stimulusRole === "source-listening" && (!question2.rationale || !text$g(question2.rationale.ja) || !text$g(question2.rationale.en))) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, bilingual prompt, correct option count, and one valid answer; the exact source-listening judgment also needs a rationale." });
       }
       ids2.add(question2.id);
@@ -21753,7 +21753,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "floor-listening",
       "floor-production"
     ]);
-    if (model2.payload.reviewTargets.length !== 8 || model2.payload.reviewTargets.some((target2) => !text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)) || target2.attribution !== "yomu-authored" && target2.attribution !== "exact-source")) {
+    if (model2.payload.reviewTargets.length !== 8 || model2.payload.reviewTargets.some((target2) => !text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)) || target2.attribution !== "yomu-authored" && target2.attribution !== "exact-source")) {
       issues2.push({ path: "payload.reviewTargets", message: "Eight complete, honestly attributed, repair-mapped Reader/SRS targets are required." });
     }
   }
@@ -21854,9 +21854,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderPrerequisiteRefresh(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "context";
-    section.dataset.prerequisiteRefresh = "unassessed";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "context";
+    section2.dataset.prerequisiteRefresh = "unassessed";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "N2からの持ち上げ（採点なし）" : "Carried up from N2 (unassessed)";
     const list2 = document.createElement("ol");
@@ -21869,13 +21869,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(bridge, japanese$4(item2.example));
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderReading(model2, host2, readers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
-    section.dataset.sequenceStep = "reading";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
+    section2.dataset.sequenceStep = "reading";
     const anchorArticle = document.createElement("article");
     anchorArticle.dataset.sourceRole = "reading-source-anchor";
     const anchorHeading = document.createElement("h3");
@@ -21889,8 +21889,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       anchorArticle.append(row);
     });
-    section.append(anchorArticle);
-    questionsFor(model2, "reading", "source-reading").forEach((question2) => section.append(renderQuestion$6(question2)));
+    section2.append(anchorArticle);
+    questionsFor(model2, "reading", "source-reading").forEach((question2) => section2.append(renderQuestion$6(question2)));
     const transferArticle = document.createElement("article");
     transferArticle.dataset.sourceRole = "reading-transfer";
     const transferHeading = document.createElement("h3");
@@ -21904,17 +21904,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       transferArticle.append(row);
     });
-    section.append(transferArticle);
-    questionsFor(model2, "reading", "transfer-reading").forEach((question2) => section.append(renderQuestion$6(question2)));
-    return section;
+    section2.append(transferArticle);
+    questionsFor(model2, "reading", "transfer-reading").forEach((question2) => section2.append(renderQuestion$6(question2)));
+    return section2;
   }
   function renderGrammar(model2, host2, readers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
-    section.dataset.sequenceStep = "grammar";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
+    section2.dataset.sequenceStep = "grammar";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.grammar.title));
-    section.append(heading);
+    section2.append(heading);
     const list2 = document.createElement("ol");
     model2.payload.grammar.forms.forEach((item2, index) => {
       const row = document.createElement("li");
@@ -21934,14 +21934,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, notes);
       list2.append(row);
     });
-    section.append(list2);
-    questionsFor(model2, "grammar", "grammar").forEach((question2) => section.append(renderQuestion$6(question2)));
-    return section;
+    section2.append(list2);
+    questionsFor(model2, "grammar", "grammar").forEach((question2) => section2.append(renderQuestion$6(question2)));
+    return section2;
   }
   function renderListening$2(model2, host2, playback, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
-    section.dataset.sequenceStep = "listening";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
+    section2.dataset.sequenceStep = "listening";
     const sourceAudio2 = model2.payload.listening.sourceAudio;
     const sourceBlock = document.createElement("div");
     sourceBlock.dataset.sourceRole = "listening-source-audio";
@@ -21957,8 +21957,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       audio2.remove();
     }, { once: true });
     sourceBlock.append(sourceHeading, audio2);
-    section.append(sourceBlock);
-    questionsFor(model2, "listening", "source-listening").forEach((question2) => section.append(renderQuestion$6(question2)));
+    section2.append(sourceBlock);
+    questionsFor(model2, "listening", "source-listening").forEach((question2) => section2.append(renderQuestion$6(question2)));
     const transfer = model2.payload.listening.transfer;
     const transferBlock = document.createElement("div");
     transferBlock.dataset.sourceRole = "listening-transfer";
@@ -21974,14 +21974,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     play.textContent = host2.language === "ja" ? "業務連絡を再生する" : "Play the workplace update";
     play.addEventListener("click", () => void playRehearsal$4(transfer.script, host2, playback, signal), { signal });
     transferBlock.append(transferHeading, scenario, play);
-    section.append(transferBlock);
-    questionsFor(model2, "listening", "transfer-listening").forEach((question2) => section.append(renderQuestion$6(question2)));
-    return section;
+    section2.append(transferBlock);
+    questionsFor(model2, "listening", "transfer-listening").forEach((question2) => section2.append(renderQuestion$6(question2)));
+    return section2;
   }
   function renderProduction$4(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-production";
-    section.dataset.sequenceStep = "production";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-production";
+    section2.dataset.sequenceStep = "production";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.production.prompt));
     const guidance = document.createElement("p");
@@ -21995,8 +21995,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     input2.dataset.production = "deterministically-checked";
     input2.rows = 5;
     label.append(input2);
-    section.append(heading, guidance, label);
-    return section;
+    section2.append(heading, guidance, label);
+    return section2;
   }
   function renderQuestion$6(question2) {
     const fieldset = document.createElement("fieldset");
@@ -22107,14 +22107,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return list2;
   }
   function renderModelAnswer(model2, host2) {
-    const section = document.createElement("div");
-    section.dataset.modelAnswer = "after-attempt";
+    const section2 = document.createElement("div");
+    section2.dataset.modelAnswer = "after-attempt";
     const heading = document.createElement("h4");
     heading.textContent = host2.language === "ja" ? "提言の一例（よむ作成）" : "One model recommendation (Yomu-authored)";
     const body = document.createElement("p");
     body.append(japanese$4(model2.payload.production.modelAnswer));
-    section.append(heading, body);
-    return section;
+    section2.append(heading, body);
+    return section2;
   }
   function questionsFor(model2, modality, stimulusRole) {
     return model2.payload.questions.filter((question2) => question2.modality === modality && question2.stimulusRole === stimulusRole);
@@ -22336,14 +22336,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$3(model2.provenance, N1_SOUND_DISCRIMINATION_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Shin Kanzen listening locus and local-only media state are required." });
     }
-    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.cue) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.cue) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three complete bilingual pre-retrieval teaching cues are required." });
     }
-    if (model2.payload.soundMap.length !== 4 || model2.payload.soundMap.some((pair) => !text$f(pair.id) || !text$f(pair.left) || !text$f(pair.right) || !text$f(pair.focus.ja) || !text$f(pair.focus.en))) {
+    if (model2.payload.soundMap.length !== 4 || model2.payload.soundMap.some((pair) => !text$g(pair.id) || !text$g(pair.left) || !text$g(pair.right) || !text$g(pair.focus.ja) || !text$g(pair.focus.en))) {
       issues2.push({ path: "payload.soundMap", message: "Four complete visual sound pairs are required." });
     }
     validateQuestions$5(model2, issues2);
-    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$f(model2.payload.production.prompt.ja) || !text$f(model2.payload.production.prompt.en) || !text$f(model2.payload.production.guidance.ja) || !text$f(model2.payload.production.guidance.en)) {
+    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$g(model2.payload.production.prompt.ja) || !text$g(model2.payload.production.prompt.en) || !text$g(model2.payload.production.guidance.ja) || !text$g(model2.payload.production.guidance.en)) {
       issues2.push({ path: "payload.production", message: "An explicit ungraded learner noticing note is required." });
     }
     validatePassScore(model2.payload.passScore, issues2);
@@ -22415,8 +22415,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderTeaching$t(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "聞く前の三つの手順" : "Three steps before retrieval";
     const list2 = document.createElement("ol");
@@ -22431,12 +22431,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, cue, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderSoundMap(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "guided-practice";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "guided-practice";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "音の境界マップ" : "Sound-boundary map";
     const list2 = document.createElement("ul");
@@ -22446,8 +22446,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(japanese$4(`${pair.left} / ${pair.right}`), document.createTextNode(`: ${localized$j(pair.focus, host2)}`));
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderAssessment$6(model2, host2, submit2, root, readers, playback, signal) {
     const form2 = document.createElement("form");
@@ -22512,8 +22512,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return fieldset;
   }
   function renderProduction$3(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-production";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-production";
     const heading = document.createElement("h3");
     heading.textContent = localized$j(model2.payload.production.prompt, host2);
     const guidance = document.createElement("p");
@@ -22526,13 +22526,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     input2.dataset.production = "ungraded";
     input2.rows = 3;
     label.append(input2);
-    section.append(heading, guidance, label);
-    return section;
+    section2.append(heading, guidance, label);
+    return section2;
   }
   function revealTranscripts(root, model2, host2, readers) {
     if (root.querySelector("[data-transcript-reveal]")) return;
-    const section = document.createElement("section");
-    section.dataset.transcriptReveal = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.transcriptReveal = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "試行後のオリジナル練習文" : "Original practice transcripts after your attempt";
     const list2 = document.createElement("ol");
@@ -22544,8 +22544,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       list2.append(row);
     });
-    section.append(heading, list2);
-    root.append(section);
+    section2.append(heading, list2);
+    root.append(section2);
   }
   function responseFromForm$K(model2, form2) {
     const answers = model2.payload.questions.map((question2) => {
@@ -22581,7 +22581,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     model2.payload.questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || !text$f(question2.playbackText) || question2.options.length !== 2 || optionIds.size !== 2 || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || !text$g(question2.playbackText) || question2.options.length !== 2 || optionIds.size !== 2 || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each listening judgment needs a unique id, original playback, two options, and one answer." });
       }
       ids2.add(question2.id);
@@ -22589,7 +22589,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateReviewTargets$3(model2, issues2) {
     const tags = new Set(model2.payload.questions.map((question2) => question2.errorTag));
-    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)))) {
+    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)))) {
       issues2.push({ path: "payload.reviewTargets", message: "Four complete repair-mapped Reader/SRS targets are required." });
     }
   }
@@ -22984,20 +22984,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         path: "provenance",
         message: "The exact permitted-library N1 source locus, rights, and media state are required."
       });
-    if (model2.payload.transfer.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload.transfer.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({
         path: "payload.transfer",
         message: "The complete original two-paragraph N1 transfer is required."
       });
     }
-    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$f(model2.payload.production.prompt.ja) || !text$f(model2.payload.production.prompt.en) || !text$f(model2.payload.production.guidance.ja) || !text$f(model2.payload.production.guidance.en)) {
+    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$g(model2.payload.production.prompt.ja) || !text$g(model2.payload.production.prompt.en) || !text$g(model2.payload.production.guidance.ja) || !text$g(model2.payload.production.guidance.en)) {
       issues2.push({
         path: "payload.production",
         message: "An explicit ungraded learner-authored production prompt is required."
       });
     }
     if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some(
-      (item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example)
+      (item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example)
     )) {
       issues2.push({
         path: "payload.teaching",
@@ -23008,7 +23008,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
     if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some(
-      (target2) => !text$f(target2.expression) || !text$f(target2.sentence) || !target2.meanings.length || !target2.repairFor.length
+      (target2) => !text$g(target2.expression) || !text$g(target2.sentence) || !target2.meanings.length || !target2.repairFor.length
     )) {
       issues2.push({
         path: "payload.reviewTargets",
@@ -23111,8 +23111,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderTeaching$s(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "読む前の三つの境界" : "Three boundaries before reading";
     const list2 = document.createElement("ol");
@@ -23128,12 +23128,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderMap(model2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.textContent = "Contrast map";
     const list2 = document.createElement("ol");
@@ -23143,13 +23143,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       item2.textContent = row.claim;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    model2.payload.questions.filter((question2) => question2.stage === "contrast-map").forEach((question2) => section.append(renderQuestion$4(question2)));
-    return section;
+    section2.append(heading, list2);
+    model2.payload.questions.filter((question2) => question2.stage === "contrast-map").forEach((question2) => section2.append(renderQuestion$4(question2)));
+    return section2;
   }
   function renderTransfer$1(model2, host2, readers, playback, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.transfer.title));
     const play = document.createElement("button");
@@ -23171,13 +23171,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       article.append(row);
     });
-    section.append(heading, play, article);
-    model2.payload.questions.filter((question2) => question2.stage === "transfer").forEach((question2) => section.append(renderQuestion$4(question2)));
-    return section;
+    section2.append(heading, play, article);
+    model2.payload.questions.filter((question2) => question2.stage === "transfer").forEach((question2) => section2.append(renderQuestion$4(question2)));
+    return section2;
   }
   function renderProduction$2(model2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-production";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-production";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.production.prompt));
     const note = document.createElement("p");
@@ -23190,8 +23190,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     input2.dataset.production = "ungraded";
     input2.rows = 4;
     label.append(input2);
-    section.append(heading, note, label);
-    return section;
+    section2.append(heading, note, label);
+    return section2;
   }
   function renderQuestion$4(question2) {
     const fieldset = document.createElement("fieldset");
@@ -23257,9 +23257,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some(
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some(
         (option2) => option2.id === question2.correctOptionId
-      ) || !text$f(question2.errorTag)) {
+      ) || !text$g(question2.errorTag)) {
         issues2.push({
           path: `payload.questions.${index}`,
           message: "Questions need unique ids, bilingual prompts, three options, and a valid answer."
@@ -23542,10 +23542,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$1(model2.payload?.sourceSegments, ADVANCED_IMMERSION_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The three exact reviewed Soya source segments are required in source order." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || new Set(model2.payload.teaching.map((item2) => item2.function)).size !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.example) || !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || new Set(model2.payload.teaching.map((item2) => item2.function)).size !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.example) || !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "All three epistemic functions need bilingual pre-assessment teaching." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N1 reading/listening transfer is required." });
     }
     validateQuestions$3(model2, issues2);
@@ -23640,9 +23640,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderTeaching$r(model2, host2, readingDisposers) {
-    const section = document.createElement("section");
-    section.className = "academy-advanced-immersion-teaching";
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.className = "academy-advanced-immersion-teaching";
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "聞く前の三つの境界" : "Three boundaries before rehearsal";
     const list2 = document.createElement("ol");
@@ -23658,13 +23658,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderSourceRound(model2, host2, form2, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.className = "academy-advanced-immersion-listening";
-    section.dataset.lessonPhase = "assessed-recognition";
+    const section2 = document.createElement("section");
+    section2.className = "academy-advanced-immersion-listening";
+    section2.dataset.lessonPhase = "assessed-recognition";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "N3 資料文を聞く" : "Rehearse the N3 source text";
     const controls = document.createElement("div");
@@ -23678,15 +23678,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       button2.addEventListener("click", () => void playRehearsal$1(segment2.text, host2, playbackDisposers), { signal });
       controls.append(button2);
     });
-    section.append(heading, controls);
-    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section.append(renderQuestion$3(question2)));
-    form2.append(section);
-    return section;
+    section2.append(heading, controls);
+    model2.payload.questions.filter((question2) => question2.stage === "source-rehearsal").forEach((question2) => section2.append(renderQuestion$3(question2)));
+    form2.append(section2);
+    return section2;
   }
   function renderTransfer(model2, host2, form2, readingDisposers, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.className = "academy-advanced-immersion-transfer";
-    section.dataset.lessonPhase = "assessed-production";
+    const section2 = document.createElement("section");
+    section2.className = "academy-advanced-immersion-transfer";
+    section2.dataset.lessonPhase = "assessed-production";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.transfer.title));
     const play = document.createElement("button");
@@ -23705,10 +23705,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       row.append(span);
       article.append(row);
     });
-    section.append(heading, play, article);
-    model2.payload.questions.filter((question2) => question2.stage === "n1-transfer").forEach((question2) => section.append(renderQuestion$3(question2)));
-    form2.append(section);
-    return section;
+    section2.append(heading, play, article);
+    model2.payload.questions.filter((question2) => question2.stage === "n1-transfer").forEach((question2) => section2.append(renderQuestion$3(question2)));
+    form2.append(section2);
+    return section2;
   }
   function renderQuestion$3(question2) {
     const fieldset = document.createElement("fieldset");
@@ -23732,9 +23732,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function revealSourceTranscript(root, model2, host2, readingDisposers) {
     if (root.querySelector("[data-source-transcript]")) return;
-    const section = document.createElement("section");
-    section.className = "academy-advanced-immersion-transcript";
-    section.dataset.sourceTranscript = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.className = "academy-advanced-immersion-transcript";
+    section2.dataset.sourceTranscript = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "試行後のハッシュ確認済み資料文" : "Hash-verified source text after your attempt";
     const list2 = document.createElement("ol");
@@ -23749,8 +23749,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       item2.append(span, translation2);
       list2.append(item2);
     });
-    section.append(heading, list2);
-    root.append(section);
+    section2.append(heading, list2);
+    root.append(section2);
   }
   function responseFromForm$I(model2, form2) {
     const data = new FormData(form2);
@@ -23785,7 +23785,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const optionIds = new Set(question2.options.map(
         (option2) => option2.id
       ));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, three neutral options, and one answer." });
       }
       ids2.add(question2.id);
@@ -23799,7 +23799,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
     });
@@ -27320,14 +27320,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!records2 || typeof records2 !== "object") return {};
     const first2 = Object.values(records2).find((value) => value && typeof value === "object");
     if (!first2) return {};
-    const sourceId2 = text$e(first2.sourceId);
-    const activityId = text$e(first2.activityId);
+    const sourceId2 = text$f(first2.sourceId);
+    const activityId = text$f(first2.activityId);
     return {
       ...sourceId2 ? { sourceId: sourceId2 } : {},
       ...activityId ? { lesson: activityId } : {}
     };
   }
-  function text$e(value) {
+  function text$f(value) {
     return typeof value === "string" && value.trim() ? value.trim() : void 0;
   }
   function grade(rating) {
@@ -50309,7 +50309,7 @@ ${spelling}`);
   };
   const schema$1x = "yomu-academy.story-package.v2";
   const id$1x = "s1e01-the-blank-atlas";
-  const revision$L = "2026-07-14.1";
+  const revision$L = "2026-07-22.1";
   const canonicality$L = "canon";
   const season$L = 1;
   const chapter$N = 1;
@@ -50561,7 +50561,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Join the room with a first greeting and discover the class's immediate problem.",
       dramaticQuestion: "Can a first greeting count before the learner feels ready?",
-      learnerNeed: "A natural first-meeting sequence with a repairable production turn.",
+      learnerNeed: "Hear a greeting, understand it, and answer with support.",
       curriculum: {
         sectionId: "arrival-greetings",
         order: 1
@@ -50573,7 +50573,7 @@ ${spelling}`);
           id: "node:blank-atlas:covered-table",
           beatId: "beat:blank-atlas:arrival-image",
           cueId: "cue:covered-atlas-open-chair",
-          description: "A rain-dark cloth covers a wide object on the front table. One corner of a blank paper map shows beneath it."
+          description: "An atlas waits under a cloth."
         },
         {
           kind: "line",
@@ -50619,7 +50619,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-greet-rie"
           },
-          resumeContext: "Rie is waiting beside the covered atlas after saying good evening and introducing herself.",
+          resumeContext: "Say hello to Rie. Listen again first if you need to.",
           onReady: "checkpoint:blank-atlas:after-greeting",
           onRepair: "node:blank-atlas:greeting-repair",
           onDefer: "checkpoint:blank-atlas:before-greeting"
@@ -50629,7 +50629,7 @@ ${spelling}`);
           id: "node:blank-atlas:greeting-repair",
           beatId: "beat:blank-atlas:greeting-repair",
           cueId: "cue:rie-greeting-one-step",
-          description: "Rie answers the part she understood, then offers only the next missing greeting chunk."
+          description: "Rie repeats the one part you need."
         },
         {
           kind: "checkpoint",
@@ -50667,7 +50667,7 @@ ${spelling}`);
           id: "node:blank-atlas:first-uncover",
           beatId: "beat:blank-atlas:changed-image",
           cueId: "cue:atlas-uncovered-unlit",
-          description: "The cloth comes away. The atlas frame is bright brass; every route inside it is blank."
+          description: "The cloth lifts. The atlas is blank."
         }
       ],
       exit: {
@@ -50681,7 +50681,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Give the blank route its first stable sound and written marks.",
       dramaticQuestion: "Will five small sounds be treated as too little, or as enough to begin?",
-      learnerNeed: "A sound-first map of the five vowels and a first purposeful kana attempt.",
+      learnerNeed: "Hear the five vowel sounds before meeting their written forms.",
       curriculum: {
         sectionId: "sound-script-map",
         order: 2
@@ -50693,7 +50693,7 @@ ${spelling}`);
           id: "node:blank-atlas:vowel-slots",
           beatId: "beat:blank-atlas:sound-image",
           cueId: "cue:five-empty-atlas-slots",
-          description: "Five empty circles appear along the first route. Each waits for one sound and one mark."
+          description: "Five places wait for five sounds."
         },
         {
           kind: "line",
@@ -50739,7 +50739,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-vowel-listen"
           },
-          resumeContext: "The atlas has five empty sound positions in a fixed order.",
+          resumeContext: "Listen for あ, い, う, え, お in order.",
           onReady: "checkpoint:blank-atlas:after-vowel-listen",
           onRepair: "node:blank-atlas:vowel-listen-repair",
           onDefer: "checkpoint:blank-atlas:before-vowel-listen"
@@ -50749,7 +50749,7 @@ ${spelling}`);
           id: "node:blank-atlas:vowel-listen-repair",
           beatId: "beat:blank-atlas:vowel-listen-repair",
           cueId: "cue:vowels-replay-one-gap",
-          description: "Only the uncertain sound replays; the other four circles stay in place."
+          description: "Only the sound you missed plays again."
         },
         {
           kind: "checkpoint",
@@ -50776,7 +50776,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-vowel-doodle"
           },
-          resumeContext: "The ordered sounds are visible as five route positions awaiting hiragana.",
+          resumeContext: "Trace the five sounds you just heard.",
           onReady: "checkpoint:blank-atlas:after-vowel-doodle",
           onRepair: "node:blank-atlas:vowel-doodle-repair",
           onDefer: "checkpoint:blank-atlas:before-vowel-doodle"
@@ -50786,7 +50786,7 @@ ${spelling}`);
           id: "node:blank-atlas:vowel-doodle-repair",
           beatId: "beat:blank-atlas:vowel-writing-repair",
           cueId: "cue:kana-trace-one-stroke",
-          description: "The route holds the recognisable strokes and returns only the stroke that needs another attempt."
+          description: "Keep the strokes that worked. Try the missed stroke again."
         },
         {
           kind: "checkpoint",
@@ -50799,7 +50799,7 @@ ${spelling}`);
           id: "node:blank-atlas:first-line",
           beatId: "beat:blank-atlas:sound-exit",
           cueId: "cue:first-route-line-visible",
-          description: "A thin route line joins the five marks. It stops at a paper tab labelled CLASS."
+          description: "The five marks join into the first route."
         }
       ],
       exit: {
@@ -50813,7 +50813,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Use the complete classroom handout to move the room and repair a missed instruction.",
       dramaticQuestion: "Can a request for repetition become the action that keeps the class moving?",
-      learnerNeed: "All fourteen Moodle classroom expressions grouped by action, repair, feedback, and desk language.",
+      learnerNeed: "Use the classroom actions and repair phrases needed to follow a real lesson.",
       curriculum: {
         sectionId: "classroom-survival",
         order: 3
@@ -50825,7 +50825,7 @@ ${spelling}`);
           id: "node:blank-atlas:handout-arrives",
           beatId: "beat:blank-atlas:handout-image",
           cueId: "cue:classroom-handout-on-desk",
-          description: "The classroom handout slides beside the atlas. Its action clusters align with movable tabs on the frame."
+          description: "Rie places the class action sheet beside the atlas."
         },
         {
           kind: "line",
@@ -50871,7 +50871,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-follow-instructions"
           },
-          resumeContext: "The room is following the start, finish, break, look, say, listen, and write cluster on the source handout.",
+          resumeContext: "Follow Rie's look, listen, say, and write instructions.",
           onReady: "checkpoint:blank-atlas:after-follow-instructions",
           onRepair: "node:blank-atlas:follow-instructions-repair",
           onDefer: "checkpoint:blank-atlas:before-follow-instructions"
@@ -50881,7 +50881,7 @@ ${spelling}`);
           id: "node:blank-atlas:follow-instructions-repair",
           beatId: "beat:blank-atlas:instruction-repair",
           cueId: "cue:instruction-one-object",
-          description: "Rie resets one object and repeats one instruction; the rest of the room stays where the learner left it."
+          description: "Rie resets one step and says it again."
         },
         {
           kind: "checkpoint",
@@ -50933,7 +50933,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-reconstruct-repair"
           },
-          resumeContext: "The learner needs to ask Rie to repeat a fast classroom instruction before touching either tab.",
+          resumeContext: "Ask Rie to say the fast instruction again.",
           onReady: "checkpoint:blank-atlas:after-repair",
           onRepair: "node:blank-atlas:repair-smaller-step",
           onDefer: "checkpoint:blank-atlas:before-repair"
@@ -50943,7 +50943,7 @@ ${spelling}`);
           id: "node:blank-atlas:repair-smaller-step",
           beatId: "beat:blank-atlas:repair-exact-response",
           cueId: "cue:repair-phrase-one-gap",
-          description: "The phrase rebuilds around one missing chunk; no English answer appears before the learner commits."
+          description: "One part is missing. Build the request again."
         },
         {
           kind: "checkpoint",
@@ -50995,7 +50995,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-desk-language"
           },
-          resumeContext: "The literal example and homework objects need the correct desk-language labels.",
+          resumeContext: "Match the example and homework words to the right papers.",
           onReady: "checkpoint:blank-atlas:after-desk-language",
           onRepair: "node:blank-atlas:desk-language-repair",
           onDefer: "checkpoint:blank-atlas:before-desk-language"
@@ -51005,7 +51005,7 @@ ${spelling}`);
           id: "node:blank-atlas:desk-language-repair",
           beatId: "beat:blank-atlas:desk-language-repair",
           cueId: "cue:desk-object-context",
-          description: "The paper example and the take-home card move apart so the labels can be recovered from use."
+          description: "The example stays here. The homework goes home."
         },
         {
           kind: "checkpoint",
@@ -51018,7 +51018,7 @@ ${spelling}`);
           id: "node:blank-atlas:handout-flower",
           beatId: "beat:blank-atlas:handout-exit",
           cueId: "cue:rie-flower-mark",
-          description: "Rie adds a small flower mark to the handout. A matching paper flower appears at the route's first turn."
+          description: "Rie adds a flower mark. It lands on your first turn."
         }
       ],
       exit: {
@@ -51032,7 +51032,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Build enough sentence structure to read true and false route labels.",
       dramaticQuestion: "Can the class correct the atlas without turning correction into a verdict on a person?",
-      learnerNeed: "The five registered noun sentence frames in a concrete identification problem.",
+      learnerNeed: "Use a small set of noun sentence frames to identify the room correctly.",
       curriculum: {
         sectionId: "sentence-frames",
         order: 4
@@ -51044,7 +51044,7 @@ ${spelling}`);
           id: "node:blank-atlas:false-label",
           beatId: "beat:blank-atlas:frame-image",
           cueId: "cue:atlas-classroom-library-labels",
-          description: "Two labels print at once: THIS IS THE CLASSROOM and THIS IS NOT THE CLASSROOM. The atlas cannot decide which door it drew."
+          description: "Two room labels appear. Only one fits."
         },
         {
           kind: "line",
@@ -51090,7 +51090,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-build-sentence-frames"
           },
-          resumeContext: "Two contradictory route labels need the five Lesson 0 noun sentence frames.",
+          resumeContext: "Use the sentence pieces to choose the classroom label.",
           onReady: "checkpoint:blank-atlas:after-sentence-frames",
           onRepair: "node:blank-atlas:sentence-frame-repair",
           onDefer: "checkpoint:blank-atlas:before-sentence-frames"
@@ -51100,7 +51100,7 @@ ${spelling}`);
           id: "node:blank-atlas:sentence-frame-repair",
           beatId: "beat:blank-atlas:frame-repair",
           cueId: "cue:sentence-frame-meaning-contrast",
-          description: "The two labels stay visible while one particle or copula slot returns for a smaller retry."
+          description: "Keep the parts that fit. Try the missing part again."
         },
         {
           kind: "checkpoint",
@@ -51113,7 +51113,7 @@ ${spelling}`);
           id: "node:blank-atlas:label-fixed",
           beatId: "beat:blank-atlas:frame-consequence",
           cueId: "cue:atlas-classroom-label-fixed",
-          description: "The atlas draws a clear door around the true label, then leaves a blank name line beneath it."
+          description: "A clear door frame settles around the classroom label."
         }
       ],
       exit: {
@@ -51127,7 +51127,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Move the learner's spoken name sentence onto a desk card, then choose the first route mission.",
       dramaticQuestion: "Can the learner recognise on paper the same name sentence they have already said aloud?",
-      learnerNeed: "Transfer the familiar name + です chunk from speech to a two-piece written frame, with audio and meaning support.",
+      learnerNeed: "Move the familiar name + です pattern from speech onto a class card.",
       curriculum: {
         sectionId: "useful-vocabulary",
         order: 5
@@ -51139,7 +51139,7 @@ ${spelling}`);
           id: "node:blank-atlas:name-line",
           beatId: "beat:blank-atlas:vocabulary-image",
           cueId: "cue:blank-name-card-and-atlas-line",
-          description: "Rie writes the learner's saved name on a desk card and leaves one short space after it."
+          description: "Your name is on the card. One short space remains."
         },
         {
           kind: "line",
@@ -51185,7 +51185,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-name-card-draft"
           },
-          resumeContext: "The learner is moving the name + です sentence from the spoken greeting onto the desk card.",
+          resumeContext: "Finish your class card with your name + です.",
           onReady: "checkpoint:blank-atlas:after-name-card-draft",
           onRepair: "node:blank-atlas:name-card-repair",
           onDefer: "checkpoint:blank-atlas:before-name-card-draft"
@@ -51195,7 +51195,7 @@ ${spelling}`);
           id: "node:blank-atlas:name-card-repair",
           beatId: "beat:blank-atlas:vocabulary-repair",
           cueId: "cue:name-card-one-rubric",
-          description: "Rie taps the saved name once, then the です piece, without adding another explanation."
+          description: "Rie taps your name, then です."
         },
         {
           kind: "checkpoint",
@@ -51232,11 +51232,11 @@ ${spelling}`);
           kind: "choice",
           id: "choice:blank-atlas:mission",
           beatId: "beat:blank-atlas:mission-choice",
-          question: "Which mission should recover the next route label?",
+          question: "Which route do you want to try first?",
           options: [
             {
               id: "option:blank-atlas:mission-sound",
-              action: "Go to the language lab and identify people from sound before text.",
+              action: "Listen first.",
               japaneseByBand: {
                 foundation: "音から始めます。",
                 n5: "語学ラボで、音から確かめます。"
@@ -51249,7 +51249,7 @@ ${spelling}`);
             },
             {
               id: "option:blank-atlas:mission-text",
-              action: "Go to the library and reconstruct the handwritten route note.",
+              action: "Read first.",
               japaneseByBand: {
                 foundation: "文から始めます。",
                 n5: "図書室で、手書きの文を直します。"
@@ -51262,7 +51262,7 @@ ${spelling}`);
             },
             {
               id: "option:blank-atlas:mission-speaking",
-              action: "Return to the entrance and help greet the next arrivals.",
+              action: "Speak first.",
               japaneseByBand: {
                 foundation: "会話から始めます。",
                 n5: "入口で、来た人に話します。"
@@ -51294,7 +51294,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Find Xingyu and Mika's names by listening for the word immediately before です.",
       dramaticQuestion: "Can the learner find a name without understanding the whole introduction?",
-      learnerNeed: "Two short audio-first introductions, one voice at a time, with text delayed until the first commitment.",
+      learnerNeed: "Identify two short introductions by sound before seeing the text.",
       curriculum: {
         sectionId: "multi-speaker-input",
         order: 6,
@@ -51307,7 +51307,7 @@ ${spelling}`);
           id: "node:blank-atlas:sound-nameplates",
           beatId: "beat:blank-atlas:sound-mission-image",
           cueId: "cue:sound-route-nameplates-only",
-          description: "Xingyu puts in one earbud. Mika rests a hand on his headphones. Two empty name slots wait between them."
+          description: "Two voices. Two empty name labels."
         },
         {
           kind: "line",
@@ -51353,7 +51353,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-sound-input"
           },
-          resumeContext: "The Sound room is waiting for two name matches before transcript reveal.",
+          resumeContext: "Match each voice to Xingyu or Mika. The text comes later.",
           onReady: "checkpoint:blank-atlas:after-sound-input",
           onRepair: "node:blank-atlas:sound-input-repair",
           onDefer: "checkpoint:blank-atlas:before-sound-input"
@@ -51363,7 +51363,7 @@ ${spelling}`);
           id: "node:blank-atlas:sound-input-repair",
           beatId: "beat:blank-atlas:sound-mission-repair",
           cueId: "cue:sound-route-replay-one-speaker",
-          description: "Only the missed voice replays. Xingyu taps the empty name slot just before the final です."
+          description: "Replay the missed voice. Listen just before です."
         },
         {
           kind: "checkpoint",
@@ -51423,7 +51423,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Restore two missing links in a handwritten introduction note.",
       dramaticQuestion: "Can the learner use visible evidence without making the first guess final?",
-      learnerNeed: "Reading-first reconstruction of the registered noun-link and parallel-fact forms.",
+      learnerNeed: "Read around two gaps and rebuild the missing links.",
       curriculum: {
         sectionId: "multi-speaker-input",
         order: 6,
@@ -51436,7 +51436,7 @@ ${spelling}`);
           id: "node:blank-atlas:text-note",
           beatId: "beat:blank-atlas:text-mission-image",
           cueId: "cue:text-route-note-nameplates",
-          description: "A handwritten note sits beneath nameplates reading Sophie and Ruparna. Two particle spaces have been washed pale."
+          description: "Sophie and Ruparna's note has two gaps."
         },
         {
           kind: "line",
@@ -51482,7 +51482,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-text-input"
           },
-          resumeContext: "The Text mission is waiting for the two registered particle restorations.",
+          resumeContext: "Look before and after each gap. Restore the two links.",
           onReady: "checkpoint:blank-atlas:after-text-input",
           onRepair: "node:blank-atlas:text-input-repair",
           onDefer: "checkpoint:blank-atlas:before-text-input"
@@ -51492,7 +51492,7 @@ ${spelling}`);
           id: "node:blank-atlas:text-input-repair",
           beatId: "beat:blank-atlas:text-mission-repair",
           cueId: "cue:text-route-evidence-lines",
-          description: "The relevant noun pair or parallel sentence stays highlighted while one gap returns."
+          description: "The useful words stay visible. Try the missed gap again."
         },
         {
           kind: "checkpoint",
@@ -51552,7 +51552,7 @@ ${spelling}`);
       timeState: "evening",
       goal: "Join an arrival exchange and recover naturally when a turn is missed.",
       dramaticQuestion: "Can speaking practice welcome someone without making recording compulsory?",
-      learnerNeed: "A real turn-taking need, private recording consent, and a pause route that preserves progress.",
+      learnerNeed: "Take one supported speaking turn, with recording optional and progress saved.",
       curriculum: {
         sectionId: "multi-speaker-input",
         order: 6,
@@ -51565,7 +51565,7 @@ ${spelling}`);
           id: "node:blank-atlas:speaking-door",
           beatId: "beat:blank-atlas:speaking-mission-image",
           cueId: "cue:speaking-route-open-door-nameplates",
-          description: "The classroom door is open again. Nameplates identify Aakash and Sam; the next blank card waits just outside."
+          description: "Aakash and Sam are at the classroom door."
         },
         {
           kind: "line",
@@ -51596,11 +51596,11 @@ ${spelling}`);
           kind: "choice",
           id: "choice:blank-atlas:speaking-recording",
           beatId: "beat:blank-atlas:speaking-mission-consent",
-          question: "Do you want to make the private practice recording now?",
+          question: "Record this speaking turn now?",
           options: [
             {
               id: "option:blank-atlas:speaking-record-now",
-              action: "Record the private practice turn now.",
+              action: "Record now.",
               japaneseByBand: {
                 foundation: "今、練習します。",
                 n5: "今、録音して練習します。"
@@ -51613,7 +51613,7 @@ ${spelling}`);
             },
             {
               id: "option:blank-atlas:speaking-defer-recording",
-              action: "Pause here and return when recording feels workable.",
+              action: "Pause and return later.",
               japaneseByBand: {
                 foundation: "今はしません。",
                 n5: "今は録音しません。あとで戻ります。"
@@ -51652,7 +51652,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-speaking-input"
           },
-          resumeContext: "The learner has opted into the bounded private recording and the arrival exchange is waiting for their turn.",
+          resumeContext: "Answer Aakash. You can replay his question first.",
           onReady: "checkpoint:blank-atlas:after-speaking-input",
           onRepair: "node:blank-atlas:speaking-input-repair",
           onDefer: "checkpoint:blank-atlas:speaking-recording-deferred"
@@ -51662,7 +51662,7 @@ ${spelling}`);
           id: "node:blank-atlas:speaking-input-repair",
           beatId: "beat:blank-atlas:speaking-mission-repair",
           cueId: "cue:speaking-route-one-turn",
-          description: "Aakash repeats only the missed question and leaves the learner's conversational turn open."
+          description: "Aakash repeats the question and waits for your answer."
         },
         {
           kind: "checkpoint",
@@ -51722,7 +51722,7 @@ ${spelling}`);
       timeState: "evening-late",
       goal: "Read the recovered class cards and make the learner's own card functional.",
       dramaticQuestion: "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
-      learnerNeed: "Purposeful reading evidence and a controlled written introduction using the selected disclosure scope.",
+      learnerNeed: "Read class cards for evidence, then write one short public class line.",
       curriculum: {
         sectionId: "reading-writing",
         order: 7
@@ -51734,7 +51734,7 @@ ${spelling}`);
           id: "node:blank-atlas:cards-return",
           beatId: "beat:blank-atlas:reading-image",
           cueId: "cue:route-cards-around-atlas",
-          description: "The selected mission's card joins two class cards around the atlas. The learner's draft remains separate and face down."
+          description: "Three class cards return. Yours is still face down."
         },
         {
           kind: "line",
@@ -51780,7 +51780,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-read-name-cards"
           },
-          resumeContext: "The class cards must be returned using a source line rather than a guessed identity.",
+          resumeContext: "Read each class line before choosing whose card it is.",
           onReady: "checkpoint:blank-atlas:after-read-name-cards",
           onRepair: "node:blank-atlas:read-name-cards-repair",
           onDefer: "checkpoint:blank-atlas:before-read-name-cards"
@@ -51790,7 +51790,7 @@ ${spelling}`);
           id: "node:blank-atlas:read-name-cards-repair",
           beatId: "beat:blank-atlas:reading-repair",
           cueId: "cue:name-card-evidence-line",
-          description: "The relevant line stays visible while the unsupported identity guess clears."
+          description: "The class line stays visible. Check the name again."
         },
         {
           kind: "checkpoint",
@@ -51817,7 +51817,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-write-name-card"
           },
-          resumeContext: "The learner is writing only the name and facts they chose for this class card.",
+          resumeContext: "Write your name and the one class fact you chose.",
           onReady: "checkpoint:blank-atlas:after-write-name-card",
           onRepair: "node:blank-atlas:write-name-card-repair",
           onDefer: "checkpoint:blank-atlas:before-write-name-card"
@@ -51827,7 +51827,7 @@ ${spelling}`);
           id: "node:blank-atlas:write-name-card-repair",
           beatId: "beat:blank-atlas:writing-repair",
           cueId: "cue:name-card-function-rubric",
-          description: "Only the missing greeting, name, chosen fact, or closing function is marked; no extra personal detail is requested."
+          description: "Keep your choices. Fix only the missing part."
         },
         {
           kind: "checkpoint",
@@ -51840,7 +51840,7 @@ ${spelling}`);
           id: "node:blank-atlas:card-turns-over",
           beatId: "beat:blank-atlas:reading-writing-consequence",
           cueId: "cue:learner-card-route-label",
-          description: "The learner turns the card over. The atlas copies only its public class line, leaving all unchosen spaces blank."
+          description: "Turn the card. Only your class line enters the atlas."
         }
       ],
       exit: {
@@ -51854,7 +51854,7 @@ ${spelling}`);
       timeState: "evening-late",
       goal: "Use the selected mission skill after its teaching surface disappears, then leave a written route marker.",
       dramaticQuestion: "Can the learner use the language when the source page is no longer carrying the task?",
-      learnerNeed: "One mission-specific changed-context production and the shared written introduction transfer.",
+      learnerNeed: "Use the same language once without the original prompt in view.",
       curriculum: {
         sectionId: "transfer",
         order: 8
@@ -51866,7 +51866,7 @@ ${spelling}`);
           id: "node:blank-atlas:source-clears",
           beatId: "beat:blank-atlas:transfer-image",
           cueId: "cue:teaching-surfaces-clear",
-          description: "The handout, transcript, and sentence frame tray close. A new blank route card drops beside the door."
+          description: "The support sheets close. A new route card waits."
         },
         {
           kind: "line",
@@ -51904,11 +51904,11 @@ ${spelling}`);
               "option:blank-atlas:mission-speaking"
             ]
           },
-          question: "Your selected transfer uses a private recording. Continue now or pause here?",
+          question: "Record this transfer now, or pause here?",
           options: [
             {
               id: "option:blank-atlas:transfer-record-now",
-              action: "Continue with this private transfer recording.",
+              action: "Record now.",
               japaneseByBand: {
                 foundation: "今、録音します。",
                 n5: "この練習だけ、今録音します。"
@@ -51921,7 +51921,7 @@ ${spelling}`);
             },
             {
               id: "option:blank-atlas:transfer-record-later",
-              action: "Pause before recording and return to this exact card later.",
+              action: "Pause and return later.",
               japaneseByBand: {
                 foundation: "今はしません。",
                 n5: "今は録音しません。ここから続けます。"
@@ -51964,7 +51964,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-sound-transfer"
           },
-          resumeContext: "The Sound route is applying shadowing and repair to a new card without the source display.",
+          resumeContext: "Hear the new line, shadow it, and repair only the missed part.",
           onReady: "checkpoint:blank-atlas:after-route-transfer",
           onRepair: "node:blank-atlas:route-transfer-repair",
           onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
@@ -51986,7 +51986,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-text-transfer"
           },
-          resumeContext: "The Text route is applying the recovered sentence frame to a new personal line without the source display.",
+          resumeContext: "Use the same sentence pattern with a new class line.",
           onReady: "checkpoint:blank-atlas:after-route-transfer",
           onRepair: "node:blank-atlas:route-transfer-repair",
           onDefer: "checkpoint:blank-atlas:before-route-transfer"
@@ -52008,7 +52008,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-speaking-transfer"
           },
-          resumeContext: "The Speaking route is applying greeting, question, repair, and closing to a new arrival card.",
+          resumeContext: "Greet, ask, repair if needed, and close the short exchange.",
           onReady: "checkpoint:blank-atlas:after-route-transfer",
           onRepair: "node:blank-atlas:route-transfer-repair",
           onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
@@ -52018,7 +52018,7 @@ ${spelling}`);
           id: "node:blank-atlas:route-transfer-repair",
           beatId: "beat:blank-atlas:route-transfer-repair",
           cueId: "cue:transfer-one-function",
-          description: "The changed context stays visible while only the missing language function returns for repair."
+          description: "The new situation stays in view. Retry only the missed step."
         },
         {
           kind: "checkpoint",
@@ -52045,7 +52045,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-written-transfer"
           },
-          resumeContext: "The atlas is waiting for the learner's selected name and one chosen true class fact in writing.",
+          resumeContext: "Write your name and one short class fact from memory.",
           onReady: "checkpoint:blank-atlas:after-written-transfer",
           onRepair: "node:blank-atlas:written-transfer-repair",
           onDefer: "checkpoint:blank-atlas:before-written-transfer"
@@ -52055,7 +52055,7 @@ ${spelling}`);
           id: "node:blank-atlas:written-transfer-repair",
           beatId: "beat:blank-atlas:written-transfer-repair",
           cueId: "cue:written-transfer-one-function",
-          description: "The learner's chosen content stays intact while one missing name, fact, frame, or greeting function returns."
+          description: "Keep what worked. Fix only the missing part."
         },
         {
           kind: "checkpoint",
@@ -52068,7 +52068,7 @@ ${spelling}`);
           id: "node:blank-atlas:first-lantern",
           beatId: "beat:blank-atlas:transfer-consequence",
           cueId: "cue:first-atlas-lantern-lit",
-          description: "The route reaches the learner's card. One lantern point warms from grey to gold; the rest of the atlas remains honestly blank."
+          description: "Your route reaches the card. The first lantern lights."
         }
       ],
       exit: {
@@ -52082,7 +52082,7 @@ ${spelling}`);
       timeState: "evening-close",
       goal: "Close the first class, preserve the exact resume state, and return learner choice to the wider Academy.",
       dramaticQuestion: "Can the first contribution remain enough even though the atlas is mostly unfinished?",
-      learnerNeed: "A recap, the registered close-room action, and reversible next-step options.",
+      learnerNeed: "Finish the first class, save the route, and choose what comes next.",
       curriculum: {
         sectionId: "close",
         order: 9
@@ -52094,7 +52094,7 @@ ${spelling}`);
           id: "node:blank-atlas:one-light-room",
           beatId: "beat:blank-atlas:close-image",
           cueId: "cue:one-lantern-reflected-on-desks",
-          description: "One atlas light reflects across the desks. The corrected arrow card from the entrance now points to the learner's route."
+          description: "The entrance arrow now points back to your route."
         },
         {
           kind: "line",
@@ -52140,7 +52140,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-close-room"
           },
-          resumeContext: "The first class is ready to finish or pause, followed by the learner's wider Academy destination choice.",
+          resumeContext: "Finish the class or pause here. Your route is saved either way.",
           onReady: "checkpoint:blank-atlas:after-close-room",
           onRepair: "node:blank-atlas:close-room-repair",
           onDefer: "checkpoint:blank-atlas:before-close-room"
@@ -52150,7 +52150,7 @@ ${spelling}`);
           id: "node:blank-atlas:close-room-repair",
           beatId: "beat:blank-atlas:close-repair",
           cueId: "cue:finish-break-context",
-          description: "The room state makes the difference between finishing and taking a break visible before retry."
+          description: "Choose finish or break once more."
         },
         {
           kind: "checkpoint",
@@ -80745,11 +80745,18 @@ ${spelling}`);
   ]);
   let cachedRuntime;
   let cachedOpeningArrivalArc;
+  let cachedBlankAtlasArc;
   function loadOpeningArrivalArc() {
     if (!cachedOpeningArrivalArc) {
       cachedOpeningArrivalArc = compileStoryPackage(openingArrivalSource);
     }
     return cachedOpeningArrivalArc;
+  }
+  function loadBlankAtlasArc() {
+    if (!cachedBlankAtlasArc) {
+      cachedBlankAtlasArc = compileStoryPackage(chapterSource);
+    }
+    return cachedBlankAtlasArc;
   }
   function loadStoryRuntime() {
     if (cachedRuntime) return cachedRuntime;
@@ -80766,6 +80773,7 @@ ${spelling}`);
     const episodes2 = Object.freeze([...episodeById.values()].sort((left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id)));
     const byId2 = new Map(episodes2.map((episode2) => [episode2.id, episode2]));
     const openingArc = compileOpeningArc(episodes2[0]);
+    const blankAtlasArc = loadBlankAtlasArc();
     const authoredArcs = compileAuthoredChapters(openingArc.episodeId);
     const chapterCatalog = buildChapterCatalog(openingArc, byId2, authoredArcs);
     cachedRuntime = Object.freeze({
@@ -80782,7 +80790,7 @@ ${spelling}`);
       openingArc,
       // Resolution order: opening compile, then authored v2 chapters, then the
       // programmatic N3 batch (a v2 file supersedes the batch for the same id).
-      playableArc: (episodeId) => episodeId === openingArc.episodeId ? openingArc : (episodeId ? authoredArcs.get(episodeId) : void 0) ?? n3StoryArcForEpisode(episodeId),
+      playableArc: (episodeId) => episodeId === openingArc.episodeId ? blankAtlasArc : (episodeId ? authoredArcs.get(episodeId) : void 0) ?? n3StoryArcForEpisode(episodeId),
       chapterCatalog,
       reviewCalendar: Object.freeze({
         ...source2.endlessCalendar,
@@ -81129,7 +81137,7 @@ ${spelling}`);
       lessonId: storyHookLessonId(source2, node2),
       componentType: node2.hook.componentType,
       exerciseId: node2.hook.exerciseId,
-      registered: storyExerciseRegistered(node2.hook.exerciseId),
+      registered: storyHookLessonId(source2, node2) === "lesson:foundation-00" || storyExerciseRegistered(node2.hook.exerciseId),
       nodeId: node2.id,
       sceneId: scene2.id,
       requiredEvidence: Object.freeze({
@@ -82109,7 +82117,7 @@ ${spelling}`);
     if (!contract2 || model2.provenance?.packageId !== contract2.packageId || model2.provenance.packageOrder !== contract2.packageOrder || model2.provenance.answerVisibility !== "after-attempt" || model2.provenance.moodle?.moduleId !== contract2.moduleId || model2.provenance.moodle.sourceTask !== "recording-embedded-mondai-2" || model2.provenance.moodle.answerKeyBasis !== "reviewed-original-audio-statements-and-dialogues" || audio2?.sourceId !== `moodle:${contract2?.audioSha256}:audio` || audio2.payloadSha256 !== contract2?.audioSha256 || audio2.locator !== contract2?.audioLocator || audio2.url !== contract2?.audioUrl || audio2.durationSeconds !== contract2?.durationSeconds || audio2.label !== contract2?.audioLabel) {
       issues2.push({ path: "provenance.moodle", message: "An exact reviewed Moodle Minna recording and embedded task contract are required." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en)) {
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en)) {
       issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -82121,14 +82129,14 @@ ${spelling}`);
       tasks2.forEach((task2, index) => {
         const [id2, statement, mark] = contract2.tasks[index];
         const sourceQuestionId2 = `${contract2.sourcePrefix}:item-${index + 1}`;
-        if (task2.id !== id2 || task2.sourceOrder !== index + 1 || task2.sourceQuestionId !== sourceQuestionId2 || task2.statement !== statement || task2.correctMark !== mark || ids2.has(task2.id) || sourceIds.has(task2.sourceQuestionId) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression)) {
+        if (task2.id !== id2 || task2.sourceOrder !== index + 1 || task2.sourceQuestionId !== sourceQuestionId2 || task2.statement !== statement || task2.correctMark !== mark || ids2.has(task2.id) || sourceIds.has(task2.sourceQuestionId) || !model2.conceptIds.includes(task2.conceptId) || !text$g(task2.errorTag) || !text$g(task2.reviewExpression)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Each source statement needs its exact order, mark, and evidence identity." });
         }
         ids2.add(task2.id);
         sourceIds.add(task2.sourceQuestionId);
       });
     }
-    if (!contract2 || !Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== contract2.transcriptLineCount || model2.payload.transcript.some((line2) => ![1, 2, 3, 4, 5].includes(line2.item) || !["A", "B", "文"].includes(line2.speaker) || !text$f(line2.text))) {
+    if (!contract2 || !Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== contract2.transcriptLineCount || model2.payload.transcript.some((line2) => ![1, 2, 3, 4, 5].includes(line2.item) || !["A", "B", "文"].includes(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed five-item source transcript is required after an attempt." });
     } else {
       for (const task2 of tasks2 ?? []) {
@@ -84101,7 +84109,7 @@ ${spelling}`);
     }
     requireLocalized(payload.passFeedback, "payload.passFeedback", issues2);
     const lapse = payload.lapseFeedback;
-    if (!text$d(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
+    if (!text$e(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
     requireLocalized(lapse?.contrast, "payload.lapseFeedback.contrast", issues2);
     requireLocalized(lapse?.repairPrompt, "payload.lapseFeedback.repairPrompt", issues2);
     requireLocalized(lapse?.nearbyExample, "payload.lapseFeedback.nearbyExample", issues2);
@@ -84110,17 +84118,17 @@ ${spelling}`);
       if (!diagnostic.responseIncludesAny?.length || diagnostic.responseIncludesAny.some((fragment2) => !containsJapanese(normalizeJapaneseResponse(fragment2)))) {
         issues2.push({ path: `${path}.responseIncludesAny`, message: "A diagnostic needs one or more Japanese response fragments." });
       }
-      if (!text$d(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
+      if (!text$e(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
       requireLocalized(diagnostic.feedback?.contrast, `${path}.feedback.contrast`, issues2);
       requireLocalized(diagnostic.feedback?.repairPrompt, `${path}.feedback.repairPrompt`, issues2);
       requireLocalized(diagnostic.feedback?.nearbyExample, `${path}.feedback.nearbyExample`, issues2);
     }
-    if (!text$d(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
-    if (!text$d(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$d)) {
+    if (!text$e(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
+    if (!text$e(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$e)) {
       issues2.push({ path: "payload.reviewContent", message: "Reviewable expression and meaning are required." });
     }
     const readingSupport2 = payload.promptReadingSupport;
-    if (readingSupport2 && (!text$d(readingSupport2.reading) || !text$d(readingSupport2.pitch))) {
+    if (readingSupport2 && (!text$e(readingSupport2.reading) || !text$e(readingSupport2.pitch))) {
       issues2.push({ path: "payload.promptReadingSupport", message: "Prompt support needs both a reading and pitch description." });
     }
     const hints2 = payload.hints ?? [];
@@ -84163,7 +84171,7 @@ ${spelling}`);
         issues2.push({ path: `payload.hints.${index}`, message: "A tiered hint must not reveal a complete accepted answer." });
       }
     }
-    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
+    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$e(value))).filter(Boolean);
     for (const answer2 of normalizedAnswers) {
       if (japanesePreCommit.some((copy2) => copy2.includes(answer2))) {
         issues2.push({ path: "prompt", message: "Pre-commit prompt or reading support must not reveal an accepted answer." });
@@ -84180,22 +84188,22 @@ ${spelling}`);
     return issues2;
   }
   function hintLeaksAcceptedAnswer(hint2, answers) {
-    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
+    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$e(value))).filter(Boolean);
     return [...answers].some((answer2) => surfaces.some((surface) => surface.includes(answer2)));
   }
   function diagnosticFeedback(model2, normalizedResponse) {
     return model2.payload.lapseDiagnostics?.find((diagnostic) => diagnostic.responseIncludesAny.some((fragment2) => normalizedResponse.includes(normalizeJapaneseResponse(fragment2))))?.feedback;
   }
   function requireLocalized(value, path, issues2) {
-    if (!text$d(value?.en) || !text$d(value?.ja)) {
+    if (!text$e(value?.en) || !text$e(value?.ja)) {
       issues2.push({ path, message: "Bilingual authored feedback is required." });
     }
   }
-  function text$d(value) {
+  function text$e(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function normalizeEnglish(value) {
-    return text$d(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
+    return text$e(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
   }
   function containsJapanese(value) {
     return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(value);
@@ -85549,28 +85557,28 @@ ${spelling}`);
     panel.prepend(guide);
   }
   function placementBriefing(language) {
-    const section = element("section", "academy-placement-briefing");
-    section.append(
+    const section2 = element("section", "academy-placement-briefing");
+    section2.append(
       copyElement("h2", "academy-placement-step-title", language, "mockGuideTitle"),
       copyElement("p", "academy-placement-step-body", language, "mockGuideBody")
     );
     const lines = element("div", "academy-placement-briefing-lines");
     ["mockGuideLanguage", "mockGuideReading", "mockGuideListening"].forEach((key2) => lines.append(copyElement("p", "academy-placement-briefing-line", language, key2)));
-    section.append(lines);
-    return section;
+    section2.append(lines);
+    return section2;
   }
   function createProductionDesk(language, band, draft, onChange) {
-    const section = element("section", "academy-placement-production");
-    section.append(
+    const section2 = element("section", "academy-placement-production");
+    section2.append(
       copyElement("h2", "academy-placement-step-title", language, "mockProductionTitle"),
       copyElement("p", "academy-placement-step-body", language, "mockProductionBody")
     );
     const prompts2 = placementProductionPrompt(band);
-    section.append(
+    section2.append(
       productionTask(language, "speaking", prompts2.speaking, draft, onChange),
       productionTask(language, "writing", prompts2.writing, draft, onChange)
     );
-    return section;
+    return section2;
   }
   function productionTask(language, kind, prompt2, draft, onChange) {
     const attempt = draft.production[kind];
@@ -85869,21 +85877,21 @@ ${spelling}`);
     return stage2.element;
   }
   function entry$1(step2, language, labelText, control2) {
-    const section = document.createElement("section");
-    section.className = "academy-profile-vn-entry";
-    section.dataset.profileStep = step2;
+    const section2 = document.createElement("section");
+    section2.className = "academy-profile-vn-entry";
+    section2.dataset.profileStep = step2;
     const label = document.createElement("label");
     label.className = "academy-label";
     label.lang = language;
     label.textContent = labelText;
     label.append(control2);
-    section.append(label);
-    return section;
+    section2.append(label);
+    return section2;
   }
   function portraitEntry(language, selected2, onSelect) {
-    const section = document.createElement("section");
-    section.className = "academy-profile-vn-entry";
-    section.dataset.profileStep = "portrait";
+    const section2 = document.createElement("section");
+    section2.className = "academy-profile-vn-entry";
+    section2.dataset.profileStep = "portrait";
     const fieldset = document.createElement("fieldset");
     fieldset.className = "academy-portrait-fieldset";
     fieldset.setAttribute("aria-label", academyText(language, "profilePortraitLegend"));
@@ -85914,8 +85922,8 @@ ${spelling}`);
       grid.append(label);
     }
     fieldset.append(legend2, grid);
-    section.append(fieldset);
-    return section;
+    section2.append(fieldset);
+    return section2;
   }
   function interpolate$1(template, name) {
     return template.replace("{name}", name);
@@ -86354,6 +86362,264 @@ ${spelling}`);
   function interpolate(language, key2, values) {
     return Object.entries(values).reduce((copy2, [name, value]) => copy2.replace(`{${name}}`, value), academyText(language, key2));
   }
+  const VOWELS = ["あ", "い", "う", "え", "お"];
+  function blankAtlasSceneProp(options) {
+    if (!options.moment.scene.id.startsWith("scene:blank-atlas:")) return null;
+    const nodeId = options.moment.kind === "complete" ? "complete" : options.moment.node.id;
+    const sceneId = options.moment.scene.id;
+    const root = section("academy-blank-atlas-prop");
+    root.dataset.sceneSignature = sceneSignature(sceneId);
+    root.dataset.sceneId = sceneId;
+    switch (sceneId) {
+      case "scene:blank-atlas:arrival-greetings":
+        root.append(atlasProp(nodeId === "node:blank-atlas:first-uncover"));
+        break;
+      case "scene:blank-atlas:sound-script-map":
+        root.append(vowelRouteProp(nodeId));
+        break;
+      case "scene:blank-atlas:classroom-survival":
+        root.append(classroomHandoutProp(nodeId === "node:blank-atlas:handout-flower"));
+        break;
+      case "scene:blank-atlas:sentence-frames":
+        root.append(sentenceDoorProp(nodeId === "node:blank-atlas:label-fixed"));
+        break;
+      case "scene:blank-atlas:useful-vocabulary":
+        root.append(nameCardProp(options.learner?.displayName ?? (options.language === "ja" ? "あなた" : "Your name")));
+        break;
+      case "scene:blank-atlas:mission-sound":
+        root.append(soundMissionProp(nodeId));
+        break;
+      case "scene:blank-atlas:mission-text":
+        root.append(textMissionProp(options.language));
+        break;
+      case "scene:blank-atlas:mission-speaking":
+        root.append(speakingDoorProp(options.language));
+        break;
+      case "scene:blank-atlas:reading-writing":
+        root.append(publicCardProp(options.language, nodeId, options.learner?.displayName));
+        break;
+      case "scene:blank-atlas:transfer":
+        root.append(lanternRouteProp(nodeId === "node:blank-atlas:first-lantern"));
+        break;
+      case "scene:blank-atlas:close":
+        root.append(routeArrowProp(options.language));
+        break;
+      default:
+        return null;
+    }
+    return { element: root };
+  }
+  function atlasProp(uncovered) {
+    const prop = section("academy-atlas-prop");
+    prop.dataset.uncovered = String(uncovered);
+    prop.setAttribute("aria-label", uncovered ? "The blank Lantern Atlas is uncovered." : "A covered atlas waits on the table.");
+    const frame2 = section("academy-atlas-frame");
+    frame2.append(text$d("span", "academy-atlas-title", "LANTERN ATLAS"), text$d("span", "academy-atlas-empty-route", ""));
+    const cloth = text$d("span", "academy-atlas-cloth", "");
+    cloth.setAttribute("aria-hidden", "true");
+    prop.append(frame2, cloth);
+    return prop;
+  }
+  function vowelRouteProp(nodeId) {
+    const written = nodeId === "node:blank-atlas:first-line";
+    const prop = section("academy-vowel-route-prop");
+    prop.dataset.routeComplete = String(written);
+    prop.setAttribute("aria-label", written ? "Five vowel marks now form the first route." : "Five empty sound places wait in a row.");
+    const route = section("academy-vowel-route-line");
+    VOWELS.forEach((vowel, index) => {
+      const mark = text$d("span", "academy-vowel-route-mark", written ? vowel : String(index + 1));
+      mark.lang = written ? "ja" : "en";
+      route.append(mark);
+    });
+    prop.append(text$d("p", "academy-prop-label", written ? "あ い う え お" : "Five sounds. One route."), route);
+    return prop;
+  }
+  function classroomHandoutProp(flowerEarned) {
+    const prop = section("academy-classroom-handout-prop");
+    prop.dataset.flowerEarned = String(flowerEarned);
+    prop.setAttribute("aria-label", flowerEarned ? "The classroom handout has earned a flower mark." : "A classroom action handout is open.");
+    prop.append(
+      text$d("p", "academy-prop-label", "IN CLASS"),
+      actionSlip("みて", "look"),
+      actionSlip("きいて", "listen"),
+      actionSlip("かいて", "write")
+    );
+    if (flowerEarned) prop.append(text$d("span", "academy-paper-flower", ""));
+    return prop;
+  }
+  function sentenceDoorProp(resolved) {
+    const prop = section("academy-sentence-door-prop");
+    prop.dataset.resolved = String(resolved);
+    prop.setAttribute("aria-label", resolved ? "The supported classroom label has a clear door frame." : "Two possible room labels wait for evidence.");
+    prop.append(
+      sentenceLabel("ここは 教室です。", "This is the classroom.", resolved),
+      sentenceLabel("ここは 図書室です。", "This is the library.", false)
+    );
+    return prop;
+  }
+  function nameCardProp(displayName2) {
+    const prop = section("academy-name-card-prop");
+    prop.setAttribute("aria-label", `Class name card for ${displayName2}.`);
+    prop.append(
+      text$d("span", "academy-name-card-pin", ""),
+      text$d("p", "academy-prop-label", "CLASS NAME"),
+      text$d("strong", "academy-name-card-name", displayName2),
+      text$d("span", "academy-name-card-desu", "です。")
+    );
+    return prop;
+  }
+  function soundMissionProp(nodeId) {
+    const resolved = nodeId === "line:blank-atlas:mika-sound-result" || nodeId === "node:blank-atlas:sound-memento" || nodeId === "complete";
+    const prop = section("academy-sound-mission-prop");
+    prop.dataset.resolved = String(resolved);
+    prop.setAttribute("aria-label", resolved ? "The two voices are matched to Xingyu and Mika." : "Two voices wait for their name labels.");
+    prop.append(
+      soundNameplate("Xingyu", resolved),
+      text$d("span", "academy-sound-wave", ""),
+      soundNameplate("Mika", resolved)
+    );
+    return prop;
+  }
+  function textMissionProp(language) {
+    const prop = section("academy-text-mission-prop");
+    prop.dataset.inspected = "false";
+    const note = section("academy-folded-note");
+    note.append(
+      text$d("p", "academy-prop-label", "Sophie / Ruparna"),
+      text$d("p", "academy-note-line", "ソフィー ___ 学生です。"),
+      text$d("p", "academy-note-line", "これは ___ 本です。"),
+      text$d("p", "academy-note-margin", "")
+    );
+    const inspect = button$3(language === "ja" ? "端を見る" : "Inspect the margin", "academy-note-inspect");
+    inspect.setAttribute("aria-pressed", "false");
+    inspect.addEventListener("click", () => {
+      prop.dataset.inspected = "true";
+      inspect.setAttribute("aria-pressed", "true");
+      inspect.textContent = language === "ja" ? "名前と本" : "Names and a book";
+    });
+    prop.append(note, inspect);
+    return prop;
+  }
+  function speakingDoorProp(language) {
+    const prop = section("academy-speaking-door-prop");
+    prop.dataset.open = "false";
+    const door = section("academy-classroom-door");
+    door.append(text$d("span", "academy-door-window", ""));
+    const names = section("academy-door-nameplates");
+    names.hidden = true;
+    names.append(text$d("span", "", "Aakash"), text$d("span", "", "Sam"));
+    const open = button$3(language === "ja" ? "ドアを開ける" : "Open the door", "academy-door-open");
+    open.setAttribute("aria-expanded", "false");
+    open.addEventListener("click", () => {
+      prop.dataset.open = "true";
+      names.hidden = false;
+      open.setAttribute("aria-expanded", "true");
+      open.textContent = language === "ja" ? "どうぞ" : "Come in";
+    });
+    prop.append(door, names, open);
+    return prop;
+  }
+  function publicCardProp(language, nodeId, displayName2) {
+    const prop = section("academy-public-card-prop");
+    const readyToTurn = nodeId === "node:blank-atlas:card-turns-over";
+    prop.dataset.face = "down";
+    const face = section("academy-public-card-face");
+    const renderFace = () => {
+      const publicSide = prop.dataset.face === "public";
+      face.replaceChildren(
+        text$d("p", "academy-prop-label", publicSide ? "CLASS LINE" : "YOUR CARD"),
+        text$d("strong", "academy-public-card-line", publicSide ? `${displayName2 ?? "Your name"} です。` : "")
+      );
+    };
+    renderFace();
+    if (!readyToTurn) {
+      prop.append(face);
+      return prop;
+    }
+    const flip = button$3(language === "ja" ? "カードを返す" : "Turn the card", "academy-card-flip");
+    flip.addEventListener("click", () => {
+      prop.dataset.face = "public";
+      renderFace();
+      flip.remove();
+    });
+    prop.append(face, flip);
+    return prop;
+  }
+  function lanternRouteProp(lit) {
+    const prop = section("academy-lantern-route-prop");
+    prop.dataset.firstLantern = String(lit);
+    prop.setAttribute("aria-label", lit ? "One earned lantern is lit; the other routes remain blank." : "A blank route waits for the transfer.");
+    const route = section("academy-lantern-route");
+    for (let index = 0; index < 5; index += 1) {
+      const lantern = text$d("span", "academy-route-lantern", "");
+      lantern.dataset.lit = String(lit && index === 0);
+      route.append(lantern);
+    }
+    prop.append(route);
+    return prop;
+  }
+  function routeArrowProp(language) {
+    const prop = section("academy-route-arrow-prop");
+    prop.setAttribute("aria-label", "The entrance arrow now points back to your saved route.");
+    prop.append(
+      text$d("span", "academy-route-arrow-mark", "->"),
+      text$d("strong", "academy-route-arrow-label", language === "ja" ? "つづきから" : "Your route")
+    );
+    return prop;
+  }
+  function actionSlip(japanese2, english) {
+    const slip = section("academy-action-slip");
+    slip.append(text$d("strong", "", japanese2), text$d("span", "", english));
+    return slip;
+  }
+  function sentenceLabel(japanese2, english, supported) {
+    const label = section("academy-sentence-label");
+    label.dataset.supported = String(supported);
+    label.append(text$d("strong", "", japanese2), text$d("span", "", english));
+    return label;
+  }
+  function soundNameplate(name, resolved) {
+    const plate = section("academy-sound-nameplate");
+    plate.dataset.resolved = String(resolved);
+    plate.append(text$d("span", "", resolved ? name : "?"));
+    return plate;
+  }
+  function sceneSignature(sceneId) {
+    const order2 = [
+      "arrival-greetings",
+      "sound-script-map",
+      "classroom-survival",
+      "sentence-frames",
+      "useful-vocabulary",
+      "mission-sound",
+      "mission-text",
+      "mission-speaking",
+      "reading-writing",
+      "transfer",
+      "close"
+    ];
+    const suffix = sceneId.replace("scene:blank-atlas:", "");
+    const index = order2.indexOf(suffix);
+    return index < 0 ? "U000" : `U${String(index + 1).padStart(3, "0")}`;
+  }
+  function section(className) {
+    const value = document.createElement("section");
+    value.className = className;
+    return value;
+  }
+  function text$d(tag, className, value) {
+    const element2 = document.createElement(tag);
+    if (className) element2.className = className;
+    element2.textContent = value;
+    return element2;
+  }
+  function button$3(label, className) {
+    const control2 = document.createElement("button");
+    control2.type = "button";
+    control2.className = className;
+    control2.textContent = label;
+    return control2;
+  }
   function renderStoryScreen(options) {
     const screen = element("section", "academy-story-screen");
     screen.dataset.academyScreen = "story";
@@ -86429,15 +86695,18 @@ ${spelling}`);
     return main;
   }
   function renderEpisode(options, episode2) {
-    const arc = options.story.playableArc(episode2.id);
+    const cursor = parseStoryCursor(options.sectionId);
+    const legacyArrival = episode2.id === options.story.openingArc.episodeId && cursor?.arcId === options.story.openingArc.id && cursor.sceneId.startsWith("scene:opening-arrival:");
+    const arc = legacyArrival ? options.story.openingArc : options.story.playableArc(episode2.id);
     if (arc) {
-      const cursor = parseStoryCursor(options.sectionId);
+      const compatibleCursor = !legacyArrival && cursor?.arcId === options.story.openingArc.id && arc.scene(cursor.sceneId) ? { ...cursor, arcId: arc.id } : cursor;
       const mode = options.arcModeForEpisode?.(episode2.id, cursor) ?? (episode2.id === options.story.openingArc.episodeId ? options.openingArcMode ?? "chronological-replay" : "canonical");
       const nextEpisode = options.story.episodes[episode2.ordinal];
       const nextPlayable = nextEpisode && options.story.playableArc(nextEpisode.id) ? nextEpisode : void 0;
       const finishLabel = nextPlayable ? options.language === "ja" ? `エピソード${nextPlayable.ordinal}へ` : `Continue to Episode ${nextPlayable.ordinal}` : options.language === "ja" ? "エピソード一覧へ" : "Episode list";
       return renderPlayableArc({
         ...options,
+        ...compatibleCursor ? { sectionId: serializeStoryCursor(compatibleCursor) } : {},
         mode,
         finishLabel,
         onReturnToEpisodes: options.onReturnToEpisodes,
@@ -86521,6 +86790,12 @@ ${spelling}`);
         stage2.setDirection(directionForScene(moment.scene));
       }
       stage2.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
+      stage2.setObject(blankAtlasSceneProp({
+        language: options.language,
+        moment,
+        cursor: runner.cursor,
+        ...options.learner ? { learner: options.learner } : {}
+      }));
       switch (moment.kind) {
         case "line":
           stage2.setLine({
@@ -86532,7 +86807,7 @@ ${spelling}`);
             reading: storyReadingControl(options.language),
             translation: moment.line.english,
             translationEarned: true,
-            translationVisible: options.language === "en" && options.selectedBand === void 0,
+            translationVisible: options.language === "en" && resolveStoryBand(options.selectedBand) === "foundation",
             ...moment.node.speakerId && moment.node.speakerId !== "learner" ? { voice: { band: moment.line.band } } : {}
           });
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
@@ -86639,20 +86914,21 @@ ${spelling}`);
     root.dataset.activityRegistered = String(moment.binding.registered);
     if (arc.curriculum.contentSha256) root.dataset.sourceSha256 = arc.curriculum.contentSha256;
     root.dataset.activityGate = moment.gate;
-    const lessonPin = moment.binding.lessonId === "lesson:foundation-00" ? " · Lesson 0" : "";
     root.append(
-      textElement$1("strong", "academy-story-activity-kind", `${capitalize$1(moment.binding.componentType)}${lessonPin}`),
-      textElement$1("span", "academy-story-activity-id", moment.binding.exerciseId),
+      textElement$1("strong", "academy-story-activity-kind", storyActivityLabel(
+        options.language,
+        moment.binding.componentType
+      )),
       textElement$1("p", "academy-story-activity-state", moment.binding.registered ? activityGateLabel(options.language, moment.gate) : options.language === "ja" ? "練習は準備中です。" : "Practice is being prepared.")
     );
     const controls = element("div", "academy-story-vn-activity-actions");
     if (moment.binding.registered && actions.open) {
-      const open = actionButton$6(options.language === "ja" ? "練習を開く" : "Open practice", "academy-story-open-activity", actions.open);
+      const open = actionButton$6(options.language === "ja" ? "やってみる" : "Try this step", "academy-story-open-activity", actions.open);
       open.dataset.storyCursor = serializeStoryCursor(cursor);
       controls.append(open);
     }
     if (moment.gate === "passed" || moment.gate === "placement-equivalent") {
-      controls.append(actionButton$6(options.language === "ja" ? "物語を続ける" : "Continue story", "academy-story-activity-continue", actions.continue));
+      controls.append(actionButton$6(options.language === "ja" ? "教室に戻る" : "Back to the room", "academy-story-activity-continue", actions.continue));
     }
     root.append(controls);
     return { element: root };
@@ -86791,6 +87067,7 @@ ${spelling}`);
     throw new Error(`Unsupported story practice interaction ${String(practice2.interaction)}.`);
   }
   function episodeIdForCursor(story, cursor) {
+    if (cursor.arcId === story.openingArc.id) return story.openingArc.episodeId;
     return story.episodes.find((episode2) => story.playableArc(episode2.id)?.id === cursor.arcId)?.id;
   }
   function unsupportedStoryMoment(moment) {
@@ -86907,12 +87184,26 @@ ${spelling}`);
   }
   function activityGateLabel(language, gate) {
     const labels = {
-      passed: { en: "Exact activity evidence found.", ja: "この練習の学習記録があります。" },
-      "placement-equivalent": { en: "Placement preserves the story here; the activity remains uncredited.", ja: "プレイスメントで物語を続けられます。練習の単位は付きません。" },
-      lapse: { en: "This exact activity needs another attempt.", ja: "この練習をもう一度試してください。" },
-      missing: { en: "No evidence yet for this exact activity.", ja: "この練習の学習記録はまだありません。" }
+      passed: { en: "Done. The room is ready.", ja: "できました。教室に戻れます。" },
+      "placement-equivalent": { en: "You can continue. This step stays open for practice.", ja: "続けられます。この練習はいつでもできます。" },
+      lapse: { en: "Nearly there. Try this step once more.", ja: "もう少しです。もう一度やってみましょう。" },
+      missing: { en: "Try this step to move the scene forward.", ja: "このステップをやって、場面を進めましょう。" }
     };
     return labels[gate][language];
+  }
+  function storyActivityLabel(language, componentType) {
+    const labels = {
+      speaking: { en: "Say it aloud", ja: "声に出す" },
+      listening: { en: "Listen and choose", ja: "聞いて選ぶ" },
+      writing: { en: "Write it", ja: "書いてみる" },
+      reading: { en: "Read and choose", ja: "読んで選ぶ" },
+      grammar: { en: "Build the line", ja: "文を作る" },
+      vocabulary: { en: "Match the words", ja: "言葉を合わせる" },
+      transfer: { en: "Use it on your own", ja: "自分で使う" },
+      recognition: { en: "Notice the pattern", ja: "形を見つける" },
+      "authentic-input": { en: "Use it in class", ja: "教室で使う" }
+    };
+    return labels[componentType]?.[language] ?? (language === "ja" ? "やってみる" : "Try this step");
   }
   function directionForScene(scene2) {
     const eventArt = STORY_EVENT_ART_BY_SCENE[scene2.id];
@@ -87043,25 +87334,25 @@ ${spelling}`);
     return main;
   }
   function metadataSection(title2, body) {
-    const section = element("section", "academy-story-beat");
-    section.append(textElement$1("h2", "", title2), textElement$1("p", "", body));
-    return section;
+    const section2 = element("section", "academy-story-beat");
+    section2.append(textElement$1("h2", "", title2), textElement$1("p", "", body));
+    return section2;
   }
   function listSection(title2, values, className = "") {
-    const section = element("section", `academy-story-meta-section ${className}`.trim());
-    section.append(textElement$1("h2", "", title2));
+    const section2 = element("section", `academy-story-meta-section ${className}`.trim());
+    section2.append(textElement$1("h2", "", title2));
     const list2 = element("ul", "academy-story-chip-list");
     values.forEach((value) => list2.append(textElement$1("li", "", value)));
-    section.append(list2);
-    return section;
+    section2.append(list2);
+    return section2;
   }
   function detailSection(title2, rows, className = "") {
-    const section = element("section", `academy-story-meta-section ${className}`.trim());
-    section.append(textElement$1("h2", "", title2));
+    const section2 = element("section", `academy-story-meta-section ${className}`.trim());
+    section2.append(textElement$1("h2", "", title2));
     const details = element("dl", "academy-story-details");
     rows.forEach(([term, description]) => details.append(textElement$1("dt", "", term), textElement$1("dd", "", description)));
-    section.append(details);
-    return section;
+    section2.append(details);
+    return section2;
   }
   function actionButton$6(label, className, action2) {
     const button2 = element("button", `academy-button ${className}`);
@@ -87086,9 +87377,6 @@ ${spelling}`);
     const node2 = textElement$1(tag, className, text2 ?? "");
     node2.lang = language;
     return node2;
-  }
-  function capitalize$1(value) {
-    return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
   }
   function createEnrollmentFlow(options) {
     return new EnrollmentFlow(options);
@@ -161697,7 +161985,7 @@ ${spelling}`);
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Five source-grounded teaching steps must precede retrieval." });
     }
     const rounds = model2.payload?.rounds;
@@ -161711,7 +161999,7 @@ ${spelling}`);
       "message-choice",
       "typed-quote"
     ];
-    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$f(item2.sourceQuestionId) || !text$f(item2.prompt.en) || !text$f(item2.prompt.ja) || !text$f(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-quote" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$g(item2.sourceQuestionId) || !text$g(item2.prompt.en) || !text$g(item2.prompt.ja) || !text$g(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-quote" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Eight exact-source rounds with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -161739,14 +162027,14 @@ ${spelling}`);
     const groups = document.createElement("div");
     groups.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const title2 = document.createElement("h3");
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$p(model2, round2, host2)));
-      section.append(title2, list2);
-      groups.append(section);
+      section2.append(title2, list2);
+      groups.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -161792,9 +162080,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$q(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -161802,9 +162090,9 @@ ${spelling}`);
       const copy2 = document.createElement("p");
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderRound$p(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -161853,10 +162141,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$k(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの先生の原文" : "Sensei’s source wording after your attempt";
     const list2 = document.createElement("ol");
@@ -161866,8 +162154,8 @@ ${spelling}`);
       item2.textContent = round2.answer;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$G(model2, form2) {
     const data = new FormData(form2);
@@ -161883,7 +162171,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Reported-message responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -163887,7 +164175,7 @@ ${spelling}`);
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 6 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 6 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Five source teaching steps and one boundary must precede retrieval." });
     }
     const interactions = [
@@ -163900,7 +164188,7 @@ ${spelling}`);
       "typed-source"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 7 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$f(item2.sourceQuestionId) || !text$f(item2.prompt.en) || !text$f(item2.prompt.ja) || !text$f(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 7 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$g(item2.sourceQuestionId) || !text$g(item2.prompt.en) || !text$g(item2.prompt.ja) || !text$g(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Seven exact-source rounds with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -163928,14 +164216,14 @@ ${spelling}`);
     const groups = document.createElement("div");
     groups.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const title2 = document.createElement("h3");
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$o(model2, round2, host2)));
-      section.append(title2, list2);
-      groups.append(section);
+      section2.append(title2, list2);
+      groups.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -163981,9 +164269,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$p(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       block.dataset.attribution = step2.attribution;
@@ -163992,9 +164280,9 @@ ${spelling}`);
       const copy2 = document.createElement("p");
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderRound$o(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -164043,10 +164331,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$j(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの先生の原文" : "Sensei’s source wording after your attempt";
     const list2 = document.createElement("ol");
@@ -164056,8 +164344,8 @@ ${spelling}`);
       item2.textContent = round2.answer;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$F(model2, form2) {
     const data = new FormData(form2);
@@ -164073,7 +164361,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Follow-the-model responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -232690,7 +232978,7 @@ ${spelling}`);
     if (model2.provenance?.support.genki.used !== false || model2.provenance.support.genki.learnerFacingPayload !== "none") {
       issues2.push({ path: "provenance.support.genki", message: "Genki is not used and contributes no learner-facing payload." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 9 || model2.payload.teaching.slice(0, 7).some((step2) => step2.attribution !== "sensei-source") || model2.payload.teaching.slice(7).some((step2) => step2.attribution !== "yomu-boundary") || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 9 || model2.payload.teaching.slice(0, 7).some((step2) => step2.attribution !== "sensei-source") || model2.payload.teaching.slice(7).some((step2) => step2.attribution !== "yomu-boundary") || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Seven source teaching steps and two boundaries must precede retrieval." });
     }
     const interactions = [
@@ -232704,7 +232992,7 @@ ${spelling}`);
       "typed-source"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$f(item2.sourceQuestionId) || !text$f(item2.prompt.en) || !text$f(item2.prompt.ja) || !text$f(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && (!item2.options.some((option2) => option2.value === item2.answer && option2.origin === "sensei-source") || item2.options.some((option2) => option2.value !== item2.answer && option2.origin !== "yomu-scaffolding")))) {
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$g(item2.sourceQuestionId) || !text$g(item2.prompt.en) || !text$g(item2.prompt.ja) || !text$g(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && (!item2.options.some((option2) => option2.value === item2.answer && option2.origin === "sensei-source") || item2.options.some((option2) => option2.value !== item2.answer && option2.origin !== "yomu-scaffolding")))) {
       issues2.push({ path: "payload.rounds", message: "Eight exact-source script lines with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -232732,14 +233020,14 @@ ${spelling}`);
     const groups = document.createElement("div");
     groups.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const title2 = document.createElement("h3");
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$n(model2, round2, host2)));
-      section.append(title2, list2);
-      groups.append(section);
+      section2.append(title2, list2);
+      groups.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -232786,9 +233074,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$o(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       block.dataset.attribution = step2.attribution;
@@ -232797,9 +233085,9 @@ ${spelling}`);
       const copy2 = document.createElement("p");
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderRound$n(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -232848,18 +233136,18 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$i(language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの先生の原文" : "Sensei’s source wording after your attempt";
     const list2 = document.createElement("ol");
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
-  function revealAnswerKey$1(section, model2) {
-    const list2 = section.querySelector("ol");
+  function revealAnswerKey$1(section2, model2) {
+    const list2 = section2.querySelector("ol");
     if (!list2 || list2.childElementCount > 0) return;
     model2.payload.rounds.forEach((round2) => {
       const item2 = document.createElement("li");
@@ -232882,7 +233170,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Conversation-script responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -233159,7 +233447,7 @@ ${spelling}`);
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.slice(0, 4).some((step2) => step2.attribution !== "sensei-source" || !text$f(step2.title) || !text$f(step2.text)) || model2.payload.teaching[4]?.attribution !== "yomu-boundary") {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.slice(0, 4).some((step2) => step2.attribution !== "sensei-source" || !text$g(step2.title) || !text$g(step2.text)) || model2.payload.teaching[4]?.attribution !== "yomu-boundary") {
       issues2.push({ path: "payload.teaching", message: "Four source teaching blocks and one explicit boundary are required." });
     }
     const interactions = [
@@ -233178,7 +233466,7 @@ ${spelling}`);
       "source-choice"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 13 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$f(item2.sourceQuestionId) || !text$f(item2.prompt.en) || !text$f(item2.prompt.ja) || !text$f(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : item2.sourceTask === "homework-match" ? 5 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 13 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$g(item2.sourceQuestionId) || !text$g(item2.prompt.en) || !text$g(item2.prompt.ja) || !text$g(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : item2.sourceTask === "homework-match" ? 5 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Eight verbatim examples and five deterministic homework matches are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -233206,14 +233494,14 @@ ${spelling}`);
     const groups = document.createElement("div");
     groups.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const title2 = document.createElement("h3");
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$m(model2, round2, host2)));
-      section.append(title2, list2);
-      groups.append(section);
+      section2.append(title2, list2);
+      groups.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -233259,9 +233547,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$n(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       block.dataset.attribution = step2.attribution;
@@ -233270,9 +233558,9 @@ ${spelling}`);
       const copy2 = document.createElement("p");
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderRound$m(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -233321,10 +233609,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$h(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの印刷例と宿題の答え" : "Printed examples and homework answers after your attempt";
     const list2 = document.createElement("ol");
@@ -233334,8 +233622,8 @@ ${spelling}`);
       item2.textContent = round2.answer;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$D(model2, form2) {
     const data = new FormData(form2);
@@ -233351,7 +233639,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("l2-l36 responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -233606,7 +233894,7 @@ ${spelling}`);
     if (model2.payload.vocabulary.length !== 15 || !model2.payload.vocabulary.some((entry2) => entry2.note?.includes("source typo"))) {
       issues2.push({ path: "payload.vocabulary", message: "The corrected Chapter 36-2 source vocabulary is required." });
     }
-    if (model2.payload.rounds.length !== 5 || model2.payload.rounds.some((round2, index) => round2.sourceOrder !== index + 1 || !text$f(round2.prompt.en) || !text$f(round2.prompt.ja) || !text$f(round2.answer) || !model2.conceptIds.includes(round2.conceptId))) {
+    if (model2.payload.rounds.length !== 5 || model2.payload.rounds.some((round2, index) => round2.sourceOrder !== index + 1 || !text$g(round2.prompt.en) || !text$g(round2.prompt.ja) || !text$g(round2.answer) || !model2.conceptIds.includes(round2.conceptId))) {
       issues2.push({ path: "payload.rounds", message: "The five printed ability transformations are required." });
     }
     validateFeedback(model2.payload.feedback, issues2);
@@ -233693,14 +233981,14 @@ ${spelling}`);
     };
   }
   function renderListening$1(model2, host2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching academy-lesson-ten-listening";
-    section.dataset.lessonPhase = "listening";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching academy-lesson-ten-listening";
+    section2.dataset.lessonPhase = "listening";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "原本を見ながら聞く" : "Listen with the original worksheet";
     const copy2 = document.createElement("p");
     copy2.textContent = host2.language === "ja" ? "問題1は B-5、問題2は B-6 です。先に答えを予想してから、一つずつ聞いてください。" : "Question 1 uses B-5 and question 2 uses B-6. Predict first, then listen to each recording.";
-    section.append(heading, copy2);
+    section2.append(heading, copy2);
     model2.provenance.moodle.media.tracks.forEach((track2) => {
       const figure = document.createElement("figure");
       const caption2 = document.createElement("figcaption");
@@ -233712,9 +234000,9 @@ ${spelling}`);
       audio2.dataset.sourceSha256 = track2.payloadSha256;
       audio2.setAttribute("aria-label", `${track2.label} · ${host2.language === "ja" ? "Moodle 原音声" : "original Moodle audio"}`);
       figure.append(caption2, audio2);
-      section.append(figure);
+      section2.append(figure);
     });
-    return section;
+    return section2;
   }
   function renderRound$l(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -233735,10 +234023,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$g(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの先生の答え" : "Sensei’s answers after your attempt";
     const list2 = document.createElement("ol");
@@ -233748,8 +234036,8 @@ ${spelling}`);
       item2.textContent = `${round2.stem.replace("（　）", round2.answer)}（${round2.sourceVerb}）`;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$C(model2, form2) {
     const data = new FormData(form2);
@@ -233765,7 +234053,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Lesson 10 responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -236899,16 +237187,16 @@ ${spelling}`);
     validateDefinition(definition2);
     if (grounding.lessonId !== definition2.id) throw new TypeError("Lesson overview grounding belongs to another lesson.");
     const groundedActivityIds = new Set(grounding.activities.map((activity2) => activity2.id));
-    const authoredActivityIds = definition2.sections.flatMap((section) => section.activityIds);
+    const authoredActivityIds = definition2.sections.flatMap((section2) => section2.activityIds);
     if (groundedActivityIds.size !== authoredActivityIds.length || authoredActivityIds.some((activityId) => !groundedActivityIds.has(activityId))) {
       throw new TypeError("Lesson overview and grounding activity coverage do not match.");
     }
     rejectUnknownState(state, groundedActivityIds);
-    const sections = definition2.sections.map((section) => sectionModel(section, state));
-    const allRuntimeBound = sections.every((section) => section.runtimeStatus === "bound");
-    const trustedSourcePlayable = delivery.releaseChannel === "trusted-source" && sections.some((section) => section.boundActivityIds.length > 0);
+    const sections = definition2.sections.map((section2) => sectionModel(section2, state));
+    const allRuntimeBound = sections.every((section2) => section2.runtimeStatus === "bound");
+    const trustedSourcePlayable = delivery.releaseChannel === "trusted-source" && sections.some((section2) => section2.boundActivityIds.length > 0);
     const blockerIds = trustedSourcePlayable ? [] : allRuntimeBound ? [...grounding.blockerIds] : [.../* @__PURE__ */ new Set([...grounding.blockerIds, "blocker:lesson-runtime-bindings"])].sort();
-    const current = sections.find((section) => section.learningStatus !== "complete" && section.nextActivityId) ?? sections.find((section) => section.learningStatus !== "complete");
+    const current = sections.find((section2) => section2.learningStatus !== "complete" && section2.nextActivityId) ?? sections.find((section2) => section2.learningStatus !== "complete");
     return {
       lessonId: definition2.id,
       levelBand: definition2.levelBand,
@@ -236918,27 +237206,27 @@ ${spelling}`);
       blockerIds,
       sections,
       progress: {
-        completedSections: sections.filter((section) => section.learningStatus === "complete").length,
+        completedSections: sections.filter((section2) => section2.learningStatus === "complete").length,
         totalSections: sections.length
       },
       ...current ? { currentSectionId: current.id } : {},
       ...current?.nextActivityId ? { resumeActivityId: current.nextActivityId } : {}
     };
   }
-  function sectionModel(section, state) {
-    const boundActivityIds = section.activityIds.filter((activityId) => state.boundActivityIds.has(activityId));
-    const runtimeStatus = boundActivityIds.length === 0 ? "not-bound" : boundActivityIds.length === section.activityIds.length ? "bound" : "partial";
-    const completed = section.activityIds.filter((activityId) => state.completedActivityIds.has(activityId));
-    const review2 = section.activityIds.some((activityId) => state.needsReviewActivityIds.has(activityId));
-    const attempted = section.activityIds.some((activityId) => state.attemptedActivityIds.has(activityId));
-    const learningStatus = completed.length === section.activityIds.length ? "complete" : review2 ? "needs-review" : attempted ? "in-progress" : "not-started";
+  function sectionModel(section2, state) {
+    const boundActivityIds = section2.activityIds.filter((activityId) => state.boundActivityIds.has(activityId));
+    const runtimeStatus = boundActivityIds.length === 0 ? "not-bound" : boundActivityIds.length === section2.activityIds.length ? "bound" : "partial";
+    const completed = section2.activityIds.filter((activityId) => state.completedActivityIds.has(activityId));
+    const review2 = section2.activityIds.some((activityId) => state.needsReviewActivityIds.has(activityId));
+    const attempted = section2.activityIds.some((activityId) => state.attemptedActivityIds.has(activityId));
+    const learningStatus = completed.length === section2.activityIds.length ? "complete" : review2 ? "needs-review" : attempted ? "in-progress" : "not-started";
     const nextActivityId = boundActivityIds.find((activityId) => !state.completedActivityIds.has(activityId));
     return {
-      id: section.id,
-      order: section.order,
-      title: { ...section.title },
-      outcomeIds: [...section.outcomeIds],
-      activityIds: [...section.activityIds],
+      id: section2.id,
+      order: section2.order,
+      title: { ...section2.title },
+      outcomeIds: [...section2.outcomeIds],
+      activityIds: [...section2.activityIds],
       boundActivityIds,
       runtimeStatus,
       learningStatus,
@@ -236954,14 +237242,14 @@ ${spelling}`);
     validatePresentation(definition2.overview);
     const sectionIds = /* @__PURE__ */ new Set();
     const activityIds = /* @__PURE__ */ new Set();
-    definition2.sections.forEach((section, index) => {
-      if (!section.id.trim() || sectionIds.has(section.id)) throw new TypeError("Lesson overview has invalid section ids.");
-      sectionIds.add(section.id);
-      if (section.order !== index + 1) throw new TypeError(`Lesson overview section ${section.id} has the wrong order.`);
-      if (!section.title.en.trim() || !section.title.ja.trim() || !section.outcomeIds.length || !section.activityIds.length) {
-        throw new TypeError(`Lesson overview section ${section.id} is incomplete.`);
+    definition2.sections.forEach((section2, index) => {
+      if (!section2.id.trim() || sectionIds.has(section2.id)) throw new TypeError("Lesson overview has invalid section ids.");
+      sectionIds.add(section2.id);
+      if (section2.order !== index + 1) throw new TypeError(`Lesson overview section ${section2.id} has the wrong order.`);
+      if (!section2.title.en.trim() || !section2.title.ja.trim() || !section2.outcomeIds.length || !section2.activityIds.length) {
+        throw new TypeError(`Lesson overview section ${section2.id} is incomplete.`);
       }
-      for (const activityId of section.activityIds) {
+      for (const activityId of section2.activityIds) {
         if (!activityId.trim() || activityIds.has(activityId)) throw new TypeError(`Duplicate lesson activity ${activityId}.`);
         activityIds.add(activityId);
       }
@@ -237054,7 +237342,7 @@ ${spelling}`);
     const sections = element("section", "academy-lesson-overview-sections");
     sections.append(sectionTitle(language, "lessonOverviewSections"));
     const sectionList = element("ol", "academy-lesson-overview-section-list");
-    model2.sections.forEach((section, index) => sectionList.append(sectionRow(section, index, options)));
+    model2.sections.forEach((section2, index) => sectionList.append(sectionRow(section2, index, options)));
     sections.append(sectionList);
     main.append(goals, sections);
     const roster = rosterBlock(model2.presentation.peopleIds, language);
@@ -237110,30 +237398,30 @@ ${spelling}`);
     if (!canRenderAcademyCastPortrait(person.id)) return void 0;
     return ACADEMY_ASSETS.characters.approved[person.id];
   }
-  function sectionRow(section, index, options) {
+  function sectionRow(section2, index, options) {
     const { language, model: model2 } = options;
     const item2 = element("li", "academy-lesson-overview-section");
-    item2.dataset.sectionId = section.id;
-    item2.dataset.learningStatus = section.learningStatus;
-    item2.dataset.runtimeStatus = section.runtimeStatus;
-    if (section.id === model2.currentSectionId) item2.setAttribute("aria-current", "step");
+    item2.dataset.sectionId = section2.id;
+    item2.dataset.learningStatus = section2.learningStatus;
+    item2.dataset.runtimeStatus = section2.runtimeStatus;
+    if (section2.id === model2.currentSectionId) item2.setAttribute("aria-current", "step");
     const copy2 = element("span", "academy-lesson-overview-section-copy");
     const title2 = element("strong", "academy-lesson-overview-section-title");
-    title2.textContent = section.title[language];
+    title2.textContent = section2.title[language];
     const status = element("span", "academy-lesson-overview-section-status");
     const priorCompleted = model2.sections.slice(0, index).filter((candidate2) => candidate2.learningStatus === "complete").length;
-    status.textContent = section.id === model2.currentSectionId && section.learningStatus === "not-started" && priorCompleted > 0 ? language === "ja" ? `次へ · 前の${priorCompleted}項目は完了` : `Next · ${priorCompleted} earlier steps complete` : statusLabel(section.learningStatus, language);
+    status.textContent = section2.id === model2.currentSectionId && section2.learningStatus === "not-started" && priorCompleted > 0 ? language === "ja" ? `次へ · 前の${priorCompleted}項目は完了` : `Next · ${priorCompleted} earlier steps complete` : statusLabel(section2.learningStatus, language);
     copy2.append(title2, status);
-    const target2 = section.nextActivityId ?? section.boundActivityIds[0];
-    const isCurrent = section.id === model2.currentSectionId;
-    const isRevisitable = section.learningStatus === "complete" || section.learningStatus === "needs-review";
+    const target2 = section2.nextActivityId ?? section2.boundActivityIds[0];
+    const isCurrent = section2.id === model2.currentSectionId;
+    const isRevisitable = section2.learningStatus === "complete" || section2.learningStatus === "needs-review";
     const canOpen = model2.releaseStatus === "playable" && Boolean(target2) && (isCurrent || isRevisitable);
     if (canOpen && target2) {
       const action2 = element("button", "academy-lesson-overview-section-action");
       action2.type = "button";
       action2.dataset.actionPriority = isCurrent ? "primary" : "secondary";
-      action2.textContent = actionLabel(section.learningStatus, language, priorCompleted > 0);
-      action2.setAttribute("aria-label", `${action2.textContent}: ${section.title[language]}`);
+      action2.textContent = actionLabel(section2.learningStatus, language, priorCompleted > 0);
+      action2.setAttribute("aria-label", `${action2.textContent}: ${section2.title[language]}`);
       action2.addEventListener("click", () => options.onOpenActivity(target2));
       item2.append(copy2, action2);
     } else {
@@ -237507,7 +237795,7 @@ ${spelling}`);
     validateReviewTargets$1(model2, issues2);
     validatePassScore(model2.payload?.passScore, issues2);
     validateFeedback(model2.payload?.feedback, issues2);
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((point) => !text$f(point.title.ja) || !text$f(point.title.en) || !text$f(point.cue) || !text$f(point.explanation.ja) || !text$f(point.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((point) => !text$g(point.title.ja) || !text$g(point.title.en) || !text$g(point.cue) || !text$g(point.explanation.ja) || !text$g(point.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Two bilingual teaching cues must precede practice." });
     }
     if (!Array.isArray(model2.payload?.delayedReviewOf) || (model2.provenance.packageId === N3_MOCK_LISTENING_PACKAGE_IDS[0] ? model2.payload.delayedReviewOf.length !== 0 : model2.payload.delayedReviewOf.length === 0)) {
@@ -237637,8 +237925,8 @@ ${spelling}`);
     };
   }
   function renderTeaching$m(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "聞く前の手がかり" : "Cues before listening";
     const list2 = document.createElement("ol");
@@ -237654,13 +237942,13 @@ ${spelling}`);
       row.append(title2, cue, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderQuestion$2(question2, index, host2, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.questionId = question2.id;
-    section.dataset.practicePhase = question2.phase;
+    const section2 = document.createElement("section");
+    section2.dataset.questionId = question2.id;
+    section2.dataset.practicePhase = question2.phase;
     const heading = document.createElement("h3");
     heading.textContent = `${index + 1}. ${localized$j(question2.prompt, host2)}`;
     const play = document.createElement("button");
@@ -237682,14 +237970,14 @@ ${spelling}`);
       label.append(input2, assessedJapanese$2(option2.label.ja));
       fieldset.append(label);
     });
-    section.append(heading, play, fieldset);
-    return section;
+    section2.append(heading, play, fieldset);
+    return section2;
   }
   function renderProduction$1(model2, host2) {
     const production = model2.payload.production;
-    const section = document.createElement("section");
-    section.dataset.productionId = production.id;
-    section.dataset.lessonPhase = "assessed-production";
+    const section2 = document.createElement("section");
+    section2.dataset.productionId = production.id;
+    section2.dataset.lessonPhase = "assessed-production";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(production.prompt));
     const scenario = document.createElement("p");
@@ -237701,8 +237989,8 @@ ${spelling}`);
     input2.rows = 3;
     input2.lang = "ja";
     label.append(input2);
-    section.append(heading, scenario, label);
-    return section;
+    section2.append(heading, scenario, label);
+    return section2;
   }
   function revealAnswers(model2, cards, productionSection, host2, disposers) {
     cards.forEach((card, index) => {
@@ -237755,7 +238043,7 @@ ${spelling}`);
     if (answers.some((answer2) => answer2 === void 0)) return void 0;
     if (model2.payload.production) {
       const production = data.get(model2.payload.production.id);
-      if (typeof production !== "string" || !text$f(production)) return void 0;
+      if (typeof production !== "string" || !text$g(production)) return void 0;
       return { answers, production };
     }
     return { answers };
@@ -237764,7 +238052,7 @@ ${spelling}`);
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.questions.length) {
       throw new TypeError("Every N3 mock-listening question must be answered exactly once.");
     }
-    if (model2.payload.production && !text$f(response.production)) {
+    if (model2.payload.production && !text$g(response.production)) {
       throw new TypeError("The N3 spoken-transfer sentence is required.");
     }
     const answers = /* @__PURE__ */ new Map();
@@ -237816,7 +238104,7 @@ ${spelling}`);
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.audioText) || /https?:|\/audio\/|soya-eagle|N3Sample/u.test(question2.audioText) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !model2.conceptIds.includes(question2.conceptId) || !text$f(question2.explanation.ja) || !text$f(question2.explanation.en) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.audioText) || /https?:|\/audio\/|soya-eagle|N3Sample/u.test(question2.audioText) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !model2.conceptIds.includes(question2.conceptId) || !text$g(question2.explanation.ja) || !text$g(question2.explanation.en) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each original item needs a complete prompt, script, neutral choices, answer, explanation, and Concept." });
       }
       ids2.add(question2.id);
@@ -237832,7 +238120,7 @@ ${spelling}`);
       issues2.push({ path: "payload.production", message: "Expression and response packages require a spoken changed-context transfer." });
       return;
     }
-    if (production && (!text$f(production.prompt.ja) || !text$f(production.prompt.en) || !text$f(production.scenario.ja) || !text$f(production.scenario.en) || !text$f(production.modelAnswer) || production.minimumCharacters < 10 || production.acceptedFragments.length < 2 || production.acceptedFragments.some((group2) => group2.length === 0 || group2.some((fragment2) => !text$f(fragment2))) || !model2.conceptIds.includes(production.conceptId) || !text$f(production.errorTag))) {
+    if (production && (!text$g(production.prompt.ja) || !text$g(production.prompt.en) || !text$g(production.scenario.ja) || !text$g(production.scenario.en) || !text$g(production.modelAnswer) || production.minimumCharacters < 10 || production.acceptedFragments.length < 2 || production.acceptedFragments.some((group2) => group2.length === 0 || group2.some((fragment2) => !text$g(fragment2))) || !model2.conceptIds.includes(production.conceptId) || !text$g(production.errorTag))) {
       issues2.push({ path: "payload.production", message: "The spoken transfer needs deterministic original-Yomu grading evidence." });
     }
   }
@@ -237848,7 +238136,7 @@ ${spelling}`);
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag))) {
+      if (!text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Every review target must map to a Concept and assessment error." });
       }
     });
@@ -237912,7 +238200,7 @@ ${spelling}`);
       }
     }
     if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some(
-      (item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en)
+      (item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en)
     )) {
       issues2.push({
         path: "payload.teaching",
@@ -238026,8 +238314,8 @@ ${spelling}`);
     };
   }
   function renderTeaching$l(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "先に使う三つの手がかり" : "Three cues to use first";
     const list2 = document.createElement("ol");
@@ -238043,20 +238331,20 @@ ${spelling}`);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderStimulus(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "context";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "context";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.stimulus.title));
-    section.append(heading);
+    section2.append(heading);
     switch (model2.payload.stimulus.kind) {
       case "cloze-sequence": {
         const note = document.createElement("p");
         note.textContent = host2.language === "ja" ? "五つの空所は一つの短い文章として続いています。" : "The five gaps form one continuous short text.";
-        section.append(note);
+        section2.append(note);
         break;
       }
       case "official-audio": {
@@ -238072,7 +238360,7 @@ ${spelling}`);
         const note = document.createElement("p");
         note.dataset.transcriptPolicy = "after-attempt";
         note.textContent = host2.language === "ja" ? "根拠となる資料文と英訳は回答後に開きます。" : "Source evidence and translations unlock after the attempt.";
-        section.append(audio2, note);
+        section2.append(audio2, note);
         break;
       }
       case "source-reading": {
@@ -238086,11 +238374,11 @@ ${spelling}`);
           row.append(span);
           article.append(row);
         });
-        section.append(article);
+        section2.append(article);
         break;
       }
     }
-    return section;
+    return section2;
   }
   function renderQuestion$1(question2, index, signal) {
     const fieldset = document.createElement("fieldset");
@@ -238189,8 +238477,8 @@ ${spelling}`);
   }
   function revealAnswerKey(root, model2, host2, disposers) {
     if (root.querySelector('[data-answer-key="after-attempt"]')) return;
-    const section = document.createElement("section");
-    section.dataset.answerKey = "after-attempt";
+    const section2 = document.createElement("section");
+    section2.dataset.answerKey = "after-attempt";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "回答後の根拠と解説" : "Evidence and explanations after the attempt";
     const list2 = document.createElement("ol");
@@ -238207,7 +238495,7 @@ ${spelling}`);
       row.append(answerText, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
+    section2.append(heading, list2);
     if (model2.payload.stimulus.kind === "official-audio") {
       const transcript = document.createElement("section");
       transcript.dataset.sourceTranscript = "after-attempt";
@@ -238226,12 +238514,12 @@ ${spelling}`);
         row.append(sourceText, translation2);
         transcript.append(row);
       });
-      section.append(transcript);
+      section2.append(transcript);
     }
     if (model2.payload.stimulus.kind === "source-reading") {
       const note = document.createElement("p");
       note.append(...localizedNodes$1(model2.payload.stimulus.postAttemptNote));
-      section.append(note);
+      section2.append(note);
     }
     if (model2.payload.production) {
       const modelAnswer = document.createElement("section");
@@ -238240,9 +238528,9 @@ ${spelling}`);
       modelHeading.textContent = host2.language === "ja" ? "モデル" : "Model";
       const answer2 = japanese$4(model2.payload.production.modelAnswer);
       modelAnswer.append(modelHeading, answer2);
-      section.append(modelAnswer);
+      section2.append(modelAnswer);
     }
-    root.append(section);
+    root.append(section2);
   }
   function responseFromForm$A(model2, form2) {
     const data = new FormData(form2);
@@ -238302,7 +238590,7 @@ ${spelling}`);
       "geography-listening": "official-audio",
       "evidence-reading": "source-reading"
     }[model2.payload?.stage];
-    if (!stimulus || stimulus.kind !== expectedKind || !text$f(stimulus.title.ja) || !text$f(stimulus.title.en)) {
+    if (!stimulus || stimulus.kind !== expectedKind || !text$g(stimulus.title.ja) || !text$g(stimulus.title.en)) {
       issues2.push({
         path: "payload.stimulus",
         message: "The stage-specific source stimulus is required."
@@ -238369,9 +238657,9 @@ ${spelling}`);
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.sourceItemId) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || question2.options.some(
-        (option2) => !text$f(option2.id) || !text$f(option2.label)
-      ) || !optionIds.has(question2.correctOptionId) || !text$f(question2.explanation.ja) || !text$f(question2.explanation.en) || !text$f(question2.errorTag) || !model2.conceptIds.includes(question2.conceptId)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.sourceItemId) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || question2.options.some(
+        (option2) => !text$g(option2.id) || !text$g(option2.label)
+      ) || !optionIds.has(question2.correctOptionId) || !text$g(question2.explanation.ja) || !text$g(question2.explanation.en) || !text$g(question2.errorTag) || !model2.conceptIds.includes(question2.conceptId)) {
         issues2.push({
           path: `payload.questions.${index}`,
           message: "Each question needs a unique source id, neutral options, one key, explanation, error tag, and Concept."
@@ -238390,7 +238678,7 @@ ${spelling}`);
         });
       return;
     }
-    if (production?.authorship !== "original-yomu-n3-source-transfer" || production.facts.length !== 2 || production.facts.some((fact2) => !text$f(fact2)) || !text$f(production.prompt.ja) || !text$f(production.prompt.en) || !text$f(production.modelAnswer) || production.minimumCharacters < 20 || !text$f(production.attributionErrorTag) || !text$f(production.boundaryErrorTag) || !text$f(production.substanceErrorTag) || !model2.conceptIds.includes(production.conceptId)) {
+    if (production?.authorship !== "original-yomu-n3-source-transfer" || production.facts.length !== 2 || production.facts.some((fact2) => !text$g(fact2)) || !text$g(production.prompt.ja) || !text$g(production.prompt.en) || !text$g(production.modelAnswer) || production.minimumCharacters < 20 || !text$g(production.attributionErrorTag) || !text$g(production.boundaryErrorTag) || !text$g(production.substanceErrorTag) || !model2.conceptIds.includes(production.conceptId)) {
       issues2.push({
         path: "payload.production",
         message: "The complete original, source-bounded transfer contract is required."
@@ -238416,7 +238704,7 @@ ${spelling}`);
     }
     const ids2 = /* @__PURE__ */ new Set();
     targets.forEach((target2, index) => {
-      if (!text$f(target2.id) || ids2.has(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$f(meaning)) || !text$f(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$g(target2.id) || ids2.has(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$g(meaning)) || !text$g(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({
           path: `payload.reviewTargets.${index}`,
           message: "Each review target must map one Concept to an authored assessment error."
@@ -238501,7 +238789,7 @@ ${spelling}`);
       return;
     }
     value.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || !text$f(step2.sourceQuestionId) || !text$f(step2.sourceLabel) || !text$f(step2.pattern) || !text$f(step2.example) || !text$f(step2.explanation?.en) || !text$f(step2.explanation?.ja)) {
+      if (step2.sourceOrder !== index + 1 || !text$g(step2.sourceQuestionId) || !text$g(step2.sourceLabel) || !text$g(step2.pattern) || !text$g(step2.example) || !text$g(step2.explanation?.en) || !text$g(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must be complete, bilingual, and ordered." });
       }
     });
@@ -238524,15 +238812,15 @@ ${spelling}`);
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
       const expectedPrefix = index < 8 ? "moodle:6053028:" : index < 20 ? `minna-i:${MINNA_SHA}:` : "genki-2e:l1-l11:";
-      if (round2.sourceOrder !== index + 1 || !round2.sourceQuestionId.startsWith(expectedPrefix) || !text$f(round2.sourceLabel) || !text$f(round2.sourcePrompt) || !text$f(round2.answerExpression) || round2.acceptedAnswers[0] !== round2.answerExpression || round2.acceptedAnswers.some((answer2) => !text$f(answer2))) {
+      if (round2.sourceOrder !== index + 1 || !round2.sourceQuestionId.startsWith(expectedPrefix) || !text$g(round2.sourceLabel) || !text$g(round2.sourcePrompt) || !text$g(round2.answerExpression) || round2.acceptedAnswers[0] !== round2.answerExpression || round2.acceptedAnswers.some((answer2) => !text$g(answer2))) {
         issues2.push({ path, message: "Source order, identity, prompt, and canonical answer must remain complete." });
       }
-      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag)) {
+      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag)) {
         issues2.push({ path, message: "Round ids, source ids, Concepts, and repair tags must be unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+      if (round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
         issues2.push({ path: `${path}.hints`, message: "Three bilingual progressive hints are required." });
       }
     });
@@ -238591,12 +238879,12 @@ ${spelling}`);
     };
   }
   function renderTeaching$k(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-adjective-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-adjective-teaching";
+    section2.dataset.lessonPhase = "teaching";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1({ ja: "先に形と意味を学ぶ", en: "Learn the forms and meaning first" }));
-    section.append(heading);
+    section2.append(heading);
     for (const step2 of model2.payload.teaching) {
       const article = document.createElement("article");
       article.className = "academy-adjective-teaching-step";
@@ -238613,9 +238901,9 @@ ${spelling}`);
       example.className = "academy-adjective-model";
       example.append(assessedJapanese$2(step2.example));
       article.append(source2, pattern, explanation2, example);
-      section.append(article);
+      section2.append(article);
     }
-    return section;
+    return section2;
   }
   function renderAssessment$5(model2, host2, submit2) {
     const form2 = document.createElement("form");
@@ -238654,17 +238942,17 @@ ${spelling}`);
     return form2;
   }
   function renderGroup(model2, host2, source2, title2) {
-    const section = document.createElement("section");
-    section.className = "academy-adjective-group";
-    section.dataset.sourceGroup = source2;
+    const section2 = document.createElement("section");
+    section2.className = "academy-adjective-group";
+    section2.dataset.sourceGroup = source2;
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(title2));
     const grid = document.createElement("div");
     grid.className = "academy-adjective-round-grid";
     const bounds = source2 === "moodle" ? [0, 8] : source2 === "minna" ? [8, 20] : [20, 30];
     model2.payload.rounds.slice(bounds[0], bounds[1]).forEach((round2) => grid.append(renderRound$k(model2, round2, host2)));
-    section.append(heading, grid);
-    return section;
+    section2.append(heading, grid);
+    return section2;
   }
   function renderRound$k(model2, round2, host2) {
     const fieldset = document.createElement("fieldset");
@@ -238773,7 +239061,7 @@ ${spelling}`);
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
       const round2 = model2.payload.rounds.find((candidate2) => candidate2.id === answer2.roundId);
-      if (!round2 || answers.has(answer2.roundId) || answer2.mode !== round2.mode || !text$f(answer2.value)) {
+      if (!round2 || answers.has(answer2.roundId) || answer2.mode !== round2.mode || !text$g(answer2.value)) {
         throw new TypeError("Answers must use every source item once and keep its interaction mode.");
       }
       if (round2.mode === "modifier" && (answer2.mode !== round2.mode || !["direct", "na"].includes(answer2.attachment))) {
@@ -238853,7 +239141,7 @@ ${spelling}`);
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "Track 78 must use its packaged listening binding." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 5 || model2.payload.prerequisiteContext.some((item2) => !text$f(item2.pattern) || !text$f(item2.explanation?.ja) || !text$f(item2.explanation?.en))) {
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 5 || model2.payload.prerequisiteContext.some((item2) => !text$g(item2.pattern) || !text$g(item2.explanation?.ja) || !text$g(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Five bilingual bank-service prerequisites are required before assessment." });
     }
     const fields = model2.payload?.fields;
@@ -238862,17 +239150,17 @@ ${spelling}`);
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       fields.forEach((field2, index) => {
-        if (!text$f(field2.id) || ids2.has(field2.id) || !text$f(field2.sourceQuestionId) || !text$f(field2.before) && !text$f(field2.after) || !text$f(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$f(field2.errorTag)) {
+        if (!text$g(field2.id) || ids2.has(field2.id) || !text$g(field2.sourceQuestionId) || !text$g(field2.before) && !text$g(field2.after) || !text$g(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$g(field2.errorTag)) {
           issues2.push({ path: `payload.fields.${index}`, message: "Every Track 78 blank needs exact source identity, context, and a deterministic answer." });
         }
         ids2.add(field2.id);
       });
     }
     const choice2 = model2.payload?.choice;
-    if (!choice2 || choice2.answer !== "4" || choice2.options?.map((option2) => `${option2.id}:${option2.label}`).join("|") !== "1:④|2:③|3:⑧|4:⑤" || !text$f(choice2.sourceQuestionId) || !model2.conceptIds.includes(choice2.conceptId) || !text$f(choice2.errorTag)) {
+    if (!choice2 || choice2.answer !== "4" || choice2.options?.map((option2) => `${option2.id}:${option2.label}`).join("|") !== "1:④|2:③|3:⑧|4:⑤" || !text$g(choice2.sourceQuestionId) || !model2.conceptIds.includes(choice2.conceptId) || !text$g(choice2.errorTag)) {
       issues2.push({ path: "payload.choice", message: "The exact Track 78 four-option comprehension check is required." });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 17 || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 17 || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed Track 78 post-attempt transcript is required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -238950,9 +239238,9 @@ ${spelling}`);
     } };
   }
   function renderPrerequisiteContext$2(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-bank-listening-cloze-context";
-    section.dataset.lessonPhase = "teach-before-assess";
+    const section2 = document.createElement("section");
+    section2.className = "academy-bank-listening-cloze-context";
+    section2.dataset.lessonPhase = "teach-before-assess";
     const title2 = document.createElement("h3");
     title2.textContent = language === "ja" ? "聞く前の窓口表現" : "Service-desk language before listening";
     const list2 = document.createElement("dl");
@@ -238964,8 +239252,8 @@ ${spelling}`);
       definition2.append(...localizedNodes$1(item2.explanation));
       list2.append(term, definition2);
     });
-    section.append(title2, list2);
-    return section;
+    section2.append(title2, list2);
+    return section2;
   }
   function renderField(model2, field2) {
     const row = document.createElement("label");
@@ -239105,7 +239393,7 @@ ${spelling}`);
   function validate$n(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed sorting requires the answer-support contract." });
-    if (!text$f(model2.payload?.sourceLabel?.en) || !text$f(model2.payload?.sourceLabel?.ja)) {
+    if (!text$g(model2.payload?.sourceLabel?.en) || !text$g(model2.payload?.sourceLabel?.ja)) {
       issues2.push({ path: "payload.sourceLabel", message: "A bilingual source label is required." });
     }
     const items = model2.payload?.items;
@@ -239115,16 +239403,16 @@ ${spelling}`);
     if (!Array.isArray(items) || !Array.isArray(zones)) return issues2;
     const itemIds = new Set(items.map((item2) => item2.id));
     const zoneIds = new Set(zones.map((zone) => zone.id));
-    if (itemIds.size !== items.length || items.some((item2) => !text$f(item2.id) || !text$f(item2.label))) {
+    if (itemIds.size !== items.length || items.some((item2) => !text$g(item2.id) || !text$g(item2.label))) {
       issues2.push({ path: "payload.items", message: "Items need unique ids and Japanese labels." });
     }
-    if (zoneIds.size !== zones.length || zones.some((zone) => !text$f(zone.id) || !text$f(zone.label.en) || !text$f(zone.label.ja))) {
+    if (zoneIds.size !== zones.length || zones.some((zone) => !text$g(zone.id) || !text$g(zone.label.en) || !text$g(zone.label.ja))) {
       issues2.push({ path: "payload.zones", message: "Destinations need unique ids and bilingual labels." });
     }
     if (items.some((item2) => item2.correctZoneId !== null && !zoneIds.has(item2.correctZoneId))) {
       issues2.push({ path: "payload.items.correctZoneId", message: "Every target destination must exist." });
     }
-    if (!text$f(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$g(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
@@ -239202,26 +239490,26 @@ ${spelling}`);
       if (focusId) queueMicrotask(() => workspace.querySelector(`[data-item-id="${focusId}"]`)?.focus());
     };
     const zone = (label, zoneId, appearance) => {
-      const section = document.createElement("section");
-      section.className = `academy-drag-zone academy-drag-zone-${appearance}`;
-      section.dataset.zoneId = zoneId ?? "";
+      const section2 = document.createElement("section");
+      section2.className = `academy-drag-zone academy-drag-zone-${appearance}`;
+      section2.dataset.zoneId = zoneId ?? "";
       const title2 = document.createElement("h3");
       title2.append(...localizedNodes$1(label));
       const items = document.createElement("div");
       items.className = "academy-drag-items";
       items.setAttribute("role", "list");
-      section.addEventListener("dragover", (event) => {
+      section2.addEventListener("dragover", (event) => {
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
       }, { signal: lifecycle.signal });
-      section.addEventListener("drop", (event) => {
+      section2.addEventListener("drop", (event) => {
         event.preventDefault();
         const itemId = event.dataTransfer?.getData("text/plain") || draggedId;
         if (itemId && placements.has(itemId)) place2(itemId, zoneId);
         draggedId = null;
       }, { signal: lifecycle.signal });
-      section.append(title2, items);
-      return section;
+      section2.append(title2, items);
+      return section2;
     };
     move.addEventListener("click", () => {
       if (selectedId) place2(selectedId, destination.value || null);
@@ -239297,13 +239585,13 @@ ${spelling}`);
       return issues2;
     }
     const ids2 = items.map((item2) => item2.id);
-    if (new Set(ids2).size !== ids2.length || items.some((item2) => !text$f(item2.id) || !text$f(item2.label))) {
+    if (new Set(ids2).size !== ids2.length || items.some((item2) => !text$g(item2.id) || !text$g(item2.label))) {
       issues2.push({ path: "payload.items", message: "Sequence items need unique ids and Japanese labels." });
     }
     if (model2.payload.correctOrder?.length !== items.length || new Set(model2.payload.correctOrder).size !== items.length || model2.payload.correctOrder.some((id2) => !ids2.includes(id2))) {
       issues2.push({ path: "payload.correctOrder", message: "The answer must order every item exactly once." });
     }
-    if (!text$f(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$g(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload.feedback, issues2);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
@@ -239443,11 +239731,11 @@ ${spelling}`);
     const ids2 = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$f(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be stable and unique." });
+      if (!text$g(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be stable and unique." });
       ids2.add(round2.id);
-      if (!text$f(round2.cue.en) || !text$f(round2.cue.ja)) issues2.push({ path: `${path}.cue`, message: "A bilingual sound cue is required." });
-      if (!text$f(round2.spokenText)) issues2.push({ path: `${path}.spokenText`, message: "A Japanese pronunciation target is required." });
-      if (!text$f(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+      if (!text$g(round2.cue.en) || !text$g(round2.cue.ja)) issues2.push({ path: `${path}.cue`, message: "A bilingual sound cue is required." });
+      if (!text$g(round2.spokenText)) issues2.push({ path: `${path}.spokenText`, message: "A Japanese pronunciation target is required." });
+      if (!text$g(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
       if (round2.task === "mora-tap") {
         if (!Number.isInteger(round2.expectedMora) || round2.expectedMora < 1 || round2.expectedMora > 20) {
           issues2.push({ path: `${path}.expectedMora`, message: "Mora count must be an integer from 1 to 20." });
@@ -239666,11 +239954,11 @@ ${spelling}`);
   function validate$k(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed reading requires the answer-support contract." });
-    if (!text$f(model2.payload?.title?.en) || !text$f(model2.payload?.title?.ja)) {
+    if (!text$g(model2.payload?.title?.en) || !text$g(model2.payload?.title?.ja)) {
       issues2.push({ path: "payload.title", message: "A bilingual story title is required." });
     }
     const sections = model2.payload?.sections;
-    if (!Array.isArray(sections) || sections.length < 2 || sections.some((section) => !text$f(section.id) || !section.paragraphs?.length || section.paragraphs.some((paragraph) => !text$f(paragraph)))) {
+    if (!Array.isArray(sections) || sections.length < 2 || sections.some((section2) => !text$g(section2.id) || !section2.paragraphs?.length || section2.paragraphs.some((paragraph) => !text$g(paragraph)))) {
       issues2.push({ path: "payload.sections", message: "Extended reading needs at least two non-empty sections." });
     }
     const questions = model2.payload?.questions;
@@ -239678,7 +239966,7 @@ ${spelling}`);
       issues2.push({ path: "payload.questions", message: "At least two reading checkpoints are required." });
     } else questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$f(question2.id) || !text$f(question2.prompt.en) || !text$f(question2.prompt.ja) || question2.options.length < 2 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || !text$g(question2.prompt.en) || !text$g(question2.prompt.ja) || question2.options.length < 2 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Reading questions need a prompt, unique choices, answer, and error tag." });
       }
     });
@@ -239705,15 +239993,15 @@ ${spelling}`);
     storyTitle.append(...localizedNodes$1(model2.payload.title));
     article.append(storyTitle);
     const readingDisposers = [];
-    model2.payload.sections.forEach((section) => {
+    model2.payload.sections.forEach((section2) => {
       const block = document.createElement("section");
       block.className = "academy-story-reader-section";
-      if (section.heading) {
+      if (section2.heading) {
         const title2 = document.createElement("h4");
-        title2.append(...localizedNodes$1(section.heading));
+        title2.append(...localizedNodes$1(section2.heading));
         block.append(title2);
       }
-      section.paragraphs.forEach((value) => {
+      section2.paragraphs.forEach((value) => {
         const paragraph = document.createElement("p");
         const span = japanese$4(value);
         paragraph.append(span);
@@ -239819,10 +240107,10 @@ ${spelling}`);
   function validate$j(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed typing requires the answer-support contract." });
-    if (!text$f(model2.payload?.inputLabel?.en) || !text$f(model2.payload?.inputLabel?.ja)) {
+    if (!text$g(model2.payload?.inputLabel?.en) || !text$g(model2.payload?.inputLabel?.ja)) {
       issues2.push({ path: "payload.inputLabel", message: "A bilingual input label is required." });
     }
-    if (model2.payload?.audioTerms?.some((item2) => !text$f(item2.term))) {
+    if (model2.payload?.audioTerms?.some((item2) => !text$g(item2.term))) {
       issues2.push({ path: "payload.audioTerms", message: "Audio terms cannot be blank." });
     }
     const accepted = model2.payload?.acceptedAnswers ?? [];
@@ -239832,7 +240120,7 @@ ${spelling}`);
     if (groups.some((group2) => !group2.length || group2.some((term) => !normalizeJapanese$1(term)))) {
       issues2.push({ path: "payload.requiredGroups", message: "Required groups need non-empty alternatives." });
     }
-    if (!text$f(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$g(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
@@ -240008,15 +240296,15 @@ ${spelling}`);
     const payload = model2.payload;
     const formats = ["pair", "group", "info-gap", "role-card", "board", "race"];
     if (!formats.includes(payload?.format)) issues2.push({ path: "payload.format", message: "A supported class activity format is required." });
-    if (!text$f(payload?.location?.en) || !text$f(payload?.location?.ja)) issues2.push({ path: "payload.location", message: "A bilingual grounded location is required." });
-    if (!text$f(payload?.source?.lessonPackageId) || !text$f(payload?.source?.exactPrompt)) {
+    if (!text$g(payload?.location?.en) || !text$g(payload?.location?.ja)) issues2.push({ path: "payload.location", message: "A bilingual grounded location is required." });
+    if (!text$g(payload?.source?.lessonPackageId) || !text$g(payload?.source?.exactPrompt)) {
       issues2.push({ path: "payload.source", message: "Lesson identity and an exact source prompt are required." });
     }
     if (payload?.source?.promptLanguage !== "en" && payload?.source?.promptLanguage !== "ja") {
       issues2.push({ path: "payload.source.promptLanguage", message: "The exact prompt language is required." });
     }
     const sourceItem = payload?.source?.evidenceItem;
-    if (sourceItem && (!text$f(sourceItem.title) || !/^[a-f0-9]{64}$/u.test(sourceItem.payloadSha256))) {
+    if (sourceItem && (!text$g(sourceItem.title) || !/^[a-f0-9]{64}$/u.test(sourceItem.payloadSha256))) {
       issues2.push({ path: "payload.source.evidenceItem", message: "Source evidence needs its exact title and SHA-256." });
     }
     const corpora = new Set(payload?.source?.mappings?.map((mapping2) => mapping2.corpus) ?? []);
@@ -240026,9 +240314,9 @@ ${spelling}`);
     const roles = payload?.roles ?? [];
     const roleIds = /* @__PURE__ */ new Set();
     for (const [index, role2] of roles.entries()) {
-      if (!text$f(role2.id) || roleIds.has(role2.id)) issues2.push({ path: `payload.roles.${index}.id`, message: "Role ids must be non-empty and unique." });
+      if (!text$g(role2.id) || roleIds.has(role2.id)) issues2.push({ path: `payload.roles.${index}.id`, message: "Role ids must be non-empty and unique." });
       roleIds.add(role2.id);
-      if (!text$f(role2.name) || !text$f(role2.characterId) || !text$f(role2.label?.en) || !text$f(role2.label?.ja)) {
+      if (!text$g(role2.name) || !text$g(role2.characterId) || !text$g(role2.label?.en) || !text$g(role2.label?.ja)) {
         issues2.push({ path: `payload.roles.${index}`, message: "Each role needs a character, name, and bilingual label." });
       }
     }
@@ -240047,13 +240335,13 @@ ${spelling}`);
     const turnIds = /* @__PURE__ */ new Set();
     let previousActor = "";
     for (const [index, turn2] of turns.entries()) {
-      if (!text$f(turn2.id) || turnIds.has(turn2.id)) issues2.push({ path: `payload.turns.${index}.id`, message: "Turn ids must be non-empty and unique." });
+      if (!text$g(turn2.id) || turnIds.has(turn2.id)) issues2.push({ path: `payload.turns.${index}.id`, message: "Turn ids must be non-empty and unique." });
       turnIds.add(turn2.id);
       const role2 = roles.find((candidate2) => candidate2.id === turn2.actorRoleId);
       if (!role2) issues2.push({ path: `payload.turns.${index}.actorRoleId`, message: "Turn actor must reference a role." });
       if (turn2.kind === "classmate" && role2?.controller !== "classmate") issues2.push({ path: `payload.turns.${index}`, message: "Classmate turns must use simulated roles." });
       if (turn2.kind !== "classmate" && role2?.controller !== "learner") issues2.push({ path: `payload.turns.${index}`, message: "Learner turns must use the learner role." });
-      if (turn2.kind === "classmate" && (!text$f(turn2.line?.en) || !text$f(turn2.line?.ja))) issues2.push({ path: `payload.turns.${index}.line`, message: "Classmate dialogue must be bilingual." });
+      if (turn2.kind === "classmate" && (!text$g(turn2.line?.en) || !text$g(turn2.line?.ja))) issues2.push({ path: `payload.turns.${index}.line`, message: "Classmate dialogue must be bilingual." });
       if (turn2.kind === "learner-choice") {
         if (!turn2.options.length || !turn2.acceptedOptionIds.length) issues2.push({ path: `payload.turns.${index}`, message: "Choice turns need options and accepted ids." });
         if (turn2.acceptedOptionIds.some((id2) => !turn2.options.some((option2) => option2.id === id2))) issues2.push({ path: `payload.turns.${index}.acceptedOptionIds`, message: "Accepted ids must reference options." });
@@ -240061,7 +240349,7 @@ ${spelling}`);
       if (turn2.kind === "learner-text" && !turn2.acceptedAnswers?.length && !turn2.requiredGroups?.length) {
         issues2.push({ path: `payload.turns.${index}`, message: "Text turns need exact answers or required term groups." });
       }
-      if (turn2.kind !== "classmate" && (!text$f(turn2.evidence?.conceptId) || !model2.conceptIds.includes(turn2.evidence.conceptId) || !text$f(turn2.evidence.errorTag))) {
+      if (turn2.kind !== "classmate" && (!text$g(turn2.evidence?.conceptId) || !model2.conceptIds.includes(turn2.evidence.conceptId) || !text$g(turn2.evidence.errorTag))) {
         issues2.push({ path: `payload.turns.${index}.evidence`, message: "Learner turns need model-owned concept evidence and an error tag." });
       }
       if (payload?.format === "group" && previousActor === turn2.actorRoleId) issues2.push({ path: `payload.turns.${index}.actorRoleId`, message: "Group turns must rotate speakers." });
@@ -240227,22 +240515,22 @@ ${spelling}`);
     return roster;
   }
   function renderTurn(turn2, roles, host2, continueClassmate, answer2, signal) {
-    const section = document.createElement("section");
+    const section2 = document.createElement("section");
     const role2 = roles.find((candidate2) => candidate2.id === turn2.actorRoleId);
     const title2 = document.createElement("h3");
     title2.textContent = host2.language === "ja" ? `${role2?.name ?? turn2.actorRoleId}の番` : `${role2?.name ?? turn2.actorRoleId}'s turn`;
-    section.append(title2);
+    section2.append(title2);
     if (turn2.kind === "classmate") {
       const cue = document.createElement("p");
       cue.append(...localizedNodes$1(turn2.line));
       const next = button$2(host2.language === "ja" ? `${role2?.name ?? "相手"}の話を聞く` : `Hear ${role2?.name ?? "classmate"}`);
       next.addEventListener("click", continueClassmate, { signal, once: true });
-      section.append(cue, next);
-      return section;
+      section2.append(cue, next);
+      return section2;
     }
     const prompt2 = document.createElement("p");
     prompt2.append(...localizedNodes$1(turn2.prompt));
-    section.append(prompt2);
+    section2.append(prompt2);
     if (turn2.kind === "learner-choice") {
       const options = document.createElement("div");
       options.className = "academy-class-options";
@@ -240252,7 +240540,7 @@ ${spelling}`);
         choose.addEventListener("click", () => answer2(option2.id), { signal, once: true });
         options.append(choose);
       }
-      section.append(options);
+      section2.append(options);
     } else {
       const form2 = document.createElement("form");
       const label = document.createElement("label");
@@ -240271,9 +240559,9 @@ ${spelling}`);
         event.preventDefault();
         answer2(input2.value);
       }, { signal });
-      section.append(form2);
+      section2.append(form2);
     }
-    return section;
+    return section2;
   }
   function renderFormatSurface(model2) {
     const surface = document.createElement("div");
@@ -240340,7 +240628,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Chapter 22 (source inventory label)" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The verbatim basic sentence, examples, and task direction must precede assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -240381,7 +240669,7 @@ ${spelling}`);
   }
   function validateRound$9(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.noun) || !text$f(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$f(option2.id) || !text$f(option2.label)) || !optionIds.has(round2.correctOptionId) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.noun) || !text$g(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$g(option2.id) || !text$g(option2.label)) || !optionIds.has(round2.correctOptionId) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs three unique clause tickets, one derived answer, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -240403,7 +240691,7 @@ ${spelling}`);
     return placements;
   }
   function validVisual$c(value) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$7 && value.url === SOURCE_IMAGE_URL$1 && value.sha256 === SOURCE_IMAGE_SHA256$1 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$7 && value.url === SOURCE_IMAGE_URL$1 && value.sha256 === SOURCE_IMAGE_SHA256$1 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const CLAUSE_RAIL_KIND = "academy-clause-rail";
   function renderClauseRail(model2, host2, submit2) {
@@ -240482,9 +240770,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$j(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-clause-rail-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-clause-rail-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -240495,9 +240783,9 @@ ${spelling}`);
       copy2.lang = step2.title === "Sensei’s task" ? "en" : "ja";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSource$1(model2, language) {
     const visual2 = model2.provenance.moodle.sourceSheet;
@@ -240618,10 +240906,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$f(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-clause-rail-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-clause-rail-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの説明文" : "Derived descriptions after your attempt";
     const answers = document.createElement("ol");
@@ -240632,8 +240920,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$x(model2, form2) {
     const data = new FormData(form2);
@@ -240907,7 +241195,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I, Lesson 21" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The verbatim でしょう rule, explanation, and examples must precede assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -240948,7 +241236,7 @@ ${spelling}`);
   }
   function validateRound$8(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$f(option2.id) || !text$f(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.options.find((option2) => option2.id === round2.correctOptionId)?.label !== round2.answerExpression || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$g(option2.id) || !text$g(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.options.find((option2) => option2.id === round2.correctOptionId)?.label !== round2.answerExpression || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs three unique signals, one derived answer, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -240970,7 +241258,7 @@ ${spelling}`);
     return signals;
   }
   function validVisual$b(value) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$6 && value.url === SOURCE_IMAGE_URL && value.sha256 === SOURCE_IMAGE_SHA256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$6 && value.url === SOURCE_IMAGE_URL && value.sha256 === SOURCE_IMAGE_SHA256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const CONFIRMATION_SIGNAL_KIND = "academy-confirmation-signal";
   function renderConfirmationSignal(model2, host2, submit2) {
@@ -241045,9 +241333,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$i(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-confirmation-signal-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-confirmation-signal-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -241058,9 +241346,9 @@ ${spelling}`);
       text2.lang = step2.title === "Basic sentence:" ? "ja" : "en";
       text2.textContent = step2.text;
       block.append(heading, text2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSource(model2, language) {
     const visual2 = model2.provenance.moodle.sourceSheet;
@@ -241140,10 +241428,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$e(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-confirmation-signal-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-confirmation-signal-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの確認文" : "Derived confirmations after your attempt";
     const answers = document.createElement("ol");
@@ -241152,8 +241440,8 @@ ${spelling}`);
       item2.textContent = `${round2.answerExpression} ↗`;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$w(model2, form2) {
     const data = new FormData(form2);
@@ -241214,7 +241502,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 29" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki L18 (grammar overlay)" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The completion, future-completion, and regret teaching must precede assessment." });
     }
     const expectedHeadings = [
@@ -241264,7 +241552,7 @@ ${spelling}`);
   function validateRound$7(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "completion-select" || round2.interaction === "finish-first-choice" ? 2 : 0;
     const expectedPage = round2.sourceTask === 1 ? 1 : round2.sourceTask === 3 ? 2 : 3;
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerValue) || !text$f(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$4(answer2) === normalize$4(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$f(option2.value) || !text$f(option2.label.en) || !text$f(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$4(option2.value) === normalize$4(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerValue) || !text$g(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$4(answer2) === normalize$4(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$g(option2.value) || !text$g(option2.label.en) || !text$g(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$4(option2.value) === normalize$4(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source prompt needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -241277,7 +241565,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Each Chapter 29-2 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -241286,7 +241574,7 @@ ${spelling}`);
   }
   function validVisual$a(value, index) {
     const expected = SOURCE_VISUALS$4[index];
-    return Boolean(value && expected && text$f(value.sourceId) && value.title === SOURCE_TITLE$5 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$5 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && expected && text$g(value.sourceId) && value.title === SOURCE_TITLE$5 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$5 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   function normalize$4(value) {
     return value.normalize("NFKC").replace(/[\s、。・…!！?？「」『』]/gu, "").trim();
@@ -241309,14 +241597,14 @@ ${spelling}`);
     const rounds = document.createElement("div");
     rounds.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const groupHeading = document.createElement("h3");
       groupHeading.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$h(model2, round2, host2)));
-      section.append(groupHeading, list2);
-      rounds.append(section);
+      section2.append(groupHeading, list2);
+      rounds.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -241381,9 +241669,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$h(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching academy-completion-repair-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching academy-completion-repair-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -241393,23 +241681,23 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-state-inspection-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$6(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-sources academy-completion-repair-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-sources academy-completion-repair-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(
+      section2.append(renderInspectableSourceVisual(
         visual2,
         language,
         "academy-completion-repair-source-visual",
         "lazy"
       ));
     });
-    return section;
+    return section2;
   }
   function renderRound$h(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -241510,10 +241798,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$d(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key academy-completion-repair-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key academy-completion-repair-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの、よむ派生文" : "Yomu-derived completions after your attempt";
     const answers = document.createElement("ol");
@@ -241524,8 +241812,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$v(model2, form2) {
     const data = new FormData(form2);
@@ -241645,20 +241933,20 @@ ${spelling}`);
     if (!contract2 || model2.provenance?.packageId !== contract2.packageId || model2.provenance.answerVisibility !== "after-attempt" || moodle?.moduleId !== contract2.moduleId || moodle.worksheet?.payloadSha256 !== contract2.worksheetSha256 || moodle.worksheet.title !== contract2.worksheetTitle || moodle.worksheet.page !== 1 || moodle.worksheet.url !== contract2.worksheetUrl || moodle.worksheet.sha256 !== contract2.worksheetImageSha256 || moodle.support?.payloadSha256 !== contract2.supportSha256 || moodle.support.title !== contract2.supportTitle || moodle.support.page !== 1 || moodle.support.role !== contract2.supportRole || moodle.audio?.payloadSha256 !== contract2.audioSha256 || moodle.audio.locator !== contract2.locator || moodle.audio.url !== contract2.audioUrl || moodle.audio.durationSeconds !== contract2.durationSeconds || moodle.audio.label !== contract2.label || moodle.answerKeyBasis !== contract2.answerKeyBasis) {
       issues2.push({ path: "provenance.moodle", message: "The exact worksheet, reviewed support, and matching Minna recording are required." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     const tasks2 = model2.payload?.tasks;
     if (!tasks2 || !contract2 || tasks2.length !== contract2.taskCount || tasks2.some((task2, index) => task2.sourceOrder !== index + 1)) {
       issues2.push({ path: "payload.tasks", message: "Every conversation question is required in source order." });
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !text$f(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$f(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression)) {
+        if (!text$g(task2.id) || ids2.has(task2.id) || !text$g(task2.sourceQuestionId) || !text$g(task2.prompt) || !text$g(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$g(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$g(task2.errorTag) || !text$g(task2.reviewExpression)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every conversation question needs a canonical answer and reviewed accepted forms." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || !contract2 || model2.payload.transcript.length !== contract2.transcriptCount || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || !contract2 || model2.payload.transcript.length !== contract2.transcriptCount || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed source transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -241951,7 +242239,7 @@ ${spelling}`);
       return;
     }
     value.forEach((step2, index) => {
-      if (!text$f(step2.sourceQuestionId) || !text$f(step2.sourceLabel) || !text$f(step2.pattern) || !text$f(step2.example) || !text$f(step2.explanation?.en) || !text$f(step2.explanation?.ja)) {
+      if (!text$g(step2.sourceQuestionId) || !text$g(step2.sourceLabel) || !text$g(step2.pattern) || !text$g(step2.example) || !text$g(step2.explanation?.en) || !text$g(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must be bilingual and source-bound." });
       }
     });
@@ -241968,22 +242256,22 @@ ${spelling}`);
       if (round2.sourceOrder !== index + 1 || round2.mode !== EXACT_MODES$4[index]) {
         issues2.push({ path, message: "Source order and interaction mode must remain exact." });
       }
-      if (!text$f(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be unique." });
+      if (!text$g(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be unique." });
       ids2.add(round2.id);
-      if (!text$f(round2.sourceQuestionId) || !text$f(round2.sourceLabel) || !text$f(round2.sourcePrompt) || !text$f(round2.answerExpression) || !text$f(round2.errorTag)) {
+      if (!text$g(round2.sourceQuestionId) || !text$g(round2.sourceLabel) || !text$g(round2.sourcePrompt) || !text$g(round2.answerExpression) || !text$g(round2.errorTag)) {
         issues2.push({ path, message: "Every round needs exact source identity and a repair target." });
       }
       if (!model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path: `${path}.conceptId`, message: "Round Concept must belong to the model." });
       }
-      if (!text$f(round2.hint?.en) || !text$f(round2.hint?.ja) || !text$f(round2.nearbyExample?.en) || !text$f(round2.nearbyExample?.ja)) {
+      if (!text$g(round2.hint?.en) || !text$g(round2.hint?.ja) || !text$g(round2.nearbyExample?.en) || !text$g(round2.nearbyExample?.ja)) {
         issues2.push({ path, message: "Every round needs a bilingual earned hint and nearby repair example." });
       }
       if (round2.mode === "tense-choice" || round2.mode === "routine-time") {
         if (!round2.options.length || !round2.options.some((option2) => option2.id === round2.correctOptionId)) {
           issues2.push({ path, message: "Choice rounds need an offered correct option." });
         }
-      } else if (!round2.acceptedAnswers.length || !round2.acceptedAnswers.every(text$f)) {
+      } else if (!round2.acceptedAnswers.length || !round2.acceptedAnswers.every(text$g)) {
         issues2.push({ path, message: "Typed rounds need accepted source answers." });
       }
     });
@@ -242134,7 +242422,7 @@ ${spelling}`);
         if (answer2.mode !== "tense-choice" && answer2.mode !== "routine-time" || !round2.options.some((option2) => option2.id === answer2.optionId)) {
           throw new TypeError("Choice items require one offered option.");
         }
-      } else if (answer2.mode !== "short-answer" && answer2.mode !== "sentence" || !text$f(answer2.value)) {
+      } else if (answer2.mode !== "short-answer" && answer2.mode !== "sentence" || !text$g(answer2.value)) {
         throw new TypeError("Typed source items require a non-empty answer.");
       }
       answers.set(answer2.roundId, answer2);
@@ -242229,20 +242517,20 @@ ${spelling}`);
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "B-25 must use the exact packaged listening binding." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     const tasks2 = model2.payload?.tasks;
     if (!Array.isArray(tasks2) || tasks2.length !== 3 || tasks2.map((task2) => task2.sourceOrder).join(",") !== "1,2,3" || tasks2.reduce((count2, task2) => count2 + task2.fields.length, 0) !== 5) {
       issues2.push({ path: "payload.tasks", message: "The three source-order B-25 diary items and five blanks are required." });
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, taskIndex) => {
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression) || !task2.fields.length || task2.fields.some((field2) => !text$f(field2.id) || !text$f(field2.before) || !text$f(field2.after) || !text$f(field2.answer))) {
+        if (!text$g(task2.id) || ids2.has(task2.id) || !text$g(task2.sourceQuestionId) || !text$g(task2.prompt) || !model2.conceptIds.includes(task2.conceptId) || !text$g(task2.errorTag) || !text$g(task2.reviewExpression) || !task2.fields.length || task2.fields.some((field2) => !text$g(field2.id) || !text$g(field2.before) || !text$g(field2.after) || !text$g(field2.answer))) {
           issues2.push({ path: `payload.tasks.${taskIndex}`, message: "Every B-25 item needs exact prompt fragments, answers, and review identity." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length === 0 || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length === 0 || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "A reviewed post-attempt B-25 transcript is required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -242935,7 +243223,7 @@ ${spelling}`);
     const rounds = model2.payload?.rounds;
     if (!Array.isArray(rounds) || rounds.length !== EXPECTED_CUES.length) issues2.push({ path: "payload.rounds", message: "All six exact Sensei exercise-1 cues are required." });
     else rounds.forEach((round2, index) => {
-      if (round2.id !== `sensei-frequency-${index + 1}` || round2.sourceOrder !== index + 1 || round2.sourceQuestionId !== `moodle:6310077:chapter-11-3:p1:exercise-1:item-${index + 1}` || round2.sourceCue !== EXPECTED_CUES[index] || round2.answerExpression !== EXPECTED_ANSWERS[index] || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag)) {
+      if (round2.id !== `sensei-frequency-${index + 1}` || round2.sourceOrder !== index + 1 || round2.sourceQuestionId !== `moodle:6310077:chapter-11-3:p1:exercise-1:item-${index + 1}` || round2.sourceCue !== EXPECTED_CUES[index] || round2.answerExpression !== EXPECTED_ANSWERS[index] || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag)) {
         issues2.push({ path: `payload.rounds.${index}`, message: "Each round must preserve its exact source order, cue, and answer expression." });
       }
     });
@@ -242994,8 +243282,8 @@ ${spelling}`);
     } };
   }
   function renderTeaching$g(model2, host2) {
-    const section = document.createElement("section");
-    section.className = "academy-frequency-lens-teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-frequency-lens-teaching";
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1({ ja: "レンズを合わせる", en: "Set the lens first" }));
     const grid = document.createElement("div");
@@ -243030,8 +243318,8 @@ ${spelling}`);
       player.src = track2.url;
       audio2.append(label, player);
     }
-    section.append(title2, grid, audio2);
-    return section;
+    section2.append(title2, grid, audio2);
+    return section2;
   }
   function renderSourceSurface(model2) {
     const figure = document.createElement("figure");
@@ -243144,7 +243432,7 @@ ${spelling}`);
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "Track 79 must use its packaged listening binding." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$f(item2.pattern) || !text$f(item2.explanation?.ja) || !text$f(item2.explanation?.en))) {
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$g(item2.pattern) || !text$g(item2.explanation?.ja) || !text$g(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Four bilingual beneficiary-direction prerequisites are required before assessment." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -243154,13 +243442,13 @@ ${spelling}`);
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const expectedArrow = task2.beneficiaryDirection === "left" ? "←" : "→";
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
+        if (!text$g(task2.id) || ids2.has(task2.id) || !text$g(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$g(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$g(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every Track 79 item needs exact source identity, beneficiary direction, and a deterministic phrase." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 19 || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 19 || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed Track 79 transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -243237,9 +243525,9 @@ ${spelling}`);
     } };
   }
   function renderPrerequisiteContext$1(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-favor-direction-listening-context";
-    section.dataset.lessonPhase = "teach-before-assess";
+    const section2 = document.createElement("section");
+    section2.className = "academy-favor-direction-listening-context";
+    section2.dataset.lessonPhase = "teach-before-assess";
     const title2 = document.createElement("h3");
     title2.textContent = language === "ja" ? "聞く前の受け手の見方" : "Recipient viewpoint before listening";
     const list2 = document.createElement("dl");
@@ -243251,8 +243539,8 @@ ${spelling}`);
       definition2.append(...localizedNodes$1(item2.explanation));
       list2.append(term, definition2);
     });
-    section.append(title2, list2);
-    return section;
+    section2.append(title2, list2);
+    return section2;
   }
   function renderTask$2(model2, task2) {
     const fieldset = document.createElement("fieldset");
@@ -243382,7 +243670,7 @@ ${spelling}`);
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "A-11 must use its packaged listening binding." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$f(item2.pattern) || !text$f(item2.explanation?.ja) || !text$f(item2.explanation?.en))) {
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$g(item2.pattern) || !text$g(item2.explanation?.ja) || !text$g(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Four bilingual meal-survey prerequisites are required before assessment." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -243392,13 +243680,13 @@ ${spelling}`);
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const optionsValid = task2.kind === "choice" ? Array.isArray(task2.options) && task2.options.includes(task2.answer) : task2.options === void 0;
-        if (!text$f(task2.id) || ids2.has(task2.id) || !text$f(task2.sourceQuestionId) || !text$f(task2.prompt) || !optionsValid || !text$f(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$f(task2.errorTag)) {
+        if (!text$g(task2.id) || ids2.has(task2.id) || !text$g(task2.sourceQuestionId) || !text$g(task2.prompt) || !optionsValid || !text$g(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$1(answer2) === normalizeJapanese$1(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$g(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every A-11 item needs exact identity, source order, response mode, and deterministic answer." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 25 || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 25 || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed A-11 transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -243472,9 +243760,9 @@ ${spelling}`);
     } };
   }
   function renderPrerequisiteContext(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-meal-survey-listening-context";
-    section.dataset.lessonPhase = "teach-before-assess";
+    const section2 = document.createElement("section");
+    section2.className = "academy-meal-survey-listening-context";
+    section2.dataset.lessonPhase = "teach-before-assess";
     const title2 = document.createElement("h3");
     title2.textContent = language === "ja" ? "聞く前の食事アンケート表現" : "Meal-survey language before listening";
     const list2 = document.createElement("dl");
@@ -243486,8 +243774,8 @@ ${spelling}`);
       definition2.append(...localizedNodes$1(item2.explanation));
       list2.append(term, definition2);
     });
-    section.append(title2, list2);
-    return section;
+    section2.append(title2, list2);
+    return section2;
   }
   function renderTask$1(model2, task2) {
     const fieldset = document.createElement("fieldset");
@@ -243608,19 +243896,19 @@ ${spelling}`);
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
       issues2.push({ path: "answerSupport", message: "Worksheet choices require assessed answer support." });
     }
-    if (!text$f(model2.provenance?.handout?.sourceId) || !sha(model2.provenance?.handout?.payloadSha256) || !text$f(model2.provenance?.greetingsReference?.sourceId) || !sha(model2.provenance?.greetingsReference?.payloadSha256) || !text$f(model2.provenance?.vocabulary?.sourceId) || !sha(model2.provenance?.vocabulary?.payloadSha256) || !text$f(model2.provenance?.homework?.sourceId) || !sha(model2.provenance?.homework?.payloadSha256) || !safeImageUrl(model2.provenance?.homework?.imageUrl) || !sha(model2.provenance?.homework?.imageSha256) || model2.provenance?.homework?.sourceAnswerKeyStatus !== "not-present-in-digitized-corpus" || model2.provenance?.homework?.gradingKey !== "yomu-contextual-key-derived-from-taught-source-expressions" || model2.provenance?.answerVisibility !== "after-attempt") {
+    if (!text$g(model2.provenance?.handout?.sourceId) || !sha(model2.provenance?.handout?.payloadSha256) || !text$g(model2.provenance?.greetingsReference?.sourceId) || !sha(model2.provenance?.greetingsReference?.payloadSha256) || !text$g(model2.provenance?.vocabulary?.sourceId) || !sha(model2.provenance?.vocabulary?.payloadSha256) || !text$g(model2.provenance?.homework?.sourceId) || !sha(model2.provenance?.homework?.payloadSha256) || !safeImageUrl(model2.provenance?.homework?.imageUrl) || !sha(model2.provenance?.homework?.imageSha256) || model2.provenance?.homework?.sourceAnswerKeyStatus !== "not-present-in-digitized-corpus" || model2.provenance?.homework?.gradingKey !== "yomu-contextual-key-derived-from-taught-source-expressions" || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "provenance", message: "Exact source records, a safe worksheet image, and answer-key attribution are required." });
     }
-    if (!text$f(model2.payload?.sourceInstruction) || !Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2, index) => step2.sourceOrder !== index + 1 || !text$f(step2.title?.ja) || !text$f(step2.title?.en) || !text$f(step2.pattern) || !text$f(step2.example) || !text$f(step2.explanation?.ja) || !text$f(step2.explanation?.en))) {
+    if (!text$g(model2.payload?.sourceInstruction) || !Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2, index) => step2.sourceOrder !== index + 1 || !text$g(step2.title?.ja) || !text$g(step2.title?.en) || !text$g(step2.pattern) || !text$g(step2.example) || !text$g(step2.explanation?.ja) || !text$g(step2.explanation?.en))) {
       issues2.push({ path: "payload.teaching", message: "The two source handout teaching moves must precede practice." });
     }
     const options = model2.payload?.options;
-    if (!Array.isArray(options) || options.length < 4 || new Set(options.map((option2) => option2.id)).size !== options.length || options.some((option2) => !text$f(option2.id) || !text$f(option2.label))) {
+    if (!Array.isArray(options) || options.length < 4 || new Set(options.map((option2) => option2.id)).size !== options.length || options.some((option2) => !text$g(option2.id) || !text$g(option2.label))) {
       issues2.push({ path: "payload.options", message: "Stable source-expression choices are required." });
     }
     const optionIds = new Set((options ?? []).map((option2) => option2.id));
     const sourceExpressions = model2.payload?.sourceExpressions;
-    if (!Array.isArray(sourceExpressions) || sourceExpressions.length !== options?.length || sourceExpressions.some((expression, index) => expression.sourceOrder !== index + 1 || !optionIds.has(expression.optionId) || !text$f(expression.expression) || !text$f(expression.meaning))) {
+    if (!Array.isArray(sourceExpressions) || sourceExpressions.length !== options?.length || sourceExpressions.some((expression, index) => expression.sourceOrder !== index + 1 || !optionIds.has(expression.optionId) || !text$g(expression.expression) || !text$g(expression.meaning))) {
       issues2.push({ path: "payload.sourceExpressions", message: "Every selectable expression needs its exact source reference before practice." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -243631,7 +243919,7 @@ ${spelling}`);
       const sourceIds = /* @__PURE__ */ new Set();
       const errorTags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$f(prompt2.id) || ids2.has(prompt2.id) || prompt2.sourceOrder !== index + 1 || !text$f(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$f(prompt2.imageDescription?.ja) || !text$f(prompt2.imageDescription?.en) || !prompt2.acceptedOptionIds.length || prompt2.acceptedOptionIds.some((id2) => !optionIds.has(id2)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$f(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !text$f(prompt2.reviewTarget?.id) || prompt2.reviewTarget.conceptId !== prompt2.conceptId || !text$f(prompt2.reviewTarget.expression) || !prompt2.reviewTarget.meanings?.length) {
+        if (!text$g(prompt2.id) || ids2.has(prompt2.id) || prompt2.sourceOrder !== index + 1 || !text$g(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$g(prompt2.imageDescription?.ja) || !text$g(prompt2.imageDescription?.en) || !prompt2.acceptedOptionIds.length || prompt2.acceptedOptionIds.some((id2) => !optionIds.has(id2)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$g(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !text$g(prompt2.reviewTarget?.id) || prompt2.reviewTarget.conceptId !== prompt2.conceptId || !text$g(prompt2.reviewTarget.expression) || !prompt2.reviewTarget.meanings?.length) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Every source image prompt needs a unique deterministic response contract." });
         }
         ids2.add(prompt2.id);
@@ -243649,7 +243937,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$f(answer2?.promptId) || !text$f(answer2?.optionId) || answers.has(answer2.promptId)) {
+      if (!text$g(answer2?.promptId) || !text$g(answer2?.optionId) || answers.has(answer2.promptId)) {
         throw new TypeError("Each source image prompt must be answered exactly once.");
       }
       answers.set(answer2.promptId, answer2.optionId);
@@ -245411,16 +245699,16 @@ ${spelling}`);
       issues2.push({ path: "answerSupport", message: "The Moodle listening choice activity requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l03" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5804931 || provenance2.moodle.handout?.payloadSha256 !== HANDOUT_SHA256 || provenance2.moodle.handout.title !== "Chapter 1 listening" || provenance2.moodle.handout.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !text$f(provenance2.moodle.handout.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-verified-selections" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l03/moodle-chapter-1-listening-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$f(provenance2.moodle.sourceImage?.alt?.en) || !text$f(provenance2.moodle.sourceImage?.alt?.ja)) {
+    if (provenance2?.packageId !== "l1-l03" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5804931 || provenance2.moodle.handout?.payloadSha256 !== HANDOUT_SHA256 || provenance2.moodle.handout.title !== "Chapter 1 listening" || provenance2.moodle.handout.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !text$g(provenance2.moodle.handout.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-verified-selections" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l03/moodle-chapter-1-listening-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$g(provenance2.moodle.sourceImage?.alt?.en) || !text$g(provenance2.moodle.sourceImage?.alt?.ja)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle page-one listening handout, image, and answer basis are required." });
     }
-    if (provenance2?.support?.phase !== "after-moodle-listening" || provenance2.support.minna?.reference !== "Minna no Nihongo I, Lesson 1" || provenance2.support.minna.reuse !== "sequence-only" || !text$f(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-supported-transfer") {
+    if (provenance2?.support?.phase !== "after-moodle-listening" || provenance2.support.minna?.reference !== "Minna no Nihongo I, Lesson 1" || provenance2.support.minna.reuse !== "sequence-only" || !text$g(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-supported-transfer") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki must remain mapped support after the Moodle listening work." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.instruction?.en) || !text$f(step2.instruction?.ja) || !text$f(step2.pattern))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.instruction?.en) || !text$g(step2.instruction?.ja) || !text$g(step2.pattern))) {
       issues2.push({ path: "payload.teaching", message: "Teach both exact worksheet question frames before audio practice." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.en) || !text$f(model2.payload?.sourceCaption?.ja)) {
+    if (!text$g(model2.payload?.sourceCaption?.en) || !text$g(model2.payload?.sourceCaption?.ja)) {
       issues2.push({ path: "payload.sourceCaption", message: "The source image needs a bilingual caption." });
     }
     validateTracks(model2, issues2);
@@ -245443,12 +245731,12 @@ ${spelling}`);
     const errorTags = /* @__PURE__ */ new Set();
     tracks.forEach((track2, index) => {
       const [digest2, url, duration] = expectedAudio[index];
-      if (!text$f(track2.title?.en) || !text$f(track2.title?.ja) || track2.audio?.payloadSha256 !== digest2 || track2.audio.url !== url || track2.audio.durationSeconds !== duration || track2.audio.transcriptStatus !== "not-provided-do-not-invent" || !text$f(track2.audio.sourceId) || !Array.isArray(track2.prompts) || track2.prompts.length !== 3) {
+      if (!text$g(track2.title?.en) || !text$g(track2.title?.ja) || track2.audio?.payloadSha256 !== digest2 || track2.audio.url !== url || track2.audio.durationSeconds !== duration || track2.audio.transcriptStatus !== "not-provided-do-not-invent" || !text$g(track2.audio.sourceId) || !Array.isArray(track2.prompts) || track2.prompts.length !== 3) {
         issues2.push({ path: `payload.tracks.${index}`, message: "Each exact Moodle audio track needs its original delivery and three choices." });
         return;
       }
       track2.prompts.forEach((prompt2, promptIndex) => {
-        if (!text$f(prompt2.id) || promptIds.has(prompt2.id) || !text$f(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$f(prompt2.prompt) || prompt2.options?.length !== 2 || prompt2.options.map((option2) => option2.id).join(",") !== "a,b" || prompt2.options.some((option2) => !text$f(option2.label)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$f(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !["a", "b"].includes(prompt2.correctOptionId)) {
+        if (!text$g(prompt2.id) || promptIds.has(prompt2.id) || !text$g(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$g(prompt2.prompt) || prompt2.options?.length !== 2 || prompt2.options.map((option2) => option2.id).join(",") !== "a,b" || prompt2.options.some((option2) => !text$g(option2.label)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$g(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !["a", "b"].includes(prompt2.correctOptionId)) {
           issues2.push({ path: `payload.tracks.${index}.prompts.${promptIndex}`, message: "Every exact audio prompt needs ordered A/B choices and deterministic evidence." });
         }
         promptIds.add(prompt2.id);
@@ -245512,9 +245800,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$f(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-moodle-listening-choice-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-moodle-listening-choice-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const article = document.createElement("article");
       const title2 = document.createElement("h3");
@@ -245526,9 +245814,9 @@ ${spelling}`);
       const instruction = document.createElement("p");
       instruction.append(...localizedNodes$1(step2.instruction));
       article.append(title2, pattern, instruction);
-      section.append(article);
+      section2.append(article);
     });
-    return section;
+    return section2;
   }
   function renderSourceReference$2(model2, language) {
     const figure = document.createElement("figure");
@@ -245536,7 +245824,7 @@ ${spelling}`);
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.moodle.sourceImage.url;
-    image.alt = text$f(model2.provenance.moodle.sourceImage.alt[language === "ja" ? "ja" : "en"]);
+    image.alt = text$g(model2.provenance.moodle.sourceImage.alt[language === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     const caption2 = document.createElement("figcaption");
     caption2.append(...localizedNodes$1(model2.payload.sourceCaption));
@@ -245544,9 +245832,9 @@ ${spelling}`);
     return figure;
   }
   function renderTrack$1(model2, track2) {
-    const section = document.createElement("section");
-    section.className = "academy-moodle-listening-choice-track";
-    section.dataset.trackId = track2.id;
+    const section2 = document.createElement("section");
+    section2.className = "academy-moodle-listening-choice-track";
+    section2.dataset.trackId = track2.id;
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1(track2.title));
     const audio2 = document.createElement("audio");
@@ -245555,9 +245843,9 @@ ${spelling}`);
     audio2.src = track2.audio.url;
     audio2.dataset.sourceSha256 = track2.audio.payloadSha256;
     audio2.setAttribute("aria-label", track2.title.en);
-    section.append(title2, audio2);
-    track2.prompts.forEach((prompt2, index) => section.append(renderPrompt(model2, track2, prompt2, index)));
-    return section;
+    section2.append(title2, audio2);
+    track2.prompts.forEach((prompt2, index) => section2.append(renderPrompt(model2, track2, prompt2, index)));
+    return section2;
   }
   function renderPrompt(model2, track2, prompt2, index) {
     const fieldset = document.createElement("fieldset");
@@ -245579,10 +245867,10 @@ ${spelling}`);
     return fieldset;
   }
   function renderAnswerKey$c(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-moodle-listening-choice-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-moodle-listening-choice-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const title2 = document.createElement("h3");
     title2.textContent = "Source choices after your attempt";
     const list2 = document.createElement("ol");
@@ -245592,8 +245880,8 @@ ${spelling}`);
       item2.textContent = `${prompt2.prompt} ${answer2.id}. ${answer2.label}`;
       list2.append(item2);
     });
-    section.append(title2, list2);
-    return section;
+    section2.append(title2, list2);
+    return section2;
   }
   function responseFromForm$p(model2, form2) {
     const answers = prompts(model2).map((prompt2) => {
@@ -245640,10 +245928,10 @@ ${spelling}`);
     if (!isSourceVisual(provenance2?.moodle?.vocabularySheet) || !isSourceVisual(provenance2?.moodle?.listeningSheet) || provenance2.moodle.vocabularySheet.url !== "/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png" || provenance2.moodle.vocabularySheet.sha256 !== VOCABULARY_IMAGE_SHA256$4 || provenance2.moodle.listeningSheet.url !== "/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png" || provenance2.moodle.listeningSheet.sha256 !== LISTENING_IMAGE_SHA256$1) {
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Moodle page renders must be delivered." });
     }
-    if (provenance2?.support?.minna.reference !== "Minna no Nihongo I, Lesson 19" || provenance2.support.minna.reuse !== "sequence-only" || !text$f(provenance2.support.genki.sourceId) || provenance2.support.genki.payloadSha256 !== GENKI_SHA256$9 || provenance2.support.genki.relation !== "post-instruction-experience-form-support-only") {
+    if (provenance2?.support?.minna.reference !== "Minna no Nihongo I, Lesson 19" || provenance2.support.minna.reuse !== "sequence-only" || !text$g(provenance2.support.genki.sourceId) || provenance2.support.genki.payloadSha256 !== GENKI_SHA256$9 || provenance2.support.genki.relation !== "post-instruction-experience-form-support-only") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and Genki post-instruction support must remain bounded." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.instruction?.en) || !text$f(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.instruction?.en) || !text$g(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the source vocabulary and experience frame before the listening rail." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -245654,7 +245942,7 @@ ${spelling}`);
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$f(prompt2.id) || ids2.has(prompt2.id) || !text$f(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["a", "b", "c"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$f(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$f(prompt2.reviewExpression)) {
+        if (!text$g(prompt2.id) || ids2.has(prompt2.id) || !text$g(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["a", "b", "c"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$g(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$g(prompt2.reviewExpression)) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Every B-21 stop needs one exact source question and deterministic hidden answer." });
         }
         ids2.add(prompt2.id);
@@ -245702,7 +245990,7 @@ ${spelling}`);
   function isSourceVisual(value) {
     if (!value || typeof value !== "object") return false;
     const visual2 = value;
-    return Boolean(text$f(visual2.sourceId) && text$f(visual2.title) && text$f(visual2.url) && /^[a-f0-9]{64}$/u.test(String(visual2.sha256 ?? "")) && text$f(visual2.alt?.en) && text$f(visual2.alt?.ja));
+    return Boolean(text$g(visual2.sourceId) && text$g(visual2.title) && text$g(visual2.url) && /^[a-f0-9]{64}$/u.test(String(visual2.sha256 ?? "")) && text$g(visual2.alt?.en) && text$g(visual2.alt?.ja));
   }
   const EXPERIENCE_POSTCARD_LISTENING_KIND = "academy-experience-postcard-listening";
   function renderExperiencePostcardListening(model2, host2, submit2) {
@@ -245810,10 +246098,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$b(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-experience-postcard-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-experience-postcard-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとのB-21の答え" : "B-21 answers after your attempt";
     const list2 = document.createElement("ol");
@@ -245822,8 +246110,8 @@ ${spelling}`);
       item2.textContent = `${prompt2.sourceOrder}. ${prompt2.correctOptionId.toUpperCase()} - ${prompt2.reviewExpression}`;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$o(model2, form2) {
     const answers = model2.payload.prompts.map((prompt2) => {
@@ -245856,13 +246144,13 @@ ${spelling}`);
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Moodle page renders must be delivered." });
     }
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 19" || support2.minna.reuse !== "sequence-only" || !text$f(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$8 || support2.genki.relation !== "prior-form-context-only-no-genki-task-shown") {
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 19" || support2.minna.reuse !== "sequence-only" || !text$g(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$8 || support2.genki.relation !== "prior-form-context-only-no-genki-task-shown") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and bounded prior Genki context must remain explicit." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.instruction?.en) || !text$f(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.instruction?.en) || !text$g(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and grammar page before the listening tape." });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 9 || model2.payload.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 9 || model2.payload.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed B-22 script must remain complete and gated until an attempt." });
     }
     const pins = model2.payload?.pins;
@@ -245873,7 +246161,7 @@ ${spelling}`);
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       pins.forEach((pin, index) => {
-        if (!text$f(pin.id) || ids2.has(pin.id) || !text$f(pin.sourceQuestionId) || sources.has(pin.sourceQuestionId) || !["speaker-a", "speaker-b"].includes(pin.correctSpeakerId) || !model2.conceptIds.includes(pin.conceptId) || !text$f(pin.errorTag) || tags.has(pin.errorTag) || !text$f(pin.reviewExpression)) {
+        if (!text$g(pin.id) || ids2.has(pin.id) || !text$g(pin.sourceQuestionId) || sources.has(pin.sourceQuestionId) || !["speaker-a", "speaker-b"].includes(pin.correctSpeakerId) || !model2.conceptIds.includes(pin.conceptId) || !text$g(pin.errorTag) || tags.has(pin.errorTag) || !text$g(pin.reviewExpression)) {
           issues2.push({ path: `payload.pins.${index}`, message: "Every B-22 pin needs one reviewed speaker answer and repair seed." });
         }
         ids2.add(pin.id);
@@ -245911,7 +246199,7 @@ ${spelling}`);
     return answers;
   }
   function validVisual$9(value) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && text$g(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const HOLIDAY_ITINERARY_TAPE_KIND = "academy-holiday-itinerary-tape";
   function renderHolidayItineraryTape(model2, host2, submit2) {
@@ -246019,10 +246307,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$a(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-holiday-tape-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-holiday-tape-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの B-22 の聞き取り" : "B-22 listening notes after your attempt";
     const answers = document.createElement("ol");
@@ -246038,8 +246326,8 @@ ${spelling}`);
       item2.textContent = `${line2.speaker}: ${line2.text}`;
       transcript.append(item2);
     });
-    section.append(heading, answers, transcript);
-    return section;
+    section2.append(heading, answers, transcript);
+    return section2;
   }
   function responseFromForm$n(model2, form2) {
     const answers = model2.payload.pins.map((pin) => {
@@ -246068,8 +246356,8 @@ ${spelling}`);
     if (model2.provenance?.packageId !== "l2-l05" || model2.provenance.answerVisibility !== "after-attempt" || moodle?.moduleId !== 6974651 || moodle.vocabularySheet.payloadSha256 !== VOCABULARY_SHA256$3 || moodle.listeningSheet.payloadSha256 !== LISTENING_SHEET_SHA256 || moodle.audio.payloadSha256 !== AUDIO_SHA256 || moodle.audio.durationSeconds !== 82.56 || moodle.audio.transcriptStatus !== "audio-reviewed-b24-choice-pairing-hidden-until-attempt" || moodle.answerKeyBasis !== "source-worksheet-prompts-and-audio-reviewed-b24-choices") issues2.push({ path: "provenance.moodle", message: "Lesson 30 requires exact Sensei pages and reviewed original B-24 audio." });
     if (!validVisual$8(moodle?.vocabularySheet) || !validVisual$8(moodle?.listeningSheet) || moodle?.vocabularySheet.url !== "/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png" || moodle?.vocabularySheet.sha256 !== VOCABULARY_IMAGE_SHA256$2 || moodle?.listeningSheet.url !== "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png" || moodle?.listeningSheet.sha256 !== LISTENING_IMAGE_SHA256) issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Chapter 20 pages must be delivered." });
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$f(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$7 || support2.genki.relation !== "prior-short-form-context-only-no-genki-task-shown") issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form context must remain explicit." });
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.instruction?.en) || !text$f(step2.instruction?.ja))) issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and B-24 sheet before listening." });
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$g(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$7 || support2.genki.relation !== "prior-short-form-context-only-no-genki-task-shown") issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form context must remain explicit." });
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.instruction?.en) || !text$g(step2.instruction?.ja))) issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and B-24 sheet before listening." });
     const prompts2 = model2.payload?.prompts;
     if (!Array.isArray(prompts2) || prompts2.length !== 3 || prompts2.map((prompt2) => prompt2.sourceOrder).join(",") !== "1,2,3") issues2.push({ path: "payload.prompts", message: "The hinge needs three B-24 source choices in order." });
     else {
@@ -246077,7 +246365,7 @@ ${spelling}`);
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$f(prompt2.id) || ids2.has(prompt2.id) || !text$f(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["left", "right"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$f(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$f(prompt2.reviewExpression)) issues2.push({ path: `payload.prompts.${index}`, message: "Each B-24 hinge needs one reviewed choice and repair seed." });
+        if (!text$g(prompt2.id) || ids2.has(prompt2.id) || !text$g(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["left", "right"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$g(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$g(prompt2.reviewExpression)) issues2.push({ path: `payload.prompts.${index}`, message: "Each B-24 hinge needs one reviewed choice and repair seed." });
         ids2.add(prompt2.id);
         sources.add(prompt2.sourceQuestionId);
         tags.add(prompt2.errorTag);
@@ -246110,7 +246398,7 @@ ${spelling}`);
     return answers;
   }
   function validVisual$8(value) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && text$g(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const LISTENING_HINGE_KIND = "academy-listening-hinge";
   function renderListeningHinge(model2, host2, submit2) {
@@ -246218,10 +246506,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$9(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-listening-hinge-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-listening-hinge-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの B-24 の聞き取り" : "B-24 listening notes after your attempt";
     const answers = document.createElement("ol");
@@ -246230,8 +246518,8 @@ ${spelling}`);
       item2.textContent = `${prompt2.sourceOrder}. ${prompt2.reviewExpression}`;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$m(model2, form2) {
     const answers = model2.payload.prompts.map((prompt2) => {
@@ -246264,7 +246552,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I, Lesson 21" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.instruction?.en) || !text$f(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.instruction?.en) || !text$g(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the exact Chapter 21 plain-clause frame before assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -246303,7 +246591,7 @@ ${spelling}`);
     }]);
   }
   function validateRound$6(model2, round2, index, ids2, sources, tags, issues2) {
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sources.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || !round2.acceptedAnswers.length || !round2.acceptedAnswers.some((answer2) => normalize$3(answer2) === normalize$3(round2.answerExpression)) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || tags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sources.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || !round2.acceptedAnswers.length || !round2.acceptedAnswers.some((answer2) => normalize$3(answer2) === normalize$3(round2.answerExpression)) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || tags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs exact wording, a derived completion, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -246316,7 +246604,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Each Chapter 21 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -246324,7 +246612,7 @@ ${spelling}`);
     return answers;
   }
   function validVisual$7(value, page, url, sha2562) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && value.page === page && value.url === url && value.sha256 === sha2562 && /^[a-f0-9]{64}$/u.test(value.payloadSha256) && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && value.page === page && value.url === url && value.sha256 === sha2562 && /^[a-f0-9]{64}$/u.test(value.payloadSha256) && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   function normalize$3(value) {
     return value.normalize("NFKC").replace(/[\s。．.、]/gu, "").toLocaleLowerCase("ja");
@@ -246476,10 +246764,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$8(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-opinion-transformation-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-opinion-transformation-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの変換" : "Derived transformations after your attempt";
     const answers = document.createElement("ol");
@@ -246488,8 +246776,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$l(model2, form2) {
     const data = new FormData(form2);
@@ -246530,7 +246818,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lessons 20, 23 and 25" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L17" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All three verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "1-1: Using 〜とき, change the sentences to one sentence.") {
@@ -246572,7 +246860,7 @@ ${spelling}`);
     }]);
   }
   function validateRound$5(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.affirmativeClause) || !text$f(round2.negativeClause) || !text$f(round2.mainClause) || round2.correctMode !== "affirmative" && round2.correctMode !== "negative" || !text$f(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== "1-1" || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.affirmativeClause) || !text$g(round2.negativeClause) || !text$g(round2.mainClause) || round2.correctMode !== "affirmative" && round2.correctMode !== "negative" || !text$g(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== "1-1" || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs two routes, one derived completion, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -246593,7 +246881,7 @@ ${spelling}`);
     return routes;
   }
   function validVisual$6(value) {
-    return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE$4 && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$4 && value.url === SOURCE_VISUAL.url && value.sha256 === SOURCE_VISUAL.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && value.title === SOURCE_TITLE$4 && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$4 && value.url === SOURCE_VISUAL.url && value.sha256 === SOURCE_VISUAL.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const OCCASION_ROUTE_KIND = "academy-occasion-route";
   function renderOccasionRoute(model2, host2, submit2) {
@@ -246688,9 +246976,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$e(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-occasion-route-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-occasion-route-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -246700,18 +246988,18 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-occasion-route-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$5(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-occasion-route-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-occasion-route-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(visual2, language, "academy-occasion-route-source"));
+      section2.append(renderInspectableSourceVisual(visual2, language, "academy-occasion-route-source"));
     });
-    return section;
+    return section2;
   }
   function renderRound$d(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -246798,10 +247086,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$7(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-occasion-route-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-occasion-route-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの派生文" : "Derived sentences after your attempt";
     const answers = document.createElement("ol");
@@ -246812,8 +247100,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$k(model2, form2) {
     const data = new FormData(form2);
@@ -246878,7 +247166,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 28" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · Simultaneous actions and routines" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, two rules, and six examples must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "2: please change two sentences to one long sentence.") {
@@ -246922,7 +247210,7 @@ ${spelling}`);
   }
   function validateRound$4(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "typed-join" ? 0 : 2;
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerValue) || !text$f(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$2(answer2) === normalize$2(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== 2 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$f(option2.value) || !text$f(option2.label.en) || !text$f(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$2(option2.value) === normalize$2(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerValue) || !text$g(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$2(answer2) === normalize$2(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== 2 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$g(option2.value) || !text$g(option2.label.en) || !text$g(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$2(option2.value) === normalize$2(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -246935,7 +247223,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Each Chapter 28-1 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -246944,7 +247232,7 @@ ${spelling}`);
   }
   function validVisual$5(value, index) {
     const expected = SOURCE_VISUALS$3[index];
-    return Boolean(value && expected && text$f(value.sourceId) && value.title === SOURCE_TITLE$3 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$3 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && expected && text$g(value.sourceId) && value.title === SOURCE_TITLE$3 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$3 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   function normalize$2(value) {
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
@@ -247036,9 +247324,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$d(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-nagara-workshop-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-nagara-workshop-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -247048,18 +247336,18 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-nagara-workshop-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$4(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-nagara-workshop-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-nagara-workshop-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(visual2, language, "academy-nagara-workshop-source"));
+      section2.append(renderInspectableSourceVisual(visual2, language, "academy-nagara-workshop-source"));
     });
-    return section;
+    return section2;
   }
   function renderRound$c(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -247160,10 +247448,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$6(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-nagara-workshop-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-nagara-workshop-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの、よむ派生文" : "Yomu-derived joins after your attempt";
     const answers = document.createElement("ol");
@@ -247174,8 +247462,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$j(model2, form2) {
     const data = new FormData(form2);
@@ -247266,7 +247554,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 28" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · Listing reasons and soft refusal" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, both uses, note, and examples must precede assessment." });
     }
     if (model2.payload?.taskHeadings?.join("|") !== [
@@ -247315,7 +247603,7 @@ ${spelling}`);
     const optionCount = round2.interaction === "typed-chain" ? 0 : 2;
     const expectedPage = index < 4 ? 1 : 2;
     const expectedItem = index % 4 + 1;
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerValue) || !text$f(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$1(answer2) === normalize$1(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || round2.sourceTask !== expectedPage || round2.sourceItem !== expectedItem || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$f(option2.value) || !text$f(option2.label.en) || !text$f(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$1(option2.value) === normalize$1(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerValue) || !text$g(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$1(answer2) === normalize$1(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || round2.sourceTask !== expectedPage || round2.sourceItem !== expectedItem || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$g(option2.value) || !text$g(option2.label.en) || !text$g(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$1(option2.value) === normalize$1(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -247328,7 +247616,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Each Chapter 28-2 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -247337,7 +247625,7 @@ ${spelling}`);
   }
   function validVisual$4(value, index) {
     const expected = SOURCE_VISUALS$2[index];
-    return Boolean(value && expected && text$f(value.sourceId) && value.title === SOURCE_TITLE$2 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$2 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && expected && text$g(value.sourceId) && value.title === SOURCE_TITLE$2 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$2 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   function normalize$1(value) {
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
@@ -247436,9 +247724,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$c(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-reason-chain-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-reason-chain-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -247448,18 +247736,18 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-reason-chain-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$3(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-reason-chain-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-reason-chain-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(visual2, language, "academy-reason-chain-source"));
+      section2.append(renderInspectableSourceVisual(visual2, language, "academy-reason-chain-source"));
     });
-    return section;
+    return section2;
   }
   function renderRound$b(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -247560,10 +247848,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$5(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-reason-chain-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-reason-chain-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの、よむ派生文" : "Yomu-derived joins after your attempt";
     const answers = document.createElement("ol");
@@ -247574,8 +247862,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$i(model2, form2) {
     const data = new FormData(form2);
@@ -248102,7 +248390,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== profile2.minna || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== profile2.genki || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== profile2.teachingCount || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== profile2.teachingCount || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, state rule, particle contrast, topic note, and examples must precede assessment." });
     }
     if (!Array.isArray(model2.payload?.taskHeadings) || model2.payload.taskHeadings.map((heading) => heading.text).join("|") !== profile2.headings.map((heading) => heading[1]).join("|") || model2.payload.taskHeadings.map((heading) => heading.sourceTask).join(",") !== profile2.headings.map((heading) => heading[0]).join(",")) {
@@ -248146,7 +248434,7 @@ ${spelling}`);
   }
   function validateRound$2(model2, round2, index, profile2, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "typed-report" ? 0 : 2;
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.answerValue) || !text$f(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize(answer2) === normalize(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== profile2.pages[index] || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$f(option2.value) || !text$f(option2.label.en) || !text$f(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize(option2.value) === normalize(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.answerValue) || !text$g(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize(answer2) === normalize(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== profile2.pages[index] || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$g(option2.value) || !text$g(option2.label.en) || !text$g(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize(option2.value) === normalize(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source prompt needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -248159,7 +248447,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$f(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$g(answer2.value)) {
         throw new TypeError("Each source state row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -248167,7 +248455,7 @@ ${spelling}`);
     return answers;
   }
   function validVisual$3(value, expected) {
-    return Boolean(value && expected && text$f(value.sourceId) && value.title === expected.title && value.page === expected.page && value.payloadSha256 === expected.payloadSha256 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && expected && text$g(value.sourceId) && value.title === expected.title && value.page === expected.page && value.payloadSha256 === expected.payloadSha256 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   function profileFor(model2) {
     if (model2.provenance?.packageId === LESSON_39_PROFILE.packageId) return LESSON_39_PROFILE;
@@ -248212,14 +248500,14 @@ ${spelling}`);
     const rounds = document.createElement("div");
     rounds.className = "academy-state-inspection-round-groups";
     model2.payload.taskHeadings.forEach((group2) => {
-      const section = document.createElement("section");
+      const section2 = document.createElement("section");
       const groupHeading = document.createElement("h3");
       groupHeading.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
       model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$a(model2, round2, host2)));
-      section.append(groupHeading, list2);
-      rounds.append(section);
+      section2.append(groupHeading, list2);
+      rounds.append(section2);
     });
     const check2 = document.createElement("button");
     check2.type = "submit";
@@ -248289,9 +248577,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$b(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -248301,23 +248589,23 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-state-inspection-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$2(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(visual2.presentation === "inline-reference" ? renderInlineSourceVisual(visual2, language) : renderInspectableSourceVisual(
+      section2.append(visual2.presentation === "inline-reference" ? renderInlineSourceVisual(visual2, language) : renderInspectableSourceVisual(
         visual2,
         language,
         "academy-state-inspection-source",
         "lazy"
       ));
     });
-    return section;
+    return section2;
   }
   function renderInlineSourceVisual(visual2, language) {
     const selectedLanguage = language === "ja" ? "ja" : "en";
@@ -248337,9 +248625,9 @@ ${spelling}`);
   function renderSourceAudio(model2, language) {
     const source2 = model2.provenance.moodle.media.audio;
     if (!source2) return void 0;
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-audio";
-    section.dataset.lessonPhase = "source-listening";
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-audio";
+    section2.dataset.lessonPhase = "source-listening";
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "Track 13 を聞く" : "Listen to Track 13";
     const audio2 = document.createElement("audio");
@@ -248348,8 +248636,8 @@ ${spelling}`);
     audio2.src = source2.url;
     audio2.dataset.sourceSha256 = source2.payloadSha256;
     audio2.setAttribute("aria-label", language === "ja" ? "Moodle Track 13 原音声。何度でも再生できます。" : "Original Moodle Track 13 audio. Replay as needed.");
-    section.append(heading, audio2);
-    return section;
+    section2.append(heading, audio2);
+    return section2;
   }
   function renderRound$a(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -248450,10 +248738,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$4(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-state-inspection-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-state-inspection-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = isNaraGuidance(model2) ? language === "ja" ? "試したあとの、先生の印刷例（選択肢とヒントはよむ補助）" : "Sensei’s printed examples after your attempt; choices and hints are Yomu scaffolding" : isConditionalActivity(model2) ? language === "ja" ? "試したあとの、先生の原文形と出典を分けたよむ補完" : "Sensei source forms and separately attributed Yomu conditional joins after your attempt" : isProbabilityBriefing(model2) ? language === "ja" ? "試したあとの、先生の原文例" : "Sensei’s source examples after your attempt" : isVolitionalActivity(model2) ? language === "ja" ? "試したあとの、よむ派生の意向形" : "Yomu-derived volitional forms after your attempt" : isMessageHandoff(model2) ? language === "ja" ? "試したあとの、先生の例と出典を分けたよむ補完" : "Sensei examples and separately attributed Yomu completions after your attempt" : language === "ja" ? "試したあとの、よむ派生文" : `Yomu-derived ${isPreparedState(model2) ? "prepared-state " : ""}reports after your attempt`;
     const answers = document.createElement("ol");
@@ -248464,16 +248752,16 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
+    section2.append(heading, answers);
     model2.provenance.moodle.answerSheets?.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(
+      section2.append(renderInspectableSourceVisual(
         visual2,
         language,
         "academy-state-inspection-source academy-state-inspection-answer-source",
         "lazy"
       ));
     });
-    return section;
+    return section2;
   }
   function responseFromForm$h(model2, form2) {
     const data = new FormData(form2);
@@ -248573,7 +248861,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lesson 22" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L15" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki may support sequence only; neither supplies prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All four verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeadings?.join("|") !== "1: Following examples, create noun-modifying clause sentences.|4: Following examples, create sentences.") {
@@ -248617,7 +248905,7 @@ ${spelling}`);
   }
   function validateRound$1(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.phraseTail) || !text$f(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$f(option2.id) || !text$f(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.correctParticle !== "を" && round2.correctParticle !== "が" || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.phraseTail) || !text$g(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$g(option2.id) || !text$g(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.correctParticle !== "を" && round2.correctParticle !== "が" || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source signal needs three forms, one particle channel, one derived answer, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -248640,7 +248928,7 @@ ${spelling}`);
   }
   function validVisual$2(value, page) {
     const expected = SOURCE_VISUALS$1[page];
-    return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE$1 && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$1 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && value.title === SOURCE_TITLE$1 && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$1 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const PARTICLE_SIGNAL_MIXER_KIND = "academy-particle-signal-mixer";
   function renderParticleSignalMixer(model2, host2, submit2) {
@@ -248733,9 +249021,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$a(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-particle-signal-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-particle-signal-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -248745,18 +249033,18 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-particle-signal-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources$1(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-particle-signal-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-particle-signal-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(visual2, language, "academy-particle-signal-source"));
+      section2.append(renderInspectableSourceVisual(visual2, language, "academy-particle-signal-source"));
     });
-    return section;
+    return section2;
   }
   function renderRound$9(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -248847,10 +249135,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$3(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-particle-signal-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-particle-signal-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの派生文" : "Derived sentences after your attempt";
     const answers = document.createElement("ol");
@@ -248861,8 +249149,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$g(model2, form2) {
     const data = new FormData(form2);
@@ -248927,7 +249215,7 @@ ${spelling}`);
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lessons 22–23" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L16" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$f(step2.title) || !text$f(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$g(step2.title) || !text$g(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All four verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "7: Look at the picture below and create sentences.") {
@@ -248969,7 +249257,7 @@ ${spelling}`);
     }]);
   }
   function validateRound(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
-    if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$f(round2.sourcePrompt) || !text$f(round2.beforeForm) || !text$f(round2.afterForm) || round2.correctTiming !== "before" && round2.correctTiming !== "after" || !text$f(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 5 || round2.sourceTask !== 7 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$f(hint2.en) || !text$f(hint2.ja))) {
+    if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$g(round2.sourcePrompt) || !text$g(round2.beforeForm) || !text$g(round2.afterForm) || round2.correctTiming !== "before" && round2.correctTiming !== "after" || !text$g(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 5 || round2.sourceTask !== 7 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$g(hint2.en) || !text$g(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source bubble needs before/after forms, one derived answer, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -248991,7 +249279,7 @@ ${spelling}`);
   }
   function validVisual$1(value, page) {
     const expected = SOURCE_VISUALS[page];
-    return Boolean(value && text$f(value.sourceId) && value.title === SOURCE_TITLE && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256 && value.url === expected.url && value.sha256 === expected.sha256 && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && value.title === SOURCE_TITLE && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256 && value.url === expected.url && value.sha256 === expected.sha256 && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const TOKI_THRESHOLD_KIND = "academy-toki-threshold";
   function renderTokiThreshold(model2, host2, submit2) {
@@ -249086,9 +249374,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$9(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-toki-threshold-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-toki-threshold-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("section");
       const heading = document.createElement("h3");
@@ -249098,18 +249386,18 @@ ${spelling}`);
       copy2.className = "academy-japanese academy-toki-threshold-source-text";
       copy2.textContent = step2.text;
       block.append(heading, copy2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderSources(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-toki-threshold-sources";
-    section.dataset.lessonPhase = "source-reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-toki-threshold-sources";
+    section2.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(visual2, language, "academy-toki-threshold-source"));
+      section2.append(renderInspectableSourceVisual(visual2, language, "academy-toki-threshold-source"));
     });
-    return section;
+    return section2;
   }
   function renderRound$8(model2, round2, host2) {
     const item2 = document.createElement("li");
@@ -249197,10 +249485,10 @@ ${spelling}`);
     return root;
   }
   function renderAnswerKey$2(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-toki-threshold-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-toki-threshold-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの派生文" : "Derived sentences after your attempt";
     const answers = document.createElement("ol");
@@ -249211,8 +249499,8 @@ ${spelling}`);
       item2.textContent = round2.answerExpression;
       answers.append(item2);
     });
-    section.append(heading, answers);
-    return section;
+    section2.append(heading, answers);
+    return section2;
   }
   function responseFromForm$f(model2, form2) {
     const data = new FormData(form2);
@@ -249260,7 +249548,7 @@ ${spelling}`);
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Chapter 20 page renders must be delivered." });
     }
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$f(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$6 || support2.genki.relation !== "post-instruction-short-form-support-only-no-genki-task-shown") {
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$g(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$6 || support2.genki.relation !== "post-instruction-short-form-support-only-no-genki-task-shown") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form support must remain explicit." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -249270,7 +249558,7 @@ ${spelling}`);
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$f(prompt2.id) || ids2.has(prompt2.id) || !text$f(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !text$f(prompt2.politeForm) || !["dictionary", "negative", "past-negative"].includes(prompt2.targetColumn) || prompt2.options.length !== 3 || !prompt2.options.some((option2) => option2.id === prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$f(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$f(prompt2.reviewExpression)) {
+        if (!text$g(prompt2.id) || ids2.has(prompt2.id) || !text$g(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !text$g(prompt2.politeForm) || !["dictionary", "negative", "past-negative"].includes(prompt2.targetColumn) || prompt2.options.length !== 3 || !prompt2.options.some((option2) => option2.id === prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$g(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$g(prompt2.reviewExpression)) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Each source row needs one bounded column choice and derived repair seed." });
         }
         ids2.add(prompt2.id);
@@ -249311,7 +249599,7 @@ ${spelling}`);
     return answers;
   }
   function validVisual(value) {
-    return Boolean(value && text$f(value.sourceId) && text$f(value.title) && text$f(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$f(value.alt.en) && text$f(value.alt.ja));
+    return Boolean(value && text$g(value.sourceId) && text$g(value.title) && text$g(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$g(value.alt.en) && text$g(value.alt.ja));
   }
   const PLAIN_STYLE_MATRIX_KIND = "academy-plain-style-matrix";
   function renderPlainStyleMatrix(model2, host2, submit2) {
@@ -249415,10 +249703,10 @@ ${spelling}`);
     return item2;
   }
   function renderAnswerKey$1(model2, language) {
-    const section = document.createElement("section");
-    section.className = "academy-plain-style-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-plain-style-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const heading = document.createElement("h3");
     heading.textContent = language === "ja" ? "試したあとの形" : "Forms after your attempt";
     const list2 = document.createElement("ol");
@@ -249427,8 +249715,8 @@ ${spelling}`);
       item2.textContent = `${prompt2.politeForm} → ${prompt2.reviewExpression}`;
       list2.append(item2);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$e(model2, form2) {
     const answers = model2.payload.prompts.map((prompt2) => {
@@ -249478,10 +249766,10 @@ ${spelling}`);
       issues2.push({ path: "answerSupport", message: "The Moodle listening grid requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l19" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 6223185 || provenance2.moodle.handout?.title !== "Chapter 11 listening" || provenance2.moodle.handout?.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !hash(provenance2.moodle.handout?.payloadSha256) || !text$f(provenance2.moodle.handout?.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-reviewed-grid-values") {
+    if (provenance2?.packageId !== "l1-l19" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 6223185 || provenance2.moodle.handout?.title !== "Chapter 11 listening" || provenance2.moodle.handout?.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !hash(provenance2.moodle.handout?.payloadSha256) || !text$g(provenance2.moodle.handout?.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-reviewed-grid-values") {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle listening handout and reviewed source-audio basis are required." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.ja) || !text$f(model2.payload?.sourceCaption?.en)) {
+    if (!text$g(model2.payload?.sourceCaption?.ja) || !text$g(model2.payload?.sourceCaption?.en)) {
       issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     }
     const tracks = model2.payload?.tracks;
@@ -249492,17 +249780,17 @@ ${spelling}`);
     const taskIds = /* @__PURE__ */ new Set();
     const sourceQuestionIds = /* @__PURE__ */ new Set();
     tracks.forEach((track2, trackIndex) => {
-      if (!text$f(track2.id) || !text$f(track2.title?.ja) || !text$f(track2.title?.en)) {
+      if (!text$g(track2.id) || !text$g(track2.title?.ja) || !text$g(track2.title?.en)) {
         issues2.push({ path: `payload.tracks.${trackIndex}.title`, message: "Each source track needs a bilingual title." });
       }
-      const audioSource = text$f(track2.audio?.sourceId);
+      const audioSource = text$g(track2.audio?.sourceId);
       const audioHash = hash(track2.audio?.payloadSha256);
       const audioUrl = /^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(track2.audio?.url ?? "");
       const audioDuration = Number.isFinite(track2.audio?.durationSeconds) && track2.audio.durationSeconds > 0;
       if (!audioSource || !audioHash || !audioUrl || !audioDuration) {
         issues2.push({ path: `payload.tracks.${trackIndex}.audio`, message: "Each source track needs byte-verified packaged audio." });
       }
-      if (!Array.isArray(track2.transcript) || track2.transcript.length === 0 || track2.transcript.some((line2) => !text$f(line2.speaker) || !text$f(line2.text))) {
+      if (!Array.isArray(track2.transcript) || track2.transcript.length === 0 || track2.transcript.some((line2) => !text$g(line2.speaker) || !text$g(line2.text))) {
         issues2.push({ path: `payload.tracks.${trackIndex}.transcript`, message: "Each source track needs a reviewed transcript." });
       }
       if (!Array.isArray(track2.tasks) || track2.tasks.length === 0) {
@@ -249510,7 +249798,7 @@ ${spelling}`);
         return;
       }
       track2.tasks.forEach((task2, taskIndex) => {
-        if (!text$f(task2.id) || taskIds.has(task2.id) || !text$f(task2.sourceQuestionId) || sourceQuestionIds.has(task2.sourceQuestionId) || !text$f(task2.prompt) || !text$f(task2.conceptId) || !text$f(task2.errorTag) || !text$f(task2.reviewExpression) || !Array.isArray(task2.fields) || task2.fields.length === 0 || task2.fields.some((field2) => !text$f(field2.id) || !text$f(field2.label) || typeof field2.answer !== "string") || !model2.conceptIds.includes(task2.conceptId)) {
+        if (!text$g(task2.id) || taskIds.has(task2.id) || !text$g(task2.sourceQuestionId) || sourceQuestionIds.has(task2.sourceQuestionId) || !text$g(task2.prompt) || !text$g(task2.conceptId) || !text$g(task2.errorTag) || !text$g(task2.reviewExpression) || !Array.isArray(task2.fields) || task2.fields.length === 0 || task2.fields.some((field2) => !text$g(field2.id) || !text$g(field2.label) || typeof field2.answer !== "string") || !model2.conceptIds.includes(task2.conceptId)) {
           issues2.push({ path: `payload.tracks.${trackIndex}.tasks.${taskIndex}`, message: "Every source grid task needs unique exact fields and deterministic evidence." });
         }
         taskIds.add(task2.id);
@@ -249569,9 +249857,9 @@ ${spelling}`);
     };
   }
   function renderTrack(model2, track2) {
-    const section = document.createElement("section");
-    section.className = "academy-moodle-listening-grid-track";
-    section.dataset.trackId = track2.id;
+    const section2 = document.createElement("section");
+    section2.className = "academy-moodle-listening-grid-track";
+    section2.dataset.trackId = track2.id;
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1(track2.title));
     const audio2 = document.createElement("audio");
@@ -249580,9 +249868,9 @@ ${spelling}`);
     audio2.src = track2.audio.url;
     audio2.dataset.sourceSha256 = track2.audio.payloadSha256;
     audio2.setAttribute("aria-label", track2.title.en);
-    section.append(title2, audio2);
-    track2.tasks.forEach((task2) => section.append(renderTask(model2, track2, task2)));
-    return section;
+    section2.append(title2, audio2);
+    track2.tasks.forEach((task2) => section2.append(renderTask(model2, track2, task2)));
+    return section2;
   }
   function renderTask(model2, track2, task2) {
     const fieldset = document.createElement("fieldset");
@@ -250835,17 +251123,17 @@ ${spelling}`);
     if (JSON.stringify(model2.provenance) !== JSON.stringify(N2_EVENT_INFORMATION_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Soya file and item pins are required." });
     }
-    if (model2.payload.notice.authorship !== "original-yomu-n2-notice" || model2.payload.notice.paragraphs.length !== 3 || model2.payload.notice.paragraphs.some((paragraph) => !text$f(paragraph)) || model2.payload.notice.playbackText !== model2.payload.notice.paragraphs.join(" ") || model2.payload.notice.facts.length !== 5) {
+    if (model2.payload.notice.authorship !== "original-yomu-n2-notice" || model2.payload.notice.paragraphs.length !== 3 || model2.payload.notice.paragraphs.some((paragraph) => !text$g(paragraph)) || model2.payload.notice.playbackText !== model2.payload.notice.paragraphs.join(" ") || model2.payload.notice.facts.length !== 5) {
       issues2.push({ path: "payload.notice", message: "The complete original three-paragraph notice and five-row grid are required." });
     }
-    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$f(item2.title.ja) || !text$f(item2.title.en) || !text$f(item2.example) || !text$f(item2.explanation.ja) || !text$f(item2.explanation.en))) {
+    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$g(item2.title.ja) || !text$g(item2.title.en) || !text$g(item2.example) || !text$g(item2.explanation.ja) || !text$g(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual pre-retrieval teaching points are required." });
     }
     validateQuestions(model2, issues2);
     validateActionSequence(model2, issues2);
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
-    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$f(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$f(target2.expression) || !text$f(target2.sentence) || !target2.meanings.length || !target2.repairFor.length)) {
+    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$g(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$g(target2.expression) || !text$g(target2.sentence) || !target2.meanings.length || !target2.repairFor.length)) {
       issues2.push({ path: "payload.reviewTargets", message: "Four targeted N2 repair records are required." });
     }
     return issues2;
@@ -250938,8 +251226,8 @@ ${spelling}`);
     };
   }
   function renderTeaching$8(model2, host2, disposers) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "instruction";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "instruction";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "検索する前の三つの印" : "Three marks before retrieval";
     const list2 = document.createElement("ol");
@@ -250955,12 +251243,12 @@ ${spelling}`);
       row.append(title2, example, explanation2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderNotice(model2, host2, readingDisposers, playbackDisposers, signal) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "source-inspection";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "source-inspection";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.notice.title));
     const play = document.createElement("button");
@@ -250995,17 +251283,17 @@ ${spelling}`);
       row.append(surface);
       article.append(row);
     });
-    section.append(heading, play, table, article);
-    return section;
+    section2.append(heading, play, table, article);
+    return section2;
   }
   function renderRetrieval(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-retrieval";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-retrieval";
     const heading = document.createElement("h3");
     heading.textContent = host2.language === "ja" ? "案内から情報を探す" : "Information retrieval";
-    section.append(heading);
-    model2.payload.questions.forEach((question2) => section.append(renderQuestion(question2)));
-    return section;
+    section2.append(heading);
+    model2.payload.questions.forEach((question2) => section2.append(renderQuestion(question2)));
+    return section2;
   }
   function renderQuestion(question2) {
     const fieldset = document.createElement("fieldset");
@@ -251027,9 +251315,9 @@ ${spelling}`);
     return fieldset;
   }
   function renderActionSequence(model2, host2) {
-    const section = document.createElement("section");
-    section.dataset.lessonPhase = "assessed-sequencing";
-    section.dataset.modality = "ordered-action";
+    const section2 = document.createElement("section");
+    section2.dataset.lessonPhase = "assessed-sequencing";
+    section2.dataset.modality = "ordered-action";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(model2.payload.actionSequence.prompt));
     const list2 = document.createElement("ol");
@@ -251051,8 +251339,8 @@ ${spelling}`);
       row.append(select2);
       list2.append(row);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function responseFromForm$c(model2, form2) {
     const answers = model2.payload.questions.map((question2) => {
@@ -251069,7 +251357,7 @@ ${spelling}`);
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!answer2 || !text$f(answer2.questionId) || !text$f(answer2.optionId) || answers.has(answer2.questionId)) {
+      if (!answer2 || !text$g(answer2.questionId) || !text$g(answer2.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("N2 event-information answers must use unique question and option ids.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -251091,7 +251379,7 @@ ${spelling}`);
     }
     const ids2 = /* @__PURE__ */ new Set();
     model2.payload.questions.forEach((question2, index) => {
-      if (!text$f(question2.id) || ids2.has(question2.id) || !text$f(question2.prompt.ja) || !text$f(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$f(question2.errorTag)) {
+      if (!text$g(question2.id) || ids2.has(question2.id) || !text$g(question2.prompt.ja) || !text$g(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$g(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Questions need unique ids, bilingual prompts, three options, and a valid answer." });
       }
       ids2.add(question2.id);
@@ -251184,7 +251472,7 @@ ${spelling}`);
       issues2.push({ path: "provenance.minna", message: "Minna must remain a byte-identified audio-only anchor without an invented transcript." });
     }
     const genki = value?.genki;
-    if (genki?.sourceId !== "japanese-genki-interactive:69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53:generateQuiz" || genki?.payloadSha256 !== "69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53" || genki?.scriptSha256 !== "52ce8ff929718489eab63f648eb8f82b12f5b7324f3727e76a6bf84d5559474c" || genki?.relativePath !== "lessons/lesson-2/workbook-2/index.html" || genki?.lineLocus?.start !== 76 || genki?.lineLocus?.end !== 123 || genki?.engine !== "Genki.generateQuiz" || !text$f(genki?.responseAdaptation).includes("exact-prompts-answers-and-order")) {
+    if (genki?.sourceId !== "japanese-genki-interactive:69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53:generateQuiz" || genki?.payloadSha256 !== "69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53" || genki?.scriptSha256 !== "52ce8ff929718489eab63f648eb8f82b12f5b7324f3727e76a6bf84d5559474c" || genki?.relativePath !== "lessons/lesson-2/workbook-2/index.html" || genki?.lineLocus?.start !== 76 || genki?.lineLocus?.end !== 123 || genki?.engine !== "Genki.generateQuiz" || !text$g(genki?.responseAdaptation).includes("exact-prompts-answers-and-order")) {
       issues2.push({ path: "provenance.genki", message: "The exact mapped Genki workbook task and adaptation policy are required." });
     }
     for (const [path, sourceId2, digest2] of [
@@ -251207,7 +251495,7 @@ ${spelling}`);
       ["これ／それ", "viewpoint"]
     ];
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pronoun !== expected[index][0] || step2.position !== expected[index][1] || !text$f(step2.rule?.ja) || !text$f(step2.rule?.en) || !text$f(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pronoun !== expected[index][0] || step2.position !== expected[index][1] || !text$g(step2.rule?.ja) || !text$g(step2.rule?.en) || !text$g(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve the Moodle position and viewpoint sequence." });
       }
     });
@@ -251218,7 +251506,7 @@ ${spelling}`);
       return;
     }
     positions.forEach((position, index) => {
-      if (!text$f(position.label?.en) || !text$f(position.label?.ja)) {
+      if (!text$g(position.label?.en) || !text$g(position.label?.ja)) {
         issues2.push({ path: `payload.positions.${index}.label`, message: "Position labels must be bilingual." });
       }
     });
@@ -251235,15 +251523,15 @@ ${spelling}`);
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
       const expectedPronoun = round2.correctPositionId === "speaker" ? "これ" : round2.correctPositionId === "listener" ? "それ" : "あれ";
-      if (!text$f(round2.id) || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.correctPositionId !== EXACT_ROUND_POSITIONS[index] || round2.pronoun !== expectedPronoun || !text$f(round2.sourcePrompt) || !text$f(round2.context?.en) || !text$f(round2.context?.ja) || !text$f(round2.answerSentence) || !model2.conceptIds.includes(round2.conceptId)) {
+      if (!text$g(round2.id) || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.correctPositionId !== EXACT_ROUND_POSITIONS[index] || round2.pronoun !== expectedPronoun || !text$g(round2.sourcePrompt) || !text$g(round2.context?.en) || !text$g(round2.context?.ja) || !text$g(round2.answerSentence) || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path, message: "Each exact Genki slot needs its source order, spatial answer, prompt, context, and Concept." });
       }
       ids2.add(round2.id);
-      if (!text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || round2.sourceQuestionId !== `genki-2e:l1-l04:lesson-2-workbook-2:slot-${index + 1}`) {
+      if (!text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || round2.sourceQuestionId !== `genki-2e:l1-l04:lesson-2-workbook-2:slot-${index + 1}`) {
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Genki source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$f(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!text$g(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.errorTag`, message: "Round error tags must be unique." });
       }
       errorTags.add(round2.errorTag);
@@ -251284,9 +251572,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$7(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-object-distance-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-object-distance-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const article = document.createElement("article");
       article.className = "academy-object-distance-teaching-step";
@@ -251301,9 +251589,9 @@ ${spelling}`);
       example.lang = "ja";
       example.textContent = step2.example;
       article.append(title2, rule, example);
-      section.append(article);
+      section2.append(article);
     });
-    return section;
+    return section2;
   }
   function renderAssessment$4(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
@@ -251748,17 +252036,17 @@ ${spelling}`);
       issues2.push({ path: "answerSupport", message: "The picture vocabulary board requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l04" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5822243 || provenance2.moodle.pictureHandout?.payloadSha256 !== PICTURE_SHA256 || provenance2.moodle.pictureHandout.title !== "Chapter 2 pics for vocabulary" || provenance2.moodle.pictureHandout.locus?.page !== 1 || provenance2.moodle.pictureHandout.locus.pictureNumbers?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.vocabularySheet?.payloadSha256 !== VOCABULARY_SHA256 || provenance2.moodle.vocabularySheet.title !== "Chapter 2-1 Vocabulary Sheet" || provenance2.moodle.vocabularySheet.rows?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l04/moodle-chapter-2-pics-for-vocabulary-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$f(provenance2.moodle.pictureHandout.sourceId) || !text$f(provenance2.moodle.vocabularySheet.sourceId) || !text$f(provenance2.moodle.sourceImage?.alt?.en) || !text$f(provenance2.moodle.sourceImage?.alt?.ja)) {
+    if (provenance2?.packageId !== "l1-l04" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5822243 || provenance2.moodle.pictureHandout?.payloadSha256 !== PICTURE_SHA256 || provenance2.moodle.pictureHandout.title !== "Chapter 2 pics for vocabulary" || provenance2.moodle.pictureHandout.locus?.page !== 1 || provenance2.moodle.pictureHandout.locus.pictureNumbers?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.vocabularySheet?.payloadSha256 !== VOCABULARY_SHA256 || provenance2.moodle.vocabularySheet.title !== "Chapter 2-1 Vocabulary Sheet" || provenance2.moodle.vocabularySheet.rows?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l04/moodle-chapter-2-pics-for-vocabulary-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$g(provenance2.moodle.pictureHandout.sourceId) || !text$g(provenance2.moodle.vocabularySheet.sourceId) || !text$g(provenance2.moodle.sourceImage?.alt?.en) || !text$g(provenance2.moodle.sourceImage?.alt?.ja)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle picture page, vocabulary rows, and source image are required." });
     }
-    if (provenance2?.support?.phase !== "after-moodle-picture-vocabulary" || provenance2.support.minna?.reference !== "Minna no Nihongo I · Lessons 1–2" || provenance2.support.minna.reuse !== "sequence-only" || !text$f(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-guided-fill") {
+    if (provenance2?.support?.phase !== "after-moodle-picture-vocabulary" || provenance2.support.minna?.reference !== "Minna no Nihongo I · Lessons 1–2" || provenance2.support.minna.reuse !== "sequence-only" || !text$g(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-guided-fill") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki must remain mapped support after Moodle picture vocabulary." });
     }
     const teaching2 = model2.payload?.teaching;
-    if (!Array.isArray(teaching2) || teaching2.length !== 1 || !text$f(teaching2[0]?.title?.en) || !text$f(teaching2[0]?.title?.ja) || !text$f(teaching2[0]?.instruction?.en) || !text$f(teaching2[0]?.instruction?.ja) || teaching2[0].items?.length !== 8) {
+    if (!Array.isArray(teaching2) || teaching2.length !== 1 || !text$g(teaching2[0]?.title?.en) || !text$g(teaching2[0]?.title?.ja) || !text$g(teaching2[0]?.instruction?.en) || !text$g(teaching2[0]?.instruction?.ja) || teaching2[0].items?.length !== 8) {
       issues2.push({ path: "payload.teaching", message: "All eight exact source mappings must be taught before assessment." });
     }
-    if (!text$f(model2.payload?.sourceCaption?.en) || !text$f(model2.payload?.sourceCaption?.ja)) {
+    if (!text$g(model2.payload?.sourceCaption?.en) || !text$g(model2.payload?.sourceCaption?.ja)) {
       issues2.push({ path: "payload.sourceCaption", message: "The source image needs a bilingual caption." });
     }
     validateItems(model2, issues2);
@@ -251776,7 +252064,7 @@ ${spelling}`);
     const sourceIds = /* @__PURE__ */ new Set();
     const tags = /* @__PURE__ */ new Set();
     items.forEach((item2, index) => {
-      if (item2.sourceOrder !== index + 1 || !text$f(item2.id) || ids2.has(item2.id) || !text$f(item2.sourceQuestionId) || sourceIds.has(item2.sourceQuestionId) || !text$f(item2.sourceRow) || !text$f(item2.prompt?.en) || !text$f(item2.prompt?.ja) || item2.options?.length !== 3 || new Set(item2.options.map((option2) => option2.id)).size !== 3 || item2.options.some((option2) => !text$f(option2.id) || !text$f(option2.label)) || !item2.options.some((option2) => option2.id === item2.correctOptionId) || !model2.conceptIds.includes(item2.conceptId) || !text$f(item2.errorTag) || tags.has(item2.errorTag)) {
+      if (item2.sourceOrder !== index + 1 || !text$g(item2.id) || ids2.has(item2.id) || !text$g(item2.sourceQuestionId) || sourceIds.has(item2.sourceQuestionId) || !text$g(item2.sourceRow) || !text$g(item2.prompt?.en) || !text$g(item2.prompt?.ja) || item2.options?.length !== 3 || new Set(item2.options.map((option2) => option2.id)).size !== 3 || item2.options.some((option2) => !text$g(option2.id) || !text$g(option2.label)) || !item2.options.some((option2) => option2.id === item2.correctOptionId) || !model2.conceptIds.includes(item2.conceptId) || !text$g(item2.errorTag) || tags.has(item2.errorTag)) {
         issues2.push({ path: `payload.items.${index}`, message: "Every taught picture needs three source-row choices and deterministic evidence." });
       }
       ids2.add(item2.id);
@@ -251840,9 +252128,9 @@ ${spelling}`);
   }
   function renderTeaching$6(model2) {
     const step2 = model2.payload.teaching[0];
-    const section = document.createElement("section");
-    section.className = "academy-picture-vocabulary-board-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-picture-vocabulary-board-teaching";
+    section2.dataset.lessonPhase = "teaching";
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1(step2.title));
     const instruction = document.createElement("p");
@@ -251853,8 +252141,8 @@ ${spelling}`);
       entry2.textContent = item2.sourceRow;
       list2.append(entry2);
     });
-    section.append(title2, instruction, list2);
-    return section;
+    section2.append(title2, instruction, list2);
+    return section2;
   }
   function renderSourceReference$1(model2, language) {
     const figure = document.createElement("figure");
@@ -251862,7 +252150,7 @@ ${spelling}`);
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.moodle.sourceImage.url;
-    image.alt = text$f(model2.provenance.moodle.sourceImage.alt[language === "ja" ? "ja" : "en"]);
+    image.alt = text$g(model2.provenance.moodle.sourceImage.alt[language === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     const caption2 = document.createElement("figcaption");
     caption2.append(...localizedNodes$1(model2.payload.sourceCaption));
@@ -251892,10 +252180,10 @@ ${spelling}`);
     return label;
   }
   function renderAnswerKey(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-picture-vocabulary-board-key";
-    section.dataset.answerVisibility = "after-attempt";
-    section.hidden = true;
+    const section2 = document.createElement("section");
+    section2.className = "academy-picture-vocabulary-board-key";
+    section2.dataset.answerVisibility = "after-attempt";
+    section2.hidden = true;
     const title2 = document.createElement("h3");
     title2.textContent = "Source rows after your attempt";
     const list2 = document.createElement("ol");
@@ -251905,8 +252193,8 @@ ${spelling}`);
       entry2.textContent = `${item2.sourceOrder}. ${answer2.label}`;
       list2.append(entry2);
     });
-    section.append(title2, list2);
-    return section;
+    section2.append(title2, list2);
+    return section2;
   }
   function responseFromForm$a(model2, form2) {
     const answers = model2.payload.items.map((item2) => {
@@ -252046,7 +252334,7 @@ ${spelling}`);
       return;
     }
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$f(step2.rule?.ja) || !text$f(step2.rule?.en) || !text$f(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$g(step2.rule?.ja) || !text$g(step2.rule?.en) || !text$g(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching order, source role, and worked example are required." });
       }
     });
@@ -252065,7 +252353,7 @@ ${spelling}`);
       const shapeMatches = round2.id === expected[0] && round2.mode === expected[1] && (round2.mode === "location-choice" ? round2.correctPositionId === expected[2] : round2.correctPointer === expected[2] && round2.correctItem === expected[3]);
       const exactAnswerMatches = round2.acceptedAnswers?.join("\0") === EXACT_ACCEPTED_ANSWERS[index].join("\0");
       const exactModePayloadMatches = round2.mode === "location-choice" ? round2.answerSentence === EXACT_ACCEPTED_ANSWERS[index][0] : round2.sourceReply === EXACT_OWNER_REPLIES[index - 4];
-      if (!shapeMatches || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== EXACT_PROMPTS$2[index] || !text$f(round2.context?.en) || !text$f(round2.context?.ja) || !exactAnswerMatches || !exactModePayloadMatches || !model2.conceptIds.includes(round2.conceptId)) {
+      if (!shapeMatches || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== EXACT_PROMPTS$2[index] || !text$g(round2.context?.en) || !text$g(round2.context?.ja) || !exactAnswerMatches || !exactModePayloadMatches || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path: `payload.rounds.${index}`, message: "Each source slot needs its exact mode, answer, order, context, and Concept." });
       }
       ids2.add(round2.id);
@@ -252074,7 +252362,7 @@ ${spelling}`);
         issues2.push({ path: `payload.rounds.${index}.sourceQuestionId`, message: "Source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$f(round2.errorTag) || errors.has(round2.errorTag)) {
+      if (!text$g(round2.errorTag) || errors.has(round2.errorTag)) {
         issues2.push({ path: `payload.rounds.${index}.errorTag`, message: "Error tags must be unique." });
       }
       errors.add(round2.errorTag);
@@ -252115,9 +252403,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$5(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-place-owner-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-place-owner-teaching";
+    section2.dataset.lessonPhase = "teaching";
     for (const step2 of model2.payload.teaching) {
       const article = document.createElement("article");
       article.className = "academy-place-owner-teaching-step";
@@ -252129,9 +252417,9 @@ ${spelling}`);
       example.className = "academy-place-owner-example";
       example.append(assessedJapanese$2(step2.example));
       article.append(heading, rule, example);
-      section.append(article);
+      section2.append(article);
     }
-    return section;
+    return section2;
   }
   function renderAssessment$3(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
@@ -252432,7 +252720,7 @@ ${spelling}`);
       return;
     }
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$f(step2.rule?.ja) || !text$f(step2.rule?.en) || !text$f(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$g(step2.rule?.ja) || !text$g(step2.rule?.en) || !text$g(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve exact source rule order and worked examples." });
       }
     });
@@ -252449,7 +252737,7 @@ ${spelling}`);
     rounds.forEach((round2, index) => {
       const expected = EXACT_ROUNDS[index];
       const path = `payload.rounds.${index}`;
-      if (round2.id !== expected.id || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== expected.prompt || round2.correctA !== expected.a || round2.correctB !== expected.b || round2.acceptedAnswers.join("\0") !== expected.answers.join("\0") || !text$f(round2.meaning) || !model2.conceptIds.includes(round2.conceptId)) {
+      if (round2.id !== expected.id || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== expected.prompt || round2.correctA !== expected.a || round2.correctB !== expected.b || round2.acceptedAnswers.join("\0") !== expected.answers.join("\0") || !text$g(round2.meaning) || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path, message: "Each Genki slot needs its exact prompt, answer variants, order, and Concept." });
       }
       ids2.add(round2.id);
@@ -252458,7 +252746,7 @@ ${spelling}`);
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Genki source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$f(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!text$g(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.errorTag`, message: "Round error tags must be unique." });
       }
       errorTags.add(round2.errorTag);
@@ -252499,9 +252787,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$4(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-possession-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-possession-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const article = document.createElement("article");
       article.className = "academy-possession-teaching-step";
@@ -252514,9 +252802,9 @@ ${spelling}`);
       example.lang = "ja";
       example.textContent = step2.example;
       article.append(title2, rule, example);
-      section.append(article);
+      section2.append(article);
     });
-    return section;
+    return section2;
   }
   function renderAssessment$2(model2, host2, submit2, root, status) {
     const form2 = document.createElement("form");
@@ -253007,7 +253295,7 @@ ${spelling}`);
     if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length < 2) {
       issues2.push({ path: "payload.teaching", message: "Teach both sentence and nationality formation before assessment." });
     } else model2.payload.teaching.forEach((step2, index) => {
-      if (!text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.explanation?.en) || !text$f(step2.explanation?.ja)) {
+      if (!text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.explanation?.en) || !text$g(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching steps require bilingual copy and a Japanese pattern." });
       }
     });
@@ -253021,19 +253309,19 @@ ${spelling}`);
     return issues2;
   }
   function validateProvenance$5(value, issues2) {
-    if (!text$f(value?.sourceId) || !/^[a-f0-9]{64}$/u.test(value?.payloadSha256 ?? "") || !text$f(value?.sourceTitle) || !text$f(value?.author)) {
+    if (!text$g(value?.sourceId) || !/^[a-f0-9]{64}$/u.test(value?.payloadSha256 ?? "") || !text$g(value?.sourceTitle) || !text$g(value?.author)) {
       issues2.push({ path: "provenance", message: "Exact Moodle source identity is required." });
     }
     if (value?.moodleModuleId !== 5792908 || value?.locus?.page !== 2 || value?.locus?.tasks?.join(",") !== "A,B") {
       issues2.push({ path: "provenance.locus", message: "The profile board must retain Moodle module 5792908, page 2, tasks A and B." });
     }
-    if (value?.answerVisibility !== "after-attempt" || value?.exactFields?.join(",") !== "name,country,occupation" || !text$f(value?.yomuFraming)) {
+    if (value?.answerVisibility !== "after-attempt" || value?.exactFields?.join(",") !== "name,country,occupation" || !text$g(value?.yomuFraming)) {
       issues2.push({ path: "provenance.answerPolicy", message: "Source fields and Yomu framing must remain distinguishable." });
     }
-    if (!/^\/academy\/content\/lessons\/l1-l02\/moodle-chapter-1-2-grammar-nationality-occupation-page-2\.png$/u.test(value?.sourceReference?.imageUrl ?? "") || !/^[a-f0-9]{64}$/u.test(value?.sourceReference?.imageSha256 ?? "") || !text$f(value?.sourceReference?.alt?.en) || !text$f(value?.sourceReference?.alt?.ja) || !text$f(value?.sourceReference?.caption?.en) || !text$f(value?.sourceReference?.caption?.ja)) {
+    if (!/^\/academy\/content\/lessons\/l1-l02\/moodle-chapter-1-2-grammar-nationality-occupation-page-2\.png$/u.test(value?.sourceReference?.imageUrl ?? "") || !/^[a-f0-9]{64}$/u.test(value?.sourceReference?.imageSha256 ?? "") || !text$g(value?.sourceReference?.alt?.en) || !text$g(value?.sourceReference?.alt?.ja) || !text$g(value?.sourceReference?.caption?.en) || !text$g(value?.sourceReference?.caption?.ja)) {
       issues2.push({ path: "provenance.sourceReference", message: "The exact Moodle worksheet image and bilingual reference label are required." });
     }
-    if (value?.support?.phase !== "after-moodle-source" || value.support.minna?.sourceId !== "source-minna-no-nihongo" || value.support.minna.reference !== "Minna no Nihongo I · Lesson 1" || value.support.minna.reuse !== "sequence-only" || !text$f(value.support.genki?.sourceId) || !text$f(value.support.genki.title) || value.support.genki.relation !== "post-instruction-guided-fill" || !text$f(value.support.genki.prerequisitePolicy)) {
+    if (value?.support?.phase !== "after-moodle-source" || value.support.minna?.sourceId !== "source-minna-no-nihongo" || value.support.minna.reference !== "Minna no Nihongo I · Lesson 1" || value.support.minna.reuse !== "sequence-only" || !text$g(value.support.genki?.sourceId) || !text$g(value.support.genki.title) || value.support.genki.relation !== "post-instruction-guided-fill" || !text$g(value.support.genki.prerequisitePolicy)) {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support must remain secondary to the Moodle worksheet." });
     }
   }
@@ -253043,7 +253331,7 @@ ${spelling}`);
       return /* @__PURE__ */ new Set();
     }
     const ids2 = new Set(options.map((option2) => option2.id));
-    if (ids2.size !== options.length || options.some((option2) => !text$f(option2.id) || !text$f(option2.label))) {
+    if (ids2.size !== options.length || options.some((option2) => !text$g(option2.id) || !text$g(option2.label))) {
       issues2.push({ path, message: "Options need unique ids and Japanese labels." });
     }
     return ids2;
@@ -253059,7 +253347,7 @@ ${spelling}`);
     const errorTags = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$f(round2.id) || roundIds.has(round2.id) || !text$f(round2.name) || !text$f(round2.country) || !text$f(round2.occupationClue?.en) || !text$f(round2.occupationClue?.ja)) {
+      if (!text$g(round2.id) || roundIds.has(round2.id) || !text$g(round2.name) || !text$g(round2.country) || !text$g(round2.occupationClue?.en) || !text$g(round2.occupationClue?.ja)) {
         issues2.push({ path, message: "Each exact profile needs a unique id, name, country, and accessible clue." });
       }
       roundIds.add(round2.id);
@@ -253071,11 +253359,11 @@ ${spelling}`);
     if (!conceptIds.includes(criterion?.conceptId) || !optionIds.has(criterion?.correctOptionId)) {
       issues2.push({ path, message: "Each criterion needs an authored concept and correct option." });
     }
-    if (!text$f(criterion?.sourceQuestionId) || sourceIds.has(criterion.sourceQuestionId)) {
+    if (!text$g(criterion?.sourceQuestionId) || sourceIds.has(criterion.sourceQuestionId)) {
       issues2.push({ path: `${path}.sourceQuestionId`, message: "Exact source question ids must be unique." });
     }
     sourceIds.add(criterion.sourceQuestionId);
-    if (!text$f(criterion?.errorTag) || errorTags.has(criterion.errorTag)) {
+    if (!text$g(criterion?.errorTag) || errorTags.has(criterion.errorTag)) {
       issues2.push({ path: `${path}.errorTag`, message: "Criterion error tags must be unique." });
     }
     errorTags.add(criterion.errorTag);
@@ -253138,7 +253426,7 @@ ${spelling}`);
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.sourceReference.imageUrl;
-    image.alt = text$f(model2.provenance.sourceReference.alt[language === "ja" ? "ja" : "en"]);
+    image.alt = text$g(model2.provenance.sourceReference.alt[language === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     image.decoding = "async";
     const caption2 = document.createElement("figcaption");
@@ -253147,9 +253435,9 @@ ${spelling}`);
     return figure;
   }
   function renderTeaching$3(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-profile-board-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-profile-board-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const block = document.createElement("div");
       block.className = "academy-profile-board-teaching-step";
@@ -253162,9 +253450,9 @@ ${spelling}`);
       const explanation2 = document.createElement("p");
       explanation2.append(...localizedNodes$1(step2.explanation));
       block.append(title2, pattern, explanation2);
-      section.append(block);
+      section2.append(block);
     });
-    return section;
+    return section2;
   }
   function renderProfile(model2, round2, index) {
     const article = document.createElement("article");
@@ -253301,28 +253589,28 @@ ${spelling}`);
     if (value?.packageId !== "l1-l03" || value?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "provenance", message: "Lesson 3 and after-attempt answer gating are required." });
     }
-    if (moodle?.moduleId !== 5804931 || moodle.payloadSha256 !== "4c9b251ade1fc39cd2d9e31a28575e18f894f3425f8b01584d03ee9c8038da2e" || moodle.locus?.page !== 1 || moodle.locus.sections?.join(",") !== "の,も,だれ,どなた" || !text$f(moodle.sourceId) || !text$f(moodle.sourceTitle)) {
+    if (moodle?.moduleId !== 5804931 || moodle.payloadSha256 !== "4c9b251ade1fc39cd2d9e31a28575e18f894f3425f8b01584d03ee9c8038da2e" || moodle.locus?.page !== 1 || moodle.locus.sections?.join(",") !== "の,も,だれ,どなた" || !text$g(moodle.sourceId) || !text$g(moodle.sourceTitle)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle Lesson 3 instruction handout is required." });
     }
-    if (minna?.reference !== "Minna no Nihongo I, Lesson 1" || minna.relation !== "course-sequence-and-byte-identified-audio-only" || minna.transcriptStatus !== "not-provided-do-not-invent" || minna.audioMember?.title !== "minna shokyu 1 001" || minna.audioMember.payloadSha256 !== "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f" || minna.audioMember.archiveOrder !== 4 || minna.audioMember.durationSeconds !== 23.980417 || !text$f(minna.audioMember.sourceId)) {
+    if (minna?.reference !== "Minna no Nihongo I, Lesson 1" || minna.relation !== "course-sequence-and-byte-identified-audio-only" || minna.transcriptStatus !== "not-provided-do-not-invent" || minna.audioMember?.title !== "minna shokyu 1 001" || minna.audioMember.payloadSha256 !== "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f" || minna.audioMember.archiveOrder !== 4 || minna.audioMember.durationSeconds !== 23.980417 || !text$g(minna.audioMember.sourceId)) {
       issues2.push({ path: "provenance.minna", message: "Minna must remain an exact byte-identified, transcript-free source anchor." });
     }
-    if (genki?.relativePath !== "lessons/lesson-1/workbook-7/index.html" || genki.payloadSha256 !== "341b1eca3ef498d9c5890601ef4dd5965478675e97fa7dc3a9012bbdd7b292cd" || genki.scriptSha256 !== "474d1b1ae113e6136e9e6b1110804aea1d8637abd91f77992e910d93a96e3949" || genki.lineLocus?.start !== 76 || genki.lineLocus.end !== 119 || genki.engine !== "Genki.generateQuiz" || genki.responseAdaptation !== "exact-prompts-answers-and-order-with-yomu-one-to-one-matching" || !text$f(genki.sourceId)) {
+    if (genki?.relativePath !== "lessons/lesson-1/workbook-7/index.html" || genki.payloadSha256 !== "341b1eca3ef498d9c5890601ef4dd5965478675e97fa7dc3a9012bbdd7b292cd" || genki.scriptSha256 !== "474d1b1ae113e6136e9e6b1110804aea1d8637abd91f77992e910d93a96e3949" || genki.lineLocus?.start !== 76 || genki.lineLocus.end !== 119 || genki.engine !== "Genki.generateQuiz" || genki.responseAdaptation !== "exact-prompts-answers-and-order-with-yomu-one-to-one-matching" || !text$g(genki.sourceId)) {
       issues2.push({ path: "provenance.genki", message: "The mapped Genki workbook task and adaptation policy are required." });
     }
   }
   function validateTeaching$4(steps, issues2) {
-    if (!Array.isArray(steps) || steps.length !== 4 || steps.some((step2, index) => step2.sourceOrder !== index + 1 || !text$f(step2.title?.en) || !text$f(step2.title?.ja) || !text$f(step2.pattern) || !text$f(step2.example) || !text$f(step2.explanation?.en) || !text$f(step2.explanation?.ja))) {
+    if (!Array.isArray(steps) || steps.length !== 4 || steps.some((step2, index) => step2.sourceOrder !== index + 1 || !text$g(step2.title?.en) || !text$g(step2.title?.ja) || !text$g(step2.pattern) || !text$g(step2.example) || !text$g(step2.explanation?.en) || !text$g(step2.explanation?.ja))) {
       issues2.push({ path: "payload.teaching", message: "The four exact Moodle teaching moves must remain complete and in source order." });
     }
   }
   function validateFacts(facts, issues2) {
-    if (!Array.isArray(facts) || facts.length !== 6 || new Set(facts.map((fact2) => fact2.id)).size !== 6 || facts.some((fact2) => !text$f(fact2.id) || !text$f(fact2.label?.en) || !text$f(fact2.label?.ja) || !text$f(fact2.value))) {
+    if (!Array.isArray(facts) || facts.length !== 6 || new Set(facts.map((fact2) => fact2.id)).size !== 6 || facts.some((fact2) => !text$g(fact2.id) || !text$g(fact2.label?.en) || !text$g(fact2.label?.ja) || !text$g(fact2.value))) {
       issues2.push({ path: "payload.profileFacts", message: "Mary’s six source-provided profile clues are required." });
     }
   }
   function validateAnswers(answers, issues2) {
-    if (!Array.isArray(answers) || answers.length !== 6 || new Set(answers.map((answer2) => answer2.id)).size !== 6 || answers.some((answer2) => !text$f(answer2.id) || !text$f(answer2.label) || !text$f(answer2.meaning))) {
+    if (!Array.isArray(answers) || answers.length !== 6 || new Set(answers.map((answer2) => answer2.id)).size !== 6 || answers.some((answer2) => !text$g(answer2.id) || !text$g(answer2.label) || !text$g(answer2.meaning))) {
       issues2.push({ path: "payload.answers", message: "Six unique exact Genki answer cards are required." });
       return /* @__PURE__ */ new Set();
     }
@@ -253340,11 +253628,11 @@ ${spelling}`);
     const errorTags = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (round2.sourceOrder !== index + 1 || !text$f(round2.id) || roundIds.has(round2.id) || !text$f(round2.question) || !text$f(round2.clue)) {
+      if (round2.sourceOrder !== index + 1 || !text$g(round2.id) || roundIds.has(round2.id) || !text$g(round2.question) || !text$g(round2.clue)) {
         issues2.push({ path, message: "Genki questions need unique ids and exact source order." });
       }
       roundIds.add(round2.id);
-      if (!text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
+      if (!text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Source question ids must be unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
@@ -253352,7 +253640,7 @@ ${spelling}`);
         issues2.push({ path: `${path}.correctAnswerId`, message: "Each exact answer must be matched once." });
       }
       correctIds.add(round2.correctAnswerId);
-      if (!model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.evidence`, message: "Each question needs a unique concept and error tag." });
       }
       errorTags.add(round2.errorTag);
@@ -253412,9 +253700,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$2(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-profile-question-match-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-profile-question-match-teaching";
+    section2.dataset.lessonPhase = "teaching";
     model2.payload.teaching.forEach((step2) => {
       const article = document.createElement("article");
       article.className = "academy-profile-question-match-teaching-step";
@@ -253432,14 +253720,14 @@ ${spelling}`);
       const explanation2 = document.createElement("p");
       explanation2.append(...localizedNodes$1(step2.explanation));
       article.append(title2, pattern, example, explanation2);
-      section.append(article);
+      section2.append(article);
     });
-    return section;
+    return section2;
   }
   function renderFacts(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-profile-question-match-facts";
-    section.dataset.lessonPhase = "reference";
+    const section2 = document.createElement("section");
+    section2.className = "academy-profile-question-match-facts";
+    section2.dataset.lessonPhase = "reference";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1({ ja: "メアリーの プロフィール", en: "Mary’s profile" }));
     const list2 = document.createElement("dl");
@@ -253450,8 +253738,8 @@ ${spelling}`);
       detail.textContent = fact2.value;
       list2.append(term, detail);
     });
-    section.append(heading, list2);
-    return section;
+    section2.append(heading, list2);
+    return section2;
   }
   function renderRound$4(model2, round2) {
     const article = document.createElement("article");
@@ -253839,7 +254127,7 @@ ${spelling}`);
       return issues2;
     }
     const ids2 = tokens.map((token) => token.id);
-    if (new Set(ids2).size !== ids2.length || tokens.some((token) => !text$f(token.id) || !text$f(token.label))) {
+    if (new Set(ids2).size !== ids2.length || tokens.some((token) => !text$g(token.id) || !text$g(token.label))) {
       issues2.push({ path: "payload.tokens", message: "Sentence tokens need unique ids and visible labels." });
     }
     const order2 = model2.payload.correctOrder;
@@ -253852,14 +254140,14 @@ ${spelling}`);
       }
     }
     validateSource(model2, issues2);
-    if (!text$f(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$g(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
   function validateSource(model2, issues2) {
     const source2 = model2.payload?.source;
-    if (!text$f(source2?.sourceId) || !text$f(source2?.relativePath)) {
+    if (!text$g(source2?.sourceId) || !text$g(source2?.relativePath)) {
       issues2.push({ path: "payload.source", message: "An exact logical source locator is required." });
     }
     if (!/^[a-f0-9]{64}$/u.test(source2?.payloadSha256 ?? "")) {
@@ -253873,7 +254161,7 @@ ${spelling}`);
       issues2.push({ path: "payload.source.rights", message: "Verbatim activities require a matched authorised source contract." });
     }
     const mapping2 = model2.payload?.mapping;
-    if (!text$f(mapping2?.academyWeek) || !Number.isSafeInteger(mapping2?.moodleModuleId) || !mapping2?.curriculum?.length || !mapping2.curriculum.every(text$f) || !mapping2?.skills?.length || !mapping2.skills.every(text$f) || !text$f(mapping2?.jlpt)) {
+    if (!text$g(mapping2?.academyWeek) || !Number.isSafeInteger(mapping2?.moodleModuleId) || !mapping2?.curriculum?.length || !mapping2.curriculum.every(text$g) || !mapping2?.skills?.length || !mapping2.skills.every(text$g) || !text$g(mapping2?.jlpt)) {
       issues2.push({ path: "payload.mapping", message: "Curriculum, week, Moodle module, skills, and JLPT mappings are required." });
     }
     validateSourceSurface(model2.payload?.sourceSurface, issues2);
@@ -253881,7 +254169,7 @@ ${spelling}`);
   }
   function validateSourceSurface(value, issues2) {
     if (!value) return;
-    if (!/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.png$/u.test(value.url) || !/^[a-f0-9]{64}$/u.test(value.sha256) || !text$f(value.alt?.en) || !text$f(value.alt?.ja) || !text$f(value.caption?.en) || !text$f(value.caption?.ja)) {
+    if (!/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.png$/u.test(value.url) || !/^[a-f0-9]{64}$/u.test(value.sha256) || !text$g(value.alt?.en) || !text$g(value.alt?.ja) || !text$g(value.caption?.en) || !text$g(value.caption?.ja)) {
       issues2.push({ path: "payload.sourceSurface", message: "A source page needs a pinned public image and bilingual description." });
     }
   }
@@ -253889,7 +254177,7 @@ ${spelling}`);
     if (!value) return;
     const seen = /* @__PURE__ */ new Set();
     value.forEach((track2, index) => {
-      if (!text$f(track2.title?.en) || !text$f(track2.title?.ja) || !text$f(track2.sourceId) || !/^[a-f0-9]{64}$/u.test(track2.payloadSha256) || !/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/u.test(track2.url) || !Number.isFinite(track2.durationSeconds) || track2.durationSeconds <= 0 || track2.transcriptStatus !== "not-provided-do-not-invent" || seen.has(track2.url)) {
+      if (!text$g(track2.title?.en) || !text$g(track2.title?.ja) || !text$g(track2.sourceId) || !/^[a-f0-9]{64}$/u.test(track2.payloadSha256) || !/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/u.test(track2.url) || !Number.isFinite(track2.durationSeconds) || track2.durationSeconds <= 0 || track2.transcriptStatus !== "not-provided-do-not-invent" || seen.has(track2.url)) {
         issues2.push({ path: `payload.sourceAudio.${index}`, message: "Each source audio track needs an exact public delivery without an invented transcript." });
       }
       seen.add(track2.url);
@@ -253994,11 +254282,11 @@ ${spelling}`);
   function sourceAudio(model2) {
     const tracks = model2.payload.sourceAudio;
     if (!tracks?.length) return void 0;
-    const section = document.createElement("section");
-    section.className = "academy-sentence-builder-audio";
+    const section2 = document.createElement("section");
+    section2.className = "academy-sentence-builder-audio";
     const heading = document.createElement("h3");
     heading.textContent = "Moodle audio";
-    section.append(heading, ...tracks.map((track2) => {
+    section2.append(heading, ...tracks.map((track2) => {
       const label = document.createElement("p");
       label.append(...localizedNodes$1(track2.title));
       const audio2 = document.createElement("audio");
@@ -254009,7 +254297,7 @@ ${spelling}`);
       wrapper.append(label, audio2);
       return wrapper;
     }));
-    return section;
+    return section2;
   }
   function tokenButton$1(model2, id2, placed, action2, signal, language) {
     const token = model2.payload.tokens.find((candidate2) => candidate2.id === id2);
@@ -254083,7 +254371,7 @@ ${spelling}`);
     if (!Array.isArray(products) || products.length < 2) {
       issues2.push({ path: "payload.products", message: "At least two visual products are required." });
     } else products.forEach((product, index) => {
-      if (!text$f(product.id) || productIds.has(product.id) || !text$f(product.label) || !Object.hasOwn(PRODUCT_SYMBOLS, product.visual)) {
+      if (!text$g(product.id) || productIds.has(product.id) || !text$g(product.label) || !Object.hasOwn(PRODUCT_SYMBOLS, product.visual)) {
         issues2.push({ path: `payload.products.${index}`, message: "Products need unique ids, Japanese labels, and supported visuals." });
       }
       productIds.add(product.id);
@@ -254096,14 +254384,14 @@ ${spelling}`);
       issues2.push({ path: "payload.rounds", message: "At least one shop ticket is required." });
     } else rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$f(round2.id) || roundIds.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Ticket ids must be stable and unique." });
+      if (!text$g(round2.id) || roundIds.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Ticket ids must be stable and unique." });
       roundIds.add(round2.id);
-      if (!text$f(round2.sourceQuestionId)) issues2.push({ path: `${path}.sourceQuestionId`, message: "An exact source question id is required." });
-      if (!text$f(round2.prompt?.en) || !text$f(round2.prompt?.ja)) issues2.push({ path: `${path}.prompt`, message: "A bilingual ticket prompt is required." });
+      if (!text$g(round2.sourceQuestionId)) issues2.push({ path: `${path}.sourceQuestionId`, message: "An exact source question id is required." });
+      if (!text$g(round2.prompt?.en) || !text$g(round2.prompt?.ja)) issues2.push({ path: `${path}.prompt`, message: "A bilingual ticket prompt is required." });
       if (!productIds.has(round2.correctProductId)) issues2.push({ path: `${path}.correctProductId`, message: "The correct product must be authored." });
       validateOptions(round2.priceOptions, round2.correctPriceId, `${path}.priceOptions`, issues2);
       if (round2.request) {
-        if (!text$f(round2.request.sourceQuestionId)) issues2.push({ path: `${path}.request.sourceQuestionId`, message: "A request criterion needs its exact source question id." });
+        if (!text$g(round2.request.sourceQuestionId)) issues2.push({ path: `${path}.request.sourceQuestionId`, message: "A request criterion needs its exact source question id." });
         validateOptions(round2.request.options, round2.request.correctOptionId, `${path}.request.options`, issues2);
       }
       if (Boolean(round2.request) !== Boolean(round2.errorTags.request)) {
@@ -254111,7 +254399,7 @@ ${spelling}`);
       }
       const tags = [round2.errorTags.product, round2.errorTags.price, ...round2.errorTags.request ? [round2.errorTags.request] : []];
       tags.forEach((tag, tagIndex) => {
-        if (!text$f(tag) || allErrorTags.has(tag)) issues2.push({ path: `${path}.errorTags.${tagIndex}`, message: "Criterion error tags must be nonempty and globally unique." });
+        if (!text$g(tag) || allErrorTags.has(tag)) issues2.push({ path: `${path}.errorTags.${tagIndex}`, message: "Criterion error tags must be nonempty and globally unique." });
         allErrorTags.add(tag);
       });
       errorTagSources.set(round2.errorTags.product, round2.sourceQuestionId);
@@ -254122,7 +254410,7 @@ ${spelling}`);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     const coveredTags = /* @__PURE__ */ new Set();
     model2.payload?.reviewTargets?.forEach((target2, index) => {
-      if (!text$f(target2.sourceQuestionId)) issues2.push({ path: `payload.reviewTargets.${index}.sourceQuestionId`, message: "Review targets need exact source question ids." });
+      if (!text$g(target2.sourceQuestionId)) issues2.push({ path: `payload.reviewTargets.${index}.sourceQuestionId`, message: "Review targets need exact source question ids." });
       if (!target2.errorTags?.length || target2.errorTags.some((tag) => !allErrorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}.errorTags`, message: "Review targets must name authored criterion error tags." });
       }
@@ -254142,7 +254430,7 @@ ${spelling}`);
       return;
     }
     const ids2 = new Set(options.map((option2) => option2.id));
-    if (ids2.size !== options.length || options.some((option2) => !text$f(option2.id) || !text$f(option2.label))) {
+    if (ids2.size !== options.length || options.some((option2) => !text$g(option2.id) || !text$g(option2.label))) {
       issues2.push({ path, message: "Choices need unique ids and Japanese labels." });
     }
     if (!ids2.has(correctId)) issues2.push({ path: `${path}.correctOptionId`, message: "The correct choice must be authored." });
@@ -254783,7 +255071,7 @@ ${spelling}`);
     const expectedSources = ["moodle:", "moodle:", "minna-i:"];
     value.forEach((step2, index) => {
       const exact2 = EXACT_TEACHING$1[index];
-      if (!text$f(step2.sourceQuestionId).startsWith(expectedSources[index] ?? "") || !exact2 || step2.sourceQuestionId !== exact2[0] || step2.pattern !== exact2[1] || step2.example !== exact2[2] || !text$f(step2.sourceLabel) || !text$f(step2.pattern) || !text$f(step2.example) || !text$f(step2.rule?.ja) || !text$f(step2.rule?.en)) {
+      if (!text$g(step2.sourceQuestionId).startsWith(expectedSources[index] ?? "") || !exact2 || step2.sourceQuestionId !== exact2[0] || step2.pattern !== exact2[1] || step2.example !== exact2[2] || !text$g(step2.sourceLabel) || !text$g(step2.pattern) || !text$g(step2.example) || !text$g(step2.rule?.ja) || !text$g(step2.rule?.en)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve its source, pattern, rule, and model." });
       }
     });
@@ -254801,27 +255089,27 @@ ${spelling}`);
       if (round2.sourceOrder !== index + 1 || round2.mode !== MODES$1[index] || round2.id !== EXACT_ROUND_IDS[index] || round2.sourcePrompt !== EXACT_PROMPTS$1[index] || round2.answerExpression !== EXACT_EXPRESSIONS$1[index] || round2.sourceQuestionId !== exactSourceQuestionId(index)) {
         issues2.push({ path, message: "Source order and interaction mode must remain exact." });
       }
-      if (!text$f(round2.id) || ids2.has(round2.id) || !text$f(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
+      if (!text$g(round2.id) || ids2.has(round2.id) || !text$g(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
         issues2.push({ path, message: "Round and source ids must be stable and unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$f(round2.sourcePrompt) || !text$f(round2.answerExpression) || !text$f(round2.conceptId) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag)) {
+      if (!text$g(round2.sourcePrompt) || !text$g(round2.answerExpression) || !text$g(round2.conceptId) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag)) {
         issues2.push({ path, message: "Every source item needs a prompt, answer, Concept, and repair tag." });
       }
       if (round2.mode === "range-build") {
         const optionIds = validOptions(round2.options, `${path}.options`, issues2);
-        if (!optionIds.has(round2.correctStartId) || !optionIds.has(round2.correctEndId) || rangeAnswer(round2) !== ["gogo-1:3-han", "gozen-10:gogo-12-45", "gogo-12-han:1"][index] || optionSignature$1(round2.options) !== EXACT_RANGE_OPTIONS || !text$f(round2.subject) || !text$f(round2.displayedHours)) {
+        if (!optionIds.has(round2.correctStartId) || !optionIds.has(round2.correctEndId) || rangeAnswer(round2) !== ["gogo-1:3-han", "gozen-10:gogo-12-45", "gogo-12-han:1"][index] || optionSignature$1(round2.options) !== EXACT_RANGE_OPTIONS || !text$g(round2.subject) || !text$g(round2.displayedHours)) {
           issues2.push({ path, message: "Range items require offered source start and finish values." });
         }
       } else if (round2.mode === "typed-clock") {
         const expectedAnswers = exactTypedAnswers(index - 2);
-        if (!Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 4 || round2.acceptedAnswers.some((answer2) => !text$f(answer2)) || round2.acceptedAnswers.join("|") !== expectedAnswers.join("|")) {
+        if (!Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 4 || round2.acceptedAnswers.some((answer2) => !text$g(answer2)) || round2.acceptedAnswers.join("|") !== expectedAnswers.join("|")) {
           issues2.push({ path: `${path}.acceptedAnswers`, message: "Exact Genki answer variants are required." });
         }
       } else {
         const optionIds = validOptions(round2.options, `${path}.options`, issues2);
-        if (!optionIds.has(round2.correctOptionId) || round2.correctOptionId !== ["9-5", "10-8-30", "9-6-30", "9-15-5-45"][index - 8] || optionSignature$1(round2.options) !== EXACT_OPENING_OPTIONS || !text$f(round2.subject) || !text$f(round2.displayedHours)) {
+        if (!optionIds.has(round2.correctOptionId) || round2.correctOptionId !== ["9-5", "10-8-30", "9-6-30", "9-15-5-45"][index - 8] || optionSignature$1(round2.options) !== EXACT_OPENING_OPTIONS || !text$g(round2.subject) || !text$g(round2.displayedHours)) {
           issues2.push({ path, message: "Opening-hour items require one offered exact range." });
         }
       }
@@ -254862,7 +255150,7 @@ ${spelling}`);
     }
     const ids2 = /* @__PURE__ */ new Set();
     options.forEach((option2, index) => {
-      if (!text$f(option2.id) || ids2.has(option2.id) || !text$f(option2.ja) || !text$f(option2.en)) {
+      if (!text$g(option2.id) || ids2.has(option2.id) || !text$g(option2.ja) || !text$g(option2.en)) {
         issues2.push({ path: `${path}.${index}`, message: "Options need unique ids and bilingual labels." });
       }
       ids2.add(option2.id);
@@ -254905,9 +255193,9 @@ ${spelling}`);
     };
   }
   function renderTeaching$1(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-time-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-time-teaching";
+    section2.dataset.lessonPhase = "teaching";
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1({ ja: "先に型を確認", en: "Learn the patterns first" }));
     const grid = document.createElement("div");
@@ -254930,8 +255218,8 @@ ${spelling}`);
       article.append(source2, pattern, rule, example);
       grid.append(article);
     }
-    section.append(title2, grid);
-    return section;
+    section2.append(title2, grid);
+    return section2;
   }
   function renderAssessment$1(model2, host2, submit2) {
     const form2 = document.createElement("form");
@@ -254966,8 +255254,8 @@ ${spelling}`);
     return form2;
   }
   function group(model2, mode, titleText) {
-    const section = document.createElement("section");
-    section.className = `academy-time-group academy-time-group-${mode}`;
+    const section2 = document.createElement("section");
+    section2.className = `academy-time-group academy-time-group-${mode}`;
     const title2 = document.createElement("h3");
     title2.append(...localizedNodes$1(titleText));
     const grid = document.createElement("div");
@@ -254975,8 +255263,8 @@ ${spelling}`);
     for (const round2 of model2.payload.rounds.filter((candidate2) => candidate2.mode === mode)) {
       grid.append(renderRound$1(model2, round2));
     }
-    section.append(title2, grid);
-    return section;
+    section2.append(title2, grid);
+    return section2;
   }
   function renderRound$1(model2, round2) {
     const fieldset = document.createElement("fieldset");
@@ -255093,7 +255381,7 @@ ${spelling}`);
           throw new TypeError("Range items require offered start and finish values.");
         }
       } else if (round2.mode === "typed-clock") {
-        if (answer2.mode !== round2.mode || !text$f(answer2.value)) {
+        if (answer2.mode !== round2.mode || !text$g(answer2.value)) {
           throw new TypeError("Genki clock items require a non-empty typed answer.");
         }
       } else if (answer2.mode !== round2.mode || !round2.options.some((option2) => option2.id === answer2.optionId)) {
@@ -255260,7 +255548,7 @@ ${spelling}`);
     value.forEach((step2, index) => {
       const exact2 = EXACT_TEACHING[index];
       const expectedPrefix = index < 4 ? "moodle:" : index === 4 ? "minna-i:" : "genki-2e:";
-      if (!exact2 || step2.sourceOrder !== index + 1 || !step2.sourceQuestionId.startsWith(expectedPrefix) || step2.pattern !== exact2[0] || step2.example !== exact2[1] || !text$f(step2.sourceLabel) || !text$f(step2.rule?.ja) || !text$f(step2.rule?.en)) {
+      if (!exact2 || step2.sourceOrder !== index + 1 || !step2.sourceQuestionId.startsWith(expectedPrefix) || step2.pattern !== exact2[0] || step2.example !== exact2[1] || !text$g(step2.sourceLabel) || !text$g(step2.rule?.ja) || !text$g(step2.rule?.en)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching wording, order, and provenance must remain exact." });
       }
     });
@@ -255278,12 +255566,12 @@ ${spelling}`);
       if (round2.sourceOrder !== index + 1 || round2.mode !== EXACT_MODES[index] || round2.id !== EXACT_IDS[index] || round2.sourcePrompt !== EXACT_PROMPTS[index] || round2.answerExpression !== EXACT_EXPRESSIONS[index] || round2.sourceQuestionId !== expectedSourceQuestionId(index)) {
         issues2.push({ path, message: "Source wording, order, mode, and answer must remain exact." });
       }
-      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$f(round2.errorTag)) {
+      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$g(round2.errorTag)) {
         issues2.push({ path, message: "Round ids, source ids, Concepts, and repair tags must be stable and unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (round2.hints.length !== 2 || round2.hints.some((hint2) => !text$f(hint2.ja) || !text$f(hint2.en))) {
+      if (round2.hints.length !== 2 || round2.hints.some((hint2) => !text$g(hint2.ja) || !text$g(hint2.en))) {
         issues2.push({ path: `${path}.hints`, message: "Two bilingual progressive hints are required." });
       }
       if (round2.mode === "weekday-pair") {
@@ -255294,7 +255582,7 @@ ${spelling}`);
         if (optionSignature(round2.dayOptions) !== WEEKDAY_SIGNATURE || !round2.dayOptions.some((option2) => option2.id === round2.correctDayId) || !["hai", "iie", "none"].includes(round2.correctPolarity) || !["です", "でした"].includes(round2.copula)) {
           issues2.push({ path, message: "Day-answer items require the exact polarity, tense, and weekday menu." });
         }
-      } else if (round2.acceptedAnswers.length < 2 || round2.acceptedAnswers.some((answer2) => !text$f(answer2)) || round2.acceptedAnswers[0] !== EXACT_EXPRESSIONS[index]) {
+      } else if (round2.acceptedAnswers.length < 2 || round2.acceptedAnswers.some((answer2) => !text$g(answer2)) || round2.acceptedAnswers[0] !== EXACT_EXPRESSIONS[index]) {
         issues2.push({ path: `${path}.acceptedAnswers`, message: "Genki source answer variants and canonical order are required." });
       }
     });
@@ -255347,12 +255635,12 @@ ${spelling}`);
     };
   }
   function renderTeaching(model2) {
-    const section = document.createElement("section");
-    section.className = "academy-weekly-plan-teaching";
-    section.dataset.lessonPhase = "teaching";
+    const section2 = document.createElement("section");
+    section2.className = "academy-weekly-plan-teaching";
+    section2.dataset.lessonPhase = "teaching";
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1({ ja: "先に型を学ぶ", en: "Learn the patterns first" }));
-    section.append(heading);
+    section2.append(heading);
     for (const step2 of model2.payload.teaching) {
       const article = document.createElement("article");
       article.className = "academy-weekly-plan-teaching-step";
@@ -255369,9 +255657,9 @@ ${spelling}`);
       example.className = "academy-weekly-plan-model";
       example.append(assessedJapanese$2(step2.example));
       article.append(source2, pattern, rule, example);
-      section.append(article);
+      section2.append(article);
     }
-    return section;
+    return section2;
   }
   function renderAssessment(model2, host2, submit2) {
     const form2 = document.createElement("form");
@@ -255410,8 +255698,8 @@ ${spelling}`);
     return form2;
   }
   function roundGroup(model2, host2, mode, titleText) {
-    const section = document.createElement("section");
-    section.className = `academy-weekly-plan-group academy-weekly-plan-group-${mode}`;
+    const section2 = document.createElement("section");
+    section2.className = `academy-weekly-plan-group academy-weekly-plan-group-${mode}`;
     const heading = document.createElement("h3");
     heading.append(...localizedNodes$1(titleText));
     const grid = document.createElement("div");
@@ -255419,8 +255707,8 @@ ${spelling}`);
     for (const round2 of model2.payload.rounds.filter((candidate2) => candidate2.mode === mode)) {
       grid.append(renderRound(model2, round2, host2));
     }
-    section.append(heading, grid);
-    return section;
+    section2.append(heading, grid);
+    return section2;
   }
   function renderRound(model2, round2, host2) {
     const fieldset = document.createElement("fieldset");
@@ -255572,7 +255860,7 @@ ${spelling}`);
         if (answer2.mode !== round2.mode || !["hai", "iie", "none"].includes(answer2.polarity) || (round2.correctPolarity === "none" ? answer2.polarity !== "none" : answer2.polarity === "none") || !round2.dayOptions.some((option2) => option2.id === answer2.dayId)) {
           throw new TypeError("Day-answer items require the offered polarity and weekday.");
         }
-      } else if (answer2.mode !== round2.mode || !text$f(answer2.value)) {
+      } else if (answer2.mode !== round2.mode || !text$g(answer2.value)) {
         throw new TypeError("Genki past-tense items require a non-empty typed answer.");
       }
       answers.set(answer2.roundId, answer2);
@@ -257500,11 +257788,11 @@ ${spelling}`);
       }
     };
     activity2.payload.sequences.forEach((sequence, index) => {
-      const section = element("section", "academy-authored-ordering-sequence");
+      const section2 = element("section", "academy-authored-ordering-sequence");
       if (sequence.cue) {
         const cue = element("p", "academy-authored-ordering-cue");
         cue.append(assessedJapanese(sequence.cue));
-        section.append(cue);
+        section2.append(cue);
       }
       const list2 = document.createElement("ol");
       list2.className = "academy-sequence-list";
@@ -257512,8 +257800,8 @@ ${spelling}`);
       list2.setAttribute("aria-label", actions.language === "ja" ? `${index + 1}番の並べ替え` : `Sequence ${index + 1}`);
       list2.setAttribute("aria-describedby", headingId);
       sequenceRoots.set(sequence.id, list2);
-      section.append(list2);
-      root.append(section);
+      section2.append(list2);
+      root.append(section2);
       renderSequence(sequence);
     });
     const check2 = checkButton(actions.language, "Check order", "順番を確認");
@@ -258054,7 +258342,7 @@ ${spelling}`);
     return screen;
   }
   function evidenceList(language, prerequisite2) {
-    const section = element("section", "academy-vocabulary-sheet-journey");
+    const section2 = element("section", "academy-vocabulary-sheet-journey");
     const title2 = element("h2", "academy-vocabulary-sheet-journey-title");
     title2.textContent = language === "ja" ? "資料の記録" : "Source record";
     const source2 = element("p", "academy-vocabulary-sheet-journey-note");
@@ -258066,8 +258354,8 @@ ${spelling}`);
       item2.dataset.sourceGap = gap2;
       gaps2.append(item2);
     }
-    section.append(title2, source2, gaps2);
-    return section;
+    section2.append(title2, source2, gaps2);
+    return section2;
   }
   function gapLabel(gap2, language) {
     const copy2 = {
@@ -261780,11 +262068,11 @@ ${spelling}`);
       return target2;
     };
     const drawingAttempt = (item2, guided, signal) => {
-      const section = element("section", "academy-vowel-writing-work");
-      section.append(localized2("p", "academy-vowel-writing-prompt", COPY.drawPrompt));
+      const section2 = element("section", "academy-vowel-writing-work");
+      section2.append(localized2("p", "academy-vowel-writing-prompt", COPY.drawPrompt));
       const doodle = doodleShell(item2, guided);
       activeDoodle = doodle;
-      section.append(doodle);
+      section2.append(doodle);
       const check2 = action2(COPY.checkMark, "primary", signal, async () => {
         const valid = activeStrokes.filter((stroke) => stroke.length > 1);
         if (!valid.length) {
@@ -261799,7 +262087,7 @@ ${spelling}`);
         );
         await submit2(item2, { mode: "draw", assessment });
       });
-      section.append(check2);
+      section2.append(check2);
       installKanjiDoodle(doodle, () => options.language, {
         onChange(strokes) {
           activeStrokes = strokes.map((stroke) => stroke.map((point) => ({ ...point })));
@@ -261812,11 +262100,11 @@ ${spelling}`);
           live.textContent = "";
         }
       });
-      return section;
+      return section2;
     };
     const planAttempt = (item2, signal) => {
-      const section = element("section", "academy-vowel-writing-work");
-      section.append(localized2("p", "academy-vowel-writing-prompt", COPY.planPrompt));
+      const section2 = element("section", "academy-vowel-writing-work");
+      section2.append(localized2("p", "academy-vowel-writing-prompt", COPY.planPrompt));
       const choices2 = element("div", "academy-vowel-writing-plans");
       choices2.setAttribute("role", "group");
       choices2.setAttribute("aria-label", options.language === "ja" ? `${item2.kana}の書き順` : `Stroke plan for ${item2.kana}`);
@@ -261836,7 +262124,7 @@ ${spelling}`);
         choices2.append(button2);
       });
       choices2.addEventListener("keydown", (event) => movePlanFocus(event, choices2), { signal });
-      section.append(
+      section2.append(
         choices2,
         action2(COPY.checkPlan, "primary", signal, async () => {
           if (!selectedPlanId) {
@@ -261847,7 +262135,7 @@ ${spelling}`);
           await submit2(item2, { mode: "plan", selectedPlanId });
         })
       );
-      return section;
+      return section2;
     };
     const doodleShell = (item2, guided) => {
       const root = element("div", "academy-doodle academy-vowel-writing-doodle jpdb-reader-kanjivg");
@@ -264970,13 +265258,13 @@ ${spelling}`);
     return list2;
   }
   function sectionShell(id2, language, key2) {
-    const section = element("section", "academy-class-path-section");
-    section.id = id2;
-    section.tabIndex = -1;
-    section.setAttribute("role", "tabpanel");
-    section.setAttribute("aria-labelledby", id2.replace("academy-class-path-", "academy-class-path-tab-"));
-    section.append(copyElement("h2", "academy-class-section-title", language, key2));
-    return section;
+    const section2 = element("section", "academy-class-path-section");
+    section2.id = id2;
+    section2.tabIndex = -1;
+    section2.setAttribute("role", "tabpanel");
+    section2.setAttribute("aria-labelledby", id2.replace("academy-class-path-", "academy-class-path-tab-"));
+    section2.append(copyElement("h2", "academy-class-section-title", language, key2));
+    return section2;
   }
   function levelForOrder(order2) {
     return PATH_LEVELS.find((level) => order2 >= level.from && order2 <= level.to) ?? PATH_LEVELS[0];
@@ -265090,8 +265378,8 @@ ${spelling}`);
     return screen;
   }
   function profilePreferences(account, options, onSaved) {
-    const section = element("details", "academy-class-board-profile");
-    section.open = !account.nameChosen;
+    const section2 = element("details", "academy-class-board-profile");
+    section2.open = !account.nameChosen;
     const summary = element("summary", "academy-class-board-profile-summary");
     summary.textContent = localize$1(options.language, "Board profile", "ボードのプロフィール");
     const form2 = element("form", "academy-class-board-profile-form");
@@ -265151,8 +265439,8 @@ ${spelling}`);
       });
     });
     form2.append(nameLabel, listed, share, note, save, status);
-    section.append(summary, form2);
-    return section;
+    section2.append(summary, form2);
+    return section2;
   }
   function boardControls(classes2, selectedClassId, selectedMetric, language, callbacks2) {
     const controls = element("div", "academy-class-board-controls");
@@ -265441,13 +265729,13 @@ ${spelling}`);
     return screen;
   }
   function readerDeviceSection(options) {
-    const section = element("section", "academy-code-section academy-reader-device-section");
+    const section2 = element("section", "academy-code-section academy-reader-device-section");
     const heading = element("h3", "academy-code-heading");
     heading.textContent = localize(options.language, "Reader devices", "Reader 端末");
     const status = element("p", "academy-code-help");
     status.textContent = localize(options.language, "Loading connected Reader devices…", "接続済みの Reader 端末を読み込んでいます…");
     const list2 = element("div", "academy-profile-sync-actions academy-reader-device-list");
-    section.append(heading, status, list2);
+    section2.append(heading, status, list2);
     const refresh2 = async () => {
       try {
         const devices = await options.onListReaderDevices();
@@ -265478,7 +265766,7 @@ ${spelling}`);
       }
     };
     void refresh2();
-    return section;
+    return section2;
   }
   function shortDeviceId(deviceId) {
     return deviceId.slice(0, 8);
@@ -265592,11 +265880,11 @@ ${spelling}`);
     return Boolean(status.account) && status.entitlement?.entitlement !== "academy";
   }
   function redeemForm(language) {
-    const section = element("section", "academy-code-section academy-redeem-section");
+    const section2 = element("section", "academy-code-section academy-redeem-section");
     const heading = element("h3", "academy-code-heading");
     heading.id = "academy-paid-code-heading";
     heading.textContent = localize(language, "Activate a paid code", "有料コードを有効にする");
-    section.setAttribute("aria-labelledby", heading.id);
+    section2.setAttribute("aria-labelledby", heading.id);
     const help = element("p", "academy-code-help");
     help.id = "academy-paid-code-help";
     help.textContent = localize(
@@ -265625,15 +265913,15 @@ ${spelling}`);
     });
     label.append(input2);
     form2.append(label, submit2);
-    section.append(heading, help, form2);
-    return section;
+    section2.append(heading, help, form2);
+    return section2;
   }
   function shouldShowPairClaim(status) {
     return status.phase === "pair" || status.phase === "local" && !status.profile;
   }
   function pairClaim(options) {
-    const section = element("details", "academy-code-section academy-pairing-claim-section");
-    section.open = options.status.phase === "pair";
+    const section2 = element("details", "academy-code-section academy-pairing-claim-section");
+    section2.open = options.status.phase === "pair";
     const heading = element("summary", "academy-code-heading");
     heading.textContent = options.status.phase === "pair" ? localize(options.language, "Pair this device to continue", "続けるにはこの端末をペアリング") : localize(options.language, "Pair this device", "この端末をペアリング");
     const form2 = element("form", "academy-code-form");
@@ -265664,9 +265952,9 @@ ${spelling}`);
     });
     label.append(input2);
     form2.append(label, claim);
-    section.append(heading, help, form2);
-    if (section.open) queueMicrotask(() => input2.focus());
-    return section;
+    section2.append(heading, help, form2);
+    if (section2.open) queueMicrotask(() => input2.focus());
+    return section2;
   }
   function deleteButton(options, scope2) {
     return actionButton(localize(
@@ -265690,9 +265978,9 @@ ${spelling}`);
   }
   function showPairingTicket(screen, language, ticket, trigger) {
     screen.querySelector(".academy-pairing-ticket")?.remove();
-    const section = element("section", "academy-code-section academy-pairing-ticket");
-    section.id = "academy-pairing-ticket";
-    section.setAttribute("aria-label", localize(language, "Pair another device", "別の端末をペアリング"));
+    const section2 = element("section", "academy-code-section academy-pairing-ticket");
+    section2.id = "academy-pairing-ticket";
+    section2.setAttribute("aria-label", localize(language, "Pair another device", "別の端末をペアリング"));
     const heading = element("h3", "academy-code-heading");
     heading.textContent = localize(language, "One-time pairing code", "ペアリング用ワンタイムコード");
     const code = element("output", "academy-pairing-code");
@@ -265703,11 +265991,11 @@ ${spelling}`);
     const copy2 = actionButton(localize(language, "Copy code", "コードをコピー"), async () => {
       await navigator.clipboard.writeText(ticket.code);
     });
-    section.append(heading, code, expiry, copy2);
-    screen.querySelector(".academy-profile-sync-actions")?.after(section);
+    section2.append(heading, code, expiry, copy2);
+    screen.querySelector(".academy-profile-sync-actions")?.after(section2);
     code.focus();
     trigger.setAttribute("aria-expanded", "true");
-    trigger.setAttribute("aria-controls", section.id);
+    trigger.setAttribute("aria-controls", section2.id);
   }
   function actionButton(text2, action2, className = "academy-button academy-button-secondary") {
     const button2 = element("button", className);
@@ -266088,7 +266376,7 @@ ${spelling}`);
   function bookshopReadingSample(options) {
     const model2 = bookshopReaderModel();
     const returning = options.practice.id === "bookshop-small-change-available";
-    const section = model2.payload.sections[returning ? 1 : 0];
+    const section2 = model2.payload.sections[returning ? 1 : 0];
     const question2 = model2.payload.questions[returning ? 1 : 0];
     const sample = element("section", "academy-bookshop-reading-sample");
     sample.dataset.bookshopReading = BOOKSHOP_READER.sourceSegmentId;
@@ -266098,7 +266386,7 @@ ${spelling}`);
     tape.textContent = options.language === "ja" ? "試し読み・ももたろう" : "Sample page · Momotarou";
     const passage = element("p", "academy-bookshop-reading-passage");
     passage.lang = "ja";
-    passage.textContent = section.paragraphs[returning ? 0 : 1] ?? section.paragraphs[0] ?? "";
+    passage.textContent = section2.paragraphs[returning ? 0 : 1] ?? section2.paragraphs[0] ?? "";
     const prompt2 = element("p", "academy-bookshop-reading-prompt");
     prompt2.textContent = question2.prompt[options.language];
     const choices2 = element("div", "academy-bookshop-reading-choices");
@@ -267568,9 +267856,9 @@ ${spelling}`);
     return scene2;
   }
   function worldObjects(options, objects) {
-    const section = element("div", "academy-world-objects");
-    section.hidden = !objects?.length;
-    section.setAttribute("aria-label", options.language === "ja" ? "場所にあるもの" : "Objects here");
+    const section2 = element("div", "academy-world-objects");
+    section2.hidden = !objects?.length;
+    section2.setAttribute("aria-label", options.language === "ja" ? "場所にあるもの" : "Objects here");
     objects?.forEach((object2) => {
       const button2 = element("button", "academy-world-object");
       button2.type = "button";
@@ -267590,9 +267878,9 @@ ${spelling}`);
         setAudioState(options.audioMuted ?? false);
         button2.addEventListener("click", () => setAudioState(options.onToggleAudio?.() ?? Boolean(options.audioMuted)));
       }
-      section.append(button2);
+      section2.append(button2);
     });
-    return section;
+    return section2;
   }
   function worldPractice(options, practice2, stampId, progressive = false) {
     const root = element("div", "academy-world-practice");
@@ -268022,8 +268310,8 @@ ${spelling}`);
     ...ACADEMY_ASSETS.characters.approved
   };
   function worldExits(options, exits) {
-    const section = element("nav", "academy-world-exits academy-world-spatial-exits");
-    section.setAttribute("aria-label", options.language === "ja" ? "行き先" : "Exits");
+    const section2 = element("nav", "academy-world-exits academy-world-spatial-exits");
+    section2.setAttribute("aria-label", options.language === "ja" ? "行き先" : "Exits");
     const map = element("div", "academy-world-map");
     map.dataset.worldMap = options.place;
     if (options.place === "station") {
@@ -268056,13 +268344,13 @@ ${spelling}`);
       exit.addEventListener("click", () => options.onTravel(id2));
       routes.append(exit);
     });
-    section.append(map);
-    section.addEventListener("keydown", (event) => focusAdjacentExit(event, section));
-    section.addEventListener("focusin", (event) => {
+    section2.append(map);
+    section2.addEventListener("keydown", (event) => focusAdjacentExit(event, section2));
+    section2.addEventListener("focusin", (event) => {
       if (!(event.target instanceof HTMLButtonElement) || !event.target.classList.contains("academy-world-exit")) return;
       event.target.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     });
-    return section;
+    return section2;
   }
   function worldExitReason(options, destination) {
     if (options.place === "bookshop" && destination.id === "library") {
@@ -268190,13 +268478,13 @@ ${spelling}`);
     learningLines = journalLearningLines(language, recordedLines);
     learningLines.hidden = true;
     bookFooter = journalBookFooter(language, directory, learningLines);
-    const showSection = (section) => {
-      const showsPeople = section === "people";
+    const showSection = (section2) => {
+      const showsPeople = section2 === "people";
       directory.hidden = !showsPeople;
       learningLines.hidden = showsPeople;
       setJournalTabState(peopleTab, showsPeople);
       setJournalTabState(linesTab, !showsPeople);
-      bookFooter.dataset.journalSection = section;
+      bookFooter.dataset.journalSection = section2;
       bookFooter.dispatchEvent(new CustomEvent("academy-journal-section-change"));
     };
     peopleTab.addEventListener("click", () => showSection("people"));
@@ -268238,13 +268526,13 @@ ${spelling}`);
     footer.append(previous, indicator, next);
     const pageBySection = { people: 0, lines: 0 };
     const renderPage = () => {
-      const section = footer.dataset.journalSection === "lines" ? "lines" : "people";
-      const host2 = section === "people" ? directory : learningLines;
+      const section2 = footer.dataset.journalSection === "lines" ? "lines" : "people";
+      const host2 = section2 === "people" ? directory : learningLines;
       const items = [...host2.querySelectorAll("[data-journal-book-item]")];
-      const perPage = section === "people" ? 6 : 4;
+      const perPage = section2 === "people" ? 6 : 4;
       const pageCount = Math.max(1, Math.ceil(items.length / perPage));
-      const currentPage = Math.min(pageBySection[section], pageCount - 1);
-      pageBySection[section] = currentPage;
+      const currentPage = Math.min(pageBySection[section2], pageCount - 1);
+      pageBySection[section2] = currentPage;
       items.forEach((item2, index) => {
         item2.hidden = Math.floor(index / perPage) !== currentPage;
       });
@@ -268254,13 +268542,13 @@ ${spelling}`);
       footer.hidden = pageCount <= 1;
     };
     previous.addEventListener("click", () => {
-      const section = footer.dataset.journalSection === "lines" ? "lines" : "people";
-      pageBySection[section] = Math.max(0, pageBySection[section] - 1);
+      const section2 = footer.dataset.journalSection === "lines" ? "lines" : "people";
+      pageBySection[section2] = Math.max(0, pageBySection[section2] - 1);
       renderPage();
     });
     next.addEventListener("click", () => {
-      const section = footer.dataset.journalSection === "lines" ? "lines" : "people";
-      pageBySection[section] += 1;
+      const section2 = footer.dataset.journalSection === "lines" ? "lines" : "people";
+      pageBySection[section2] += 1;
       renderPage();
     });
     footer.addEventListener("academy-journal-section-change", renderPage);
@@ -268284,16 +268572,16 @@ ${spelling}`);
     });
   }
   function journalLearningLines(language, lines) {
-    const section = element("section", "academy-journal-learning-lines");
-    section.setAttribute("aria-label", language === "ja" ? "学習の日誌" : "Learning journal");
+    const section2 = element("section", "academy-journal-learning-lines");
+    section2.setAttribute("aria-label", language === "ja" ? "学習の日誌" : "Learning journal");
     const heading = element("h2");
     heading.textContent = language === "ja" ? "学習の日誌" : "Learning journal";
-    section.append(heading);
+    section2.append(heading);
     if (!lines.length) {
       const empty = element("p", "academy-journal-learning-empty");
       empty.dataset.journalBookItem = "";
       empty.textContent = language === "ja" ? "レッスンで見つけた言葉が、ここに残ります。" : "Lines you earn in lessons will stay here.";
-      section.append(empty);
+      section2.append(empty);
     }
     [...lines].sort((left, right) => left.at - right.at || left.journalLineId.localeCompare(right.journalLineId)).forEach((line2) => {
       const entry2 = element("blockquote", "academy-journal-learning-line");
@@ -268301,9 +268589,9 @@ ${spelling}`);
       entry2.dataset.journalLineId = line2.journalLineId;
       entry2.dataset.activityId = line2.activityId;
       entry2.textContent = line2.text[language];
-      section.append(entry2);
+      section2.append(entry2);
     });
-    return section;
+    return section2;
   }
   const DIRECTORY_PORTRAITS = {
     ...ACADEMY_ASSETS.characters.approved,
@@ -268544,7 +268832,6 @@ ${spelling}`);
         onOpenEpisode: (episodeId) => void context2.go("story", { sectionId: episodeId }),
         onCompleteEpisode: (episodeId) => {
           const episode2 = story.episode(episodeId);
-          if (episode2?.id === story.openingArc.episodeId) return;
           if (!episode2 || !this.options.evidence.recordEncounter) return;
           return this.options.evidence.recordEncounter({
             encounterId: `story:${episode2.id}`,
@@ -292960,8 +293247,8 @@ ${key2}`] = { t: now, v: value };
   }
   function readJpdbPitchPatterns(root) {
     const patterns = [];
-    root.querySelectorAll(".subsection-pitch-accent").forEach((section) => {
-      const stack = section.querySelector(".subsection > div") ?? section;
+    root.querySelectorAll(".subsection-pitch-accent").forEach((section2) => {
+      const stack = section2.querySelector(".subsection > div") ?? section2;
       Array.from(stack.children).forEach((row) => {
         const pattern = Array.from(row.querySelectorAll('div[style*="--pitch-low"], div[style*="--pitch-high"]')).map((segment2) => pitchSegmentPattern(segment2)).join("");
         if (pattern.length >= 1) patterns.push(pattern);
@@ -293187,8 +293474,8 @@ ${normalizedReading}`;
     if (!value) return false;
     return JAPANESE_RE.test(value);
   }
-  function sectionLabel(section) {
-    return cleanText(section.querySelector(".subsection-label")?.textContent ?? "").toLowerCase();
+  function sectionLabel(section2) {
+    return cleanText(section2.querySelector(".subsection-label")?.textContent ?? "").toLowerCase();
   }
   function baseText(root) {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
@@ -293603,16 +293890,16 @@ ${normalizedReading}`;
   }
   function extractCompounds(root) {
     const entries2 = [];
-    root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach((section) => addCompoundSectionEntries(entries2, section));
+    root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach((section2) => addCompoundSectionEntries(entries2, section2));
     root.querySelectorAll(".subsection > .composed-of, .subsection .composed-of").forEach((row) => addCompoundEntry(entries2, row));
     return entries2.slice(0, JPDB_COMPOUND_LIMIT);
   }
-  function addCompoundSectionEntries(entries2, section) {
-    if (!isComposedOfSection(section)) return;
-    section.querySelectorAll(".subsection > div, .subsection .used-in").forEach((row) => addCompoundEntry(entries2, row));
+  function addCompoundSectionEntries(entries2, section2) {
+    if (!isComposedOfSection(section2)) return;
+    section2.querySelectorAll(".subsection > div, .subsection .used-in").forEach((row) => addCompoundEntry(entries2, row));
   }
-  function isComposedOfSection(section) {
-    const label = sectionLabel(section);
+  function isComposedOfSection(section2) {
+    const label = sectionLabel(section2);
     if (!label) return true;
     return label.startsWith("composed of");
   }
@@ -293654,15 +293941,15 @@ ${normalizedReading}`;
   }
   function extractUsedInVocabulary(root) {
     const entries2 = [];
-    root.querySelectorAll(".subsection-used-in, .subsection-used-in-vocabulary").forEach((section) => addUsedInVocabularySection(entries2, section));
+    root.querySelectorAll(".subsection-used-in, .subsection-used-in-vocabulary").forEach((section2) => addUsedInVocabularySection(entries2, section2));
     return entries2.slice(0, JPDB_USED_IN_VOCABULARY_LIMIT);
   }
-  function addUsedInVocabularySection(entries2, section) {
-    if (!isUsedInVocabularySection(section)) return;
-    usedInRows(section).forEach((row) => addUsedInVocabularyEntry(entries2, row));
+  function addUsedInVocabularySection(entries2, section2) {
+    if (!isUsedInVocabularySection(section2)) return;
+    usedInRows(section2).forEach((row) => addUsedInVocabularyEntry(entries2, row));
   }
-  function isUsedInVocabularySection(section) {
-    const label = sectionLabel(section);
+  function isUsedInVocabularySection(section2) {
+    const label = sectionLabel(section2);
     if (!label) return true;
     return label.startsWith("used in");
   }
@@ -293707,9 +293994,9 @@ ${normalizedReading}`;
   function sameVocabularyEntry(entry2, candidate2) {
     return entry2.term === candidate2.term && entry2.reading === candidate2.reading;
   }
-  function usedInRows(section) {
-    const rows = Array.from(section.querySelectorAll(".used-in, .subsection > div"));
-    const directLinks = Array.from(section.children).filter((child) => child instanceof HTMLElement && vocabularyLink(child) !== null);
+  function usedInRows(section2) {
+    const rows = Array.from(section2.querySelectorAll(".used-in, .subsection > div"));
+    const directLinks = Array.from(section2.children).filter((child) => child instanceof HTMLElement && vocabularyLink(child) !== null);
     return unique$1([...rows, ...directLinks]);
   }
   function vocabularyLink(root) {
@@ -293722,8 +294009,8 @@ ${normalizedReading}`;
   function extractExamples(root) {
     const seen = /* @__PURE__ */ new Set();
     const examples = [];
-    exampleSections(root).forEach((section) => {
-      section.querySelectorAll(".subsection > div, .example, li, p").forEach((row) => {
+    exampleSections(root).forEach((section2) => {
+      section2.querySelectorAll(".subsection > div, .example, li, p").forEach((row) => {
         const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
         const sentence = cleanText(baseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? "");
         if (!sentence || !JAPANESE_RE.test(sentence) || seen.has(sentence)) return;
@@ -293740,7 +294027,7 @@ ${normalizedReading}`;
   }
   function exampleSections(root) {
     const byClass = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
-    const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section) => section !== null);
+    const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section2) => section2 !== null);
     return unique$1([...byClass, ...byLabel]);
   }
   function exampleSectionFromLabel(label) {
@@ -295932,13 +296219,13 @@ ${options.version}`;
     return settings.immersionKitRevealTranslationOnClick ? { yomuImmersionTranslationBlurred: true } : void 0;
   }
   function renderNewTabKanjiInfoSection(card, facts, readings, localMeanings, fullInfo, sourceAttributes, title2, language) {
-    const section = htmlToFirstElement(`
+    const section2 = htmlToFirstElement(`
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-newtab-kanji-info-source" ${sourceAttributes(kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$2(title2)}</summary>
         </details>
     `);
-    if (!section) return el("div");
-    section.append(el(
+    if (!section2) return el("div");
+    section2.append(el(
       "div",
       { class: "jpdb-reader-local-entry jpdb-reader-newtab-kanji-info-body" },
       renderNewTabKanjiFactSection(card, facts),
@@ -295948,7 +296235,7 @@ ${options.version}`;
       renderNewTabKanjiVocabulary(fullInfo, language),
       renderNewTabKanjiMnemonic(fullInfo)
     ));
-    return section;
+    return section2;
   }
   function renderNewTabKanjiFactSection(card, facts) {
     return facts.length ? el("div", { class: "jpdb-reader-kanji-facts" }, facts.map(([label, value]) => el("span", { title: `${label}: ${value}` }, el("strong", {}, label), el("span", { class: "jpdb-reader-kanji-fact-value" }, value)))) : el("div", { class: "jpdb-reader-help" }, firstCardMeaning(card));
@@ -298678,18 +298965,18 @@ ${entry2.url}`),
       }
       const characters = this.searchWordKanjiCharacters(card);
       if (!characters.length) return null;
-      const section = searchWordKanjiSourceShell(card, this.searchDetailViewContext());
-      if (!section) return null;
+      const section2 = searchWordKanjiSourceShell(card, this.searchDetailViewContext());
+      if (!section2) return null;
       if (detail.wordKanjiLoading) {
-        section.append(el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("loadingKanjiDetails")));
-        return section;
+        section2.append(el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("loadingKanjiDetails")));
+        return section2;
       }
       const details = detail.wordKanjiDetails ?? [];
       if (!details.length) return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
       details.forEach((item2) => {
-        section.append(this.renderSearchWordKanjiItem(card, item2));
+        section2.append(this.renderSearchWordKanjiItem(card, item2));
       });
-      return section;
+      return section2;
     }
     renderSearchWordKanjiItem(card, item2) {
       const fullInfo = item2.details.jpdb ? normalizeJpdbKanjiInfo(item2.details.jpdb) : null;
@@ -307531,12 +307818,12 @@ ${entry2.url}`),
       }
       if (this.studyDefinitionSourcesMissing(html)) return;
       meaning.querySelectorAll(":scope > .jpdb-reader-newtab-reveal-dictionaries").forEach((element2) => element2.remove());
-      const section = el("div", { class: "jpdb-reader-newtab-reveal-dictionaries", dataset: { newtabRevealDictionaries: true } });
-      setInnerHtml(section, html);
-      meaning.append(section);
-      this.dependencies.installDictionarySourceTracking?.(section);
-      this.dependencies.installWanikaniSources?.(section, card);
-      void this.dependencies.parseContent?.(section);
+      const section2 = el("div", { class: "jpdb-reader-newtab-reveal-dictionaries", dataset: { newtabRevealDictionaries: true } });
+      setInnerHtml(section2, html);
+      meaning.append(section2);
+      this.dependencies.installDictionarySourceTracking?.(section2);
+      this.dependencies.installWanikaniSources?.(section2, card);
+      void this.dependencies.parseContent?.(section2);
     }
     isCurrentStudyRevealDefinitionRequest(meaning, cardKeyValue, requestId) {
       return meaning.isConnected && meaning.dataset.newtabStudyRevealDetailsRequest === requestId && this.state.revealAnswer && this.isVocabularyStudyRoute() && cardKey(this.visibleWords[this.index]) === cardKeyValue;
@@ -308725,8 +309012,8 @@ ${entry2.url}`),
     renderNewTabKanjiSourceSections(context2) {
       return orderedKanjiSourceIds(context2.settings).flatMap((sourceId2) => {
         if (sourceId2 === KANJI_STROKE_SOURCE_ID) return [];
-        const section = this.renderNewTabKanjiSourceSection(sourceId2, context2);
-        return section ? [section] : [];
+        const section2 = this.renderNewTabKanjiSourceSection(sourceId2, context2);
+        return section2 ? [section2] : [];
       });
     }
     renderNewTabKanjiSourceSection(sourceId2, context2) {
@@ -308774,9 +309061,9 @@ ${entry2.url}`),
       if (!settings.rtkEnabled || !rtk) return null;
       const componentSummaries = buildRtkComponentSummaries(rtk, fullInfo, localEntries);
       const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
-      const section = htmlToFirstElement(renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, this.isSourceOpen(sourceStateKey), sourceStateKey));
-      section?.classList.add("jpdb-reader-newtab-rtk-source");
-      return section;
+      const section2 = htmlToFirstElement(renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, this.isSourceOpen(sourceStateKey), sourceStateKey));
+      section2?.classList.add("jpdb-reader-newtab-rtk-source");
+      return section2;
     }
     renderNewTabUchisenPlaceholder(settings) {
       if (!settings.uchisenEnabled) return null;
@@ -308814,7 +309101,7 @@ ${entry2.url}`),
       const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries, sourceInfo);
       const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, sourceInfo, vg);
       if (!graph) return null;
-      const section = htmlToFirstElement(renderKanjiOrigins(
+      const section2 = htmlToFirstElement(renderKanjiOrigins(
         factsForOrigins,
         graph,
         sourceInfo,
@@ -308825,10 +309112,10 @@ ${entry2.url}`),
         excludeFactLabels,
         this.kanjiSourceTitle(KANJI_ORIGINS_SOURCE_ID)
       ));
-      if (!section) return null;
-      section.classList.add("jpdb-reader-newtab-origin-graph");
-      installOriginGraphInteractions(section);
-      return section;
+      if (!section2) return null;
+      section2.classList.add("jpdb-reader-newtab-origin-graph");
+      installOriginGraphInteractions(section2);
+      return section2;
     }
     newTabKanjiFacts(card, fullInfo, rtk, localMeanings) {
       const language = this.language();
@@ -315644,8 +315931,8 @@ ${entry2.url}`),
     applySettingsPanelState(form2, normalizeSettingsPanel(panel));
   }
   function applySettingsPanelState(form2, normalizedPanel) {
-    form2.querySelectorAll("[data-settings-panel]").forEach((section) => {
-      section.hidden = section.dataset.settingsPanel !== normalizedPanel;
+    form2.querySelectorAll("[data-settings-panel]").forEach((section2) => {
+      section2.hidden = section2.dataset.settingsPanel !== normalizedPanel;
     });
     form2.querySelectorAll('[data-action="settings-panel"]').forEach((button2) => {
       const active = button2.dataset.panel === normalizedPanel;
@@ -316471,10 +316758,10 @@ ${entry2.url}`),
     return { connected: false, displayName: "", lastSyncAt: null, error: null };
   }
   function renderStatus(form2, status, language) {
-    const section = form2.querySelector("[data-academy-reader-account]");
+    const section2 = form2.querySelector("[data-academy-reader-account]");
     const connectControls = form2.querySelector("[data-academy-reader-connect-controls]");
     const connectedControls = form2.querySelector("[data-academy-reader-connected-controls]");
-    if (section) section.dataset.connected = String(status.connected);
+    if (section2) section2.dataset.connected = String(status.connected);
     if (connectControls) connectControls.hidden = status.connected;
     if (connectedControls) connectedControls.hidden = !status.connected;
     const recoveryCode = form2.querySelector("[data-academy-recovery-code]");
@@ -316492,14 +316779,14 @@ ${entry2.url}`),
     setMessage(form2, pieces.join(" "), status.error ? "error" : "success");
   }
   function setBusy(form2, busy, message) {
-    const section = form2.querySelector("[data-academy-reader-account]");
-    if (!section) return;
-    if (busy) section.setAttribute("aria-busy", "true");
-    else section.removeAttribute("aria-busy");
-    section.querySelectorAll("button[data-action]").forEach((button2) => {
+    const section2 = form2.querySelector("[data-academy-reader-account]");
+    if (!section2) return;
+    if (busy) section2.setAttribute("aria-busy", "true");
+    else section2.removeAttribute("aria-busy");
+    section2.querySelectorAll("button[data-action]").forEach((button2) => {
       button2.disabled = busy;
     });
-    const input2 = section.querySelector("[data-academy-pairing-code]");
+    const input2 = section2.querySelector("[data-academy-pairing-code]");
     if (input2) input2.disabled = busy;
     if (message) setMessage(form2, message, "pending");
   }
@@ -319548,10 +319835,10 @@ ${rank2.detail}` : baseTitle;
       vocabs: trimBunproSearchSection(value.vocabs, maxItems)
     };
   }
-  function trimBunproSearchSection(section, limit) {
-    if (!section || typeof section !== "object") return section;
-    const value = section;
-    if (!Array.isArray(value.data)) return section;
+  function trimBunproSearchSection(section2, limit) {
+    if (!section2 || typeof section2 !== "object") return section2;
+    const value = section2;
+    if (!Array.isArray(value.data)) return section2;
     return { ...value, data: value.data.slice(0, limit) };
   }
   const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
@@ -319764,8 +320051,8 @@ ${rank2.detail}` : baseTitle;
   }
   function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
     const record2 = isNonNullObject(raw) ? raw : {};
-    const section = preferredKind === "vocabulary" ? record2.vocabs : record2.grammar_points;
-    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
+    const section2 = preferredKind === "vocabulary" ? record2.vocabs : record2.grammar_points;
+    const hits = readArray(section2, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
     if (!hits.length) return null;
     if (reading) {
       const readingMatches = hits.filter((hit) => normalizedLookupText(hit.reading) === normalizedLookupText(reading));

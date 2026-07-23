@@ -70,6 +70,7 @@
     "academy:learning-voice:production-proof": "node scripts/academy-voice/learning-voice-production-proof.mjs",
     "academy:learning-voice:verify-built": "node scripts/academy-voice/verify-learning-voice-built.mjs",
     "academy:story-voice:arrival-qa": "node scripts/academy-voice/qa-opening-arrival.mjs",
+    "academy:story-voice:blank-atlas": "python3 scripts/academy-voice/render-blank-atlas-voice.py",
     "academy:account-payment:proof": "node scripts/academy-account-payment-proof.mjs --live",
     "academy:account-lifecycle:proof:browser": "node scripts/academy-account-lifecycle-browser-smoke.mjs",
     "academy:account-lifecycle:proof:live": "node scripts/academy-account-lifecycle-live-proof.mjs --live",

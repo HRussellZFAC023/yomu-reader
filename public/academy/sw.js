@@ -1,5 +1,7 @@
 const VERSION = 'yomu-academy-shell-__ACADEMY_REVISION__';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
+const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
+const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
 const AUDIO_PRECACHE = [
@@ -180,21 +182,7 @@ const CORE = [
     '/academy/audio/lesson-zero/sound-hosts.opus',
     '/academy/audio/lesson-zero/sound-xingyu.opus',
     '/academy/audio/lesson-zero/sound-mika.opus',
-    '/academy/audio/story-voice-playback.json',
-    '/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus',
-    '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
-    '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
-    '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus',
-    '/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus',
+    STORY_VOICE_CATALOG,
     '/academy/content/lessons/002-l1-l01.json',
     '/academy/content/lessons/003-l1-l02.json',
     '/academy/content/lessons/004-l1-l03.json',
@@ -551,8 +539,25 @@ async function cachedAudioResponse(response, rangeHeader) {
 }
 
 self.addEventListener('install', event => {
-    event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
+    event.waitUntil(installOfflineShell());
 });
+
+async function installOfflineShell() {
+    const cache = await caches.open(VERSION);
+    await cache.addAll(CORE);
+    const response = await cache.match(STORY_VOICE_CATALOG);
+    if (!response) throw new Error('Story voice catalog was not cached.');
+    const catalog = await response.json();
+    if (catalog?.schema !== 'yomu-academy.story-voice-playback.v1' || !Array.isArray(catalog.entries)) {
+        throw new Error('Story voice catalog is invalid.');
+    }
+    const storyVoicePaths = [...new Set(catalog.entries.map(entry => entry?.url))];
+    if (storyVoicePaths.length === 0 || storyVoicePaths.some(path => (
+        typeof path !== 'string' || !STORY_VOICE_ASSET.test(path) || path.split('/').includes('..')
+    ))) throw new Error('Story voice catalog contains an invalid asset path.');
+    await cache.addAll(storyVoicePaths);
+    await self.skipWaiting();
+}
 
 self.addEventListener('activate', event => {
     event.waitUntil(

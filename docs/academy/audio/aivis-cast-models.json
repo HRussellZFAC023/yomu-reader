@@ -16,8 +16,8 @@
  },
  {
   "speaker": "mika",
-  "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-  "uuid": null
+  "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+  "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
  },
  {
   "speaker": "jodi",
@@ -31,8 +31,8 @@
  },
  {
   "speaker": "ruparna",
-  "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-  "uuid": null
+  "model": "まい (Mai)",
+  "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
  },
  {
   "speaker": "rose",
@@ -126,8 +126,8 @@
  },
  {
   "speaker": "xingyu",
-  "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-  "uuid": null
+  "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+  "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
  },
  {
   "speaker": "francis",

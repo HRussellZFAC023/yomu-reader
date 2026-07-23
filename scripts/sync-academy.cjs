@@ -61,6 +61,7 @@ const runtimeSources = [
     ['public/academy/content/n2-moving-priority-listening', 'content/n2-moving-priority-listening'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
     ['public/academy/audio/lesson-zero', 'audio/lesson-zero'],
+    ['public/academy/audio/story-pilot', 'audio/story-pilot'],
     [storyVoiceCatalogSource, 'audio/story-voice-playback.json'],
     ...storyVoiceAssetSources,
     [learningVoiceCatalogSource, 'audio/learning-voice-playback.json'],

@@ -130,8 +130,42 @@ async function verifyJourney(browser, viewport) {
     const afterScenes = await readProof(page);
     assert.deepEqual(afterScenes.events, completed.events,
         `${viewport.name} chronological scene inspection must not mutate canonical evidence`);
+    if (viewport.name === 'desktop') await verifyChapterVoiceMatrix(page);
     assert.deepEqual(consoleProblems, [], `${viewport.name} browser console must stay clean`);
     await context.close();
+}
+
+async function verifyChapterVoiceMatrix(page) {
+    const catalogResponse = await page.request.get(`${baseUrl}/academy/audio/story-voice-playback.json`);
+    assert.equal(catalogResponse.ok(), true, 'Chapter 1 voice catalog must be reachable in the browser proof');
+    const catalog = await catalogResponse.json();
+    const entries = catalog.entries.filter(entry => entry.lineId.startsWith('line:blank-atlas:'));
+    assert.equal(entries.length, 38, 'Chapter 1 must publish all 19 lines at foundation and N5');
+    assert.equal(new Set(entries.map(entry => `${entry.lineId}::${entry.band}`)).size, 38,
+        'Chapter 1 voice identities must be unique');
+
+    for (const entry of entries) {
+        const mediaResponse = await page.request.get(`${baseUrl}${entry.url}`);
+        assert.equal(mediaResponse.ok(), true, `${entry.lineId} ${entry.band} media must return successfully`);
+        assert.match(mediaResponse.headers()['content-type'] ?? '', /^audio\//u,
+            `${entry.lineId} ${entry.band} must have an audio content type`);
+        assert.equal((await mediaResponse.body()).byteLength, entry.bytes,
+            `${entry.lineId} ${entry.band} media bytes must match the locked catalog`);
+
+        await page.evaluate(({ lineId, band }) => window.__blankAtlasProof.openLine(lineId, band), entry);
+        const stage = page.locator(`.academy-story-vn-stage [data-line="${entry.lineId}"]`);
+        await stage.waitFor();
+        await page.waitForFunction(() => (
+            document.querySelector('.academy-story-vn-stage')?.getAttribute('data-voice-available') === 'true'
+        ));
+        assert.equal(await page.locator('.academy-vn-japanese').textContent(), entry.japanese,
+            `${entry.lineId} ${entry.band} must bind the catalog's exact Japanese`);
+        await page.locator('.academy-vn-voice-replay').click();
+        await page.waitForTimeout(250);
+        const playbackStatus = await page.locator('.academy-story-vn-stage').getAttribute('data-voice-status');
+        assert.ok(playbackStatus === 'playing' || playbackStatus === 'ended',
+            `${entry.lineId} ${entry.band} replay entered ${playbackStatus}`);
+    }
 }
 
 async function assertServer(page) {
@@ -211,6 +245,7 @@ async function mountProof(page, databaseName, resetDatabase) {
             settings: { muted: false, volumes: { music: 0.7, ambience: 0.65, lesson: 1, sfx: 0.8 } },
             async setTheme(theme) { this.theme = theme; },
             beginExternalLesson() { return () => {}; },
+            onEvent() { return () => {}; },
             playSfx() {},
         };
         const pronunciation = { async play() { return { dispose() {} }; } };
@@ -340,6 +375,28 @@ async function mountProof(page, databaseName, resetDatabase) {
                     activityId: undefined,
                     presentationMode: 'story',
                     selectedBand: undefined,
+                    updatedAt: Date.now(),
+                };
+                await persistence.checkpoint.save(checkpoint);
+                await render();
+            },
+            async openLine(lineId, band) {
+                const scene = arc.scenes.find(candidate => candidate.nodes.some(node => node.id === lineId));
+                if (!scene) throw new Error(`Missing Blank Atlas line ${lineId}.`);
+                checkpoint = {
+                    ...checkpoint,
+                    route: 'story',
+                    sectionId: serializeStoryCursor({
+                        version: 1,
+                        arcId: arc.id,
+                        sceneId: scene.id,
+                        nodeId: lineId,
+                        choices: { 'choice:blank-atlas:mission': 'option:blank-atlas:mission-sound' },
+                    }),
+                    lessonId: 'lesson:foundation-00',
+                    activityId: undefined,
+                    presentationMode: 'story',
+                    selectedBand: band === 'foundation' ? undefined : band,
                     updatedAt: Date.now(),
                 };
                 await persistence.checkpoint.save(checkpoint);

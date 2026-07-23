@@ -58,20 +58,6 @@ describe('Academy offline shell', () => {
             '/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3',
             '/academy/content/lessons/lesson-zero.v1.json',
             '/academy/audio/story-voice-playback.json',
-            '/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus',
-            '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
-            '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
-            '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus',
-            '/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus',
             '/academy/content/lessons/l1-l19/moodle-chapter-11-2-ordering-food-page-2.png',
             '/academy/content/lessons/l1-l19/moodle-43-a-43.mp3',
             '/academy/content/lessons/l1-l19/moodle-44-a-44.mp3',
@@ -101,6 +87,28 @@ describe('Academy offline shell', () => {
         expect(source).toContain("url.pathname === '/yomu.user.js'");
         expect(source).toContain("url.pathname === '/greasyfork/yomu-bunpro.user.js'");
         expect(source).toContain("url.pathname.startsWith('/academy/media/')");
+    });
+
+    it('pre-caches every locked story voice through the playback catalog', () => {
+        for (const root of ['public', 'docs/public']) {
+            const worker = fs.readFileSync(path.resolve(root, 'academy/sw.js'), 'utf8');
+            const catalogPath = path.resolve(root, 'academy/audio/story-voice-playback.json');
+            const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8')) as {
+                schema?: string;
+                entries?: Array<{ reviewStatus?: string; url?: string }>;
+            };
+            expect(catalog.schema).toBe('yomu-academy.story-voice-playback.v1');
+            expect(catalog.entries?.length).toBeGreaterThan(0);
+            const urls = catalog.entries?.map(entry => entry.url) ?? [];
+            expect(urls).toEqual([...new Set(urls)]);
+            for (const entry of catalog.entries ?? []) {
+                expect(entry.reviewStatus).toBe('locked');
+                expect(entry.url).toMatch(/^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/u);
+                expect(fs.existsSync(hostedPathForRoot(root, entry.url ?? ''))).toBe(true);
+            }
+            expect(worker).toContain('event.waitUntil(installOfflineShell());');
+            expect(worker).toContain('await cache.addAll(storyVoicePaths);');
+        }
     });
 
     it('keeps every typed runtime asset in the offline core', () => {
@@ -165,9 +173,13 @@ function precacheUrls(source: string): string[] {
 }
 
 function hostedPathFor(rawUrl: string): string {
+    return hostedPathForRoot('docs/public', rawUrl);
+}
+
+function hostedPathForRoot(root: string, rawUrl: string): string {
     const pathname = new URL(rawUrl, 'https://yomureader.com').pathname;
     const relativePath = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
-    return path.resolve('docs/public', `.${relativePath}`);
+    return path.resolve(root, `.${relativePath}`);
 }
 
 function runtimeTextFiles(directory: string): string[] {

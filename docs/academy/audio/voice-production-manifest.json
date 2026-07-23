@@ -24,12 +24,12 @@
     "acceptedLearningLines": 1,
     "codexAcceptedLearningLines": 1,
     "humanReviewedLearningLines": 0,
-    "locked": 14,
-    "productionReady": 15,
+    "locked": 51,
+    "productionReady": 52,
     "pilotRendered": 5,
-    "storyRendered": 15,
+    "storyRendered": 52,
     "staleLocks": 1,
-    "missingModels": 297
+    "missingModels": 162
   },
   "entries": [
     {
@@ -435,12 +435,21 @@
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "pilot-rendered",
-        "manualReview": "pending",
-        "evidence": "docs/academy/audio/rie-introduction-manifest.json"
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
       },
       "pilotOutput": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus",
-      "output": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus"
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-konbanwa__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-konbanwa::n5",
@@ -458,15 +467,27 @@
       "reading": "こんばんは。はじめまして。せんせいのRieです。",
       "english": "Good evening. Nice to meet you. I'm Rie, your teacher.",
       "sourceSha256": "738e40d28d4d98de5b89af2eac4546269dcfe5ef22a5f6cb8f7f9d20e6da15d5",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-konbanwa__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-problem::foundation",
@@ -484,15 +505,27 @@
       "reading": "これはアトラスです。でも、みちがありません。",
       "english": "This is an atlas. But it has no route.",
       "sourceSha256": "951a7ff4753d45a88e56f876cc39379b762e939791b195e0318c64073c781908",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-problem__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-problem::n5",
@@ -510,15 +543,27 @@
       "reading": "これはてんじのアトラスです。でも、さいしょのみちがきえました。",
       "english": "This is the exhibition atlas. But its first route has disappeared.",
       "sourceSha256": "b90f1ac8fb2581ff54940bbaaeb13029502886cafb7c877c540993baaacb266e",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-problem__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-listen-first::foundation",
@@ -536,15 +581,27 @@
       "reading": "まず、おとです。きいてください。",
       "english": "First, sound. Please listen.",
       "sourceSha256": "809144804287e8b633bb5b56596799138fa6f5f9d0c22192f7854406f23e887f",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-listen-first__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-listen-first::n5",
@@ -562,15 +619,27 @@
       "reading": "もじのまえに、いつつのおとをききましょう。",
       "english": "Before the writing, let's listen to five sounds.",
       "sourceSha256": "74bcad6e52c9f1b1a01d80a919fa0f35112df81e5bca23baa759b96fd20598fa",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-listen-first__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-look::foundation",
@@ -588,15 +657,27 @@
       "reading": "みてください。つぎに、きいてください。",
       "english": "Please look. Next, please listen.",
       "sourceSha256": "396278d572839ca82fb6a117ad01043c552d728bd784be4929f5de51f6e3df00",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-look__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-look::n5",
@@ -614,15 +695,27 @@
       "reading": "プリントをみてください。つぎのしじをきいてください。",
       "english": "Please look at the handout. Listen to the next instruction.",
       "sourceSha256": "fc9fd10d7cb4689c21122e5f5e65146c8d3db9de493e89a489073be65d60d5d6",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-look__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-too-fast::foundation",
@@ -640,15 +733,27 @@
       "reading": "このれいをみて、かいて、つぎを――",
       "english": "Look at this example, write, and then the next—",
       "sourceSha256": "1a5b664947d7c47a8aa2aa4f4715440e4dea71855862460e41316a5275136caf",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 1.02,
+          "pitchScale": -0.01,
+          "intonationScale": 1.07,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-too-fast__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-too-fast::n5",
@@ -666,15 +771,27 @@
       "reading": "このれいをみて、こたえをかいて、それからつぎのカードを――",
       "english": "Look at this example, write the answer, and then take the next card—",
       "sourceSha256": "456e9690a43c98efc8684d329f34b91f55a6ec3981a1816d3a78027f8dba74a3",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 1.02,
+          "pitchScale": -0.01,
+          "intonationScale": 1.07,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-too-fast__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-repetition-works::foundation",
@@ -692,15 +809,27 @@
       "reading": "はい。もういちどです。いいしつもんです。",
       "english": "Yes. Once more. Good question.",
       "sourceSha256": "4d8495473556a98f7f45ba5efb252e33be7ad3c4359f81fcadee56595a331b3e",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.91,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.06
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-repetition-works__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-repetition-works::n5",
@@ -718,15 +847,27 @@
       "reading": "はい、もういちどいいます。とめてくれて、よかったです。",
       "english": "Yes, I'll say it again. I'm glad you stopped me.",
       "sourceSha256": "a26117ebc6c167d39f14e7984e303edbe01378ecdea77b5ce24759861c795c0f",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.95,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.06
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-repetition-works__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-label-question::foundation",
@@ -744,15 +885,27 @@
       "reading": "ここはきょうしつですか。としょしつですか。",
       "english": "Is this the classroom? Is it the library?",
       "sourceSha256": "dffa710316e50c5c2ee0dee804a5f42a9604df26b92bedab75a136965db62a1f",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-label-question__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-label-question::n5",
@@ -770,15 +923,27 @@
       "reading": "このばしょはきょうしつですか。としょしつじゃありませんか。",
       "english": "Is this place the classroom? Isn't it the library?",
       "sourceSha256": "2da17d67c128bd15b2ecb82ab82ffe5eff6ddec5efa7e12b22cdb58a19bdd2fc",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-label-question__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-share-boundary::foundation",
@@ -796,15 +961,27 @@
       "reading": "なまえのうしろに「です」をおきましょう。",
       "english": "Put です after your name.",
       "sourceSha256": "4112dd96c6e8b974ac13e223cfda2f964d759d5e94f2375e3854680e8901b76a",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-share-boundary__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-share-boundary::n5",
@@ -822,15 +999,27 @@
       "reading": "さっきいったなまえのうしろに「です」をおいて、なふだをかんせいさせましょう。",
       "english": "Put です after the name you said earlier and finish the card.",
       "sourceSha256": "65897dcb461447e3ee047c6aed360a54df7515e2159176a9261956397c2bb620",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-share-boundary__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-three-routes::foundation",
@@ -848,15 +1037,27 @@
       "reading": "おと、ぶん、かいわ。どれからはじめますか。",
       "english": "Sound, text, or conversation. Which will you begin with?",
       "sourceSha256": "414ffdfc7246e2b22286bac6ccec55c1f52ad71f238f302ae0b801d66078208a",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-three-routes__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-three-routes::n5",
@@ -874,15 +1075,27 @@
       "reading": "おとでたしかめるみち、ぶんをなおすみち、はなしてむかえるみちがあります。どれにしますか。",
       "english": "There is a route for checking sound, repairing text, or welcoming someone through speech. Which do you choose?",
       "sourceSha256": "32931b40aa5053da6919c9e6ea692ad9b252b4d53b73323dfa4516b38dc1c71d",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-three-routes__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:xingyu-sound-first::foundation",
@@ -900,15 +1113,27 @@
       "reading": "ぜんぶはいいです。「です」のまえだけ、きいてみて。",
       "english": "You don't need all of it. Just listen immediately before です.",
       "sourceSha256": "fc655070f4d0e01f56fa5ba340adbe95e15dde7e7e5730248a987582548dbe76",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": 0,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__xingyu-sound-first__xingyu__foundation.opus"
     },
     {
       "key": "line:blank-atlas:xingyu-sound-first::n5",
@@ -926,15 +1151,27 @@
       "reading": "ぜんぶをわかろうとしなくてだいじょうぶです。「です」のまえにあるなまえだけ、さがしてみてください。",
       "english": "You don't have to understand everything. Just find the name before です.",
       "sourceSha256": "273edea62247bc70991efcc79c9dd968b43d3f114fcb7d1bb6f82854253883fa",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": 0,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__xingyu-sound-first__xingyu__n5.opus"
     },
     {
       "key": "line:blank-atlas:mika-sound-result::foundation",
@@ -952,15 +1189,27 @@
       "reading": "きこえましたね。なまえは、そこです。",
       "english": "You heard it. That's where the name is.",
       "sourceSha256": "55fe59b374303d86264cc5b12c8d880099e41a8786fc089590a4ec3ba8cc8110",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.015,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__mika-sound-result__mika__foundation.opus"
     },
     {
       "key": "line:blank-atlas:mika-sound-result::n5",
@@ -978,15 +1227,27 @@
       "reading": "ぜんぶではなく、ひつようなところをきけました。つぎもおなじめじるしがつかえます。",
       "english": "You caught what you needed, not every word. The same landmark will work next time.",
       "sourceSha256": "656801f1393b2382f375e20aa7e4ed7b012a2f5c0a5d97a3814af82bd4558386",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.015,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__mika-sound-result__mika__n5.opus"
     },
     {
       "key": "line:blank-atlas:sophie-two-gaps::foundation",
@@ -1004,15 +1265,27 @@
       "reading": "あいているところはふたつ。まず、まえとあとだけをみます。",
       "english": "There are two gaps. First, look only before and after them.",
       "sourceSha256": "6577c3d59c07d14ef99fd5554f5adda0d3381e4a9f72cac784185d5530b2f2de",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "sophie",
         "model": "まお (Mao / Oz Chat)",
         "uuid": "a59cb814-0083-4369-8542-f51a29e72af7"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": 0,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:sophie-two-gaps::n5",
@@ -1030,15 +1303,27 @@
       "reading": "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
       "english": "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning.",
       "sourceSha256": "227ffeba1bd7e99125cd04bde3a58da3c849650b511e19c7a6f87836c482b3a9",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "sophie",
         "model": "まお (Mao / Oz Chat)",
         "uuid": "a59cb814-0083-4369-8542-f51a29e72af7"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": 0,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__n5.opus"
     },
     {
       "key": "line:blank-atlas:ruparna-note-route::foundation",
@@ -1056,15 +1341,27 @@
       "reading": "ぶんがつながりました。かみのはしが、みちみたいです。",
       "english": "The sentence connects. The edge of the paper looks like a road.",
       "sourceSha256": "6693f0272c866d09617c15e0b79fe25dfcf472888bc0b891a102a90ce2fbb20c",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.72,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__foundation.opus"
     },
     {
       "key": "line:blank-atlas:ruparna-note-route::n5",
@@ -1082,15 +1379,27 @@
       "reading": "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
       "english": "When the letters return, the paper's edge connects like the next road.",
       "sourceSha256": "c2e60759dbb388c4c08035d3f96537e71f925438f558eb1961a0c3e5c508156a",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.72,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__n5.opus"
     },
     {
       "key": "line:blank-atlas:sam-recording-boundary::foundation",
@@ -1108,15 +1417,27 @@
       "reading": "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
       "english": "This is practice. You do not have to record now.",
       "sourceSha256": "795b28e1438796164e11679adfdb7c6dc2104e4cbe0cd2058bd65afd04702ea3",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "sam",
         "model": "にせ (nise)",
         "uuid": "6d11c6c2-f4a4-4435-887e-23dd60f8b8dd"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__foundation.opus"
     },
     {
       "key": "line:blank-atlas:sam-recording-boundary::n5",
@@ -1134,15 +1455,27 @@
       "reading": "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
       "english": "The recording is only for this practice. If you do not want to do it now, you can stop here.",
       "sourceSha256": "759ebb61d0b042dbbc9967871dfedecffeafc372905371aeb6baf236cdee2a6d",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "sam",
         "model": "にせ (nise)",
         "uuid": "6d11c6c2-f4a4-4435-887e-23dd60f8b8dd"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__n5.opus"
     },
     {
       "key": "line:blank-atlas:aakash-place-held::foundation",
@@ -1160,15 +1493,27 @@
       "reading": "はいりました。かいわも、カードも。",
       "english": "It came in. The conversation and the card.",
       "sourceSha256": "25cc8f0fcbe1f619d56def6df5f09310710a6a9202246bf17f9d51dc6f0b4cfd",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "aakash",
         "model": "kokuren_voice",
         "uuid": "e40d5b99-8cde-4442-a45b-0ebec9167506"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__foundation.opus"
     },
     {
       "key": "line:blank-atlas:aakash-place-held::n5",
@@ -1186,15 +1531,27 @@
       "reading": "ききなおしたから、かいわもカードもへやにはいりました。",
       "english": "Because you asked again, both the conversation and the card made it into the room.",
       "sourceSha256": "4c80ff66603970347111962f16f731c3b71280d7e811ec4e6348ad36abc8b1ca",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "aakash",
         "model": "kokuren_voice",
         "uuid": "e40d5b99-8cde-4442-a45b-0ebec9167506"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-read-for-person::foundation",
@@ -1212,15 +1569,27 @@
       "reading": "だれのカードですか。ぶんをよんでください。",
       "english": "Whose card is it? Please read the sentence.",
       "sourceSha256": "93a443005c112d9e347cea49d2598e98c54248446534e65797b5ece673af1fc4",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-read-for-person__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-read-for-person::n5",
@@ -1238,15 +1607,27 @@
       "reading": "なまえをあてるのではなく、ぶんをしょうこにしてカードをもどしましょう。",
       "english": "Rather than guessing the name, use the sentence as evidence to return the card.",
       "sourceSha256": "29117a3a6c685a643b1c2ccb0e2ebf2ea90a966ebcc7fc92c723c289643fb25e",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-read-for-person__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-transfer::foundation",
@@ -1264,15 +1645,27 @@
       "reading": "こんどは、プリントなしです。みちをひとつ、たすけてください。",
       "english": "This time, no handout. Please help one route.",
       "sourceSha256": "45da4fbbeb10d39966d206e4e8affcd1f40d9c3370b0c2f73f47921c0d27a46f",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-transfer__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-transfer::n5",
@@ -1290,15 +1683,27 @@
       "reading": "こんどはおしえるがめんをとじます。えらんだほうほうで、あたらしいカードをへやにいれてください。",
       "english": "This time the teaching surface closes. Use your chosen method to bring the new card into the room.",
       "sourceSha256": "795bdf129f341a6c4de3e85069510addcc419b2ef493715b4bd4100dc6d0ea67",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-transfer__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-recap::foundation",
@@ -1316,15 +1721,27 @@
       "reading": "あいさつをしました。ききなおしました。みちをひとつつくりました。",
       "english": "You greeted, asked again, and made one route.",
       "sourceSha256": "a92ecda53ab58bdcc69e8afe193655e939808a4cee8222c3d27e4f5ea6789395",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-recap__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-recap::n5",
@@ -1342,15 +1759,27 @@
       "reading": "あいさつをして、わからないところをききなおして、さいしょのみちをひとつつくりました。",
       "english": "You greeted, asked again where you did not understand, and made the first route.",
       "sourceSha256": "a40d74f785c0335b3c8b3badad20567b8b1924b6b6275e8b48fc67426c979908",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-recap__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-open-choice::foundation",
@@ -1368,15 +1797,27 @@
       "reading": "きょうはここまでです。つぎは、あなたがえらびます。",
       "english": "That is all for today. You choose what comes next.",
       "sourceSha256": "0e1b49f05ce8000fdfbc9c1eb12d77180e80b05135c000315849b1f4cd35b7a0",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.93,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.05
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-open-choice__rie__foundation.opus"
     },
     {
       "key": "line:blank-atlas:rie-open-choice::n5",
@@ -1394,15 +1835,27 @@
       "reading": "きょうはここまでです。べんきょうをつづけても、こうないをみても、ここでおわってもいいです。",
       "english": "That is all for today. You may keep studying, explore the campus, or finish here.",
       "sourceSha256": "f452d7aed36b331fe1dc728ea608893419871a83939f6adf70eaa8ccad1bc5ab",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.05
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-open-choice__rie__n5.opus"
     },
     {
       "key": "line:margin-map:henry-presents::foundation",
@@ -3925,8 +4378,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -3951,8 +4404,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -3977,8 +4430,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4003,8 +4456,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4029,8 +4482,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4055,8 +4508,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4081,8 +4534,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4107,8 +4560,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4133,8 +4586,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4159,8 +4612,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4185,8 +4638,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4211,8 +4664,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4237,8 +4690,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4263,8 +4716,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4289,8 +4742,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4315,8 +4768,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4341,8 +4794,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4367,8 +4820,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4393,8 +4846,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4419,8 +4872,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4445,8 +4898,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4471,8 +4924,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4497,8 +4950,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4523,8 +4976,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4549,8 +5002,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4575,8 +5028,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4601,8 +5054,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4627,8 +5080,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4653,8 +5106,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4679,8 +5132,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4705,8 +5158,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4731,8 +5184,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4757,8 +5210,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4783,8 +5236,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4809,8 +5262,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4835,8 +5288,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4861,8 +5314,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4887,8 +5340,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4913,8 +5366,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4939,8 +5392,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4965,8 +5418,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -4991,8 +5444,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15628,8 +16081,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15654,8 +16107,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15680,8 +16133,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15706,8 +16159,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15732,8 +16185,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15888,8 +16341,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15914,8 +16367,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15940,8 +16393,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15966,8 +16419,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -15992,8 +16445,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16018,8 +16471,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16044,8 +16497,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16070,8 +16523,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16096,8 +16549,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16122,8 +16575,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16278,8 +16731,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16304,8 +16757,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16330,8 +16783,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16356,8 +16809,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16382,8 +16835,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16408,8 +16861,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16434,8 +16887,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16460,8 +16913,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16486,8 +16939,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -16512,8 +16965,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19138,8 +19591,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19164,8 +19617,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19190,8 +19643,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19216,8 +19669,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19242,8 +19695,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19268,8 +19721,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19294,8 +19747,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19320,8 +19773,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19346,8 +19799,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19372,8 +19825,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19658,8 +20111,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19684,8 +20137,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19710,8 +20163,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19736,8 +20189,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -19762,8 +20215,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -24939,8 +25392,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -24965,8 +25418,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -24991,8 +25444,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -25095,8 +25548,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -25121,8 +25574,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -25147,8 +25600,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28527,8 +28980,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28553,8 +29006,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28579,8 +29032,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28605,8 +29058,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28631,8 +29084,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28657,8 +29110,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28761,8 +29214,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28787,8 +29240,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28813,8 +29266,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -28995,8 +29448,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -29021,8 +29474,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -29047,8 +29500,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30321,8 +30774,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30347,8 +30800,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30373,8 +30826,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30477,8 +30930,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30503,8 +30956,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30529,8 +30982,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30555,8 +31008,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30581,8 +31034,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30607,8 +31060,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30711,8 +31164,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30737,8 +31190,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -30763,8 +31216,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -35989,8 +36442,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36015,8 +36468,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36093,8 +36546,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36119,8 +36572,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36249,8 +36702,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36275,8 +36728,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "ruparna",
-        "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "まい (Mai)",
+        "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36301,8 +36754,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36327,8 +36780,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "xingyu",
-        "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36951,8 +37404,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -36977,8 +37430,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37003,8 +37456,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37185,8 +37638,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37211,8 +37664,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37237,8 +37690,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37419,8 +37872,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37445,8 +37898,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"
@@ -37471,8 +37924,8 @@
       "status": "draft",
       "voiceModel": {
         "speaker": "mika",
-        "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
-        "uuid": null
+        "model": "M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+        "uuid": "d1a7446f-230d-4077-afdf-923eddabe53c"
       },
       "pitch": {
         "status": "unreviewed"

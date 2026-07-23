@@ -63,6 +63,18 @@ const arrivalQa = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/open
         whisper: { passed: boolean };
     }>;
 };
+const blankAtlasQa = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/blank-atlas-voice-manifest.json'), 'utf8')) as {
+    schema: string;
+    complete: boolean;
+    entries: Array<{
+        key: string;
+        output: string;
+        assetSha256: string;
+        bytes: number;
+        verdict: string;
+        whisper: { passed: boolean };
+    }>;
+};
 
 describe('Academy voice production manifest', () => {
     it('keeps every production key unique and reports reviewed source-lock drift honestly', () => {
@@ -110,35 +122,17 @@ describe('Academy voice production manifest', () => {
             'line:margin-map:henry-presents::n5',
             'line:two-answers:sophie-frame::n4',
         ]);
-        expect(rendered.map(entry => entry.key).sort()).toEqual([
-            'line:opening-arrival:rie-enter::foundation',
-            'line:opening-arrival:rie-enter::n5',
-            'line:opening-arrival:rie-evening::foundation',
-            'line:opening-arrival:rie-evening::n5',
-            'line:opening-arrival:rie-fiction::foundation',
-            'line:opening-arrival:rie-fiction::n5',
-            'line:opening-arrival:rie-learner-control::foundation',
-            'line:opening-arrival:rie-learner-control::n5',
-            'line:opening-arrival:rie-no-rush::foundation',
-            'line:opening-arrival:rie-no-rush::n5',
-        ]);
+        const expectedRenderedKeys = [...new Set([
+            ...arrivalQa.entries.map(entry => entry.key),
+            ...blankAtlasQa.entries.map(entry => entry.key),
+        ])].sort();
+        expect(rendered.map(entry => entry.key).sort()).toEqual(expectedRenderedKeys);
         expect(playback.schema).toBe('yomu-academy.story-voice-playback.v1');
-        expect(playback.entries.map(entry => `${entry.lineId}::${entry.band}`).sort()).toEqual([
-            'line:blank-atlas:rie-konbanwa::foundation',
-            'line:margin-map:aakash-cant-use::n5',
-            'line:margin-map:henry-presents::n5',
-            'line:opening-arrival:rie-enter::foundation',
-            'line:opening-arrival:rie-enter::n5',
-            'line:opening-arrival:rie-evening::foundation',
-            'line:opening-arrival:rie-evening::n5',
-            'line:opening-arrival:rie-fiction::foundation',
-            'line:opening-arrival:rie-fiction::n5',
-            'line:opening-arrival:rie-learner-control::foundation',
-            'line:opening-arrival:rie-learner-control::n5',
-            'line:opening-arrival:rie-no-rush::foundation',
-            'line:opening-arrival:rie-no-rush::n5',
-            'line:two-answers:sophie-frame::n4',
-        ]);
+        const expectedPlaybackKeys = [...new Set([
+            ...pilots.map(entry => entry.key),
+            ...expectedRenderedKeys,
+        ])].sort();
+        expect(playback.entries.map(entry => `${entry.lineId}::${entry.band}`).sort()).toEqual(expectedPlaybackKeys);
         expect(hostedPlayback).toEqual(playback);
         for (const entry of [...pilots, ...rendered]) {
             const output = entry.output ?? entry.pilotOutput;
@@ -169,6 +163,20 @@ describe('Academy voice production manifest', () => {
         expect(arrivalQa.complete).toBe(true);
         expect(arrivalQa.entries).toHaveLength(10);
         for (const result of arrivalQa.entries) {
+            expect(result.verdict, result.key).toBe('pass');
+            expect(result.whisper.passed, result.key).toBe(true);
+            const playbackEntry = playback.entries.find(entry => entry.url === result.output);
+            expect(playbackEntry, result.key).toBeDefined();
+            expect(playbackEntry?.assetSha256).toBe(result.assetSha256);
+            expect(playbackEntry?.bytes).toBe(result.bytes);
+        }
+    });
+
+    it('keeps Chapter 1 voice QA complete and bound to every published line variant', () => {
+        expect(blankAtlasQa.schema).toBe('yomu-academy.blank-atlas-voice-qa.v1');
+        expect(blankAtlasQa.complete).toBe(true);
+        expect(blankAtlasQa.entries).toHaveLength(38);
+        for (const result of blankAtlasQa.entries) {
             expect(result.verdict, result.key).toBe('pass');
             expect(result.whisper.passed, result.key).toBe(true);
             const playbackEntry = playback.entries.find(entry => entry.url === result.output);

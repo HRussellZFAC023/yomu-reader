@@ -2,10 +2,20 @@
   "line:blank-atlas:rie-konbanwa::foundation": {
     "status": "locked",
     "sourceSha256": "f39b9ddce2b01e46166b7574c57a82f0705e817a17bfd170b5e292d7d7b683b6",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-konbanwa__rie__foundation.opus",
     "pitch": {
-      "status": "pilot-rendered",
-      "manualReview": "pending",
-      "evidence": "docs/academy/audio/rie-introduction-manifest.json"
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
     }
   },
   "line:margin-map:henry-presents::n5": {
@@ -227,6 +237,709 @@
         "prePhonemeLength": 0.12,
         "postPhonemeLength": 0.2,
         "pauseLengthScale": 1.0
+      }
+    }
+  },
+  "line:blank-atlas:rie-konbanwa::n5": {
+    "status": "locked",
+    "sourceSha256": "738e40d28d4d98de5b89af2eac4546269dcfe5ef22a5f6cb8f7f9d20e6da15d5",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-konbanwa__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-problem::foundation": {
+    "status": "locked",
+    "sourceSha256": "951a7ff4753d45a88e56f876cc39379b762e939791b195e0318c64073c781908",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-problem__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-problem::n5": {
+    "status": "locked",
+    "sourceSha256": "b90f1ac8fb2581ff54940bbaaeb13029502886cafb7c877c540993baaacb266e",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-problem__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-listen-first::foundation": {
+    "status": "locked",
+    "sourceSha256": "809144804287e8b633bb5b56596799138fa6f5f9d0c22192f7854406f23e887f",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-listen-first__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-listen-first::n5": {
+    "status": "locked",
+    "sourceSha256": "74bcad6e52c9f1b1a01d80a919fa0f35112df81e5bca23baa759b96fd20598fa",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-listen-first__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-look::foundation": {
+    "status": "locked",
+    "sourceSha256": "396278d572839ca82fb6a117ad01043c552d728bd784be4929f5de51f6e3df00",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-look__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-look::n5": {
+    "status": "locked",
+    "sourceSha256": "fc9fd10d7cb4689c21122e5f5e65146c8d3db9de493e89a489073be65d60d5d6",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-look__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-too-fast::foundation": {
+    "status": "locked",
+    "sourceSha256": "1a5b664947d7c47a8aa2aa4f4715440e4dea71855862460e41316a5275136caf",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-too-fast__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 1.02,
+        "pitchScale": -0.01,
+        "intonationScale": 1.07,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-too-fast::n5": {
+    "status": "locked",
+    "sourceSha256": "456e9690a43c98efc8684d329f34b91f55a6ec3981a1816d3a78027f8dba74a3",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-too-fast__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 1.02,
+        "pitchScale": -0.01,
+        "intonationScale": 1.07,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-repetition-works::foundation": {
+    "status": "locked",
+    "sourceSha256": "4d8495473556a98f7f45ba5efb252e33be7ad3c4359f81fcadee56595a331b3e",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-repetition-works__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.91,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.06
+      }
+    }
+  },
+  "line:blank-atlas:rie-repetition-works::n5": {
+    "status": "locked",
+    "sourceSha256": "a26117ebc6c167d39f14e7984e303edbe01378ecdea77b5ce24759861c795c0f",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-repetition-works__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.95,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.06
+      }
+    }
+  },
+  "line:blank-atlas:rie-label-question::foundation": {
+    "status": "locked",
+    "sourceSha256": "dffa710316e50c5c2ee0dee804a5f42a9604df26b92bedab75a136965db62a1f",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-label-question__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-label-question::n5": {
+    "status": "locked",
+    "sourceSha256": "2da17d67c128bd15b2ecb82ab82ffe5eff6ddec5efa7e12b22cdb58a19bdd2fc",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-label-question__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-share-boundary::foundation": {
+    "status": "locked",
+    "sourceSha256": "4112dd96c6e8b974ac13e223cfda2f964d759d5e94f2375e3854680e8901b76a",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-share-boundary__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-share-boundary::n5": {
+    "status": "locked",
+    "sourceSha256": "65897dcb461447e3ee047c6aed360a54df7515e2159176a9261956397c2bb620",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-share-boundary__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-three-routes::foundation": {
+    "status": "locked",
+    "sourceSha256": "414ffdfc7246e2b22286bac6ccec55c1f52ad71f238f302ae0b801d66078208a",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-three-routes__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-three-routes::n5": {
+    "status": "locked",
+    "sourceSha256": "32931b40aa5053da6919c9e6ea692ad9b252b4d53b73323dfa4516b38dc1c71d",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-three-routes__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:xingyu-sound-first::foundation": {
+    "status": "locked",
+    "sourceSha256": "fc655070f4d0e01f56fa5ba340adbe95e15dde7e7e5730248a987582548dbe76",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__xingyu-sound-first__xingyu__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": 0.0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:xingyu-sound-first::n5": {
+    "status": "locked",
+    "sourceSha256": "273edea62247bc70991efcc79c9dd968b43d3f114fcb7d1bb6f82854253883fa",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__xingyu-sound-first__xingyu__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": 0.0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:mika-sound-result::foundation": {
+    "status": "locked",
+    "sourceSha256": "55fe59b374303d86264cc5b12c8d880099e41a8786fc089590a4ec3ba8cc8110",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__mika-sound-result__mika__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.015,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:mika-sound-result::n5": {
+    "status": "locked",
+    "sourceSha256": "656801f1393b2382f375e20aa7e4ed7b012a2f5c0a5d97a3814af82bd4558386",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__mika-sound-result__mika__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.015,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:sophie-two-gaps::foundation": {
+    "status": "locked",
+    "sourceSha256": "6577c3d59c07d14ef99fd5554f5adda0d3381e4a9f72cac784185d5530b2f2de",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": 0.0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:sophie-two-gaps::n5": {
+    "status": "locked",
+    "sourceSha256": "227ffeba1bd7e99125cd04bde3a58da3c849650b511e19c7a6f87836c482b3a9",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": 0.0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:ruparna-note-route::foundation": {
+    "status": "locked",
+    "sourceSha256": "6693f0272c866d09617c15e0b79fe25dfcf472888bc0b891a102a90ce2fbb20c",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.72,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:ruparna-note-route::n5": {
+    "status": "locked",
+    "sourceSha256": "c2e60759dbb388c4c08035d3f96537e71f925438f558eb1961a0c3e5c508156a",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.72,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:sam-recording-boundary::foundation": {
+    "status": "locked",
+    "sourceSha256": "795b28e1438796164e11679adfdb7c6dc2104e4cbe0cd2058bd65afd04702ea3",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:sam-recording-boundary::n5": {
+    "status": "locked",
+    "sourceSha256": "759ebb61d0b042dbbc9967871dfedecffeafc372905371aeb6baf236cdee2a6d",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:aakash-place-held::foundation": {
+    "status": "locked",
+    "sourceSha256": "25cc8f0fcbe1f619d56def6df5f09310710a6a9202246bf17f9d51dc6f0b4cfd",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:aakash-place-held::n5": {
+    "status": "locked",
+    "sourceSha256": "4c80ff66603970347111962f16f731c3b71280d7e811ec4e6348ad36abc8b1ca",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-read-for-person::foundation": {
+    "status": "locked",
+    "sourceSha256": "93a443005c112d9e347cea49d2598e98c54248446534e65797b5ece673af1fc4",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-read-for-person__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-read-for-person::n5": {
+    "status": "locked",
+    "sourceSha256": "29117a3a6c685a643b1c2ccb0e2ebf2ea90a966ebcc7fc92c723c289643fb25e",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-read-for-person__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-transfer::foundation": {
+    "status": "locked",
+    "sourceSha256": "45da4fbbeb10d39966d206e4e8affcd1f40d9c3370b0c2f73f47921c0d27a46f",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-transfer__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-transfer::n5": {
+    "status": "locked",
+    "sourceSha256": "795bdf129f341a6c4de3e85069510addcc419b2ef493715b4bd4100dc6d0ea67",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-transfer__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-recap::foundation": {
+    "status": "locked",
+    "sourceSha256": "a92ecda53ab58bdcc69e8afe193655e939808a4cee8222c3d27e4f5ea6789395",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-recap__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-recap::n5": {
+    "status": "locked",
+    "sourceSha256": "a40d74f785c0335b3c8b3badad20567b8b1924b6b6275e8b48fc67426c979908",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-recap__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:blank-atlas:rie-open-choice::foundation": {
+    "status": "locked",
+    "sourceSha256": "0e1b49f05ce8000fdfbc9c1eb12d77180e80b05135c000315849b1f4cd35b7a0",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-open-choice__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.93,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.05
+      }
+    }
+  },
+  "line:blank-atlas:rie-open-choice::n5": {
+    "status": "locked",
+    "sourceSha256": "f452d7aed36b331fe1dc728ea608893419871a83939f6adf70eaa8ccad1bc5ab",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-open-choice__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.05
       }
     }
   }
