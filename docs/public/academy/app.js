@@ -2876,6 +2876,11 @@
   const LEARNING_VOICE_CATALOG_URL = "/academy/audio/learning-voice-playback.json";
   const LEARNING_VOICE_SCHEMA = "yomu-academy.learning-voice-playback.v3";
   const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
+    "lesson-zero:greeting-rie-model": Object.freeze({
+      lineId: "lesson-zero:greeting-rie-model",
+      japanese: "こんばんは。はじめまして。りえです。よろしくお願いします。",
+      sourceSha256: "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc"
+    }),
     "lesson-screen:textbook-pair-prompt": Object.freeze({
       lineId: "lesson-screen:textbook-pair-prompt",
       japanese: "では、教科書の五ページを開いて、二人で話してください。",
@@ -41952,6 +41957,18 @@ ${spelling}`);
     "activity:lesson-zero-written-transfer": "Use the written repair in a new scene",
     "activity:lesson-zero-close-room": "Close the first classroom session"
   };
+  const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
+    "activity:lesson-zero-sound-input",
+    "activity:lesson-zero-text-input",
+    "activity:lesson-zero-speaking-input",
+    "activity:lesson-zero-read-name-cards",
+    "activity:lesson-zero-write-name-card",
+    "activity:lesson-zero-sound-transfer",
+    "activity:lesson-zero-text-transfer",
+    "activity:lesson-zero-speaking-transfer",
+    "activity:lesson-zero-written-transfer",
+    "activity:lesson-zero-close-room"
+  ]);
   const DAY_ONE_CLASSROOM_EXPRESSION_IDS = Object.freeze(
     Array.from({ length: 14 }, (_, index) => `expression:classroom-${String(index + 1).padStart(2, "0")}`)
   );
@@ -42100,7 +42117,9 @@ ${spelling}`);
       ["s1e01-the-blank-atlas"],
       { audio: "voice", visual: "scene" },
       "Scene, encounter, activity, and story cursor evidence persist.",
-      "All story moments, lesson handoffs, choices, repairs, voice, and return routes are proved."
+      "All story moments, lesson handoffs, choices, repairs, voice, and return routes are proved.",
+      [],
+      VERIFIED_DELIVERY
     )
   ];
   DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) => entry$P(
@@ -42114,7 +42133,7 @@ ${spelling}`);
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    activityId === "activity:lesson-zero-sound-input" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-desk-language" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-desk-language" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -260348,7 +260367,7 @@ ${spelling}`);
       body.append(root);
     };
     const modelAudioButton = (signal) => {
-      const button2 = actionButton$3(COPY$5.hearRie, "listen", signal, () => playModel(button2), options.language);
+      const button2 = actionButton$3(COPY$5.hearRie, "listen", signal, () => playModel(button2, signal), options.language);
       button2.dataset.audioTarget = "rie-model";
       return button2;
     };
@@ -260420,17 +260439,20 @@ ${spelling}`);
       }
     };
     const stopRecording = () => capture?.stop();
-    const playModel = async (button2) => {
+    const playModel = async (button2, signal) => {
       if (busy || disposed) return;
       playback?.dispose();
       playback = null;
       button2.disabled = true;
       button2.textContent = COPY$5.playing[options.language];
       try {
-        const active = await options.pronunciation.play(
+        const active = await playLearningVoiceBinding(
+          options.pronunciation,
+          "lesson-zero:greeting-rie-model",
           options.definition.model.japanese,
-          options.definition.model.reading
+          signal
         );
+        if (!active) return;
         if (disposed) active.dispose();
         else playback = active;
       } catch {

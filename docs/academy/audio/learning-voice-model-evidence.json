@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-model-evidence.v3",
   "capturedOn": "2026-07-20",
   "batchId": "academy-learning-native-20260720-01",
-  "productionContractSha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+  "productionContractSha256": "4f4f51331733a33318a4764b3fcb954f33229b8aef017a412cf1fe45b0c0aa3c",
   "sourceKind": "installed-aivmx-embedded-manifest-and-engine-cache",
   "scope": "Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.",
   "license": {
@@ -175,38 +175,49 @@
       ]
     },
     {
-      "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
-      "name": "morioki",
+      "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "name": "hinakoyuhara",
       "version": "1.0.0",
       "creators": [
-        "yuki",
-        "morioki"
+        "柚原比奈子"
       ],
       "modelArchitecture": "Style-Bert-VITS2 (JP-Extra)",
       "modelFormat": "ONNX",
-      "payloadFileName": "baaae3c0-7b22-4605-8ba5-80c959b41a48.aivmx",
-      "payloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
-      "manifestSha256": "76a949f72f96fae418d87fa2a392f61cc894af5a6ebc8e8a4395f0cc79c632fb",
+      "payloadFileName": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43.aivmx",
+      "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "manifestSha256": "fc7b5a3e107bf84143f65c0231ba60b08e096c8cf9cc5686f731fa486cbbdeb0",
       "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
       "distribution": {
         "kind": "installed-aivmx-distribution",
-        "fileName": "baaae3c0-7b22-4605-8ba5-80c959b41a48.aivmx",
-        "bytes": 251126564,
-        "sha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+        "fileName": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43.aivmx",
+        "bytes": 258068941,
+        "sha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
         "authority": "exact-distribution-bytes"
       },
       "sourceRecord": {
-        "url": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+        "url": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
         "authority": "discovery-record-only",
         "authoritativeForDistributionBytes": false
       },
       "speakers": [
         {
-          "name": "morioki",
+          "name": "hinakoyuhara",
           "styles": [
             {
               "name": "ノーマル",
               "localId": 0
+            },
+            {
+              "name": "普通",
+              "localId": 1
+            },
+            {
+              "name": "落ち着き",
+              "localId": 2
+            },
+            {
+              "name": "怒り",
+              "localId": 3
             }
           ]
         }
@@ -222,8 +233,8 @@
   "engineStyleSource": {
     "kind": "AivisSpeech Engine aivm_infos_cache.json",
     "fileName": "aivm_infos_cache.json",
-    "fileSha256": "8ee2593469ca72fea969bde27c9b76d8c8c4c99f6bcc36d6cc8eaf3f38a9a8a6",
-    "relevantMappingsSha256": "4b3f5aad8bfbc4026326c02531c7d5e7c3f47c55fbfa3798b1d1405286475b8b"
+    "fileSha256": "a48296b7e62807af103317a5cfdab9c502f8790707ed1ad0ee4105afb8d4dbd7",
+    "relevantMappingsSha256": "bf4964d5b447f6d92aaac7cdb3aa6b5f0e978e8b6fc65b17cc09980c1cb5004f"
   },
   "engineStyleMappings": [
     {
@@ -293,14 +304,14 @@
         "world-practice"
       ],
       "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
-      "modelUuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
-      "modelName": "morioki",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
       "modelVersion": "1.0.0",
-      "modelPayloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
-      "engineSpeakerUuid": "396a746d-742f-4e43-b722-1182a7fab9af",
-      "engineSpeakerName": "morioki",
-      "styleId": 497929760,
-      "styleName": "ノーマル",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "engineSpeakerUuid": "16e681b5-474d-4b7d-b58b-0fb45c6a3dec",
+      "engineSpeakerName": "hinakoyuhara",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
       "styleType": "talk"
     }
   ]

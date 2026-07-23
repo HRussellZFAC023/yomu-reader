@@ -17,7 +17,7 @@
     "schema": "yomu-academy.learning-voice-model-evidence.v3",
     "id": "ACML-1.0",
     "sha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
-    "modelEvidenceSha256": "74b9769ac7ffff03c3d83f9e2a777b4ee4b4754dd6c203de3525010e0db9f379",
+    "modelEvidenceSha256": "214e0fa9279a610ac0a5641ae36b8d1e18e40911325e4f4b449f160623a37aa7",
     "engine": {
       "name": "AivisSpeech Engine",
       "version": "1.2.0",
@@ -27,27 +27,27 @@
     "engineStyleSource": {
       "kind": "AivisSpeech Engine aivm_infos_cache.json",
       "fileName": "aivm_infos_cache.json",
-      "fileSha256": "8ee2593469ca72fea969bde27c9b76d8c8c4c99f6bcc36d6cc8eaf3f38a9a8a6",
-      "relevantMappingsSha256": "4b3f5aad8bfbc4026326c02531c7d5e7c3f47c55fbfa3798b1d1405286475b8b"
+      "fileSha256": "a48296b7e62807af103317a5cfdab9c502f8790707ed1ad0ee4105afb8d4dbd7",
+      "relevantMappingsSha256": "bf4964d5b447f6d92aaac7cdb3aa6b5f0e978e8b6fc65b17cc09980c1cb5004f"
     }
   },
   "archivedQueryEvidence": {
     "path": "docs/academy/audio/learning-voice-query-evidence.json",
     "schema": "yomu-academy.learning-voice-query-evidence.v2",
-    "sha256": "829a49930e50ebde28c65fd7b657f11fff098273c523fafa06a8525a14e82799",
-    "candidates": 4,
+    "sha256": "e6c2e2b6be647e84359c3cbcf1dc10a8dae2203d01abe89e376f35267c88d918",
+    "candidates": 5,
     "styleMappings": 4
   },
   "productionContract": {
     "path": "docs/academy/audio/learning-voice-production.json",
-    "sha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+    "sha256": "4f4f51331733a33318a4764b3fcb954f33229b8aef017a412cf1fe45b0c0aa3c",
     "validation": {
-      "reviewedCandidates": 4,
-      "accepted": 1,
-      "rejected": 3,
-      "bindings": 1,
-      "nativeBand": 1,
-      "archivedQueries": 4,
+      "reviewedCandidates": 5,
+      "accepted": 3,
+      "rejected": 2,
+      "bindings": 4,
+      "nativeBand": 3,
+      "archivedQueries": 5,
       "acceptedBy": "Codex",
       "humanReviewed": false
     }
@@ -55,13 +55,13 @@
   "historicalModelReviewEvidence": {
     "path": "docs/academy/audio/learning-voice-model-reviews.json",
     "schema": "yomu-academy.learning-voice-model-reviews.v2",
-    "sha256": "45b9607ceb2d23ee2a7c677e6b716e2e871684d2689825b9181c22d3ea4f5ae5",
+    "sha256": "1cee7bb0a3a92b6959e207ae5fcb3bedbca88c67dd3729c87aad6265089523da",
     "audioModelReviewed": true,
     "humanReviewed": false,
     "independentReviewerFamilies": 2,
     "blanketCharacterErrorRateAllowed": false
   },
-  "catalogSha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02",
+  "catalogSha256": "59ce9a954523b124e7b980064db04043612ce01ec4194529e90a6907496b6f3c",
   "entries": [
     {
       "lineId": "miller-cafe-price",
@@ -99,7 +99,7 @@
             "independentReviewIndex": 1
           },
           "heardTranscript": "コーヒーは300円です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
@@ -116,10 +116,189 @@
             "independentReviewIndex": 2
           },
           "heardTranscript": "コーヒー は 三百 円 です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "independentCriticalPhraseReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-lesson-zero-repeat",
+      "bindingIds": [
+        "world-practice:lab-classroom-repair",
+        "world-practice:lab-classroom-repeat"
+      ],
+      "intent": "Give a warm, composed repair phrase that a beginner can replay and immediately use.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+      "sourceRevision": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+      "audioQuerySha256": "dd20ccd600c0e92496a81dd55cee85de6aad149207a15a517b17293919b066fb",
+      "cacheKey": "39120279d3b659e078978a211588524750fe3675c2f50d228c84d0504e553d93",
+      "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.042229,
+        "integratedLufs": -16.6,
+        "truePeakDbfs": -1.6,
+        "leadingSeconds": 0.181,
+        "trailingSeconds": 0.168,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-base.bin",
+            "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "もう一度お願いします。",
+          "normalizedTranscript": "もう一度おねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "もう一度",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "もう 一 度 お 願い し ます",
+          "normalizedTranscript": "もう一度おねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "もう一度",
+            "お願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "independentCriticalPhraseReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-lesson-zero-greeting",
+      "bindingIds": [
+        "lesson-zero:greeting-rie-model"
+      ],
+      "intent": "Welcome a new learner with one warm, fully modelled first-meeting greeting before their first production turn.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc",
+      "sourceRevision": "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc",
+      "audioQuerySha256": "c1305e17c811cea520eb78d54e63fc1a5608336210f706b92bcef48c45a54da8",
+      "cacheKey": "2f535f136fc8fa96c57be4dcca37365e5a34022ead77066106fa65de928e23ad",
+      "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 4.829167,
+        "integratedLufs": -18.2,
+        "truePeakDbfs": -2.1,
+        "leadingSeconds": 0.138,
+        "trailingSeconds": 0.446,
+        "longestInteriorSeconds": 0.435
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-base.bin",
+            "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "こんばんは、はじめまして、りえです。よろしくお願いします。",
+          "normalizedTranscript": "こんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "[unk] こんばんは はじめまして りえ です よろしく お 願い し ます",
+          "normalizedTranscript": "unkこんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0.1154,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
@@ -178,30 +357,15 @@
         "bytes": 20392
       },
       "shipped": false
-    },
-    {
-      "lineId": "rie-lesson-zero-repeat",
-      "reasonCode": "critical-particle-polite-morpheme-asr-mismatch",
-      "criticalPhraseGates": [
-        "もう一度",
-        "お願いします"
-      ],
-      "basis": "Whisper recovered the full phrase, but Vosk recovered もう一度は願いします. For this short pedagogical phrase, the inserted particle and changed polite morpheme are a hard failure, so the take is not shipped.",
-      "rejectedAssetFingerprint": {
-        "url": "/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-        "sha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
-        "bytes": 16585
-      },
-      "shipped": false
     }
   ],
   "counts": {
-    "reviewedCandidates": 4,
-    "accepted": 1,
-    "rejected": 3,
-    "objectivePassed": 1,
-    "nativeBand": 1,
-    "bindings": 1
+    "reviewedCandidates": 5,
+    "accepted": 3,
+    "rejected": 2,
+    "objectivePassed": 3,
+    "nativeBand": 3,
+    "bindings": 4
   },
   "complete": true
 }

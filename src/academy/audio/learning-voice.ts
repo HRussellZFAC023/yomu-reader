@@ -5,6 +5,11 @@ export const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playbac
 export const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
 
 export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
+    'lesson-zero:greeting-rie-model': Object.freeze({
+        lineId: 'lesson-zero:greeting-rie-model',
+        japanese: 'こんばんは。はじめまして。りえです。よろしくお願いします。',
+        sourceSha256: '832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',

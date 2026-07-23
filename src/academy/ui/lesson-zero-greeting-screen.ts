@@ -6,6 +6,7 @@ import {
     type PrivatePracticeRecorder,
     type PrivatePracticeRecording,
 } from '../audio/private-practice-recorder';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import {
     startLessonZeroGreetingSession,
     transitionLessonZeroGreetingSession,
@@ -441,7 +442,7 @@ export function createLessonZeroGreetingScreen(
     };
 
     const modelAudioButton = (signal: AbortSignal): HTMLButtonElement => {
-        const button = actionButton(COPY.hearRie, 'listen', signal, () => playModel(button), options.language);
+        const button = actionButton(COPY.hearRie, 'listen', signal, () => playModel(button, signal), options.language);
         button.dataset.audioTarget = 'rie-model';
         return button;
     };
@@ -524,17 +525,20 @@ export function createLessonZeroGreetingScreen(
 
     const stopRecording = (): void => capture?.stop();
 
-    const playModel = async (button: HTMLButtonElement): Promise<void> => {
+    const playModel = async (button: HTMLButtonElement, signal: AbortSignal): Promise<void> => {
         if (busy || disposed) return;
         playback?.dispose();
         playback = null;
         button.disabled = true;
         button.textContent = COPY.playing[options.language];
         try {
-            const active = await options.pronunciation.play(
+            const active = await playLearningVoiceBinding(
+                options.pronunciation,
+                'lesson-zero:greeting-rie-model',
                 options.definition.model.japanese,
-                options.definition.model.reading,
+                signal,
             );
+            if (!active) return;
             if (disposed) active.dispose();
             else playback = active;
         } catch {

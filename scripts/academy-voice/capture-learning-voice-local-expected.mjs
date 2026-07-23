@@ -16,8 +16,11 @@ const runtimeSourcePaths = [
     'src/academy/audio/browser-speech.ts',
     'src/academy/audio/learning-voice.ts',
     'src/academy/audio/worker-tts.ts',
+    'src/academy/content/lesson-zero-greeting.ts',
+    'src/academy/domain/world-locations.ts',
     'src/academy/routing/world-flow.ts',
     'src/academy/ui/cafe-world.ts',
+    'src/academy/ui/lesson-zero-greeting-screen.ts',
     'src/academy/ui/lesson-screen.ts',
     'src/academy/ui/world-screen.ts',
 ];

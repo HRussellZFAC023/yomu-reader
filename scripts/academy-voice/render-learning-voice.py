@@ -490,7 +490,9 @@ def render_staging(args, plan, mapping_by_id):
         output.parent.mkdir(parents=True, exist_ok=True)
         if args.overwrite or not output.is_file():
             wav = request_bytes(engine, f"/synthesis?speaker={mapping['styleId']}", query)
-            temporary_output = output.with_name(f".{output.name}.{os.getpid()}.tmp")
+            temporary_output = output.with_name(
+                f".{output.stem}.{os.getpid()}.tmp{output.suffix}"
+            )
             with tempfile.NamedTemporaryFile(suffix=".wav") as temporary_wav:
                 temporary_wav.write(wav)
                 temporary_wav.flush()

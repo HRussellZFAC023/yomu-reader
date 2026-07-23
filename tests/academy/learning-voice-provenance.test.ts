@@ -69,7 +69,7 @@ describe('learning voice reproducible provenance', () => {
         expect(queries.schema).toBe('yomu-academy.learning-voice-query-evidence.v2');
         expect(queries.productionContractSha256).toBe(sha256(read(paths.production)));
         expect(queries.modelEvidenceSha256).toBe(sha256(read(paths.models)));
-        expect(queries.entries).toHaveLength(4);
+        expect(queries.entries).toHaveLength(production.entries.length);
         for (const archived of queries.entries) {
             const contract = production.entries.find((entry: any) => entry.identity.voiceLineId === archived.voiceLineId);
             const catalogEntry = catalogById.get(archived.voiceLineId) as any;
@@ -113,6 +113,7 @@ describe('learning voice reproducible provenance', () => {
     it('separates immutable local expectations from observed output and keeps production pending', () => {
         const expected = json(paths.localExpected);
         const productionProof = json(paths.productionProof);
+        const catalog = json(paths.catalog);
         const dist = read(expected.build.distApp);
         const hosted = read(expected.build.hostedApp);
 
@@ -120,7 +121,9 @@ describe('learning voice reproducible provenance', () => {
         expect(expected.scope).toContain('not deployment evidence');
         expect(dist.equals(hosted)).toBe(true);
         expect(sha256(dist)).toBe(expected.build.appSha256);
-        expect(expected.acceptedBindingIds).toHaveLength(1);
+        expect(expected.acceptedBindingIds).toHaveLength(
+            catalog.entries.flatMap((entry: any) => entry.bindings).length,
+        );
         expect(productionProof).toMatchObject({
             schema: 'yomu-academy.learning-voice-production-proof.v1',
             deploymentStatus: 'pending',

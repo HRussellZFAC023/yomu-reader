@@ -24,8 +24,11 @@ const RUNTIME_SOURCE_PATHS = [
     'src/academy/audio/browser-speech.ts',
     'src/academy/audio/learning-voice.ts',
     'src/academy/audio/worker-tts.ts',
+    'src/academy/content/lesson-zero-greeting.ts',
+    'src/academy/domain/world-locations.ts',
     'src/academy/routing/world-flow.ts',
     'src/academy/ui/cafe-world.ts',
+    'src/academy/ui/lesson-zero-greeting-screen.ts',
     'src/academy/ui/lesson-screen.ts',
     'src/academy/ui/world-screen.ts',
 ];
@@ -40,6 +43,40 @@ const scenarios = [
         ready: '[data-world-practice="cafe-coffee-price"]',
         asset: '/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus',
         success: '[data-world-practice="cafe-coffee-price"][data-cafe-order-state="choosing"]',
+    },
+    {
+        name: 'classroom repair',
+        bindingId: 'world-practice:lab-classroom-repair',
+        route: 'world',
+        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 0 } },
+        selector: '[data-world-listen="lab-classroom-repair"]',
+        ready: '[data-world-practice="lab-classroom-repair"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__39120279d3b659e0.opus',
+        success: '[data-world-practice="lab-classroom-repair"] [data-lab-speaking="ready"]',
+    },
+    {
+        name: 'classroom repeat',
+        bindingId: 'world-practice:lab-classroom-repeat',
+        route: 'world',
+        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 1 } },
+        selector: '[data-world-listen="lab-classroom-repeat"]',
+        ready: '[data-world-practice="lab-classroom-repeat"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__39120279d3b659e0.opus',
+        success: '[data-world-practice="lab-classroom-repeat"] [data-lab-speaking="ready"]',
+    },
+    {
+        name: 'Rie greeting model',
+        bindingId: 'lesson-zero:greeting-rie-model',
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-greet-rie',
+            lessonZeroGreetingProgress: undefined,
+        },
+        selector: '[data-audio-target="rie-model"]',
+        ready: '.academy-greeting-screen[data-session-status="ready"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-greeting__2f535f136fc8fa96.opus',
+        success: '.academy-greeting-screen[data-session-status="ready"]',
     },
 ];
 const catalogSource = readFileSync(CATALOG_PATH);
@@ -219,7 +256,7 @@ async function enroll(page) {
     await enterClass.waitFor({ state: 'visible' });
     await enterClass.click();
     await page.locator('[data-start-route="lesson-zero"]').click();
-    await page.locator('[data-academy-route="campus"]').waitFor();
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
 }
 
 async function openAcademy(page) {

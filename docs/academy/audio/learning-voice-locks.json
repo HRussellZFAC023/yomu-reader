@@ -3,60 +3,63 @@
   "batchId": "academy-learning-native-20260720-01",
   "acceptedBy": "Codex",
   "humanReviewed": false,
-  "acceptedEntries": 1,
-  "rejectedEntries": 3,
-  "acceptedBindings": 1,
+  "acceptedEntries": 3,
+  "rejectedEntries": 2,
+  "acceptedBindings": 4,
   "toolchain": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "33928e0ffbdd05473d1571ec3e7d050c082d91be4c59d429e4491762e83c5619",
+    "src/academy/audio/learning-voice.ts": "1571d726f16b0dab65f5e274746efe6d2744ec862ac62ea6c378ccd2118d37aa",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
+    "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
+    "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
+    "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "scripts/academy-voice/archive-learning-voice-provenance.mjs": "84f40d21d03ecc4b11cc9cfb22587a69be095af4eb9c2002471deae0c5113d52",
-    "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "d16b623e9b1fa79cf59286154c1e42b29d10716af2446e1c9c03c16e94d59ff0",
-    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "098b724fa3501140ffd76173a119ddbcd0f900260e05acaef5ab257f8954fceb",
+    "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "38497f3c92c1ee2239a0f9bbd437851318fdbaeccffd0373f9f2d95a7c19b03f",
+    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "9ca9736b06422be9eee2f1696e843768d1aa5783c5137173c845540a1eb7b643",
     "scripts/academy-voice/learning-voice-production-proof.mjs": "7d012172c8dea5002fdd64a38bdacaac67292297f9f7580f345debc53ef3209a",
-    "scripts/academy-voice/lock-learning-voice.mjs": "7c5c29f88502de6f02734e40ba694f79d379f941e1bb7f908e8f9bbedd5a7fe0",
+    "scripts/academy-voice/lock-learning-voice.mjs": "6fdb0af316ec1eb43c12720599dc437ad169ea916930a8e2b145cf3244e9c0b6",
     "scripts/academy-voice/qa-learning-voice.mjs": "76d3c502c9085c5acc9bb7b2b40e8e9a7e90c1e6b6b4d51b4d6e4e5cea02a5b8",
     "scripts/academy-voice/reconcile-learning-voice-evidence.mjs": "3ef4b367a83e0ceb03f8340ea69dc73e97382a0a28d89a8559a8dc65d458768e",
-    "scripts/academy-voice/render-learning-voice.py": "c786d31c3990781093a63eb1138976120c546a089cfcb4a019bfcd3ac7f7fbdd"
+    "scripts/academy-voice/render-learning-voice.py": "c9a64160e49bd7c091476f420e575286b88adc64ae769de58044c663d1dc8588"
   },
   "evidence": {
     "productionContract": {
       "path": "docs/academy/audio/learning-voice-production.json",
-      "sha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff"
+      "sha256": "4f4f51331733a33318a4764b3fcb954f33229b8aef017a412cf1fe45b0c0aa3c"
     },
     "modelEvidence": {
       "path": "docs/academy/audio/learning-voice-model-evidence.json",
-      "sha256": "74b9769ac7ffff03c3d83f9e2a777b4ee4b4754dd6c203de3525010e0db9f379"
+      "sha256": "214e0fa9279a610ac0a5641ae36b8d1e18e40911325e4f4b449f160623a37aa7"
     },
     "queryEvidence": {
       "path": "docs/academy/audio/learning-voice-query-evidence.json",
-      "sha256": "829a49930e50ebde28c65fd7b657f11fff098273c523fafa06a8525a14e82799"
+      "sha256": "e6c2e2b6be647e84359c3cbcf1dc10a8dae2203d01abe89e376f35267c88d918"
     },
     "modelReviews": {
       "path": "docs/academy/audio/learning-voice-model-reviews.json",
-      "sha256": "45b9607ceb2d23ee2a7c677e6b716e2e871684d2689825b9181c22d3ea4f5ae5"
+      "sha256": "1cee7bb0a3a92b6959e207ae5fcb3bedbca88c67dd3729c87aad6265089523da"
     },
     "objectiveQa": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
-      "sha256": "85eafdb35b5a3f51c1fcd4e2986040f775d235fe547b3dc121147dc41b190eb8"
+      "sha256": "0dcf58ad8a13dd80d5cb4a4e99c6a597aca1d6e9996efe166fa691edc196b08d"
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "34ba2917e71e1c9d4edef3f22934325eae557afa149cd25cf154501ebd65f8c8"
+      "sha256": "aff39d8b7f3f6c60ebb63ea0f27fece421ce7aeeb4bb93bbf74eba707072261d"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",
-      "sha256": "61f37e27047dcf848a52328ebfea94b47bd5791dc13738a25fe116ad148b9193"
+      "sha256": "6fc327b08fcce1ccad4f084e81e9a6eb5626e4e0599c3d324c7e603f0256b3df"
     },
     "catalog": {
       "path": "public/academy/audio/learning-voice-playback.json",
-      "sha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02"
+      "sha256": "59ce9a954523b124e7b980064db04043612ce01ec4194529e90a6907496b6f3c"
     },
     "hostedCatalog": {
       "path": "docs/public/academy/audio/learning-voice-playback.json",
-      "sha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02"
+      "sha256": "59ce9a954523b124e7b980064db04043612ce01ec4194529e90a6907496b6f3c"
     }
   },
   "entries": [
@@ -75,6 +78,53 @@
         "payloadSha256": "6dabe29de5ec2c1715e12a430805e1bff6ec64a315cccec2d26fad029df83243",
         "styleId": 1310138977,
         "styleName": "Calm",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-lesson-zero-repeat",
+      "bindingIds": [
+        "world-practice:lab-classroom-repair",
+        "world-practice:lab-classroom-repeat"
+      ],
+      "sourceRevision": "c0d3550aa3107ae4883f823b09d3ec758db10797797b3ffec70f1fbd03298690",
+      "audioQuerySha256": "dd20ccd600c0e92496a81dd55cee85de6aad149207a15a517b17293919b066fb",
+      "cacheKey": "39120279d3b659e078978a211588524750fe3675c2f50d228c84d0504e553d93",
+      "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+      "bytes": 15423,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-lesson-zero-greeting",
+      "bindingIds": [
+        "lesson-zero:greeting-rie-model"
+      ],
+      "sourceRevision": "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc",
+      "audioQuerySha256": "c1305e17c811cea520eb78d54e63fc1a5608336210f706b92bcef48c45a54da8",
+      "cacheKey": "2f535f136fc8fa96c57be4dcca37365e5a34022ead77066106fa65de928e23ad",
+      "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+      "bytes": 37070,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
         "license": "ACML-1.0"
       },
       "acceptance": {
@@ -109,20 +159,6 @@
         "url": "/academy/audio/learning-lines/textbook-mary/mary-cafe-order__def2bf7bca63c545.opus",
         "sha256": "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
         "bytes": 20392
-      },
-      "shipped": false
-    },
-    {
-      "lineId": "rie-lesson-zero-repeat",
-      "reasonCode": "critical-particle-polite-morpheme-asr-mismatch",
-      "criticalPhraseGates": [
-        "もう一度",
-        "お願いします"
-      ],
-      "rejectedAssetFingerprint": {
-        "url": "/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-        "sha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
-        "bytes": 16585
       },
       "shipped": false
     }

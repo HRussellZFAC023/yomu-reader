@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-production.v2",
   "batchId": "academy-learning-native-20260720-01",
   "createdOn": "2026-07-20",
-  "scope": "Four reviewed native-band candidates: one accepted voice unit with one reachable binding and three rejected takes retained only as quarantine evidence.",
+  "scope": "Five reviewed native-band candidates: three accepted voice units with four reachable bindings and two rejected takes retained only as quarantine evidence.",
   "qualityApproval": {
     "codexQualityAccepted": true,
     "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
@@ -52,15 +52,17 @@
       "lesson-textbook-pair-prompt",
       "miller-cafe-price",
       "mary-cafe-order",
-      "rie-lesson-zero-repeat"
+      "rie-lesson-zero-repeat",
+      "rie-lesson-zero-greeting"
     ],
     "acceptedVoiceLineIds": [
-      "miller-cafe-price"
+      "miller-cafe-price",
+      "rie-lesson-zero-repeat",
+      "rie-lesson-zero-greeting"
     ],
     "rejectedVoiceLineIds": [
       "lesson-textbook-pair-prompt",
-      "mary-cafe-order",
-      "rie-lesson-zero-repeat"
+      "mary-cafe-order"
     ],
     "reviewedExclusions": []
   },
@@ -157,21 +159,21 @@
         "world-practice"
       ],
       "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
-      "modelUuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
-      "modelName": "morioki",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
       "modelVersion": "1.0.0",
-      "modelPayloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
-      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
       "modelDistribution": {
         "kind": "installed-aivmx-distribution",
-        "fileName": "baaae3c0-7b22-4605-8ba5-80c959b41a48.aivmx",
-        "bytes": 251126564,
-        "sha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+        "fileName": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43.aivmx",
+        "bytes": 258068941,
+        "sha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
         "authority": "exact-distribution-bytes"
       },
       "modelLicense": "ACML-1.0",
-      "styleId": 497929760,
-      "styleName": "ノーマル",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
       "fallback": "worker-tts-then-browser-speech"
     }
   ],
@@ -337,13 +339,14 @@
       "surface": "lesson-zero",
       "japanese": "もう一度お願いします。",
       "disposition": {
-        "status": "rejected",
-        "reasonCode": "critical-particle-polite-morpheme-asr-mismatch",
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
         "criticalPhraseGates": [
           "もう一度",
           "お願いします"
         ],
-        "basis": "Whisper recovered the full phrase, but Vosk recovered もう一度は願いします. For this short pedagogical phrase, the inserted particle and changed polite morpheme are a hard failure, so the take is not shipped."
+        "independentAudioReview": "Whisper and Vosk both recovered the full repair phrase after the stable Rie voice was corrected."
       },
       "bindings": [
         {
@@ -363,16 +366,75 @@
           }
         }
       ],
-      "audioQuerySha256": "c7be5e0639bc7528a9f51ef7ab0fbc81f337951bc2bb28e1039192673443188b",
-      "expectedCacheKey": "338d8bdd0bbfd0e4beaef3e99608f7e4dc86956f4245cd93555aa44f4b37df55",
+      "audioQuerySha256": "dd20ccd600c0e92496a81dd55cee85de6aad149207a15a517b17293919b066fb",
+      "expectedCacheKey": "39120279d3b659e078978a211588524750fe3675c2f50d228c84d0504e553d93",
       "queryOverrides": {
         "speedScale": 0.96,
-        "pitchScale": 0.0,
-        "intonationScale": 0.98,
-        "volumeScale": 0.8,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
         "prePhonemeLength": 0.1,
         "postPhonemeLength": 0.16,
-        "pauseLengthScale": 0.95
+        "pauseLengthScale": 0.96
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-lesson-zero-greeting",
+        "speakerId": "rie",
+        "intent": "Welcome a new learner with one warm, fully modelled first-meeting greeting before their first production turn.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc",
+        "bindingIds": [
+          "lesson-zero:greeting-rie-model"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-greeting",
+      "japanese": "こんばんは。はじめまして。りえです。よろしくお願いします。",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "こんばんは",
+          "はじめまして",
+          "りえ",
+          "よろしくお願いします"
+        ],
+        "recognitionConfusionPhrases": [
+          "こんばんは はじめまして りえ です よろしく お 願い し ます",
+          "こんばんは はじめまして いえ です よろしく お 願い し ます",
+          "こんばんは はじめまして みえ です よろしく お 願い し ます",
+          "こんばんは はじめまして れい です よろしく お 願い し ます",
+          "こんばんは はじめまして ね です よろしく お 願い し ます",
+          "[unk]"
+        ],
+        "independentAudioReview": "Whisper recovered Rie's name directly. Vosk selected りえ from an explicit proper-name confusion set containing いえ, みえ, れい, ね, and unknown."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:greeting-rie-model",
+          "surface": "lesson-zero-greeting",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie's first greeting",
+            "ja": "りえ先生の最初のあいさつをもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "c1305e17c811cea520eb78d54e63fc1a5608336210f706b92bcef48c45a54da8",
+      "expectedCacheKey": "2f535f136fc8fa96c57be4dcca37365e5a34022ead77066106fa65de928e23ad",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.0
       },
       "moraOverrides": []
     }

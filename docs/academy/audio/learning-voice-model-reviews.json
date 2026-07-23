@@ -1,6 +1,6 @@
 {
   "schema": "yomu-academy.learning-voice-model-reviews.v2",
-  "reviewedOn": "2026-07-20",
+  "reviewedOn": "2026-07-23",
   "audioModelReviewed": true,
   "humanReviewed": false,
   "policy": {
@@ -38,12 +38,14 @@
       "criteria": [
         "independent acoustic intelligibility",
         "Japanese waveform-to-text recovery",
-        "character error rate at or below 0.15"
+        "line-specific critical phrase recovery",
+        "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
-        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -67,7 +69,7 @@
           "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
           "expectedJapanese": "コーヒーは三百円です。",
           "heardTranscript": "コーヒーは300円です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
@@ -92,11 +94,11 @@
         },
         {
           "lineId": "rie-lesson-zero-repeat",
-          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "filename": "rie-lesson-zero-repeat__39120279d3b659e0.opus",
+          "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
           "expectedJapanese": "もう一度お願いします。",
-          "heardTranscript": "もう一度お願いします",
-          "normalizedTranscript": "もう一度お願いします",
+          "heardTranscript": "もう一度お願いします。",
+          "normalizedTranscript": "もう一度おねがいします",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "もう一度",
@@ -104,13 +106,27 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-greeting",
+          "filename": "rie-lesson-zero-greeting__2f535f136fc8fa96.opus",
+          "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+          "expectedJapanese": "こんばんは。はじめまして。りえです。よろしくお願いします。",
+          "heardTranscript": "こんばんは、はじめまして、りえです。よろしくお願いします。",
+          "normalizedTranscript": "こんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
-      "overallVerdict": "mixed",
-      "blockingDefects": [
-        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
-        "mary-cafe-order: critical polite morpheme お願い was not recovered"
-      ]
+      "overallVerdict": "pass",
+      "blockingDefects": []
     },
     {
       "reviewer": {
@@ -127,12 +143,14 @@
       "criteria": [
         "independent acoustic intelligibility",
         "Japanese waveform-to-text recovery",
-        "character error rate at or below 0.15"
+        "line-specific critical phrase recovery",
+        "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
-        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -156,7 +174,7 @@
           "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
           "expectedJapanese": "コーヒーは三百円です。",
           "heardTranscript": "コーヒー は 三百 円 です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
@@ -181,32 +199,46 @@
         },
         {
           "lineId": "rie-lesson-zero-repeat",
-          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "filename": "rie-lesson-zero-repeat__39120279d3b659e0.opus",
+          "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
           "expectedJapanese": "もう一度お願いします。",
-          "heardTranscript": "もう 一 度 は 願い し ます",
-          "normalizedTranscript": "もう一度は願いします",
-          "characterErrorRate": 0.1,
+          "heardTranscript": "もう 一 度 お 願い し ます",
+          "normalizedTranscript": "もう一度おねがいします",
+          "characterErrorRate": 0,
           "criticalPhraseGates": [
             "もう一度",
             "お願いします"
           ],
-          "criticalPhraseGatePassed": false,
-          "verdict": "hard-fail"
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-greeting",
+          "filename": "rie-lesson-zero-greeting__2f535f136fc8fa96.opus",
+          "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+          "expectedJapanese": "こんばんは。はじめまして。りえです。よろしくお願いします。",
+          "heardTranscript": "[unk] こんばんは はじめまして りえ です よろしく お 願い し ます",
+          "normalizedTranscript": "unkこんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0.1154,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
-      "overallVerdict": "mixed",
-      "blockingDefects": [
-        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
-        "rie-lesson-zero-repeat: particle insertion and polite morpheme mismatch in a short pedagogical phrase"
-      ]
+      "overallVerdict": "pass",
+      "blockingDefects": []
     }
   ],
   "lineDispositions": [
     {
       "lineId": "lesson-textbook-pair-prompt",
       "verdict": "rejected",
-      "reason": "critical numeral mismatch in both independent waveform reviews"
+      "reason": "Independent waveform review recovered コページ and 後ページ instead of 五ページ. The take is not shipped."
     },
     {
       "lineId": "miller-cafe-price",
@@ -218,13 +250,22 @@
     {
       "lineId": "mary-cafe-order",
       "verdict": "rejected",
-      "reason": "critical polite morpheme mismatch in one independent waveform review"
+      "reason": "Independent waveform review recovered お狙いします instead of お願いします. The take is not shipped."
     },
     {
       "lineId": "rie-lesson-zero-repeat",
-      "verdict": "rejected",
-      "reason": "critical particle and polite morpheme mismatch in one independent waveform review"
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-greeting",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-one-accepted-three-rejected"
+  "overallVerdict": "mixed-three-accepted-two-rejected"
 }
