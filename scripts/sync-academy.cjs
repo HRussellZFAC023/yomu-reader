@@ -32,7 +32,7 @@ if (storyVoiceCatalog.schema !== 'yomu-academy.story-voice-playback.v1'
 const storyVoiceAssetSources = [...new Set(storyVoiceCatalog.entries.map(entry => entry.url))]
     .map(url => {
         if (typeof url !== 'string'
-            || !/^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u.test(url)
+            || !/^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/u.test(url)
             || url.split('/').includes('..')) {
             throw new Error(`Invalid Academy story voice asset URL: ${url}`);
         }

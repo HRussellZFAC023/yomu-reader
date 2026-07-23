@@ -40,16 +40,11 @@ import {
 } from './vn-stage';
 import { renderReplayStreamPanel } from './replay-stream-panel';
 
-export interface StoryScreenOptions {
+interface StoryPlaybackOptions {
     readonly language: AcademyLanguage;
-    readonly story: StoryRuntime;
     /** The saved player identity used when an authored line belongs to the learner. */
     readonly learner?: Pick<LearnerProfileSnapshot, 'displayName' | 'portraitId'>;
     readonly sectionId?: string;
-    readonly onOpenEpisode: (episodeId: string) => void;
-    readonly onCompleteEpisode?: (episodeId: string) => void | Promise<void>;
-    readonly openingArcMode?: StoryOpeningArcMode;
-    readonly arcModeForEpisode?: (episodeId: string, cursor?: StoryCursor) => StoryOpeningArcMode;
     readonly onOpenActivity?: (lessonId: string, activityId: string, cursor?: StoryCursor) => void;
     readonly onCheckpoint?: (cursor: StoryCursor) => void | Promise<void>;
     readonly onSceneEncounter?: (sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
@@ -62,12 +57,41 @@ export interface StoryScreenOptions {
     readonly selectedBand?: string;
     readonly audio?: AcademyVnStageOptions['audio'];
     readonly createVoicePlayback?: () => StoryVoicePlayback;
-    readonly onOpenReviewCalendar: () => void;
     readonly onBack: () => void;
+}
+
+export interface StoryScreenOptions extends StoryPlaybackOptions {
+    readonly story: StoryRuntime;
+    readonly onOpenEpisode: (episodeId: string) => void;
+    readonly onCompleteEpisode?: (episodeId: string) => void | Promise<void>;
+    readonly openingArcMode?: StoryOpeningArcMode;
+    readonly arcModeForEpisode?: (episodeId: string, cursor?: StoryCursor) => StoryOpeningArcMode;
+    readonly onOpenReviewCalendar: () => void;
     readonly onReturnToEpisodes: () => void;
     readonly replayEvents?: readonly LearnerEvent[];
     readonly onOpenReplayChapter?: (chapterId: string, band: ReplayLanguageBand) => void;
     readonly onOpenReplayLesson?: (lessonId: string) => void;
+}
+
+export interface StoryArcScreenOptions extends StoryPlaybackOptions {
+    readonly arc: StoryPlayableArc;
+    readonly mode?: StoryOpeningArcMode;
+    readonly finishLabel: string;
+    readonly completionLine: Readonly<{
+        japanese: string;
+        english: string;
+        speakerId?: string;
+        speakerName?: string;
+    }>;
+    readonly onFinish: (completionEligible: boolean) => void | Promise<void>;
+}
+
+interface PlayableArcRenderOptions extends StoryPlaybackOptions {
+    readonly mode: StoryOpeningArcMode;
+    readonly finishLabel: string;
+    readonly completionLine?: StoryArcScreenOptions['completionLine'];
+    readonly onFinish: StoryArcScreenOptions['onFinish'];
+    readonly onReturnToEpisodes?: () => void;
 }
 
 export function renderStoryScreen(options: StoryScreenOptions): HTMLElement {
@@ -83,6 +107,22 @@ export function renderStoryScreen(options: StoryScreenOptions): HTMLElement {
     const cursor = parseStoryCursor(options.sectionId);
     const episode = options.story.episode(cursor ? episodeIdForCursor(options.story, cursor) : options.sectionId);
     const content = episode ? renderEpisode(options, episode) : renderEpisodeList(options);
+    screen.append(content);
+    screen.addEventListener('academy:dispose', () => {
+        content.dispatchEvent(new CustomEvent('academy:dispose'));
+    }, { once: true });
+    return screen;
+}
+
+/** Render one bounded authored package without exposing the episode catalog around it. */
+export function renderStoryArcScreen(options: StoryArcScreenOptions): HTMLElement {
+    const screen = element('section', 'academy-story-screen academy-story-package-screen');
+    screen.dataset.academyScreen = 'story-package';
+    screen.dataset.storySection = options.sectionId ?? options.arc.episodeId;
+    const content = renderPlayableArc({
+        ...options,
+        mode: options.mode ?? 'canonical',
+    }, options.arc);
     screen.append(content);
     screen.addEventListener('academy:dispose', () => {
         content.dispatchEvent(new CustomEvent('academy:dispose'));
@@ -135,20 +175,43 @@ function renderEpisodeList(options: StoryScreenOptions): HTMLElement {
 
 function renderEpisode(options: StoryScreenOptions, episode: StoryEpisode): HTMLElement {
     const arc = options.story.playableArc(episode.id);
-    if (arc) return renderPlayableArc(options, episode, arc);
+    if (arc) {
+        const cursor = parseStoryCursor(options.sectionId);
+        const mode = options.arcModeForEpisode?.(episode.id, cursor) ?? (episode.id === options.story.openingArc.episodeId
+            ? options.openingArcMode ?? 'chronological-replay'
+            : 'canonical');
+        const nextEpisode = options.story.episodes[episode.ordinal];
+        const nextPlayable = nextEpisode && options.story.playableArc(nextEpisode.id) ? nextEpisode : undefined;
+        const finishLabel = nextPlayable
+            ? options.language === 'ja' ? `エピソード${nextPlayable.ordinal}へ` : `Continue to Episode ${nextPlayable.ordinal}`
+            : options.language === 'ja' ? 'エピソード一覧へ' : 'Episode list';
+        return renderPlayableArc({
+            ...options,
+            mode,
+            finishLabel,
+            onReturnToEpisodes: options.onReturnToEpisodes,
+            onFinish: completionEligible => {
+                const continueTo = () => nextPlayable
+                    ? options.onOpenEpisode(nextPlayable.id)
+                    : options.onReturnToEpisodes();
+                if (mode !== 'canonical' || !completionEligible) {
+                    continueTo();
+                    return;
+                }
+                completeEpisode(options, episode.id, continueTo);
+            },
+        }, arc);
+    }
     return renderEpisodeOutline(options, episode);
 }
 
 function renderPlayableArc(
-    options: StoryScreenOptions,
-    episode: StoryEpisode,
+    options: PlayableArcRenderOptions,
     arc: StoryPlayableArc,
 ): HTMLElement {
     const main = element('article', 'academy-story-authored-arc academy-story-vn-shell');
     const savedCursor = parseStoryCursor(options.sectionId);
-    const mode = options.arcModeForEpisode?.(episode.id, savedCursor) ?? (episode.id === options.story.openingArc.episodeId
-        ? options.openingArcMode ?? 'chronological-replay'
-        : 'canonical');
+    const mode = options.mode;
     main.dataset.storyArcId = arc.id;
     main.dataset.replayWrites = String(arc.replay.canonicalWrites);
     main.dataset.storyMode = mode;
@@ -168,14 +231,20 @@ function renderPlayableArc(
         onBack: options.onBack,
     });
     stage.element.classList.add('academy-story-vn-stage');
-    stage.element.dataset.storyEpisode = episode.id;
+    stage.element.dataset.storyEpisode = arc.episodeId;
     stage.element.dataset.storyReplay = String(mode === 'chronological-replay');
 
     const navigation = element('nav', 'academy-story-vn-navigation');
     navigation.setAttribute('aria-label', options.language === 'ja' ? '物語のナビゲーション' : 'Story navigation');
     const progress = element('p', 'academy-story-vn-progress');
-    const list = actionButton(options.language === 'ja' ? 'エピソード' : 'Episodes', 'academy-story-list-return', options.onReturnToEpisodes);
-    navigation.append(progress, list);
+    navigation.append(progress);
+    if (options.onReturnToEpisodes) {
+        navigation.append(actionButton(
+            options.language === 'ja' ? 'エピソード' : 'Episodes',
+            'academy-story-list-return',
+            options.onReturnToEpisodes,
+        ));
+    }
 
     let renderedSceneId = '';
     let disposed = false;
@@ -184,7 +253,7 @@ function renderPlayableArc(
         if (mode !== 'canonical') return;
         const attendees = storySceneAttendeeIds(scene, runner.cursor.choices);
         if (!attendees.length) return;
-        if (options.onArcSceneEncounter) void options.onArcSceneEncounter(episode.id, scene.id, attendees);
+        if (options.onArcSceneEncounter) void options.onArcSceneEncounter(arc.episodeId, scene.id, attendees);
         else void options.onSceneEncounter?.(scene.id, attendees);
     };
     const transition = (action: () => StoryMoment): void => {
@@ -220,6 +289,7 @@ function renderPlayableArc(
                     reading: storyReadingControl(options.language),
                     translation: moment.line.english,
                     translationEarned: true,
+                    translationVisible: options.language === 'en' && options.selectedBand === undefined,
                     ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
                         ? { voice: { band: moment.line.band } }
                         : {}),
@@ -277,18 +347,22 @@ function renderPlayableArc(
                 return;
             }
             case 'complete':
+                {
+                    const completion = options.completionLine;
                 stage.setLine({
                     id: 'story:opening-complete',
-                    speakerId: 'rie',
-                    speakerName: displayAcademyCastName('rie', options.language),
-                    japanese: options.language === 'ja' ? '最初の道ができました。' : 'The first route is restored.',
-                    language: options.language,
-                    reading: { ...storyReadingControl(options.language), available: options.language === 'ja' },
-                    translation: options.language === 'ja' ? 'The first route is restored.' : undefined,
-                    translationEarned: options.language === 'ja',
+                    ...(completion?.speakerId ? { speakerId: completion.speakerId } : {}),
+                    ...(completion?.speakerName ? { speakerName: completion.speakerName } : {}),
+                    japanese: completion?.japanese ?? 'この章はここまでです。',
+                    language: 'ja',
+                    reading: storyReadingControl(options.language),
+                    translation: completion?.english ?? 'This chapter is complete.',
+                    translationEarned: true,
+                    translationVisible: options.language === 'en',
                 });
-                stage.setAction(playableCompleteAction(options, episode, moment.completionEligible, mode));
+                stage.setAction(playableCompleteAction(options, moment.completionEligible));
                 return;
+                }
             default:
                 return unsupportedStoryMoment(moment);
         }
@@ -325,7 +399,7 @@ function playableChoiceAction(
 }
 
 function playableActivityAction(
-    options: StoryScreenOptions,
+    options: StoryPlaybackOptions,
     arc: StoryPlayableArc,
     moment: Extract<StoryMoment, { kind: 'activity' }>,
     cursor: StoryCursor,
@@ -363,7 +437,7 @@ function playableActivityAction(
 }
 
 function playableStoryPracticeAction(
-    options: StoryScreenOptions,
+    options: StoryPlaybackOptions,
     practice: StoryPractice,
     gate: Extract<StoryMoment, { kind: 'activity' }>['gate'],
     onComplete: (response: StoryPracticeResponse) => Promise<StoryActivityOutcome>,
@@ -415,7 +489,7 @@ function markPracticeMistakes(interaction: HTMLElement, mistakeIds: readonly str
 }
 
 function practiceInteraction(
-    options: StoryScreenOptions,
+    options: StoryPlaybackOptions,
     practice: StoryPractice,
     submit: (response: StoryPracticeResponse) => void,
 ): HTMLElement {
@@ -441,7 +515,7 @@ function practiceInteraction(
 }
 
 function evidenceMapInteraction(
-    options: StoryScreenOptions,
+    options: StoryPlaybackOptions,
     practice: StoryEvidenceMapPractice,
     submit: (response: StoryPracticeResponse) => void,
 ): HTMLElement {
@@ -482,7 +556,7 @@ function evidenceMapInteraction(
 }
 
 function writtenResponseInteraction(
-    options: StoryScreenOptions,
+    options: StoryPlaybackOptions,
     practice: StoryWrittenResponsePractice,
     submit: (response: StoryPracticeResponse) => void,
 ): HTMLElement {
@@ -526,10 +600,8 @@ function unsupportedStoryMoment(moment: never): never {
 }
 
 function playableCompleteAction(
-    options: StoryScreenOptions,
-    episode: StoryEpisode,
+    options: PlayableArcRenderOptions,
     completionEligible: boolean,
-    mode: StoryOpeningArcMode,
 ): AcademyVnSlotContent {
     const root = element('div', 'academy-story-vn-complete');
     if (!completionEligible) {
@@ -537,19 +609,18 @@ function playableCompleteAction(
             ? '物語は最後まで読みました。未完了の練習に単位は付きません。'
             : 'You reached the end of the story. Deferred practices remain uncredited.'));
     }
-    const nextEpisode = options.story.episodes[episode.ordinal];
-    const nextPlayable = nextEpisode && options.story.playableArc(nextEpisode.id) ? nextEpisode : undefined;
-    const label = nextPlayable
-        ? options.language === 'ja' ? `エピソード${nextPlayable.ordinal}へ` : `Continue to Episode ${nextPlayable.ordinal}`
-        : options.language === 'ja' ? 'エピソード一覧へ' : 'Episode list';
-    root.append(actionButton(label, 'academy-story-next', () => {
-        const continueTo = () => nextPlayable ? options.onOpenEpisode(nextPlayable.id) : options.onReturnToEpisodes();
-        if (mode !== 'canonical' || !completionEligible) {
-            continueTo();
-            return;
-        }
-        completeEpisode(options, episode.id, continueTo);
-    }));
+    let pending = false;
+    let button: HTMLButtonElement;
+    button = actionButton(options.finishLabel, 'academy-story-next', () => {
+        if (pending) return;
+        pending = true;
+        button.disabled = true;
+        Promise.resolve(options.onFinish(completionEligible)).catch(() => {
+            pending = false;
+            button.disabled = false;
+        });
+    });
+    root.append(button);
     return { element: root };
 }
 
@@ -565,8 +636,9 @@ function playableStoryCast(
     language: AcademyLanguage,
     moment: StoryMoment,
     choices: Readonly<Record<string, string>>,
-    learner: StoryScreenOptions['learner'],
+    learner: StoryPlaybackOptions['learner'],
 ): readonly AcademyVnCastMember[] {
+    if (moment.kind === 'complete') return [];
     const hasRie = storySceneAttendeeIds(moment.scene, choices).includes('rie');
     const cast: AcademyVnCastMember[] = [];
     const speakerId = moment.kind === 'line' ? moment.node.speakerId : undefined;
@@ -621,7 +693,7 @@ function approvedStorySpeakerCastMember(
 function storySpeakerName(
     speakerId: string | undefined,
     language: AcademyLanguage,
-    learner: StoryScreenOptions['learner'],
+    learner: StoryPlaybackOptions['learner'],
 ): string | undefined {
     if (!speakerId) return undefined;
     return speakerId === 'learner'
@@ -631,7 +703,7 @@ function storySpeakerName(
 
 function learnerStoryCastMember(
     language: AcademyLanguage,
-    learner: StoryScreenOptions['learner'],
+    learner: StoryPlaybackOptions['learner'],
 ): AcademyVnCastMember {
     const portraits = ACADEMY_ASSETS.portraits as Readonly<Record<string, string>>;
     const still = learner?.portraitId ? portraits[learner.portraitId] : undefined;
@@ -647,7 +719,7 @@ function learnerStoryCastMember(
     };
 }
 
-function learnerDisplayName(language: AcademyLanguage, learner: StoryScreenOptions['learner']): string {
+function learnerDisplayName(language: AcademyLanguage, learner: StoryPlaybackOptions['learner']): string {
     return learner?.displayName.trim() || (language === 'ja' ? '学習者' : 'Learner');
 }
 

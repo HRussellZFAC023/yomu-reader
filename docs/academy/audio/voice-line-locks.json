@@ -39,5 +39,195 @@
       "status": "pilot-rendered",
       "manualReview": "pending"
     }
+  },
+  "line:opening-arrival:rie-evening::foundation": {
+    "status": "locked",
+    "sourceSha256": "60eaf87a9a302af3b6377b80108fa24a4d66b0d7aec28d47c70b8de99be85f17",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.96
+      }
+    }
+  },
+  "line:opening-arrival:rie-evening::n5": {
+    "status": "locked",
+    "sourceSha256": "a74a610fa49c4c49be3554277b79fa50d9deb011b83cf566fe7be4f44d80e374",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.96
+      }
+    }
+  },
+  "line:opening-arrival:rie-no-rush::foundation": {
+    "status": "locked",
+    "sourceSha256": "24501a37c292a08af305addc53f55a6f5b598c671c64fe66d2846335b0387d0a",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.2,
+        "pauseLengthScale": 1.0
+      }
+    }
+  },
+  "line:opening-arrival:rie-no-rush::n5": {
+    "status": "locked",
+    "sourceSha256": "bcf11541c1c4e9b68cb2940ee81931eca73cec982a2d79ce878e837b5a383ab0",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.2,
+        "pauseLengthScale": 1.0
+      }
+    }
+  },
+  "line:opening-arrival:rie-fiction::foundation": {
+    "status": "locked",
+    "sourceSha256": "ecd58ca9d2acc45a26a121a186f622aa8cbbed7ef99a1fe6a2feecd76901df31",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.96
+      }
+    }
+  },
+  "line:opening-arrival:rie-fiction::n5": {
+    "status": "locked",
+    "sourceSha256": "9b445f234350d20804908b0f9c6687216c62ab971c1a396cdaa0e25f77877e74",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.96
+      }
+    }
+  },
+  "line:opening-arrival:rie-learner-control::foundation": {
+    "status": "locked",
+    "sourceSha256": "9417ae4dd9c3481581fec34ceddc5a812e44a006213351d6befad2b9f04fbdc4",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:opening-arrival:rie-learner-control::n5": {
+    "status": "locked",
+    "sourceSha256": "a8aa7334d9d251296457415e27cf34ded868e69e5ac925675d0e72b5f46ae322",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.96,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
+      }
+    }
+  },
+  "line:opening-arrival:rie-enter::foundation": {
+    "status": "locked",
+    "sourceSha256": "3d20c0d5be2689aeba21a1d4735b11c5fc08c01099ade6499c5724d84772b097",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.95,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.2,
+        "pauseLengthScale": 1.0
+      }
+    }
+  },
+  "line:opening-arrival:rie-enter::n5": {
+    "status": "locked",
+    "sourceSha256": "766d422e3e36775cce1c93d653b958e31aae31cdc3ceb5485a0d8d75081cfab3",
+    "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.95,
+        "pitchScale": -0.01,
+        "intonationScale": 1.06,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.2,
+        "pauseLengthScale": 1.0
+      }
+    }
   }
 }

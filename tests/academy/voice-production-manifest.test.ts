@@ -51,6 +51,18 @@ const hostedPlayback = JSON.parse(readFileSync(resolve(root, 'docs/public/academ
     schema: string;
     entries: PlaybackEntry[];
 };
+const arrivalQa = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/opening-arrival-voice-manifest.json'), 'utf8')) as {
+    schema: string;
+    complete: boolean;
+    entries: Array<{
+        key: string;
+        output: string;
+        assetSha256: string;
+        bytes: number;
+        verdict: string;
+        whisper: { passed: boolean };
+    }>;
+};
 
 describe('Academy voice production manifest', () => {
     it('keeps every production key unique and reports reviewed source-lock drift honestly', () => {
@@ -85,25 +97,53 @@ describe('Academy voice production manifest', () => {
         }
     });
 
-    it('publishes only exact locked story pilots and excludes stale output', () => {
+    it('publishes exact locked story media and excludes stale output', () => {
         const pilots = manifest.entries.filter(entry => entry.status === 'locked' && entry.pilotOutput);
+        const rendered = manifest.entries.filter(entry => (
+            entry.surface === 'story'
+            && entry.status === 'locked'
+            && entry.output?.startsWith('/academy/audio/story-lines/')
+        ));
         expect(pilots.map(entry => entry.key).sort()).toEqual([
             'line:blank-atlas:rie-konbanwa::foundation',
             'line:margin-map:aakash-cant-use::n5',
             'line:margin-map:henry-presents::n5',
             'line:two-answers:sophie-frame::n4',
         ]);
+        expect(rendered.map(entry => entry.key).sort()).toEqual([
+            'line:opening-arrival:rie-enter::foundation',
+            'line:opening-arrival:rie-enter::n5',
+            'line:opening-arrival:rie-evening::foundation',
+            'line:opening-arrival:rie-evening::n5',
+            'line:opening-arrival:rie-fiction::foundation',
+            'line:opening-arrival:rie-fiction::n5',
+            'line:opening-arrival:rie-learner-control::foundation',
+            'line:opening-arrival:rie-learner-control::n5',
+            'line:opening-arrival:rie-no-rush::foundation',
+            'line:opening-arrival:rie-no-rush::n5',
+        ]);
         expect(playback.schema).toBe('yomu-academy.story-voice-playback.v1');
         expect(playback.entries.map(entry => `${entry.lineId}::${entry.band}`).sort()).toEqual([
             'line:blank-atlas:rie-konbanwa::foundation',
             'line:margin-map:aakash-cant-use::n5',
             'line:margin-map:henry-presents::n5',
+            'line:opening-arrival:rie-enter::foundation',
+            'line:opening-arrival:rie-enter::n5',
+            'line:opening-arrival:rie-evening::foundation',
+            'line:opening-arrival:rie-evening::n5',
+            'line:opening-arrival:rie-fiction::foundation',
+            'line:opening-arrival:rie-fiction::n5',
+            'line:opening-arrival:rie-learner-control::foundation',
+            'line:opening-arrival:rie-learner-control::n5',
+            'line:opening-arrival:rie-no-rush::foundation',
+            'line:opening-arrival:rie-no-rush::n5',
             'line:two-answers:sophie-frame::n4',
         ]);
         expect(hostedPlayback).toEqual(playback);
-        for (const entry of pilots) {
-            expect(entry.pilotOutput, entry.key).toMatch(/^\/academy\/audio\//);
-            const relative = entry.pilotOutput?.replace(/^\/academy\/audio\//, '') ?? '';
+        for (const entry of [...pilots, ...rendered]) {
+            const output = entry.output ?? entry.pilotOutput;
+            expect(output, entry.key).toMatch(/^\/academy\/audio\//);
+            const relative = output?.replace(/^\/academy\/audio\//, '') ?? '';
             expect(existsSync(resolve(root, 'public/academy/audio', relative)), entry.key).toBe(true);
             const playable = playback.entries.find(candidate => (
                 candidate.lineId === entry.lineId
@@ -121,7 +161,21 @@ describe('Academy voice production manifest', () => {
             expect(createHash('sha256').update(hostedAsset).digest('hex')).toBe(playable?.assetSha256);
         }
         expect(playback.entries.some(entry => entry.lineId === 'line:lanterns-return:mira-arrives')).toBe(false);
-        expect(playback.entries.every(entry => entry.url.startsWith('/academy/audio/story-pilot/'))).toBe(true);
+        expect(playback.entries.every(entry => /^\/academy\/audio\/story-(?:pilot|lines)\//u.test(entry.url))).toBe(true);
+    });
+
+    it('keeps objective arrival voice QA complete and bound to the published files', () => {
+        expect(arrivalQa.schema).toBe('yomu-academy.opening-arrival-voice-qa.v1');
+        expect(arrivalQa.complete).toBe(true);
+        expect(arrivalQa.entries).toHaveLength(10);
+        for (const result of arrivalQa.entries) {
+            expect(result.verdict, result.key).toBe('pass');
+            expect(result.whisper.passed, result.key).toBe(true);
+            const playbackEntry = playback.entries.find(entry => entry.url === result.output);
+            expect(playbackEntry, result.key).toBeDefined();
+            expect(playbackEntry?.assetSha256).toBe(result.assetSha256);
+            expect(playbackEntry?.bytes).toBe(result.bytes);
+        }
     });
 
     it('keeps manifest counts derived from its entries', () => {

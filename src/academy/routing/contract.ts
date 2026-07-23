@@ -93,7 +93,9 @@ export function normalizeResumeCheckpoint(
         && !projection.latestPlacement) {
         normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'placement-mock' }, now);
     }
-    if (normalized.route === 'arrival-bridge' && !normalized.selectedBand) {
+    if (normalized.route === 'arrival-bridge'
+        && !normalized.selectedBand
+        && projection.curriculumEntry?.route !== 'lesson-zero') {
         normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'start' }, now);
     }
     if (normalized.route === 'band-entry' && !normalized.selectedBand && projection.curriculumEntry?.band) {

@@ -7,6 +7,7 @@ import {
 } from '../../src/academy/audio/voice-lines';
 import {
     STORY_OPENING_ARC_ID,
+    loadOpeningArrivalArc,
     loadStoryRuntime,
     STORY_REVIEW_CALENDAR_SECTION,
     type StoryArcScene,
@@ -19,7 +20,7 @@ import {
     storyPractice,
     type StoryPracticeResponse,
 } from '../../src/academy/content/n3-story-practice';
-import { renderStoryScreen } from '../../src/academy/ui/story-screen';
+import { renderStoryArcScreen, renderStoryScreen } from '../../src/academy/ui/story-screen';
 
 function render(sectionId?: string, overrides: Partial<Parameters<typeof renderStoryScreen>[0]> = {}) {
     const actions = {
@@ -519,6 +520,22 @@ describe('Academy Story screen', () => {
 
         expect(actions.onReturnToEpisodes).toHaveBeenCalledOnce();
         expect(actions.onOpenReviewCalendar).not.toHaveBeenCalled();
+    });
+
+    it('clears inactive portraits after the bounded arrival reaches its completion status', async () => {
+        const screen = renderStoryArcScreen({
+            language: 'en',
+            arc: loadOpeningArrivalArc(),
+            mode: 'canonical',
+            finishLabel: 'Step into the courtyard',
+            onBack: vi.fn(),
+            onFinish: vi.fn(),
+        });
+
+        await finishAuthoredArc(screen);
+
+        expect(screen.querySelector('[data-story-moment="complete"]')).not.toBeNull();
+        expect(screen.querySelectorAll('.academy-vn-sprite-slot')).toHaveLength(0);
     });
 });
 

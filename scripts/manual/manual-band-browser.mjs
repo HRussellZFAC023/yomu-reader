@@ -12,11 +12,11 @@ const viewports = [
     { name: 'desktop', width: 1440, height: 900, input: 'keyboard' },
 ];
 const bands = [
-    { id: 'n5', title: 'I know the foundations', destination: '.academy-bridge-screen' },
-    { id: 'n4', title: 'I can handle daily routines', destination: '.academy-bridge-screen' },
+    { id: 'n5', title: 'I know the foundations', destination: '.academy-story-package-screen' },
+    { id: 'n4', title: 'I can handle daily routines', destination: '.academy-story-package-screen' },
     { id: 'n3', title: 'I follow everyday Japanese', destination: '.academy-advanced-arrival-screen' },
-    { id: 'n2', title: 'I follow detailed Japanese', destination: '.academy-bridge-screen' },
-    { id: 'n1', title: 'I handle dense Japanese', destination: '.academy-bridge-screen' },
+    { id: 'n2', title: 'I follow detailed Japanese', destination: '.academy-story-package-screen' },
+    { id: 'n1', title: 'I handle dense Japanese', destination: '.academy-story-package-screen' },
 ];
 
 await mkdir(artifactDir, { recursive: true });
@@ -345,7 +345,8 @@ async function assertDestination(page, band, viewport) {
         assert.equal(await destination.getAttribute('data-learning-check'), 'n3-listening');
         assert.equal(await destination.locator('audio').getAttribute('aria-label'), 'Five-dialogue listening check');
     } else {
-        assert.equal(await destination.locator('.academy-band-badge').textContent(), band.id.toUpperCase());
+        assert.equal(await destination.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').count(), 1);
+        assert.equal(await destination.locator('[data-story-moment]').getAttribute('data-story-moment'), 'stage');
     }
 }
 

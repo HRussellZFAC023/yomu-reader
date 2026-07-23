@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-bd3e5b73247e';
+const VERSION = 'yomu-academy-shell-s1-fdf739f9da99';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -73,8 +73,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-bd3e5b73247e',
-    '/academy/style.css?v=s1-bd3e5b73247e',
+    '/academy/app.js?v=s1-fdf739f9da99',
+    '/academy/style.css?v=s1-fdf739f9da99',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -185,6 +185,16 @@ const CORE = [
     '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
     '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
     '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus',
+    '/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus',
     '/academy/content/lessons/002-l1-l01.json',
     '/academy/content/lessons/003-l1-l02.json',
     '/academy/content/lessons/004-l1-l03.json',

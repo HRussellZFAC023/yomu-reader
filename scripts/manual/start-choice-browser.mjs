@@ -12,7 +12,7 @@ const viewports = [
     { name: 'desktop', width: 1440, height: 900, input: 'keyboard' },
 ];
 const branches = [
-    { route: 'lesson-zero', destination: '.academy-world-screen[data-current-place="courtyard"]' },
+    { route: 'lesson-zero', destination: '.academy-story-package-screen' },
     { route: 'manual-band', destination: '.academy-band-screen' },
     { route: 'placement-mock', destination: '.academy-placement-screen' },
 ];
@@ -66,7 +66,7 @@ async function verifyBranch(viewport, branch) {
     await page.locator(branch.destination).waitFor();
     await decodeImages(page, branch.destination);
     const selected = await readProof(page);
-    assert.equal(selected.checkpoint.route, branch.route === 'lesson-zero' ? 'campus' : branch.route);
+    assert.equal(selected.checkpoint.route, branch.route === 'lesson-zero' ? 'arrival-bridge' : branch.route);
     assert.equal(selected.checkpoint.routeHistory.at(-1)?.route, 'start');
     assert.ok(selected.sfxCalls.includes('menu.confirm'), `${viewport.name} ${branch.route} must use the confirm SFX`);
     assert.equal(selected.themeCalls[0], 'opening.invitation');
@@ -347,7 +347,7 @@ async function activate(locator, input) {
 }
 
 function destinationTheme(route) {
-    if (route === 'lesson-zero') return 'world.courtyard';
+    if (route === 'lesson-zero') return 'opening.invitation';
     if (route === 'manual-band') return 'opening.invitation';
-    return 'silence';
+    return 'classroom.focus';
 }

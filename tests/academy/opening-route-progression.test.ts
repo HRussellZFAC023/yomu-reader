@@ -113,7 +113,7 @@ describe('Academy opening route progression', () => {
         expect(route.go).not.toHaveBeenCalled();
     });
 
-    it('arrives at the campus entrance before opening Lesson 0', async () => {
+    it('plays the canonical arrival before opening the Lesson 0 courtyard', async () => {
         const enrollment = enrollmentHarness();
         const start = routeContext('start');
 
@@ -122,7 +122,7 @@ describe('Academy opening route progression', () => {
 
         await vi.waitFor(() => {
             expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledWith({ route: 'lesson-zero' });
-            expect(start.go).toHaveBeenCalledWith('campus', {
+            expect(start.go).toHaveBeenCalledWith('arrival-bridge', {
                 selectedBand: undefined,
                 lessonId: 'lesson:foundation-00',
                 sectionId: undefined,
@@ -130,6 +130,21 @@ describe('Academy opening route progression', () => {
             });
         });
         expect(start.go.mock.calls.some(([route]) => route === 'lesson-overview')).toBe(false);
+
+        const arrival = routeContext('arrival-bridge', [PROFILE_EVENT, curriculumEntry('lesson-zero')], {
+            routeHistory: [{ route: 'start' }],
+            lessonId: 'lesson:foundation-00',
+        });
+        await enrollment.flow.render('arrival-bridge', arrival.value);
+        expect(arrival.shell.current?.dataset.academyScreen).toBe('story-package');
+        expect(arrival.shell.current?.querySelector('[data-story-arc-id="arc:bridge:opening-arrival"]')).not.toBeNull();
+        await finishArrival(arrival.shell.current!);
+        arrival.shell.current?.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
+        await vi.waitFor(() => expect(arrival.go).toHaveBeenCalledWith('campus', {
+            sectionId: undefined,
+            activityId: undefined,
+            lessonId: 'lesson:foundation-00',
+        }));
 
         const campus = routeContext('campus', [PROFILE_EVENT, curriculumEntry('lesson-zero')], {
             routeHistory: [{ route: 'start' }],
@@ -238,7 +253,7 @@ describe('Academy opening route progression', () => {
             routeHistory: [{ route: 'manual-band' }],
         });
         await enrollment.flow.render('arrival-bridge', bridge.value);
-        bridge.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
+        bridge.shell.current?.querySelector<HTMLButtonElement>('.academy-vn-back')?.click();
 
         expect(bridge.back).toHaveBeenCalledOnce();
         expect(enrollment.playSfx).toHaveBeenCalledWith('menu.cancel');
@@ -340,7 +355,7 @@ describe('Academy opening route progression', () => {
         expect(enrollment.savePlacement).not.toHaveBeenCalled();
     });
 
-    it('sends a Lesson 0 placement recommendation to the same campus arrival', async () => {
+    it('sends a Lesson 0 placement recommendation to the same canonical arrival', async () => {
         const enrollment = enrollmentHarness();
         const result = routeContext('placement-result', [PROFILE_EVENT, placement('lesson-zero')], {
             selectedBand: 'n5',
@@ -351,7 +366,7 @@ describe('Academy opening route progression', () => {
 
         await vi.waitFor(() => {
             expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledWith({ route: 'lesson-zero' });
-            expect(result.go).toHaveBeenCalledWith('campus', {
+            expect(result.go).toHaveBeenCalledWith('arrival-bridge', {
                 selectedBand: undefined,
                 placementOverride: false,
                 lessonId: 'lesson:foundation-00',
@@ -412,7 +427,14 @@ describe('Academy opening route progression', () => {
             bridge.shell.current?.querySelector('.academy-source-completion .academy-button-primary'),
         ).not.toBeNull());
         bridge.shell.current?.querySelector<HTMLButtonElement>('.academy-source-completion .academy-button-primary')?.click();
-        expect(bridge.go).toHaveBeenCalledWith('campus');
+        expect(bridge.shell.current?.dataset.academyScreen).toBe('story-package');
+        await finishArrival(bridge.shell.current!);
+        bridge.shell.current?.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
+        await vi.waitFor(() => expect(bridge.go).toHaveBeenCalledWith('campus', {
+            sectionId: undefined,
+            activityId: undefined,
+            lessonId: undefined,
+        }));
 
         const campus = routeContext('campus', [PROFILE_EVENT, curriculumEntry('manual-band', 'n3')], {
             selectedBand: 'n3',
@@ -596,11 +618,13 @@ function enrollmentHarness() {
     const chooseCurriculumEntry = vi.fn(async (_choice: CurriculumEntryChoice) => undefined);
     const savePlacement = vi.fn(async () => undefined);
     const recordActivity = vi.fn(async () => undefined);
+    const recordEncounter = vi.fn(async () => undefined);
     const playSfx = vi.fn();
     return {
         chooseCurriculumEntry,
         savePlacement,
         recordActivity,
+        recordEncounter,
         playSfx,
         flow: createEnrollmentFlow({
             access: {} as never,
@@ -608,12 +632,25 @@ function enrollmentHarness() {
                 chooseCurriculumEntry,
                 savePlacement,
                 recordActivity,
+                recordEncounter,
                 history: vi.fn(async () => []),
             } as unknown as LearnerEvidence,
             pronunciation: {} as never,
             audio: { playSfx } as never,
         }),
     };
+}
+
+async function finishArrival(screen: HTMLElement): Promise<void> {
+    for (let guard = 0; guard < 40; guard += 1) {
+        if (screen.querySelector('.academy-story-next')) return;
+        const action = screen.querySelector<HTMLButtonElement>('[data-story-option-id]')
+            ?? screen.querySelector<HTMLButtonElement>('.academy-vn-primary-action');
+        if (!action) throw new Error(`Arrival stalled at ${screen.querySelector('[data-story-moment]')?.getAttribute('data-story-moment') ?? 'unknown'}.`);
+        action.click();
+        await Promise.resolve();
+    }
+    throw new Error('Arrival did not reach its completion action.');
 }
 
 function worldFlow() {

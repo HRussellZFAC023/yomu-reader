@@ -86,6 +86,7 @@ const manifest = {
         locked: entries.filter(entry => entry.status === 'locked').length,
         productionReady: entries.filter(entry => entry.status === 'locked' || entry.status === 'accepted').length,
         pilotRendered: entries.filter(entry => entry.pilotOutput).length,
+        storyRendered: entries.filter(entry => entry.surface === 'story' && runtimeOutputExists(entry)).length,
         staleLocks: entries.filter(entry => entry.status === 'stale').length,
         missingModels: entries.filter(entry => entry.surface === 'story' && !entry.voiceModel?.uuid).length,
     },
@@ -98,8 +99,9 @@ const playbackCatalog = {
     entries: story
         .filter(entry => (
             entry.status === 'locked'
-            && entry.pitch?.status === 'pilot-rendered'
-            && entry.pilotOutput
+            && (entry.pitch?.status === 'pilot-rendered' || entry.pitch?.status === 'rendered')
+            && (entry.output || entry.pilotOutput)
+            && runtimeOutputExists(entry)
             && entry.speakerId !== 'learner'
             && entry.speakerId !== 'narrator'
         ))
@@ -182,6 +184,7 @@ function storyEntries(file, source) {
             const pilotOutput = band === pilotBand(source, node)
                 ? pilotPath(source.id, node.id, node.speakerId)
                 : undefined;
+            const output = lock?.output ?? pilotOutput;
             return {
                 key,
                 surface: 'story',
@@ -202,6 +205,7 @@ function storyEntries(file, source) {
                 voiceModel: modelBySpeaker.get(node.speakerId ?? 'narrator') ?? null,
                 pitch: lock?.pitch ?? { status: 'unreviewed' },
                 ...(pilotOutput ? { pilotOutput } : {}),
+                ...(output ? { output } : {}),
             };
         });
     }));
@@ -224,7 +228,8 @@ function pilotPath(chapterId, lineId, speakerId) {
 }
 
 function playbackEntry(entry) {
-    const publicRelative = entry.pilotOutput.replace(/^\//, '');
+    const runtimeOutput = entry.output ?? entry.pilotOutput;
+    const publicRelative = runtimeOutput.replace(/^\//, '');
     const assetPath = join(root, 'public', publicRelative);
     const asset = readFileSync(assetPath);
     return {
@@ -235,9 +240,14 @@ function playbackEntry(entry) {
         sourceSha256: entry.sourceSha256,
         assetSha256: createHash('sha256').update(asset).digest('hex'),
         bytes: statSync(assetPath).size,
-        url: entry.pilotOutput,
+        url: runtimeOutput,
         reviewStatus: 'locked',
     };
+}
+
+function runtimeOutputExists(entry) {
+    const runtimeOutput = entry.output ?? entry.pilotOutput;
+    return Boolean(runtimeOutput && existsSync(join(root, 'public', runtimeOutput.replace(/^\//, ''))));
 }
 
 function readJson(path) {

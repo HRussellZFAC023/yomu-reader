@@ -104,9 +104,9 @@ def apply_pitch_review(query, review):
 
 
 def output_path(entry):
-    pilot = entry.get("pilotOutput")
-    if pilot and pilot.startswith("/academy/audio/"):
-        relative = pilot.removeprefix("/academy/audio/")
+    runtime_output = entry.get("output") or entry.get("pilotOutput")
+    if runtime_output and runtime_output.startswith("/academy/audio/"):
+        relative = runtime_output.removeprefix("/academy/audio/")
     else:
         line = entry["lineId"].split(":")[-1]
         relative = (

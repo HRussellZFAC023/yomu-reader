@@ -87,7 +87,7 @@ interface ActivePlayback {
 
 const PLAYABLE_DIRECTOR_STATES = new Set<AudioDirectorState>(['ready', 'playing', 'silent']);
 const SHA256 = /^[a-f0-9]{64}$/u;
-const PILOT_URL = /^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u;
+const LOCKED_STORY_URL = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/u;
 
 export async function loadStoryVoicePlaybackCatalog(
     url = STORY_VOICE_PLAYBACK_CATALOG_URL,
@@ -303,7 +303,7 @@ function isPlaybackEntry(value: unknown): value is StoryVoicePlaybackEntry {
         && Number.isSafeInteger(value.bytes)
         && value.bytes > 0
         && typeof value.url === 'string'
-        && PILOT_URL.test(value.url)
+        && LOCKED_STORY_URL.test(value.url)
         && value.reviewStatus === 'locked'
     );
 }

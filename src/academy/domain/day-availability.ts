@@ -279,7 +279,8 @@ const DAY_ONE_ENROLLMENT: readonly DayActivityAvailability[] = [
 const DAY_ONE_STORY: readonly DayActivityAvailability[] = [
     entry('day:1:arrival', 'Arrive at the Academy', 'story', ['required', 'revisitable'],
         { route: 'arrival-bridge' }, ['opening-arrival-bridge'], { audio: 'voice', visual: 'scene' },
-        'Arrival completion and return cursor persist.', 'The route enters the courtyard without a teleport, duplicate onboarding, or lost Back path.'),
+        'Arrival completion and return cursor persist.', 'The route enters the courtyard without a teleport, duplicate onboarding, or lost Back path.',
+        [], VERIFIED_DELIVERY),
     entry('day:1:blank-atlas', 'Complete Chapter 1: The Blank Atlas', 'story', ['required', 'revisitable'],
         { route: 'story', context: { sectionId: 's1e01-the-blank-atlas' } },
         ['s1e01-the-blank-atlas'], { audio: 'voice', visual: 'scene' },

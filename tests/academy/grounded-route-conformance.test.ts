@@ -111,14 +111,15 @@ describe('Academy grounded-route conformance', () => {
         const route = context('arrival-bridge', { selectedBand: 'n4' });
         const flow = createEnrollmentFlow({
             access: {} as never,
-            evidence: {} as never,
+            evidence: { recordEncounter: vi.fn(async () => undefined) } as never,
             pronunciation: {} as never,
         });
 
         await expect(flow.render('arrival-bridge', route.value)).resolves.toBe(true);
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-button-primary')?.click();
+        await finishArrival(route.shell.current!);
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
 
-        expect(route.go).toHaveBeenCalled();
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalled());
         expect(route.go.mock.calls.at(-1)?.[0]).toBe('campus');
     });
 
@@ -204,3 +205,15 @@ describe('Academy grounded-route conformance', () => {
         expect(await blockedRepository.readAll()).toEqual([]);
     });
 });
+
+async function finishArrival(screen: HTMLElement): Promise<void> {
+    for (let guard = 0; guard < 40; guard += 1) {
+        if (screen.querySelector('.academy-story-next')) return;
+        const action = screen.querySelector<HTMLButtonElement>('[data-story-option-id]')
+            ?? screen.querySelector<HTMLButtonElement>('.academy-vn-primary-action');
+        if (!action) throw new Error('Arrival story stalled before campus.');
+        action.click();
+        await Promise.resolve();
+    }
+    throw new Error('Arrival story did not reach completion.');
+}

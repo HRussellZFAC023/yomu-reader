@@ -330,6 +330,15 @@ export interface StoryPackageSource {
 }
 
 let cachedRuntime: StoryRuntime | undefined;
+let cachedOpeningArrivalArc: StoryPlayableArc | undefined;
+
+/** The canonical threshold scene, independently playable before Chapter 1 begins. */
+export function loadOpeningArrivalArc(): StoryPlayableArc {
+    if (!cachedOpeningArrivalArc) {
+        cachedOpeningArrivalArc = compileStoryPackage(openingArrivalSource as unknown as StoryPackageSource);
+    }
+    return cachedOpeningArrivalArc;
+}
 
 export function loadStoryRuntime(): StoryRuntime {
     if (cachedRuntime) return cachedRuntime;

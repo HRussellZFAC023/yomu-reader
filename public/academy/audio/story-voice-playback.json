@@ -2,6 +2,116 @@
   "schema": "yomu-academy.story-voice-playback.v1",
   "entries": [
     {
+      "lineId": "line:opening-arrival:rie-evening",
+      "speakerId": "rie",
+      "japanese": "こんばんは。よむアカデミーへようこそ。",
+      "band": "foundation",
+      "sourceSha256": "60eaf87a9a302af3b6377b80108fa24a4d66b0d7aec28d47c70b8de99be85f17",
+      "assetSha256": "e7fdc296ce022b86c659a39a4ef1976a535261f31882c90cac34a5d6b5ecbda5",
+      "bytes": 17729,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-evening",
+      "speakerId": "rie",
+      "japanese": "こんばんは。よむアカデミーへようこそ。席はここです。",
+      "band": "n5",
+      "sourceSha256": "a74a610fa49c4c49be3554277b79fa50d9deb011b83cf566fe7be4f44d80e374",
+      "assetSha256": "e241d56f96dfbf9204a3cb5e2cb11af7e37a2d5e1ce98bbdea7cd6a03b6acce4",
+      "bytes": 23734,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-no-rush",
+      "speakerId": "rie",
+      "japanese": "ゆっくりでいいです。",
+      "band": "foundation",
+      "sourceSha256": "24501a37c292a08af305addc53f55a6f5b598c671c64fe66d2846335b0387d0a",
+      "assetSha256": "eb8dc82f440febdc4e9aaa6f2dfc7fc4e338a0d88656b60d83f8d5bdd9984c4a",
+      "bytes": 9530,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-no-rush",
+      "speakerId": "rie",
+      "japanese": "急がなくていいですよ。準備ができたら、どうぞ。",
+      "band": "n5",
+      "sourceSha256": "bcf11541c1c4e9b68cb2940ee81931eca73cec982a2d79ce878e837b5a383ab0",
+      "assetSha256": "1ff8503f085396cbe856febd9388acc5bbb80451f45e068c79a45babe12a779e",
+      "bytes": 23856,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-fiction",
+      "speakerId": "rie",
+      "japanese": "だいじょうぶです。いっしょにやりましょう。",
+      "band": "foundation",
+      "sourceSha256": "ecd58ca9d2acc45a26a121a186f622aa8cbbed7ef99a1fe6a2feecd76901df31",
+      "assetSha256": "44ac43f646331bd44f31656f1e1373c609b52b8b0b7aa8b8e594f52df24b984c",
+      "bytes": 15960,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-fiction",
+      "speakerId": "rie",
+      "japanese": "今夜、全部分からなくてもだいじょうぶです。いっしょにやりましょう。",
+      "band": "n5",
+      "sourceSha256": "9b445f234350d20804908b0f9c6687216c62ab971c1a396cdaa0e25f77877e74",
+      "assetSha256": "e0f707d673e93c637ffd5a3f318397225d8f0cb309bb949a13b301ec0dfe7ce6",
+      "bytes": 26271,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-learner-control",
+      "speakerId": "rie",
+      "japanese": "わからないときは、もどれます。",
+      "band": "foundation",
+      "sourceSha256": "9417ae4dd9c3481581fec34ceddc5a812e44a006213351d6befad2b9f04fbdc4",
+      "assetSha256": "10b4d6501337b95a243774757e106911e1fcc83ef44f3826b2b832e41670bb79",
+      "bytes": 14645,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-learner-control",
+      "speakerId": "rie",
+      "japanese": "分からないところは、いつでも戻って聞けます。",
+      "band": "n5",
+      "sourceSha256": "a8aa7334d9d251296457415e27cf34ded868e69e5ac925675d0e72b5f46ae322",
+      "assetSha256": "708b40e2278b31f26e97c07af52cc019beb28fa21a1968a7f7eaaa216a21b69d",
+      "bytes": 21110,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-enter",
+      "speakerId": "rie",
+      "japanese": "つきましたね。はいりましょう。",
+      "band": "foundation",
+      "sourceSha256": "3d20c0d5be2689aeba21a1d4735b11c5fc08c01099ade6499c5724d84772b097",
+      "assetSha256": "81ec2ebea268bf3e46d8dcfb29e3a80b91542ec65d94cd17e2403630ba41e1cf",
+      "bytes": 14023,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus",
+      "reviewStatus": "locked"
+    },
+    {
+      "lineId": "line:opening-arrival:rie-enter",
+      "speakerId": "rie",
+      "japanese": "着きましたね。入りましょう。",
+      "band": "n5",
+      "sourceSha256": "766d422e3e36775cce1c93d653b958e31aae31cdc3ceb5485a0d8d75081cfab3",
+      "assetSha256": "360adc5e101827ea50f7e261ee951b80d8d4fc2346a2c7f09caee0520d28bdcd",
+      "bytes": 13513,
+      "url": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus",
+      "reviewStatus": "locked"
+    },
+    {
       "lineId": "line:blank-atlas:rie-konbanwa",
       "speakerId": "rie",
       "japanese": "こんばんは。はじめまして。Rieです。",

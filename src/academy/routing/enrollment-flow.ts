@@ -1,6 +1,8 @@
 import type { AccessGateway } from '../access/gateway';
 import type { AcademySyncStatus } from '../account/sync-client';
 import { createN3AdvancedEntryPlan } from '../content/advanced-entry';
+import { serializeStoryCursor } from '../content/story-runner';
+import { loadOpeningArrivalArc } from '../content/story-runtime';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
 import type { PlacementMockProgress } from '../domain/placement-session';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
@@ -12,10 +14,10 @@ import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAccessScreen } from '../ui/access-screen';
 import { renderAdvancedArrivalBridge } from '../ui/advanced-arrival-bridge';
 import { renderRieUnlockScreen } from '../ui/character-scenes';
-import { renderArrivalBridge } from '../ui/lesson-screen';
 import { renderPlacementMockScreen, renderPlacementResultScreen } from '../ui/placement-screen';
 import { renderProfileScreen } from '../ui/profile-screen';
 import { renderManualBandScreen, renderStartScreen } from '../ui/start-screen';
+import { renderStoryArcScreen } from '../ui/story-screen';
 import type { AcademyRouteContext, AcademyRouteFlow } from './types';
 
 export interface EnrollmentFlowOptions {
@@ -61,14 +63,15 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 }));
                 return true;
             case 'rie-unlock':
+                {
+                    const voice = this.createVoicePlayback();
                 context.shell.replace(renderRieUnlockScreen({
                     language: context.language,
-                    ...(this.options.audio
-                        ? { voice: createStoryVoicePlayback({ director: this.options.audio }) }
-                        : {}),
+                    ...(voice ? { voice } : {}),
                     onComplete: () => this.completeRieIntroduction(context),
                 }));
                 return true;
+                }
             case 'start':
                 context.shell.replace(renderStartScreen(
                     context.language,
@@ -109,13 +112,18 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 this.renderPlacementResult(context);
                 return true;
             case 'arrival-bridge':
-                if (requiredBand(context) === 'n3') {
+                if (context.checkpoint.selectedBand === 'n3') {
                     const plan = createN3AdvancedEntryPlan({
                         events: await this.options.evidence.history(),
                         placementAccepted: context.projection.curriculumEntry?.route === 'placement-mock'
                             && context.projection.curriculumEntry.recommendationAccepted === true,
                         now: Date.now(),
                     });
+                    const completed = context.projection.activities[plan.activity.id]?.lastOutcome === 'pass';
+                    if (completed) {
+                        this.renderArrivalStory(context);
+                        return true;
+                    }
                     context.shell.replace(renderAdvancedArrivalBridge({
                         language: context.language,
                         plan,
@@ -138,7 +146,10 @@ class EnrollmentFlow implements AcademyRouteFlow {
                         },
                         onListeningStart: () => this.beginExternalListening(),
                         onListeningStop: () => this.endExternalListening(),
-                        onContinue: () => void context.go('campus'),
+                        onContinue: () => {
+                            void context.save?.({ sectionId: undefined });
+                            this.renderArrivalStory(context);
+                        },
                         onBack: () => {
                             this.options.audio?.playSfx?.('menu.cancel');
                             void context.back();
@@ -146,15 +157,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     }));
                     return true;
                 }
-                context.shell.replace(renderArrivalBridge(
-                    context.language,
-                    requiredBand(context),
-                    () => void context.go('campus'),
-                    () => {
-                        this.options.audio?.playSfx?.('menu.cancel');
-                        void context.back();
-                    },
-                ));
+                this.renderArrivalStory(context);
                 return true;
             default:
                 return false;
@@ -213,7 +216,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
         if (route === 'manual-band') return context.go('manual-band', { placementOverride: false });
         if (route === 'placement-mock') return context.go('placement-mock', { placementOverride: false });
         await this.options.evidence.chooseCurriculumEntry({ route: 'lesson-zero' });
-        await context.go('campus', {
+        await context.go('arrival-bridge', {
             selectedBand: undefined,
             lessonId: 'lesson:foundation-00',
             sectionId: undefined,
@@ -306,7 +309,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
             await this.options.evidence.chooseCurriculumEntry({
                 route: 'lesson-zero',
             });
-            await context.go('campus', {
+            await context.go('arrival-bridge', {
                 selectedBand: undefined,
                 placementOverride: false,
                 ...(needsCanonicalSave ? { placementProgress: undefined } : {}),
@@ -331,12 +334,64 @@ class EnrollmentFlow implements AcademyRouteFlow {
         });
     }
 
-}
+    private renderArrivalStory(context: AcademyRouteContext): void {
+        const arc = loadOpeningArrivalArc();
+        const audio = this.options.audio;
+        const voice = this.createVoicePlayback();
+        const finish = async (completionEligible: boolean): Promise<void> => {
+            if (!completionEligible) return;
+            await this.options.evidence.recordEncounter({
+                encounterId: `story:${arc.episodeId}:complete`,
+                sceneId: arc.lastSceneId,
+                attendeeIds: ['rie'],
+            });
+            await context.go('campus', {
+                sectionId: undefined,
+                activityId: undefined,
+                lessonId: context.projection.curriculumEntry?.route === 'lesson-zero'
+                    ? 'lesson:foundation-00'
+                    : undefined,
+            });
+        };
+        context.shell.replace(renderStoryArcScreen({
+            language: context.language,
+            arc,
+            mode: 'canonical',
+            ...(context.projection.profile ? { learner: context.projection.profile } : {}),
+            sectionId: context.checkpoint.sectionId,
+            selectedBand: context.checkpoint.selectedBand,
+            ...(audio?.playSfx ? { audio: { playSfx: cue => audio.playSfx?.(cue) } } : {}),
+            ...(voice ? { createVoicePlayback: () => voice } : {}),
+            onCheckpoint: cursor => context.save?.({
+                sectionId: serializeStoryCursor(cursor),
+            }),
+            onArcSceneEncounter: (_episodeId, sceneId, attendeeIds) => {
+                if (!attendeeIds.length) return;
+                return this.options.evidence.recordEncounter({
+                    encounterId: `story:${arc.episodeId}:scene:${sceneId}`,
+                    sceneId,
+                    attendeeIds,
+                });
+            },
+            onBack: () => {
+                audio?.playSfx?.('menu.cancel');
+                void context.back();
+            },
+            finishLabel: context.language === 'ja' ? '中庭へ' : 'Step into the courtyard',
+            completionLine: {
+                japanese: '中庭へ',
+                english: 'The courtyard is just through the door.',
+            },
+            onFinish: finish,
+        }));
+    }
 
-function requiredBand(context: AcademyRouteContext): JlptBand {
-    const band = context.checkpoint.selectedBand;
-    if (!band) throw new Error('Arrival bridge requires a selected JLPT band.');
-    return band;
+    private createVoicePlayback(): ReturnType<typeof createStoryVoicePlayback> | undefined {
+        const audio = this.options.audio;
+        if (!audio || typeof audio.onEvent !== 'function') return undefined;
+        return createStoryVoicePlayback({ director: audio });
+    }
+
 }
 
 function placementStorySection(context: AcademyRouteContext): string | undefined {

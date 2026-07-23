@@ -15,8 +15,8 @@
     }
   },
   "counts": {
-    "entries": 1794,
-    "storyVariants": 1470,
+    "entries": 1796,
+    "storyVariants": 1472,
     "uiLines": 323,
     "learningVoiceLines": 1,
     "learningBindings": 1,
@@ -24,9 +24,10 @@
     "acceptedLearningLines": 1,
     "codexAcceptedLearningLines": 1,
     "humanReviewedLearningLines": 0,
-    "locked": 4,
-    "productionReady": 5,
+    "locked": 14,
+    "productionReady": 15,
     "pilotRendered": 5,
+    "storyRendered": 15,
     "staleLocks": 1,
     "missingModels": 297
   },
@@ -47,15 +48,27 @@
       "reading": "こんばんは。よむアカデミーへようこそ。",
       "english": "Good evening. Welcome to Yomu Academy.",
       "sourceSha256": "60eaf87a9a302af3b6377b80108fa24a4d66b0d7aec28d47c70b8de99be85f17",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.96
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus"
     },
     {
       "key": "line:opening-arrival:rie-evening::n5",
@@ -73,15 +86,27 @@
       "reading": "こんばんは。よむアカデミーへようこそ。せきはここです。",
       "english": "Good evening. Welcome to Yomu Academy. Your seat is here.",
       "sourceSha256": "a74a610fa49c4c49be3554277b79fa50d9deb011b83cf566fe7be4f44d80e374",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.96
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus"
     },
     {
       "key": "line:opening-arrival:rie-no-rush::foundation",
@@ -97,17 +122,29 @@
       "band": "foundation",
       "japanese": "ゆっくりでいいです。",
       "reading": "ゆっくりでいいです。",
-      "english": "Taking your time is fine.",
-      "sourceSha256": "2f2788ed82a723d15cba2ae2828121d10e59e418822f7f4039008a1e8393b865",
-      "status": "draft",
+      "english": "No rush.",
+      "sourceSha256": "24501a37c292a08af305addc53f55a6f5b598c671c64fe66d2846335b0387d0a",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.2,
+          "pauseLengthScale": 1
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus"
     },
     {
       "key": "line:opening-arrival:rie-no-rush::n5",
@@ -123,17 +160,29 @@
       "band": "n5",
       "japanese": "急がなくていいですよ。準備ができたら、どうぞ。",
       "reading": "いそがなくていいですよ。じゅんびができたら、どうぞ。",
-      "english": "There is no need to hurry. Come in when you are ready.",
-      "sourceSha256": "12d6290e17d9ec1dc5bcae977d01187722b7c0f61d27c41c49b3425d21c1ec83",
-      "status": "draft",
+      "english": "No rush. Come in when you are ready.",
+      "sourceSha256": "bcf11541c1c4e9b68cb2940ee81931eca73cec982a2d79ce878e837b5a383ab0",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.2,
+          "pauseLengthScale": 1
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus"
     },
     {
       "key": "line:opening-arrival:rie-fiction::foundation",
@@ -145,21 +194,33 @@
       "sceneId": "scene:opening-arrival:fiction-notice",
       "lineId": "line:opening-arrival:rie-fiction",
       "speakerId": "rie",
-      "intent": "State that Academy events and dialogue are invented rather than biography.",
+      "intent": "Make the first evening feel possible without lowering the learner's ambition.",
       "band": "foundation",
-      "japanese": "この物語と会話はフィクションです。",
-      "reading": "このものがたりとかいわはフィクションです。",
-      "english": "This story and its dialogue are fiction.",
-      "sourceSha256": "de23dbb40c37d9ce66c5e834f5db4b37c7e1289a8ba3179cc063465f5691dc94",
-      "status": "draft",
+      "japanese": "だいじょうぶです。いっしょにやりましょう。",
+      "reading": "だいじょうぶです。いっしょにやりましょう。",
+      "english": "It's okay. We'll do it together.",
+      "sourceSha256": "ecd58ca9d2acc45a26a121a186f622aa8cbbed7ef99a1fe6a2feecd76901df31",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.96
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus"
     },
     {
       "key": "line:opening-arrival:rie-fiction::n5",
@@ -171,21 +232,33 @@
       "sceneId": "scene:opening-arrival:fiction-notice",
       "lineId": "line:opening-arrival:rie-fiction",
       "speakerId": "rie",
-      "intent": "State that Academy events and dialogue are invented rather than biography.",
+      "intent": "Make the first evening feel possible without lowering the learner's ambition.",
       "band": "n5",
-      "japanese": "この物語と会話はフィクションです。だれかの本当の出来事ではありません。",
-      "reading": "このものがたりとかいわはフィクションです。だれかのほんとうのできごとではありません。",
-      "english": "This story and its dialogue are fiction. They do not claim anyone's real events.",
-      "sourceSha256": "ea35f06c29ab55c4d4f81bbc8c78542b1daa21a7b6c6b7ee365b9951aa09d0be",
-      "status": "draft",
+      "japanese": "今夜、全部分からなくてもだいじょうぶです。いっしょにやりましょう。",
+      "reading": "こんや、ぜんぶわからなくてもだいじょうぶです。いっしょにやりましょう。",
+      "english": "You don't need to understand everything tonight. We'll do it together.",
+      "sourceSha256": "9b445f234350d20804908b0f9c6687216c62ab971c1a396cdaa0e25f77877e74",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.96
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus"
     },
     {
       "key": "line:opening-arrival:rie-learner-control::foundation",
@@ -197,21 +270,33 @@
       "sceneId": "scene:opening-arrival:fiction-notice",
       "lineId": "line:opening-arrival:rie-learner-control",
       "speakerId": "rie",
-      "intent": "Give the learner control over their name and personal disclosure.",
+      "intent": "Tell the learner what to do when something does not make sense.",
       "band": "foundation",
-      "japanese": "名前も、話すことも、あなたが決めます。",
-      "reading": "なまえも、はなすことも、あなたがきめます。",
-      "english": "You decide your name and what you share.",
-      "sourceSha256": "3f80e4e5637c6a483094bc30ac13c04940a902022b0a8e4735fb295253ad9948",
-      "status": "draft",
+      "japanese": "わからないときは、もどれます。",
+      "reading": "わからないときは、もどれます。",
+      "english": "If something doesn't make sense, you can go back.",
+      "sourceSha256": "9417ae4dd9c3481581fec34ceddc5a812e44a006213351d6befad2b9f04fbdc4",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.02,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus"
     },
     {
       "key": "line:opening-arrival:rie-learner-control::n5",
@@ -223,21 +308,109 @@
       "sceneId": "scene:opening-arrival:fiction-notice",
       "lineId": "line:opening-arrival:rie-learner-control",
       "speakerId": "rie",
-      "intent": "Give the learner control over their name and personal disclosure.",
+      "intent": "Tell the learner what to do when something does not make sense.",
       "band": "n5",
-      "japanese": "使う名前も、自分について話すことも、あなたが決めます。",
-      "reading": "つかうなまえも、じぶんについてはなすことも、あなたがきめます。",
-      "english": "You decide what name to use and what to say about yourself.",
-      "sourceSha256": "25da67936300d59aeebbe57a7ed702cd431f76bee451d653f1c5d0f52f718204",
-      "status": "draft",
+      "japanese": "分からないところは、いつでも戻って聞けます。",
+      "reading": "わからないところは、いつでももどってきけます。",
+      "english": "You can always go back and listen again.",
+      "sourceSha256": "a8aa7334d9d251296457415e27cf34ded868e69e5ac925675d0e72b5f46ae322",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.96,
+          "pitchScale": -0.01,
+          "intonationScale": 1.02,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus"
+    },
+    {
+      "key": "line:opening-arrival:rie-enter::foundation",
+      "surface": "story",
+      "sourceFile": "opening-arrival-bridge.v2.json",
+      "chapterId": "bridge:opening-arrival",
+      "chapter": null,
+      "season": 1,
+      "sceneId": "scene:opening-arrival:fiction-notice",
+      "lineId": "line:opening-arrival:rie-enter",
+      "speakerId": "rie",
+      "intent": "Invite the learner into the classroom without adding another instruction.",
+      "band": "foundation",
+      "japanese": "つきましたね。はいりましょう。",
+      "reading": "つきましたね。はいりましょう。",
+      "english": "You made it. Let's go in.",
+      "sourceSha256": "3d20c0d5be2689aeba21a1d4735b11c5fc08c01099ade6499c5724d84772b097",
+      "status": "locked",
+      "voiceModel": {
+        "speaker": "rie",
+        "model": "morioki",
+        "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
+      },
+      "pitch": {
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.95,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.2,
+          "pauseLengthScale": 1
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus"
+    },
+    {
+      "key": "line:opening-arrival:rie-enter::n5",
+      "surface": "story",
+      "sourceFile": "opening-arrival-bridge.v2.json",
+      "chapterId": "bridge:opening-arrival",
+      "chapter": null,
+      "season": 1,
+      "sceneId": "scene:opening-arrival:fiction-notice",
+      "lineId": "line:opening-arrival:rie-enter",
+      "speakerId": "rie",
+      "intent": "Invite the learner into the classroom without adding another instruction.",
+      "band": "n5",
+      "japanese": "着きましたね。入りましょう。",
+      "reading": "つきましたね。はいりましょう。",
+      "english": "You made it. Let's go in.",
+      "sourceSha256": "766d422e3e36775cce1c93d653b958e31aae31cdc3ceb5485a0d8d75081cfab3",
+      "status": "locked",
+      "voiceModel": {
+        "speaker": "rie",
+        "model": "morioki",
+        "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
+      },
+      "pitch": {
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/opening-arrival-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.95,
+          "pitchScale": -0.01,
+          "intonationScale": 1.06,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.2,
+          "pauseLengthScale": 1
+        }
+      },
+      "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-konbanwa::foundation",
@@ -266,7 +439,8 @@
         "manualReview": "pending",
         "evidence": "docs/academy/audio/rie-introduction-manifest.json"
       },
-      "pilotOutput": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus"
+      "pilotOutput": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus",
+      "output": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus"
     },
     {
       "key": "line:blank-atlas:rie-konbanwa::n5",
@@ -1282,7 +1456,8 @@
         "status": "pilot-rendered",
         "manualReview": "pending"
       },
-      "pilotOutput": "/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus"
+      "pilotOutput": "/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus",
+      "output": "/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus"
     },
     {
       "key": "line:margin-map:henry-presents::n4",
@@ -1440,7 +1615,8 @@
         "status": "pilot-rendered",
         "manualReview": "pending"
       },
-      "pilotOutput": "/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus"
+      "pilotOutput": "/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus",
+      "output": "/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus"
     },
     {
       "key": "line:margin-map:aakash-cant-use::n4",
@@ -14442,7 +14618,8 @@
         "status": "pilot-rendered",
         "manualReview": "pending"
       },
-      "pilotOutput": "/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus"
+      "pilotOutput": "/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus",
+      "output": "/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus"
     },
     {
       "key": "line:two-answers:sophie-frame::n3",
@@ -23804,7 +23981,8 @@
         "status": "pilot-rendered",
         "manualReview": "pending"
       },
-      "pilotOutput": "/academy/audio/story-pilot/s1e24-lanterns-return__mira-arrives__mira.opus"
+      "pilotOutput": "/academy/audio/story-pilot/s1e24-lanterns-return__mira-arrives__mira.opus",
+      "output": "/academy/audio/story-pilot/s1e24-lanterns-return__mira-arrives__mira.opus"
     },
     {
       "key": "line:lanterns-return:mira-arrives::n3",

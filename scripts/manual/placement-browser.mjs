@@ -122,7 +122,7 @@ async function verifyAcceptedRoute(viewport) {
 
     const accept = result.locator('.academy-button-primary');
     await accept.evaluate(button => { button.click(); button.click(); });
-    await page.locator('.academy-bridge-screen').waitFor();
+    await page.locator('.academy-story-package-screen').waitFor();
     const accepted = await readProof(page);
     assert.equal(accepted.placementEvents.length, 1, `${viewport.name} must record one accepted placement`);
     assert.equal(accepted.curriculumEntries.length, 1, `${viewport.name} must record one curriculum entry`);
@@ -152,7 +152,7 @@ async function verifyOverrideRoute(viewport) {
     await manual.waitFor();
     assert.equal((await readProof(page)).placementEvents.length, 0);
     await activate(manual.locator('[data-band="n4"]'), viewport.input);
-    await page.locator('.academy-bridge-screen').waitFor();
+    await page.locator('.academy-story-package-screen').waitFor();
     const overridden = await readProof(page);
     assert.equal(overridden.placementEvents.length, 0, `${viewport.name} override must not record placement evidence`);
     assert.deepEqual(overridden.curriculumEntries.map(entry => ({

@@ -234,7 +234,11 @@ describe('Academy static story voice playback', () => {
         expect(await playback.setLine(exactLine())).toBe(false);
     });
 
-    it('rejects non-pilot, unreviewed, learner, and duplicate public catalog entries', () => {
+    it('accepts locked production media and rejects unsafe, unreviewed, learner, and duplicate entries', () => {
+        expect(parseStoryVoicePlaybackCatalog({
+            schema: catalog.schema,
+            entries: [{ ...exactEntry, url: '/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus' }],
+        }).entries).toHaveLength(1);
         expect(() => parseStoryVoicePlaybackCatalog({
             schema: catalog.schema,
             entries: [{ ...exactEntry, url: '/voice/line?id=admin' }],

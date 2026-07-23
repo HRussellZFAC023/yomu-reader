@@ -1,0 +1,1741 @@
+{
+  "schema": "yomu-academy.opening-arrival-voice-qa.v1",
+  "qualityBoundary": "Codex objective QA: exact authored source, pinned Aivis model, accent-phrase and mora trace, render-time intonation controls, codec, duration, loudness, hash, and independent Japanese Whisper phrase gates. No human-audition claim.",
+  "source": {
+    "path": "src/academy/content/story-sources/opening-arrival-bridge.v2.json",
+    "revision": "2026-07-22.1",
+    "sha256": "96477057cb31d48cdbee6c141107b222b1ea474c5f53f2a5acac05303bf2f155"
+  },
+  "engine": {
+    "name": "AivisSpeech Engine",
+    "version": "1.2.0",
+    "modelUuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
+    "modelName": "morioki",
+    "styleId": 497929760,
+    "styleName": "ノーマル",
+    "payloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469"
+  },
+  "whisper": {
+    "executable": "whisper-cli",
+    "model": "ggml-small.bin",
+    "modelSha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+    "language": "ja"
+  },
+  "complete": true,
+  "entries": [
+    {
+      "key": "line:opening-arrival:rie-evening::foundation",
+      "lineId": "line:opening-arrival:rie-evening",
+      "band": "foundation",
+      "japanese": "こんばんは。よむアカデミーへようこそ。",
+      "sourceSha256": "60eaf87a9a302af3b6377b80108fa24a4d66b0d7aec28d47c70b8de99be85f17",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__foundation.opus",
+      "assetSha256": "e7fdc296ce022b86c659a39a4ef1976a535261f31882c90cac34a5d6b5ecbda5",
+      "bytes": 17729,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 3.042,
+        "meanVolumeDb": -18.9,
+        "maxVolumeDb": -1.4
+      },
+      "querySha256": "6ef89ef787b709479484efe30c79a9c869adb561cf88fc33e21659edf5e9f0e9",
+      "accentPhraseCount": 4,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 0,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 1,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 2,
+          "text": "バ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 3,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 4,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 5,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "ヨ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "ム",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 0,
+          "text": "ア",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 1,
+          "text": "カ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 2,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 3,
+          "text": "ミ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 4,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 5,
+          "text": "エ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 0,
+          "text": "ヨ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 1,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 2,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 3,
+          "text": "ソ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 4,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "こんばんはヨムアカデミーへようこそ",
+        "gates": [
+          "こんばんは",
+          "[ヨよ]ムアカデミー",
+          "ようこそ"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-evening::n5",
+      "lineId": "line:opening-arrival:rie-evening",
+      "band": "n5",
+      "japanese": "こんばんは。よむアカデミーへようこそ。席はここです。",
+      "sourceSha256": "a74a610fa49c4c49be3554277b79fa50d9deb011b83cf566fe7be4f44d80e374",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-evening__rie__n5.opus",
+      "assetSha256": "e241d56f96dfbf9204a3cb5e2cb11af7e37a2d5e1ce98bbdea7cd6a03b6acce4",
+      "bytes": 23734,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 4.375,
+        "meanVolumeDb": -18.6,
+        "maxVolumeDb": -1.5
+      },
+      "querySha256": "d6c667f5fca4b38da5109a36f47bba0aeae77559c5fe6c3e3c079a3964ea3a6b",
+      "accentPhraseCount": 6,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 0,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 1,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 2,
+          "text": "バ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 3,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 4,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 5,
+          "mora": 5,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "ヨ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "ム",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 0,
+          "text": "ア",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 1,
+          "text": "カ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 2,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 3,
+          "text": "ミ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 4,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 5,
+          "text": "エ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 0,
+          "text": "ヨ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 1,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 2,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 3,
+          "text": "ソ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 1,
+          "mora": 4,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 1,
+          "mora": 0,
+          "text": "セ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 1,
+          "mora": 1,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 1,
+          "mora": 2,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 3,
+          "mora": 0,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 3,
+          "mora": 1,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 3,
+          "mora": 2,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 3,
+          "mora": 3,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 3,
+          "mora": 4,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "こんばんはよもアカデミーへようこそセキはここです",
+        "gates": [
+          "こんばんは",
+          "ようこそ",
+          "(?:席|セキ)はここ"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-no-rush::foundation",
+      "lineId": "line:opening-arrival:rie-no-rush",
+      "band": "foundation",
+      "japanese": "ゆっくりでいいです。",
+      "sourceSha256": "24501a37c292a08af305addc53f55a6f5b598c671c64fe66d2846335b0387d0a",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__foundation.opus",
+      "assetSha256": "eb8dc82f440febdc4e9aaa6f2dfc7fc4e338a0d88656b60d83f8d5bdd9984c4a",
+      "bytes": 9530,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 1.725,
+        "meanVolumeDb": -18.9,
+        "maxVolumeDb": -1.7
+      },
+      "querySha256": "c12b31dd59a4eeb573f98f2a6a6b9f6cd7c8c7923acef74b70ab3265dc31a4cc",
+      "accentPhraseCount": 2,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ユ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "ッ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "ク",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "リ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 2,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 3,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 4,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "ゆっくりでいいです",
+        "gates": [
+          "ゆっくり",
+          "いいです"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-no-rush::n5",
+      "lineId": "line:opening-arrival:rie-no-rush",
+      "band": "n5",
+      "japanese": "急がなくていいですよ。準備ができたら、どうぞ。",
+      "sourceSha256": "bcf11541c1c4e9b68cb2940ee81931eca73cec982a2d79ce878e837b5a383ab0",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-no-rush__rie__n5.opus",
+      "assetSha256": "1ff8503f085396cbe856febd9388acc5bbb80451f45e068c79a45babe12a779e",
+      "bytes": 23856,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 4.235,
+        "meanVolumeDb": -19,
+        "maxVolumeDb": -1.3
+      },
+      "querySha256": "42044f217d18bc1a41dc9dd4516e25ad8737ba29ac6118178c2cc77a16e312e0",
+      "accentPhraseCount": 3,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "ソ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "ガ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "ナ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "ク",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "テ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 7,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 8,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 9,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 10,
+          "text": "ヨ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 11,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "ジュ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 2,
+          "text": "ビ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 3,
+          "text": "ガ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 4,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 5,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 6,
+          "text": "タ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 7,
+          "text": "ラ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 8,
+          "text": ",",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 0,
+          "text": "ド",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 1,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 2,
+          "text": "ゾ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 3,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "急がなくていいですよ準備ができたらどうぞ",
+        "gates": [
+          "(?:急がなくて|イソガナクテ)",
+          "(?:準備|ジュンビ)",
+          "どうぞ"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-fiction::foundation",
+      "lineId": "line:opening-arrival:rie-fiction",
+      "band": "foundation",
+      "japanese": "だいじょうぶです。いっしょにやりましょう。",
+      "sourceSha256": "ecd58ca9d2acc45a26a121a186f622aa8cbbed7ef99a1fe6a2feecd76901df31",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__foundation.opus",
+      "assetSha256": "44ac43f646331bd44f31656f1e1373c609b52b8b0b7aa8b8e594f52df24b984c",
+      "bytes": 15960,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.809,
+        "meanVolumeDb": -17.4,
+        "maxVolumeDb": -1.3
+      },
+      "querySha256": "1b3d0b829ba662a921b1cdeb1cae33988343e5c12391a33ba22e307b4e1eb92f",
+      "accentPhraseCount": 3,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ダ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "ジョ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "ブ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 7,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 0,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 1,
+          "text": "ッ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 2,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 3,
+          "text": "ニ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 0,
+          "text": "ヤ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 1,
+          "text": "リ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 2,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 3,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 4,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 4,
+          "mora": 5,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "大丈夫です一緒にやりましょう",
+        "gates": [
+          "(?:だいじょうぶ|大丈夫|ダイジョウブ)",
+          "(?:いっしょ|一緒|イッショ)",
+          "やりましょう"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-fiction::n5",
+      "lineId": "line:opening-arrival:rie-fiction",
+      "band": "n5",
+      "japanese": "今夜、全部分からなくてもだいじょうぶです。いっしょにやりましょう。",
+      "sourceSha256": "9b445f234350d20804908b0f9c6687216c62ab971c1a396cdaa0e25f77877e74",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-together__rie__n5.opus",
+      "assetSha256": "e0f707d673e93c637ffd5a3f318397225d8f0cb309bb949a13b301ec0dfe7ce6",
+      "bytes": 26271,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 4.677,
+        "meanVolumeDb": -17.5,
+        "maxVolumeDb": -1.2
+      },
+      "querySha256": "5daa6cd439c3c5e85e1081bf6223d10b3f430c6f53b42101ae07a22f3d1d1a68",
+      "accentPhraseCount": 6,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 1,
+          "mora": 0,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 1,
+          "mora": 1,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 1,
+          "mora": 2,
+          "text": "ヤ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 1,
+          "mora": 3,
+          "text": ",",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "ゼ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 2,
+          "text": "ブ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 3,
+          "text": "ブ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 4,
+          "text": "ン",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 5,
+          "text": "カ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 6,
+          "text": "ラ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 0,
+          "text": "ナ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 1,
+          "text": "ク",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 2,
+          "text": "テ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 1,
+          "mora": 3,
+          "text": "モ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 0,
+          "text": "ダ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 1,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 2,
+          "text": "ジョ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 3,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 4,
+          "text": "ブ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 5,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 6,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 7,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 4,
+          "mora": 0,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 4,
+          "mora": 1,
+          "text": "ッ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 4,
+          "mora": 2,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 4,
+          "accent": 4,
+          "mora": 3,
+          "text": "ニ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 0,
+          "text": "ヤ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 1,
+          "text": "リ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 2,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 3,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 4,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 5,
+          "accent": 4,
+          "mora": 5,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "今夜全部分からなくても大丈夫です一緒にやりましょう",
+        "gates": [
+          "(?:今夜|コンヤ)",
+          "(?:全部|ゼンブ)",
+          "(?:だいじょうぶ|大丈夫|ダイジョウブ)",
+          "(?:いっしょ|一緒|イッショ)"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-learner-control::foundation",
+      "lineId": "line:opening-arrival:rie-learner-control",
+      "band": "foundation",
+      "japanese": "わからないときは、もどれます。",
+      "sourceSha256": "9417ae4dd9c3481581fec34ceddc5a812e44a006213351d6befad2b9f04fbdc4",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__foundation.opus",
+      "assetSha256": "10b4d6501337b95a243774757e106911e1fcc83ef44f3826b2b832e41670bb79",
+      "bytes": 14645,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.581,
+        "meanVolumeDb": -20,
+        "maxVolumeDb": -1.4
+      },
+      "querySha256": "c8784f08462a7d7d2a80ed7c2eaf173025b0f24fc083611c392b1733eb9bf56d",
+      "accentPhraseCount": 2,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "カ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "ラ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "ナ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "ト",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 7,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 8,
+          "text": ",",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 0,
+          "text": "モ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 1,
+          "text": "ド",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 2,
+          "text": "レ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 3,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 4,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 4,
+          "mora": 5,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "わからないときは戻れます",
+        "gates": [
+          "(?:わからない|分からない|ワカラナイ)",
+          "(?:もどれ|戻れ|モドレ)"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-learner-control::n5",
+      "lineId": "line:opening-arrival:rie-learner-control",
+      "band": "n5",
+      "japanese": "分からないところは、いつでも戻って聞けます。",
+      "sourceSha256": "a8aa7334d9d251296457415e27cf34ded868e69e5ac925675d0e72b5f46ae322",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-replay__rie__n5.opus",
+      "assetSha256": "708b40e2278b31f26e97c07af52cc019beb28fa21a1968a7f7eaaa216a21b69d",
+      "bytes": 21110,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 3.474,
+        "meanVolumeDb": -19.1,
+        "maxVolumeDb": -1.2
+      },
+      "querySha256": "87532a067d98fe01e65350c2225ab6bc6f222130c2a5813074085fafe532d429",
+      "accentPhraseCount": 4,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "カ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "ラ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "ナ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "ト",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": "コ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 7,
+          "text": "ロ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 8,
+          "text": "ワ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 9,
+          "text": ",",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 0,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 1,
+          "text": "ツ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 2,
+          "text": "デ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 1,
+          "mora": 3,
+          "text": "モ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 0,
+          "text": "モ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 1,
+          "text": "ド",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 2,
+          "text": "ッ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 2,
+          "accent": 2,
+          "mora": 3,
+          "text": "テ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 0,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 1,
+          "text": "ケ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 2,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 3,
+          "text": "ス",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 3,
+          "accent": 3,
+          "mora": 4,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "わからないところはいつでも戻ってきけます",
+        "gates": [
+          "(?:わからない|分からない|ワカラナイ)",
+          "いつでも",
+          "(?:もどって|戻って|モドッテ)",
+          "(?:きけ|聞け|キケ)"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-enter::foundation",
+      "lineId": "line:opening-arrival:rie-enter",
+      "band": "foundation",
+      "japanese": "つきましたね。はいりましょう。",
+      "sourceSha256": "3d20c0d5be2689aeba21a1d4735b11c5fc08c01099ade6499c5724d84772b097",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__foundation.opus",
+      "assetSha256": "81ec2ebea268bf3e46d8dcfb29e3a80b91542ec65d94cd17e2403630ba41e1cf",
+      "bytes": 14023,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.422,
+        "meanVolumeDb": -18.3,
+        "maxVolumeDb": -1.4
+      },
+      "querySha256": "df4531a9ca8d18a0cecd36d1a013d4afea61e0f5c44a841f36cf163148e142e9",
+      "accentPhraseCount": 2,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ツ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "シ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "タ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "ネ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 0,
+          "text": "ハ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 1,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 2,
+          "text": "リ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 3,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 4,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 5,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 6,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "つきましたね入りましょう",
+        "gates": [
+          "(?:つきました|着きました|ツキマシタ)",
+          "(?:はいりましょう|入りましょう|ハイリマショウ)"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "key": "line:opening-arrival:rie-enter::n5",
+      "lineId": "line:opening-arrival:rie-enter",
+      "band": "n5",
+      "japanese": "着きましたね。入りましょう。",
+      "sourceSha256": "766d422e3e36775cce1c93d653b958e31aae31cdc3ceb5485a0d8d75081cfab3",
+      "output": "/academy/audio/story-lines/opening-arrival__rie-enter__rie__n5.opus",
+      "assetSha256": "360adc5e101827ea50f7e261ee951b80d8d4fc2346a2c7f09caee0520d28bdcd",
+      "bytes": 13513,
+      "media": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.328,
+        "meanVolumeDb": -17.9,
+        "maxVolumeDb": -1.3
+      },
+      "querySha256": "48030d6daa1cd99237d863397919dd69162e6515e382bae1226ca749a7ca3430",
+      "accentPhraseCount": 2,
+      "pitchTrace": [
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 0,
+          "text": "ツ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 1,
+          "text": "キ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 2,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 3,
+          "text": "シ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 4,
+          "text": "タ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 5,
+          "text": "ネ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 0,
+          "accent": 3,
+          "mora": 6,
+          "text": ".",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 0,
+          "text": "ハ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 1,
+          "text": "イ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 2,
+          "text": "リ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 3,
+          "text": "マ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 4,
+          "text": "ショ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 5,
+          "text": "オ",
+          "pitch": 0
+        },
+        {
+          "accentPhrase": 1,
+          "accent": 5,
+          "mora": 6,
+          "text": ".",
+          "pitch": 0
+        }
+      ],
+      "whisper": {
+        "model": "ggml-small.bin",
+        "transcript": "つきましたね入りましょう",
+        "gates": [
+          "(?:つきました|着きました|ツキマシタ)",
+          "(?:はいりましょう|入りましょう|ハイリマショウ)"
+        ],
+        "passed": true
+      },
+      "verdict": "pass"
+    }
+  ]
+}

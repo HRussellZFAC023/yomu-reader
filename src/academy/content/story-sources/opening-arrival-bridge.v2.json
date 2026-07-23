@@ -1,14 +1,14 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "bridge:opening-arrival",
-  "revision": "2026-07-14.1",
+  "revision": "2026-07-22.1",
   "canonicality": "bridge",
   "season": 1,
   "title": {
     "en": "The Open Door",
     "ja": "開いている扉"
   },
-  "synopsis": "At blue hour, the learner follows a paper lantern to Yomu Academy, meets Rie, reviews the fiction and consent boundary, and chooses how to enter the first class.",
+  "synopsis": "At blue hour, the learner follows a paper lantern to Yomu Academy. Rie opens the classroom door and gives them an unhurried first welcome.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -52,9 +52,9 @@
       "locationId": "location:campus-entrance",
       "timeState": "blue-hour",
       "weatherState": "rain-easing",
-      "goal": "Find the evening class without pretending to know the campus.",
-      "dramaticQuestion": "Will the learner treat uncertainty as a reason to stop or as the first thing the class can help with?",
-      "learnerNeed": "A concrete sign that this is the right door and that asking is allowed.",
+      "goal": "Find the evening class.",
+      "dramaticQuestion": "Which of the two hand-drawn arrows leads to the lit classroom?",
+      "learnerNeed": "A clear first choice with no Japanese knowledge assumed.",
       "checkpointOnEnter": true,
       "nodes": [
         {
@@ -62,26 +62,26 @@
           "id": "node:opening-arrival:gate-lantern",
           "beatId": "beat:opening-arrival:concrete-image",
           "cueId": "cue:campus-blue-hour-paper-lantern",
-          "description": "Rain beads on a paper lantern beside the campus map. One classroom window is lit."
+          "description": "Rain shines on the front steps. One upstairs window is still lit."
         },
         {
           "kind": "narration",
           "id": "node:opening-arrival:gate-note",
           "beatId": "beat:opening-arrival:human-want",
           "text": {
-            "en": "A handwritten card points toward the light: Evening Japanese, first floor. One arrow has been corrected twice.",
-            "ja": "手書きのカードが明かりを指している。夜の日本語、一階。矢印は二度直されている。"
+            "en": "A handwritten card beside the door says: Evening Japanese, first floor. Its arrow has been corrected twice.",
+            "ja": "手書きのカードには「夜の日本語、一階」。矢印は二度直されている。"
           }
         },
         {
           "kind": "choice",
           "id": "choice:opening-arrival:at-gate",
           "beatId": "beat:opening-arrival:learner-stance",
-          "question": "How do you approach the uncertain arrow?",
+          "question": "The arrow points both ways. What do you check?",
           "options": [
             {
               "id": "option:opening-arrival:follow-card",
-              "action": "Follow the corrected arrow.",
+              "action": "Follow the newest arrow.",
               "japaneseByBand": {
                 "foundation": "ここですか。",
                 "n5": "教室はここですか。"
@@ -93,7 +93,7 @@
             },
             {
               "id": "option:opening-arrival:check-door",
-              "action": "Check the room card before entering.",
+              "action": "Check the card by the door.",
               "japaneseByBand": {
                 "foundation": "日本語のクラスですか。",
                 "n5": "ここは日本語のクラスですか。"
@@ -111,7 +111,7 @@
           "id": "node:opening-arrival:door-opens",
           "beatId": "beat:opening-arrival:changed-action",
           "cueId": "cue:classroom-door-opens",
-          "description": "The classroom door opens before the learner has to knock twice."
+          "description": "The door slides open. Rie-sensei is holding it."
         },
         {
           "kind": "command",
@@ -126,7 +126,7 @@
           "kind": "checkpoint",
           "id": "checkpoint:opening-arrival:gate-complete",
           "beatId": "beat:opening-arrival:exit",
-          "resume": "The classroom door is open and Rie is waiting inside."
+          "resume": "Rie-sensei is holding the classroom door open."
         }
       ],
       "exit": {
@@ -138,9 +138,9 @@
       "id": "scene:opening-arrival:open-chair",
       "locationId": "location:classroom-entrance",
       "timeState": "evening",
-      "goal": "Receive an invitation that does not demand confidence or disclosure.",
-      "dramaticQuestion": "Can an empty place feel available without making the learner perform belonging?",
-      "learnerNeed": "A greeting, a visible place to pause, and permission to enter at their own pace.",
+      "goal": "Meet Rie and cross the classroom threshold.",
+      "dramaticQuestion": "Will the learner step in now or take one more breath?",
+      "learnerNeed": "A warm greeting, a dry towel, and a choice that cannot be failed.",
       "checkpointOnEnter": true,
       "nodes": [
         {
@@ -148,7 +148,7 @@
           "id": "node:opening-arrival:chair-image",
           "beatId": "beat:opening-arrival:open-chair-image",
           "cueId": "cue:open-chair-name-card",
-          "description": "An open chair faces the board. Its blank name card is turned toward the learner, and a dry towel rests beside it."
+          "description": "A dry towel is folded beside the empty chair."
         },
         {
           "kind": "line",
@@ -186,12 +186,12 @@
             "foundation": {
               "japanese": "ゆっくりでいいです。",
               "reading": "ゆっくりでいいです。",
-              "english": "Taking your time is fine."
+              "english": "No rush."
             },
             "n5": {
               "japanese": "急がなくていいですよ。準備ができたら、どうぞ。",
               "reading": "いそがなくていいですよ。じゅんびができたら、どうぞ。",
-              "english": "There is no need to hurry. Come in when you are ready."
+              "english": "No rush. Come in when you are ready."
             }
           },
           "support": {
@@ -204,11 +204,11 @@
           "kind": "choice",
           "id": "choice:opening-arrival:threshold",
           "beatId": "beat:opening-arrival:threshold-choice",
-          "question": "What support would make entering easier?",
+          "question": "What do you do?",
           "options": [
             {
               "id": "option:opening-arrival:enter-quietly",
-              "action": "Enter quietly and take the open chair.",
+              "action": "Go in.",
               "japaneseByBand": {
                 "foundation": "はい。",
                 "n5": "はい。入ります。"
@@ -220,7 +220,7 @@
             },
             {
               "id": "option:opening-arrival:ask-a-moment",
-              "action": "Ask for one moment at the door.",
+              "action": "Take one more moment.",
               "japaneseByBand": {
                 "foundation": "ちょっと待ってください。",
                 "n5": "すみません。少し待ってください。"
@@ -239,13 +239,13 @@
           "id": "node:opening-arrival:threshold-converges",
           "beatId": "beat:opening-arrival:threshold-response",
           "cueId": "cue:rie-makes-space",
-          "description": "Rie steps aside and leaves the doorway clear. The open chair stays open."
+          "description": "Rie holds the door. The chair is still yours."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:opening-arrival:chair-complete",
           "beatId": "beat:opening-arrival:chair-exit",
-          "resume": "The learner is at the classroom threshold with an open place waiting."
+          "resume": "Rie is waiting by the open classroom door."
         }
       ],
       "exit": {
@@ -257,35 +257,35 @@
       "id": "scene:opening-arrival:fiction-notice",
       "locationId": "location:classroom",
       "timeState": "evening",
-      "goal": "Establish the story and consent boundary before the learner shares anything.",
-      "dramaticQuestion": "Can the class promise invention and learner control in plain language?",
-      "learnerNeed": "A replayable statement of what the story may claim and what the learner controls.",
+      "goal": "Let the learner enter class knowing mistakes can be revisited.",
+      "dramaticQuestion": "Can the first class begin without asking the learner to pretend they already understand?",
+      "learnerNeed": "A simple promise from Rie and a useful map for the next step.",
       "checkpointOnEnter": true,
       "nodes": [
         {
           "kind": "stage",
           "id": "node:opening-arrival:notice-card",
           "beatId": "beat:opening-arrival:notice-image",
-          "cueId": "cue:fiction-notice-on-desk",
-          "description": "Rie places a small fiction notice beside the blank name card, not over it."
+          "cueId": "cue:class-map-in-journal",
+          "description": "Rie slips a small campus map into the class journal."
         },
         {
           "kind": "line",
           "id": "line:opening-arrival:rie-fiction",
           "beatId": "beat:opening-arrival:fiction-boundary",
           "speakerId": "rie",
-          "intent": "State that Academy events and dialogue are invented rather than biography.",
-          "attentionTarget": "the fiction notice",
+          "intent": "Make the first evening feel possible without lowering the learner's ambition.",
+          "attentionTarget": "the first page of the class journal",
           "variants": {
             "foundation": {
-              "japanese": "この物語と会話はフィクションです。",
-              "reading": "このものがたりとかいわはフィクションです。",
-              "english": "This story and its dialogue are fiction."
+              "japanese": "だいじょうぶです。いっしょにやりましょう。",
+              "reading": "だいじょうぶです。いっしょにやりましょう。",
+              "english": "It's okay. We'll do it together."
             },
             "n5": {
-              "japanese": "この物語と会話はフィクションです。だれかの本当の出来事ではありません。",
-              "reading": "このものがたりとかいわはフィクションです。だれかのほんとうのできごとではありません。",
-              "english": "This story and its dialogue are fiction. They do not claim anyone's real events."
+              "japanese": "今夜、全部分からなくてもだいじょうぶです。いっしょにやりましょう。",
+              "reading": "こんや、ぜんぶわからなくてもだいじょうぶです。いっしょにやりましょう。",
+              "english": "You don't need to understand everything tonight. We'll do it together."
             }
           },
           "support": {
@@ -299,18 +299,18 @@
           "id": "line:opening-arrival:rie-learner-control",
           "beatId": "beat:opening-arrival:learner-boundary",
           "speakerId": "rie",
-          "intent": "Give the learner control over their name and personal disclosure.",
-          "attentionTarget": "the still-blank name card",
+          "intent": "Tell the learner what to do when something does not make sense.",
+          "attentionTarget": "the back arrow marked on the campus map",
           "variants": {
             "foundation": {
-              "japanese": "名前も、話すことも、あなたが決めます。",
-              "reading": "なまえも、はなすことも、あなたがきめます。",
-              "english": "You decide your name and what you share."
+              "japanese": "わからないときは、もどれます。",
+              "reading": "わからないときは、もどれます。",
+              "english": "If something doesn't make sense, you can go back."
             },
             "n5": {
-              "japanese": "使う名前も、自分について話すことも、あなたが決めます。",
-              "reading": "つかうなまえも、じぶんについてはなすことも、あなたがきめます。",
-              "english": "You decide what name to use and what to say about yourself."
+              "japanese": "分からないところは、いつでも戻って聞けます。",
+              "reading": "わからないところは、いつでももどってきけます。",
+              "english": "You can always go back and listen again."
             }
           },
           "support": {
@@ -323,11 +323,11 @@
           "kind": "choice",
           "id": "choice:opening-arrival:notice-response",
           "beatId": "beat:opening-arrival:notice-response",
-          "question": "What do you want before the story begins?",
+          "question": "Ready?",
           "options": [
             {
               "id": "option:opening-arrival:begin",
-              "action": "Begin the class.",
+              "action": "Open the door.",
               "japaneseByBand": {
                 "foundation": "はい。お願いします。",
                 "n5": "はい。始めましょう。"
@@ -339,10 +339,10 @@
             },
             {
               "id": "option:opening-arrival:keep-notice",
-              "action": "Keep the notice on the desk for now.",
+              "action": "Keep the map nearby.",
               "japaneseByBand": {
-                "foundation": "ここに置いてください。",
-                "n5": "あとで読めるように、ここに置いてください。"
+                "foundation": "地図を持っていきます。",
+                "n5": "地図を持っていきます。"
               },
               "records": [
                 "support-style",
@@ -357,8 +357,33 @@
           "kind": "stage",
           "id": "node:opening-arrival:notice-converges",
           "beatId": "beat:opening-arrival:notice-consequence",
-          "cueId": "cue:notice-remains-replayable",
-          "description": "The notice remains available beside the learner's place. Rie turns toward the class only after the choice."
+          "cueId": "cue:classroom-warm-light",
+          "description": "Rie opens the classroom door. Voices and warm light spill into the hall."
+        },
+        {
+          "kind": "line",
+          "id": "line:opening-arrival:rie-enter",
+          "beatId": "beat:opening-arrival:notice-consequence",
+          "speakerId": "rie",
+          "intent": "Invite the learner into the classroom without adding another instruction.",
+          "attentionTarget": "the open classroom door",
+          "variants": {
+            "foundation": {
+              "japanese": "つきましたね。はいりましょう。",
+              "reading": "つきましたね。はいりましょう。",
+              "english": "You made it. Let's go in."
+            },
+            "n5": {
+              "japanese": "着きましたね。入りましょう。",
+              "reading": "つきましたね。はいりましょう。",
+              "english": "You made it. Let's go in."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "available",
+            "replay": true
+          }
         },
         {
           "kind": "command",
@@ -392,7 +417,7 @@
           "kind": "checkpoint",
           "id": "checkpoint:opening-arrival:complete",
           "beatId": "beat:opening-arrival:bridge-complete",
-          "resume": "The fiction boundary is available in the journal and the first class is ready to begin."
+          "resume": "The campus map is in the journal and the classroom door is open."
         }
       ],
       "exit": {
@@ -421,7 +446,7 @@
     {
       "id": "outcome:opening-arrival:boundary-heard",
       "kind": "journal",
-      "description": "The fiction and learner-control notice remains replayable."
+      "description": "Rie's welcome and the campus map remain replayable."
     }
   ],
   "replay": {
