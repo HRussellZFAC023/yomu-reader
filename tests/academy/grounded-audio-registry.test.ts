@@ -82,7 +82,7 @@ describe('grounded Academy audio registry', () => {
             objects: Array<{ key: string; bytes: number }>;
         };
         const precacheKeys = new Set(AUTHORIZED_AUDIO_PRECACHE_URLS.map(url => (
-            url.replace('/academy/media/audio/', '')
+            `media/audio/${url.replace('/academy/media/audio/', '')}`
         )));
         expect(delivery.objects.filter(object => precacheKeys.has(object.key)).reduce((sum, object) => sum + object.bytes, 0))
             .toBe(378_672_515);

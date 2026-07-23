@@ -2579,6 +2579,7 @@
   };
   const MEDIA_KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
   const MEDIA_ROUTE_PREFIX = "/academy/media/audio/";
+  const STORAGE_AUDIO_PREFIX = "media/audio/";
   const THEME_SLOTS = /* @__PURE__ */ new Set([
     "silence",
     "opening.invitation",
@@ -2644,7 +2645,8 @@
     return manifest;
   }
   function mediaUrlFor(mediaKey) {
-    return `${MEDIA_ROUTE_PREFIX}${mediaKey}`;
+    const routeKey = mediaKey.startsWith(STORAGE_AUDIO_PREFIX) ? mediaKey.slice(STORAGE_AUDIO_PREFIX.length) : mediaKey;
+    return `${MEDIA_ROUTE_PREFIX}${routeKey}`;
   }
   function catalogFromManifest(manifest, releaseMode = true) {
     const overrides = {};
@@ -10135,7 +10137,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     root.dataset.groundedContentRevision = contentRevision;
     root.dataset.groundedCommitState = "pre-commit";
   }
-  const LESSON_ZERO_CONTENT_SHA256 = "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488";
+  const LESSON_ZERO_CONTENT_SHA256 = "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293";
   const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
@@ -10746,7 +10748,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const learnerFacing = learnerFacingCorpus(snapshot);
     for (const kind of answerBearingKinds()) {
       for (const forbidden of forbiddenValues[kind]) {
-        const needle = normalize$5(forbidden);
+        const needle = normalize$6(forbidden);
         if (needle && learnerFacing.some((value) => value.includes(needle))) {
           findings.push({ kind, source: "learner-facing-value", evidence: forbidden });
         }
@@ -10760,7 +10762,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const match of snapshot.matchAll(learnerAttribute)) {
       values.push(decodeHtml(match[1] ?? match[2] ?? ""));
     }
-    return values.map(normalize$5).filter(Boolean);
+    return values.map(normalize$6).filter(Boolean);
   }
   function normalizeForbiddenValues(value) {
     if (!value || typeof value !== "object") throw new TypeError("Surface audit needs all forbidden-value groups.");
@@ -10775,8 +10777,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }));
   }
   function assertRegisteredValuesCovered(audited, registered, label) {
-    const auditedKeys = new Set(audited.map(normalize$5));
-    const missing2 = registered.filter((value) => !auditedKeys.has(normalize$5(value)));
+    const auditedKeys = new Set(audited.map(normalize$6));
+    const missing2 = registered.filter((value) => !auditedKeys.has(normalize$6(value)));
     if (missing2.length) throw new TypeError(`Surface audit omits registered ${label}.`);
   }
   function assertSnapshotBinding(snapshot, context2) {
@@ -10833,7 +10835,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (decoded.includes("&#")) throw new TypeError("Surface audit snapshot contains an unresolved numeric character reference.");
     return decoded;
   }
-  function normalize$5(value) {
+  function normalize$6(value) {
     return value.normalize("NFKC").toLocaleLowerCase("ja-JP").replace(/[\s\p{P}\p{S}]+/gu, "");
   }
   function sameObject$a(left, right) {
@@ -11060,7 +11062,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const schemaVersion = 1;
   const id$1A = "session:lesson-zero-classroom-expressions";
   const contentVersion = "2026-07-13.classroom-expressions.v1";
-  const responseKind = "constructed-japanese";
+  const responseKind$1 = "constructed-japanese";
   const inputMode = "ime";
   const completionPolicy = "all-probes-pass";
   const navigationPolicy = "free-with-resume";
@@ -11958,7 +11960,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     schemaVersion,
     id: id$1A,
     contentVersion,
-    responseKind,
+    responseKind: responseKind$1,
     inputMode,
     completionPolicy,
     navigationPolicy,
@@ -13253,6 +13255,187 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function sameList$6(actual, expected) {
     return Boolean(actual) && actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+  }
+  const LESSON_ZERO_MISSION_ACTIVITY_IDS = [
+    "activity:lesson-zero-text-input",
+    "activity:lesson-zero-speaking-input",
+    "activity:lesson-zero-read-name-cards",
+    "activity:lesson-zero-write-name-card",
+    "activity:lesson-zero-sound-transfer",
+    "activity:lesson-zero-text-transfer",
+    "activity:lesson-zero-speaking-transfer",
+    "activity:lesson-zero-written-transfer",
+    "activity:lesson-zero-close-room"
+  ];
+  function isLessonZeroMissionActivity(activityId) {
+    return Boolean(activityId) && LESSON_ZERO_MISSION_ACTIVITY_IDS.includes(activityId);
+  }
+  function createLessonZeroMissionDefinition(content, activityId, learnerName) {
+    const activity2 = content.lesson.activities.find((candidate2) => candidate2.id === activityId);
+    if (!activity2 || !isLessonZeroMissionActivity(activity2.id)) {
+      throw new TypeError(`Lesson Zero is missing mission activity ${activityId}.`);
+    }
+    const script = activity2.inputScriptId ? content.lesson.inputScripts.find((candidate2) => candidate2.id === activity2.inputScriptId) : void 0;
+    if (activity2.inputScriptId && !script) {
+      throw new TypeError(`Lesson Zero mission ${activityId} is missing ${activity2.inputScriptId}.`);
+    }
+    const audio2 = script ? content.lesson.audioAssets.find((candidate2) => candidate2.id === script.audioAssetId) : void 0;
+    return Object.freeze({
+      activity: Object.freeze({ ...activity2, id: activity2.id }),
+      ...script ? { script } : {},
+      ...audio2?.state === "ready" && audio2.runtimeUrl ? { audioUrl: audio2.runtimeUrl } : {},
+      learnerName: learnerName.normalize("NFKC").trim() || "Learner"
+    });
+  }
+  function evaluateLessonZeroMission(definition2, response, at = Date.now()) {
+    const { activity: activity2 } = definition2;
+    const passed = responsePasses(definition2, response);
+    const outcome = passed ? "pass" : "lapse";
+    const score = passed ? 1 : 0;
+    const errorTags = passed ? [] : [`lesson-zero:${activity2.id.split("-").at(-1)}:repair`];
+    return {
+      attempt: {
+        kind: "attempt-recorded",
+        eventId: `attempt:${activity2.id}:${at}`,
+        at,
+        activityId: activity2.id,
+        ...activity2.sourceQuestionIds[0] ? { sourceQuestionId: activity2.sourceQuestionIds[0] } : {},
+        conceptIds: activity2.conceptIds,
+        responseKind: responseKind(response),
+        outcome,
+        score,
+        ...errorTags.length ? { errorTags } : {}
+      },
+      result: {
+        outcome,
+        score,
+        errorTags,
+        feedback: passed ? passFeedback(activity2.id) : repairFeedback(activity2.id)
+      },
+      reviewSeeds: passed ? reviewSeeds$1(activity2) : []
+    };
+  }
+  function responsePasses(definition2, response) {
+    switch (definition2.activity.id) {
+      case "activity:lesson-zero-text-input":
+        return response.kind === "particle-links" && response.values[0] === "の" && response.values[1] === "も";
+      case "activity:lesson-zero-read-name-cards":
+        return response.kind === "name-card-evidence" && response.personId === "ruparna" && response.lineId === "line:lesson-zero-text-ruparna";
+      case "activity:lesson-zero-write-name-card":
+        return response.kind === "written" && nameCardIsUsable(response.text);
+      case "activity:lesson-zero-text-transfer":
+        return response.kind === "written" && textTransferIsUsable(response.text);
+      case "activity:lesson-zero-written-transfer":
+        return response.kind === "written" && writtenIntroductionIsUsable(response.text);
+      case "activity:lesson-zero-speaking-input":
+      case "activity:lesson-zero-sound-transfer":
+      case "activity:lesson-zero-speaking-transfer":
+        return response.kind === "spoken" && response.performed && requiredChecks(definition2.activity).every((id2) => response.checkIds.includes(id2));
+      case "activity:lesson-zero-close-room":
+        return response.kind === "room-action" && ["finish-or-break", "more-class", "another-lesson", "explore", "study", "end-day"].includes(response.actionId);
+    }
+  }
+  function nameCardIsUsable(value) {
+    const text2 = normalize$5(value);
+    const beforeDesu = text2.split("です")[0]?.replace(/[。.!！?？]/gu, "").trim() ?? "";
+    return beforeDesu.length >= 1 && text2.includes("です");
+  }
+  function textTransferIsUsable(value) {
+    const text2 = normalize$5(value);
+    return text2.length >= 6 && text2.includes("です") && (text2.includes("の") || text2.includes("も"));
+  }
+  function writtenIntroductionIsUsable(value) {
+    const text2 = normalize$5(value);
+    return text2.length >= 8 && text2.includes("です") && (text2.includes("はじめまして") || text2.includes("よろしくお願いします"));
+  }
+  function normalize$5(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, "").trim();
+  }
+  function requiredChecks(activity2) {
+    return activity2.expectedEvidence.rubricIds ?? [];
+  }
+  function responseKind(response) {
+    if (response.kind === "spoken") return response.recorded ? "private-recording-self-check" : "spoken-self-check";
+    if (response.kind === "written") return "learner-ime-production";
+    if (response.kind === "particle-links") return "tapped-particle-reconstruction";
+    if (response.kind === "name-card-evidence") return "tapped-source-line";
+    return "embodied-room-choice";
+  }
+  function passFeedback(activityId) {
+    const copy2 = activityId === "activity:lesson-zero-close-room" ? { en: "Got it. Let’s go.", ja: "わかりました。行きましょう。" } : { en: "That’s it. Let’s keep going.", ja: "できました。続けましょう。" };
+    return { explanation: copy2 };
+  }
+  function repairFeedback(activityId) {
+    if (activityId === "activity:lesson-zero-text-input") {
+      return {
+        explanation: { en: "One gap needs another look.", ja: "空欄をもう一つ確認しましょう。" },
+        repairPrompt: { en: "Use の to join two nouns. Use も for “too”.", ja: "名詞と名詞は「の」でつなぎ、「〜も」は「too」です。" }
+      };
+    }
+    if (activityId === "activity:lesson-zero-read-name-cards") {
+      return {
+        explanation: { en: "That card does not contain the word も.", ja: "その名札には「も」がありません。" },
+        repairPrompt: { en: "Find the line that says this person studies Japanese too.", ja: "「この人も日本語を勉強しています」と書いてある文を探しましょう。" }
+      };
+    }
+    if (activityId === "activity:lesson-zero-write-name-card") {
+      return {
+        explanation: { en: "Add “desu” after your name.", ja: "名札には、名前のあとに「です」が必要です。" },
+        repairPrompt: { en: "Write your name, then add desu (です).", ja: "「あなたの名前＋です。」にしてみましょう。" }
+      };
+    }
+    if (activityId === "activity:lesson-zero-text-transfer") {
+      return {
+        explanation: { en: "Keep it short: one joining word and “desu” are enough.", ja: "短い文で大丈夫です。つなぐことば一つと「です」を使いましょう。" },
+        repairPrompt: { en: "Use no (の) or mo (も), then finish with desu (です).", ja: "「の」か「も」を使い、最後を「です。」にしましょう。" }
+      };
+    }
+    if (activityId === "activity:lesson-zero-written-transfer") {
+      return {
+        explanation: { en: "A classmate needs your hello and your name.", ja: "クラスメイトに、あいさつと名前を残しましょう。" },
+        repairPrompt: { en: "Use hajimemashite, your name + desu, and yoroshiku onegaishimasu.", ja: "「はじめまして」、名前＋「です」、短い結びを使いましょう。" }
+      };
+    }
+    return {
+      explanation: { en: "Keep the turn and try that once more.", ja: "そのまま、もう一度やってみましょう。" },
+      repairPrompt: { en: "Complete each check after you speak.", ja: "話したあとに、一つずつ確認してください。" }
+    };
+  }
+  function reviewSeeds$1(activity2) {
+    const seed = seedFor(activity2.id);
+    if (!seed) return [];
+    return [{
+      id: `review:${activity2.id}`,
+      conceptId: activity2.conceptIds[seed.conceptIndex] ?? activity2.conceptIds[0],
+      reason: "new-learning",
+      ...activity2.sourceQuestionIds[0] ? { sourceQuestionId: activity2.sourceQuestionIds[0] } : {},
+      content: {
+        expression: seed.expression,
+        reading: seed.reading,
+        meanings: [seed.meaning],
+        sentence: seed.expression
+      }
+    }];
+  }
+  function seedFor(activityId) {
+    switch (activityId) {
+      case "activity:lesson-zero-text-input":
+      case "activity:lesson-zero-text-transfer":
+        return { expression: "わたしも学生です。", reading: "わたしもがくせいです", meaning: "I am a student too.", conceptIndex: 1 };
+      case "activity:lesson-zero-speaking-input":
+        return { expression: "お名前は何ですか。", reading: "おなまえはなんですか", meaning: "What is your name?", conceptIndex: 0 };
+      case "activity:lesson-zero-read-name-cards":
+      case "activity:lesson-zero-write-name-card":
+        return { expression: "りえです。", reading: "りえです", meaning: "I'm Rie.", conceptIndex: 0 };
+      case "activity:lesson-zero-sound-transfer":
+        return { expression: "もう一度お願いします。", reading: "もういちどおねがいします", meaning: "One more time, please.", conceptIndex: 1 };
+      case "activity:lesson-zero-speaking-transfer":
+        return { expression: "よろしくお願いします。", reading: "よろしくおねがいします", meaning: "Nice to meet you.", conceptIndex: 0 };
+      case "activity:lesson-zero-written-transfer":
+        return { expression: "はじめまして。", reading: "はじめまして", meaning: "Nice to meet you.", conceptIndex: 0 };
+      case "activity:lesson-zero-close-room":
+        return { expression: "おわりましょう。", reading: "おわりましょう", meaning: "Let's finish.", conceptIndex: 0 };
+    }
   }
   const LESSON_ZERO_NAME_CARD_TOKEN_IDS = Object.freeze([
     "learner-name",
@@ -14823,6 +15006,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         LESSON_ZERO_VOWEL_SOUND_MAP_ID,
         LESSON_ZERO_VOWEL_WRITING_ID,
         ...LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
+        ...LESSON_ZERO_MISSION_ACTIVITY_IDS,
         "activity:lesson-zero-reconstruct-repair",
         "activity:lesson-zero-desk-language",
         "activity:lesson-zero-first-repair:sound",
@@ -50448,7 +50632,7 @@ ${spelling}`);
   const curriculumBinding = {
     lessonId: "lesson:foundation-00",
     contentVersion: "2026-07-22.lesson-zero.v2-sound-mission",
-    contentSha256: "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488",
+    contentSha256: "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293",
     provenancePath: "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     provenanceSha256: "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     sectionSequence: [
@@ -260623,6 +260807,600 @@ ${spelling}`);
     }
     return node2;
   }
+  const TITLES = {
+    "activity:lesson-zero-text-input": { en: "Two missing words", ja: "二つの空欄" },
+    "activity:lesson-zero-speaking-input": { en: "Your turn in the room", ja: "教室で自分の番" },
+    "activity:lesson-zero-read-name-cards": { en: "Find it on the card", ja: "名札から見つける" },
+    "activity:lesson-zero-write-name-card": { en: "Choose your class name", ja: "クラスで使う名前" },
+    "activity:lesson-zero-sound-transfer": { en: "Catch it, then ask again", ja: "聞いて、もう一度たずねる" },
+    "activity:lesson-zero-text-transfer": { en: "Leave one clear line", ja: "短い一文を残す" },
+    "activity:lesson-zero-speaking-transfer": { en: "Welcome the next person", ja: "次の人を迎える" },
+    "activity:lesson-zero-written-transfer": { en: "A note for later", ja: "あとで来る人へのメモ" },
+    "activity:lesson-zero-close-room": { en: "Before you leave", ja: "教室を出る前に" }
+  };
+  const EYEBROWS = {
+    "activity:lesson-zero-text-input": { en: "Sophie & Ruparna · Library", ja: "ソフィーとルパルナ・図書室" },
+    "activity:lesson-zero-speaking-input": { en: "Aakash & Sam · Classroom", ja: "アーカッシュとサム・教室" },
+    "activity:lesson-zero-read-name-cards": { en: "Rie · Name-card desk", ja: "りえ先生・名札の机" },
+    "activity:lesson-zero-write-name-card": { en: "Rie · Your place in class", ja: "りえ先生・クラスでの場所" },
+    "activity:lesson-zero-sound-transfer": { en: "Xingyu & Mika · Language lab", ja: "シンユとミカ・語学室" },
+    "activity:lesson-zero-text-transfer": { en: "Sophie · Library note", ja: "ソフィー・図書室のメモ" },
+    "activity:lesson-zero-speaking-transfer": { en: "Aakash & Sam · Classroom door", ja: "アーカッシュとサム・教室の入口" },
+    "activity:lesson-zero-written-transfer": { en: "Rie · Late-arrival note", ja: "りえ先生・あとで来る人へのメモ" },
+    "activity:lesson-zero-close-room": { en: "Rie · End of class", ja: "りえ先生・授業のおわり" }
+  };
+  const CHECK_LABELS = {
+    "responds-to-question": { en: "I answered Aakash’s question.", ja: "アーカッシュの質問に答えました。" },
+    "repairs-if-needed": { en: "I used もう一度お願いします if I needed another listen.", ja: "必要なら「もう一度お願いします」を使いました。" },
+    "intelligible-name": { en: "My name came clearly before です.", ja: "「です」の前に名前をはっきり言いました。" },
+    "mora-timing": { en: "I kept each beat of the model line.", ja: "見本の一拍ずつを保ちました。" },
+    "repair-language": { en: "I said もう一度お願いします.", ja: "「もう一度お願いします」と言いました。" },
+    "listen-back-reflection": { en: "I listened back, or checked the line once after speaking.", ja: "録音を聞くか、話したあとに一度確認しました。" },
+    greeting: { en: "I opened with はじめまして.", ja: "「はじめまして」で始めました。" },
+    "true-introduction": { en: "I gave the name I want classmates to use.", ja: "クラスで使いたい名前を言いました。" },
+    question: { en: "I asked the next person’s name.", ja: "次の人の名前をたずねました。" },
+    repair: { en: "I knew how to ask for another listen.", ja: "もう一度聞く言い方を使えました。" },
+    closing: { en: "I closed with よろしくお願いします.", ja: "「よろしくお願いします」で結びました。" }
+  };
+  const ACTIONS = [
+    { id: "finish-or-break", label: { en: "Take a short break", ja: "少し休む" }, detail: { en: "Pause here and come back when you’re ready.", ja: "ここまで保存して、準備ができたら戻ります。" } },
+    { id: "more-class", label: { en: "Stay with the class", ja: "クラスに残る" }, detail: { en: "Practise today’s Japanese a little longer.", ja: "今日の日本語をもう少し練習します。" } },
+    { id: "another-lesson", label: { en: "Open the next lesson", ja: "次のレッスンを開く" }, detail: { en: "Keep going while it’s fresh.", ja: "覚えているうちに次へ進みます。" } },
+    { id: "explore", label: { en: "Walk around campus", ja: "校内を歩く" }, detail: { en: "See who is still nearby.", ja: "近くにいる人を探します。" } },
+    { id: "study", label: { en: "Review at a desk", ja: "机で復習する" }, detail: { en: "Practise the parts that need another go.", ja: "もう一度やりたいところを練習します。" } },
+    { id: "end-day", label: { en: "Head home", ja: "帰る" }, detail: { en: "Finish for today. Your place is saved.", ja: "今日はここまで。続きは保存されます。" } }
+  ];
+  function createLessonZeroMissionScreen(options) {
+    const lifecycle = new AbortController();
+    let renderLifecycle = new AbortController();
+    const recorder = options.recorder ?? createPrivatePracticeRecorder();
+    let playback = null;
+    let authoredAudio = null;
+    let capture = null;
+    let recording = null;
+    let performed = false;
+    let attempted = false;
+    let completed = false;
+    let busy = false;
+    let disposed = false;
+    let feedback2 = null;
+    let particleValues = ["", ""];
+    const selectedChecks = /* @__PURE__ */ new Set();
+    const screen = element("section", "academy-screen academy-mission-screen");
+    screen.dataset.academyScreen = "lesson-zero-mission";
+    screen.dataset.activityId = options.definition.activity.id;
+    screen.dataset.responseMode = options.definition.activity.responseMode;
+    screen.append(academyBackgroundPicture(plateFor(options.definition.activity.id)));
+    const shell = element("div", "academy-mission-shell");
+    const header = element("header", "academy-mission-header");
+    const back = backButton(options.language);
+    back.className = "academy-mission-back";
+    back.textContent = "←";
+    back.title = localized2({ en: "Back", ja: "戻る" });
+    back.addEventListener("click", () => void options.onBack(), { signal: lifecycle.signal });
+    const heading = element("div", "academy-mission-heading");
+    heading.append(
+      copyNode("p", "academy-mission-eyebrow", EYEBROWS[options.definition.activity.id]),
+      copyNode("h1", "academy-mission-title", TITLES[options.definition.activity.id])
+    );
+    const step2 = element("p", "academy-mission-step");
+    step2.textContent = localized2({ en: "Day 1", ja: "1日目" });
+    header.append(back, heading, step2);
+    const body = element("main", "academy-mission-body");
+    const live = element("p", "academy-mission-live");
+    live.setAttribute("role", "status");
+    live.setAttribute("aria-live", "polite");
+    shell.append(header, body, live);
+    screen.append(shell);
+    const render2 = () => {
+      renderLifecycle.abort();
+      renderLifecycle = new AbortController();
+      body.replaceChildren();
+      screen.dataset.attempted = String(attempted);
+      screen.dataset.complete = String(completed);
+      const stage2 = element("section", "academy-mission-stage");
+      const portrait2 = portraitFor(options.definition.activity.id);
+      const paper = element("section", "academy-mission-paper");
+      paper.append(element("span", "academy-mission-paperclip"));
+      if (completed) renderComplete(paper, renderLifecycle.signal);
+      else renderActivity2(paper, renderLifecycle.signal);
+      if (portrait2) stage2.append(portrait2);
+      stage2.append(paper);
+      body.append(stage2);
+    };
+    const renderActivity2 = (paper, signal) => {
+      paper.append(
+        copyNode("strong", "academy-mission-speaker", hostFor(options.definition.activity.id)),
+        copyNode("p", "academy-mission-prompt", options.definition.activity.prompt)
+      );
+      switch (options.definition.activity.id) {
+        case "activity:lesson-zero-text-input":
+          paper.append(renderParticleTask(signal));
+          break;
+        case "activity:lesson-zero-read-name-cards":
+          paper.append(renderNameCardReading(signal));
+          break;
+        case "activity:lesson-zero-write-name-card":
+        case "activity:lesson-zero-text-transfer":
+        case "activity:lesson-zero-written-transfer":
+          paper.append(renderWritingTask(signal));
+          break;
+        case "activity:lesson-zero-speaking-input":
+        case "activity:lesson-zero-sound-transfer":
+        case "activity:lesson-zero-speaking-transfer":
+          paper.append(renderSpeakingTask(signal));
+          break;
+        case "activity:lesson-zero-close-room":
+          paper.append(renderRoomChoice(signal));
+          break;
+      }
+      if (feedback2) paper.append(feedbackBlock(feedback2, signal));
+    };
+    const renderParticleTask = (signal) => {
+      const root = element("section", "academy-mission-particle-task");
+      root.append(copyNode("p", "academy-mission-help", {
+        en: "Look at the words on each side. Choose one small word for each gap.",
+        ja: "前後のことばを見て、空欄に一つずつ入れましょう。"
+      }));
+      if (attempted && options.definition.audioUrl) {
+        root.append(authoredAudioButton(
+          { en: "Hear Sophie and Ruparna", ja: "ソフィーとルパルナを聞く" },
+          signal
+        ));
+      }
+      const lines = [
+        ["これは Sophie", "名札です。"],
+        ["Ruparnaです。わたし", "日本語を勉強しています。"]
+      ];
+      lines.forEach((parts, slot) => {
+        const row = element("div", "academy-mission-particle-row");
+        row.append(japanese2(parts[0]), particleSlot(slot), japanese2(parts[1]));
+        root.append(row);
+      });
+      const bank = element("div", "academy-mission-particle-bank");
+      bank.setAttribute("role", "group");
+      bank.setAttribute("aria-label", localized2({ en: "Particle choices", ja: "助詞の選択肢" }));
+      ["も", "を", "の", "は"].forEach((value, index) => {
+        const button2 = actionButton2({ en: value, ja: value }, "choice", signal, () => {
+          const slot = particleValues[0] ? 1 : 0;
+          particleValues[slot] = value;
+          feedback2 = null;
+          render2();
+        });
+        button2.dataset.choiceToken = choiceToken(index);
+        button2.disabled = particleValues.every(Boolean);
+        bank.append(button2);
+      });
+      const reset = actionButton2({ en: "Clear", ja: "やり直す" }, "quiet", signal, () => {
+        particleValues = ["", ""];
+        feedback2 = null;
+        render2();
+      });
+      const check2 = actionButton2({ en: "Check the note", ja: "メモを確認する" }, "primary", signal, () => submit2({
+        kind: "particle-links",
+        values: particleValues
+      }));
+      check2.disabled = !particleValues.every(Boolean);
+      const actions = element("div", "academy-mission-actions");
+      actions.append(bank, reset, check2);
+      root.append(actions);
+      return root;
+    };
+    const particleSlot = (slot) => {
+      const button2 = element("button", "academy-mission-particle-slot");
+      button2.type = "button";
+      button2.textContent = particleValues[slot] || "＿";
+      button2.setAttribute("aria-label", particleValues[slot] ? localized2({ en: `Remove ${particleValues[slot]}`, ja: `${particleValues[slot]}を外す` }) : localized2({ en: `Empty gap ${slot + 1}`, ja: `空欄${slot + 1}` }));
+      button2.addEventListener("click", () => {
+        particleValues[slot] = "";
+        feedback2 = null;
+        render2();
+      }, { signal: renderLifecycle.signal });
+      return button2;
+    };
+    const renderNameCardReading = (signal) => {
+      const root = element("section", "academy-mission-card-reading");
+      root.append(copyNode("p", "academy-mission-question", {
+        en: "Rie asks: “Who says they study Japanese too?” Find the line with も.",
+        ja: "りえ先生：「『わたしも』と言っているのはだれですか。」"
+      }));
+      const cards = element("div", "academy-mission-name-cards");
+      const rows = [
+        { personId: "sophie", name: "Sophie", lineId: "line:lesson-zero-text-sophie", line: "日本語を勉強しています。" },
+        { personId: "ruparna", name: "Ruparna", lineId: "line:lesson-zero-text-ruparna", line: "わたしも日本語を勉強しています。" }
+      ];
+      rows.forEach((row, index) => {
+        const card = element("button", "academy-mission-name-card");
+        card.type = "button";
+        card.dataset.choiceToken = choiceToken(index);
+        card.append(
+          textNode2(row.name, "academy-mission-card-name"),
+          japanese2(`${row.name}です。`),
+          japanese2(row.line),
+          copyNode("span", "academy-mission-card-action", { en: "Use this line →", ja: "この文を使う →" })
+        );
+        card.addEventListener("click", () => void submit2({
+          kind: "name-card-evidence",
+          personId: row.personId,
+          lineId: row.lineId
+        }), { signal });
+        cards.append(card);
+      });
+      root.append(cards);
+      return root;
+    };
+    const renderWritingTask = (signal) => {
+      const root = element("form", "academy-mission-writing");
+      const id2 = options.definition.activity.id;
+      const isName = id2 === "activity:lesson-zero-write-name-card";
+      const labelCopy = isName ? { en: "The name you want classmates to use", ja: "クラスで使いたい名前" } : { en: "Your line", ja: "あなたの一文" };
+      const label = copyNode("label", "academy-mission-writing-label", labelCopy);
+      label.htmlFor = "academy-mission-writing-input";
+      const input2 = isName ? element("input", "academy-mission-writing-input") : element("textarea", "academy-mission-writing-input");
+      input2.id = "academy-mission-writing-input";
+      input2.autocomplete = "off";
+      input2.spellcheck = false;
+      if (input2 instanceof HTMLInputElement) {
+        input2.type = "text";
+        input2.maxLength = 40;
+        input2.placeholder = localized2({ en: "Katakana or your usual spelling", ja: "カタカナ、またはいつものつづり" });
+      } else {
+        input2.rows = 4;
+        input2.maxLength = 180;
+        input2.placeholder = id2 === "activity:lesson-zero-written-transfer" ? localized2({ en: "はじめまして。…です。…", ja: "はじめまして。…です。…" }) : localized2({ en: "A short Japanese sentence", ja: "短い日本語の文" });
+      }
+      const preview = element("p", "academy-mission-writing-preview");
+      const updatePreview = () => {
+        if (!isName) return;
+        preview.replaceChildren(japanese2(`${input2.value.trim() || "＿＿"}です。`));
+      };
+      input2.addEventListener("input", updatePreview, { signal });
+      updatePreview();
+      root.append(label, input2);
+      if (isName) {
+        root.append(
+          preview,
+          copyNode("p", "academy-mission-help", {
+            en: "Use katakana if you know it. Your usual spelling is fine too. Rie will read the card with you.",
+            ja: "カタカナでも、今使っているつづりでも大丈夫です。"
+          })
+        );
+      } else if (attempted) {
+        if (options.definition.audioUrl) {
+          root.append(authoredAudioButton(
+            { en: "Hear the class note", ja: "クラスのメモを聞く" },
+            signal
+          ));
+        }
+        root.append(writingPattern(id2));
+      }
+      const send = actionButton2({ en: isName ? "Put it on the desk" : "Leave the line", ja: isName ? "机に置く" : "一文を残す" }, "primary", signal, () => void 0);
+      send.type = "submit";
+      root.append(send);
+      root.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = input2.value.trim();
+        void submit2({ kind: "written", text: isName ? `${value}です。` : value });
+      }, { signal });
+      return root;
+    };
+    const renderSpeakingTask = (signal) => {
+      const root = element("section", "academy-mission-speaking");
+      root.append(copyNode("p", "academy-mission-help", speakingSetup(options.definition.activity.id)));
+      if (options.definition.audioUrl) {
+        root.append(authoredAudioButton(
+          { en: "Hear the exchange", ja: "会話を聞く" },
+          signal
+        ));
+      } else {
+        root.append(actionButton2({ en: "Hear the key line", ja: "大事な文を聞く" }, "listen", signal, playKeyLine));
+      }
+      if (attempted) root.append(transcriptReveal());
+      if (!performed && !capture && !recording) {
+        const modes = element("div", "academy-mission-speaking-modes");
+        if (recorder.supported) {
+          modes.append(actionButton2({ en: "Record privately", ja: "端末だけで録音する" }, "record", signal, startRecording));
+        }
+        modes.append(actionButton2({ en: "Speak without recording", ja: "録音せずに話す" }, "primary", signal, () => {
+          performed = true;
+          render2();
+        }));
+        root.append(modes, copyNode("p", "academy-mission-privacy", {
+          en: "Private takes stay in memory and disappear when you leave this screen.",
+          ja: "録音はこの画面のメモリだけに残り、画面を出ると消えます。"
+        }));
+      } else if (capture) {
+        root.append(
+          copyNode("p", "academy-mission-recording-status", { en: "Recording…", ja: "録音中…" }),
+          actionButton2({ en: "Stop", ja: "止める" }, "record", signal, () => capture?.stop())
+        );
+      } else if (recording) {
+        const audio2 = element("audio", "academy-mission-take");
+        audio2.controls = true;
+        audio2.preload = "metadata";
+        audio2.src = recording.url;
+        root.append(
+          copyNode("p", "academy-mission-take-label", { en: "Your take", ja: "あなたの録音" }),
+          audio2,
+          actionButton2({ en: "Another take", ja: "もう一度録音する" }, "quiet", signal, startRecording)
+        );
+      }
+      if (performed || recording) root.append(selfCheck(signal));
+      return root;
+    };
+    const selfCheck = (signal) => {
+      const fieldset = element("fieldset", "academy-mission-self-check");
+      fieldset.append(copyNode("legend", "academy-mission-self-check-title", { en: "Check your turn", ja: "自分の番を確認する" }));
+      for (const id2 of options.definition.activity.expectedEvidence.rubricIds ?? []) {
+        const label = element("label", "academy-mission-check");
+        const input2 = element("input");
+        input2.type = "checkbox";
+        input2.checked = selectedChecks.has(id2);
+        input2.addEventListener("change", () => {
+          if (input2.checked) selectedChecks.add(id2);
+          else selectedChecks.delete(id2);
+        }, { signal });
+        label.append(input2, copyNode("span", "", CHECK_LABELS[id2] ?? { en: id2, ja: id2 }));
+        fieldset.append(label);
+      }
+      fieldset.append(actionButton2({ en: "Keep this turn", ja: "この番を残す" }, "primary", signal, () => submit2({
+        kind: "spoken",
+        performed: performed || Boolean(recording),
+        checkIds: [...selectedChecks],
+        recorded: Boolean(recording)
+      })));
+      return fieldset;
+    };
+    const renderRoomChoice = (signal) => {
+      const root = element("section", "academy-mission-room-choice");
+      root.append(
+        actionButton2({ en: "Hear Rie", ja: "りえ先生を聞く" }, "listen", signal, () => playPhrase("おわりましょう。", "おわりましょう")),
+        copyNode("p", "academy-mission-question", { en: "Class is over. What would you like to do?", ja: "授業が終わりました。次に何をしますか。" })
+      );
+      const choices2 = element("div", "academy-mission-room-actions");
+      ACTIONS.forEach((action2, index) => {
+        const button2 = element("button", "academy-mission-room-action");
+        button2.type = "button";
+        button2.dataset.choiceToken = choiceToken(index);
+        button2.append(copyNode("strong", "", action2.label), copyNode("span", "", action2.detail));
+        button2.addEventListener("click", () => void submit2({ kind: "room-action", actionId: action2.id }), { signal });
+        choices2.append(button2);
+      });
+      root.append(choices2);
+      return root;
+    };
+    const renderComplete = (paper, signal) => {
+      paper.dataset.outcome = "pass";
+      paper.append(
+        copyNode("strong", "academy-mission-speaker", hostFor(options.definition.activity.id)),
+        copyNode("h2", "academy-mission-complete-title", { en: "Done.", ja: "できました。" }),
+        copyNode("p", "academy-mission-complete-copy", feedback2?.explanation ?? {
+          en: "Ready when you are.",
+          ja: "準備ができたら戻りましょう。"
+        })
+      );
+      if (options.definition.audioUrl) {
+        paper.append(authoredAudioButton(
+          { en: "Hear it again", ja: "もう一度聞く" },
+          signal
+        ));
+      }
+      paper.append(actionButton2(
+        { en: "Back to the story", ja: "物語に戻る" },
+        "primary",
+        signal,
+        options.onComplete
+      ));
+    };
+    const feedbackBlock = (value, signal) => {
+      const block = element("section", "academy-mission-feedback");
+      block.dataset.outcome = "lapse";
+      block.setAttribute("role", "status");
+      block.append(copyNode("strong", "", value.explanation));
+      if (value.repairPrompt) block.append(copyNode("p", "", value.repairPrompt));
+      block.append(actionButton2({ en: "Try again", ja: "もう一度" }, "quiet", signal, () => {
+        feedback2 = null;
+        render2();
+      }));
+      return block;
+    };
+    const submit2 = async (response) => {
+      if (busy || disposed) return;
+      busy = true;
+      screen.setAttribute("aria-busy", "true");
+      try {
+        const evaluation = evaluateLessonZeroMission(options.definition, response);
+        await options.onEvaluation(evaluation, response);
+        attempted = true;
+        feedback2 = evaluation.result.feedback;
+        completed = evaluation.result.outcome === "pass";
+        live.textContent = feedback2.explanation[options.language];
+        render2();
+      } catch (error) {
+        console.error("Lesson Zero mission evidence did not save.", error);
+        live.textContent = localized2({ en: "That did not save. Try once more.", ja: "保存できませんでした。もう一度お試しください。" });
+      } finally {
+        busy = false;
+        screen.removeAttribute("aria-busy");
+      }
+    };
+    const startRecording = async () => {
+      if (busy || disposed) return;
+      try {
+        recording?.dispose();
+        recording = null;
+        capture = await recorder.start();
+        performed = true;
+        render2();
+        const take = await capture.completion;
+        capture = null;
+        if (disposed) take?.dispose();
+        else {
+          recording = take;
+          render2();
+        }
+      } catch {
+        capture = null;
+        live.textContent = localized2({ en: "The microphone is unavailable. You can speak without recording.", ja: "マイクを使えません。録音せずに話せます。" });
+        render2();
+      }
+    };
+    const playKeyLine = () => {
+      const id2 = options.definition.activity.id;
+      if (id2 === "activity:lesson-zero-sound-transfer") {
+        return playPhrase("もう一度お願いします。", "もういちどおねがいします");
+      }
+      return playPhrase("お名前は何ですか。", "おなまえはなんですか");
+    };
+    const playPhrase = async (term, reading) => {
+      stopAuthoredAudio();
+      playback?.dispose();
+      playback = await options.pronunciation.play(term, reading);
+    };
+    const authoredAudioButton = (label, signal) => actionButton2(label, "listen", signal, async () => {
+      playback?.dispose();
+      playback = null;
+      stopAuthoredAudio();
+      authoredAudio = new Audio(options.definition.audioUrl);
+      authoredAudio.preload = "auto";
+      authoredAudio.addEventListener("playing", () => {
+        live.textContent = localized2({ en: "Listen for the turn.", ja: "会話の流れを聞きましょう。" });
+      }, { signal });
+      authoredAudio.addEventListener("ended", () => {
+        live.textContent = localized2({ en: "Now take your turn.", ja: "次はあなたの番です。" });
+      }, { signal });
+      await authoredAudio.play();
+    });
+    const stopAuthoredAudio = () => {
+      if (!authoredAudio) return;
+      authoredAudio.pause();
+      authoredAudio.removeAttribute("src");
+      authoredAudio.load();
+      authoredAudio = null;
+    };
+    render2();
+    return {
+      element: screen,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        lifecycle.abort();
+        renderLifecycle.abort();
+        stopAuthoredAudio();
+        playback?.dispose();
+        recording?.dispose();
+        capture?.cancel();
+        recorder.dispose();
+      }
+    };
+    function localized2(value) {
+      return value[options.language];
+    }
+    function copyNode(tag, className, value) {
+      const node2 = element(tag, className);
+      node2.textContent = localized2(value);
+      node2.lang = options.language;
+      if (options.language === "ja") {
+        node2.dataset.yomuRuntimeSurface = "lesson-zero-mission-copy";
+        node2.dataset.yomuFuriganaMode = "all";
+      } else {
+        node2.dataset.jpdbReaderSurfaceIgnore = "";
+      }
+      return node2;
+    }
+    function japanese2(value) {
+      const node2 = element("span", "academy-mission-japanese");
+      node2.lang = "ja";
+      node2.dataset.yomuRuntimeSurface = "lesson-zero-mission-japanese";
+      node2.dataset.yomuFuriganaMode = "all";
+      node2.textContent = value;
+      return node2;
+    }
+    function textNode2(value, className = "") {
+      const node2 = element("span", className);
+      node2.textContent = value;
+      node2.dataset.jpdbReaderSurfaceIgnore = "";
+      return node2;
+    }
+    function actionButton2(copy2, variant2, signal, action2) {
+      const button2 = element("button", `academy-mission-action academy-mission-action-${variant2}`);
+      button2.type = "button";
+      button2.textContent = localized2(copy2);
+      button2.setAttribute("aria-label", localized2(copy2));
+      button2.addEventListener("click", () => void action2(), { signal });
+      return button2;
+    }
+    function writingPattern(id2) {
+      const root = element("section", "academy-mission-pattern");
+      if (id2 === "activity:lesson-zero-written-transfer") {
+        root.append(japanese2("はじめまして。＿＿です。よろしくお願いします。"));
+      } else {
+        root.append(japanese2("＿＿も＿＿です。"), japanese2("＿＿の＿＿です。"));
+      }
+      return root;
+    }
+    function transcriptReveal() {
+      const root = element("details", "academy-mission-transcript");
+      root.open = true;
+      root.append(copyNode("summary", "", { en: "Exchange", ja: "会話" }));
+      options.definition.script?.lines.forEach((line2) => {
+        const row = element("p");
+        row.append(textNode2(`${line2.speakerId}: `), japanese2(line2.japanese));
+        root.append(row);
+      });
+      return root;
+    }
+  }
+  function plateFor(id2) {
+    if (id2.includes("text") || id2.includes("name-card") || id2.includes("written")) return "library";
+    if (id2.includes("sound")) return "languageLab";
+    return "classroom";
+  }
+  function portraitFor(id2) {
+    let source2;
+    let alt = "";
+    if (id2.includes("text")) {
+      source2 = ACADEMY_ASSETS.characters.approved.sophie;
+      alt = "Sophie";
+    } else if (id2.includes("speaking")) {
+      source2 = ACADEMY_ASSETS.characters.approved.aakash;
+      alt = "Aakash";
+    } else if (id2.includes("sound")) {
+      source2 = ACADEMY_ASSETS.characters.approved.mika;
+      alt = "Mika";
+    } else {
+      source2 = ACADEMY_ASSETS.characters.approved.rie;
+      alt = "Rie-sensei";
+    }
+    const image = element("img", "academy-mission-portrait");
+    image.src = source2;
+    image.alt = alt;
+    return image;
+  }
+  function hostFor(id2) {
+    if (id2.includes("text")) return { en: "Sophie", ja: "ソフィー" };
+    if (id2.includes("speaking")) return { en: "Aakash", ja: "アーカッシュ" };
+    if (id2.includes("sound")) return { en: "Mika", ja: "ミカ" };
+    return { en: "Rie-sensei", ja: "りえ先生" };
+  }
+  function speakingSetup(id2) {
+    if (id2 === "activity:lesson-zero-sound-transfer") {
+      return {
+        en: "Shadow one introduction. Then use もう一度お願いします to ask for the part you missed.",
+        ja: "自己紹介を一つまねしてから、「もう一度お願いします」と言いましょう。"
+      };
+    }
+    if (id2 === "activity:lesson-zero-speaking-transfer") {
+      return {
+        en: "Greet the next person, give your name, ask theirs, and keep もう一度お願いします ready.",
+        ja: "次の人にあいさつし、名前を言って、相手の名前をたずねましょう。"
+      };
+    }
+    return {
+      en: "Listen first. When Aakash asks your name, say your name followed by “desu”.",
+      ja: "アーカッシュとサムを聞いて、質問のあとに「名前＋です」で答えましょう。"
+    };
+  }
   const COPY$3 = {
     eyebrow: { en: "First sentences", ja: "はじめての文" },
     title: { en: "Make the room answer back", ja: "教室と話してみよう" },
@@ -262773,6 +263551,10 @@ ${spelling}`);
         await this.renderClassroomInstructionSession(context2);
         return;
       }
+      if (isLessonZeroMissionActivity(context2.checkpoint.activityId)) {
+        await this.renderLessonZeroMission(context2.checkpoint.activityId, context2);
+        return;
+      }
       const fork = context2.checkpoint.selectedFork ?? "text";
       const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
       if (fork === "text") {
@@ -262813,6 +263595,42 @@ ${spelling}`);
         returning,
         (support2) => this.options.evidence.recordSupportUse(support2.activityId, support2.supportKind, support2.choiceId)
       ));
+    }
+    async renderLessonZeroMission(activityId, context2) {
+      const content = await loadLessonZeroContent();
+      const definition2 = createLessonZeroMissionDefinition(
+        content,
+        activityId,
+        context2.projection.profile?.displayName ?? ""
+      );
+      const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+      const screen = createLessonZeroMissionScreen({
+        language: context2.language,
+        definition: definition2,
+        pronunciation: this.options.pronunciation,
+        onEvaluation: async (evaluation, response) => {
+          this.playFeedbackSfx(evaluation.result.outcome);
+          await this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID);
+          if (evaluation.result.outcome === "pass" && activityId === "activity:lesson-zero-write-name-card" && response.kind === "written") {
+            await this.saveLessonZeroClassName(response, context2);
+          }
+        },
+        onBack: () => context2.back(),
+        onComplete: () => this.completeSourceActivity(context2, returning)
+      });
+      screen.element.dataset.academyRoute = "source-activity";
+      screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
+      context2.shell.replace(screen.element);
+    }
+    async saveLessonZeroClassName(response, context2) {
+      const displayName2 = response.text.normalize("NFKC").split("です")[0]?.replace(/[。.!！?？]/gu, "").trim();
+      if (!displayName2) return;
+      const current = context2.projection.profile;
+      await this.options.evidence.saveProfile({
+        displayName: displayName2,
+        learningReason: current?.learningReason ?? "",
+        portraitId: current?.portraitId ?? "quality-2"
+      });
     }
     async renderClassroomExpressionSession(activityId, context2) {
       const [definition2, content] = await Promise.all([
@@ -263479,8 +264297,13 @@ ${spelling}`);
       boundActivityIds: /* @__PURE__ */ new Set([
         LESSON_ZERO_GREETING_ACTIVITY_ID,
         LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+        LESSON_ZERO_VOWEL_WRITING_ID,
         LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
-        ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS
+        ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
+        LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
+        LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
+        LESSON_ZERO_SOUND_ACTIVITY_ID,
+        ...LESSON_ZERO_MISSION_ACTIVITY_IDS
       ]),
       attemptedActivityIds,
       completedActivityIds,

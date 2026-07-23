@@ -15,6 +15,7 @@ import {
 } from './lesson-zero-follow-instructions';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { LESSON_ZERO_GREETING_ACTIVITY_ID } from './lesson-zero-greeting';
+import { LESSON_ZERO_MISSION_ACTIVITY_IDS } from './lesson-zero-mission-activity';
 import { LESSON_ZERO_NAME_CARD_ACTIVITY_ID } from './lesson-zero-name-card';
 import {
     LESSON_ZERO_SENTENCE_FRAME_CHILD_ACTIVITY_IDS,
@@ -160,6 +161,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
             LESSON_ZERO_VOWEL_SOUND_MAP_ID,
             LESSON_ZERO_VOWEL_WRITING_ID,
             ...LESSON_ZERO_VOWEL_WRITING_CHILD_ACTIVITY_IDS,
+            ...LESSON_ZERO_MISSION_ACTIVITY_IDS,
             'activity:lesson-zero-reconstruct-repair',
             'activity:lesson-zero-desk-language',
             'activity:lesson-zero-first-repair:sound',

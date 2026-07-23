@@ -32,7 +32,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelectorAll('.academy-lesson-overview-goal')).toHaveLength(5);
         expect(screen.textContent).toContain('Classroom language handout');
         expect(screen.textContent).toContain('Name card');
-        expect(screen.textContent).not.toContain('Class introductions');
+        expect(screen.textContent).toContain('Class introductions');
         expect(screen.querySelector('.academy-lesson-overview-prerequisite')?.textContent)
             .toContain('No prerequisites. Lesson 0 starts from the beginning.');
         expect(screen.querySelector('.academy-lesson-overview-progress')).toBeNull();

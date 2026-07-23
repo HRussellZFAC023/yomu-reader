@@ -225,6 +225,84 @@ describe('Academy lesson flow', () => {
         }));
     });
 
+    it('returns an exact Lesson Zero mission to the same story cursor', async () => {
+        const sectionId = serializeStoryCursor({
+            version: 1,
+            arcId: 'story:lesson-zero-opening',
+            sceneId: 'scene:lesson-zero-library',
+            nodeId: 'node:lesson-zero-text-input',
+            choices: {},
+        });
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-text-input',
+            sectionId,
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-mission');
+        clickButton(route.shell.current!, 'の');
+        clickButton(route.shell.current!, 'も');
+        clickButton(route.shell.current!, 'Check the note');
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-text-input',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+        ));
+        await vi.waitFor(() => expect(
+            [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+                .some(button => button.textContent?.trim() === 'Back to the story'),
+        ).toBe(true));
+        clickButton(route.shell.current!, 'Back to the story');
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('story', {
+            sectionId,
+            lessonId: undefined,
+            activityId: undefined,
+        }));
+    });
+
+    it('persists the name chosen on the final class card', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-write-name-card',
+        }, {
+            ...projectLearnerRecord([]),
+            profile: { displayName: 'Old profile', learningReason: 'Read manga', portraitId: 'quality-3' },
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const saveProfile = vi.fn(async () => ({ firstIntroduction: false }));
+        const flow = createLessonFlow({
+            evidence: { recordActivity, saveProfile, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-mission-writing-input')!;
+        input.value = 'ヘンリー';
+        route.shell.current?.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+        await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({
+            displayName: 'ヘンリー',
+            learningReason: 'Read manga',
+            portraitId: 'quality-3',
+        }));
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),
+            'lesson:foundation-00',
+        );
+    });
+
     it('routes the first greeting through named, resumable learning evidence', async () => {
         const projection = projectLearnerRecord([{
             schemaVersion: 1,

@@ -657,7 +657,10 @@ function worldFlow() {
     return createWorldFlow({
         evidence: {} as never,
         pronunciation: {} as never,
-        audio: {} as never,
+        audio: {
+            playSfx: vi.fn(),
+            setTheme: vi.fn(async () => undefined),
+        } as never,
     });
 }
 

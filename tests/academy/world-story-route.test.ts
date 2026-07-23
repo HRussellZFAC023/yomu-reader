@@ -34,7 +34,7 @@ describe('World Story route', () => {
         const flow = createWorldFlow({
             evidence: { history: async () => [] } as never,
             pronunciation: {} as never,
-            audio: {} as never,
+            audio: silentStoryAudio() as never,
         });
 
         await flow.render('story', {
@@ -78,6 +78,7 @@ describe('World Story route', () => {
             evidence: { recordEncounter } as never,
             pronunciation: {} as never,
             audio: {
+                ...silentStoryAudio(),
                 state: 'ready',
                 settings: { muted: true, volumes: { music: 1, ambience: 1, lesson: 1, sfx: 1 } },
                 onEvent: () => () => undefined,
@@ -161,7 +162,7 @@ describe('World Story route', () => {
         const flow = createWorldFlow({
             evidence,
             pronunciation: {} as never,
-            audio: {} as never,
+            audio: silentStoryAudio() as never,
         });
         const historyBeforeContinue = await evidence.history();
 
@@ -387,7 +388,7 @@ async function createStoryRouteHarness() {
         setLanguage() {}, setNavigation() {}, setLearnerActionsVisible() {}, setClassBoardAccess() {},
         setPresentationMode() {}, setMuted() {}, announce() {}, dispose() {},
     } satisfies AcademyShell;
-    const flow = createWorldFlow({ evidence, pronunciation: {} as never, audio: {} as never });
+    const flow = createWorldFlow({ evidence, pronunciation: {} as never, audio: silentStoryAudio() as never });
     const save = vi.fn(async (update: Partial<AcademyCheckpoint>) => {
         checkpoint = { ...checkpoint, ...update, updatedAt: checkpoint.updatedAt + 1 };
     });
@@ -416,5 +417,12 @@ async function createStoryRouteHarness() {
                 save: save as never,
             });
         },
+    };
+}
+
+function silentStoryAudio() {
+    return {
+        playSfx: vi.fn(),
+        setTheme: vi.fn(async () => undefined),
     };
 }

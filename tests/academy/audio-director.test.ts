@@ -75,7 +75,7 @@ describe('audio director', () => {
         expect(sfx.calls).toEqual(['unlock']);
         expect(music.track).toBe('persona.royal-days');
         expect(AUTHORIZED_AUDIO_CATALOG['campus.evening'].music?.url)
-            .toBe('/academy/media/audio/media/audio/v1/persona/royal-days.flac');
+            .toBe('/academy/media/audio/v1/persona/royal-days.flac');
 
         await director.setTheme('cafe.social');
         expect(music.track).toBe('persona.kichijoji-199x');

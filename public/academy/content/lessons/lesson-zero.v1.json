@@ -257,7 +257,7 @@
           "id": "material:lesson-zero-dialogue-audio",
           "kind": "dialogue-audio",
           "title": { "en": "Class introductions", "ja": "クラスの自己紹介" },
-          "state": "release-blocked",
+          "state": "ready",
           "activityIds": [
             "activity:lesson-zero-vowel-listen",
             "activity:lesson-zero-sound-input",
@@ -266,8 +266,7 @@
             "activity:lesson-zero-sound-transfer",
             "activity:lesson-zero-text-transfer",
             "activity:lesson-zero-speaking-transfer"
-          ],
-          "blockerId": "blocker:lesson-zero-verified-dialogue-audio"
+          ]
         }
       ]
     },
@@ -491,7 +490,7 @@
         "responseMode": "reconstruct",
         "assessed": true,
         "production": false,
-        "prompt": { "en": "Read the note. Restore the two missing sentence links.", "ja": "メモを読んで、二つの空欄に助詞を入れてください。" },
+        "prompt": { "en": "Sophie left two gaps in the note. Complete both sentences.", "ja": "ソフィーのメモにある二つの空欄を埋めてください。" },
         "conceptIds": ["concept:introduction-reading", "concept:noun-link-no", "concept:parallel-mo"],
         "sourceQuestionIds": [],
         "inputScriptId": "input:lesson-zero-text-hosts",
@@ -504,7 +503,7 @@
         "responseMode": "voice",
         "assessed": true,
         "production": true,
-        "prompt": { "en": "Take the open turn in the introduction.", "ja": "自己紹介を聞いて、自分の番になったら話してください。" },
+        "prompt": { "en": "Aakash is about to ask your name. Answer when you hear the question.", "ja": "アーカッシュが名前をたずねます。質問を聞いたら答えてください。" },
         "conceptIds": ["concept:introduction-turn-taking", "concept:copula-question", "concept:copula-negative"],
         "sourceQuestionIds": ["source-question:classroom-phrase-08", "source-question:classroom-phrase-09"],
         "inputScriptId": "input:lesson-zero-speaking-hosts",
@@ -529,7 +528,7 @@
         "responseMode": "ime",
         "assessed": true,
         "production": true,
-        "prompt": { "en": "Write your final name card for the desk.", "ja": "机に置く自分の名札を書いてください。" },
+        "prompt": { "en": "Write the name you want us to use.", "ja": "クラスで呼んでほしい名前を書いてください。" },
         "conceptIds": ["concept:functional-name-card-writing", "concept:sentence-frame-production"],
         "sourceQuestionIds": ["source-question:classroom-phrase-07"],
         "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["greeting", "name", "chosen-facts", "closing"] },
@@ -606,7 +605,7 @@
         "audioAssetId": "audio:lesson-zero-vowel-row",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "id": "line:lesson-zero-vowel-row", "speakerId": "xingyu", "japanese": "あ・い・う・え・お", "reading": "あ・い・う・え・お", "english": "a, i, u, e, o" }
+          { "id": "line:lesson-zero-vowel-row", "speakerId": "xingyu", "audioAssetId": "audio:lesson-zero-vowel-row", "japanese": "あ・い・う・え・お", "reading": "あ・い・う・え・お", "english": "a, i, u, e, o" }
         ]
       },
       {
@@ -625,8 +624,8 @@
         "audioAssetId": "audio:lesson-zero-text-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "id": "line:lesson-zero-text-sophie", "speakerId": "sophie", "japanese": "はじめまして。Sophieです。日本語を勉強しています。", "reading": "はじめまして。Sophieです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Sophie. I'm studying Japanese." },
-          { "id": "line:lesson-zero-text-ruparna", "speakerId": "ruparna", "japanese": "Ruparnaです。わたしも日本語を勉強しています。", "reading": "Ruparnaです。わたしもにほんごをべんきょうしています。", "english": "I'm Ruparna. I'm studying Japanese too." }
+          { "id": "line:lesson-zero-text-sophie", "speakerId": "sophie", "audioAssetId": "audio:lesson-zero-text-sophie", "japanese": "はじめまして。Sophieです。日本語を勉強しています。", "reading": "はじめまして。Sophieです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Sophie. I'm studying Japanese." },
+          { "id": "line:lesson-zero-text-ruparna", "speakerId": "ruparna", "audioAssetId": "audio:lesson-zero-text-ruparna", "japanese": "Ruparnaです。わたしも日本語を勉強しています。", "reading": "Ruparnaです。わたしもにほんごをべんきょうしています。", "english": "I'm Ruparna. I'm studying Japanese too." }
         ]
       },
       {
@@ -635,9 +634,9 @@
         "audioAssetId": "audio:lesson-zero-speaking-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "id": "line:lesson-zero-speaking-aakash-introduction", "speakerId": "aakash", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
-          { "id": "line:lesson-zero-speaking-sam", "speakerId": "sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." },
-          { "id": "line:lesson-zero-speaking-aakash-cue", "speakerId": "aakash", "japanese": "では、あなたの番です。お名前は何ですか。", "reading": "では、あなたのばんです。おなまえはなんですか。", "english": "Your turn. What's your name?" }
+          { "id": "line:lesson-zero-speaking-aakash-introduction", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-introduction", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
+          { "id": "line:lesson-zero-speaking-sam", "speakerId": "sam", "audioAssetId": "audio:lesson-zero-speaking-sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." },
+          { "id": "line:lesson-zero-speaking-aakash-cue", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-cue", "japanese": "では、あなたの番です。お名前は何ですか。", "reading": "では、あなたのばんです。おなまえはなんですか。", "english": "Your turn. What's your name?" }
         ],
         "learnerTurns": [
           {
@@ -652,9 +651,10 @@
     "audioAssets": [
       {
         "id": "audio:lesson-zero-vowel-row",
-        "state": "release-blocked",
-        "purpose": "Exact human recording of the ordered five-vowel row for listening and mora discrimination.",
-        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "state": "ready",
+        "purpose": "Ordered five-vowel model for listening and mora discrimination.",
+        "runtimeUrl": "/academy/audio/lesson-zero/vowel-row.opus",
+        "verifiedPairing": true,
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false
       },
@@ -687,17 +687,64 @@
       },
       {
         "id": "audio:lesson-zero-text-hosts",
-        "state": "release-blocked",
+        "state": "ready",
         "purpose": "Paired natural reading of the Text mission note for later listen-after-reading transfer.",
-        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "runtimeUrl": "/academy/audio/lesson-zero/text-hosts.opus",
+        "verifiedPairing": true,
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false
       },
       {
         "id": "audio:lesson-zero-speaking-hosts",
-        "state": "release-blocked",
+        "state": "ready",
         "purpose": "Paired conversational turns for the Speaking mission and delayed listen-back.",
-        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "runtimeUrl": "/academy/audio/lesson-zero/speaking-hosts.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-text-sophie",
+        "state": "ready",
+        "purpose": "Sophie's line-addressable Text mission introduction.",
+        "runtimeUrl": "/academy/audio/lesson-zero/text-sophie.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-text-ruparna",
+        "state": "ready",
+        "purpose": "Ruparna's line-addressable Text mission introduction.",
+        "runtimeUrl": "/academy/audio/lesson-zero/text-ruparna.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-speaking-aakash-introduction",
+        "state": "ready",
+        "purpose": "Aakash's line-addressable Speaking mission introduction.",
+        "runtimeUrl": "/academy/audio/lesson-zero/speaking-aakash-introduction.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-speaking-sam",
+        "state": "ready",
+        "purpose": "Sam's line-addressable Speaking mission reply.",
+        "runtimeUrl": "/academy/audio/lesson-zero/speaking-sam.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-speaking-aakash-cue",
+        "state": "ready",
+        "purpose": "Aakash's line-addressable cue for the learner's spoken turn.",
+        "runtimeUrl": "/academy/audio/lesson-zero/speaking-aakash-cue.opus",
+        "verifiedPairing": true,
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false
       }
@@ -734,14 +781,6 @@
         "mementoId": "memento:lesson-zero-first-bond-scene"
       }
     ],
-    "releaseBlockers": [
-      {
-        "id": "blocker:lesson-zero-verified-dialogue-audio",
-        "kind": "audio",
-        "assetIds": ["audio:lesson-zero-vowel-row", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
-        "internalReason": "No source-paired or reviewed authored recording has yet passed speaker, transcript, timing, and rights verification for these original Lesson 0 scripts.",
-        "learnerVisible": false
-      }
-    ]
+    "releaseBlockers": []
   }
 }

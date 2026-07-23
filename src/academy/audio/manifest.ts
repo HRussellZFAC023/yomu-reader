@@ -39,6 +39,7 @@ export interface SfxSource {
 
 const MEDIA_KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
 const MEDIA_ROUTE_PREFIX = '/academy/media/audio/';
+const STORAGE_AUDIO_PREFIX = 'media/audio/';
 const THEME_SLOTS = new Set<ThemeSlot>([
     'silence', 'opening.invitation', 'campus.evening', 'classroom.focus', 'library.quiet',
     'lab.listening', 'cafe.social', 'bond.quiet', 'mystery.page', 'challenge.kanji',
@@ -69,7 +70,10 @@ export function parseAudioManifest(value: unknown): AudioManifest {
 }
 
 export function mediaUrlFor(mediaKey: string): string {
-    return `${MEDIA_ROUTE_PREFIX}${mediaKey}`;
+    const routeKey = mediaKey.startsWith(STORAGE_AUDIO_PREFIX)
+        ? mediaKey.slice(STORAGE_AUDIO_PREFIX.length)
+        : mediaKey;
+    return `${MEDIA_ROUTE_PREFIX}${routeKey}`;
 }
 
 /**

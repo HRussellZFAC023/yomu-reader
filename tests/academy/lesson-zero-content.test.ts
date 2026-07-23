@@ -80,8 +80,7 @@ describe('complete Lesson 0 content package', () => {
         expect(handout?.sourceQuestionIds).toHaveLength(14);
         const dialogue = lesson.overview.materials.find(material => material.kind === 'dialogue-audio');
         expect(dialogue).toMatchObject({
-            state: 'release-blocked',
-            blockerId: 'blocker:lesson-zero-verified-dialogue-audio',
+            state: 'ready',
         });
     });
 
@@ -237,49 +236,38 @@ describe('complete Lesson 0 content package', () => {
             .toEqual(['あ', 'い', 'う', 'え', 'お']);
     });
 
-    it('exposes only verified dialogue audio and keeps the remaining recordings internally blocked', async () => {
+    it('exposes every aggregate and split line only after verified pairing', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
-        expect(lesson.audioAssets).toHaveLength(6);
+        expect(lesson.audioAssets).toHaveLength(11);
         const readyAssets = lesson.audioAssets.filter(asset => asset.state === 'ready');
-        expect(readyAssets).toEqual([
-            expect.objectContaining({
-                id: 'audio:lesson-zero-sound-hosts',
-                runtimeUrl: '/academy/audio/lesson-zero/sound-hosts.opus',
-                verifiedPairing: true,
-            }),
-            expect.objectContaining({
-                id: 'audio:lesson-zero-sound-xingyu',
-                runtimeUrl: '/academy/audio/lesson-zero/sound-xingyu.opus',
-                verifiedPairing: true,
-            }),
-            expect.objectContaining({
-                id: 'audio:lesson-zero-sound-mika',
-                runtimeUrl: '/academy/audio/lesson-zero/sound-mika.opus',
-                verifiedPairing: true,
-            }),
-        ]);
+        expect(readyAssets).toHaveLength(11);
+        expect(readyAssets.map(asset => asset.id)).toEqual(expect.arrayContaining([
+            'audio:lesson-zero-vowel-row',
+            'audio:lesson-zero-sound-hosts',
+            'audio:lesson-zero-sound-xingyu',
+            'audio:lesson-zero-sound-mika',
+            'audio:lesson-zero-text-hosts',
+            'audio:lesson-zero-text-sophie',
+            'audio:lesson-zero-text-ruparna',
+            'audio:lesson-zero-speaking-hosts',
+            'audio:lesson-zero-speaking-aakash-introduction',
+            'audio:lesson-zero-speaking-sam',
+            'audio:lesson-zero-speaking-aakash-cue',
+        ]));
+        expect(readyAssets.every(asset => asset.runtimeUrl?.endsWith('.opus'))).toBe(true);
+        expect(readyAssets.every(asset => asset.verifiedPairing === true)).toBe(true);
         expect(readyAssets.every(asset => asset.browserTtsAllowed === false)).toBe(true);
         expect(readyAssets.every(asset => asset.learnerVisiblePlaceholder === false)).toBe(true);
-
-        const blockedAssets = lesson.audioAssets.filter(asset => asset.state === 'release-blocked');
-        expect(blockedAssets).toHaveLength(3);
-        for (const asset of blockedAssets) {
-            expect(asset).toMatchObject({
-                state: 'release-blocked',
-                browserTtsAllowed: false,
-                learnerVisiblePlaceholder: false,
-                blockerId: 'blocker:lesson-zero-verified-dialogue-audio',
-            });
-            expect(asset.runtimeUrl).toBeUndefined();
+        for (const asset of readyAssets) {
+            const relative = asset.runtimeUrl!.replace(/^\/academy\//u, 'academy/');
+            const publicFile = path.resolve('public', relative);
+            const deployedFile = path.resolve('docs/public', relative);
+            expect(fs.existsSync(publicFile), `${asset.id} is missing its public audio`).toBe(true);
+            expect(fs.existsSync(deployedFile), `${asset.id} is missing its deployed audio`).toBe(true);
+            expect(fs.readFileSync(deployedFile).equals(fs.readFileSync(publicFile))).toBe(true);
         }
-        expect(lesson.releaseBlockers).toEqual([
-            expect.objectContaining({
-                kind: 'audio',
-                learnerVisible: false,
-                assetIds: blockedAssets.map(asset => asset.id),
-            }),
-        ]);
+        expect(lesson.releaseBlockers).toEqual([]);
     });
 
     it('rejects dishonest audio fallback state at the package boundary', () => {

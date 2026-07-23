@@ -27,6 +27,13 @@ import {
     LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
 } from '../content/lesson-zero-name-card';
 import {
+    createLessonZeroMissionDefinition,
+    isLessonZeroMissionActivity,
+    LESSON_ZERO_MISSION_ACTIVITY_IDS,
+    type LessonZeroMissionActivityId,
+    type LessonZeroMissionResponse,
+} from '../content/lesson-zero-mission-activity';
+import {
     createLessonZeroSentenceFrameDefinition,
     LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
 } from '../content/lesson-zero-sentence-frames';
@@ -124,6 +131,7 @@ import { createClassroomExpressionSessionScreen } from '../ui/classroom-expressi
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
 import { createLessonZeroNameCardScreen } from '../ui/lesson-zero-name-card-screen';
+import { createLessonZeroMissionScreen } from '../ui/lesson-zero-mission-screen';
 import { createLessonZeroSentenceFrameScreen } from '../ui/lesson-zero-sentence-frame-screen';
 import { createLessonZeroSoundScreen } from '../ui/lesson-zero-sound-screen';
 import { createLessonZeroVowelScreen } from '../ui/lesson-zero-vowel-screen';
@@ -469,6 +477,10 @@ class LessonFlow implements AcademyRouteFlow {
             await this.renderClassroomInstructionSession(context);
             return;
         }
+        if (isLessonZeroMissionActivity(context.checkpoint.activityId)) {
+            await this.renderLessonZeroMission(context.checkpoint.activityId, context);
+            return;
+        }
         const fork = context.checkpoint.selectedFork ?? 'text';
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         if (fork === 'text') {
@@ -509,6 +521,58 @@ class LessonFlow implements AcademyRouteFlow {
             returning,
             support => this.options.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
         ));
+    }
+
+    private async renderLessonZeroMission(
+        activityId: LessonZeroMissionActivityId,
+        context: AcademyRouteContext,
+    ): Promise<void> {
+        const content = await loadLessonZeroContent();
+        const definition = createLessonZeroMissionDefinition(
+            content,
+            activityId,
+            context.projection.profile?.displayName ?? '',
+        );
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroMissionScreen({
+            language: context.language,
+            definition,
+            pronunciation: this.options.pronunciation,
+            onEvaluation: async (evaluation, response) => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                await this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID);
+                if (
+                    evaluation.result.outcome === 'pass'
+                    && activityId === 'activity:lesson-zero-write-name-card'
+                    && response.kind === 'written'
+                ) {
+                    await this.saveLessonZeroClassName(response, context);
+                }
+            },
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async saveLessonZeroClassName(
+        response: Extract<LessonZeroMissionResponse, { kind: 'written' }>,
+        context: AcademyRouteContext,
+    ): Promise<void> {
+        const displayName = response.text
+            .normalize('NFKC')
+            .split('です')[0]
+            ?.replace(/[。.!！?？]/gu, '')
+            .trim();
+        if (!displayName) return;
+        const current = context.projection.profile;
+        await this.options.evidence.saveProfile({
+            displayName,
+            learningReason: current?.learningReason ?? '',
+            portraitId: current?.portraitId ?? 'quality-2',
+        });
     }
 
     private async renderClassroomExpressionSession(
@@ -1209,8 +1273,13 @@ function overviewState(
         boundActivityIds: new Set([
             LESSON_ZERO_GREETING_ACTIVITY_ID,
             LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+            LESSON_ZERO_VOWEL_WRITING_ID,
             LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
             ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
+            LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
+            LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
+            LESSON_ZERO_SOUND_ACTIVITY_ID,
+            ...LESSON_ZERO_MISSION_ACTIVITY_IDS,
         ]),
         attemptedActivityIds,
         completedActivityIds,

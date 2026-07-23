@@ -140,7 +140,7 @@
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
     "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
-    "contentSha256": "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488",
+    "contentSha256": "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [

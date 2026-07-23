@@ -28,7 +28,7 @@ describe('lesson overview model', () => {
             peopleIds: ['rie', 'xingyu', 'mika', 'sophie', 'ruparna', 'aakash', 'sam'],
         });
         expect(model.presentation.goals).toHaveLength(5);
-        expect(model.presentation.materials.filter(material => material.state === 'ready')).toHaveLength(3);
+        expect(model.presentation.materials.filter(material => material.state === 'ready')).toHaveLength(4);
         expect(model.releaseStatus).toBe('review-blocked');
         expect(model.blockerIds).toContain('blocker:lesson-runtime-bindings');
         expect(model.sections.find(section => section.id === 'classroom-survival')).toMatchObject({

@@ -453,7 +453,7 @@ describe('Lesson 0 source-led proof', () => {
         expect(evaluations).toContain('activity:lesson-zero-vowel-dictation');
         expect(proof.audioRequired).toEqual({
             sourceGreetings: { assetId: 'audio:genki-k00-g', state: 'ready', ready: true },
-            textMission: { assetId: 'audio:lesson-zero-text-hosts', state: 'release-blocked', ready: false },
+            textMission: { assetId: 'audio:lesson-zero-text-hosts', state: 'ready', ready: true },
         });
         proof.dispose();
         expect(proof.element.isConnected).toBe(false);
